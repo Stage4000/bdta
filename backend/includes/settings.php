@@ -22,8 +22,8 @@ class Settings {
      * Get a setting value by key
      */
     public static function get($key, $default = null) {
-        // Check cache first
-        if (isset(self::$cache[$key])) {
+        // Check cache first - use array_key_exists to handle falsy values
+        if (array_key_exists($key, self::$cache)) {
             return self::$cache[$key];
         }
         
@@ -46,6 +46,12 @@ class Settings {
      */
     public static function set($key, $value) {
         $db = self::getDB();
+        
+        // Get the setting type for proper caching
+        $stmt = $db->prepare("SELECT setting_type FROM settings WHERE setting_key = ?");
+        $stmt->execute([$key]);
+        $type = $stmt->fetchColumn();
+        
         $stmt = $db->prepare("
             UPDATE settings 
             SET setting_value = ?, updated_at = CURRENT_TIMESTAMP 
@@ -53,9 +59,9 @@ class Settings {
         ");
         $result = $stmt->execute([$value, $key]);
         
-        // Update cache
-        if ($result) {
-            self::$cache[$key] = $value;
+        // Update cache with properly cast value
+        if ($result && $type) {
+            self::$cache[$key] = self::castValue($value, $type);
         }
         
         return $result;

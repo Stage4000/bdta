@@ -36,7 +36,7 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php') && !empty(STRIPE_SECRET_KEY
  * Check if Stripe is enabled and configured
  */
 function isStripeEnabled() {
-    return Settings::get('stripe_enabled', false) && !empty(STRIPE_SECRET_KEY);
+    return Settings::get('stripe_enabled', false) && STRIPE_SECRET_KEY !== '';
 }
 
 /**

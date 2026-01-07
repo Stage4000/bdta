@@ -17,11 +17,23 @@ $current_category = $_GET['category'] ?? 'general';
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     try {
+        // Get all settings for current category to validate keys
+        $valid_settings = Settings::getCategory($current_category);
+        $valid_keys = array_column($valid_settings, 'key');
+        
         foreach ($_POST as $key => $value) {
-            if ($key !== 'save_settings' && $key !== 'category') {
+            if ($key !== 'save_settings' && $key !== 'category' && in_array($key, $valid_keys)) {
                 Settings::set($key, $value);
             }
         }
+        
+        // Handle unchecked checkboxes (they don't appear in $_POST)
+        foreach ($valid_settings as $setting) {
+            if ($setting['type'] === 'checkbox' && !isset($_POST[$setting['key']])) {
+                Settings::set($setting['key'], '0');
+            }
+        }
+        
         setFlashMessage('Settings saved successfully!', 'success');
         redirect(ADMIN_URL . 'settings.php?category=' . $current_category);
     } catch (Exception $e) {
