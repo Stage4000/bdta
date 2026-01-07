@@ -2,15 +2,17 @@
 // Brooks Dog Training Academy - Custom JavaScript
 // ==========================================
 
-// Initialize AOS (Animate On Scroll)
+// Initialize on DOM load
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize AOS with custom settings
-    AOS.init({
-        duration: 800,
-        easing: 'ease-in-out',
-        once: true,
-        offset: 100
-    });
+    // Initialize AOS (Animate On Scroll) if available
+    if (typeof AOS !== 'undefined') {
+        AOS.init({
+            duration: 800,
+            easing: 'ease-in-out',
+            once: true,
+            offset: 100
+        });
+    }
     
     // Initialize all components
     initNavigation();
@@ -247,38 +249,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Typing effect for hero text (optional enhancement)
-function typeWriterEffect(element, text, speed = 100) {
-    let i = 0;
-    element.innerHTML = '';
-    
-    function type() {
-        if (i < text.length) {
-            element.innerHTML += text.charAt(i);
-            i++;
-            setTimeout(type, speed);
-        }
-    }
-    
-    type();
-}
-
-// Add parallax effect to hero section (optional)
-document.addEventListener('DOMContentLoaded', function() {
-    const heroSection = document.querySelector('.hero-section');
-    
-    if (heroSection) {
-        window.addEventListener('scroll', function() {
-            const scrolled = window.pageYOffset;
-            const parallaxSpeed = 0.5;
-            
-            if (scrolled < window.innerHeight) {
-                heroSection.style.transform = `translateY(${scrolled * parallaxSpeed}px)`;
-            }
-        });
-    }
-});
-
 // Counter animation for statistics
 function animateCounter(element, target, duration = 2000) {
     let start = 0;
@@ -298,29 +268,31 @@ function animateCounter(element, target, duration = 2000) {
 // Initialize counters when they come into view
 document.addEventListener('DOMContentLoaded', function() {
     const stats = document.querySelectorAll('.stat-item h3');
-    const statsObserver = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-            if (entry.isIntersecting) {
-                const target = entry.target;
-                const text = target.textContent;
-                const number = parseInt(text.replace(/\D/g, ''));
-                const suffix = text.replace(/[0-9]/g, '');
-                
-                if (number) {
-                    target.textContent = '0' + suffix;
-                    animateCounter(target, number, 2000);
-                    target.textContent = number + suffix;
-                    statsObserver.unobserve(target);
+    if ('IntersectionObserver' in window) {
+        const statsObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    const target = entry.target;
+                    const text = target.textContent;
+                    const number = parseInt(text.replace(/\D/g, ''));
+                    const suffix = text.replace(/[0-9]/g, '');
+                    
+                    if (number) {
+                        target.textContent = '0' + suffix;
+                        animateCounter(target, number, 2000);
+                        target.textContent = number + suffix;
+                        statsObserver.unobserve(target);
+                    }
                 }
-            }
+            });
+        }, { threshold: 0.5 });
+        
+        stats.forEach(function(stat) {
+            statsObserver.observe(stat);
         });
-    }, { threshold: 0.5 });
-    
-    stats.forEach(function(stat) {
-        statsObserver.observe(stat);
-    });
+    }
 });
 
 // Console greeting
-console.log('%c🐕 Brooks Dog Training Academy', 'color: #2563eb; font-size: 20px; font-weight: bold;');
+console.log('%c🐕 Brook\'s Dog Training Academy', 'color: #2563eb; font-size: 20px; font-weight: bold;');
 console.log('%cWebsite designed with ❤️', 'color: #10b981; font-size: 14px;');
