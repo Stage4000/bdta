@@ -1,6 +1,8 @@
 # Brook's Dog Training Academy
 
-Modern, responsive website redesign for Brook's Dog Training Academy using Bootstrap 5, HTML5, CSS3, and JavaScript with content extracted from the original Site.pro website.
+Modern, responsive website redesign for Brook's Dog Training Academy using Bootstrap 5, HTML5, CSS3, JavaScript, **plus a complete Flask backend with blog functionality, booking calendar, and admin panel powered by SQLite**.
+
+Content extracted from the original Site.pro website.
 
 ## About
 
@@ -12,6 +14,7 @@ Brook's Dog Training Academy was founded in 2018 by Brook Lefkowitz, an Animal B
 
 ## Features
 
+### Frontend (Static Website)
 - **Modern Bootstrap 5 Design**: Fully responsive and mobile-first
 - **Smooth Animations**: Using AOS (Animate On Scroll) library
 - **Interactive Navigation**: Smooth scrolling and active link highlighting
@@ -20,6 +23,33 @@ Brook's Dog Training Academy was founded in 2018 by Brook Lefkowitz, an Animal B
 - **Events Section**: Group workshops and community events
 - **Social Media Integration**: Links to Facebook, Instagram, and Linktree
 - **SEO Optimized**: Proper meta tags and semantic HTML
+
+### Backend System (NEW!)
+- ✅ **Blog Management System**
+  - Create, edit, and delete blog posts
+  - Publish/draft status
+  - SEO-friendly slugs
+  - Public blog listing and individual post pages
+  
+- ✅ **Booking Calendar**
+  - Online appointment booking
+  - Availability checking by date
+  - Service type selection
+  - Client information collection
+  - Booking status management
+  - API endpoints for frontend integration
+  
+- ✅ **Admin Panel**
+  - Secure login system
+  - Dashboard with statistics
+  - Blog post management interface
+  - Booking management interface
+  - Status updates and notifications
+  
+- ✅ **SQLite Database**
+  - No external database required
+  - Automatic initialization
+  - Tables for admin users, blog posts, and bookings
 
 ## Services Offered
 
@@ -33,12 +63,20 @@ Brook's Dog Training Academy was founded in 2018 by Brook Lefkowitz, an Animal B
 
 ## Technology Stack
 
+### Frontend
 - HTML5
 - CSS3 (Custom + Bootstrap 5.3.2)
 - JavaScript (ES6+)
 - Bootstrap Icons
 - Google Fonts (Poppins & Montserrat)
 - AOS Animation Library
+
+### Backend
+- Python 3.8+
+- Flask 3.0+ (web framework)
+- SQLite (database)
+- Werkzeug (password hashing)
+- Jinja2 (templating)
 
 ## File Structure
 
@@ -74,9 +112,52 @@ The original backup (50MB) contains 100+ professional photos that can be used th
 
 ## Local Development
 
+### Frontend Only (Static Site)
+
 1. Clone this repository
 2. Open `index.html` in a web browser
 3. No build process required - all dependencies are loaded via CDN
+
+Or serve with a local server:
+```bash
+# Using Python
+python3 -m http.server 8080
+
+# Using Node.js
+npx http-server -p 8080
+```
+
+### Backend System (Blog + Bookings + Admin)
+
+1. Navigate to backend directory:
+```bash
+cd backend
+```
+
+2. Run the startup script:
+```bash
+./start.sh
+```
+
+Or manually:
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the server
+python app.py
+```
+
+3. Access the application:
+- **Website:** http://localhost:5000/
+- **Blog:** http://localhost:5000/blog
+- **Admin Panel:** http://localhost:5000/admin/login
+
+**Default Admin Credentials:**
+- Username: `admin`
+- Password: `admin123` (⚠️ Change this immediately!)
+
+For detailed backend documentation, see [backend/README.md](backend/README.md)
 
 ## Customization
 
