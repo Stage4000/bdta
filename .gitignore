@@ -1,6 +1,10 @@
 # Test files
 test-scroll.html
 
+# Backup files
+*.sitebuilder
+backup.sitebuilder
+
 # Logs
 *.log
 

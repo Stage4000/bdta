@@ -1,10 +1,14 @@
 # Brook's Dog Training Academy
 
-Modern, responsive website redesign for Brook's Dog Training Academy using Bootstrap 5, HTML5, CSS3, and JavaScript.
+Modern, responsive website redesign for Brook's Dog Training Academy using Bootstrap 5, HTML5, CSS3, and JavaScript with content extracted from the original Site.pro website.
 
 ## About
 
-Brook's Dog Training Academy is a science-backed, certified, and compassionate dog training service based in Sebring, Florida. Led by Brook Lefkowitz, an Animal Behavior College Certified Dog Trainer specializing in human and canine behavioral psychology.
+Brook's Dog Training Academy was founded in 2018 by Brook Lefkowitz, an Animal Behavior College Certified Dog Trainer. Based in Highlands County, Florida (serving Sebring, Avon Park, and Lake Placid), BDTA provides private dog training and group events.
+
+**Tagline**: "Teaching Humans to Speak Dog"
+
+**Status**: Certified & Insured
 
 ## Features
 
@@ -53,17 +57,20 @@ Brook's Dog Training Academy is a science-backed, certified, and compassionate d
 └── README.md
 ```
 
-## Image Placeholders
+## Image Sources
 
-The current design uses SVG placeholders for images. For production, replace these with actual photos:
+The current design uses actual photos from the original website backup:
 
-- `assets/images/hero-dog.svg` → High-quality photo of a happy, trained dog
-- `assets/images/about-trainer.svg` → Professional photo of Brook Lefkowitz with dogs
+- `assets/images/hero-dog-real.jpg` → Dog training image from original site
+- `assets/images/about-brook.jpg` → Photo of Brook Lefkowitz with her dog
 
-Recommended sources for actual images:
-- Brook's Dog Training Academy Facebook page: https://www.facebook.com/BrooksDogTrainingAcademy
-- Instagram: https://www.instagram.com/brooksdogtrainingacademy
-- Professional photography of training sessions and success stories
+Additional images available in the backup can be integrated for:
+- Gallery section
+- Event posters
+- Blog post images
+- Service illustrations
+
+The original backup (50MB) contains 100+ professional photos that can be used throughout the site.
 
 ## Local Development
 
