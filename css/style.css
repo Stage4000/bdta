@@ -294,9 +294,13 @@ section {
 /* ==========================================
    Footer
    ========================================== */
+footer a {
+    transition: var(--transition);
+}
+
 footer a:hover {
     color: white !important;
-    padding-left: 5px;
+    transform: translateX(5px);
 }
 
 /* ==========================================

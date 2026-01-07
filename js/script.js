@@ -28,34 +28,42 @@ function initNavigation() {
     const navbar = document.querySelector('.navbar');
     const navLinks = document.querySelectorAll('.nav-link');
     
-    // Add shadow on scroll
-    window.addEventListener('scroll', function() {
-        if (window.scrollY > 50) {
-            navbar.classList.add('shadow');
-        } else {
-            navbar.classList.remove('shadow');
-        }
-    });
+    if (!navbar) return;
     
-    // Update active link based on scroll position
+    // Consolidated scroll handler with throttling
+    let scrollTimeout;
     window.addEventListener('scroll', function() {
-        let current = '';
-        const sections = document.querySelectorAll('section[id]');
+        if (scrollTimeout) return;
         
-        sections.forEach(section => {
-            const sectionTop = section.offsetTop;
-            const sectionHeight = section.clientHeight;
-            if (window.pageYOffset >= sectionTop - 100) {
-                current = section.getAttribute('id');
+        scrollTimeout = setTimeout(function() {
+            // Add shadow on scroll
+            if (window.scrollY > 50) {
+                navbar.classList.add('shadow');
+            } else {
+                navbar.classList.remove('shadow');
             }
-        });
-        
-        navLinks.forEach(link => {
-            link.classList.remove('active');
-            if (link.getAttribute('href') === `#${current}`) {
-                link.classList.add('active');
-            }
-        });
+            
+            // Update active link based on scroll position
+            let current = '';
+            const sections = document.querySelectorAll('section[id]');
+            
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (window.pageYOffset >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+            
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active');
+                }
+            });
+            
+            scrollTimeout = null;
+        }, 10);
     });
     
     // Close mobile menu on link click
@@ -76,13 +84,21 @@ function initNavigation() {
 function initBackToTop() {
     const backToTopBtn = document.getElementById('backToTop');
     
-    // Show/hide button based on scroll position
+    if (!backToTopBtn) return;
+    
+    // Show/hide button based on scroll position (throttled)
+    let scrollTimeout;
     window.addEventListener('scroll', function() {
-        if (window.scrollY > 300) {
-            backToTopBtn.classList.remove('d-none');
-        } else {
-            backToTopBtn.classList.add('d-none');
-        }
+        if (scrollTimeout) return;
+        
+        scrollTimeout = setTimeout(function() {
+            if (window.scrollY > 300) {
+                backToTopBtn.classList.remove('d-none');
+            } else {
+                backToTopBtn.classList.add('d-none');
+            }
+            scrollTimeout = null;
+        }, 10);
     });
     
     // Scroll to top on click
@@ -101,6 +117,8 @@ function initBackToTop() {
 function initContactForm() {
     const contactForm = document.getElementById('contactForm');
     const formMessage = document.getElementById('formMessage');
+    
+    if (!contactForm || !formMessage) return;
     
     contactForm.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -250,17 +268,17 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Counter animation for statistics
-function animateCounter(element, target, duration = 2000) {
+function animateCounter(element, target, suffix = '', duration = 2000) {
     let start = 0;
     const increment = target / (duration / 16); // 60fps
     
     const timer = setInterval(function() {
         start += increment;
         if (start >= target) {
-            element.textContent = target;
+            element.textContent = target + suffix;
             clearInterval(timer);
         } else {
-            element.textContent = Math.floor(start);
+            element.textContent = Math.floor(start) + suffix;
         }
     }, 16);
 }
@@ -268,19 +286,18 @@ function animateCounter(element, target, duration = 2000) {
 // Initialize counters when they come into view
 document.addEventListener('DOMContentLoaded', function() {
     const stats = document.querySelectorAll('.stat-item h3');
-    if ('IntersectionObserver' in window) {
+    if ('IntersectionObserver' in window && stats.length > 0) {
         const statsObserver = new IntersectionObserver(function(entries) {
             entries.forEach(function(entry) {
                 if (entry.isIntersecting) {
                     const target = entry.target;
-                    const text = target.textContent;
+                    const text = target.textContent.trim();
                     const number = parseInt(text.replace(/\D/g, ''));
-                    const suffix = text.replace(/[0-9]/g, '');
+                    const suffix = text.replace(/[0-9]/g, '').trim();
                     
-                    if (number) {
+                    if (number && !isNaN(number)) {
                         target.textContent = '0' + suffix;
-                        animateCounter(target, number, 2000);
-                        target.textContent = number + suffix;
+                        animateCounter(target, number, suffix, 2000);
                         statsObserver.unobserve(target);
                     }
                 }
