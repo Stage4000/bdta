@@ -53,6 +53,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'pets') !== false ? 'active' : ''; ?>" href="pets_list.php">
+                                <i class="bi bi-heart-fill me-2"></i> Pets
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'booking') !== false ? 'active' : ''; ?>" href="bookings_list.php">
                                 <i class="bi bi-calendar-check me-2"></i> Bookings
                             </a>

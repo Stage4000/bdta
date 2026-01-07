@@ -88,6 +88,45 @@ class Database {
                 )
             ");
             
+            // Pets table (enhanced for multi-pet support)
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS pets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    species TEXT DEFAULT 'Dog',
+                    breed TEXT,
+                    date_of_birth DATE,
+                    age_years INTEGER,
+                    age_months INTEGER,
+                    source TEXT,
+                    ownership_length_years INTEGER,
+                    ownership_length_months INTEGER,
+                    spayed_neutered INTEGER DEFAULT 0,
+                    vaccines_current INTEGER DEFAULT 1,
+                    vaccine_notes TEXT,
+                    behavior_notes TEXT,
+                    medical_notes TEXT,
+                    training_notes TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+                )
+            ");
+            
+            // Appointment pets junction table (for multi-pet appointments)
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS appointment_pets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    booking_id INTEGER NOT NULL,
+                    pet_id INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+                    FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE CASCADE
+                )
+            ");
+            
             // Time entries table
             $this->conn->exec("
                 CREATE TABLE IF NOT EXISTS time_entries (
