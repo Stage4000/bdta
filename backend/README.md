@@ -16,6 +16,10 @@ Complete backend system with blog functionality, booking calendar, and admin pan
 - Date and time slot selection  
 - Client information collection
 - Booking status management
+- **Email confirmations with calendar export**
+- **Google Calendar integration (optional)**
+- **iCalendar (.ics) file download**
+- **One-click "Add to Calendar" buttons**
 
 ### ✅ Admin Panel
 - Secure login system
@@ -34,6 +38,7 @@ Complete backend system with blog functionality, booking calendar, and admin pan
 - PHP 7.4 or higher
 - SQLite3 PHP extension (usually included)
 - Web server (Apache, Nginx, or PHP built-in server)
+- (Optional) Composer for Google Calendar integration
 
 ## Installation
 
@@ -62,6 +67,43 @@ The application will be available at:
 
 ⚠️ **IMPORTANT:** Change these credentials immediately in production!
 
+## Calendar Integration
+
+### Email Confirmations (Works Immediately!)
+
+When a booking is created, the system automatically:
+1. ✅ Sends confirmation email to the client
+2. ✅ Includes "Add to Google Calendar" button
+3. ✅ Includes "Download iCal" button for any calendar app
+4. ✅ Provides booking details and location
+
+**No additional setup required!**
+
+### iCalendar Export (.ics files)
+
+Download URL: `/backend/public/download_ical.php?booking_id=X`
+
+Works with:
+- Google Calendar
+- Apple Calendar (Mac/iPhone/iPad)
+- Microsoft Outlook
+- Yahoo Calendar
+- Any app supporting iCalendar format
+
+### Google Calendar Sync (Optional)
+
+Automatically sync bookings to your Google Calendar.
+
+**Quick Setup:**
+1. Create Google Cloud project
+2. Enable Google Calendar API
+3. Create service account
+4. Download credentials JSON
+5. Share your calendar with service account
+6. Install: `composer require google/apiclient`
+
+**Detailed instructions:** See [CALENDAR_INTEGRATION.md](CALENDAR_INTEGRATION.md)
+
 ## Directory Structure
 
 ```
@@ -77,12 +119,16 @@ backend/
 ├── public/                   # Public pages
 │   ├── blog.php             # Blog listing
 │   ├── post.php             # Individual blog post
-│   └── api_bookings.php     # Booking API endpoint
+│   ├── api_bookings.php     # Booking API endpoint
+│   └── download_ical.php    # iCalendar file download
 ├── includes/                 # Shared files
 │   ├── config.php           # Configuration
 │   ├── database.php         # Database class
 │   ├── header.php           # Admin header
-│   └── footer.php           # Admin footer
+│   ├── footer.php           # Admin footer
+│   ├── email_service.php    # Email confirmations
+│   ├── icalendar.php        # iCalendar generator
+│   └── google_calendar.php  # Google Calendar integration
 └── bdta.db                   # SQLite database (auto-created)
 ```
 
@@ -139,7 +185,8 @@ Content-Type: application/json
   "service_type": "Pet Manners at Home",
   "appointment_date": "2024-01-15",
   "appointment_time": "10:00",
-  "notes": "First time client"
+  "notes": "First time client",
+  "duration_minutes": 60
 }
 ```
 
@@ -148,7 +195,13 @@ Response:
 {
   "success": true,
   "message": "Booking created successfully!",
-  "booking_id": 123
+  "booking_id": 123,
+  "calendar_links": {
+    "google_calendar": "https://calendar.google.com/calendar/render?...",
+    "ical_download": "http://localhost:8000/backend/public/download_ical.php?booking_id=123"
+  },
+  "email_sent": true,
+  "google_calendar_synced": false
 }
 ```
 
@@ -174,6 +227,23 @@ location /backend/admin/ {
 }
 ```
 
+### Email Service (Production)
+
+Replace PHP's `mail()` with a professional service:
+
+```bash
+# Option 1: SendGrid (Recommended)
+composer require sendgrid/sendgrid
+
+# Option 2: Mailgun
+composer require mailgun/mailgun-php
+
+# Option 3: AWS SES
+composer require aws/aws-sdk-php
+```
+
+Update `/backend/includes/email_service.php` accordingly.
+
 ## Security Notes
 
 1. **Change Default Password** immediately
@@ -182,6 +252,7 @@ location /backend/admin/ {
 4. **Input Validation:** All inputs are validated and escaped
 5. **SQL Injection Protection:** Using prepared statements
 6. **XSS Protection:** All outputs are escaped
+7. **Never commit** `google-calendar-credentials.json` to git
 
 ## Backup
 
@@ -210,6 +281,14 @@ cp bdta_backup_20240115.db bdta.db
 ### Cannot Write to Database
 - Ensure SQLite extension is enabled: `php -m | grep sqlite`
 - Check file ownership
+
+### Email Not Sending
+- Check PHP `mail()` configuration
+- For production, use SendGrid/Mailgun/AWS SES
+- Check spam folder
+
+### Calendar Integration Issues
+- See [CALENDAR_INTEGRATION.md](CALENDAR_INTEGRATION.md) for detailed troubleshooting
 
 ## License
 

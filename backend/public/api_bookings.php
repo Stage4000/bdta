@@ -1,5 +1,7 @@
 <?php
 require_once '../includes/config.php';
+require_once '../includes/email_service.php';
+require_once '../includes/google_calendar.php';
 
 header('Content-Type: application/json');
 
@@ -68,8 +70,8 @@ if ($method === 'GET') {
     
     try {
         $stmt = $conn->prepare("
-            INSERT INTO bookings (client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO bookings (client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $data['client_name'],
@@ -78,15 +80,43 @@ if ($method === 'GET') {
             $data['service_type'],
             $data['appointment_date'],
             $data['appointment_time'],
-            $data['notes'] ?? ''
+            $data['notes'] ?? '',
+            $data['duration_minutes'] ?? 60
         ]);
         
         $booking_id = $conn->lastInsertId();
         
+        // Get the complete booking info
+        $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
+        $stmt->execute([$booking_id]);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Generate calendar links
+        require_once '../includes/icalendar.php';
+        $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
+        $ical_download_link = 'http://localhost:8000/backend/public/download_ical.php?booking_id=' . $booking_id;
+        
+        // Send confirmation email
+        $email_service = new EmailService();
+        $email_result = $email_service->sendBookingConfirmation($booking);
+        
+        // Try to add to Google Calendar (if configured)
+        $google_calendar = new GoogleCalendarIntegration();
+        $google_result = ['success' => false, 'message' => 'Google Calendar integration not configured'];
+        if ($google_calendar->isConfigured()) {
+            $google_result = $google_calendar->addEvent($booking);
+        }
+        
         echo json_encode([
             'success' => true,
             'message' => 'Booking created successfully!',
-            'booking_id' => $booking_id
+            'booking_id' => $booking_id,
+            'calendar_links' => [
+                'google_calendar' => $google_calendar_link,
+                'ical_download' => $ical_download_link
+            ],
+            'email_sent' => $email_result['success'],
+            'google_calendar_synced' => $google_result['success']
         ]);
     } catch (PDOException $e) {
         echo json_encode(['error' => $e->getMessage()]);
