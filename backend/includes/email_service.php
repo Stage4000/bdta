@@ -4,10 +4,18 @@
  * Sends confirmation emails with calendar export links
  */
 
+require_once __DIR__ . '/settings.php';
+
 class EmailService {
-    private $from_email = 'bookings@brooksdogtraining.com';
-    private $from_name = 'Brook\'s Dog Training Academy';
-    private $base_url = 'http://localhost:8000'; // Update for production
+    private $from_email;
+    private $from_name;
+    private $base_url;
+    
+    public function __construct() {
+        $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtraining.com');
+        $this->from_name = Settings::get('email_from_name', "Brook's Dog Training Academy");
+        $this->base_url = Settings::get('base_url', 'http://localhost:8000');
+    }
     
     /**
      * Send booking confirmation email

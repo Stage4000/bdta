@@ -189,6 +189,21 @@ class Database {
                 )
             ");
             
+            // Settings table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS settings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    setting_key TEXT UNIQUE NOT NULL,
+                    setting_value TEXT,
+                    setting_type TEXT DEFAULT 'text',
+                    category TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    description TEXT,
+                    is_secret INTEGER DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ");
+            
             // Create default admin if not exists
             $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
             $stmt->execute(['admin']);
@@ -202,8 +217,91 @@ class Database {
                 $stmt->execute(['admin', $password_hash, 'admin@brooksdogtraining.com']);
             }
             
+            // Initialize default settings if table is empty
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM settings");
+            if ($stmt->fetchColumn() == 0) {
+                $this->initDefaultSettings();
+            }
+            
         } catch(PDOException $e) {
             die("Table creation failed: " . $e->getMessage());
+        }
+    }
+    
+    private function initDefaultSettings() {
+        $default_settings = [
+            // General Settings
+            ['site_name', "Brook's Dog Training Academy", 'text', 'general', 'Site Name', 'The name of your business', 0],
+            ['site_tagline', 'Teaching Humans to Speak Dog', 'text', 'general', 'Site Tagline', 'Your business tagline or slogan', 0],
+            ['business_email', 'info@brooksdogtraining.com', 'email', 'general', 'Business Email', 'Primary contact email', 0],
+            ['business_phone', '(555) 123-4567', 'text', 'general', 'Business Phone', 'Primary contact phone number', 0],
+            ['business_address', 'Sebring, Florida', 'textarea', 'general', 'Business Address', 'Your business address', 0],
+            ['founded_year', '2018', 'number', 'general', 'Founded Year', 'Year your business was founded', 0],
+            
+            // Email Settings
+            ['email_from_address', 'bookings@brooksdogtraining.com', 'email', 'email', 'From Email Address', 'Email address for outgoing emails', 0],
+            ['email_from_name', "Brook's Dog Training Academy", 'text', 'email', 'From Name', 'Name displayed in outgoing emails', 0],
+            ['email_service', 'mail', 'select', 'email', 'Email Service', 'Email delivery service (mail, smtp, sendgrid, mailgun, ses)', 0],
+            ['smtp_host', '', 'text', 'email', 'SMTP Host', 'SMTP server hostname (if using SMTP)', 0],
+            ['smtp_port', '587', 'number', 'email', 'SMTP Port', 'SMTP server port', 0],
+            ['smtp_username', '', 'text', 'email', 'SMTP Username', 'SMTP authentication username', 0],
+            ['smtp_password', '', 'password', 'email', 'SMTP Password', 'SMTP authentication password', 1],
+            ['sendgrid_api_key', '', 'password', 'email', 'SendGrid API Key', 'SendGrid API key (if using SendGrid)', 1],
+            ['mailgun_api_key', '', 'password', 'email', 'Mailgun API Key', 'Mailgun API key (if using Mailgun)', 1],
+            ['mailgun_domain', '', 'text', 'email', 'Mailgun Domain', 'Mailgun sending domain', 0],
+            
+            // Stripe Payment Settings
+            ['stripe_enabled', '0', 'checkbox', 'payment', 'Enable Stripe Payments', 'Enable online payment processing with Stripe', 0],
+            ['stripe_mode', 'test', 'select', 'payment', 'Stripe Mode', 'Use test or live mode (test, live)', 0],
+            ['stripe_test_publishable_key', 'pk_test_YOUR_KEY', 'password', 'payment', 'Test Publishable Key', 'Stripe test publishable key', 1],
+            ['stripe_test_secret_key', 'sk_test_YOUR_KEY', 'password', 'payment', 'Test Secret Key', 'Stripe test secret key', 1],
+            ['stripe_live_publishable_key', '', 'password', 'payment', 'Live Publishable Key', 'Stripe live publishable key', 1],
+            ['stripe_live_secret_key', '', 'password', 'payment', 'Live Secret Key', 'Stripe live secret key', 1],
+            ['stripe_currency', 'usd', 'text', 'payment', 'Currency', 'Currency code (usd, eur, gbp, etc.)', 0],
+            
+            // Booking Settings
+            ['booking_start_time', '09:00', 'time', 'booking', 'Start Time', 'First available booking time', 0],
+            ['booking_end_time', '17:00', 'time', 'booking', 'End Time', 'Last available booking time', 0],
+            ['booking_slot_duration', '30', 'number', 'booking', 'Slot Duration', 'Duration of each time slot in minutes', 0],
+            ['booking_buffer_time', '0', 'number', 'booking', 'Buffer Time', 'Buffer time between bookings in minutes', 0],
+            ['booking_advance_days', '90', 'number', 'booking', 'Advance Booking Days', 'How many days in advance can clients book', 0],
+            ['booking_confirmation_email', '1', 'checkbox', 'booking', 'Send Confirmation Emails', 'Automatically send booking confirmation emails', 0],
+            
+            // Calendar Integration
+            ['google_calendar_enabled', '0', 'checkbox', 'calendar', 'Enable Google Calendar Sync', 'Sync bookings to Google Calendar', 0],
+            ['google_calendar_id', 'primary', 'text', 'calendar', 'Google Calendar ID', 'Google Calendar ID to sync to', 0],
+            ['google_calendar_credentials_file', '', 'text', 'calendar', 'Credentials File Path', 'Path to Google Calendar credentials JSON file', 0],
+            
+            // Invoice Settings
+            ['invoice_prefix', 'INV-', 'text', 'invoice', 'Invoice Number Prefix', 'Prefix for invoice numbers', 0],
+            ['invoice_next_number', '1001', 'number', 'invoice', 'Next Invoice Number', 'Next invoice number to use', 0],
+            ['invoice_tax_rate', '0', 'number', 'invoice', 'Default Tax Rate', 'Default tax rate percentage (e.g., 7 for 7%)', 0],
+            ['invoice_payment_terms', '30', 'number', 'invoice', 'Payment Terms', 'Default payment terms in days', 0],
+            ['invoice_notes', 'Thank you for your business!', 'textarea', 'invoice', 'Default Invoice Notes', 'Default notes to include on invoices', 0],
+            
+            // Time Tracking Settings
+            ['default_hourly_rate', '75', 'number', 'time_tracking', 'Default Hourly Rate', 'Default hourly rate for time tracking', 0],
+            ['time_rounding', '15', 'select', 'time_tracking', 'Time Rounding', 'Round time entries to nearest X minutes (0, 5, 10, 15, 30)', 0],
+            
+            // Social Media
+            ['facebook_url', 'https://www.facebook.com/BrooksDogTrainingAcademy', 'url', 'social', 'Facebook URL', 'Facebook page URL', 0],
+            ['instagram_url', 'https://www.instagram.com/brooksdogtrainingacademy', 'url', 'social', 'Instagram URL', 'Instagram profile URL', 0],
+            ['linktree_url', 'https://linktr.ee/brooksdogtrainingacademy', 'url', 'social', 'Linktree URL', 'Linktree URL', 0],
+            
+            // Advanced
+            ['base_url', 'http://localhost:8000', 'url', 'advanced', 'Base URL', 'Base URL of your website', 0],
+            ['timezone', 'America/New_York', 'text', 'advanced', 'Timezone', 'Your local timezone', 0],
+            ['date_format', 'Y-m-d', 'text', 'advanced', 'Date Format', 'PHP date format string', 0],
+            ['time_format', 'H:i', 'text', 'advanced', 'Time Format', 'PHP time format string', 0],
+        ];
+        
+        $stmt = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        foreach ($default_settings as $setting) {
+            $stmt->execute($setting);
         }
     }
 }

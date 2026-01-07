@@ -82,6 +82,11 @@
                                 <i class="bi bi-pencil-square me-2"></i> Blog Posts
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>" href="settings.php">
+                                <i class="bi bi-gear me-2"></i> Settings
+                            </a>
+                        </li>
                         <li class="nav-item mt-3">
                             <a class="nav-link" href="../../index.html" target="_blank">
                                 <i class="bi bi-house me-2"></i> View Website
@@ -97,3 +102,6 @@
             </nav>
             
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+<?php else: ?>
+<main class="container mt-5">
+<?php endif; ?>

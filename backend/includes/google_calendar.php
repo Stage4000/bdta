@@ -2,31 +2,27 @@
 /**
  * Google Calendar Integration Configuration
  * 
- * Setup Instructions:
- * 1. Go to https://console.cloud.google.com/
- * 2. Create a new project or select existing
- * 3. Enable Google Calendar API
- * 4. Create OAuth 2.0 credentials (Service Account)
- * 5. Download the credentials JSON file
- * 6. Place it in this directory as 'google-calendar-credentials.json'
- * 7. Share your Google Calendar with the service account email
+ * Configuration is managed through Admin Panel > Settings > Calendar
+ * Enable Google Calendar sync and configure credentials in settings.
  */
 
+require_once __DIR__ . '/settings.php';
+
 class GoogleCalendarIntegration {
-    private $credentials_file = __DIR__ . '/google-calendar-credentials.json';
-    private $calendar_id = 'primary'; // or specific calendar ID
+    private $credentials_file;
+    private $calendar_id;
     
-    public function __construct($calendar_id = null) {
-        if ($calendar_id) {
-            $this->calendar_id = $calendar_id;
-        }
+    public function __construct() {
+        $this->calendar_id = Settings::get('google_calendar_id', 'primary');
+        $credentials_path = Settings::get('google_calendar_credentials_file', __DIR__ . '/google-calendar-credentials.json');
+        $this->credentials_file = $credentials_path;
     }
     
     /**
      * Check if Google Calendar integration is configured
      */
     public function isConfigured() {
-        return file_exists($this->credentials_file);
+        return Settings::get('google_calendar_enabled', false) && file_exists($this->credentials_file);
     }
     
     /**
