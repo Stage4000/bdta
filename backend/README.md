@@ -1,8 +1,47 @@
 # Brook's Dog Training Academy - PHP Backend
 
-Complete backend system with blog functionality, booking calendar, and admin panel using **PHP and SQLite**.
+Complete backend system with **blog, booking calendar, client management, time tracking, expense tracking, invoicing with Stripe, contract management, and admin panel** using **PHP and SQLite**.
 
 ## Features
+
+### ✅ Client Management (CRM)
+- Full client profiles with contact information
+- Dog information tracking (name, breed)
+- Notes and history
+- Linked to bookings, time entries, invoices, and contracts
+
+### ✅ Time Tracking
+- Record billable and non-billable hours
+- Automatic duration calculation
+- Hourly rate configuration
+- Service type tracking
+- Link to specific bookings
+- Ready for invoicing
+
+### ✅ Expense Tracking
+- Record business expenses by category
+- Mark expenses as billable/non-billable
+- Associate with clients
+- Include in invoices
+- Receipt file upload support
+
+### ✅ Invoicing with Stripe Integration
+- Create professional invoices
+- Auto-generate invoice numbers
+- Pull in unbilled time entries and expenses
+- Tax calculation
+- Multiple payment methods:
+  - **Stripe online payment** (credit/debit cards)
+  - **Manual payment** (cash, check, in-person)
+- Payment status tracking (draft, sent, paid, overdue)
+- Professional invoice view/print
+
+### ✅ Contract Management
+- Create digital contracts
+- Electronic signature capture
+- Contract status tracking (draft, sent, signed, expired)
+- IP address and timestamp logging
+- Version control
 
 ### ✅ Blog System
 - Create, edit, and delete blog posts
@@ -22,23 +61,36 @@ Complete backend system with blog functionality, booking calendar, and admin pan
 - **One-click "Add to Calendar" buttons**
 
 ### ✅ Admin Panel
-- Secure login system
-- Dashboard with statistics
+- Secure login system with password hashing
+- Comprehensive dashboard with statistics
+- Client management
+- Time tracking interface
+- Expense management
+- Invoice generation and management
+- Contract creation and signing
 - Blog post management
 - Booking management
-- Status updates
+- Status updates across all modules
 
 ### ✅ Database (SQLite)
 - No external database required
 - Automatic initialization
-- Tables for admin users, blog posts, and bookings
+- Tables for:
+  - admin_users
+  - clients
+  - time_entries
+  - expenses
+  - invoices & invoice_items
+  - contracts
+  - blog_posts
+  - bookings
 
 ## Requirements
 
 - PHP 7.4 or higher
 - SQLite3 PHP extension (usually included)
 - Web server (Apache, Nginx, or PHP built-in server)
-- (Optional) Composer for Google Calendar integration
+- (Optional) Composer for Google Calendar & Stripe integration
 
 ## Installation
 

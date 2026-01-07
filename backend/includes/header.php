@@ -48,8 +48,8 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'blog') !== false ? 'active' : ''; ?>" href="blog_list.php">
-                                <i class="bi bi-file-text me-2"></i> Blog Posts
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'client') !== false ? 'active' : ''; ?>" href="clients_list.php">
+                                <i class="bi bi-people me-2"></i> Clients
                             </a>
                         </li>
                         <li class="nav-item">
@@ -58,11 +58,36 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="../../index.html">
-                                <i class="bi bi-house me-2"></i> View Website
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'time_entries') !== false ? 'active' : ''; ?>" href="time_entries_list.php">
+                                <i class="bi bi-clock-history me-2"></i> Time Tracking
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'expense') !== false ? 'active' : ''; ?>" href="expenses_list.php">
+                                <i class="bi bi-receipt me-2"></i> Expenses
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'invoice') !== false ? 'active' : ''; ?>" href="invoices_list.php">
+                                <i class="bi bi-file-earmark-text me-2"></i> Invoices
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'contract') !== false ? 'active' : ''; ?>" href="contracts_list.php">
+                                <i class="bi bi-file-earmark-check me-2"></i> Contracts
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'blog') !== false ? 'active' : ''; ?>" href="blog_list.php">
+                                <i class="bi bi-pencil-square me-2"></i> Blog Posts
                             </a>
                         </li>
                         <li class="nav-item mt-3">
+                            <a class="nav-link" href="../../index.html" target="_blank">
+                                <i class="bi bi-house me-2"></i> View Website
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="logout.php">
                                 <i class="bi bi-box-arrow-right me-2"></i> Logout
                             </a>
