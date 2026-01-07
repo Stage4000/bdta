@@ -8,6 +8,48 @@ require_once __DIR__ . '/../includes/settings.php';
 
 requireLogin();
 
+// Helper function to get category icons
+function getCategoryIcon($category) {
+    $icons = [
+        'general' => 'info-circle',
+        'email' => 'envelope',
+        'payment' => 'credit-card',
+        'booking' => 'calendar-check',
+        'calendar' => 'calendar3',
+        'invoice' => 'file-earmark-text',
+        'time_tracking' => 'clock',
+        'social' => 'share',
+        'advanced' => 'gear-fill'
+    ];
+    return $icons[$category] ?? 'gear';
+}
+
+// Helper function to get select options
+function getSelectOptions($key) {
+    $options_map = [
+        'email_service' => [
+            'mail' => 'PHP mail() function',
+            'smtp' => 'SMTP',
+            'sendgrid' => 'SendGrid',
+            'mailgun' => 'Mailgun',
+            'ses' => 'Amazon SES'
+        ],
+        'stripe_mode' => [
+            'test' => 'Test Mode',
+            'live' => 'Live Mode'
+        ],
+        'time_rounding' => [
+            '0' => 'No rounding',
+            '5' => '5 minutes',
+            '10' => '10 minutes',
+            '15' => '15 minutes',
+            '30' => '30 minutes'
+        ]
+    ];
+    
+    return $options_map[$key] ?? [];
+}
+
 $page_title = 'Settings';
 
 // Get all categories
@@ -176,48 +218,4 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<?php
-include __DIR__ . '/../includes/footer.php';
-
-// Helper function to get category icons
-function getCategoryIcon($category) {
-    $icons = [
-        'general' => 'info-circle',
-        'email' => 'envelope',
-        'payment' => 'credit-card',
-        'booking' => 'calendar-check',
-        'calendar' => 'calendar3',
-        'invoice' => 'file-earmark-text',
-        'time_tracking' => 'clock',
-        'social' => 'share',
-        'advanced' => 'gear-fill'
-    ];
-    return $icons[$category] ?? 'gear';
-}
-
-// Helper function to get select options
-function getSelectOptions($key) {
-    $options_map = [
-        'email_service' => [
-            'mail' => 'PHP mail() function',
-            'smtp' => 'SMTP',
-            'sendgrid' => 'SendGrid',
-            'mailgun' => 'Mailgun',
-            'ses' => 'Amazon SES'
-        ],
-        'stripe_mode' => [
-            'test' => 'Test Mode',
-            'live' => 'Live Mode'
-        ],
-        'time_rounding' => [
-            '0' => 'No rounding',
-            '5' => '5 minutes',
-            '10' => '10 minutes',
-            '15' => '15 minutes',
-            '30' => '30 minutes'
-        ]
-    ];
-    
-    return $options_map[$key] ?? [];
-}
-?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

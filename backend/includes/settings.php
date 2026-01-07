@@ -52,6 +52,11 @@ class Settings {
         $stmt->execute([$key]);
         $type = $stmt->fetchColumn();
         
+        if (!$type) {
+            // Setting doesn't exist
+            return false;
+        }
+        
         $stmt = $db->prepare("
             UPDATE settings 
             SET setting_value = ?, updated_at = CURRENT_TIMESTAMP 
@@ -60,8 +65,11 @@ class Settings {
         $result = $stmt->execute([$value, $key]);
         
         // Update cache with properly cast value
-        if ($result && $type) {
+        if ($result) {
             self::$cache[$key] = self::castValue($value, $type);
+        } else {
+            // Clear cache on failure to ensure consistency
+            unset(self::$cache[$key]);
         }
         
         return $result;
