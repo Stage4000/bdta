@@ -289,6 +289,21 @@ class Database {
                 )
             ");
             
+            // Contract templates table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS contract_templates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    template_text TEXT NOT NULL,
+                    service_type TEXT,
+                    renewal_period_months INTEGER DEFAULT 12,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ");
+            
             // Settings table
             $this->conn->exec("
                 CREATE TABLE IF NOT EXISTS settings (

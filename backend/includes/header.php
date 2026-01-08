@@ -78,8 +78,13 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'contract') !== false ? 'active' : ''; ?>" href="contracts_list.php">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'contract') !== false && strpos($_SERVER['PHP_SELF'], 'template') === false ? 'active' : ''; ?>" href="contracts_list.php">
                                 <i class="bi bi-file-earmark-check me-2"></i> Contracts
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'contract_template') !== false ? 'active' : ''; ?>" href="contract_templates_list.php">
+                                <i class="bi bi-file-earmark-medical me-2"></i> Contract Templates
                             </a>
                         </li>
                         <li class="nav-item">
