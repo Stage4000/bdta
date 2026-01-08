@@ -593,6 +593,43 @@ class Database {
         foreach ($sample_types as $type) {
             $stmt->execute($type);
         }
+        
+        // Email templates table
+        $this->conn->exec("
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                template_type TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                body_html TEXT NOT NULL,
+                body_text TEXT,
+                variables TEXT,
+                is_active INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+        
+        // Update bookings table to add new columns for enhanced booking
+        // Check if columns exist before adding
+        $columns = $this->conn->query("PRAGMA table_info(bookings)")->fetchAll(PDO::FETCH_ASSOC);
+        $column_names = array_column($columns, 'name');
+        
+        if (!in_array('appointment_type_id', $column_names)) {
+            $this->conn->exec("ALTER TABLE bookings ADD COLUMN appointment_type_id INTEGER");
+        }
+        if (!in_array('pets', $column_names)) {
+            $this->conn->exec("ALTER TABLE bookings ADD COLUMN pets TEXT");
+        }
+        if (!in_array('override_forms', $column_names)) {
+            $this->conn->exec("ALTER TABLE bookings ADD COLUMN override_forms INTEGER DEFAULT 0");
+        }
+        if (!in_array('override_contract', $column_names)) {
+            $this->conn->exec("ALTER TABLE bookings ADD COLUMN override_contract INTEGER DEFAULT 0");
+        }
+        if (!in_array('override_credits', $column_names)) {
+            $this->conn->exec("ALTER TABLE bookings ADD COLUMN override_credits INTEGER DEFAULT 0");
+        }
     }
 }
 ?>

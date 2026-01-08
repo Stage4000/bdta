@@ -108,6 +108,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'email_templates') !== false ? 'active' : ''; ?>" href="email_templates_list.php">
+                                <i class="bi bi-envelope me-2"></i> Email Templates
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'form_submissions') !== false ? 'active' : ''; ?>" href="form_submissions_list.php">
                                 <i class="bi bi-file-earmark-check me-2"></i> Form Submissions
                             </a>
