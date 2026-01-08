@@ -127,6 +127,31 @@ class Database {
                 )
             ");
             
+            // Appointment types table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS appointment_types (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    duration_minutes INTEGER DEFAULT 60,
+                    buffer_before_minutes INTEGER DEFAULT 0,
+                    buffer_after_minutes INTEGER DEFAULT 0,
+                    advance_booking_min_days INTEGER DEFAULT 1,
+                    advance_booking_max_days INTEGER DEFAULT 90,
+                    requires_forms INTEGER DEFAULT 0,
+                    requires_contract INTEGER DEFAULT 0,
+                    auto_invoice INTEGER DEFAULT 0,
+                    invoice_due_days INTEGER DEFAULT 7,
+                    consumes_credits INTEGER DEFAULT 0,
+                    credit_count INTEGER DEFAULT 1,
+                    is_group_class INTEGER DEFAULT 0,
+                    max_participants INTEGER DEFAULT 1,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ");
+            
             // Time entries table
             $this->conn->exec("
                 CREATE TABLE IF NOT EXISTS time_entries (
@@ -262,6 +287,12 @@ class Database {
                 $this->initDefaultSettings();
             }
             
+            // Initialize sample appointment types if table is empty
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM appointment_types");
+            if ($stmt->fetchColumn() == 0) {
+                $this->initSampleAppointmentTypes();
+            }
+            
         } catch(PDOException $e) {
             die("Table creation failed: " . $e->getMessage());
         }
@@ -341,6 +372,100 @@ class Database {
         
         foreach ($default_settings as $setting) {
             $stmt->execute($setting);
+        }
+    }
+    
+    private function initSampleAppointmentTypes() {
+        $sample_types = [
+            [
+                'Consultation',
+                'Initial consultation to assess training needs and goals',
+                60, // duration
+                15, // buffer_before
+                15, // buffer_after
+                2,  // advance_booking_min_days
+                30, // advance_booking_max_days
+                1,  // requires_forms
+                1,  // requires_contract
+                1,  // auto_invoice
+                7,  // invoice_due_days
+                0,  // consumes_credits
+                1,  // credit_count
+                0,  // is_group_class
+                1,  // max_participants
+                1   // is_active
+            ],
+            [
+                'Meet & Greet',
+                'Free meet and greet session to get acquainted',
+                30,
+                10,
+                10,
+                1,
+                14,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                1,
+                1
+            ],
+            [
+                'Coaching Session',
+                'One-on-one training session',
+                60,
+                15,
+                15,
+                1,
+                60,
+                0,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                1,
+                1
+            ],
+            [
+                'Group Class',
+                'Group training class for multiple dogs and handlers',
+                90,
+                15,
+                30,
+                3,
+                30,
+                0,
+                1,
+                1,
+                7,
+                0,
+                1,
+                1,
+                6,
+                1
+            ],
+        ];
+        
+        $stmt = $this->conn->prepare("
+            INSERT INTO appointment_types (
+                name, description, duration_minutes,
+                buffer_before_minutes, buffer_after_minutes,
+                advance_booking_min_days, advance_booking_max_days,
+                requires_forms, requires_contract,
+                auto_invoice, invoice_due_days,
+                consumes_credits, credit_count,
+                is_group_class, max_participants,
+                is_active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        foreach ($sample_types as $type) {
+            $stmt->execute($type);
         }
     }
 }

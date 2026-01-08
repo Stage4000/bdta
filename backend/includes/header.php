@@ -88,6 +88,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'appointment_types') !== false ? 'active' : ''; ?>" href="appointment_types_list.php">
+                                <i class="bi bi-calendar-check-fill me-2"></i> Appointment Types
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>" href="settings.php">
                                 <i class="bi bi-gear me-2"></i> Settings
                             </a>
