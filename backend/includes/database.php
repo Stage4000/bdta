@@ -152,6 +152,42 @@ class Database {
                 )
             ");
             
+            // Client credits table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS client_credits (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id INTEGER NOT NULL UNIQUE,
+                    credit_balance INTEGER DEFAULT 0,
+                    total_purchased INTEGER DEFAULT 0,
+                    total_consumed INTEGER DEFAULT 0,
+                    total_adjusted INTEGER DEFAULT 0,
+                    credits_expire INTEGER DEFAULT 0,
+                    expiration_days INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+                )
+            ");
+            
+            // Credit transactions table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS credit_transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id INTEGER NOT NULL,
+                    transaction_type TEXT NOT NULL,
+                    amount INTEGER NOT NULL,
+                    balance_before INTEGER NOT NULL,
+                    balance_after INTEGER NOT NULL,
+                    booking_id INTEGER,
+                    notes TEXT,
+                    created_by INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
+                    FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+                )
+            ");
+            
             // Time entries table
             $this->conn->exec("
                 CREATE TABLE IF NOT EXISTS time_entries (
