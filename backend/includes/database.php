@@ -304,6 +304,46 @@ class Database {
                 )
             ");
             
+            // Form templates table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS form_templates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    form_type TEXT NOT NULL DEFAULT 'client_form',
+                    fields TEXT NOT NULL,
+                    required_frequency TEXT,
+                    appointment_type_id INTEGER,
+                    is_internal INTEGER DEFAULT 0,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE SET NULL
+                )
+            ");
+            
+            // Form submissions table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS form_submissions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id INTEGER NOT NULL,
+                    template_id INTEGER NOT NULL,
+                    booking_id INTEGER,
+                    responses TEXT NOT NULL,
+                    status TEXT DEFAULT 'submitted',
+                    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    submitted_by INTEGER,
+                    reviewed_by INTEGER,
+                    reviewed_at TIMESTAMP,
+                    notes TEXT,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                    FOREIGN KEY (template_id) REFERENCES form_templates(id) ON DELETE CASCADE,
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
+                    FOREIGN KEY (submitted_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+                    FOREIGN KEY (reviewed_by) REFERENCES admin_users(id) ON DELETE SET NULL
+                )
+            ");
+            
             // Create default admin if not exists
             $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
             $stmt->execute(['admin']);

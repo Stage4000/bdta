@@ -93,6 +93,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'form_templates') !== false ? 'active' : ''; ?>" href="form_templates_list.php">
+                                <i class="bi bi-file-text me-2"></i> Form Templates
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>" href="settings.php">
                                 <i class="bi bi-gear me-2"></i> Settings
                             </a>
