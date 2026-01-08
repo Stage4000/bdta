@@ -83,6 +83,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'quote') !== false ? 'active' : ''; ?>" href="quotes_list.php">
+                                <i class="bi bi-file-earmark-text me-2"></i> Quotes
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'blog') !== false ? 'active' : ''; ?>" href="blog_list.php">
                                 <i class="bi bi-pencil-square me-2"></i> Blog Posts
                             </a>

@@ -344,6 +344,41 @@ class Database {
                 )
             ");
             
+            // Quotes table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS quotes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    quote_number TEXT UNIQUE NOT NULL,
+                    client_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    amount DECIMAL(10,2) NOT NULL,
+                    expiration_date DATE,
+                    status TEXT DEFAULT 'sent',
+                    accepted_at TIMESTAMP,
+                    declined_at TIMESTAMP,
+                    viewed_at TIMESTAMP,
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+                )
+            ");
+            
+            // Quote items table  
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS quote_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    quote_id INTEGER NOT NULL,
+                    description TEXT NOT NULL,
+                    quantity INTEGER DEFAULT 1,
+                    unit_price DECIMAL(10,2) NOT NULL,
+                    amount DECIMAL(10,2) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE
+                )
+            ");
+            
             // Create default admin if not exists
             $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
             $stmt->execute(['admin']);
