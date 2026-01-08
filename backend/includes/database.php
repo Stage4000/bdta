@@ -136,6 +136,8 @@ class Database {
                     duration_minutes INTEGER DEFAULT 60,
                     buffer_before_minutes INTEGER DEFAULT 0,
                     buffer_after_minutes INTEGER DEFAULT 0,
+                    use_travel_time_buffer INTEGER DEFAULT 0,
+                    travel_time_minutes INTEGER DEFAULT 0,
                     advance_booking_min_days INTEGER DEFAULT 1,
                     advance_booking_max_days INTEGER DEFAULT 90,
                     requires_forms INTEGER DEFAULT 0,

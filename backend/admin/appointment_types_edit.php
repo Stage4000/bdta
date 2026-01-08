@@ -40,6 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $duration_minutes = (int)($_POST['duration_minutes'] ?? 60);
     $buffer_before_minutes = (int)($_POST['buffer_before_minutes'] ?? 0);
     $buffer_after_minutes = (int)($_POST['buffer_after_minutes'] ?? 0);
+    $use_travel_time_buffer = isset($_POST['use_travel_time_buffer']) ? 1 : 0;
+    $travel_time_minutes = (int)($_POST['travel_time_minutes'] ?? 0);
     $advance_booking_min_days = (int)($_POST['advance_booking_min_days'] ?? 1);
     $advance_booking_max_days = (int)($_POST['advance_booking_max_days'] ?? 90);
     $requires_forms = isset($_POST['requires_forms']) ? 1 : 0;
@@ -61,6 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     duration_minutes = ?,
                     buffer_before_minutes = ?,
                     buffer_after_minutes = ?,
+                    use_travel_time_buffer = ?,
+                    travel_time_minutes = ?,
                     advance_booking_min_days = ?,
                     advance_booking_max_days = ?,
                     requires_forms = ?,
@@ -78,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([
                 $name, $description, $duration_minutes,
                 $buffer_before_minutes, $buffer_after_minutes,
+                $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
                 $requires_forms, $requires_contract,
                 $auto_invoice, $invoice_due_days,
@@ -91,17 +96,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 INSERT INTO appointment_types (
                     name, description, duration_minutes,
                     buffer_before_minutes, buffer_after_minutes,
+                    use_travel_time_buffer, travel_time_minutes,
                     advance_booking_min_days, advance_booking_max_days,
                     requires_forms, requires_contract,
                     auto_invoice, invoice_due_days,
                     consumes_credits, credit_count,
                     is_group_class, max_participants,
                     is_active
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
                 $buffer_before_minutes, $buffer_after_minutes,
+                $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
                 $requires_forms, $requires_contract,
                 $auto_invoice, $invoice_due_days,
@@ -175,6 +182,33 @@ include __DIR__ . '/../includes/header.php';
                                value="<?= $type['buffer_after_minutes'] ?? 0 ?>" min="0" step="5">
                         <div class="form-text">Time blocked after appointment ends</div>
                     </div>
+                </div>
+                
+                <!-- Phase 2: Travel Time Buffer -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="use_travel_time_buffer" name="use_travel_time_buffer" 
+                                   value="1" <?= ($type['use_travel_time_buffer'] ?? 0) ? 'checked' : '' ?>
+                                   onchange="toggleTravelTime()">
+                            <label class="form-check-label" for="use_travel_time_buffer">
+                                Use Travel Time Buffer (Phase 2 Feature)
+                            </label>
+                            <div class="form-text">Automatically calculate buffers based on travel time instead of fixed values</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3" id="travel_time_section" style="display: none;">
+                    <div class="col-md-6">
+                        <label for="travel_time_minutes" class="form-label">Travel Time (minutes)</label>
+                        <input type="number" class="form-control" id="travel_time_minutes" name="travel_time_minutes" 
+                               value="<?= $type['travel_time_minutes'] ?? 0 ?>" min="0" step="5">
+                        <div class="form-text">Time needed for travel to/from appointment location</div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
                     <div class="col-md-6">
                         <label for="advance_booking_min_days" class="form-label">Minimum Advance Booking (days)</label>
                         <input type="number" class="form-control" id="advance_booking_min_days" name="advance_booking_min_days" 
@@ -297,5 +331,19 @@ include __DIR__ . '/../includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+// Phase 2: Travel Time Buffer Toggle
+function toggleTravelTime() {
+    const checkbox = document.getElementById('use_travel_time_buffer');
+    const section = document.getElementById('travel_time_section');
+    section.style.display = checkbox.checked ? 'block' : 'none';
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    toggleTravelTime();
+});
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>
