@@ -1,14 +1,17 @@
 <?php
 require_once '../includes/config.php';
-require_login();
+requireLogin();
 
-$db = get_db();
+$db = new Database();
+$conn = $db->getConnection();
 
 // Get clients for dropdown
-$clients = $db->query("SELECT id, name, email FROM clients ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$stmt = $conn->query("SELECT id, name, email FROM clients ORDER BY name");
+$clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get active appointment types
-$appointment_types = $db->query("SELECT * FROM appointment_types WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$stmt = $conn->query("SELECT * FROM appointment_types WHERE is_active = 1 ORDER BY name");
+$appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -24,14 +27,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     try {
         // Get appointment type details
-        $apt_type = $db->query("SELECT * FROM appointment_types WHERE id = $appointment_type_id")->fetch(PDO::FETCH_ASSOC);
+        $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE id = ?");
+        $stmt->execute([$appointment_type_id]);
+        $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$apt_type) {
             throw new Exception("Invalid appointment type");
         }
         
         // Get client details
-        $client = $db->query("SELECT * FROM clients WHERE id = $client_id")->fetch(PDO::FETCH_ASSOC);
+        $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ?");
+        $stmt->execute([$client_id]);
+        $client = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$client) {
             throw new Exception("Invalid client");
@@ -43,7 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Check required forms
         if ($apt_type['requires_forms'] && !$override_forms) {
             // Check if client has submitted required forms
-            $forms_count = $db->query("SELECT COUNT(*) FROM form_submissions WHERE client_id = $client_id AND status = 'submitted'")->fetchColumn();
+            $stmt = $conn->prepare("SELECT COUNT(*) FROM form_submissions WHERE client_id = ? AND status = 'submitted'");
+            $stmt->execute([$client_id]);
+            $forms_count = $stmt->fetchColumn();
             if ($forms_count == 0) {
                 $errors[] = "Client must submit required forms before booking (or override)";
             }
@@ -51,7 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Check required contract
         if ($apt_type['requires_contract'] && !$override_contract) {
-            $contract_count = $db->query("SELECT COUNT(*) FROM contracts WHERE client_id = $client_id AND status = 'signed'")->fetchColumn();
+            $stmt = $conn->prepare("SELECT COUNT(*) FROM contracts WHERE client_id = ? AND status = 'signed'");
+            $stmt->execute([$client_id]);
+            $contract_count = $stmt->fetchColumn();
             if ($contract_count == 0) {
                 $errors[] = "Client must sign required contract before booking (or override)";
             }
@@ -59,7 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Check credits
         if ($apt_type['consumes_credits'] && !$override_credits) {
-            $credit_balance = $db->query("SELECT credit_balance FROM client_credits WHERE client_id = $client_id")->fetchColumn();
+            $stmt = $conn->prepare("SELECT credit_balance FROM client_credits WHERE client_id = ?");
+            $stmt->execute([$client_id]);
+            $credit_balance = $stmt->fetchColumn();
             if ($credit_balance === false) {
                 $credit_balance = 0;
             }
@@ -69,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         if (!empty($errors) && !$override_forms && !$override_contract && !$override_credits) {
-            $_SESSION['error'] = implode('<br>', $errors);
+            setFlashMessage(implode('<br>', $errors), 'danger');
         } else {
             // Create booking
             $datetime = $booking_date . ' ' . $booking_time;
