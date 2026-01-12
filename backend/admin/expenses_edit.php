@@ -26,24 +26,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $billable = isset($_POST['billable']) ? 1 : 0;
     $notes = trim($_POST['notes'] ?? '');
     
+    $receipt_file = null;
+    
+    // Handle file upload
+    if (isset($_FILES['receipt']) && $_FILES['receipt']['error'] === UPLOAD_ERR_OK) {
+        $upload_dir = __DIR__ . '/../uploads/receipts/';
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
+        }
+        
+        $file_extension = strtolower(pathinfo($_FILES['receipt']['name'], PATHINFO_EXTENSION));
+        $allowed_extensions = ['jpg', 'jpeg', 'png', 'pdf', 'gif'];
+        
+        if (in_array($file_extension, $allowed_extensions)) {
+            $file_name = uniqid('receipt_') . '.' . $file_extension;
+            $file_path = $upload_dir . $file_name;
+            
+            if (move_uploaded_file($_FILES['receipt']['tmp_name'], $file_path)) {
+                $receipt_file = $file_name;
+            }
+        }
+    }
+    
     if (empty($category) || empty($description) || $amount <= 0 || empty($expense_date)) {
         setFlashMessage('All required fields must be filled!', 'danger');
     } else {
         if ($id > 0) {
+            // If new file uploaded, delete old one
+            if ($receipt_file && $expense['receipt_file']) {
+                $old_file = __DIR__ . '/../uploads/receipts/' . $expense['receipt_file'];
+                if (file_exists($old_file)) {
+                    unlink($old_file);
+                }
+            }
+            
             $stmt = $conn->prepare("
                 UPDATE expenses 
                 SET client_id = ?, category = ?, description = ?, amount = ?, 
-                    expense_date = ?, billable = ?, notes = ?
+                    expense_date = ?, billable = ?, notes = ?, receipt_file = ?
                 WHERE id = ?
             ");
-            $stmt->execute([$client_id, $category, $description, $amount, $expense_date, $billable, $notes, $id]);
+            $stmt->execute([$client_id, $category, $description, $amount, $expense_date, $billable, $notes, 
+                           $receipt_file ?: $expense['receipt_file'], $id]);
             setFlashMessage('Expense updated successfully!', 'success');
         } else {
             $stmt = $conn->prepare("
-                INSERT INTO expenses (client_id, category, description, amount, expense_date, billable, notes) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO expenses (client_id, category, description, amount, expense_date, billable, notes, receipt_file) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$client_id, $category, $description, $amount, $expense_date, $billable, $notes]);
+            $stmt->execute([$client_id, $category, $description, $amount, $expense_date, $billable, $notes, $receipt_file]);
             setFlashMessage('Expense created successfully!', 'success');
         }
         redirect('expenses_list.php');
@@ -65,7 +96,7 @@ include '../includes/header.php';
 
             <div class="card">
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="category" class="form-label">Category *</label>
@@ -109,6 +140,30 @@ include '../includes/header.php';
                         <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
                             <textarea class="form-control" id="notes" name="notes" rows="3"><?= escape($expense['notes'] ?? '') ?></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="receipt" class="form-label">Receipt Upload</label>
+                            <?php if ($expense && $expense['receipt_file']): ?>
+                                <div class="mb-2">
+                                    <p class="text-muted">Current receipt:</p>
+                                    <?php
+                                    $ext = strtolower(pathinfo($expense['receipt_file'], PATHINFO_EXTENSION));
+                                    $receipt_path = '../uploads/receipts/' . $expense['receipt_file'];
+                                    ?>
+                                    <?php if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])): ?>
+                                        <a href="<?= $receipt_path ?>" target="_blank">
+                                            <img src="<?= $receipt_path ?>" alt="Receipt" class="img-thumbnail" style="max-width: 200px;">
+                                        </a>
+                                    <?php else: ?>
+                                        <a href="<?= $receipt_path ?>" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-file-earmark-pdf"></i> View Receipt PDF
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                            <input type="file" class="form-control" id="receipt" name="receipt" accept="image/*,application/pdf">
+                            <small class="text-muted">Accepted formats: JPG, PNG, PDF (Max 5MB)</small>
                         </div>
 
                         <div class="form-check mb-3">

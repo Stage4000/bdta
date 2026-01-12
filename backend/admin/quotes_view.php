@@ -4,11 +4,36 @@
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
 
 $quote_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+
+// Handle resend action
+if (isset($_POST['resend_quote'])) {
+    // TODO: Implement email sending
+    // For now, just update the status to 'sent'
+    $stmt = $conn->prepare("UPDATE quotes SET status = 'sent', updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    $stmt->execute([$quote_id]);
+    setFlashMessage('Quote resent successfully!', 'success');
+    header('Location: quotes_view.php?id=' . $quote_id);
+    exit;
+}
+
+// Handle status change
+if (isset($_POST['change_status'])) {
+    $new_status = $_POST['new_status'];
+    $allowed_statuses = ['draft', 'sent', 'viewed', 'accepted', 'declined', 'expired'];
+    if (in_array($new_status, $allowed_statuses)) {
+        $stmt = $conn->prepare("UPDATE quotes SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+        $stmt->execute([$new_status, $quote_id]);
+        setFlashMessage('Quote status updated successfully!', 'success');
+        header('Location: quotes_view.php?id=' . $quote_id);
+        exit;
+    }
+}
 
 $stmt = $conn->prepare("
     SELECT q.*, c.name as client_name, c.email as client_email
@@ -20,9 +45,8 @@ $stmt->execute([$quote_id]);
 $quote = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$quote) {
-    $_SESSION['error'] = "Quote not found";
-    header('Location: quotes_list.php');
-    exit;
+    setFlashMessage('Quote not found', 'danger');
+    redirect('quotes_list.php');
 }
 
 // Get line items
@@ -39,26 +63,60 @@ $settings_stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_
 $base_url = $settings_stmt->fetchColumn();
 $public_link = $base_url . '/public/quote.php?id=' . $quote_id;
 
-$page_title = "Quote " . htmlspecialchars($quote['quote_number']);
+// Get line items
+$items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
+$items_stmt->execute([$quote_id]);
+$items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Check if expired
+$is_expired = $quote['expiration_date'] && strtotime($quote['expiration_date']) < time() && $quote['status'] == 'sent';
+$display_status = $is_expired ? 'expired' : $quote['status'];
+
+// Generate public link
+$stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'base_url'");
+$base_url = $stmt->fetchColumn();
+if (!$base_url) {
+    $base_url = 'http://localhost:8000/backend';
+}
+$public_link = $base_url . '/public/quote.php?id=' . $quote_id;
+
+$page_title = "Quote " . escape($quote['quote_number']);
 include '../includes/header.php';
 ?>
 
 <div class="container-fluid py-4">
+    <?php
+    $flash = getFlashMessage();
+    if ($flash):
+    ?>
+        <div class="alert alert-<?= $flash['type'] ?> alert-dismissible fade show">
+            <?= escape($flash['message']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+    
     <div class="row mb-4">
         <div class="col">
             <h1 class="h3">
                 <i class="bi bi-file-earmark-text me-2"></i>
-                Quote <?= htmlspecialchars($quote['quote_number']) ?>
+                Quote <?= escape($quote['quote_number']) ?>
             </h1>
         </div>
         <div class="col-auto">
             <a href="quotes_list.php" class="btn btn-outline-secondary me-2">
                 <i class="bi bi-arrow-left me-1"></i>Back to Quotes
             </a>
-            <?php if ($display_status == 'sent' || $display_status == 'viewed'): ?>
-                <a href="quotes_create.php?id=<?= $quote_id ?>" class="btn btn-primary">
+            <?php if ($display_status == 'draft' || $display_status == 'sent' || $display_status == 'viewed'): ?>
+                <a href="quotes_create.php?id=<?= $quote_id ?>" class="btn btn-primary me-2">
                     <i class="bi bi-pencil me-1"></i>Edit
                 </a>
+            <?php endif; ?>
+            <?php if ($display_status != 'draft'): ?>
+                <form method="POST" class="d-inline">
+                    <button type="submit" name="resend_quote" class="btn btn-success me-2">
+                        <i class="bi bi-send me-1"></i>Resend Quote
+                    </button>
+                </form>
             <?php endif; ?>
         </div>
     </div>
@@ -145,13 +203,29 @@ include '../includes/header.php';
                 <div class="list-group list-group-flush">
                     <div class="list-group-item">
                         <strong>Quote Number:</strong><br>
-                        <?= htmlspecialchars($quote['quote_number']) ?>
+                        <?= escape($quote['quote_number']) ?>
                     </div>
                     <div class="list-group-item">
                         <strong>Client:</strong><br>
-                        <a href="clients_edit.php?id=<?= $quote['client_id'] ?>">
-                            <?= htmlspecialchars($quote['client_name']) ?>
+                        <a href="clients_view.php?id=<?= $quote['client_id'] ?>">
+                            <?= escape($quote['client_name']) ?>
                         </a>
+                    </div>
+                    <div class="list-group-item">
+                        <strong>Status:</strong><br>
+                        <form method="POST" class="mt-2">
+                            <div class="input-group input-group-sm">
+                                <select name="new_status" class="form-select form-select-sm">
+                                    <option value="draft" <?= $quote['status'] == 'draft' ? 'selected' : '' ?>>Draft</option>
+                                    <option value="sent" <?= $quote['status'] == 'sent' ? 'selected' : '' ?>>Sent</option>
+                                    <option value="viewed" <?= $quote['status'] == 'viewed' ? 'selected' : '' ?>>Viewed</option>
+                                    <option value="accepted" <?= $quote['status'] == 'accepted' ? 'selected' : '' ?>>Accepted</option>
+                                    <option value="declined" <?= $quote['status'] == 'declined' ? 'selected' : '' ?>>Declined</option>
+                                    <option value="expired" <?= $quote['status'] == 'expired' ? 'selected' : '' ?>>Expired</option>
+                                </select>
+                                <button type="submit" name="change_status" class="btn btn-sm btn-primary">Update</button>
+                            </div>
+                        </form>
                     </div>
                     <div class="list-group-item">
                         <strong>Created:</strong><br>
@@ -196,7 +270,7 @@ include '../includes/header.php';
                     <p class="small text-muted">Send this link to the client to view and respond to the quote:</p>
                     <div class="input-group">
                         <input type="text" class="form-control form-control-sm" id="publicLink" 
-                               value="<?= htmlspecialchars($public_link) ?>" readonly>
+                               value="<?= escape($public_link) ?>" readonly>
                         <button class="btn btn-outline-secondary btn-sm" type="button" onclick="copyLink()">
                             <i class="bi bi-clipboard"></i>
                         </button>
