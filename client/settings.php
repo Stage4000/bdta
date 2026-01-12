@@ -3,8 +3,8 @@
  * Settings Management - Admin Panel
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/settings.php';
+require_once __DIR__ . '/../backend/includes/config.php';
+require_once __DIR__ . '/../backend/includes/settings.php';
 
 requireLogin();
 
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 // Get settings for current category
 $settings = Settings::getCategory($current_category);
 
-include __DIR__ . '/../includes/header.php';
+include __DIR__ . '/../backend/includes/header.php';
 ?>
 
 <style>
@@ -231,4 +231,4 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<?php include __DIR__ . '/../includes/footer.php'; ?>
+<?php include __DIR__ . '/../backend/includes/footer.php'; ?>
