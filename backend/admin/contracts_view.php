@@ -119,7 +119,7 @@ include '../includes/header.php';
                                 <p class="text-muted"><?= escape($contract['description']) ?></p>
                             <?php endif; ?>
                             
-                            <div class="mt-4" style="white-space: pre-wrap;"><?= escape($contract['contract_text']) ?></div>
+                            <div class="mt-4 contract-content"><?= $contract['contract_text'] ?></div>
                             
                             <?php if ($contract['signature_data']): ?>
                                 <hr>

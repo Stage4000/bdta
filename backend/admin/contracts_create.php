@@ -176,70 +176,43 @@ include '../includes/header.php';
                     </button>
                 </div>
             </form>
-            </h2>
-            
-            <div class="card">
-                <div class="card-body">
-                    <form method="POST" id="contractForm">
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Client *</label>
-                                <select class="form-select" name="client_id" id="client_id" required>
-                                    <option value="">Select Client</option>
-                                    <?php foreach ($clients as $client): ?>
-                                        <option value="<?= $client['id'] ?>" data-email="<?= escape($client['email']) ?>">
-                                            <?= escape($client['name']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Template</label>
-                                <select class="form-select" id="template_select">
-                                    <option value="">Select Template...</option>
-                                    <?php foreach ($templates as $tpl): ?>
-                                        <option value="<?= $tpl['id'] ?>" <?= $template_id == $tpl['id'] ? 'selected' : '' ?>>
-                                            <?= escape($tpl['name']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Effective Date</label>
-                                <input type="date" class="form-control" name="effective_date" value="<?= date('Y-m-d') ?>">
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Contract Title *</label>
-                            <input type="text" class="form-control" name="title" id="contract_title" 
-                                   value="<?= $selected_template ? escape($selected_template['name']) : '' ?>"
-                                   placeholder="e.g., Dog Training Service Agreement" required>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Contract Text *</label>
-                            <p class="small text-muted">
-                                Variables: {{client_name}}, {{client_email}}, {{date}}, {{service_type}}
-                            </p>
-                            <textarea class="form-control font-monospace" name="contract_text" id="contract_text" rows="20" required 
-                                placeholder="Enter contract terms and conditions..."><?= $selected_template ? escape($selected_template['template_text']) : '' ?></textarea>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Create Contract
-                        </button>
-                        <a href="contracts_list.php" class="btn btn-secondary">Cancel</a>
-                    </form>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
+<!-- TinyMCE Rich Text Editor -->
+<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
+tinymce.init({
+    selector: '#contract_text',
+    height: 500,
+    menubar: false,
+    plugins: [
+        'lists', 'link', 'charmap', 'preview', 'searchreplace', 'code',
+        'fullscreen', 'table', 'help', 'wordcount'
+    ],
+    toolbar: 'undo redo | formatselect | bold italic underline | ' +
+             'bullist numlist | alignleft aligncenter alignright | ' +
+             'removeformat | help',
+    content_style: 'body { font-family: Helvetica, Arial, sans-serif; font-size: 14pt; }',
+    formats: {
+        h1: { block: 'h1', styles: { fontSize: '24pt', fontWeight: 'bold' } },
+        h2: { block: 'h2', styles: { fontSize: '20pt', fontWeight: 'bold' } },
+        h3: { block: 'h3', styles: { fontSize: '16pt', fontWeight: 'bold' } }
+    },
+    block_formats: 'Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3',
+    setup: function(editor) {
+        editor.on('init', function() {
+            // Ensure form validation works with TinyMCE
+            editor.on('change', function() {
+                tinymce.triggerSave();
+            });
+        });
+    }
+});
+
 // Load template via AJAX when selected
-document.getElementById('template_select').addEventListener('change', function() {
+document.getElementById('template_select')?.addEventListener('change', function() {
     const templateId = this.value;
     if (!templateId) return;
     
@@ -248,7 +221,11 @@ document.getElementById('template_select').addEventListener('change', function()
         .then(data => {
             if (data.success) {
                 document.getElementById('contract_title').value = data.template.name;
-                document.getElementById('contract_text').value = data.template.template_text;
+                if (tinymce.get('contract_text')) {
+                    tinymce.get('contract_text').setContent(data.template.template_text);
+                } else {
+                    document.getElementById('contract_text').value = data.template.template_text;
+                }
             }
         });
 });
