@@ -1,10 +1,10 @@
 <?php
-require_once '../includes/config.php';
+require_once '../backend/includes/config.php';
 
 $slug = $_GET['slug'] ?? '';
 
 if (!$slug) {
-    header('Location: blog.php');
+    header('Location: index.php');
     exit;
 }
 
@@ -16,7 +16,7 @@ $stmt->execute([$slug]);
 $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$post) {
-    header('Location: blog.php');
+    header('Location: index.php');
     exit;
 }
 ?>
@@ -28,12 +28,12 @@ if (!$post) {
     <title><?php echo escape($post['title']); ?> - Brook's Dog Training Academy</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
-    <link href="../../css/style.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="../../index.html">
+            <a class="navbar-brand fw-bold" href="../index.html">
                 <i class="bi bi-paw-fill text-primary me-2"></i>Brook's Dog Training Academy
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -41,9 +41,9 @@ if (!$post) {
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="../../index.html">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="blog.php">Blog</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../../index.html#contact">Contact</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="index.php">Blog</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../index.html#contact">Contact</a></li>
                 </ul>
             </div>
         </div>
@@ -53,7 +53,7 @@ if (!$post) {
         <div class="container py-5">
             <div class="row justify-content-center">
                 <div class="col-lg-8">
-                    <a href="blog.php" class="btn btn-outline-primary mb-4">
+                    <a href="index.php" class="btn btn-outline-primary mb-4">
                         <i class="bi bi-arrow-left me-1"></i> Back to Blog
                     </a>
                     
