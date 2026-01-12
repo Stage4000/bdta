@@ -4,15 +4,11 @@
  * Delete a form template
  */
 
-session_start();
+require_once '../includes/config.php';
+require_once '../includes/database.php';
 
 // Check if user is logged in
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header("Location: login.php");
-    exit;
-}
-
-require_once '../includes/database.php';
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();

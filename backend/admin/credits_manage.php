@@ -8,10 +8,7 @@ require_once '../includes/config.php';
 require_once '../includes/database.php';
 
 // Check authentication
-if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login.php');
-    exit;
-}
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -116,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $balance_before,
                         $balance_after,
                         $notes,
-                        $_SESSION['admin_user_id']
+                        $_SESSION['admin_id']
                     ]);
                     
                     $_SESSION['flash_message'] = "Credit adjustment applied successfully!";
@@ -167,7 +164,7 @@ require_once '../includes/header.php';
                 <div>
                     <h1>Credit Management</h1>
                     <p class="text-muted">
-                        Client: <strong><?php echo htmlspecialchars($client['first_name'] . ' ' . $client['last_name']); ?></strong>
+                        Client: <strong><?php echo htmlspecialchars($client['name']); ?></strong>
                         <a href="clients_edit.php?id=<?php echo $client_id; ?>" class="btn btn-sm btn-outline-primary ms-2">
                             <i class="bi bi-arrow-left"></i> Back to Client
                         </a>
