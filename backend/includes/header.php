@@ -64,8 +64,8 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'time_entries') !== false ? 'active' : ''; ?>" href="time_entries_list.php">
-                                <i class="bi bi-clock-history me-2"></i> Time Tracking
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'time_entries') !== false || strpos($_SERVER['PHP_SELF'], 'time_tracker') !== false ? 'active' : ''; ?>" href="time_tracker.php">
+                                <i class="bi bi-stopwatch me-2"></i> Time Tracker
                             </a>
                         </li>
                         <li class="nav-item">
