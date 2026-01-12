@@ -188,7 +188,7 @@ To customize branding colors, update the CSS variables:
    - **Main Website**: http://localhost:8000/../../index.html
    - **Public Booking**: http://localhost:8000/public/book.php
    - **Blog**: http://localhost:8000/public/blog.php
-   - **Admin Panel**: http://localhost:8000/admin/login.php
+   - **Admin Panel**: http://localhost:8000/client/login.php
 
 4. **Default Admin Credentials**
    - Username: `admin`
@@ -218,7 +218,7 @@ bdta/
 ├── assets/
 │   └── images/               # Website images
 ├── backend/
-│   ├── admin/                # Admin panel pages (44 files)
+│   ├── client/               # Client/Admin panel pages (44 files)
 │   │   ├── index.php        # Dashboard
 │   │   ├── login.php        # Login page
 │   │   ├── clients_list.php # Client management
@@ -473,7 +473,7 @@ Response:
            Require all granted
        </Directory>
        
-       <Directory /var/www/bdta/backend/admin>
+       <Directory /var/www/bdta/backend/client>
            Require all granted
        </Directory>
        
@@ -524,8 +524,8 @@ server {
         include fastcgi_params;
     }
 
-    location /backend/admin/ {
-        try_files $uri $uri/ /backend/admin/index.php?$query_string;
+    location /backend/client/ {
+        try_files $uri $uri/ /backend/client/index.php?$query_string;
     }
 
     location /backend/includes/ {

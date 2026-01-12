@@ -19,7 +19,7 @@ $total_pages = ceil($total / $per_page);
 include '../includes/header.php';
 ?>
 
-<div class="container-fluid">
+<div class="container-fluid py-4">
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">

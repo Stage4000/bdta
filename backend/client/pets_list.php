@@ -61,7 +61,7 @@ $page_title = $client ? "Pets for " . htmlspecialchars($client['name']) : "All P
 include '../includes/header.php';
 ?>
 
-<div class="container-fluid">
+<div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-md-8">
             <h1><i class="bi bi-heart-fill"></i> <?= htmlspecialchars($page_title) ?></h1>

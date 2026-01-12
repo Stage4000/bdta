@@ -89,7 +89,20 @@ $settings = Settings::getCategory($current_category);
 include __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="container-fluid">
+<style>
+    /* Custom styling for settings submenu active state */
+    .list-group-item.active {
+        background-color: #9a0073 !important;
+        border-color: #9a0073 !important;
+        color: white !important;
+    }
+    .list-group-item.active:hover {
+        background-color: #7a005a !important;
+        border-color: #7a005a !important;
+    }
+</style>
+
+<div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-12">
             <h2><i class="bi bi-gear"></i> Settings</h2>
