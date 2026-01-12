@@ -1,6 +1,9 @@
 # Test files
 test-scroll.html
 
+# Uploads
+backend/uploads/
+
 # Backup files
 *.sitebuilder
 backup.sitebuilder

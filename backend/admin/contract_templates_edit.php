@@ -112,7 +112,7 @@ include '../includes/header.php';
                             <p class="small text-muted">
                                 Available variables: {{client_name}}, {{client_email}}, {{date}}, {{service_type}}
                             </p>
-                            <textarea name="template_text" class="form-control font-monospace" rows="20" 
+                            <textarea name="template_text" id="template_text" class="form-control" rows="20" 
                                       placeholder="Enter contract text here..." required><?= $template ? htmlspecialchars($template['template_text']) : '' ?></textarea>
                         </div>
                     </div>
@@ -162,5 +162,37 @@ include '../includes/header.php';
         </div>
     </form>
 </div>
+
+<!-- TinyMCE Rich Text Editor -->
+<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+tinymce.init({
+    selector: '#template_text',
+    height: 500,
+    menubar: false,
+    plugins: [
+        'lists', 'link', 'charmap', 'preview', 'searchreplace', 'code',
+        'fullscreen', 'table', 'help', 'wordcount'
+    ],
+    toolbar: 'undo redo | formatselect | bold italic underline | ' +
+             'bullist numlist | alignleft aligncenter alignright | ' +
+             'removeformat | help',
+    content_style: 'body { font-family: Helvetica, Arial, sans-serif; font-size: 14pt; }',
+    formats: {
+        h1: { block: 'h1', styles: { fontSize: '24pt', fontWeight: 'bold' } },
+        h2: { block: 'h2', styles: { fontSize: '20pt', fontWeight: 'bold' } },
+        h3: { block: 'h3', styles: { fontSize: '16pt', fontWeight: 'bold' } }
+    },
+    block_formats: 'Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3',
+    setup: function(editor) {
+        editor.on('init', function() {
+            // Ensure form validation works with TinyMCE
+            editor.on('change', function() {
+                tinymce.triggerSave();
+            });
+        });
+    }
+});
+</script>
 
 <?php include '../includes/footer.php'; ?>

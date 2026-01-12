@@ -65,6 +65,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
     <title>Quote <?= htmlspecialchars($quote['quote_number']) ?> - Brook's Dog Training Academy</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .bg-primary {
+            background-color: #9a0073 !important;
+        }
+        .btn-success {
+            background-color: #0a9a9c;
+            border-color: #0a9a9c;
+        }
+        .btn-success:hover {
+            background-color: #088587;
+            border-color: #088587;
+        }
+        .bg-info {
+            background-color: #0a9a9c !important;
+        }
+    </style>
 </head>
 <body class="bg-light">
     <div class="container py-5">

@@ -3,12 +3,14 @@
    ========================================== */
 
 /* ==========================================
-   Root Variables
+   Root Variables - BDTA Brand Colors
    ========================================== */
 :root {
-    --primary-color: #2563eb;
-    --primary-dark: #1e40af;
-    --secondary-color: #10b981;
+    /* BDTA Official Brand Colors */
+    --primary-color: #9a0073;        /* BDTA Purple */
+    --primary-dark: #7a005a;         /* Darker Purple */
+    --secondary-color: #0a9a9c;      /* BDTA Teal/Cyan */
+    --accent-color: #a39f89;         /* BDTA Tan/Beige */
     --dark-color: #1f2937;
     --light-color: #f9fafb;
     --text-color: #374151;
