@@ -4,8 +4,8 @@
  * Configure appointment type with rules and behaviors
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/database.php';
+require_once __DIR__ . '/../backend/includes/config.php';
+require_once __DIR__ . '/../backend/includes/database.php';
 
 // Check if user is logged in
 if (!isLoggedIn()) {
@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $page_title = $is_edit ? "Edit Appointment Type" : "Add Appointment Type";
-include __DIR__ . '/../includes/header.php';
+include __DIR__ . '/../backend/includes/header.php';
 ?>
 
 <div class="container-fluid py-4">
@@ -346,4 +346,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<?php include __DIR__ . '/../includes/footer.php'; ?>
+<?php include __DIR__ . '/../backend/includes/footer.php'; ?>

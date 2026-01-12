@@ -4,8 +4,8 @@
  * Manage appointment types with configurable rules and behaviors
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/database.php';
+require_once __DIR__ . '/../backend/includes/config.php';
+require_once __DIR__ . '/../backend/includes/database.php';
 
 // Check if user is logged in
 if (!isLoggedIn()) {
@@ -35,7 +35,7 @@ $total = $conn->query("SELECT COUNT(*) FROM appointment_types")->fetchColumn();
 $total_pages = ceil($total / $per_page);
 
 $page_title = "Appointment Types";
-include __DIR__ . '/../includes/header.php';
+include __DIR__ . '/../backend/includes/header.php';
 ?>
 
 <div class="container-fluid py-4">
@@ -169,4 +169,4 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<?php include __DIR__ . '/../includes/footer.php'; ?>
+<?php include __DIR__ . '/../backend/includes/footer.php'; ?>

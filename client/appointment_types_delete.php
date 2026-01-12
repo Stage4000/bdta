@@ -3,8 +3,8 @@
  * Brook's Dog Training Academy - Delete Appointment Type
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/database.php';
+require_once __DIR__ . '/../backend/includes/config.php';
+require_once __DIR__ . '/../backend/includes/database.php';
 
 // Check if user is logged in
 if (!isLoggedIn()) {
