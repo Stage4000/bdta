@@ -10,7 +10,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Base URL configuration
 define('BASE_URL', '/');
-define('ADMIN_URL', '/backend/admin/');
+define('ADMIN_URL', '/client/');
 
 // Database configuration
 require_once __DIR__ . '/database.php';

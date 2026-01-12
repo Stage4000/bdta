@@ -188,7 +188,7 @@ To customize branding colors, update the CSS variables:
    - **Main Website**: http://localhost:8000/../../index.html
    - **Public Booking**: http://localhost:8000/public/book.php
    - **Blog**: http://localhost:8000/public/blog.php
-   - **Admin Panel**: http://localhost:8000/admin/login.php
+   - **Admin Panel**: http://localhost:8000/client/login.php
 
 4. **Default Admin Credentials**
    - Username: `admin`
@@ -217,18 +217,18 @@ bdta/
 │   └── script.js             # Frontend JavaScript
 ├── assets/
 │   └── images/               # Website images
+├── client/                   # Client/Admin panel pages (44 files)
+│   ├── index.php            # Dashboard
+│   ├── login.php            # Login page
+│   ├── clients_list.php     # Client management
+│   ├── clients_view.php     # Client detail view (NEW)
+│   ├── bookings_create.php  # Manual booking
+│   ├── quotes_view.php      # Quote management (ENHANCED)
+│   ├── contracts_view.php   # Contract management (ENHANCED)
+│   ├── expenses_edit.php    # Expense with receipts (ENHANCED)
+│   ├── time_tracker.php     # Active timer (NEW)
+│   └── ... (40 more files)
 ├── backend/
-│   ├── admin/                # Admin panel pages (44 files)
-│   │   ├── index.php        # Dashboard
-│   │   ├── login.php        # Login page
-│   │   ├── clients_list.php # Client management
-│   │   ├── clients_view.php # Client detail view (NEW)
-│   │   ├── bookings_create.php # Manual booking
-│   │   ├── quotes_view.php  # Quote management (ENHANCED)
-│   │   ├── contracts_view.php # Contract management (ENHANCED)
-│   │   ├── expenses_edit.php # Expense with receipts (ENHANCED)
-│   │   ├── time_tracker.php # Active timer (NEW)
-│   │   └── ... (40 more files)
 │   ├── public/              # Public-facing pages
 │   │   ├── book.php        # Public booking flow (NEW)
 │   │   ├── blog.php        # Blog listing
@@ -473,7 +473,7 @@ Response:
            Require all granted
        </Directory>
        
-       <Directory /var/www/bdta/backend/admin>
+       <Directory /var/www/bdta/client>
            Require all granted
        </Directory>
        
@@ -524,8 +524,8 @@ server {
         include fastcgi_params;
     }
 
-    location /backend/admin/ {
-        try_files $uri $uri/ /backend/admin/index.php?$query_string;
+    location /client/ {
+        try_files $uri $uri/ /client/index.php?$query_string;
     }
 
     location /backend/includes/ {
