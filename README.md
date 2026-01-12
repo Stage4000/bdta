@@ -217,18 +217,18 @@ bdta/
 │   └── script.js             # Frontend JavaScript
 ├── assets/
 │   └── images/               # Website images
+├── client/                   # Client/Admin panel pages (44 files)
+│   ├── index.php            # Dashboard
+│   ├── login.php            # Login page
+│   ├── clients_list.php     # Client management
+│   ├── clients_view.php     # Client detail view (NEW)
+│   ├── bookings_create.php  # Manual booking
+│   ├── quotes_view.php      # Quote management (ENHANCED)
+│   ├── contracts_view.php   # Contract management (ENHANCED)
+│   ├── expenses_edit.php    # Expense with receipts (ENHANCED)
+│   ├── time_tracker.php     # Active timer (NEW)
+│   └── ... (40 more files)
 ├── backend/
-│   ├── client/               # Client/Admin panel pages (44 files)
-│   │   ├── index.php        # Dashboard
-│   │   ├── login.php        # Login page
-│   │   ├── clients_list.php # Client management
-│   │   ├── clients_view.php # Client detail view (NEW)
-│   │   ├── bookings_create.php # Manual booking
-│   │   ├── quotes_view.php  # Quote management (ENHANCED)
-│   │   ├── contracts_view.php # Contract management (ENHANCED)
-│   │   ├── expenses_edit.php # Expense with receipts (ENHANCED)
-│   │   ├── time_tracker.php # Active timer (NEW)
-│   │   └── ... (40 more files)
 │   ├── public/              # Public-facing pages
 │   │   ├── book.php        # Public booking flow (NEW)
 │   │   ├── blog.php        # Blog listing
@@ -473,7 +473,7 @@ Response:
            Require all granted
        </Directory>
        
-       <Directory /var/www/bdta/backend/client>
+       <Directory /var/www/bdta/client>
            Require all granted
        </Directory>
        
@@ -524,8 +524,8 @@ server {
         include fastcgi_params;
     }
 
-    location /backend/client/ {
-        try_files $uri $uri/ /backend/client/index.php?$query_string;
+    location /client/ {
+        try_files $uri $uri/ /client/index.php?$query_string;
     }
 
     location /backend/includes/ {
