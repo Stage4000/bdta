@@ -10,7 +10,7 @@
     <style>
         .sidebar {
             min-height: 100vh;
-            background: #2563eb;
+            background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%);
         }
         .sidebar .nav-link {
             color: rgba(255,255,255,0.8);
@@ -19,7 +19,38 @@
         .sidebar .nav-link:hover,
         .sidebar .nav-link.active {
             color: #fff;
-            background: rgba(255,255,255,0.1);
+            background: rgba(10,154,156,0.3);
+        }
+        .btn-primary {
+            background-color: #9a0073;
+            border-color: #9a0073;
+        }
+        .btn-primary:hover {
+            background-color: #7a005a;
+            border-color: #7a005a;
+        }
+        .btn-success {
+            background-color: #0a9a9c;
+            border-color: #0a9a9c;
+        }
+        .btn-success:hover {
+            background-color: #088587;
+            border-color: #088587;
+        }
+        .badge.bg-primary {
+            background-color: #9a0073 !important;
+        }
+        .badge.bg-info {
+            background-color: #0a9a9c !important;
+        }
+        .text-primary {
+            color: #9a0073 !important;
+        }
+        a {
+            color: #9a0073;
+        }
+        a:hover {
+            color: #7a005a;
         }
     </style>
 </head>

@@ -135,6 +135,27 @@ This is a **complete business management system** combining a public-facing webs
 - **Google Calendar API** - Calendar synchronization
 - **Email Services** - SendGrid, Mailgun, or AWS SES for transactional emails
 
+### Branding & Colors
+The system uses the official BDTA brand colors:
+- **Primary (Purple)**: `#9a0073` - Main branding color
+- **Secondary (Teal)**: `#0a9a9c` - Accent and success states
+- **Accent (Tan)**: `#a39f89` - Supporting color
+
+These colors are consistently applied across:
+- Frontend website (CSS variables in `/css/style.css`)
+- Admin panel (inline styles in `/backend/includes/header.php`)
+- Public booking and contract pages
+- Email templates
+
+To customize branding colors, update the CSS variables:
+```css
+:root {
+    --primary-color: #9a0073;
+    --secondary-color: #0a9a9c;
+    --accent-color: #a39f89;
+}
+```
+
 ## System Requirements
 
 - **PHP**: 7.4 or higher

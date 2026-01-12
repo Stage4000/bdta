@@ -47,9 +47,10 @@ $page_title = "Book an Appointment";
     
     <style>
         :root {
-            --primary-color: #2563eb;
-            --primary-dark: #1e40af;
-            --secondary-color: #10b981;
+            --primary-color: #9a0073;
+            --primary-dark: #7a005a;
+            --secondary-color: #0a9a9c;
+            --accent-color: #a39f89;
             --dark-color: #1f2937;
             --light-color: #f9fafb;
         }

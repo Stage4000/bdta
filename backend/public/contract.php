@@ -88,7 +88,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
             cursor: crosshair;
         }
         .signature-pad:hover {
-            border-color: #0d6efd;
+            border-color: #9a0073;
+        }
+        .bg-primary {
+            background-color: #9a0073 !important;
+        }
+        .btn-primary {
+            background-color: #9a0073;
+            border-color: #9a0073;
+        }
+        .btn-primary:hover {
+            background-color: #7a005a;
+            border-color: #7a005a;
+        }
+        .btn-success {
+            background-color: #0a9a9c;
+            border-color: #0a9a9c;
+        }
+        .btn-success:hover {
+            background-color: #088587;
+            border-color: #088587;
+        }
+        .bg-info {
+            background-color: #0a9a9c !important;
         }
     </style>
 </head>
