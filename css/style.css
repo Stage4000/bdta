@@ -124,7 +124,9 @@ img {
 .btn-outline-primary:hover {
     background-color: var(--primary-color);
     color: white;
+    border-color: var(--secondary-color);
     transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(10, 154, 156, 0.3);
 }
 
 /* ==========================================
