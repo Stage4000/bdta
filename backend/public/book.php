@@ -244,14 +244,18 @@ $page_title = "Book an Appointment";
                 </div>
                 <div class="step" data-step="2">
                     <div class="step-circle">2</div>
-                    <div class="step-label">Date & Time</div>
+                    <div class="step-label">Date</div>
                 </div>
                 <div class="step" data-step="3">
                     <div class="step-circle">3</div>
-                    <div class="step-label">Your Info</div>
+                    <div class="step-label">Time</div>
                 </div>
                 <div class="step" data-step="4">
                     <div class="step-circle">4</div>
+                    <div class="step-label">Your Info</div>
+                </div>
+                <div class="step" data-step="5">
+                    <div class="step-circle">5</div>
                     <div class="step-label">Confirm</div>
                 </div>
             </div>
@@ -300,21 +304,43 @@ $page_title = "Book an Appointment";
                     </div>
                 </div>
                 
-                <!-- Step 2: Select Date & Time -->
+                <!-- Step 2: Select Date -->
                 <div class="form-step" data-step="2">
-                    <h3 class="mb-4">Choose Date & Time</h3>
+                    <h3 class="mb-4">Choose Your Date</h3>
                     
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Select Date</label>
+                        <div class="col-md-8 mx-auto mb-3">
+                            <label class="form-label fw-bold">Select Date *</label>
                             <input type="date" class="form-control form-control-lg" id="appointmentDate" 
                                    name="appointment_date" required min="<?= date('Y-m-d') ?>">
+                            <small class="text-muted mt-2 d-block">Choose a date for your appointment. You'll select a time in the next step.</small>
                         </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
+                            <i class="bi bi-arrow-left me-2"></i> Back
+                        </button>
+                        <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()" id="step2Next">
+                            Continue <i class="bi bi-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Select Time -->
+                <div class="form-step" data-step="3">
+                    <h3 class="mb-4">Choose Your Time</h3>
+                    
+                    <div class="row">
                         <div class="col-12">
-                            <label class="form-label">Select Time</label>
+                            <p class="text-muted mb-3">
+                                <i class="bi bi-calendar me-2"></i>
+                                Selected date: <strong id="selectedDateDisplay">-</strong>
+                            </p>
+                            <label class="form-label fw-bold">Select Time *</label>
                             <div class="alert alert-info" id="loadingSlots">
                                 <div class="spinner-border spinner-border-sm me-2"></div>
-                                Select a date to see available times
+                                Loading available times...
                             </div>
                             <div id="timeSlotsContainer" class="row g-2" style="display: none;"></div>
                         </div>
@@ -324,14 +350,14 @@ $page_title = "Book an Appointment";
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
                             <i class="bi bi-arrow-left me-2"></i> Back
                         </button>
-                        <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()" id="step2Next" disabled>
+                        <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()" id="step3Next" disabled>
                             Continue <i class="bi bi-arrow-right ms-2"></i>
                         </button>
                     </div>
                 </div>
                 
-                <!-- Step 3: Your Information -->
-                <div class="form-step" data-step="3">
+                <!-- Step 4: Your Information -->
+                <div class="form-step" data-step="4">
                     <h3 class="mb-4">Your Information</h3>
                     
                     <div class="row">
@@ -373,8 +399,8 @@ $page_title = "Book an Appointment";
                     </div>
                 </div>
                 
-                <!-- Step 4: Confirmation -->
-                <div class="form-step" data-step="4">
+                <!-- Step 5: Confirmation -->
+                <div class="form-step" data-step="5">
                     <h3 class="mb-4">Confirm Your Booking</h3>
                     
                     <div class="card">
@@ -472,7 +498,8 @@ $page_title = "Book an Appointment";
             // Date selection
             document.getElementById('appointmentDate').addEventListener('change', function() {
                 selectedDate = this.value;
-                loadAvailableSlots();
+                // Enable the continue button on step 2
+                document.getElementById('step2Next').disabled = false;
             });
             
             // Form submission
@@ -498,11 +525,19 @@ $page_title = "Book an Appointment";
                     return;
                 }
             } else if (currentStep === 2) {
-                if (!selectedDate || !selectedTime) {
-                    showAlert('Please select a date and time', 'warning');
+                if (!selectedDate) {
+                    showAlert('Please select a date', 'warning');
                     return;
                 }
+                // Load available slots for step 3
+                updateSelectedDateDisplay();
+                loadAvailableSlots();
             } else if (currentStep === 3) {
+                if (!selectedTime) {
+                    showAlert('Please select a time', 'warning');
+                    return;
+                }
+            } else if (currentStep === 4) {
                 const name = document.getElementById('clientName').value.trim();
                 const email = document.getElementById('clientEmail').value.trim();
                 if (!name || !email) {
@@ -511,10 +546,10 @@ $page_title = "Book an Appointment";
                 }
             }
             
-            if (currentStep < 4) {
+            if (currentStep < 5) {
                 currentStep++;
                 updateSteps();
-                if (currentStep === 4) {
+                if (currentStep === 5) {
                     updateConfirmation();
                 }
             }
@@ -590,7 +625,17 @@ $page_title = "Book an Appointment";
                 slot.classList.remove('selected');
             });
             event.target.classList.add('selected');
-            document.getElementById('step2Next').disabled = false;
+            document.getElementById('step3Next').disabled = false;
+        }
+        
+        function updateSelectedDateDisplay() {
+            if (selectedDate) {
+                const dateObj = new Date(selectedDate + 'T00:00');
+                const formatted = dateObj.toLocaleDateString('en-US', { 
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+                });
+                document.getElementById('selectedDateDisplay').textContent = formatted;
+            }
         }
         
         function formatTime(time) {
