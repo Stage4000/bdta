@@ -70,9 +70,19 @@
     <?php if (isLoggedIn()): ?>
     <div class="container-fluid">
         <div class="row">
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <!-- Mobile menu toggle button -->
+            <nav class="navbar navbar-dark d-md-none" style="background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%);">
+                <div class="container-fluid">
+                    <span class="navbar-brand">BDTA Admin</span>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                </div>
+            </nav>
+            
+            <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar collapse">
                 <div class="position-sticky pt-3">
-                    <h5 class="text-white px-3 mb-3">BDTA Admin</h5>
+                    <h5 class="text-white px-3 mb-3 d-none d-md-block">BDTA Admin</h5>
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>" href="index.php">

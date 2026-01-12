@@ -4,16 +4,11 @@
  * Create or edit form templates with dynamic form builder
  */
 
-session_start();
+require_once '../includes/config.php';
+require_once '../includes/database.php';
 
 // Check if user is logged in
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header("Location: login.php");
-    exit;
-}
-
-require_once '../includes/database.php';
-require_once '../includes/config.php';
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();

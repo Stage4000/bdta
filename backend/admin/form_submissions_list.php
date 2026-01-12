@@ -49,7 +49,7 @@ $total_pages = ceil($total / $per_page);
 
 // Get submissions
 $query = "SELECT fs.*, 
-          c.first_name || ' ' || c.last_name as client_name,
+          c.name as client_name,
           ft.name as form_name,
           ft.form_type,
           b.appointment_date || ' ' || b.appointment_time as appointment_datetime,
@@ -76,7 +76,7 @@ if (!empty($params)) {
 $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get clients for filter
-$clients_stmt = $conn->query("SELECT id, first_name, last_name FROM clients ORDER BY first_name, last_name");
+$clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get templates for filter
@@ -101,7 +101,7 @@ include '../includes/header.php';
                         <option value="">All Clients</option>
                         <?php foreach ($clients as $client): ?>
                             <option value="<?= $client['id'] ?>" <?= $client_id == $client['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($client['first_name'] . ' ' . $client['last_name']) ?>
+                                <?= htmlspecialchars($client['name']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>

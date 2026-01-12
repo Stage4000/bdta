@@ -7,10 +7,7 @@ require_once '../includes/config.php';
 require_once '../includes/database.php';
 
 // Check if user is logged in
-if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login.php');
-    exit;
-}
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();

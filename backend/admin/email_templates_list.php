@@ -1,16 +1,19 @@
 <?php
 require_once '../includes/config.php';
-require_login();
+require_once '../includes/database.php';
 
-$db = get_db();
+requireLogin();
+
+$db = new Database();
+$conn = $db->getConnection();
 
 // Get all email templates
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
-$templates = $db->query("SELECT * FROM email_templates ORDER BY template_type, name LIMIT $per_page OFFSET $offset")->fetchAll(PDO::FETCH_ASSOC);
-$total = $db->query("SELECT COUNT(*) FROM email_templates")->fetchColumn();
+$templates = $conn->query("SELECT * FROM email_templates ORDER BY template_type, name LIMIT $per_page OFFSET $offset")->fetchAll(PDO::FETCH_ASSOC);
+$total = $conn->query("SELECT COUNT(*) FROM email_templates")->fetchColumn();
 $total_pages = ceil($total / $per_page);
 
 include '../includes/header.php';
