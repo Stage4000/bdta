@@ -90,7 +90,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'client') !== false ? 'active' : ''; ?>" href="clients_list.php">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'clients_') !== false ? 'active' : ''; ?>" href="clients_list.php">
                                 <i class="bi bi-people me-2"></i> Clients
                             </a>
                         </li>
