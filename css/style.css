@@ -359,6 +359,11 @@ footer a:hover {
     border-radius: var(--border-radius) !important;
 }
 
+/* Override Bootstrap's text-primary to use BDTA brand color */
+.text-primary {
+    color: var(--primary-color) !important;
+}
+
 /* ==========================================
    Responsive Design
    ========================================== */
