@@ -20,13 +20,13 @@ require_once '../backend/includes/header.php';
 ?>
 
 <div class="py-4">
-    <h2 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h2>
+    <h2 class="mb-4"><i class="fas fa-gauge me-2"></i>Dashboard</h2>
     
     <div class="row g-4 mb-4">
         <div class="col-md-3">
             <div class="card text-center">
                 <div class="card-body">
-                    <i class="bi bi-file-text fs-1 text-primary"></i>
+                    <i class="fas fa-file-lines fs-1 text-primary"></i>
                     <h3 class="mt-2"><?php echo $total_posts; ?></h3>
                     <p class="text-muted mb-0">Total Posts</p>
                     <small class="text-success"><?php echo $published_posts; ?> published</small>
@@ -36,7 +36,7 @@ require_once '../backend/includes/header.php';
         <div class="col-md-3">
             <div class="card text-center">
                 <div class="card-body">
-                    <i class="bi bi-calendar-check fs-1 text-success"></i>
+                    <i class="fas fa-calendar-check fs-1 text-success"></i>
                     <h3 class="mt-2"><?php echo $total_bookings; ?></h3>
                     <p class="text-muted mb-0">Total Bookings</p>
                     <small class="text-warning"><?php echo $pending_bookings; ?> pending</small>

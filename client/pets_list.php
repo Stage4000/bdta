@@ -73,7 +73,7 @@ include '../backend/includes/header.php';
         </div>
         <div class="col-md-4 text-end">
             <a href="pets_edit.php?<?= $client_id ? 'client_id=' . $client_id : '' ?>" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Add Pet
+                <i class="fas fa-circle-plus"></i> Add Pet
             </a>
         </div>
     </div>
@@ -165,13 +165,13 @@ include '../backend/includes/header.php';
                                     </td>
                                     <td>
                                         <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
-                                            <i class="bi bi-pencil"></i>
+                                            <i class="fas fa-pencil"></i>
                                         </a>
                                         <a href="pets_delete.php?id=<?= $pet['id'] ?><?= $client_id ? '&client_id=' . $client_id : '' ?>" 
                                            class="btn btn-sm btn-outline-danger" 
                                            onclick="return confirm('Are you sure you want to delete this pet?')" 
                                            title="Delete">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="fas fa-trash"></i>
                                         </a>
                                     </td>
                                 </tr>

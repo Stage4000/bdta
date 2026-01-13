@@ -74,11 +74,11 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col">
-            <h2><i class="bi bi-file-earmark-medical me-2"></i><?= $is_edit ? 'Edit Contract Template' : 'Create Contract Template' ?></h2>
+            <h2><i class="fas fa-file-medical me-2"></i><?= $is_edit ? 'Edit Contract Template' : 'Create Contract Template' ?></h2>
         </div>
         <div class="col-auto">
             <a href="contract_templates_list.php" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Back to Templates
+                <i class="fas fa-arrow-left me-1"></i>Back to Templates
             </a>
         </div>
     </div>
@@ -152,7 +152,7 @@ include '../backend/includes/header.php';
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-save me-1"></i>
+                    <i class="fas fa-floppy-disk me-1"></i>
                     <?= $is_edit ? 'Update Template' : 'Create Template' ?>
                 </button>
             </div>

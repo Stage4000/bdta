@@ -60,21 +60,21 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-md-8 offset-md-2">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="bi bi-people me-2"></i><?= $id > 0 ? 'Edit Client' : 'Add New Client' ?></h2>
+                <h2><i class="fas fa-users me-2"></i><?= $id > 0 ? 'Edit Client' : 'Add New Client' ?></h2>
                 <div>
                     <?php if ($id > 0): ?>
                         <a href="pets_edit.php?client_id=<?= $id ?>" class="btn btn-success me-2">
                             <i class="fa-solid fa-dog"></i> Add Pet
                         </a>
                         <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-info me-2">
-                            <i class="bi bi-wallet2"></i> Manage Credits
+                            <i class="fas fa-wallet"></i> Manage Credits
                         </a>
                         <a href="client_set_password.php?client_id=<?= $id ?>" class="btn btn-warning me-2">
-                            <i class="bi bi-key"></i> Set Password
+                            <i class="fas fa-key"></i> Set Password
                         </a>
                     <?php endif; ?>
                     <a href="clients_list.php" class="btn btn-secondary">
-                        <i class="bi bi-arrow-left"></i> Back to Clients
+                        <i class="fas fa-arrow-left"></i> Back to Clients
                     </a>
                 </div>
             </div>
@@ -131,7 +131,7 @@ include '../backend/includes/header.php';
                                     <strong>Admin Access</strong>
                                 </label>
                                 <div class="form-text">
-                                    <i class="bi bi-shield-check"></i> Grant this client administrative access to the system.
+                                    <i class="fas fa-shield-check"></i> Grant this client administrative access to the system.
                                     Admin clients can manage all clients, bookings, and settings.
                                 </div>
                             </div>
@@ -139,14 +139,14 @@ include '../backend/includes/header.php';
 
                         <?php if ($id > 0): ?>
                             <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i> To manage pets for this client, use the 
+                                <i class="fas fa-circle-info"></i> To manage pets for this client, use the 
                                 <a href="pets_list.php?client_id=<?= $id ?>" class="alert-link">Pets page</a>.
                             </div>
                         <?php endif; ?>
 
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-save"></i> <?= $id > 0 ? 'Update Client' : 'Create Client' ?>
+                                <i class="fas fa-floppy-disk"></i> <?= $id > 0 ? 'Update Client' : 'Create Client' ?>
                             </button>
                         </div>
                     </form>

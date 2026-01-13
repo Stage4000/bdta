@@ -162,11 +162,11 @@ require_once '../backend/includes/header.php';
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
-                    <h2><i class="bi bi-people me-2"></i>Credit Management</h2>
+                    <h2><i class="fas fa-users me-2"></i>Credit Management</h2>
                     <p class="text-muted">
                         Client: <strong><?php echo htmlspecialchars($client['name']); ?></strong>
                         <a href="clients_edit.php?id=<?php echo $client_id; ?>" class="btn btn-sm btn-outline-primary ms-2">
-                            <i class="bi bi-arrow-left"></i> Back to Client
+                            <i class="fas fa-arrow-left"></i> Back to Client
                         </a>
                     </p>
                 </div>
@@ -188,7 +188,7 @@ require_once '../backend/includes/header.php';
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="mb-0"><i class="bi bi-wallet2"></i> Current Balance</h5>
+                            <h5 class="mb-0"><i class="fas fa-wallet"></i> Current Balance</h5>
                         </div>
                         <div class="card-body">
                             <div class="display-4 mb-3">
@@ -218,7 +218,7 @@ require_once '../backend/includes/header.php';
                     <!-- Credit Configuration -->
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="mb-0"><i class="bi bi-gear"></i> Configuration</h5>
+                            <h5 class="mb-0"><i class="fas fa-gear"></i> Configuration</h5>
                         </div>
                         <div class="card-body">
                             <form method="POST">
@@ -244,7 +244,7 @@ require_once '../backend/includes/header.php';
                                 </div>
 
                                 <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-check-circle"></i> Save Configuration
+                                    <i class="fas fa-check-circle"></i> Save Configuration
                                 </button>
                             </form>
                         </div>
@@ -255,7 +255,7 @@ require_once '../backend/includes/header.php';
             <!-- Manual Adjustment Card -->
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-plus-slash-minus"></i> Manual Adjustment</h5>
+                    <h5 class="mb-0"><i class="fas fa-plus-slash-minus"></i> Manual Adjustment</h5>
                 </div>
                 <div class="card-body">
                     <form method="POST" class="row g-3">
@@ -275,7 +275,7 @@ require_once '../backend/includes/header.php';
                         
                         <div class="col-md-2 d-flex align-items-end">
                             <button type="submit" class="btn btn-success w-100">
-                                <i class="bi bi-check2"></i> Apply
+                                <i class="fas fa-check2"></i> Apply
                             </button>
                         </div>
                     </form>
@@ -285,7 +285,7 @@ require_once '../backend/includes/header.php';
             <!-- Transaction History -->
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Transaction History</h5>
+                    <h5 class="mb-0"><i class="fas fa-clock-rotate-left"></i> Transaction History</h5>
                 </div>
                 <div class="card-body">
                     <?php if (empty($transactions)): ?>

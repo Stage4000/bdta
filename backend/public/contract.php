@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contract <?= htmlspecialchars($contract['contract_number']) ?> - Brook's Dog Training Academy</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body {
             background: #f8f9fa;
@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
                     <div class="card-header bg-primary text-white">
                         <div class="d-flex justify-content-between align-items-center">
                             <h4 class="mb-0">
-                                <i class="bi bi-file-earmark-check me-2"></i>
+                                <i class="fas fa-file-circle-check me-2"></i>
                                 Contract <?= htmlspecialchars($contract['contract_number']) ?>
                             </h4>
                             <?php
@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
                         <?php if ($already_signed): ?>
                             <!-- Already Signed -->
                             <div class="alert alert-success">
-                                <i class="bi bi-check-circle me-2"></i>
+                                <i class="fas fa-check-circle me-2"></i>
                                 This contract has been signed.
                             </div>
                             
@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
                                     <img src="<?= htmlspecialchars($contract['signature_data']) ?>" 
                                          alt="Signature" class="border p-2" style="max-width: 400px;">
                                     <p class="text-muted small mt-2">
-                                        <i class="bi bi-calendar-event me-1"></i>
+                                        <i class="fas fa-calendar-days me-1"></i>
                                         Signed on <?= date('F j, Y \a\t g:i A', strtotime($contract['signed_date'])) ?>
                                     </p>
                                 </div>
@@ -198,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
                                         </div>
                                         <div class="mt-2">
                                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSignature()">
-                                                <i class="bi bi-arrow-counterclockwise me-1"></i>Clear
+                                                <i class="fas fa-arrow-rotate-left me-1"></i>Clear
                                             </button>
                                         </div>
                                     </div>
@@ -212,14 +212,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
                                     
                                     <div class="d-grid gap-2">
                                         <button type="submit" class="btn btn-success btn-lg" id="signBtn">
-                                            <i class="bi bi-pen me-2"></i>Sign Contract
+                                            <i class="fas fa-pen me-2"></i>Sign Contract
                                         </button>
                                     </div>
                                 </form>
                             </div>
                         <?php else: ?>
                             <div class="alert alert-info">
-                                <i class="bi bi-info-circle me-2"></i>
+                                <i class="fas fa-circle-info me-2"></i>
                                 This contract is not currently available for signing.
                             </div>
                         <?php endif; ?>

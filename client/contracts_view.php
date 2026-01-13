@@ -68,20 +68,20 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-md-10 offset-md-1">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="bi bi-file-earmark-check me-2"></i>Contract: <?= escape($contract['contract_number']) ?></h2>
+                <h2><i class="fas fa-file-circle-check me-2"></i>Contract: <?= escape($contract['contract_number']) ?></h2>
                 <div>
                     <?php if ($contract['status'] === 'draft'): ?>
                         <a href="contracts_create.php?id=<?= $id ?>" class="btn btn-primary me-2">
-                            <i class="bi bi-pencil"></i> Edit
+                            <i class="fas fa-pencil"></i> Edit
                         </a>
                         <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this contract?')">
                             <button type="submit" name="delete_contract" class="btn btn-danger me-2">
-                                <i class="bi bi-trash"></i> Delete
+                                <i class="fas fa-trash"></i> Delete
                             </button>
                         </form>
                     <?php endif; ?>
                     <a href="contracts_list.php" class="btn btn-secondary">
-                        <i class="bi bi-arrow-left"></i> Back to List
+                        <i class="fas fa-arrow-left"></i> Back to List
                     </a>
                 </div>
             </div>
@@ -148,7 +148,7 @@ include '../backend/includes/header.php';
                                     </select>
                                 </div>
                                 <button type="submit" name="change_status" class="btn btn-primary btn-sm w-100">
-                                    <i class="bi bi-check"></i> Update Status
+                                    <i class="fas fa-check"></i> Update Status
                                 </button>
                             </form>
                         </div>
@@ -166,7 +166,7 @@ include '../backend/includes/header.php';
                                 <input type="text" class="form-control form-control-sm" id="publicLink" 
                                        value="<?= escape($public_link) ?>" readonly>
                                 <button class="btn btn-outline-secondary btn-sm" type="button" onclick="copyLink()">
-                                    <i class="bi bi-clipboard"></i>
+                                    <i class="fas fa-clipboard"></i>
                                 </button>
                             </div>
                         </div>

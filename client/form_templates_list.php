@@ -79,9 +79,9 @@ require_once '../backend/includes/header.php';
     <div class="row mb-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
-                <h2><i class="bi bi-file-text me-2"></i>Form Templates</h2>
+                <h2><i class="fas fa-file-lines me-2"></i>Form Templates</h2>
                 <a href="form_templates_edit.php" class="btn btn-primary">
-                    <i class="bi bi-plus-circle me-1"></i> Add New Template
+                    <i class="fas fa-circle-plus me-1"></i> Add New Template
                 </a>
             </div>
         </div>
@@ -176,11 +176,11 @@ require_once '../backend/includes/header.php';
                             <td><?php echo date('M j, Y', strtotime($template['created_at'])); ?></td>
                             <td>
                                 <a href="form_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-primary">
-                                    <i class="bi bi-pencil"></i>
+                                    <i class="fas fa-pencil"></i>
                                 </a>
                                 <a href="form_templates_delete.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-danger" 
                                    onclick="return confirm('Are you sure you want to delete this template?');">
-                                    <i class="bi bi-trash"></i>
+                                    <i class="fas fa-trash"></i>
                                 </a>
                             </td>
                         </tr>
@@ -205,11 +205,11 @@ require_once '../backend/includes/header.php';
 
             <?php else: ?>
             <div class="text-center py-5">
-                <i class="bi bi-file-text" style="font-size: 4rem; color: #ccc;"></i>
+                <i class="fas fa-file-lines" style="font-size: 4rem; color: #ccc;"></i>
                 <h4 class="mt-3">No Form Templates Found</h4>
                 <p class="text-muted">Create your first form template to get started.</p>
                 <a href="form_templates_edit.php" class="btn btn-primary mt-2">
-                    <i class="bi bi-plus-circle me-1"></i> Create Template
+                    <i class="fas fa-circle-plus me-1"></i> Create Template
                 </a>
             </div>
             <?php endif; ?>

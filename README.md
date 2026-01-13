@@ -119,7 +119,7 @@ This is a **complete business management system** combining a public-facing webs
 - **CSS3** - Custom styles + Bootstrap 5.3.2
 - **JavaScript (ES6+)** - Interactive features
 - **Bootstrap 5.3.2** - Responsive framework
-- **Bootstrap Icons** - Icon library
+- **Font Awesome 6.5.1** - Icon library
 - **Google Fonts** - Poppins & Montserrat
 - **AOS Library** - Scroll animations
 
@@ -790,7 +790,7 @@ session_save_path('/var/www/bdta/backend/sessions');
 
 - **Design & Development**: Modern Bootstrap 5 responsive design with PHP CRM backend
 - **Training Services**: Brook's Dog Training Academy
-- **Icons**: Bootstrap Icons
+- **Icons**: Font Awesome 6.5.1
 - **Fonts**: Google Fonts (Poppins & Montserrat)
 - **Framework**: Bootstrap 5.3.2
 

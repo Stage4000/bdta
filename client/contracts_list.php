@@ -18,9 +18,9 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-file-earmark-check me-2"></i>Contract Management</h2>
+        <h2><i class="fas fa-file-circle-check me-2"></i>Contract Management</h2>
         <a href="contracts_create.php" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Create Contract
+            <i class="fas fa-circle-plus"></i> Create Contract
         </a>
     </div>
 
@@ -65,7 +65,7 @@ include '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <a href="contracts_view.php?id=<?= $contract['id'] ?>" class="btn btn-sm btn-outline-info">
-                                        <i class="bi bi-eye"></i> View
+                                        <i class="fas fa-eye"></i> View
                                     </a>
                                 </td>
                             </tr>

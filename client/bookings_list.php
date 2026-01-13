@@ -35,7 +35,7 @@ require_once '../backend/includes/header.php';
 ?>
 
 <div class="py-4">
-    <h2 class="mb-4"><i class="bi bi-calendar-check me-2"></i>Bookings Management</h2>
+    <h2 class="mb-4"><i class="fas fa-calendar-check me-2"></i>Bookings Management</h2>
     
     <div class="card">
         <div class="card-body">
@@ -84,7 +84,7 @@ require_once '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <a href="?delete=<?php echo $booking['id']; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this booking?')">
-                                        <i class="bi bi-trash"></i>
+                                        <i class="fas fa-trash"></i>
                                     </a>
                                 </td>
                             </tr>

@@ -23,9 +23,9 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="mb-0"><i class="bi bi-envelope me-2"></i>Email Templates</h2>
+                <h2 class="mb-0"><i class="fas fa-envelope me-2"></i>Email Templates</h2>
                 <a href="email_templates_edit.php" class="btn btn-primary">
-                    <i class="bi bi-plus-circle"></i> New Template
+                    <i class="fas fa-circle-plus"></i> New Template
                 </a>
             </div>
 
@@ -38,7 +38,7 @@ include '../backend/includes/header.php';
 
             <?php if (empty($templates)): ?>
                 <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
+                    <i class="fas fa-circle-info"></i>
                     No email templates found. Create your first template to customize emails.
                 </div>
             <?php else: ?>
@@ -48,10 +48,10 @@ include '../backend/includes/header.php';
                         'booking_confirmation' => ['icon' => 'calendar-check', 'color' => 'primary'],
                         'booking_reminder' => ['icon' => 'bell', 'color' => 'warning'],
                         'payment_receipt' => ['icon' => 'receipt', 'color' => 'success'],
-                        'contract_request' => ['icon' => 'file-earmark-text', 'color' => 'info'],
-                        'form_request' => ['icon' => 'file-earmark', 'color' => 'secondary'],
-                        'quote_notification' => ['icon' => 'currency-dollar', 'color' => 'primary'],
-                        'admin_notification' => ['icon' => 'exclamation-triangle', 'color' => 'danger']
+                        'contract_request' => ['icon' => 'file-invoice', 'color' => 'info'],
+                        'form_request' => ['icon' => 'file', 'color' => 'secondary'],
+                        'quote_notification' => ['icon' => 'dollar-sign', 'color' => 'primary'],
+                        'admin_notification' => ['icon' => 'triangle-exclamation', 'color' => 'danger']
                     ];
                     
                     foreach ($templates as $template): 
@@ -62,7 +62,7 @@ include '../backend/includes/header.php';
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
                                         <h5 class="card-title mb-0">
-                                            <i class="bi bi-<?php echo $type_info['icon']; ?> text-<?php echo $type_info['color']; ?>"></i>
+                                            <i class="fas fa-<?php echo $type_info['icon']; ?> text-<?php echo $type_info['color']; ?>"></i>
                                             <?php echo htmlspecialchars($template['name']); ?>
                                         </h5>
                                         <?php if ($template['is_active']): ?>
@@ -88,7 +88,7 @@ include '../backend/includes/header.php';
                                     
                                     <div class="d-flex gap-2">
                                         <a href="email_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-outline-primary flex-fill">
-                                            <i class="bi bi-pencil"></i> Edit
+                                            <i class="fas fa-pencil"></i> Edit
                                         </a>
                                     </div>
                                 </div>

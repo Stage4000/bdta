@@ -133,7 +133,7 @@ require_once '../backend/includes/header.php';
     <div class="row mb-4">
         <div class="col-12">
             <h2>
-                <i class="bi bi-file-text me-2"></i>
+                <i class="fas fa-file-lines me-2"></i>
                 <?php echo $is_edit ? 'Edit' : 'Create'; ?> Form Template
             </h2>
         </div>
@@ -180,7 +180,7 @@ require_once '../backend/includes/header.php';
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Form Fields</h5>
                         <button type="button" class="btn btn-sm btn-primary" onclick="addField()">
-                            <i class="bi bi-plus-circle"></i> Add Field
+                            <i class="fas fa-circle-plus"></i> Add Field
                         </button>
                     </div>
                     <div class="card-body">
@@ -224,7 +224,7 @@ require_once '../backend/includes/header.php';
                                             <label class="form-check-label">Required</label>
                                         </div>
                                         <button type="button" class="btn btn-sm btn-danger ms-2" onclick="removeField(this)">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -305,10 +305,10 @@ require_once '../backend/includes/header.php';
 
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save me-1"></i> Save Template
+                        <i class="fas fa-floppy-disk me-1"></i> Save Template
                     </button>
                     <a href="form_templates_list.php" class="btn btn-secondary">
-                        <i class="bi bi-x-circle me-1"></i> Cancel
+                        <i class="fas fa-circle-xmark me-1"></i> Cancel
                     </a>
                 </div>
             </div>
@@ -355,7 +355,7 @@ function addField() {
                         <label class="form-check-label">Required</label>
                     </div>
                     <button type="button" class="btn btn-sm btn-danger ms-2" onclick="removeField(this)">
-                        <i class="bi bi-trash"></i>
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>

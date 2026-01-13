@@ -11,15 +11,15 @@ requireLogin();
 // Helper function to get category icons
 function getCategoryIcon($category) {
     $icons = [
-        'general' => 'info-circle',
+        'general' => 'circle-info',
         'email' => 'envelope',
         'payment' => 'credit-card',
         'booking' => 'calendar-check',
-        'calendar' => 'calendar3',
-        'invoice' => 'file-earmark-text',
+        'calendar' => 'calendar-days',
+        'invoice' => 'file-invoice',
         'time_tracking' => 'clock',
-        'social' => 'share',
-        'advanced' => 'gear-fill'
+        'social' => 'share-nodes',
+        'advanced' => 'gear'
     ];
     return $icons[$category] ?? 'gear';
 }
@@ -105,7 +105,7 @@ include __DIR__ . '/../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <h2><i class="bi bi-gear"></i> Settings</h2>
+            <h2><i class="fas fa-gear"></i> Settings</h2>
             <p class="text-muted">Configure your Brook's Dog Training Academy settings</p>
         </div>
     </div>
@@ -131,7 +131,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <?php foreach ($categories as $category): ?>
                         <a href="?category=<?= urlencode($category) ?>" 
                            class="list-group-item list-group-item-action <?= $category === $current_category ? 'active' : '' ?>">
-                            <i class="bi bi-<?= getCategoryIcon($category) ?>"></i>
+                            <i class="fas fa-<?= getCategoryIcon($category) ?>"></i>
                             <?= escape(ucwords(str_replace('_', ' ', $category))) ?>
                         </a>
                     <?php endforeach; ?>
@@ -140,10 +140,10 @@ include __DIR__ . '/../backend/includes/header.php';
 
             <div class="card mt-3">
                 <div class="card-body">
-                    <h6 class="card-title"><i class="bi bi-info-circle"></i> Help</h6>
+                    <h6 class="card-title"><i class="fas fa-circle-info"></i> Help</h6>
                     <p class="card-text small text-muted">
                         Changes to settings take effect immediately. Settings marked with 
-                        <i class="bi bi-shield-lock"></i> are sensitive and will be masked.
+                        <i class="fas fa-shield-halved"></i> are sensitive and will be masked.
                     </p>
                 </div>
             </div>
@@ -154,7 +154,7 @@ include __DIR__ . '/../backend/includes/header.php';
             <div class="card">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
-                        <i class="bi bi-<?= getCategoryIcon($current_category) ?>"></i>
+                        <i class="fas fa-<?= getCategoryIcon($current_category) ?>"></i>
                         <?= escape(ucwords(str_replace('_', ' ', $current_category))) ?> Settings
                     </h5>
                 </div>
@@ -167,7 +167,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <label for="<?= escape($setting['key']) ?>" class="form-label">
                                     <?= escape($setting['label']) ?>
                                     <?php if ($setting['is_secret']): ?>
-                                        <i class="bi bi-shield-lock text-warning" title="Sensitive data"></i>
+                                        <i class="fas fa-shield-halved text-warning" title="Sensitive data"></i>
                                     <?php endif; ?>
                                 </label>
                                 
@@ -221,7 +221,7 @@ include __DIR__ . '/../backend/includes/header.php';
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                             <button type="submit" name="save_settings" class="btn btn-primary">
-                                <i class="bi bi-check-lg"></i> Save Settings
+                                <i class="fas fa-check-lg"></i> Save Settings
                             </button>
                         </div>
                     </form>

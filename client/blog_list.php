@@ -14,9 +14,9 @@ require_once '../backend/includes/header.php';
 
 <div class="py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-pencil-square me-2"></i>Blog Posts</h2>
+        <h2><i class="fas fa-blog me-2"></i>Blog Posts</h2>
         <a href="blog_edit.php" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-1"></i> New Post
+            <i class="fas fa-circle-plus me-1"></i> New Post
         </a>
     </div>
     
@@ -47,10 +47,10 @@ require_once '../backend/includes/header.php';
                                 <td><?php echo date('Y-m-d', strtotime($post['created_at'])); ?></td>
                                 <td>
                                     <a href="blog_edit.php?id=<?php echo $post['id']; ?>" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-pencil"></i>
+                                        <i class="fas fa-pencil"></i>
                                     </a>
                                     <a href="blog_delete.php?id=<?php echo $post['id']; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this post?')">
-                                        <i class="bi bi-trash"></i>
+                                        <i class="fas fa-trash"></i>
                                     </a>
                                 </td>
                             </tr>

@@ -39,8 +39,8 @@ $page_title = "Book an Appointment";
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -231,7 +231,7 @@ $page_title = "Book an Appointment";
 <body>
     <div class="booking-container">
         <div class="booking-header">
-            <h1><i class="bi bi-calendar-check me-2"></i>Book Your Appointment</h1>
+            <h1><i class="fas fa-calendar-check me-2"></i>Book Your Appointment</h1>
             <p class="text-muted mb-0">Schedule your dog training session with Brook's Dog Training Academy</p>
         </div>
         
@@ -279,7 +279,7 @@ $page_title = "Book an Appointment";
                                     <h5 class="mb-2"><?= escape($type['name']) ?></h5>
                                     <p class="text-muted mb-2"><?= escape($type['description']) ?></p>
                                     <div class="d-flex gap-3">
-                                        <span class="badge bg-primary"><i class="bi bi-clock me-1"></i><?= $type['duration_minutes'] ?> minutes</span>
+                                        <span class="badge bg-primary"><i class="fas fa-clock me-1"></i><?= $type['duration_minutes'] ?> minutes</span>
                                         <?php if ($type['requires_forms']): ?>
                                             <span class="badge bg-info">Forms Required</span>
                                         <?php endif; ?>
@@ -299,7 +299,7 @@ $page_title = "Book an Appointment";
                     
                     <div class="d-flex justify-content-end mt-4">
                         <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()">
-                            Continue <i class="bi bi-arrow-right ms-2"></i>
+                            Continue <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
                 </div>
@@ -319,10 +319,10 @@ $page_title = "Book an Appointment";
                     
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
-                            <i class="bi bi-arrow-left me-2"></i> Back
+                            <i class="fas fa-arrow-left me-2"></i> Back
                         </button>
                         <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()" id="step2Next">
-                            Continue <i class="bi bi-arrow-right ms-2"></i>
+                            Continue <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
                 </div>
@@ -334,7 +334,7 @@ $page_title = "Book an Appointment";
                     <div class="row">
                         <div class="col-12">
                             <p class="text-muted mb-3">
-                                <i class="bi bi-calendar me-2"></i>
+                                <i class="fas fa-calendar me-2"></i>
                                 Selected date: <strong id="selectedDateDisplay">-</strong>
                             </p>
                             <label class="form-label fw-bold">Select Time *</label>
@@ -348,10 +348,10 @@ $page_title = "Book an Appointment";
                     
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
-                            <i class="bi bi-arrow-left me-2"></i> Back
+                            <i class="fas fa-arrow-left me-2"></i> Back
                         </button>
                         <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()" id="step3Next" disabled>
-                            Continue <i class="bi bi-arrow-right ms-2"></i>
+                            Continue <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
                 </div>
@@ -391,10 +391,10 @@ $page_title = "Book an Appointment";
                     
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
-                            <i class="bi bi-arrow-left me-2"></i> Back
+                            <i class="fas fa-arrow-left me-2"></i> Back
                         </button>
                         <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()">
-                            Continue <i class="bi bi-arrow-right ms-2"></i>
+                            Continue <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
                 </div>
@@ -432,17 +432,17 @@ $page_title = "Book an Appointment";
                     </div>
                     
                     <div class="alert alert-info mt-3">
-                        <i class="bi bi-info-circle me-2"></i>
+                        <i class="fas fa-circle-info me-2"></i>
                         You will receive a confirmation email with your appointment details and calendar links.
                     </div>
                     
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
-                            <i class="bi bi-arrow-left me-2"></i> Back
+                            <i class="fas fa-arrow-left me-2"></i> Back
                         </button>
                         <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
                             <span class="loading-spinner spinner-border spinner-border-sm me-2"></span>
-                            <i class="bi bi-check-circle me-2"></i> Confirm Booking
+                            <i class="fas fa-check-circle me-2"></i> Confirm Booking
                         </button>
                     </div>
                 </div>
@@ -456,7 +456,7 @@ $page_title = "Book an Appointment";
             <div class="modal-content">
                 <div class="modal-body text-center p-5">
                     <div class="mb-4">
-                        <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                        <i class="fas fa-check-circle-fill text-success" style="font-size: 4rem;"></i>
                     </div>
                     <h2 class="mb-3">Booking Confirmed!</h2>
                     <p class="text-muted mb-4">Your appointment has been successfully booked. Check your email for confirmation details and calendar links.</p>
@@ -615,7 +615,7 @@ $page_title = "Book an Appointment";
                 .catch(err => {
                     loadingSlots.style.display = 'block';
                     loadingSlots.className = 'alert alert-danger';
-                    loadingSlots.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i> Error loading time slots. Please try again.';
+                    loadingSlots.innerHTML = '<i class="fas fa-triangle-exclamation me-2"></i> Error loading time slots. Please try again.';
                 });
         }
         

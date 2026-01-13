@@ -61,13 +61,13 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-stopwatch me-2"></i>Time Tracking</h2>
+        <h2><i class="fas fa-stopwatch me-2"></i>Time Tracking</h2>
         <div>
             <a href="time_tracker.php" class="btn btn-success me-2">
-                <i class="bi bi-play-circle"></i> Start Timer
+                <i class="fas fa-circle-play"></i> Start Timer
             </a>
             <a href="time_entries_edit.php<?= $client_filter > 0 ? "?client_id=$client_filter" : '' ?>" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Add Time Entry
+                <i class="fas fa-circle-plus"></i> Add Time Entry
             </a>
         </div>
     </div>
@@ -191,12 +191,12 @@ include '../backend/includes/header.php';
                                     </td>
                                     <td>
                                         <a href="time_entries_edit.php?id=<?= $entry['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-pencil"></i>
+                                            <i class="fas fa-pencil"></i>
                                         </a>
                                         <a href="?delete=<?= $entry['id'] ?><?= $client_filter > 0 ? "&client_id=$client_filter" : '' ?>" 
                                            class="btn btn-sm btn-outline-danger"
                                            onclick="return confirm('Delete this time entry?')">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="fas fa-trash"></i>
                                         </a>
                                     </td>
                                 </tr>

@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quote <?= htmlspecialchars($quote['quote_number']) ?> - Brook's Dog Training Academy</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         .bg-primary {
             background-color: #9a0073 !important;
@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
                     <div class="card-header bg-primary text-white">
                         <div class="d-flex justify-content-between align-items-center">
                             <h4 class="mb-0">
-                                <i class="bi bi-file-earmark-text me-2"></i>
+                                <i class="fas fa-file-invoice me-2"></i>
                                 Quote <?= htmlspecialchars($quote['quote_number']) ?>
                             </h4>
                             <?php
@@ -112,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
                         
                         <?php if ($is_expired && $can_respond): ?>
                             <div class="alert alert-warning">
-                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <i class="fas fa-triangle-exclamation me-2"></i>
                                 This quote has expired. Please contact us if you're still interested.
                             </div>
                         <?php endif; ?>
@@ -154,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
                         <?php if ($quote['expiration_date']): ?>
                             <p class="text-muted mb-4">
                                 <small>
-                                    <i class="bi bi-calendar-event me-1"></i>
+                                    <i class="fas fa-calendar-days me-1"></i>
                                     Expires: <?= date('F j, Y', strtotime($quote['expiration_date'])) ?>
                                 </small>
                             </p>
@@ -165,10 +165,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
                             <form method="POST" class="mt-4" onsubmit="return confirm('Are you sure?')">
                                 <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                                     <button type="submit" name="action" value="decline" class="btn btn-outline-secondary">
-                                        <i class="bi bi-x-circle me-1"></i>Decline
+                                        <i class="fas fa-circle-xmark me-1"></i>Decline
                                     </button>
                                     <button type="submit" name="action" value="accept" class="btn btn-success">
-                                        <i class="bi bi-check-circle me-1"></i>Accept Quote
+                                        <i class="fas fa-check-circle me-1"></i>Accept Quote
                                     </button>
                                 </div>
                             </form>

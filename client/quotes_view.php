@@ -95,23 +95,23 @@ include '../backend/includes/header.php';
     <div class="row mb-4">
         <div class="col">
             <h2>
-                <i class="bi bi-file-earmark-text me-2"></i>
+                <i class="fas fa-file-invoice me-2"></i>
                 Quote <?= escape($quote['quote_number']) ?>
             </h2>
         </div>
         <div class="col-auto">
             <a href="quotes_list.php" class="btn btn-outline-secondary me-2">
-                <i class="bi bi-arrow-left me-1"></i>Back to Quotes
+                <i class="fas fa-arrow-left me-1"></i>Back to Quotes
             </a>
             <?php if ($display_status == 'draft' || $display_status == 'sent' || $display_status == 'viewed'): ?>
                 <a href="quotes_create.php?id=<?= $quote_id ?>" class="btn btn-primary me-2">
-                    <i class="bi bi-pencil me-1"></i>Edit
+                    <i class="fas fa-pencil me-1"></i>Edit
                 </a>
             <?php endif; ?>
             <?php if ($display_status != 'draft'): ?>
                 <form method="POST" class="d-inline">
                     <button type="submit" name="resend_quote" class="btn btn-success me-2">
-                        <i class="bi bi-send me-1"></i>Resend Quote
+                        <i class="fas fa-paper-plane me-1"></i>Resend Quote
                     </button>
                 </form>
             <?php endif; ?>
@@ -269,7 +269,7 @@ include '../backend/includes/header.php';
                         <input type="text" class="form-control form-control-sm" id="publicLink" 
                                value="<?= escape($public_link) ?>" readonly>
                         <button class="btn btn-outline-secondary btn-sm" type="button" onclick="copyLink()">
-                            <i class="bi bi-clipboard"></i>
+                            <i class="fas fa-clipboard"></i>
                         </button>
                     </div>
                 </div>

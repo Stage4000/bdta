@@ -88,7 +88,7 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-file-earmark-check"></i> Form Submissions</h2>
+        <h2><i class="fas fa-file-circle-check"></i> Form Submissions</h2>
     </div>
 
     <!-- Filters -->
@@ -136,7 +136,7 @@ include '../backend/includes/header.php';
 
     <?php if (empty($submissions)): ?>
         <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> No form submissions found.
+            <i class="fas fa-circle-info"></i> No form submissions found.
         </div>
     <?php else: ?>
         <div class="card">
@@ -160,7 +160,7 @@ include '../backend/includes/header.php';
                                     <strong><?= htmlspecialchars($sub['form_name']) ?></strong>
                                     <?php if ($sub['booking_id']): ?>
                                         <br><small class="text-muted">
-                                            <i class="bi bi-calendar"></i> <?= htmlspecialchars($sub['appointment_datetime']) ?>
+                                            <i class="fas fa-calendar"></i> <?= htmlspecialchars($sub['appointment_datetime']) ?>
                                         </small>
                                     <?php endif; ?>
                                 </td>
@@ -212,7 +212,7 @@ include '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <a href="form_submissions_view.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-outline-primary" title="View">
-                                        <i class="bi bi-eye"></i>
+                                        <i class="fas fa-eye"></i>
                                     </a>
                                 </td>
                             </tr>

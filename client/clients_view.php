@@ -86,16 +86,16 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-person-circle me-2"></i><?= escape($client['name']) ?></h2>
+        <h2><i class="fas fa-user-circle me-2"></i><?= escape($client['name']) ?></h2>
         <div>
             <a href="clients_edit.php?id=<?= $id ?>" class="btn btn-primary me-2">
-                <i class="bi bi-pencil"></i> Edit Client
+                <i class="fas fa-pencil"></i> Edit Client
             </a>
             <a href="bookings_create.php?client_id=<?= $id ?>" class="btn btn-success me-2">
-                <i class="bi bi-calendar-plus"></i> New Booking
+                <i class="fas fa-calendar-plus"></i> New Booking
             </a>
             <a href="clients_list.php" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back
+                <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>
     </div>
@@ -115,7 +115,7 @@ include '../backend/includes/header.php';
         <div class="col-md-4 mb-4">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Client Information</h5>
+                    <h5 class="mb-0"><i class="fas fa-circle-info me-2"></i>Client Information</h5>
                 </div>
                 <div class="card-body">
                     <dl class="mb-0">
@@ -139,7 +139,7 @@ include '../backend/includes/header.php';
                                 </span>
                                 <div class="mt-2">
                                     <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-wallet2"></i> Manage Credits
+                                        <i class="fas fa-wallet"></i> Manage Credits
                                     </a>
                                 </div>
                             </dd>
@@ -158,7 +158,7 @@ include '../backend/includes/header.php';
                 <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fa-solid fa-dog me-2"></i>Pets</h5>
                     <a href="pets_edit.php?client_id=<?= $id ?>" class="btn btn-sm btn-light">
-                        <i class="bi bi-plus"></i> Add Pet
+                        <i class="fas fa-plus"></i> Add Pet
                     </a>
                 </div>
                 <div class="card-body">
@@ -173,7 +173,7 @@ include '../backend/includes/header.php';
                                     <?= $pet['breed'] ? '- ' . escape($pet['breed']) : '' ?>
                                 </small>
                                 <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-xs btn-outline-secondary mt-1">
-                                    <i class="bi bi-pencil"></i> Edit
+                                    <i class="fas fa-pencil"></i> Edit
                                 </a>
                             </div>
                         <?php endforeach; ?>
@@ -187,31 +187,31 @@ include '../backend/includes/header.php';
             <ul class="nav nav-tabs" role="tablist">
                 <li class="nav-item">
                     <a class="nav-link active" data-bs-toggle="tab" href="#appointments">
-                        <i class="bi bi-calendar-check"></i> Appointments 
+                        <i class="fas fa-calendar-check"></i> Appointments 
                         <span class="badge bg-primary"><?= count($appointments) ?></span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" data-bs-toggle="tab" href="#contracts">
-                        <i class="bi bi-file-earmark-text"></i> Contracts 
+                        <i class="fas fa-file-invoice"></i> Contracts 
                         <span class="badge bg-secondary"><?= count($contracts) ?></span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" data-bs-toggle="tab" href="#forms">
-                        <i class="bi bi-list-check"></i> Forms 
+                        <i class="fas fa-list-check"></i> Forms 
                         <span class="badge bg-secondary"><?= count($forms) ?></span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" data-bs-toggle="tab" href="#quotes">
-                        <i class="bi bi-file-earmark-ruled"></i> Quotes 
+                        <i class="fas fa-file-ruled"></i> Quotes 
                         <span class="badge bg-secondary"><?= count($quotes) ?></span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" data-bs-toggle="tab" href="#invoices">
-                        <i class="bi bi-receipt"></i> Invoices 
+                        <i class="fas fa-receipt"></i> Invoices 
                         <span class="badge bg-secondary"><?= count($invoices) ?></span>
                     </a>
                 </li>
@@ -285,7 +285,7 @@ include '../backend/includes/header.php';
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="mb-0">Contracts</h5>
                         <a href="contracts_create.php?client_id=<?= $id ?>" class="btn btn-sm btn-primary">
-                            <i class="bi bi-plus"></i> New Contract
+                            <i class="fas fa-plus"></i> New Contract
                         </a>
                     </div>
                     <?php if (empty($contracts)): ?>
@@ -317,7 +317,7 @@ include '../backend/includes/header.php';
                                             </td>
                                             <td>
                                                 <a href="contracts_view.php?id=<?= $contract['id'] ?>" class="btn btn-xs btn-outline-info">
-                                                    <i class="bi bi-eye"></i> View
+                                                    <i class="fas fa-eye"></i> View
                                                 </a>
                                             </td>
                                         </tr>
@@ -352,7 +352,7 @@ include '../backend/includes/header.php';
                                             <td><span class="badge bg-info"><?= escape($form['status']) ?></span></td>
                                             <td>
                                                 <a href="form_submissions_view.php?id=<?= $form['id'] ?>" class="btn btn-xs btn-outline-info">
-                                                    <i class="bi bi-eye"></i> View
+                                                    <i class="fas fa-eye"></i> View
                                                 </a>
                                             </td>
                                         </tr>
@@ -368,7 +368,7 @@ include '../backend/includes/header.php';
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="mb-0">Quotes</h5>
                         <a href="quotes_create.php?client_id=<?= $id ?>" class="btn btn-sm btn-primary">
-                            <i class="bi bi-plus"></i> New Quote
+                            <i class="fas fa-plus"></i> New Quote
                         </a>
                     </div>
                     <?php if (empty($quotes)): ?>
@@ -402,7 +402,7 @@ include '../backend/includes/header.php';
                                             <td><?= formatDate($quote['created_at']) ?></td>
                                             <td>
                                                 <a href="quotes_view.php?id=<?= $quote['id'] ?>" class="btn btn-xs btn-outline-info">
-                                                    <i class="bi bi-eye"></i> View
+                                                    <i class="fas fa-eye"></i> View
                                                 </a>
                                             </td>
                                         </tr>
@@ -418,7 +418,7 @@ include '../backend/includes/header.php';
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="mb-0">Invoices</h5>
                         <a href="invoices_create.php?client_id=<?= $id ?>" class="btn btn-sm btn-primary">
-                            <i class="bi bi-plus"></i> New Invoice
+                            <i class="fas fa-plus"></i> New Invoice
                         </a>
                     </div>
                     <?php if (empty($invoices)): ?>
@@ -452,7 +452,7 @@ include '../backend/includes/header.php';
                                             </td>
                                             <td>
                                                 <a href="invoices_view.php?id=<?= $invoice['id'] ?>" class="btn btn-xs btn-outline-info">
-                                                    <i class="bi bi-eye"></i> View
+                                                    <i class="fas fa-eye"></i> View
                                                 </a>
                                             </td>
                                         </tr>
