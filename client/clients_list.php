@@ -49,41 +49,6 @@ include '../backend/includes/header.php';
                             <th>Name</th>
                             <th>Email</th>
                             <th>Phone</th>
-                            <th>Dog</th>
-                            <th>Created</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($clients)): ?>
-                            <tr><td colspan="7" class="text-center py-4">
-                                <p class="text-muted">No clients found.</p>
-                            </td></tr>
-                        <?php else: foreach ($clients as $client): ?>
-                            <tr>
-                                <td><?= escape($client['id']) ?></td>
-                                <td><strong><?= escape($client['name']) ?></strong></td>
-                                <td><?= escape($client['email']) ?></td>
-                                <td><?= escape($client['phone'] ?? '') ?></td>
-                                <td><?= escape($client['dog_name'] ?? '-') ?></td>
-                                <td><?= formatDate($client['created_at']) ?></td>
-                                <td>
-                                    <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" title="View Profile">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                    <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <a href="?delete=<?= $client['id'] ?>" class="btn btn-sm btn-outline-danger" 
-                                       onclick="return confirm('Are you sure you want to delete this client?')" title="Delete">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                        <?php endforeach; endif; ?>
-                    </tbody>
-                            <th>Dog Name</th>
-                            <th>Dog Breed</th>
                             <th>Created</th>
                             <th>Actions</th>
                         </tr>
@@ -91,34 +56,34 @@ include '../backend/includes/header.php';
                     <tbody>
                         <?php if (empty($clients)): ?>
                             <tr>
-                                <td colspan="8" class="text-center py-4">
+                                <td colspan="6" class="text-center py-4">
                                     <p class="text-muted">No clients found. Add your first client to get started!</p>
                                 </td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($clients as $client): ?>
                                 <tr>
-                                    <td><?= $client['id'] ?></td>
+                                    <td><?= escape($client['id']) ?></td>
                                     <td><strong><?= escape($client['name']) ?></strong></td>
                                     <td><?= escape($client['email']) ?></td>
                                     <td><?= escape($client['phone'] ?? 'N/A') ?></td>
-                                    <td><?= escape($client['dog_name'] ?? 'N/A') ?></td>
-                                    <td><?= escape($client['dog_breed'] ?? 'N/A') ?></td>
                                     <td><?= formatDate($client['created_at']) ?></td>
                                     <td>
-                                        <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-pencil"></i> Edit
+                                        <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" title="View Profile">
+                                            <i class="bi bi-eye"></i>
                                         </a>
-                                        <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info">
-                                            <i class="bi bi-clock"></i> Time
+                                        <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
                                         </a>
-                                        <a href="invoices_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-success">
-                                            <i class="bi bi-file-text"></i> Invoices
+                                        <a href="pets_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-success" title="View Pets">
+                                            <i class="bi bi-heart-fill"></i>
                                         </a>
-                                        <a href="clients_list.php?delete=<?= $client['id'] ?>" 
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Are you sure you want to delete this client? This cannot be undone.')">
-                                            <i class="bi bi-trash"></i> Delete
+                                        <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary" title="Time Entries">
+                                            <i class="bi bi-clock"></i>
+                                        </a>
+                                        <a href="?delete=<?= $client['id'] ?>" class="btn btn-sm btn-outline-danger" 
+                                           onclick="return confirm('Are you sure you want to delete this client? This cannot be undone.')" title="Delete">
+                                            <i class="bi bi-trash"></i>
                                         </a>
                                     </td>
                                 </tr>
