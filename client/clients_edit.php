@@ -25,8 +25,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
     $address = trim($_POST['address'] ?? '');
-    $dog_name = trim($_POST['dog_name'] ?? '');
-    $dog_breed = trim($_POST['dog_breed'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
     
     if (empty($name) || empty($email)) {
@@ -36,18 +34,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Update existing client
             $stmt = $conn->prepare("
                 UPDATE clients 
-                SET name = ?, email = ?, phone = ?, address = ?, dog_name = ?, dog_breed = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+                SET name = ?, email = ?, phone = ?, address = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
-            $stmt->execute([$name, $email, $phone, $address, $dog_name, $dog_breed, $notes, $id]);
+            $stmt->execute([$name, $email, $phone, $address, $notes, $id]);
             setFlashMessage('Client updated successfully!', 'success');
         } else {
             // Create new client
             $stmt = $conn->prepare("
-                INSERT INTO clients (name, email, phone, address, dog_name, dog_breed, notes) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO clients (name, email, phone, address, notes) 
+                VALUES (?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$name, $email, $phone, $address, $dog_name, $dog_breed, $notes]);
+            $stmt->execute([$name, $email, $phone, $address, $notes]);
             setFlashMessage('Client created successfully!', 'success');
         }
         redirect('clients_list.php');
@@ -113,23 +111,17 @@ include '../backend/includes/header.php';
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="dog_name" class="form-label">Dog Name</label>
-                                <input type="text" class="form-control" id="dog_name" name="dog_name" 
-                                       value="<?= escape($client['dog_name'] ?? '') ?>">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="dog_breed" class="form-label">Dog Breed</label>
-                                <input type="text" class="form-control" id="dog_breed" name="dog_breed" 
-                                       value="<?= escape($client['dog_breed'] ?? '') ?>">
-                            </div>
-                        </div>
-
                         <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
                             <textarea class="form-control" id="notes" name="notes" rows="4"><?= escape($client['notes'] ?? '') ?></textarea>
                         </div>
+
+                        <?php if ($id > 0): ?>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> To manage pets for this client, use the 
+                                <a href="pets_list.php?client_id=<?= $id ?>" class="alert-link">Pets page</a>.
+                            </div>
+                        <?php endif; ?>
 
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary">

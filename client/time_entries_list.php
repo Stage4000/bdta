@@ -62,9 +62,14 @@ include '../backend/includes/header.php';
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-stopwatch me-2"></i>Time Tracking</h2>
-        <a href="time_entries_edit.php<?= $client_filter > 0 ? "?client_id=$client_filter" : '' ?>" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Add Time Entry
-        </a>
+        <div>
+            <a href="time_tracker.php" class="btn btn-success me-2">
+                <i class="bi bi-play-circle"></i> Start Timer
+            </a>
+            <a href="time_entries_edit.php<?= $client_filter > 0 ? "?client_id=$client_filter" : '' ?>" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add Time Entry
+            </a>
+        </div>
     </div>
 
     <?php

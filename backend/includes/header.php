@@ -105,7 +105,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'time_entries') !== false || strpos($_SERVER['PHP_SELF'], 'time_tracker') !== false ? 'active' : ''; ?>" href="time_tracker.php">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'time_entries') !== false || strpos($_SERVER['PHP_SELF'], 'time_tracker') !== false ? 'active' : ''; ?>" href="time_entries_list.php">
                                 <i class="bi bi-stopwatch me-2"></i> Time Tracker
                             </a>
                         </li>
