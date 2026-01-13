@@ -33,7 +33,7 @@ $page_title = 'Login';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - BDTA</title>
+    <title>Client Login - BDTA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -70,7 +70,7 @@ $page_title = 'Login';
             <div class="col-md-4">
                 <div class="card login-card">
                     <div class="login-header">
-                        <h3 class="mb-0">BDTA Admin</h3>
+                        <h3 class="mb-0">BDTA Client Area</h3>
                         <small>Brooks Dog Training Academy</small>
                     </div>
                     <div class="card-body p-4">
@@ -89,9 +89,6 @@ $page_title = 'Login';
                             </div>
                             <button type="submit" class="btn btn-primary w-100">Login</button>
                         </form>
-                        <div class="text-center mt-3">
-                            <small class="text-muted">Default: admin / admin123</small>
-                        </div>
                     </div>
                 </div>
             </div>

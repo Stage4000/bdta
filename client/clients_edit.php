@@ -62,7 +62,10 @@ include '../backend/includes/header.php';
                 <h2><i class="bi bi-people me-2"></i><?= $id > 0 ? 'Edit Client' : 'Add New Client' ?></h2>
                 <div>
                     <?php if ($id > 0): ?>
-                        <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-success me-2">
+                        <a href="pets_edit.php?client_id=<?= $id ?>" class="btn btn-success me-2">
+                            <i class="fa-solid fa-dog"></i> Add Pet
+                        </a>
+                        <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-info me-2">
                             <i class="bi bi-wallet2"></i> Manage Credits
                         </a>
                     <?php endif; ?>

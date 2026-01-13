@@ -156,7 +156,7 @@ include '../backend/includes/header.php';
             <!-- Pets Card -->
             <div class="card mt-3">
                 <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-heart me-2"></i>Pets</h5>
+                    <h5 class="mb-0"><i class="fa-solid fa-dog me-2"></i>Pets</h5>
                     <a href="pets_edit.php?client_id=<?= $id ?>" class="btn btn-sm btn-light">
                         <i class="bi bi-plus"></i> Add Pet
                     </a>

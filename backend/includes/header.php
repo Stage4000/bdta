@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($page_title) ? escape($page_title) : 'Admin Panel'; ?> - BDTA</title>
+    <title><?php echo isset($page_title) ? escape($page_title) : 'Client Area'; ?> - BDTA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/mobile.css">
     <style>
         .sidebar {
@@ -73,7 +74,7 @@
             <!-- Mobile menu toggle button -->
             <nav class="navbar navbar-dark d-md-none" style="background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%);">
                 <div class="container-fluid">
-                    <span class="navbar-brand">BDTA Admin</span>
+                    <span class="navbar-brand">BDTA Client Area</span>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button>
@@ -82,7 +83,7 @@
             
             <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar collapse">
                 <div class="position-sticky pt-3">
-                    <h5 class="text-white px-3 mb-3 d-none d-md-block">BDTA Admin</h5>
+                    <h5 class="text-white px-3 mb-3 d-none d-md-block">BDTA Client Area</h5>
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>" href="index.php">
@@ -96,7 +97,7 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'pets') !== false ? 'active' : ''; ?>" href="pets_list.php">
-                                <i class="bi bi-heart-fill me-2"></i> Pets
+                                <i class="fa-solid fa-dog me-2"></i> Pets
                             </a>
                         </li>
                         <li class="nav-item">

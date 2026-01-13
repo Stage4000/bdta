@@ -64,7 +64,7 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-md-8">
-            <h2><i class="bi bi-heart-fill me-2"></i><?= htmlspecialchars($page_title) ?></h2>
+            <h2><i class="fa-solid fa-dog me-2"></i><?= htmlspecialchars($page_title) ?></h2>
             <?php if ($client): ?>
                 <p class="text-muted">
                     <a href="clients_edit.php?id=<?= $client_id ?>">← Back to Client Profile</a>

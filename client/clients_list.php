@@ -76,7 +76,7 @@ include '../backend/includes/header.php';
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <a href="pets_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-success" title="View Pets">
-                                            <i class="bi bi-heart-fill"></i>
+                                            <i class="fa-solid fa-dog"></i>
                                         </a>
                                         <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary" title="Time Entries">
                                             <i class="bi bi-clock"></i>
