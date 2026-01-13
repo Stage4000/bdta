@@ -4,11 +4,11 @@
 
 ### TinyMCE Self-Hosted Implementation
 - Replaced CDN version requiring API key with self-hosted version
-- Installed via npm in `/client/` directory
+- Extracted from tinymce.zip to `/client/js/tinymce/` directory
 - Used in: contracts_create.php, contract_templates_edit.php, blog_edit.php
-- Path: `node_modules/tinymce/tinymce.min.js` (relative to `/client/` directory)
+- Path: `js/tinymce/tinymce.min.js` (relative to `/client/` directory)
 
-**Note on Path**: All admin pages using TinyMCE are in `/client/` directory, so the relative path is appropriate and will work correctly when accessed through the web server.
+**Note on Path**: All admin pages using TinyMCE are in `/client/` directory, so the relative path is appropriate and will work correctly when accessed through the web server. The TinyMCE files are now committed to the repository to avoid npm dependency issues.
 
 ### Form URIs
 - All forms verified to use correct POST/GET methods

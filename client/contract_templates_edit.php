@@ -164,7 +164,7 @@ include '../backend/includes/header.php';
 </div>
 
 <!-- TinyMCE Rich Text Editor (Self-Hosted) -->
-<script src="node_modules/tinymce/tinymce.min.js"></script>
+<script src="js/tinymce/tinymce.min.js"></script>
 <script>
 tinymce.init({
     selector: '#template_text',
