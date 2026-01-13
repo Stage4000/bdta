@@ -133,7 +133,7 @@ include __DIR__ . '/../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="mb-4">
         <a href="appointment_types_list.php" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left"></i> Back to Appointment Types
+            <i class="fas fa-arrow-left"></i> Back to Appointment Types
         </a>
     </div>
 
@@ -323,7 +323,7 @@ include __DIR__ . '/../backend/includes/header.php';
 
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-circle"></i> <?= $is_edit ? 'Update' : 'Create' ?> Appointment Type
+                        <i class="fas fa-check-circle"></i> <?= $is_edit ? 'Update' : 'Create' ?> Appointment Type
                     </button>
                     <a href="appointment_types_list.php" class="btn btn-secondary">Cancel</a>
                 </div>

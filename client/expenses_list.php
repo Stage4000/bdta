@@ -34,9 +34,9 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-receipt me-2"></i>Expense Tracking</h2>
+        <h2><i class="fas fa-receipt me-2"></i>Expense Tracking</h2>
         <a href="expenses_edit.php" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Add Expense
+            <i class="fas fa-circle-plus"></i> Add Expense
         </a>
     </div>
 
@@ -104,11 +104,11 @@ include '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <a href="expenses_edit.php?id=<?= $expense['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-pencil"></i>
+                                        <i class="fas fa-pencil"></i>
                                     </a>
                                     <a href="?delete=<?= $expense['id'] ?>" class="btn btn-sm btn-outline-danger"
                                        onclick="return confirm('Delete this expense?')">
-                                        <i class="bi bi-trash"></i>
+                                        <i class="fas fa-trash"></i>
                                     </a>
                                 </td>
                             </tr>

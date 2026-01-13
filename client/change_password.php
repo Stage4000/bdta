@@ -79,9 +79,9 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-md-6 offset-md-3">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="bi bi-key me-2"></i>Change Password</h2>
+                <h2><i class="fas fa-key me-2"></i>Change Password</h2>
                 <a href="index.php" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
                 </a>
             </div>
 
@@ -120,7 +120,7 @@ include '../backend/includes/header.php';
 
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-circle"></i> Change Password
+                                <i class="fas fa-check-circle"></i> Change Password
                             </button>
                         </div>
                     </form>
@@ -128,7 +128,7 @@ include '../backend/includes/header.php';
             </div>
 
             <div class="alert alert-info mt-3">
-                <i class="bi bi-info-circle"></i> <strong>Security Tips:</strong>
+                <i class="fas fa-circle-info"></i> <strong>Security Tips:</strong>
                 <ul class="mb-0 mt-2">
                     <li>Use a strong password with a mix of letters, numbers, and symbols</li>
                     <li>Don't reuse passwords from other accounts</li>

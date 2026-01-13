@@ -129,13 +129,13 @@ include '../backend/includes/header.php';
     <div class="row mb-4">
         <div class="col">
             <h2>
-                <i class="bi bi-file-earmark-text me-2"></i>
+                <i class="fas fa-file-invoice me-2"></i>
                 <?= $is_edit ? 'Edit Quote' : 'Create Quote' ?>
             </h2>
         </div>
         <div class="col-auto">
             <a href="quotes_list.php" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Back to Quotes
+                <i class="fas fa-arrow-left me-1"></i>Back to Quotes
             </a>
         </div>
     </div>
@@ -180,7 +180,7 @@ include '../backend/includes/header.php';
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Line Items</h5>
                         <button type="button" class="btn btn-sm btn-primary" onclick="addLineItem()">
-                            <i class="bi bi-plus-circle me-1"></i>Add Item
+                            <i class="fas fa-circle-plus me-1"></i>Add Item
                         </button>
                     </div>
                     <div class="card-body">
@@ -203,7 +203,7 @@ include '../backend/includes/header.php';
                                             </div>
                                             <div class="col-md-2">
                                                 <button type="button" class="btn btn-outline-danger w-100" onclick="removeLineItem(this)">
-                                                    <i class="bi bi-trash"></i>
+                                                    <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
                                         </div>
@@ -223,7 +223,7 @@ include '../backend/includes/header.php';
                                         </div>
                                         <div class="col-md-2">
                                             <button type="button" class="btn btn-outline-danger w-100" onclick="removeLineItem(this)">
-                                                <i class="bi bi-trash"></i>
+                                                <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
                                     </div>
@@ -260,7 +260,7 @@ include '../backend/includes/header.php';
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-save me-1"></i>
+                    <i class="fas fa-floppy-disk me-1"></i>
                     <?= $is_edit ? 'Update Quote' : 'Create Quote' ?>
                 </button>
             </div>
@@ -286,7 +286,7 @@ function addLineItem() {
             </div>
             <div class="col-md-2">
                 <button type="button" class="btn btn-outline-danger w-100" onclick="removeLineItem(this)">
-                    <i class="bi bi-trash"></i>
+                    <i class="fas fa-trash"></i>
                 </button>
             </div>
         </div>

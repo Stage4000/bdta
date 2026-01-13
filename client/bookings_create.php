@@ -142,9 +142,9 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Create Booking</h2>
+                <h2 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Create Booking</h2>
                 <a href="bookings_list.php" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Back to Bookings
+                    <i class="fas fa-arrow-left"></i> Back to Bookings
                 </a>
             </div>
 
@@ -257,7 +257,7 @@ include '../backend/includes/header.php';
                             <!-- Submit -->
                             <div class="col-12">
                                 <button type="submit" class="btn btn-primary btn-lg">
-                                    <i class="bi bi-check-circle"></i> Create Booking
+                                    <i class="fas fa-check-circle"></i> Create Booking
                                 </button>
                             </div>
                         </div>

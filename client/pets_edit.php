@@ -310,7 +310,7 @@ include '../backend/includes/header.php';
                 <div class="card-footer">
                     <input type="hidden" name="return_to" value="<?= htmlspecialchars($_SERVER['HTTP_REFERER'] ?? 'pets_list.php') ?>">
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-circle"></i> <?= $pet_id ? 'Update' : 'Add' ?> Pet
+                        <i class="fas fa-check-circle"></i> <?= $pet_id ? 'Update' : 'Add' ?> Pet
                     </button>
                     <a href="<?= $client_id ? 'clients_edit.php?id=' . $client_id : 'pets_list.php' ?>" class="btn btn-secondary">
                         Cancel

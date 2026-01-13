@@ -72,7 +72,7 @@ include '../backend/includes/header.php';
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-md-10 offset-md-1">
-            <h2 class="mb-4"><i class="bi bi-file-earmark-text me-2"></i>Create Invoice</h2>
+            <h2 class="mb-4"><i class="fas fa-file-invoice me-2"></i>Create Invoice</h2>
             
             <div class="card">
                 <div class="card-body">
@@ -119,7 +119,7 @@ include '../backend/includes/header.php';
                         </div>
                         
                         <button type="button" class="btn btn-secondary btn-sm mb-3" id="addItem">
-                            <i class="bi bi-plus"></i> Add Line Item
+                            <i class="fas fa-plus"></i> Add Line Item
                         </button>
                         
                         <div class="row mt-4">
@@ -154,7 +154,7 @@ include '../backend/includes/header.php';
                         
                         <div class="mt-4">
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-save"></i> Create Invoice
+                                <i class="fas fa-floppy-disk"></i> Create Invoice
                             </button>
                             <a href="invoices_list.php" class="btn btn-secondary">Cancel</a>
                         </div>

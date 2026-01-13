@@ -23,9 +23,9 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-people me-2"></i>Client Management</h2>
+        <h2><i class="fas fa-users me-2"></i>Client Management</h2>
         <a href="clients_edit.php" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Add New Client
+            <i class="fas fa-circle-plus"></i> Add New Client
         </a>
     </div>
 
@@ -68,7 +68,7 @@ include '../backend/includes/header.php';
                                         <strong><?= escape($client['name']) ?></strong>
                                         <?php if (!empty($client['is_admin'])): ?>
                                             <span class="badge bg-primary ms-2" title="Has admin access">
-                                                <i class="bi bi-shield-check"></i> Admin
+                                                <i class="fas fa-shield-check"></i> Admin
                                             </span>
                                         <?php endif; ?>
                                     </td>
@@ -77,20 +77,20 @@ include '../backend/includes/header.php';
                                     <td><?= formatDate($client['created_at']) ?></td>
                                     <td>
                                         <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" title="View Profile">
-                                            <i class="bi bi-eye"></i>
+                                            <i class="fas fa-eye"></i>
                                         </a>
                                         <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
-                                            <i class="bi bi-pencil"></i>
+                                            <i class="fas fa-pencil"></i>
                                         </a>
                                         <a href="pets_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-success" title="View Pets">
                                             <i class="fa-solid fa-dog"></i>
                                         </a>
                                         <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary" title="Time Entries">
-                                            <i class="bi bi-clock"></i>
+                                            <i class="fas fa-clock"></i>
                                         </a>
                                         <a href="?delete=<?= $client['id'] ?>" class="btn btn-sm btn-outline-danger" 
                                            onclick="return confirm('Are you sure you want to delete this client? This cannot be undone.')" title="Delete">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="fas fa-trash"></i>
                                         </a>
                                     </td>
                                 </tr>

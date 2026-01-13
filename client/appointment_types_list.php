@@ -41,11 +41,11 @@ include __DIR__ . '/../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="mb-0"><i class="bi bi-calendar-check-fill me-2"></i>Appointment Types</h2>
+            <h2 class="mb-0"><i class="fas fa-calendar-plus me-2"></i>Appointment Types</h2>
             <p class="text-muted">Configure appointment types with rules and behaviors</p>
         </div>
         <a href="appointment_types_edit.php" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Add New Type
+            <i class="fas fa-circle-plus"></i> Add New Type
         </a>
     </div>
 
@@ -61,7 +61,7 @@ include __DIR__ . '/../backend/includes/header.php';
         <div class="card-body">
             <?php if (empty($types)): ?>
                 <div class="text-center py-5">
-                    <i class="bi bi-calendar-check display-1 text-muted"></i>
+                    <i class="fas fa-calendar-check display-1 text-muted"></i>
                     <p class="text-muted mt-3">No appointment types found</p>
                     <a href="appointment_types_edit.php" class="btn btn-primary">Add Your First Type</a>
                 </div>
@@ -138,13 +138,13 @@ include __DIR__ . '/../backend/includes/header.php';
                                     <td>
                                         <a href="appointment_types_edit.php?id=<?= $type['id'] ?>" 
                                            class="btn btn-sm btn-outline-primary" title="Edit">
-                                            <i class="bi bi-pencil"></i>
+                                            <i class="fas fa-pencil"></i>
                                         </a>
                                         <a href="appointment_types_delete.php?id=<?= $type['id'] ?>" 
                                            class="btn btn-sm btn-outline-danger" 
                                            onclick="return confirm('Are you sure you want to delete this appointment type?')"
                                            title="Delete">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="fas fa-trash"></i>
                                         </a>
                                     </td>
                                 </tr>

@@ -33,12 +33,12 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col">
-            <h2><i class="bi bi-file-earmark-medical me-2"></i>Contract Templates</h2>
+            <h2><i class="fas fa-file-medical me-2"></i>Contract Templates</h2>
             <p class="text-muted">Reusable contract templates for different service types</p>
         </div>
         <div class="col-auto">
             <a href="contract_templates_edit.php" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i>Create Template
+                <i class="fas fa-circle-plus me-1"></i>Create Template
             </a>
         </div>
     </div>
@@ -69,10 +69,10 @@ include '../backend/includes/header.php';
                         </div>
                         <div class="card-footer bg-transparent">
                             <a href="contract_templates_edit.php?id=<?= $template['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-pencil me-1"></i>Edit
+                                <i class="fas fa-pencil me-1"></i>Edit
                             </a>
                             <a href="contracts_create.php?template_id=<?= $template['id'] ?>" class="btn btn-sm btn-success">
-                                <i class="bi bi-plus-circle me-1"></i>Use Template
+                                <i class="fas fa-circle-plus me-1"></i>Use Template
                             </a>
                         </div>
                     </div>
@@ -95,7 +95,7 @@ include '../backend/includes/header.php';
 
     <?php else: ?>
         <div class="alert alert-info">
-            <i class="bi bi-info-circle me-2"></i>
+            <i class="fas fa-circle-info me-2"></i>
             No contract templates found. <a href="contract_templates_edit.php">Create your first template</a>
         </div>
     <?php endif; ?>

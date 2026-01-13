@@ -63,11 +63,11 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col">
-            <h2><i class="bi bi-file-earmark-text me-2"></i>Quotes</h2>
+            <h2><i class="fas fa-file-invoice me-2"></i>Quotes</h2>
         </div>
         <div class="col-auto">
             <a href="quotes_create.php" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i>Create Quote
+                <i class="fas fa-circle-plus me-1"></i>Create Quote
             </a>
         </div>
     </div>
@@ -157,7 +157,7 @@ include '../backend/includes/header.php';
                                 <td><?= date('M j, Y', strtotime($quote['created_at'])) ?></td>
                                 <td>
                                     <a href="quotes_view.php?id=<?= $quote['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye"></i>
+                                        <i class="fas fa-eye"></i>
                                     </a>
                                 </td>
                             </tr>
@@ -186,7 +186,7 @@ include '../backend/includes/header.php';
 
     <?php else: ?>
         <div class="alert alert-info">
-            <i class="bi bi-info-circle me-2"></i>
+            <i class="fas fa-circle-info me-2"></i>
             No quotes found. <a href="quotes_create.php">Create your first quote</a>
         </div>
     <?php endif; ?>

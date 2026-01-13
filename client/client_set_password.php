@@ -59,9 +59,9 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-md-6 offset-md-3">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="bi bi-key me-2"></i>Set Client Password</h2>
+                <h2><i class="fas fa-key me-2"></i>Set Client Password</h2>
                 <a href="clients_edit.php?id=<?= $client_id ?>" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Back to Client
+                    <i class="fas fa-arrow-left"></i> Back to Client
                 </a>
             </div>
 
@@ -75,7 +75,7 @@ include '../backend/includes/header.php';
             <div class="card">
                 <div class="card-body">
                     <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Setting a password for <strong><?= escape($client['name']) ?></strong>
+                        <i class="fas fa-circle-info"></i> Setting a password for <strong><?= escape($client['name']) ?></strong>
                     </div>
 
                     <form method="POST">
@@ -92,7 +92,7 @@ include '../backend/includes/header.php';
 
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-circle"></i> Set Password
+                                <i class="fas fa-check-circle"></i> Set Password
                             </button>
                         </div>
                     </form>
@@ -100,7 +100,7 @@ include '../backend/includes/header.php';
             </div>
 
             <div class="alert alert-warning mt-3">
-                <i class="bi bi-exclamation-triangle"></i> <strong>Note:</strong>
+                <i class="fas fa-triangle-exclamation"></i> <strong>Note:</strong>
                 <ul class="mb-0 mt-2">
                     <li>The client can use their <strong>email (<?= escape($client['email']) ?>)</strong> and this password to log in</li>
                     <li>Make sure to communicate this password securely to the client</li>

@@ -27,14 +27,14 @@ if (!$post) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo escape($post['title']); ?> - Brook's Dog Training Academy</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="../css/style.css" rel="stylesheet">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold" href="../index.html">
-                <i class="bi bi-paw-fill text-primary me-2"></i>Brook's Dog Training Academy
+                <i class="fas fa-paw text-primary me-2"></i>Brook's Dog Training Academy
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -54,14 +54,14 @@ if (!$post) {
             <div class="row justify-content-center">
                 <div class="col-lg-8">
                     <a href="index.php" class="btn btn-outline-primary mb-4">
-                        <i class="bi bi-arrow-left me-1"></i> Back to Blog
+                        <i class="fas fa-arrow-left me-1"></i> Back to Blog
                     </a>
                     
                     <article>
                         <h1 class="display-5 fw-bold mb-3"><?php echo escape($post['title']); ?></h1>
                         <p class="text-muted mb-4">
-                            <i class="bi bi-person me-1"></i> <?php echo escape($post['author']); ?> | 
-                            <i class="bi bi-calendar me-1"></i> <?php echo formatDate($post['created_at']); ?>
+                            <i class="fas fa-user me-1"></i> <?php echo escape($post['author']); ?> | 
+                            <i class="fas fa-calendar me-1"></i> <?php echo formatDate($post['created_at']); ?>
                         </p>
                         
                         <?php if ($post['excerpt']): ?>

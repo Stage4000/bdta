@@ -35,9 +35,9 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-file-earmark-text me-2"></i>Invoice Management</h2>
+        <h2><i class="fas fa-file-invoice me-2"></i>Invoice Management</h2>
         <a href="invoices_create.php<?= $client_filter > 0 ? "?client_id=$client_filter" : '' ?>" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Create Invoice
+            <i class="fas fa-circle-plus"></i> Create Invoice
         </a>
     </div>
 
@@ -115,16 +115,16 @@ include '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <a href="invoices_view.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-info">
-                                        <i class="bi bi-eye"></i> View
+                                        <i class="fas fa-eye"></i> View
                                     </a>
                                     <?php if ($invoice['status'] === 'draft'): ?>
                                         <a href="invoices_create.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-pencil"></i> Edit
+                                            <i class="fas fa-pencil"></i> Edit
                                         </a>
                                     <?php endif; ?>
                                     <?php if ($invoice['status'] !== 'paid'): ?>
                                         <a href="invoices_payment.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-success">
-                                            <i class="bi bi-credit-card"></i> Pay
+                                            <i class="fas fa-credit-card"></i> Pay
                                         </a>
                                     <?php endif; ?>
                                 </td>

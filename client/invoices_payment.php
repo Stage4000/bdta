@@ -70,13 +70,13 @@ include '../backend/includes/header.php';
                         </div>
                         
                         <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i> 
+                            <i class="fas fa-triangle-exclamation"></i> 
                             <strong>Note:</strong> This will mark the invoice as paid. This action cannot be undone.
                         </div>
                         
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-success">
-                                <i class="bi bi-check-circle"></i> Confirm Payment Received
+                                <i class="fas fa-check-circle"></i> Confirm Payment Received
                             </button>
                             <a href="invoices_view.php?id=<?= $id ?>" class="btn btn-secondary">Cancel</a>
                         </div>
@@ -87,7 +87,7 @@ include '../backend/includes/header.php';
                     <h5>Online Payment (Stripe)</h5>
                     <p class="text-muted">For online credit card payments, integration with Stripe is available.</p>
                     <button class="btn btn-primary" id="stripePaymentBtn">
-                        <i class="bi bi-credit-card"></i> Pay with Credit Card (Coming Soon)
+                        <i class="fas fa-credit-card"></i> Pay with Credit Card (Coming Soon)
                     </button>
                 </div>
             </div>

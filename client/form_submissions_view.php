@@ -88,9 +88,9 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-file-earmark-check"></i> View Form Submission</h2>
+        <h2><i class="fas fa-file-circle-check"></i> View Form Submission</h2>
         <a href="form_submissions_list.php" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Back to List
+            <i class="fas fa-arrow-left"></i> Back to List
         </a>
     </div>
 
@@ -140,7 +140,7 @@ include '../backend/includes/header.php';
                                     } elseif ($field['type'] == 'file') {
                                         // File upload (show link when implemented)
                                         if (!empty($response)) {
-                                            echo '<i class="bi bi-file-earmark"></i> ' . htmlspecialchars($response);
+                                            echo '<i class="fas fa-file"></i> ' . htmlspecialchars($response);
                                         } else {
                                             echo '<span class="text-muted">No file uploaded</span>';
                                         }
@@ -253,19 +253,19 @@ include '../backend/includes/header.php';
                 <div class="card-body">
                     <?php if ($submission['status'] != 'reviewed'): ?>
                         <button type="button" class="btn btn-success w-100 mb-2" data-bs-toggle="modal" data-bs-target="#reviewModal">
-                            <i class="bi bi-check-circle"></i> Mark as Reviewed
+                            <i class="fas fa-check-circle"></i> Mark as Reviewed
                         </button>
                     <?php else: ?>
                         <form method="POST" onsubmit="return confirm('Remove review status?');">
                             <input type="hidden" name="action" value="unreview">
                             <button type="submit" class="btn btn-warning w-100 mb-2">
-                                <i class="bi bi-x-circle"></i> Remove Review
+                                <i class="fas fa-circle-xmark"></i> Remove Review
                             </button>
                         </form>
                     <?php endif; ?>
                     
                     <a href="clients_edit.php?id=<?= $submission['client_id'] ?>" class="btn btn-outline-primary w-100">
-                        <i class="bi bi-person"></i> View Client
+                        <i class="fas fa-user"></i> View Client
                     </a>
                 </div>
             </div>
@@ -294,7 +294,7 @@ include '../backend/includes/header.php';
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-success">
-                        <i class="bi bi-check-circle"></i> Mark as Reviewed
+                        <i class="fas fa-check-circle"></i> Mark as Reviewed
                     </button>
                 </div>
             </form>

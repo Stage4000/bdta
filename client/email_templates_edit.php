@@ -55,9 +55,9 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="mb-0"><i class="bi bi-envelope me-2"></i><?php echo $id ? 'Edit' : 'Create'; ?> Email Template</h2>
+                <h2 class="mb-0"><i class="fas fa-envelope me-2"></i><?php echo $id ? 'Edit' : 'Create'; ?> Email Template</h2>
                 <a href="email_templates_list.php" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Back to Templates
+                    <i class="fas fa-arrow-left"></i> Back to Templates
                 </a>
             </div>
 
@@ -135,7 +135,7 @@ include '../backend/includes/header.php';
                                 </div>
 
                                 <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-check-circle"></i> <?php echo $id ? 'Update' : 'Create'; ?> Template
+                                    <i class="fas fa-check-circle"></i> <?php echo $id ? 'Update' : 'Create'; ?> Template
                                 </button>
                             </form>
                         </div>

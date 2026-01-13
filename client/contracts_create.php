@@ -91,7 +91,7 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-md-10 offset-md-1">
             <h2 class="mb-4">
-                <i class="bi bi-file-earmark-check me-2"></i>
+                <i class="fas fa-file-circle-check me-2"></i>
                 <?= $contract_id > 0 ? 'Edit Contract' : 'Create Contract' ?>
             </h2>
             
@@ -169,10 +169,10 @@ include '../backend/includes/header.php';
                 
                 <div class="d-flex justify-content-between mb-4">
                     <a href="contracts_list.php" class="btn btn-secondary">
-                        <i class="bi bi-x-circle"></i> Cancel
+                        <i class="fas fa-circle-xmark"></i> Cancel
                     </a>
                     <button type="submit" class="btn btn-primary btn-lg">
-                        <i class="bi bi-save"></i> <?= $contract_id > 0 ? 'Update' : 'Create' ?> Contract
+                        <i class="fas fa-floppy-disk"></i> <?= $contract_id > 0 ? 'Update' : 'Create' ?> Contract
                     </button>
                 </div>
             </form>
