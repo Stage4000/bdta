@@ -38,6 +38,7 @@ try {
     }
     
     // Check if smtp_debug setting exists
+    $stmt = $conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
     $stmt->execute(['smtp_debug']);
     $exists = $stmt->fetchColumn() > 0;
     

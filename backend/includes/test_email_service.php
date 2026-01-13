@@ -23,7 +23,7 @@ $email_config = [
     'smtp_port' => Settings::get('smtp_port', 587),
     'smtp_encryption' => Settings::get('smtp_encryption', 'tls'),
     'smtp_username' => Settings::get('smtp_username', ''),
-    'smtp_password' => Settings::get('smtp_password', '') ? '****' : '(empty)',
+    'smtp_password' => !empty(Settings::get('smtp_password', '')) ? '****' : '(empty)',
     'smtp_debug' => Settings::get('smtp_debug', false) ? 'enabled' : 'disabled',
     'email_from_address' => Settings::get('email_from_address', ''),
     'email_from_name' => Settings::get('email_from_name', '')
@@ -47,15 +47,15 @@ if ($email_config['email_service'] === 'smtp') {
         $issues[] = "Invalid encryption type: " . $email_config['smtp_encryption'];
     }
     
-    if ($email_config['smtp_port'] != 587 && $email_config['smtp_port'] != 465 && $email_config['smtp_port'] != 25) {
+    if ($email_config['smtp_port'] !== 587 && $email_config['smtp_port'] !== 465 && $email_config['smtp_port'] !== 25) {
         echo "  Warning: Uncommon SMTP port " . $email_config['smtp_port'] . "\n";
     }
     
-    if ($email_config['smtp_encryption'] === 'tls' && $email_config['smtp_port'] == 465) {
+    if ($email_config['smtp_encryption'] === 'tls' && $email_config['smtp_port'] === 465) {
         echo "  Warning: Port 465 typically uses SSL, not TLS\n";
     }
     
-    if ($email_config['smtp_encryption'] === 'ssl' && $email_config['smtp_port'] == 587) {
+    if ($email_config['smtp_encryption'] === 'ssl' && $email_config['smtp_port'] === 587) {
         echo "  Warning: Port 587 typically uses TLS, not SSL\n";
     }
 }
