@@ -142,7 +142,7 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 class="h3 mb-0">Create Booking</h1>
+                <h2 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Create Booking</h2>
                 <a href="bookings_list.php" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Back to Bookings
                 </a>

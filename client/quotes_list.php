@@ -63,7 +63,7 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col">
-            <h1 class="h3"><i class="bi bi-file-earmark-text me-2"></i>Quotes</h1>
+            <h2><i class="bi bi-file-earmark-text me-2"></i>Quotes</h2>
         </div>
         <div class="col-auto">
             <a href="quotes_create.php" class="btn btn-primary">

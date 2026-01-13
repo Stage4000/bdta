@@ -35,7 +35,7 @@ require_once '../backend/includes/header.php';
 ?>
 
 <div class="py-4">
-    <h2 class="mb-4">Bookings Management</h2>
+    <h2 class="mb-4"><i class="bi bi-calendar-check me-2"></i>Bookings Management</h2>
     
     <div class="card">
         <div class="card-body">
