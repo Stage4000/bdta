@@ -64,7 +64,14 @@ include '../backend/includes/header.php';
                             <?php foreach ($clients as $client): ?>
                                 <tr>
                                     <td><?= escape($client['id']) ?></td>
-                                    <td><strong><?= escape($client['name']) ?></strong></td>
+                                    <td>
+                                        <strong><?= escape($client['name']) ?></strong>
+                                        <?php if (!empty($client['is_admin'])): ?>
+                                            <span class="badge bg-primary ms-2" title="Has admin access">
+                                                <i class="bi bi-shield-check"></i> Admin
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?= escape($client['email']) ?></td>
                                     <td><?= escape($client['phone'] ?? 'N/A') ?></td>
                                     <td><?= formatDate($client['created_at']) ?></td>
@@ -76,7 +83,7 @@ include '../backend/includes/header.php';
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <a href="pets_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-success" title="View Pets">
-                                            <i class="bi bi-heart-fill"></i>
+                                            <i class="fa-solid fa-dog"></i>
                                         </a>
                                         <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary" title="Time Entries">
                                             <i class="bi bi-clock"></i>

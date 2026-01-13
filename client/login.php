@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db = new Database();
         $conn = $db->getConnection();
         
+        // First check admin_users table
         $stmt = $conn->prepare("SELECT * FROM admin_users WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -18,10 +19,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user && password_verify($password, $user['password_hash'])) {
             $_SESSION['admin_id'] = $user['id'];
             $_SESSION['admin_username'] = $user['username'];
+            $_SESSION['is_admin'] = true;
+            $_SESSION['user_type'] = 'admin';
             setFlashMessage('Welcome back!', 'success');
             redirect('index.php');
         } else {
-            $error = 'Invalid username or password';
+            // Check clients table for admin clients
+            $stmt = $conn->prepare("SELECT id, name, email, password_hash, is_admin FROM clients WHERE email = ? AND is_admin = 1 AND password_hash IS NOT NULL AND password_hash != ''");
+            $stmt->execute([$username]);
+            $client = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($client && password_verify($password, $client['password_hash'])) {
+                $_SESSION['admin_id'] = $client['id'];
+                $_SESSION['admin_username'] = $client['name'];
+                $_SESSION['admin_email'] = $client['email'];
+                $_SESSION['is_admin'] = true;
+                $_SESSION['user_type'] = 'client';
+                
+                // Update last login
+                $stmt = $conn->prepare("UPDATE clients SET last_login = CURRENT_TIMESTAMP WHERE id = ?");
+                $stmt->execute([$client['id']]);
+                
+                setFlashMessage('Welcome back, ' . escape($client['name']) . '!', 'success');
+                redirect('index.php');
+            } else {
+                $error = 'Invalid username or password';
+            }
         }
     }
 }
@@ -33,7 +56,7 @@ $page_title = 'Login';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - BDTA</title>
+    <title>Client Login - BDTA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -70,7 +93,7 @@ $page_title = 'Login';
             <div class="col-md-4">
                 <div class="card login-card">
                     <div class="login-header">
-                        <h3 class="mb-0">BDTA Admin</h3>
+                        <h3 class="mb-0">BDTA Client Area</h3>
                         <small>Brooks Dog Training Academy</small>
                     </div>
                     <div class="card-body p-4">
@@ -89,9 +112,6 @@ $page_title = 'Login';
                             </div>
                             <button type="submit" class="btn btn-primary w-100">Login</button>
                         </form>
-                        <div class="text-center mt-3">
-                            <small class="text-muted">Default: admin / admin123</small>
-                        </div>
                     </div>
                 </div>
             </div>

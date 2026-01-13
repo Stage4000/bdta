@@ -637,6 +637,26 @@ class Database {
         if (!in_array('override_credits', $column_names)) {
             $this->conn->exec("ALTER TABLE bookings ADD COLUMN override_credits INTEGER DEFAULT 0");
         }
+        
+        // Update clients table to add password and admin fields for client login
+        $client_columns = $this->conn->query("PRAGMA table_info(clients)")->fetchAll(PDO::FETCH_ASSOC);
+        $client_column_names = array_column($client_columns, 'name');
+        
+        if (!in_array('password_hash', $client_column_names)) {
+            $this->conn->exec("ALTER TABLE clients ADD COLUMN password_hash TEXT");
+        }
+        if (!in_array('is_admin', $client_column_names)) {
+            $this->conn->exec("ALTER TABLE clients ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!in_array('last_login', $client_column_names)) {
+            $this->conn->exec("ALTER TABLE clients ADD COLUMN last_login TIMESTAMP");
+        }
+        if (!in_array('password_reset_token', $client_column_names)) {
+            $this->conn->exec("ALTER TABLE clients ADD COLUMN password_reset_token TEXT");
+        }
+        if (!in_array('password_reset_expires', $client_column_names)) {
+            $this->conn->exec("ALTER TABLE clients ADD COLUMN password_reset_expires TIMESTAMP");
+        }
     }
 }
 ?>

@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = trim($_POST['phone'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
+    $is_admin = isset($_POST['is_admin']) ? 1 : 0;
     
     if (empty($name) || empty($email)) {
         setFlashMessage('Name and email are required!', 'danger');
@@ -34,18 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Update existing client
             $stmt = $conn->prepare("
                 UPDATE clients 
-                SET name = ?, email = ?, phone = ?, address = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+                SET name = ?, email = ?, phone = ?, address = ?, notes = ?, is_admin = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
-            $stmt->execute([$name, $email, $phone, $address, $notes, $id]);
+            $stmt->execute([$name, $email, $phone, $address, $notes, $is_admin, $id]);
             setFlashMessage('Client updated successfully!', 'success');
         } else {
             // Create new client
             $stmt = $conn->prepare("
-                INSERT INTO clients (name, email, phone, address, notes) 
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO clients (name, email, phone, address, notes, is_admin) 
+                VALUES (?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$name, $email, $phone, $address, $notes]);
+            $stmt->execute([$name, $email, $phone, $address, $notes, $is_admin]);
             setFlashMessage('Client created successfully!', 'success');
         }
         redirect('clients_list.php');
@@ -62,8 +63,14 @@ include '../backend/includes/header.php';
                 <h2><i class="bi bi-people me-2"></i><?= $id > 0 ? 'Edit Client' : 'Add New Client' ?></h2>
                 <div>
                     <?php if ($id > 0): ?>
-                        <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-success me-2">
+                        <a href="pets_edit.php?client_id=<?= $id ?>" class="btn btn-success me-2">
+                            <i class="fa-solid fa-dog"></i> Add Pet
+                        </a>
+                        <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-info me-2">
                             <i class="bi bi-wallet2"></i> Manage Credits
+                        </a>
+                        <a href="client_set_password.php?client_id=<?= $id ?>" class="btn btn-warning me-2">
+                            <i class="bi bi-key"></i> Set Password
                         </a>
                     <?php endif; ?>
                     <a href="clients_list.php" class="btn btn-secondary">
@@ -114,6 +121,20 @@ include '../backend/includes/header.php';
                         <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
                             <textarea class="form-control" id="notes" name="notes" rows="4"><?= escape($client['notes'] ?? '') ?></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="is_admin" name="is_admin" 
+                                       <?= !empty($client['is_admin']) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="is_admin">
+                                    <strong>Admin Access</strong>
+                                </label>
+                                <div class="form-text">
+                                    <i class="bi bi-shield-check"></i> Grant this client administrative access to the system.
+                                    Admin clients can manage all clients, bookings, and settings.
+                                </div>
+                            </div>
                         </div>
 
                         <?php if ($id > 0): ?>
