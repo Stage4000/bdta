@@ -34,7 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$token, $expires, $client['id']]);
             
             // Create reset link
-            $reset_link = "http://" . $_SERVER['HTTP_HOST'] . "/client/reset_password.php?token=" . $token;
+            $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+            $reset_link = $protocol . "://" . $_SERVER['HTTP_HOST'] . "/client/reset_password.php?token=" . $token;
             
             // Send email (note: email service needs to be configured in settings)
             $subject = "Password Reset Request - BDTA";
@@ -47,7 +48,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message .= "Brooks Dog Training Academy";
             
             // Try to send email
-            $email_sent = @mail($email, $subject, $message, "From: noreply@brooksdogtraining.com");
+            $headers = "From: noreply@brooksdogtraining.com\r\n";
+            $headers .= "Reply-To: noreply@brooksdogtraining.com\r\n";
+            $headers .= "X-Mailer: PHP/" . phpversion();
+            
+            $email_sent = mail($email, $subject, $message, $headers);
+            
+            // Note: For production, configure a proper email service in Settings
+            // The current implementation uses PHP's mail() function which may not work on all servers
             
             $success = 'If an account exists with that email address, you will receive a password reset link shortly.';
         } else {
