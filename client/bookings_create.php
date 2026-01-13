@@ -85,13 +85,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setFlashMessage(implode('<br>', $errors), 'danger');
         } else {
             // Create booking
-            $datetime = $booking_date . ' ' . $booking_time;
             $pets_json = json_encode($pets);
             
-            $stmt = $db->prepare("INSERT INTO bookings (client_id, appointment_type_id, name, email, phone, booking_date, service_type, notes, status, pets, override_forms, override_contract, override_credits, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, datetime('now'))");
-            $stmt->execute([$client_id, $appointment_type_id, $client['name'], $client['email'], $client['phone'], $datetime, $apt_type['name'], $notes, $pets_json, $override_forms, $override_contract, $override_credits]);
+            $stmt = $conn->prepare("INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, appointment_date, appointment_time, service_type, notes, status, pets, override_forms, override_contract, override_credits, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, datetime('now'))");
+            $stmt->execute([$client_id, $appointment_type_id, $client['name'], $client['email'], $client['phone'], $booking_date, $booking_time, $apt_type['name'], $notes, $pets_json, $override_forms, $override_contract, $override_credits]);
             
-            $booking_id = $db->lastInsertId();
+            $booking_id = $conn->lastInsertId();
             
             // Consume credits if applicable
             if ($apt_type['consumes_credits'] && !$override_credits) {
