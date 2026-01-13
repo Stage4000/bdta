@@ -11,7 +11,9 @@ $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $template = null;
 
 if ($id) {
-    $template = $conn->query("SELECT * FROM email_templates WHERE id = $id")->fetch(PDO::FETCH_ASSOC);
+    $stmt = $conn->prepare("SELECT * FROM email_templates WHERE id = ?");
+    $stmt->execute([$id]);
+    $template = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$template) {
         $_SESSION['error'] = "Template not found";
         header('Location: email_templates_list.php');
