@@ -93,8 +93,10 @@ if ($method === 'GET') {
         
         // Generate calendar links
         require_once '../includes/icalendar.php';
+        require_once '../includes/settings.php';
+        $base_url = Settings::get('base_url', 'http://localhost:8000');
         $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
-        $ical_download_link = 'http://localhost:8000/backend/public/download_ical.php?booking_id=' . $booking_id;
+        $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
         
         // Send confirmation email
         $email_service = new EmailService();

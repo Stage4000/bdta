@@ -73,12 +73,9 @@ $is_expired = $quote['expiration_date'] && strtotime($quote['expiration_date']) 
 $display_status = $is_expired ? 'expired' : $quote['status'];
 
 // Generate public link
-$stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'base_url'");
-$base_url = $stmt->fetchColumn();
-if (!$base_url) {
-    $base_url = 'http://localhost:8000/backend';
-}
-$public_link = $base_url . '/public/quote.php?id=' . $quote_id;
+require_once '../backend/includes/settings.php';
+$base_url = Settings::get('base_url', 'http://localhost:8000');
+$public_link = $base_url . '/backend/public/quote.php?id=' . $quote_id;
 
 $page_title = "Quote " . escape($quote['quote_number']);
 include '../backend/includes/header.php';
