@@ -1,14 +1,19 @@
 <?php
 require_once '../backend/includes/config.php';
-require_login();
+require_once '../backend/includes/database.php';
 
-$db = get_db();
+requireLogin();
+
+$db = new Database();
+$conn = $db->getConnection();
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $template = null;
 
 if ($id) {
-    $template = $db->query("SELECT * FROM email_templates WHERE id = $id")->fetch(PDO::FETCH_ASSOC);
+    $stmt = $conn->prepare("SELECT * FROM email_templates WHERE id = ?");
+    $stmt->execute([$id]);
+    $template = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$template) {
         $_SESSION['error'] = "Template not found";
         header('Location: email_templates_list.php');
@@ -27,11 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     try {
         if ($id) {
-            $stmt = $db->prepare("UPDATE email_templates SET name = ?, template_type = ?, subject = ?, body_html = ?, body_text = ?, variables = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?");
+            $stmt = $conn->prepare("UPDATE email_templates SET name = ?, template_type = ?, subject = ?, body_html = ?, body_text = ?, variables = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?");
             $stmt->execute([$name, $template_type, $subject, $body_html, $body_text, $variables, $is_active, $id]);
             $_SESSION['success'] = "Template updated successfully!";
         } else {
-            $stmt = $db->prepare("INSERT INTO email_templates (name, template_type, subject, body_html, body_text, variables, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))");
+            $stmt = $conn->prepare("INSERT INTO email_templates (name, template_type, subject, body_html, body_text, variables, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))");
             $stmt->execute([$name, $template_type, $subject, $body_html, $body_text, $variables, $is_active]);
             $_SESSION['success'] = "Template created successfully!";
         }
