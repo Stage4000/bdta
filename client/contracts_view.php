@@ -47,12 +47,9 @@ if (!$contract) {
 }
 
 // Generate public link
-$stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'base_url'");
-$base_url = $stmt->fetchColumn();
-if (!$base_url) {
-    $base_url = 'http://localhost:8000/backend';
-}
-$public_link = $base_url . '/public/contract.php?id=' . $id;
+require_once '../backend/includes/settings.php';
+$base_url = Settings::get('base_url', 'http://localhost:8000');
+$public_link = $base_url . '/backend/public/contract.php?id=' . $id;
 
 include '../backend/includes/header.php';
 ?>
