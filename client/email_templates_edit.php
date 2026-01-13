@@ -1,6 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
-require_login();
+requireLogin();
 
 $db = get_db();
 
