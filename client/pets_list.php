@@ -98,7 +98,7 @@ include '../backend/includes/header.php';
         <div class="card-body">
             <?php if (empty($pets)): ?>
                 <p class="text-muted text-center py-5">
-                    <i class="bi bi-heart" style="font-size: 3rem;"></i><br>
+                    <i class="fa-solid fa-dog" style="font-size: 3rem;"></i><br>
                     No pets found. <a href="pets_edit.php?<?= $client_id ? 'client_id=' . $client_id : '' ?>">Add your first pet</a>
                 </p>
             <?php else: ?>
