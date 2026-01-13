@@ -104,7 +104,7 @@ include '../backend/includes/header.php';
 
                                 <div class="mb-3">
                                     <label class="form-label">Email Body (HTML) *</label>
-                                    <textarea name="body_html" class="form-control" rows="12" required 
+                                    <textarea name="body_html" id="body_html" class="form-control" rows="12" required 
                                               style="font-family: monospace;"><?php echo htmlspecialchars($template['body_html'] ?? ''); ?></textarea>
                                     <small class="text-muted">HTML content with variable support</small>
                                 </div>
@@ -209,5 +209,71 @@ Duration: {{duration}} minutes&lt;/p&gt;
         </div>
     </div>
 </div>
+
+<!-- CKEditor 5 Rich Text Editor (Self-Hosted, GPL License) - Email Preset -->
+<link rel="stylesheet" href="js/ckeditor5/ckeditor5.css" />
+<script type="module">
+import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Underline,
+    Paragraph,
+    Heading,
+    Link,
+    List,
+    Alignment,
+    SourceEditing,
+    GeneralHtmlSupport
+} from 'js/ckeditor5/ckeditor5.js';
+
+// Initialize CKEditor 5 for email HTML editor (email-optimized preset)
+ClassicEditor
+    .create(document.querySelector('#body_html'), {
+        licenseKey: 'GPL',
+        plugins: [
+            Essentials, Bold, Italic, Underline,
+            Paragraph, Heading, Link, List,
+            Alignment, SourceEditing, GeneralHtmlSupport
+        ],
+        toolbar: [
+            'undo', 'redo', '|',
+            'heading', '|',
+            'bold', 'italic', 'underline', '|',
+            'link', '|',
+            'bulletedList', 'numberedList', '|',
+            'alignment', '|',
+            'sourceEditing'
+        ],
+        heading: {
+            options: [
+                { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+            ]
+        },
+        htmlSupport: {
+            allow: [
+                {
+                    name: /.*/,
+                    attributes: true,
+                    classes: true,
+                    styles: true
+                }
+            ]
+        }
+    })
+    .then(editor => {
+        window.emailEditor = editor;
+        // Sync with textarea on change
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#body_html').value = editor.getData();
+        });
+    })
+    .catch(error => {
+        console.error('CKEditor initialization error:', error);
+    });
+</script>
 
 <?php include '../backend/includes/footer.php'; ?>

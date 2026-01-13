@@ -95,31 +95,97 @@ require_once '../backend/includes/header.php';
     </div>
 </div>
 
-<!-- TinyMCE Rich Text Editor (Self-Hosted) -->
-<script src="js/tinymce/tinymce.min.js"></script>
-<script>
-// Initialize TinyMCE for content editor
-tinymce.init({
-    selector: '#content',
-    height: 500,
-    menubar: false,
-    plugins: [
-        'lists', 'link', 'image', 'charmap', 'preview', 'searchreplace', 'code',
-        'fullscreen', 'table', 'help', 'wordcount'
-    ],
-    toolbar: 'undo redo | formatselect | bold italic underline | ' +
-             'bullist numlist | alignleft aligncenter alignright | ' +
-             'link image | removeformat | code | help',
-    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; }',
-    setup: function(editor) {
-        editor.on('init', function() {
-            // Ensure form validation works with TinyMCE
-            editor.on('change', function() {
-                tinymce.triggerSave();
-            });
+<!-- CKEditor 5 Rich Text Editor (Self-Hosted, GPL License) -->
+<link rel="stylesheet" href="js/ckeditor5/ckeditor5.css" />
+<script type="module">
+import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Underline,
+    Strikethrough,
+    Paragraph,
+    Heading,
+    Link,
+    List,
+    Image,
+    ImageToolbar,
+    ImageUpload,
+    ImageCaption,
+    ImageStyle,
+    ImageResize,
+    Table,
+    TableToolbar,
+    Alignment,
+    BlockQuote,
+    MediaEmbed,
+    SourceEditing,
+    GeneralHtmlSupport
+} from 'js/ckeditor5/ckeditor5.js';
+
+// Initialize CKEditor 5 for blog content editor (full-featured)
+ClassicEditor
+    .create(document.querySelector('#content'), {
+        licenseKey: 'GPL',
+        plugins: [
+            Essentials, Bold, Italic, Underline, Strikethrough, 
+            Paragraph, Heading, Link, List, Image, ImageToolbar, 
+            ImageUpload, ImageCaption, ImageStyle, ImageResize,
+            Table, TableToolbar, Alignment, BlockQuote, MediaEmbed,
+            SourceEditing, GeneralHtmlSupport
+        ],
+        toolbar: [
+            'undo', 'redo', '|',
+            'heading', '|',
+            'bold', 'italic', 'underline', 'strikethrough', '|',
+            'link', 'uploadImage', 'insertTable', 'blockQuote', 'mediaEmbed', '|',
+            'bulletedList', 'numberedList', '|',
+            'alignment', '|',
+            'sourceEditing'
+        ],
+        heading: {
+            options: [
+                { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+                { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
+                { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' }
+            ]
+        },
+        image: {
+            toolbar: [
+                'imageStyle:inline', 'imageStyle:block', 'imageStyle:side', '|',
+                'toggleImageCaption', 'imageTextAlternative', '|',
+                'linkImage'
+            ]
+        },
+        table: {
+            contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+        },
+        htmlSupport: {
+            allow: [
+                {
+                    name: /.*/,
+                    attributes: true,
+                    classes: true,
+                    styles: true
+                }
+            ]
+        }
+    })
+    .then(editor => {
+        window.blogEditor = editor;
+        // Sync with textarea on change
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#content').value = editor.getData();
         });
-    }
-});
+    })
+    .catch(error => {
+        console.error('CKEditor initialization error:', error);
+    });
+</script>
+<script>
 
 // Auto-generate slug from title
 document.getElementById('title').addEventListener('input', function() {

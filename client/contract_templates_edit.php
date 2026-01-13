@@ -160,36 +160,77 @@ include '../backend/includes/header.php';
     </form>
 </div>
 
-<!-- TinyMCE Rich Text Editor (Self-Hosted) -->
-<script src="js/tinymce/tinymce.min.js"></script>
-<script>
-tinymce.init({
-    selector: '#template_text',
-    height: 500,
-    menubar: false,
-    plugins: [
-        'lists', 'link', 'charmap', 'preview', 'searchreplace', 'code',
-        'fullscreen', 'table', 'help', 'wordcount'
-    ],
-    toolbar: 'undo redo | formatselect | bold italic underline | ' +
-             'bullist numlist | alignleft aligncenter alignright | ' +
-             'removeformat | help',
-    content_style: 'body { font-family: Helvetica, Arial, sans-serif; font-size: 14pt; }',
-    formats: {
-        h1: { block: 'h1', styles: { fontSize: '24pt', fontWeight: 'bold' } },
-        h2: { block: 'h2', styles: { fontSize: '20pt', fontWeight: 'bold' } },
-        h3: { block: 'h3', styles: { fontSize: '16pt', fontWeight: 'bold' } }
-    },
-    block_formats: 'Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3',
-    setup: function(editor) {
-        editor.on('init', function() {
-            // Ensure form validation works with TinyMCE
-            editor.on('change', function() {
-                tinymce.triggerSave();
-            });
+<!-- CKEditor 5 Rich Text Editor (Self-Hosted, GPL License) -->
+<link rel="stylesheet" href="js/ckeditor5/ckeditor5.css" />
+<script type="module">
+import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Underline,
+    Strikethrough,
+    Paragraph,
+    Heading,
+    Link,
+    List,
+    Table,
+    TableToolbar,
+    Alignment,
+    SourceEditing,
+    GeneralHtmlSupport
+} from 'js/ckeditor5/ckeditor5.js';
+
+// Initialize CKEditor 5 for contract template editor (document preset)
+ClassicEditor
+    .create(document.querySelector('#template_text'), {
+        licenseKey: 'GPL',
+        plugins: [
+            Essentials, Bold, Italic, Underline, Strikethrough,
+            Paragraph, Heading, Link, List, Table, TableToolbar,
+            Alignment, SourceEditing, GeneralHtmlSupport
+        ],
+        toolbar: [
+            'undo', 'redo', '|',
+            'heading', '|',
+            'bold', 'italic', 'underline', 'strikethrough', '|',
+            'link', 'insertTable', '|',
+            'bulletedList', 'numberedList', '|',
+            'alignment', '|',
+            'sourceEditing'
+        ],
+        heading: {
+            options: [
+                { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+                { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+            ]
+        },
+        table: {
+            contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+        },
+        htmlSupport: {
+            allow: [
+                {
+                    name: /.*/,
+                    attributes: true,
+                    classes: true,
+                    styles: true
+                }
+            ]
+        }
+    })
+    .then(editor => {
+        window.templateEditor = editor;
+        // Sync with textarea on change
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#template_text').value = editor.getData();
         });
-    }
-});
+    })
+    .catch(error => {
+        console.error('CKEditor initialization error:', error);
+    });
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
