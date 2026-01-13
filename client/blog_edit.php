@@ -95,42 +95,26 @@ require_once '../backend/includes/header.php';
     </div>
 </div>
 
-<!-- CKEditor 5 Rich Text Editor (CDN) -->
-<script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/classic/ckeditor.js"></script>
+<!-- CKEditor 4 Rich Text Editor (Self-Hosted, No License Required) -->
+<script src="js/ckeditor/ckeditor.js"></script>
 <script>
-// Initialize CKEditor for content editor
-let contentEditor;
-ClassicEditor
-    .create(document.querySelector('#content'), {
-        toolbar: [
-            'undo', 'redo', '|',
-            'heading', '|',
-            'bold', 'italic', 'underline', '|',
-            'bulletedList', 'numberedList', '|',
-            'alignment', '|',
-            'link', 'imageUpload', '|',
-            'removeFormat', '|',
-            'sourceEditing'
-        ],
-        heading: {
-            options: [
-                { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
-                { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
-                { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-                { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
-            ]
-        }
-    })
-    .then(editor => {
-        contentEditor = editor;
-        // Sync editor content with textarea on change
-        editor.model.document.on('change:data', () => {
-            document.querySelector('#content').value = editor.getData();
-        });
-    })
-    .catch(error => {
-        console.error('Error initializing CKEditor:', error);
-    });
+// Initialize CKEditor 4 for content editor
+CKEDITOR.replace('content', {
+    height: 500,
+    toolbar: [
+        { name: 'document', items: ['Source'] },
+        { name: 'clipboard', items: ['Undo', 'Redo'] },
+        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strike'] },
+        { name: 'paragraph', items: ['NumberedList', 'BulletedList', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight'] },
+        { name: 'links', items: ['Link', 'Unlink'] },
+        { name: 'insert', items: ['Image', 'Table'] },
+        { name: 'styles', items: ['Format'] },
+        { name: 'tools', items: ['Maximize'] }
+    ],
+    format_tags: 'p;h1;h2;h3;h4',
+    removePlugins: 'elementspath',
+    resize_enabled: false
+});
 
 // Auto-generate slug from title
 document.getElementById('title').addEventListener('input', function() {
