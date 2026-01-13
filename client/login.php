@@ -112,6 +112,9 @@ $page_title = 'Login';
                             </div>
                             <button type="submit" class="btn btn-primary w-100">Login</button>
                         </form>
+                        <div class="text-center mt-3">
+                            <a href="forgot_password.php" class="text-decoration-none">Forgot Password?</a>
+                        </div>
                     </div>
                 </div>
             </div>
