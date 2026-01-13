@@ -226,7 +226,7 @@ import {
     Alignment,
     SourceEditing,
     GeneralHtmlSupport
-} from 'js/ckeditor5/ckeditor5.js';
+} from './js/ckeditor5/ckeditor5.js';
 
 // Initialize CKEditor 5 for email HTML editor (email-optimized preset)
 ClassicEditor

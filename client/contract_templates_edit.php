@@ -179,7 +179,7 @@ import {
     Alignment,
     SourceEditing,
     GeneralHtmlSupport
-} from 'js/ckeditor5/ckeditor5.js';
+} from './js/ckeditor5/ckeditor5.js';
 
 // Initialize CKEditor 5 for contract template editor (document preset)
 ClassicEditor
