@@ -12,12 +12,15 @@ try {
     
     echo "Starting email settings migration...\n";
     
-    // Check if smtp_encryption setting exists
-    $stmt = $conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
-    $stmt->execute(['smtp_encryption']);
-    $exists = $stmt->fetchColumn() > 0;
+    // Helper function to check if setting exists
+    $checkSetting = function($key) use ($conn) {
+        $stmt = $conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $stmt->execute([$key]);
+        return $stmt->fetchColumn() > 0;
+    };
     
-    if (!$exists) {
+    // Check if smtp_encryption setting exists
+    if (!$checkSetting('smtp_encryption')) {
         echo "Adding smtp_encryption setting...\n";
         $stmt = $conn->prepare("
             INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
@@ -38,11 +41,7 @@ try {
     }
     
     // Check if smtp_debug setting exists
-    $stmt = $conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
-    $stmt->execute(['smtp_debug']);
-    $exists = $stmt->fetchColumn() > 0;
-    
-    if (!$exists) {
+    if (!$checkSetting('smtp_debug')) {
         echo "Adding smtp_debug setting...\n";
         $stmt = $conn->prepare("
             INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)

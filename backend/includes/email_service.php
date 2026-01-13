@@ -242,7 +242,7 @@ TEXT;
                 if ($smtp_encryption === 'ssl') {
                     $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
                     // SSL typically uses port 465
-                    if ($smtp_port == 587) {
+                    if ($smtp_port === 587) {
                         error_log("SMTP Warning: Using SSL encryption with port 587. Port 465 is typically used for SSL. Current port: $smtp_port");
                         $smtp_port = 465;
                     }

@@ -47,7 +47,7 @@ if ($email_config['email_service'] === 'smtp') {
         $issues[] = "Invalid encryption type: " . $email_config['smtp_encryption'];
     }
     
-    if ($email_config['smtp_port'] !== 587 && $email_config['smtp_port'] !== 465 && $email_config['smtp_port'] !== 25) {
+    if (!in_array($email_config['smtp_port'], [587, 465, 25], true)) {
         echo "  Warning: Uncommon SMTP port " . $email_config['smtp_port'] . "\n";
     }
     
