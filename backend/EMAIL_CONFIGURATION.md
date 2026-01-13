@@ -29,8 +29,10 @@ The system uses PHPMailer library to send emails reliably. You can configure it 
 Email Service: SMTP
 SMTP Host: smtp.gmail.com
 SMTP Port: 587
+SMTP Encryption: tls
 SMTP Username: your-email@gmail.com
 SMTP Password: your-16-character-app-password
+SMTP Debug Mode: Off (enable only for troubleshooting)
 ```
 
 ### Zoho Mail
@@ -40,8 +42,10 @@ SMTP Password: your-16-character-app-password
 Email Service: SMTP
 SMTP Host: smtp.zoho.com
 SMTP Port: 587
+SMTP Encryption: tls
 SMTP Username: your-email@zoho.com
 SMTP Password: your-zoho-password
+SMTP Debug Mode: Off (enable only for troubleshooting)
 ```
 
 **Important for Zoho:**
@@ -56,8 +60,10 @@ SMTP Password: your-zoho-password
 Email Service: SMTP
 SMTP Host: smtp-mail.outlook.com
 SMTP Port: 587
+SMTP Encryption: tls
 SMTP Username: your-email@outlook.com
 SMTP Password: your-outlook-password
+SMTP Debug Mode: Off (enable only for troubleshooting)
 ```
 
 ### SendGrid (Recommended for High Volume)
@@ -71,8 +77,10 @@ SMTP Password: your-outlook-password
 Email Service: SMTP
 SMTP Host: smtp.sendgrid.net
 SMTP Port: 587
+SMTP Encryption: tls
 SMTP Username: apikey
 SMTP Password: your-sendgrid-api-key
+SMTP Debug Mode: Off (enable only for troubleshooting)
 ```
 
 ### Amazon SES
@@ -87,8 +95,10 @@ SMTP Password: your-sendgrid-api-key
 Email Service: SMTP
 SMTP Host: email-smtp.us-east-1.amazonaws.com (adjust region as needed)
 SMTP Port: 587
+SMTP Encryption: tls
 SMTP Username: your-aws-smtp-username
 SMTP Password: your-aws-smtp-password
+SMTP Debug Mode: Off (enable only for troubleshooting)
 ```
 
 ### Mailgun
@@ -103,8 +113,10 @@ SMTP Password: your-aws-smtp-password
 Email Service: SMTP
 SMTP Host: smtp.mailgun.org
 SMTP Port: 587
+SMTP Encryption: tls
 SMTP Username: postmaster@your-domain.mailgun.org
 SMTP Password: your-mailgun-smtp-password
+SMTP Debug Mode: Off (enable only for troubleshooting)
 ```
 
 ## Testing Your Configuration
@@ -120,18 +132,43 @@ After configuring your SMTP settings:
 
 ## Troubleshooting
 
+### New Email Configuration Settings (v2)
+
+The email system now includes enhanced SMTP configuration:
+
+1. **SMTP Encryption Type**
+   - `tls` (default) - Use STARTTLS on port 587
+   - `ssl` - Use SSL/TLS on port 465
+   - `none` - No encryption (not recommended)
+
+2. **SMTP Debug Mode**
+   - Enable this to see detailed SMTP communication logs
+   - Logs are written to the server error log
+   - Useful for diagnosing connection issues
+   - **Remember to disable after troubleshooting**
+
+3. **Optional Authentication**
+   - SMTP Username and Password are now optional
+   - Leave them empty if your SMTP server doesn't require authentication
+   - Authentication is automatically disabled when credentials are not provided
+
 ### "SMTP connect() failed" Error
 
 **Possible causes:**
 1. Incorrect SMTP host or port
 2. Firewall blocking port 587 or 465
-3. Wrong username or password
+3. Wrong encryption type selected
+4. Server not responding
 
 **Solutions:**
 - Verify your SMTP settings with your email provider
-- Try alternative ports (465 for SSL)
+- Try alternative encryption types:
+  - If using port 587, select "tls" encryption
+  - If using port 465, select "ssl" encryption
+- Enable SMTP Debug Mode in settings to see detailed connection logs
 - Check firewall rules: `sudo ufw status`
 - Test connectivity: `telnet smtp.gmail.com 587`
+- Check server error logs for detailed PHPMailer debug output
 
 ### "SMTP Error: Could not authenticate"
 
@@ -139,11 +176,30 @@ After configuring your SMTP settings:
 1. Wrong password
 2. 2FA enabled without app password
 3. Account security restrictions
+4. Authentication enabled but credentials empty
 
 **Solutions:**
 - For Gmail: Generate and use App Password
 - For Zoho: Use App-Specific Password
+- If your SMTP server doesn't require authentication, leave username and password empty
+- Enable SMTP Debug Mode to see the exact authentication error
 - Check if "Less secure app access" needs to be enabled (not recommended)
+
+### "Connection timed out"
+
+**Possible causes:**
+1. Port blocked by firewall or hosting provider
+2. Incorrect SMTP host
+3. Network connectivity issues
+
+**Solutions:**
+- Try alternative ports:
+  - Port 587 with TLS encryption
+  - Port 465 with SSL encryption
+  - Port 25 (often blocked by hosting providers)
+- Contact your hosting provider to ensure SMTP ports are not blocked
+- Enable SMTP Debug Mode to see where the connection hangs
+- Test with telnet: `telnet smtp.example.com 587`
 
 ### Emails Going to Spam
 
@@ -152,6 +208,7 @@ After configuring your SMTP settings:
 2. Use a proper "From" address that matches your domain
 3. Warm up your sending reputation by starting with low volume
 4. Use a dedicated email service (SendGrid, Mailgun, etc.)
+5. Ensure "From" address matches SMTP username for Gmail/Zoho
 
 ### PHP mail() Not Working
 
@@ -161,6 +218,35 @@ The default PHP `mail()` function requires:
 - Open port 25 (often blocked by hosting providers)
 
 **Solution:** Use SMTP instead - it's more reliable and easier to configure.
+
+### Debug Mode Instructions
+
+To enable detailed SMTP debugging:
+
+1. Go to Admin Panel → Settings → Email
+2. Enable "SMTP Debug Mode"
+3. Try sending a test email or creating a booking
+4. Check your server error log for detailed output:
+   ```bash
+   tail -f /var/log/apache2/error.log
+   # or
+   tail -f /var/log/nginx/error.log
+   # or for PHP-FPM
+   tail -f /var/log/php-fpm/error.log
+   ```
+5. Look for lines starting with "PHPMailer Debug:"
+6. **Important:** Disable debug mode after troubleshooting for security
+
+### Migrating Existing Database
+
+If you're upgrading from a previous version, run the migration script:
+
+```bash
+cd /path/to/bdta/backend/includes
+php migrate_email_settings.php
+```
+
+This will add the new email settings (smtp_encryption and smtp_debug) to your database.
 
 ## Security Best Practices
 

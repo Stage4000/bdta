@@ -200,18 +200,74 @@ TEXT;
         try {
             $mail = new PHPMailer(true);
             
+            // Enable debug mode if configured (useful for troubleshooting)
+            $debug_mode = Settings::get('smtp_debug', false);
+            if ($debug_mode) {
+                $mail->SMTPDebug = 2; // Show detailed debug output
+                $mail->Debugoutput = function($str, $level) {
+                    error_log("PHPMailer Debug: $str");
+                };
+            }
+            
             // Get email configuration from settings
             $email_service = Settings::get('email_service', 'mail');
             
             if ($email_service === 'smtp') {
+                // Get SMTP configuration
+                $smtp_host = Settings::get('smtp_host', '');
+                $smtp_username = Settings::get('smtp_username', '');
+                $smtp_password = Settings::get('smtp_password', '');
+                $smtp_port = Settings::get('smtp_port', 587);
+                $smtp_encryption = Settings::get('smtp_encryption', 'tls'); // 'tls', 'ssl', or 'none'
+                
+                // Validate SMTP configuration
+                if (empty($smtp_host)) {
+                    throw new Exception('SMTP host is not configured');
+                }
+                
                 // Configure SMTP
                 $mail->isSMTP();
-                $mail->Host = Settings::get('smtp_host', '');
-                $mail->SMTPAuth = true;
-                $mail->Username = Settings::get('smtp_username', '');
-                $mail->Password = Settings::get('smtp_password', '');
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Port = Settings::get('smtp_port', 587);
+                $mail->Host = $smtp_host;
+                
+                // Only enable authentication if credentials are provided
+                if (!empty($smtp_username) && !empty($smtp_password)) {
+                    $mail->SMTPAuth = true;
+                    $mail->Username = $smtp_username;
+                    $mail->Password = $smtp_password;
+                } else {
+                    $mail->SMTPAuth = false;
+                }
+                
+                // Set encryption type
+                if ($smtp_encryption === 'ssl') {
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+                    // SSL typically uses port 465
+                    if ($smtp_port === 587) {
+                        error_log("SMTP Warning: Using SSL encryption with port 587. Port 465 is typically used for SSL. Current port: $smtp_port");
+                        $smtp_port = 465;
+                    }
+                } elseif ($smtp_encryption === 'tls') {
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                } else {
+                    // No encryption
+                    $mail->SMTPSecure = '';
+                    $mail->SMTPAutoTLS = false;
+                }
+                
+                $mail->Port = $smtp_port;
+                
+                // Set timeout to prevent hanging (in seconds)
+                $mail->Timeout = 30;
+                $mail->SMTPKeepAlive = false;
+                
+                // Some servers require this
+                $mail->SMTPOptions = array(
+                    'ssl' => array(
+                        'verify_peer' => true,
+                        'verify_peer_name' => true,
+                        'allow_self_signed' => false
+                    )
+                );
             } else {
                 // Use PHP mail() function as fallback
                 $mail->isMail();
@@ -230,6 +286,9 @@ TEXT;
             $mail->Body = $html_body;
             $mail->AltBody = $text_body;
             
+            // Set character encoding
+            $mail->CharSet = 'UTF-8';
+            
             // Send email
             $mail->send();
             
@@ -238,12 +297,16 @@ TEXT;
                 'message' => 'Confirmation email sent successfully'
             ];
         } catch (Exception $e) {
-            // Log error and return failure
-            error_log("Email sending failed: " . $mail->ErrorInfo);
+            // Log detailed error information
+            $error_message = "Email sending failed: " . $e->getMessage();
+            if (isset($mail) && !empty($mail->ErrorInfo)) {
+                $error_message .= " | PHPMailer Error: " . $mail->ErrorInfo;
+            }
+            error_log($error_message);
             
             return [
                 'success' => false,
-                'message' => 'Failed to send email: ' . $mail->ErrorInfo
+                'message' => 'Failed to send email: ' . $e->getMessage()
             ];
         }
     }
