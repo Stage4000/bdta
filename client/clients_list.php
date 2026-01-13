@@ -64,7 +64,14 @@ include '../backend/includes/header.php';
                             <?php foreach ($clients as $client): ?>
                                 <tr>
                                     <td><?= escape($client['id']) ?></td>
-                                    <td><strong><?= escape($client['name']) ?></strong></td>
+                                    <td>
+                                        <strong><?= escape($client['name']) ?></strong>
+                                        <?php if (!empty($client['is_admin'])): ?>
+                                            <span class="badge bg-primary ms-2" title="Has admin access">
+                                                <i class="bi bi-shield-check"></i> Admin
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?= escape($client['email']) ?></td>
                                     <td><?= escape($client['phone'] ?? 'N/A') ?></td>
                                     <td><?= formatDate($client['created_at']) ?></td>

@@ -165,6 +165,11 @@
                                 <i class="bi bi-gear me-2"></i> Settings
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'change_password.php' ? 'active' : ''; ?>" href="change_password.php">
+                                <i class="bi bi-key me-2"></i> Change Password
+                            </a>
+                        </li>
                         <li class="nav-item mt-3">
                             <a class="nav-link" href="../../index.html" target="_blank">
                                 <i class="bi bi-house me-2"></i> View Website

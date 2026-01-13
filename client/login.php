@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db = new Database();
         $conn = $db->getConnection();
         
+        // First check admin_users table
         $stmt = $conn->prepare("SELECT * FROM admin_users WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -18,10 +19,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user && password_verify($password, $user['password_hash'])) {
             $_SESSION['admin_id'] = $user['id'];
             $_SESSION['admin_username'] = $user['username'];
+            $_SESSION['is_admin'] = true;
+            $_SESSION['user_type'] = 'admin';
             setFlashMessage('Welcome back!', 'success');
             redirect('index.php');
         } else {
-            $error = 'Invalid username or password';
+            // Check clients table for admin clients
+            $stmt = $conn->prepare("SELECT * FROM clients WHERE email = ? AND is_admin = 1 AND password_hash IS NOT NULL");
+            $stmt->execute([$username]);
+            $client = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($client && password_verify($password, $client['password_hash'])) {
+                $_SESSION['admin_id'] = $client['id'];
+                $_SESSION['admin_username'] = $client['name'];
+                $_SESSION['admin_email'] = $client['email'];
+                $_SESSION['is_admin'] = true;
+                $_SESSION['user_type'] = 'client';
+                
+                // Update last login
+                $stmt = $conn->prepare("UPDATE clients SET last_login = CURRENT_TIMESTAMP WHERE id = ?");
+                $stmt->execute([$client['id']]);
+                
+                setFlashMessage('Welcome back, ' . escape($client['name']) . '!', 'success');
+                redirect('index.php');
+            } else {
+                $error = 'Invalid username or password';
+            }
         }
     }
 }
