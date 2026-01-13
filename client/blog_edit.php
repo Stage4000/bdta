@@ -122,7 +122,7 @@ import {
     MediaEmbed,
     SourceEditing,
     GeneralHtmlSupport
-} from 'js/ckeditor5/ckeditor5.js';
+} from './js/ckeditor5/ckeditor5.js';
 
 // Initialize CKEditor 5 for blog content editor (full-featured)
 ClassicEditor
