@@ -95,7 +95,32 @@ require_once '../backend/includes/header.php';
     </div>
 </div>
 
+<!-- TinyMCE Rich Text Editor (Self-Hosted) -->
+<script src="node_modules/tinymce/tinymce.min.js"></script>
 <script>
+// Initialize TinyMCE for content editor
+tinymce.init({
+    selector: '#content',
+    height: 500,
+    menubar: false,
+    plugins: [
+        'lists', 'link', 'image', 'charmap', 'preview', 'searchreplace', 'code',
+        'fullscreen', 'table', 'help', 'wordcount'
+    ],
+    toolbar: 'undo redo | formatselect | bold italic underline | ' +
+             'bullist numlist | alignleft aligncenter alignright | ' +
+             'link image | removeformat | code | help',
+    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; }',
+    setup: function(editor) {
+        editor.on('init', function() {
+            // Ensure form validation works with TinyMCE
+            editor.on('change', function() {
+                tinymce.triggerSave();
+            });
+        });
+    }
+});
+
 // Auto-generate slug from title
 document.getElementById('title').addEventListener('input', function() {
     if (!document.getElementById('slug').value || <?php echo $post ? 'false' : 'true'; ?>) {

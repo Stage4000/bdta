@@ -180,8 +180,8 @@ include '../backend/includes/header.php';
     </div>
 </div>
 
-<!-- TinyMCE Rich Text Editor -->
-<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<!-- TinyMCE Rich Text Editor (Self-Hosted) -->
+<script src="node_modules/tinymce/tinymce.min.js"></script>
 <script>
 tinymce.init({
     selector: '#contract_text',
