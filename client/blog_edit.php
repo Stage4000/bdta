@@ -95,31 +95,42 @@ require_once '../backend/includes/header.php';
     </div>
 </div>
 
-<!-- TinyMCE Rich Text Editor (Self-Hosted) -->
-<script src="js/tinymce/tinymce.min.js"></script>
+<!-- CKEditor 5 Rich Text Editor (CDN) -->
+<script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/classic/ckeditor.js"></script>
 <script>
-// Initialize TinyMCE for content editor
-tinymce.init({
-    selector: '#content',
-    height: 500,
-    menubar: false,
-    plugins: [
-        'lists', 'link', 'image', 'charmap', 'preview', 'searchreplace', 'code',
-        'fullscreen', 'table', 'help', 'wordcount'
-    ],
-    toolbar: 'undo redo | formatselect | bold italic underline | ' +
-             'bullist numlist | alignleft aligncenter alignright | ' +
-             'link image | removeformat | code | help',
-    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; }',
-    setup: function(editor) {
-        editor.on('init', function() {
-            // Ensure form validation works with TinyMCE
-            editor.on('change', function() {
-                tinymce.triggerSave();
-            });
+// Initialize CKEditor for content editor
+let contentEditor;
+ClassicEditor
+    .create(document.querySelector('#content'), {
+        toolbar: [
+            'undo', 'redo', '|',
+            'heading', '|',
+            'bold', 'italic', 'underline', '|',
+            'bulletedList', 'numberedList', '|',
+            'alignment', '|',
+            'link', 'imageUpload', '|',
+            'removeFormat', '|',
+            'sourceEditing'
+        ],
+        heading: {
+            options: [
+                { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+                { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+            ]
+        }
+    })
+    .then(editor => {
+        contentEditor = editor;
+        // Sync editor content with textarea on change
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#content').value = editor.getData();
         });
-    }
-});
+    })
+    .catch(error => {
+        console.error('Error initializing CKEditor:', error);
+    });
 
 // Auto-generate slug from title
 document.getElementById('title').addEventListener('input', function() {

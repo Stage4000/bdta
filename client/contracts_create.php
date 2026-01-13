@@ -180,36 +180,42 @@ include '../backend/includes/header.php';
     </div>
 </div>
 
-<!-- TinyMCE Rich Text Editor (Self-Hosted) -->
-<script src="js/tinymce/tinymce.min.js"></script>
+<!-- CKEditor 5 Rich Text Editor (CDN) -->
+<script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/classic/ckeditor.js"></script>
 <script>
-tinymce.init({
-    selector: '#contract_text',
-    height: 500,
-    menubar: false,
-    plugins: [
-        'lists', 'link', 'charmap', 'preview', 'searchreplace', 'code',
-        'fullscreen', 'table', 'help', 'wordcount'
-    ],
-    toolbar: 'undo redo | formatselect | bold italic underline | ' +
-             'bullist numlist | alignleft aligncenter alignright | ' +
-             'removeformat | help',
-    content_style: 'body { font-family: Helvetica, Arial, sans-serif; font-size: 14pt; }',
-    formats: {
-        h1: { block: 'h1', styles: { fontSize: '24pt', fontWeight: 'bold' } },
-        h2: { block: 'h2', styles: { fontSize: '20pt', fontWeight: 'bold' } },
-        h3: { block: 'h3', styles: { fontSize: '16pt', fontWeight: 'bold' } }
-    },
-    block_formats: 'Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3',
-    setup: function(editor) {
-        editor.on('init', function() {
-            // Ensure form validation works with TinyMCE
-            editor.on('change', function() {
-                tinymce.triggerSave();
-            });
+// Initialize CKEditor for contract text editor
+let contractEditor;
+ClassicEditor
+    .create(document.querySelector('#contract_text'), {
+        toolbar: [
+            'undo', 'redo', '|',
+            'heading', '|',
+            'bold', 'italic', 'underline', '|',
+            'bulletedList', 'numberedList', '|',
+            'alignment', '|',
+            'link', '|',
+            'removeFormat', '|',
+            'sourceEditing'
+        ],
+        heading: {
+            options: [
+                { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+                { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+            ]
+        }
+    })
+    .then(editor => {
+        contractEditor = editor;
+        // Sync editor content with textarea on change
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#contract_text').value = editor.getData();
         });
-    }
-});
+    })
+    .catch(error => {
+        console.error('Error initializing CKEditor:', error);
+    });
 
 // Load template via AJAX when selected
 document.getElementById('template_select')?.addEventListener('change', function() {
@@ -221,8 +227,8 @@ document.getElementById('template_select')?.addEventListener('change', function(
         .then(data => {
             if (data.success) {
                 document.getElementById('contract_title').value = data.template.name;
-                if (tinymce.get('contract_text')) {
-                    tinymce.get('contract_text').setContent(data.template.template_text);
+                if (contractEditor) {
+                    contractEditor.setData(data.template.template_text);
                 } else {
                     document.getElementById('contract_text').value = data.template.template_text;
                 }
