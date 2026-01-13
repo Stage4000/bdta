@@ -619,6 +619,9 @@ class Database {
         $columns = $this->conn->query("PRAGMA table_info(bookings)")->fetchAll(PDO::FETCH_ASSOC);
         $column_names = array_column($columns, 'name');
         
+        if (!in_array('client_id', $column_names)) {
+            $this->conn->exec("ALTER TABLE bookings ADD COLUMN client_id INTEGER");
+        }
         if (!in_array('appointment_type_id', $column_names)) {
             $this->conn->exec("ALTER TABLE bookings ADD COLUMN appointment_type_id INTEGER");
         }
