@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($client) {
             // Generate password reset token
             $token = bin2hex(random_bytes(32));
-            $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+            $expires = gmdate('Y-m-d H:i:s', strtotime('+1 hour')); // Use UTC for consistency with SQLite datetime('now')
             
             // Store token in database
             $stmt = $conn->prepare("UPDATE clients SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?");
