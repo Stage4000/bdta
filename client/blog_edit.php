@@ -95,26 +95,97 @@ require_once '../backend/includes/header.php';
     </div>
 </div>
 
-<!-- CKEditor 4 Rich Text Editor (Self-Hosted, No License Required) -->
-<script src="js/ckeditor/ckeditor.js"></script>
+<!-- CKEditor 5 Rich Text Editor (Self-Hosted, GPL License) -->
+<link rel="stylesheet" href="js/ckeditor5/ckeditor5.css" />
+<script type="module">
+import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Underline,
+    Strikethrough,
+    Paragraph,
+    Heading,
+    Link,
+    List,
+    Image,
+    ImageToolbar,
+    ImageUpload,
+    ImageCaption,
+    ImageStyle,
+    ImageResize,
+    Table,
+    TableToolbar,
+    Alignment,
+    BlockQuote,
+    MediaEmbed,
+    SourceEditing,
+    GeneralHtmlSupport
+} from 'js/ckeditor5/ckeditor5.js';
+
+// Initialize CKEditor 5 for blog content editor (full-featured)
+ClassicEditor
+    .create(document.querySelector('#content'), {
+        licenseKey: 'GPL',
+        plugins: [
+            Essentials, Bold, Italic, Underline, Strikethrough, 
+            Paragraph, Heading, Link, List, Image, ImageToolbar, 
+            ImageUpload, ImageCaption, ImageStyle, ImageResize,
+            Table, TableToolbar, Alignment, BlockQuote, MediaEmbed,
+            SourceEditing, GeneralHtmlSupport
+        ],
+        toolbar: [
+            'undo', 'redo', '|',
+            'heading', '|',
+            'bold', 'italic', 'underline', 'strikethrough', '|',
+            'link', 'uploadImage', 'insertTable', 'blockQuote', 'mediaEmbed', '|',
+            'bulletedList', 'numberedList', '|',
+            'alignment', '|',
+            'sourceEditing'
+        ],
+        heading: {
+            options: [
+                { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+                { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
+                { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' }
+            ]
+        },
+        image: {
+            toolbar: [
+                'imageStyle:inline', 'imageStyle:block', 'imageStyle:side', '|',
+                'toggleImageCaption', 'imageTextAlternative', '|',
+                'linkImage'
+            ]
+        },
+        table: {
+            contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+        },
+        htmlSupport: {
+            allow: [
+                {
+                    name: /.*/,
+                    attributes: true,
+                    classes: true,
+                    styles: true
+                }
+            ]
+        }
+    })
+    .then(editor => {
+        window.blogEditor = editor;
+        // Sync with textarea on change
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#content').value = editor.getData();
+        });
+    })
+    .catch(error => {
+        console.error('CKEditor initialization error:', error);
+    });
+</script>
 <script>
-// Initialize CKEditor 4 for content editor
-CKEDITOR.replace('content', {
-    height: 500,
-    toolbar: [
-        { name: 'document', items: ['Source'] },
-        { name: 'clipboard', items: ['Undo', 'Redo'] },
-        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strike'] },
-        { name: 'paragraph', items: ['NumberedList', 'BulletedList', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight'] },
-        { name: 'links', items: ['Link', 'Unlink'] },
-        { name: 'insert', items: ['Image', 'Table'] },
-        { name: 'styles', items: ['Format'] },
-        { name: 'tools', items: ['Maximize'] }
-    ],
-    format_tags: 'p;h1;h2;h3;h4',
-    removePlugins: 'elementspath',
-    resize_enabled: false
-});
 
 // Auto-generate slug from title
 document.getElementById('title').addEventListener('input', function() {

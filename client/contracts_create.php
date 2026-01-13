@@ -180,27 +180,79 @@ include '../backend/includes/header.php';
     </div>
 </div>
 
-<!-- CKEditor 4 Rich Text Editor (Self-Hosted, No License Required) -->
-<script src="js/ckeditor/ckeditor.js"></script>
-<script>
-// Initialize CKEditor 4 for contract text editor
-CKEDITOR.replace('contract_text', {
-    height: 500,
-    toolbar: [
-        { name: 'document', items: ['Source'] },
-        { name: 'clipboard', items: ['Undo', 'Redo'] },
-        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strike'] },
-        { name: 'paragraph', items: ['NumberedList', 'BulletedList', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight'] },
-        { name: 'links', items: ['Link', 'Unlink'] },
-        { name: 'insert', items: ['Table'] },
-        { name: 'styles', items: ['Format'] },
-        { name: 'tools', items: ['Maximize'] }
-    ],
-    format_tags: 'p;h1;h2;h3',
-    removePlugins: 'elementspath',
-    resize_enabled: false
-});
+<!-- CKEditor 5 Rich Text Editor (Self-Hosted, GPL License) -->
+<link rel="stylesheet" href="js/ckeditor5/ckeditor5.css" />
+<script type="module">
+import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Underline,
+    Strikethrough,
+    Paragraph,
+    Heading,
+    Link,
+    List,
+    Table,
+    TableToolbar,
+    Alignment,
+    SourceEditing,
+    GeneralHtmlSupport
+} from 'js/ckeditor5/ckeditor5.js';
 
+// Initialize CKEditor 5 for contract text editor (document preset)
+ClassicEditor
+    .create(document.querySelector('#contract_text'), {
+        licenseKey: 'GPL',
+        plugins: [
+            Essentials, Bold, Italic, Underline, Strikethrough,
+            Paragraph, Heading, Link, List, Table, TableToolbar,
+            Alignment, SourceEditing, GeneralHtmlSupport
+        ],
+        toolbar: [
+            'undo', 'redo', '|',
+            'heading', '|',
+            'bold', 'italic', 'underline', 'strikethrough', '|',
+            'link', 'insertTable', '|',
+            'bulletedList', 'numberedList', '|',
+            'alignment', '|',
+            'sourceEditing'
+        ],
+        heading: {
+            options: [
+                { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+                { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+            ]
+        },
+        table: {
+            contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+        },
+        htmlSupport: {
+            allow: [
+                {
+                    name: /.*/,
+                    attributes: true,
+                    classes: true,
+                    styles: true
+                }
+            ]
+        }
+    })
+    .then(editor => {
+        window.contractEditor = editor;
+        // Sync with textarea on change
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#contract_text').value = editor.getData();
+        });
+    })
+    .catch(error => {
+        console.error('CKEditor initialization error:', error);
+    });
+</script>
+<script>
 // Load template via AJAX when selected
 document.getElementById('template_select')?.addEventListener('change', function() {
     const templateId = this.value;
@@ -211,8 +263,8 @@ document.getElementById('template_select')?.addEventListener('change', function(
         .then(data => {
             if (data.success) {
                 document.getElementById('contract_title').value = data.template.name;
-                if (CKEDITOR.instances.contract_text) {
-                    CKEDITOR.instances.contract_text.setData(data.template.template_text);
+                if (window.contractEditor) {
+                    window.contractEditor.setData(data.template.template_text);
                 } else {
                     document.getElementById('contract_text').value = data.template.template_text;
                 }
