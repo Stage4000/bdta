@@ -5,10 +5,12 @@
  */
 
 class Database {
-    private $db_file = 'bdta.db';
+    private $db_file;
     private $conn = null;
     
     public function __construct() {
+        // Use absolute path to database file in backend directory
+        $this->db_file = __DIR__ . '/../bdta.db';
         $this->connect();
         $this->initTables();
     }
