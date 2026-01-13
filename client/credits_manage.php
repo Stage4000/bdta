@@ -162,7 +162,7 @@ require_once '../backend/includes/header.php';
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
-                    <h1>Credit Management</h1>
+                    <h2><i class="bi bi-people me-2"></i>Credit Management</h2>
                     <p class="text-muted">
                         Client: <strong><?php echo htmlspecialchars($client['name']); ?></strong>
                         <a href="clients_edit.php?id=<?php echo $client_id; ?>" class="btn btn-sm btn-outline-primary ms-2">

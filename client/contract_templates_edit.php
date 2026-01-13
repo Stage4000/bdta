@@ -74,10 +74,7 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col">
-            <h1 class="h3">
-                <i class="bi bi-file-earmark-medical me-2"></i>
-                <?= $is_edit ? 'Edit Contract Template' : 'Create Contract Template' ?>
-            </h1>
+            <h2><i class="bi bi-file-earmark-medical me-2"></i><?= $is_edit ? 'Edit Contract Template' : 'Create Contract Template' ?></h2>
         </div>
         <div class="col-auto">
             <a href="contract_templates_list.php" class="btn btn-outline-secondary">

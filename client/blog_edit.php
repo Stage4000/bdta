@@ -50,7 +50,7 @@ require_once '../backend/includes/header.php';
 ?>
 
 <div class="py-4">
-    <h2 class="mb-4"><?php echo $post ? 'Edit Post' : 'New Post'; ?></h2>
+    <h2><i class="bi bi-pencil-square me-2"></i><?php echo $post ? 'Edit Post' : 'New Post'; ?></h2>
     
     <div class="card">
         <div class="card-body">

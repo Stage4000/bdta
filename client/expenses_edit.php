@@ -88,7 +88,7 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-md-8 offset-md-2">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><?= $id > 0 ? 'Edit Expense' : 'Add Expense' ?></h2>
+                <h2><i class="bi bi-receipt me-2"></i><?= $id > 0 ? 'Edit Expense' : 'Add Expense' ?></h2>
                 <a href="expenses_list.php" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Back
                 </a>

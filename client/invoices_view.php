@@ -32,7 +32,7 @@ include '../backend/includes/header.php';
     <div class="row">
         <div class="col-md-10 offset-md-1">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Invoice: <?= escape($invoice['invoice_number']) ?></h2>
+                <h2><i class="bi bi-file-earmark-text me-2"></i>Invoice: <?= escape($invoice['invoice_number']) ?></h2>
                 <div>
                     <?php if ($invoice['status'] !== 'paid'): ?>
                         <a href="invoices_payment.php?id=<?= $id ?>" class="btn btn-success">

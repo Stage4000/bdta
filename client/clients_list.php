@@ -23,7 +23,7 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Client Management</h2>
+        <h2><i class="bi bi-people me-2"></i>Client Management</h2>
         <a href="clients_edit.php" class="btn btn-primary">
             <i class="bi bi-plus-circle"></i> Add New Client
         </a>

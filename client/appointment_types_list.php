@@ -41,7 +41,7 @@ include __DIR__ . '/../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="h3 mb-0">Appointment Types</h1>
+            <h2 class="mb-0"><i class="bi bi-calendar-check-fill me-2"></i>Appointment Types</h2>
             <p class="text-muted">Configure appointment types with rules and behaviors</p>
         </div>
         <a href="appointment_types_edit.php" class="btn btn-primary">

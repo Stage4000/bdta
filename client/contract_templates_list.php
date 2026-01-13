@@ -33,7 +33,7 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col">
-            <h1 class="h3"><i class="bi bi-file-earmark-medical me-2"></i>Contract Templates</h1>
+            <h2><i class="bi bi-file-earmark-medical me-2"></i>Contract Templates</h2>
             <p class="text-muted">Reusable contract templates for different service types</p>
         </div>
         <div class="col-auto">

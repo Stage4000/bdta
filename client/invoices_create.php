@@ -72,7 +72,7 @@ include '../backend/includes/header.php';
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-md-10 offset-md-1">
-            <h2 class="mb-4">Create Invoice</h2>
+            <h2 class="mb-4"><i class="bi bi-file-earmark-text me-2"></i>Create Invoice</h2>
             
             <div class="card">
                 <div class="card-body">

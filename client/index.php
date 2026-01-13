@@ -20,7 +20,7 @@ require_once '../backend/includes/header.php';
 ?>
 
 <div class="py-4">
-    <h2 class="mb-4">Dashboard</h2>
+    <h2 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h2>
     
     <div class="row g-4 mb-4">
         <div class="col-md-3">

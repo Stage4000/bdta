@@ -94,10 +94,10 @@ include '../backend/includes/header.php';
     
     <div class="row mb-4">
         <div class="col">
-            <h1 class="h3">
+            <h2>
                 <i class="bi bi-file-earmark-text me-2"></i>
                 Quote <?= escape($quote['quote_number']) ?>
-            </h1>
+            </h2>
         </div>
         <div class="col-auto">
             <a href="quotes_list.php" class="btn btn-outline-secondary me-2">

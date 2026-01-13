@@ -14,7 +14,7 @@ require_once '../backend/includes/header.php';
 
 <div class="py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Blog Posts</h2>
+        <h2><i class="bi bi-pencil-square me-2"></i>Blog Posts</h2>
         <a href="blog_edit.php" class="btn btn-primary">
             <i class="bi bi-plus-circle me-1"></i> New Post
         </a>
