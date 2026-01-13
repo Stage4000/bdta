@@ -260,22 +260,41 @@ bdta/
 
 ### Email Settings
 
+**IMPORTANT:** The system now uses PHPMailer for reliable email delivery. PHP's default `mail()` function is unreliable and often doesn't work without proper server configuration.
+
 Configure email delivery in the Admin Panel:
 1. Go to **Settings** → **Email**
 2. Choose email service:
-   - **PHP mail()** - Default, works immediately for testing
-   - **SMTP** - Custom SMTP server
-   - **SendGrid** - Recommended for production
-   - **Mailgun** - Alternative service
-   - **AWS SES** - Amazon email service
+   - **PHP mail()** - Basic PHP function (not recommended for production)
+   - **SMTP** - Recommended for production (works with Gmail, Zoho, Outlook, etc.)
 
-Example SMTP configuration:
+**Quick Start with SMTP:**
+
+For **Gmail**:
 ```
+Email Service: SMTP
 Host: smtp.gmail.com
 Port: 587
 Username: your-email@gmail.com
-Password: your-app-password
+Password: your-app-password (generate at https://myaccount.google.com/apppasswords)
 ```
+
+For **Zoho**:
+```
+Email Service: SMTP
+Host: smtp.zoho.com
+Port: 587
+Username: your-email@zoho.com
+Password: your-app-specific-password
+```
+
+**Testing Your Configuration:**
+After configuring SMTP settings, test your email by visiting:
+- `http://localhost:8000/backend/public/test_email.php`
+
+⚠️ **Delete test_email.php after testing** for security.
+
+For detailed configuration instructions for other email providers (Outlook, SendGrid, Mailgun, AWS SES), see [backend/EMAIL_CONFIGURATION.md](backend/EMAIL_CONFIGURATION.md).
 
 ### Stripe Payment Integration
 
@@ -652,6 +671,35 @@ sudo systemctl restart apache2
 
 ### Email Not Sending
 
+**The system now uses PHPMailer with SMTP support for reliable email delivery.**
+
+#### Quick Fix:
+1. Go to **Settings** → **Email** in the Admin Panel
+2. Change "Email Service" from "PHP mail()" to "SMTP"
+3. Configure SMTP settings for your email provider (Gmail, Zoho, etc.)
+4. Test using `http://localhost:8000/backend/public/test_email.php`
+
+#### Common Issues:
+
+**"SMTP connect() failed"**
+- Verify SMTP host and port are correct
+- Check firewall is not blocking port 587
+- Try port 465 if 587 doesn't work
+
+**"Could not authenticate"**
+- For Gmail: Use App Password, not your regular password
+- For Zoho: Use App-Specific Password
+- Verify username and password are correct
+
+**"Connection refused" or "Connection timed out"**
+- Port 587 or 465 may be blocked by your hosting provider
+- Contact your hosting provider to enable SMTP
+- Consider using a dedicated email service (SendGrid, Mailgun)
+
+For detailed troubleshooting, see [backend/EMAIL_CONFIGURATION.md](backend/EMAIL_CONFIGURATION.md)
+
+#### Old PHP mail() Issues (Not Recommended):
+
 1. **Check PHP mail() configuration**
    ```bash
    php -i | grep sendmail
@@ -664,9 +712,7 @@ sudo systemctl restart apache2
    ?>
    ```
 
-3. **For production, use email service**
-   - Configure SendGrid, Mailgun, or AWS SES in Settings
-   - These are more reliable than PHP mail()
+**Note:** PHP mail() is unreliable and not recommended. Use SMTP instead.
 
 ### File Upload Issues
 

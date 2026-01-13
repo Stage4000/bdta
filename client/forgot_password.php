@@ -4,6 +4,7 @@
  */
 
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/email_service.php';
 
 $error = '';
 $success = '';
@@ -37,25 +38,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
             $reset_link = $protocol . "://" . $_SERVER['HTTP_HOST'] . "/client/reset_password.php?token=" . $token;
             
-            // Send email (note: email service needs to be configured in settings)
+            // Send email using EmailService
             $subject = "Password Reset Request - BDTA";
-            $message = "Hello " . escape($client['name']) . ",\n\n";
-            $message .= "You requested a password reset for your BDTA Client Area account.\n\n";
-            $message .= "Click the link below to reset your password:\n";
-            $message .= $reset_link . "\n\n";
-            $message .= "This link will expire in 1 hour.\n\n";
-            $message .= "If you didn't request this, please ignore this email.\n\n";
-            $message .= "Brooks Dog Training Academy";
+            $html_message = "<html><body>";
+            $html_message .= "<p>Hello " . htmlspecialchars($client['name']) . ",</p>";
+            $html_message .= "<p>You requested a password reset for your BDTA Client Area account.</p>";
+            $html_message .= "<p>Click the link below to reset your password:</p>";
+            $html_message .= "<p><a href='" . htmlspecialchars($reset_link) . "'>" . htmlspecialchars($reset_link) . "</a></p>";
+            $html_message .= "<p>This link will expire in 1 hour.</p>";
+            $html_message .= "<p>If you didn't request this, please ignore this email.</p>";
+            $html_message .= "<p>Brook's Dog Training Academy</p>";
+            $html_message .= "</body></html>";
             
-            // Try to send email
-            $headers = "From: noreply@brooksdogtraining.com\r\n";
-            $headers .= "Reply-To: noreply@brooksdogtraining.com\r\n";
-            $headers .= "X-Mailer: PHP/" . phpversion();
+            $text_message = "Hello " . $client['name'] . ",\n\n";
+            $text_message .= "You requested a password reset for your BDTA Client Area account.\n\n";
+            $text_message .= "Click the link below to reset your password:\n";
+            $text_message .= $reset_link . "\n\n";
+            $text_message .= "This link will expire in 1 hour.\n\n";
+            $text_message .= "If you didn't request this, please ignore this email.\n\n";
+            $text_message .= "Brook's Dog Training Academy";
             
-            $email_sent = mail($email, $subject, $message, $headers);
+            // Try to send email using EmailService
+            $emailService = new EmailService();
+            $email_result = $emailService->sendGenericEmail($email, $subject, $html_message, $text_message);
             
-            // Note: For production, configure a proper email service in Settings
-            // The current implementation uses PHP's mail() function which may not work on all servers
+            // Log result for debugging
+            if (!$email_result['success']) {
+                error_log("Password reset email failed: " . $email_result['message']);
+            }
             
             $success = 'If an account exists with that email address, you will receive a password reset link shortly.';
         } else {
