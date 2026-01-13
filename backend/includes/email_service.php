@@ -5,6 +5,12 @@
  */
 
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/phpmailer/src/Exception.php';
+require_once __DIR__ . '/phpmailer/src/PHPMailer.php';
+require_once __DIR__ . '/phpmailer/src/SMTP.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 class EmailService {
     private $from_email;
@@ -40,6 +46,23 @@ class EmailService {
         $text_body = $this->getConfirmationEmailText($booking, $date, $time, $google_link, $ical_link);
         
         // Send email
+        return $this->sendEmail($to, $subject, $html_body, $text_body);
+    }
+    
+    /**
+     * Send a generic email
+     * @param string $to Recipient email address
+     * @param string $subject Email subject
+     * @param string $html_body HTML body content
+     * @param string $text_body Plain text body content (optional)
+     * @return array Result array with 'success' and 'message' keys
+     */
+    public function sendGenericEmail($to, $subject, $html_body, $text_body = '') {
+        // If no text body provided, generate a basic one from HTML
+        if (empty($text_body)) {
+            $text_body = strip_tags($html_body);
+        }
+        
         return $this->sendEmail($to, $subject, $html_body, $text_body);
     }
     
@@ -171,25 +194,58 @@ TEXT;
     }
     
     /**
-     * Send email using PHP mail() function
-     * For production, consider using PHPMailer or similar library
+     * Send email using PHPMailer with SMTP support
      */
     private function sendEmail($to, $subject, $html_body, $text_body) {
-        $headers = [
-            'MIME-Version: 1.0',
-            'Content-Type: text/html; charset=UTF-8',
-            'From: ' . $this->from_name . ' <' . $this->from_email . '>',
-            'Reply-To: info@brooksdogtraining.com',
-            'X-Mailer: PHP/' . phpversion()
-        ];
-        
-        // In production, use a proper email service (SendGrid, Mailgun, AWS SES, etc.)
-        $sent = mail($to, $subject, $html_body, implode("\r\n", $headers));
-        
-        return [
-            'success' => $sent,
-            'message' => $sent ? 'Confirmation email sent' : 'Failed to send email'
-        ];
+        try {
+            $mail = new PHPMailer(true);
+            
+            // Get email configuration from settings
+            $email_service = Settings::get('email_service', 'mail');
+            
+            if ($email_service === 'smtp') {
+                // Configure SMTP
+                $mail->isSMTP();
+                $mail->Host = Settings::get('smtp_host', '');
+                $mail->SMTPAuth = true;
+                $mail->Username = Settings::get('smtp_username', '');
+                $mail->Password = Settings::get('smtp_password', '');
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port = Settings::get('smtp_port', 587);
+            } else {
+                // Use PHP mail() function as fallback
+                $mail->isMail();
+            }
+            
+            // Set sender
+            $mail->setFrom($this->from_email, $this->from_name);
+            $mail->addReplyTo('info@brooksdogtraining.com', $this->from_name);
+            
+            // Set recipient
+            $mail->addAddress($to);
+            
+            // Set email format and content
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $html_body;
+            $mail->AltBody = $text_body;
+            
+            // Send email
+            $mail->send();
+            
+            return [
+                'success' => true,
+                'message' => 'Confirmation email sent successfully'
+            ];
+        } catch (Exception $e) {
+            // Log error and return failure
+            error_log("Email sending failed: " . $mail->ErrorInfo);
+            
+            return [
+                'success' => false,
+                'message' => 'Failed to send email: ' . $mail->ErrorInfo
+            ];
+        }
     }
 }
 ?>
