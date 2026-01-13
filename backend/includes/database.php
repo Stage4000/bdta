@@ -646,7 +646,7 @@ class Database {
             $this->conn->exec("ALTER TABLE clients ADD COLUMN password_hash TEXT");
         }
         if (!in_array('is_admin', $client_column_names)) {
-            $this->conn->exec("ALTER TABLE clients ADD COLUMN is_admin INTEGER DEFAULT 0");
+            $this->conn->exec("ALTER TABLE clients ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
         }
         if (!in_array('last_login', $client_column_names)) {
             $this->conn->exec("ALTER TABLE clients ADD COLUMN last_login TIMESTAMP");

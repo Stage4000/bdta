@@ -26,21 +26,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (strlen($new_password) < 8) {
         $error = 'New password must be at least 8 characters long.';
     } else {
-        // Verify current password
-        $stmt = $conn->prepare("SELECT password_hash FROM admin_users WHERE id = ?");
-        $stmt->execute([$_SESSION['admin_id']]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($user && password_verify($current_password, $user['password_hash'])) {
-            // Update password
-            $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-            $stmt = $conn->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
-            $stmt->execute([$new_password_hash, $_SESSION['admin_id']]);
-            
-            setFlashMessage('Password changed successfully!', 'success');
-            redirect('index.php');
+        // Check if user is from admin_users or clients table
+        if (!isset($_SESSION['user_type'])) {
+            $error = 'Invalid session. Please log in again.';
         } else {
-            $error = 'Current password is incorrect.';
+            $user_type = $_SESSION['user_type'];
+            
+            if ($user_type === 'client') {
+                // Client user - check clients table
+                $stmt = $conn->prepare("SELECT password_hash FROM clients WHERE id = ?");
+                $stmt->execute([$_SESSION['admin_id']]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($user && password_verify($current_password, $user['password_hash'])) {
+                    // Update password
+                    $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+                    $stmt = $conn->prepare("UPDATE clients SET password_hash = ? WHERE id = ?");
+                    $stmt->execute([$new_password_hash, $_SESSION['admin_id']]);
+                    
+                    setFlashMessage('Password changed successfully!', 'success');
+                    redirect('index.php');
+                } else {
+                    $error = 'Current password is incorrect.';
+                }
+            } else {
+                // Admin user - check admin_users table
+                $stmt = $conn->prepare("SELECT password_hash FROM admin_users WHERE id = ?");
+                $stmt->execute([$_SESSION['admin_id']]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($user && password_verify($current_password, $user['password_hash'])) {
+                    // Update password
+                    $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+                    $stmt = $conn->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
+                    $stmt->execute([$new_password_hash, $_SESSION['admin_id']]);
+                    
+                    setFlashMessage('Password changed successfully!', 'success');
+                    redirect('index.php');
+                } else {
+                    $error = 'Current password is incorrect.';
+                }
+            }
         }
     }
 }

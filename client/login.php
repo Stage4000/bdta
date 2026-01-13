@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('index.php');
         } else {
             // Check clients table for admin clients
-            $stmt = $conn->prepare("SELECT * FROM clients WHERE email = ? AND is_admin = 1 AND password_hash IS NOT NULL");
+            $stmt = $conn->prepare("SELECT id, name, email, password_hash, is_admin FROM clients WHERE email = ? AND is_admin = 1 AND password_hash IS NOT NULL AND password_hash != ''");
             $stmt->execute([$username]);
             $client = $stmt->fetch(PDO::FETCH_ASSOC);
             
