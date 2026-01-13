@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo isset($page_title) ? escape($page_title) : 'Client Area'; ?> - BDTA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/mobile.css">
     <style>
@@ -87,12 +86,12 @@
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>" href="index.php">
-                                <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                                <i class="fas fa-gauge me-2"></i> Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'clients_') !== false ? 'active' : ''; ?>" href="clients_list.php">
-                                <i class="bi bi-people me-2"></i> Clients
+                                <i class="fas fa-users me-2"></i> Clients
                             </a>
                         </li>
                         <li class="nav-item">
@@ -102,82 +101,82 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'booking') !== false ? 'active' : ''; ?>" href="bookings_list.php">
-                                <i class="bi bi-calendar-check me-2"></i> Bookings
+                                <i class="fas fa-calendar-check me-2"></i> Bookings
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'time_entries') !== false || strpos($_SERVER['PHP_SELF'], 'time_tracker') !== false ? 'active' : ''; ?>" href="time_entries_list.php">
-                                <i class="bi bi-stopwatch me-2"></i> Time Tracker
+                                <i class="fas fa-stopwatch me-2"></i> Time Tracker
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'expense') !== false ? 'active' : ''; ?>" href="expenses_list.php">
-                                <i class="bi bi-receipt me-2"></i> Expenses
+                                <i class="fas fa-receipt me-2"></i> Expenses
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'invoice') !== false ? 'active' : ''; ?>" href="invoices_list.php">
-                                <i class="bi bi-file-earmark-text me-2"></i> Invoices
+                                <i class="fas fa-file-invoice me-2"></i> Invoices
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'contract') !== false && strpos($_SERVER['PHP_SELF'], 'template') === false ? 'active' : ''; ?>" href="contracts_list.php">
-                                <i class="bi bi-file-earmark-check me-2"></i> Contracts
+                                <i class="fas fa-file-contract me-2"></i> Contracts
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'contract_template') !== false ? 'active' : ''; ?>" href="contract_templates_list.php">
-                                <i class="bi bi-file-earmark-medical me-2"></i> Contract Templates
+                                <i class="fas fa-file-medical me-2"></i> Contract Templates
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'quote') !== false ? 'active' : ''; ?>" href="quotes_list.php">
-                                <i class="bi bi-file-earmark-text me-2"></i> Quotes
+                                <i class="fas fa-file-invoice-dollar me-2"></i> Quotes
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'blog') !== false ? 'active' : ''; ?>" href="blog_list.php">
-                                <i class="bi bi-pencil-square me-2"></i> Blog Posts
+                                <i class="fas fa-blog me-2"></i> Blog Posts
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'appointment_types') !== false ? 'active' : ''; ?>" href="appointment_types_list.php">
-                                <i class="bi bi-calendar-check-fill me-2"></i> Appointment Types
+                                <i class="fas fa-calendar-plus me-2"></i> Appointment Types
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'form_templates') !== false ? 'active' : ''; ?>" href="form_templates_list.php">
-                                <i class="bi bi-file-text me-2"></i> Form Templates
+                                <i class="fas fa-file-lines me-2"></i> Form Templates
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'email_templates') !== false ? 'active' : ''; ?>" href="email_templates_list.php">
-                                <i class="bi bi-envelope me-2"></i> Email Templates
+                                <i class="fas fa-envelope me-2"></i> Email Templates
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'form_submissions') !== false ? 'active' : ''; ?>" href="form_submissions_list.php">
-                                <i class="bi bi-file-earmark-check me-2"></i> Form Submissions
+                                <i class="fas fa-file-circle-check me-2"></i> Form Submissions
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>" href="settings.php">
-                                <i class="bi bi-gear me-2"></i> Settings
+                                <i class="fas fa-gear me-2"></i> Settings
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'change_password.php' ? 'active' : ''; ?>" href="change_password.php">
-                                <i class="bi bi-key me-2"></i> Change Password
+                                <i class="fas fa-key me-2"></i> Change Password
                             </a>
                         </li>
                         <li class="nav-item mt-3">
                             <a class="nav-link" href="../../index.html" target="_blank">
-                                <i class="bi bi-house me-2"></i> View Website
+                                <i class="fas fa-house me-2"></i> View Website
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="logout.php">
-                                <i class="bi bi-box-arrow-right me-2"></i> Logout
+                                <i class="fas fa-arrow-right-from-bracket me-2"></i> Logout
                             </a>
                         </li>
                     </ul>
