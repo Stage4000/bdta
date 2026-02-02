@@ -69,11 +69,64 @@ if ($method === 'GET') {
     $conn = $db->getConnection();
     
     try {
+        // Check if client exists by email
+        $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
+        $stmt->execute([$data['client_email']]);
+        $existing_client = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($existing_client) {
+            // Client exists, use their ID
+            $client_id = $existing_client['id'];
+        } else {
+            // Create new client
+            $stmt = $conn->prepare("
+                INSERT INTO clients (name, email, phone, notes, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+            ");
+            $stmt->execute([
+                $data['client_name'],
+                $data['client_email'],
+                $data['client_phone'] ?? '',
+                'Created from booking form'
+            ]);
+            $client_id = $conn->lastInsertId();
+        }
+        
+        // Create pet profiles from dog names if provided
+        $dog_names = isset($data['dog_names']) ? $data['dog_names'] : '';
+        $pet_ids = [];
+        if (!empty($dog_names)) {
+            // Split comma-separated dog names
+            $names = array_map('trim', explode(',', $dog_names));
+            foreach ($names as $dog_name) {
+                if (!empty($dog_name)) {
+                    // Check if pet with this name already exists for this client
+                    $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND name = ?");
+                    $stmt->execute([$client_id, $dog_name]);
+                    $existing_pet = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (!$existing_pet) {
+                        // Create new pet
+                        $stmt = $conn->prepare("
+                            INSERT INTO pets (client_id, name, species, is_active, created_at, updated_at) 
+                            VALUES (?, ?, 'Dog', 1, datetime('now'), datetime('now'))
+                        ");
+                        $stmt->execute([$client_id, $dog_name]);
+                        $pet_ids[] = $conn->lastInsertId();
+                    } else {
+                        $pet_ids[] = $existing_pet['id'];
+                    }
+                }
+            }
+        }
+        
+        // Create booking with client_id
         $stmt = $conn->prepare("
-            INSERT INTO bookings (client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO bookings (client_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
         ");
         $stmt->execute([
+            $client_id,
             $data['client_name'],
             $data['client_email'],
             $data['client_phone'] ?? '',
@@ -85,6 +138,17 @@ if ($method === 'GET') {
         ]);
         
         $booking_id = $conn->lastInsertId();
+        
+        // Link pets to booking
+        if (!empty($pet_ids)) {
+            foreach ($pet_ids as $pet_id) {
+                $stmt = $conn->prepare("
+                    INSERT INTO appointment_pets (booking_id, pet_id, created_at) 
+                    VALUES (?, ?, datetime('now'))
+                ");
+                $stmt->execute([$booking_id, $pet_id]);
+            }
+        }
         
         // Get the complete booking info
         $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");

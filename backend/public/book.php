@@ -681,6 +681,7 @@ $page_title = "Book an Appointment";
                 client_name: document.getElementById('clientName').value,
                 client_email: document.getElementById('clientEmail').value,
                 client_phone: document.getElementById('clientPhone').value,
+                dog_names: document.getElementById('dogNames').value,
                 notes: document.getElementById('notes').value,
                 duration_minutes: parseInt(typeCard.dataset.duration)
             };
