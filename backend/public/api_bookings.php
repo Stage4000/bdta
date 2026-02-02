@@ -69,6 +69,12 @@ if ($method === 'GET') {
     $conn = $db->getConnection();
     
     try {
+        // Validate email format
+        if (!filter_var($data['client_email'], FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['error' => 'Invalid email format']);
+            exit;
+        }
+        
         // Check if client exists by email
         $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
         $stmt->execute([$data['client_email']]);
@@ -96,26 +102,24 @@ if ($method === 'GET') {
         $dog_names = isset($data['dog_names']) ? $data['dog_names'] : '';
         $pet_ids = [];
         if (!empty($dog_names)) {
-            // Split comma-separated dog names
-            $names = array_map('trim', explode(',', $dog_names));
+            // Split comma-separated dog names and remove empty strings
+            $names = array_filter(array_map('trim', explode(',', $dog_names)));
             foreach ($names as $dog_name) {
-                if (!empty($dog_name)) {
-                    // Check if pet with this name already exists for this client
-                    $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND name = ?");
+                // Check if pet with this name already exists for this client
+                $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND name = ?");
+                $stmt->execute([$client_id, $dog_name]);
+                $existing_pet = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$existing_pet) {
+                    // Create new pet
+                    $stmt = $conn->prepare("
+                        INSERT INTO pets (client_id, name, species, is_active, created_at, updated_at) 
+                        VALUES (?, ?, 'Dog', 1, datetime('now'), datetime('now'))
+                    ");
                     $stmt->execute([$client_id, $dog_name]);
-                    $existing_pet = $stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if (!$existing_pet) {
-                        // Create new pet
-                        $stmt = $conn->prepare("
-                            INSERT INTO pets (client_id, name, species, is_active, created_at, updated_at) 
-                            VALUES (?, ?, 'Dog', 1, datetime('now'), datetime('now'))
-                        ");
-                        $stmt->execute([$client_id, $dog_name]);
-                        $pet_ids[] = $conn->lastInsertId();
-                    } else {
-                        $pet_ids[] = $existing_pet['id'];
-                    }
+                    $pet_ids[] = $conn->lastInsertId();
+                } else {
+                    $pet_ids[] = $existing_pet['id'];
                 }
             }
         }
