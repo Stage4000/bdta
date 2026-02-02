@@ -398,6 +398,22 @@ class Database {
                 )
             ");
             
+            // Email templates table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS email_templates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    template_type TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    body_html TEXT NOT NULL,
+                    body_text TEXT,
+                    variables TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ");
+            
             // Create default admin if not exists
             $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
             $stmt->execute(['admin']);
@@ -422,6 +438,10 @@ class Database {
             if ($stmt->fetchColumn() == 0) {
                 $this->initSampleAppointmentTypes();
             }
+            
+            // Run database migrations to add new columns
+            // These migrations should always run, not just when initializing sample data
+            $this->runMigrations();
             
         } catch(PDOException $e) {
             die("Table creation failed: " . $e->getMessage());
@@ -599,23 +619,9 @@ class Database {
         foreach ($sample_types as $type) {
             $stmt->execute($type);
         }
-        
-        // Email templates table
-        $this->conn->exec("
-            CREATE TABLE IF NOT EXISTS email_templates (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                template_type TEXT NOT NULL,
-                subject TEXT NOT NULL,
-                body_html TEXT NOT NULL,
-                body_text TEXT,
-                variables TEXT,
-                is_active INTEGER DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ");
-        
+    }
+    
+    private function runMigrations() {
         // Update bookings table to add new columns for enhanced booking
         // Check if columns exist before adding
         $columns = $this->conn->query("PRAGMA table_info(bookings)")->fetchAll(PDO::FETCH_ASSOC);
