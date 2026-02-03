@@ -16,12 +16,8 @@ if (!isLoggedIn()) {
 $db = new Database();
 $conn = $db->getConnection();
 
-// Get base URL for building booking links
-$base_url_stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'base_url'");
-$base_url = $base_url_stmt->fetchColumn();
-if (!$base_url) {
-    $base_url = 'http://localhost:8000';
-}
+// Get base URL for building booking links dynamically from current request
+$base_url = getDynamicBaseUrl();
 
 // Pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;

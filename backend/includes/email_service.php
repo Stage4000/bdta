@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/phpmailer/src/Exception.php';
 require_once __DIR__ . '/phpmailer/src/PHPMailer.php';
 require_once __DIR__ . '/phpmailer/src/SMTP.php';
@@ -17,10 +18,13 @@ class EmailService {
     private $from_name;
     private $base_url;
     
-    public function __construct() {
+    public function __construct($base_url = null) {
         $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtraining.com');
         $this->from_name = Settings::get('email_from_name', "Brook's Dog Training Academy");
-        $this->base_url = Settings::get('base_url', 'http://localhost:8000');
+        
+        // Use provided base_url, or get it dynamically
+        // getDynamicBaseUrl() handles both HTTP and CLI contexts internally
+        $this->base_url = $base_url ?? getDynamicBaseUrl();
     }
     
     /**

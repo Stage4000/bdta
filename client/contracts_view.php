@@ -46,9 +46,8 @@ if (!$contract) {
     redirect('contracts_list.php');
 }
 
-// Generate public link
-require_once '../backend/includes/settings.php';
-$base_url = Settings::get('base_url', 'http://localhost:8000');
+// Generate public link dynamically from current request
+$base_url = getDynamicBaseUrl();
 $public_link = $base_url . '/backend/public/contract.php?id=' . $id;
 
 include '../backend/includes/header.php';
