@@ -37,7 +37,7 @@ elseif (isset($_GET['type']) && !empty($_GET['type'])) {
 }
 
 // If no appointment type is specified, show error or redirect
-if (!$is_standalone || !$selected_type) {
+if (!$selected_type) {
     // No appointment type specified - cannot proceed
     $error_mode = true;
     $appointment_types = [];
@@ -308,7 +308,7 @@ if (isset($error_mode) && $error_mode) {
             <!-- Booking Form -->
             <form id="bookingForm">
                 <!-- Hidden input to store the pre-selected appointment type (all pages are standalone now) -->
-                <input type="hidden" name="appointment_type" value="<?= $selected_type['id'] ?>" id="standaloneType">
+                <input type="hidden" name="appointment_type" value="<?= intval($selected_type['id']) ?>" id="standaloneType">
                 
                 <!-- Step 1: Select Date -->
                 <div class="form-step active" data-step="1">
@@ -474,7 +474,7 @@ if (isset($error_mode) && $error_mode) {
     <script>
         // All pages are now standalone with 4 steps
         let currentStep = 1;
-        let selectedType = <?= $selected_type ? $selected_type['id'] : 'null' ?>;
+        let selectedType = <?= $selected_type ? intval($selected_type['id']) : 'null' ?>;
         let selectedDate = null;
         let selectedTime = null;
         const maxSteps = 4;
