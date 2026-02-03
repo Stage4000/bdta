@@ -17,10 +17,23 @@ class EmailService {
     private $from_name;
     private $base_url;
     
-    public function __construct() {
+    public function __construct($base_url = null) {
         $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtraining.com');
         $this->from_name = Settings::get('email_from_name', "Brook's Dog Training Academy");
-        $this->base_url = Settings::get('base_url', 'http://localhost:8000');
+        
+        // Use provided base_url, or try to get it dynamically from HTTP request
+        if ($base_url !== null) {
+            $this->base_url = $base_url;
+        } else {
+            // Try to get it dynamically if we're in an HTTP context
+            require_once __DIR__ . '/config.php';
+            if (isset($_SERVER['HTTP_HOST'])) {
+                $this->base_url = getDynamicBaseUrl();
+            } else {
+                // Fallback to settings (for CLI/cron contexts)
+                $this->base_url = Settings::get('base_url', 'http://localhost:8000');
+            }
+        }
     }
     
     /**

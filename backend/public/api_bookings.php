@@ -174,8 +174,7 @@ if ($method === 'GET') {
         
         // Generate calendar links
         require_once '../includes/icalendar.php';
-        require_once '../includes/settings.php';
-        $base_url = Settings::get('base_url', 'http://localhost:8000');
+        $base_url = getDynamicBaseUrl();
         $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
         $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
         

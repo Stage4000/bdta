@@ -33,12 +33,8 @@ if ($is_edit) {
     }
 }
 
-// Get base URL for building booking link
-$base_url_stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'base_url'");
-$base_url = $base_url_stmt->fetchColumn();
-if (!$base_url) {
-    $base_url = 'http://localhost:8000';
-}
+// Get base URL for building booking link dynamically from current request
+$base_url = getDynamicBaseUrl();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

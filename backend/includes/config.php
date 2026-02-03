@@ -54,4 +54,28 @@ function escape($string) {
 function formatDate($date) {
     return date('F j, Y', strtotime($date));
 }
+
+/**
+ * Get the base URL dynamically from the current request
+ * Falls back to base_url setting, then localhost
+ */
+function getDynamicBaseUrl() {
+    // Try to build URL from current request
+    if (isset($_SERVER['HTTP_HOST'])) {
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
+                    (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) ? 'https://' : 'http://';
+        $host = $_SERVER['HTTP_HOST'];
+        return $protocol . $host;
+    }
+    
+    // Fallback to base_url setting
+    require_once __DIR__ . '/settings.php';
+    $base_url = Settings::get('base_url', null);
+    if ($base_url && $base_url !== 'http://localhost:8000') {
+        return rtrim($base_url, '/');
+    }
+    
+    // Last resort fallback
+    return 'http://localhost:8000';
+}
 ?>
