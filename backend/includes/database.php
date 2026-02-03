@@ -682,13 +682,20 @@ class Database {
                 // Index might already exist, ignore
             }
             
-            // Generate unique links for existing appointment types
+            // Generate unique links for existing appointment types with collision detection
             $stmt = $this->conn->query("SELECT id FROM appointment_types WHERE unique_link IS NULL OR unique_link = ''");
             $existing_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             $update_stmt = $this->conn->prepare("UPDATE appointment_types SET unique_link = ? WHERE id = ?");
             foreach ($existing_types as $type) {
-                $unique_link = bin2hex(random_bytes(16));
+                // Generate unique link with collision detection
+                do {
+                    $unique_link = bin2hex(random_bytes(16));
+                    $check_stmt = $this->conn->prepare("SELECT COUNT(*) FROM appointment_types WHERE unique_link = ?");
+                    $check_stmt->execute([$unique_link]);
+                    $exists = $check_stmt->fetchColumn();
+                } while ($exists > 0);
+                
                 $update_stmt->execute([$unique_link, $type['id']]);
             }
         }

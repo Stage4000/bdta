@@ -99,8 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
         } else {
-            // Generate unique link for new appointment type
-            $unique_link = bin2hex(random_bytes(16));
+            // Generate unique link for new appointment type with collision detection
+            do {
+                $unique_link = bin2hex(random_bytes(16));
+                $check_stmt = $conn->prepare("SELECT COUNT(*) FROM appointment_types WHERE unique_link = ?");
+                $check_stmt->execute([$unique_link]);
+                $exists = $check_stmt->fetchColumn();
+            } while ($exists > 0);
             
             $stmt = $conn->prepare("
                 INSERT INTO appointment_types (
@@ -164,7 +169,7 @@ include __DIR__ . '/../backend/includes/header.php';
                         <input type="text" class="form-control" id="booking-link" 
                                value="<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $type['unique_link']) ?>" 
                                readonly>
-                        <button class="btn btn-outline-secondary" type="button" onclick="copyBookingLink()">
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyBookingLink(event)">
                             <i class="fas fa-copy"></i> Copy
                         </button>
                     </div>
@@ -367,7 +372,7 @@ function toggleTravelTime() {
 }
 
 // Copy booking link to clipboard
-function copyBookingLink() {
+function copyBookingLink(event) {
     const linkInput = document.getElementById('booking-link');
     linkInput.select();
     linkInput.setSelectionRange(0, 99999); // For mobile devices
