@@ -21,18 +21,13 @@ class EmailService {
         $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtraining.com');
         $this->from_name = Settings::get('email_from_name', "Brook's Dog Training Academy");
         
-        // Use provided base_url, or try to get it dynamically from HTTP request
+        // Use provided base_url, or get it dynamically
         if ($base_url !== null) {
             $this->base_url = $base_url;
         } else {
-            // Try to get it dynamically if we're in an HTTP context
+            // getDynamicBaseUrl() handles both HTTP and CLI contexts internally
             require_once __DIR__ . '/config.php';
-            if (isset($_SERVER['HTTP_HOST'])) {
-                $this->base_url = getDynamicBaseUrl();
-            } else {
-                // Fallback to settings (for CLI/cron contexts)
-                $this->base_url = Settings::get('base_url', 'http://localhost:8000');
-            }
+            $this->base_url = getDynamicBaseUrl();
         }
     }
     

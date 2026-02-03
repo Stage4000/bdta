@@ -11,6 +11,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // Base URL configuration
 define('BASE_URL', '/');
 define('ADMIN_URL', '/client/');
+define('DEFAULT_LOCALHOST_URL', 'http://localhost:8000');
 
 // Database configuration
 require_once __DIR__ . '/database.php';
@@ -87,8 +88,9 @@ function getDynamicBaseUrl() {
         // Use SERVER_NAME as fallback for better security
         $host = $_SERVER['HTTP_HOST'];
         
-        // Basic validation: host should only contain alphanumeric, dots, hyphens, and optional port
-        if (!preg_match('/^[a-zA-Z0-9.-]+(:[0-9]+)?$/', $host)) {
+        // Strict validation: proper hostname format with optional port
+        // Pattern ensures no consecutive dots, no leading/trailing hyphens in domain parts
+        if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*(:[0-9]+)?$/', $host)) {
             // If HTTP_HOST is suspicious, fall back to SERVER_NAME
             $host = $_SERVER['SERVER_NAME'] ?? 'localhost';
             if (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] != 80 && $_SERVER['SERVER_PORT'] != 443) {
@@ -101,11 +103,11 @@ function getDynamicBaseUrl() {
     
     // Fallback to base_url setting (for CLI/cron contexts)
     $base_url = Settings::get('base_url', null);
-    if ($base_url && $base_url !== 'http://localhost:8000') {
+    if ($base_url && $base_url !== DEFAULT_LOCALHOST_URL) {
         return rtrim($base_url, '/');
     }
     
     // Last resort fallback
-    return 'http://localhost:8000';
+    return DEFAULT_LOCALHOST_URL;
 }
 ?>
