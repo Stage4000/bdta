@@ -671,7 +671,16 @@ class Database {
         $apt_column_names = array_column($apt_columns, 'name');
         
         if (!in_array('unique_link', $apt_column_names)) {
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN unique_link TEXT UNIQUE");
+            // SQLite doesn't support adding UNIQUE constraint in ALTER TABLE,
+            // so we add it as a regular column and create a unique index
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN unique_link TEXT");
+            
+            // Create a unique index on the unique_link column
+            try {
+                $this->conn->exec("CREATE UNIQUE INDEX idx_appointment_types_unique_link ON appointment_types(unique_link)");
+            } catch (PDOException $e) {
+                // Index might already exist, ignore
+            }
             
             // Generate unique links for existing appointment types
             $stmt = $this->conn->query("SELECT id FROM appointment_types WHERE unique_link IS NULL OR unique_link = ''");
