@@ -9,16 +9,31 @@ require_once '../includes/database.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-// Get appointment type from URL if specified
-$appointment_type_id = isset($_GET['type']) ? intval($_GET['type']) : 0;
+// Get appointment type from URL - supports both numeric ID and unique link
+$appointment_type_id = 0;
+$selected_type = null;
+
+// Check for unique link parameter first
+if (isset($_GET['link']) && !empty($_GET['link'])) {
+    $unique_link = $_GET['link'];
+    $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE unique_link = ? AND is_active = 1");
+    $stmt->execute([$unique_link]);
+    $selected_type = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($selected_type) {
+        $appointment_type_id = $selected_type['id'];
+    }
+}
+// Fallback to numeric type ID
+elseif (isset($_GET['type']) && !empty($_GET['type'])) {
+    $appointment_type_id = intval($_GET['type']);
+}
 
 // Get all active appointment types
 $stmt = $conn->query("SELECT * FROM appointment_types WHERE is_active = 1 ORDER BY name");
 $appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get specific appointment type if specified
-$selected_type = null;
-if ($appointment_type_id > 0) {
+// Get specific appointment type by ID if not already loaded by unique link
+if ($appointment_type_id > 0 && !$selected_type) {
     foreach ($appointment_types as $type) {
         if ($type['id'] == $appointment_type_id) {
             $selected_type = $type;

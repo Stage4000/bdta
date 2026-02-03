@@ -33,6 +33,13 @@ if ($is_edit) {
     }
 }
 
+// Get base URL for building booking link
+$base_url_stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'base_url'");
+$base_url = $base_url_stmt->fetchColumn();
+if (!$base_url) {
+    $base_url = 'http://localhost:8000';
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = $_POST['name'] ?? '';
@@ -92,6 +99,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
         } else {
+            // Generate unique link for new appointment type
+            $unique_link = bin2hex(random_bytes(16));
+            
             $stmt = $conn->prepare("
                 INSERT INTO appointment_types (
                     name, description, duration_minutes,
@@ -102,8 +112,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     auto_invoice, invoice_due_days,
                     consumes_credits, credit_count,
                     is_group_class, max_participants,
-                    is_active
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_active, unique_link
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -114,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $auto_invoice, $invoice_due_days,
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
-                $is_active
+                $is_active, $unique_link
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
         }
@@ -144,6 +154,22 @@ include __DIR__ . '/../backend/includes/header.php';
         <div class="card-body">
             <?php if (isset($error)): ?>
                 <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+            <?php endif; ?>
+
+            <?php if ($is_edit && !empty($type['unique_link'])): ?>
+                <div class="alert alert-info">
+                    <h6 class="alert-heading"><i class="fas fa-link"></i> Unique Booking Link</h6>
+                    <p class="mb-2">Share this link with clients to book this appointment type directly:</p>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="booking-link" 
+                               value="<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $type['unique_link']) ?>" 
+                               readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyBookingLink()">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                    <small class="text-muted">This link was automatically generated and is unique to this appointment type.</small>
+                </div>
             <?php endif; ?>
 
             <form method="POST" action="">
@@ -338,6 +364,30 @@ function toggleTravelTime() {
     const checkbox = document.getElementById('use_travel_time_buffer');
     const section = document.getElementById('travel_time_section');
     section.style.display = checkbox.checked ? 'block' : 'none';
+}
+
+// Copy booking link to clipboard
+function copyBookingLink() {
+    const linkInput = document.getElementById('booking-link');
+    linkInput.select();
+    linkInput.setSelectionRange(0, 99999); // For mobile devices
+    
+    navigator.clipboard.writeText(linkInput.value).then(function() {
+        // Show success feedback
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+        }, 2000);
+    }).catch(function(err) {
+        alert('Failed to copy link. Please copy it manually.');
+    });
 }
 
 // Initialize on page load

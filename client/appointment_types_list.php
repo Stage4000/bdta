@@ -16,6 +16,13 @@ if (!isLoggedIn()) {
 $db = new Database();
 $conn = $db->getConnection();
 
+// Get base URL for building booking links
+$base_url_stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'base_url'");
+$base_url = $base_url_stmt->fetchColumn();
+if (!$base_url) {
+    $base_url = 'http://localhost:8000';
+}
+
 // Pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $per_page = 20;
@@ -77,6 +84,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <th>Requirements</th>
                                 <th>Behavior</th>
                                 <th>Status</th>
+                                <th>Booking Link</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -136,6 +144,17 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
+                                        <?php if (!empty($type['unique_link'])): ?>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="copyLink('<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $type['unique_link']) ?>', this)"
+                                                    title="Copy booking link">
+                                                <i class="fas fa-link"></i> Copy Link
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted small">No link</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
                                         <a href="appointment_types_edit.php?id=<?= $type['id'] ?>" 
                                            class="btn btn-sm btn-outline-primary" title="Edit">
                                             <i class="fas fa-pencil"></i>
@@ -168,5 +187,25 @@ include __DIR__ . '/../backend/includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+function copyLink(link, button) {
+    navigator.clipboard.writeText(link).then(function() {
+        // Show success feedback
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        button.classList.remove('btn-outline-primary');
+        button.classList.add('btn-success');
+        
+        setTimeout(function() {
+            button.innerHTML = originalHTML;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(function(err) {
+        alert('Failed to copy link. Please copy it manually: ' + link);
+    });
+}
+</script>
 
 <?php include __DIR__ . '/../backend/includes/footer.php'; ?>

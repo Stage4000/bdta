@@ -665,6 +665,24 @@ class Database {
         if (!in_array('password_reset_expires', $client_column_names)) {
             $this->conn->exec("ALTER TABLE clients ADD COLUMN password_reset_expires TIMESTAMP");
         }
+        
+        // Add unique_link column to appointment_types table
+        $apt_columns = $this->conn->query("PRAGMA table_info(appointment_types)")->fetchAll(PDO::FETCH_ASSOC);
+        $apt_column_names = array_column($apt_columns, 'name');
+        
+        if (!in_array('unique_link', $apt_column_names)) {
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN unique_link TEXT UNIQUE");
+            
+            // Generate unique links for existing appointment types
+            $stmt = $this->conn->query("SELECT id FROM appointment_types WHERE unique_link IS NULL OR unique_link = ''");
+            $existing_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $update_stmt = $this->conn->prepare("UPDATE appointment_types SET unique_link = ? WHERE id = ?");
+            foreach ($existing_types as $type) {
+                $unique_link = bin2hex(random_bytes(16));
+                $update_stmt->execute([$unique_link, $type['id']]);
+            }
+        }
     }
 }
 ?>
