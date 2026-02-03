@@ -15,6 +15,14 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) || !preg_match('/^\d{4}-\d
     die('Invalid date format');
 }
 
+// Validate that dates are valid calendar dates
+$start_parts = explode('-', $start_date);
+$end_parts = explode('-', $end_date);
+if (!checkdate($start_parts[1], $start_parts[2], $start_parts[0]) || 
+    !checkdate($end_parts[1], $end_parts[2], $end_parts[0])) {
+    die('Invalid date values');
+}
+
 // Set headers for CSV download
 header('Content-Type: text/csv');
 header('Content-Disposition: attachment; filename="' . $type . '_' . $start_date . '_to_' . $end_date . '.csv"');

@@ -135,7 +135,7 @@ foreach ($all_dates as $date) {
 }
 
 $page_title = 'Financial Reports';
-include '../backend/includes/header.php';
+require_once '../backend/includes/header.php';
 ?>
 
 <div class="container-fluid mt-4">
@@ -405,4 +405,4 @@ new Chart(document.getElementById('profitChart'), {
 });
 </script>
 
-<?php include '../backend/includes/footer.php'; ?>
+<?php require_once '../backend/includes/footer.php'; ?>
