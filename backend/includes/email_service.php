@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/phpmailer/src/Exception.php';
 require_once __DIR__ . '/phpmailer/src/PHPMailer.php';
 require_once __DIR__ . '/phpmailer/src/SMTP.php';
@@ -22,13 +23,8 @@ class EmailService {
         $this->from_name = Settings::get('email_from_name', "Brook's Dog Training Academy");
         
         // Use provided base_url, or get it dynamically
-        if ($base_url !== null) {
-            $this->base_url = $base_url;
-        } else {
-            // getDynamicBaseUrl() handles both HTTP and CLI contexts internally
-            require_once __DIR__ . '/config.php';
-            $this->base_url = getDynamicBaseUrl();
-        }
+        // getDynamicBaseUrl() handles both HTTP and CLI contexts internally
+        $this->base_url = $base_url ?? getDynamicBaseUrl();
     }
     
     /**

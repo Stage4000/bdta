@@ -60,6 +60,9 @@ function formatDate($date) {
 /**
  * Get the base URL dynamically from the current request
  * Falls back to base_url setting, then localhost
+ * 
+ * Note: IPv6 addresses in bracket notation (e.g., [::1]:8000) are not supported
+ * and will fall back to SERVER_NAME. Use base_url setting for IPv6 hosts.
  */
 function getDynamicBaseUrl() {
     // Try to build URL from current request
@@ -90,6 +93,7 @@ function getDynamicBaseUrl() {
         
         // Strict validation: proper hostname format with optional port
         // Pattern ensures no consecutive dots, no leading/trailing hyphens in domain parts
+        // Note: Does not support IPv6 bracket notation
         if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*(:[0-9]+)?$/', $host)) {
             // If HTTP_HOST is suspicious, fall back to SERVER_NAME
             $host = $_SERVER['SERVER_NAME'] ?? 'localhost';
@@ -103,7 +107,7 @@ function getDynamicBaseUrl() {
     
     // Fallback to base_url setting (for CLI/cron contexts)
     $base_url = Settings::get('base_url', null);
-    if ($base_url && $base_url !== DEFAULT_LOCALHOST_URL) {
+    if ($base_url) {
         return rtrim($base_url, '/');
     }
     
