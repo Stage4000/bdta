@@ -374,8 +374,6 @@ function toggleTravelTime() {
 // Copy booking link to clipboard
 function copyBookingLink(event) {
     const linkInput = document.getElementById('booking-link');
-    linkInput.select();
-    linkInput.setSelectionRange(0, 99999); // For mobile devices
     
     navigator.clipboard.writeText(linkInput.value).then(function() {
         // Show success feedback
@@ -391,7 +389,10 @@ function copyBookingLink(event) {
             btn.classList.add('btn-outline-secondary');
         }, 2000);
     }).catch(function(err) {
-        alert('Failed to copy link. Please copy it manually.');
+        // Fallback: select the text so user can copy manually
+        linkInput.select();
+        linkInput.setSelectionRange(0, 99999);
+        alert('Could not copy automatically. The link is now selected - please press Ctrl+C (or Cmd+C) to copy.');
     });
 }
 

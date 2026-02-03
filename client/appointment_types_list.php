@@ -203,7 +203,8 @@ function copyLink(link, button) {
             button.classList.add('btn-outline-primary');
         }, 2000);
     }).catch(function(err) {
-        alert('Failed to copy link. Please copy it manually: ' + link);
+        // Fallback: show a simple prompt with the link
+        prompt('Copy this link:', link);
     });
 }
 </script>

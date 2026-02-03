@@ -683,7 +683,7 @@ class Database {
             }
             
             // Generate unique links for existing appointment types with collision detection
-            $stmt = $this->conn->query("SELECT id FROM appointment_types WHERE unique_link IS NULL OR unique_link = ''");
+            $stmt = $this->conn->query("SELECT id FROM appointment_types WHERE unique_link IS NULL");
             $existing_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             $update_stmt = $this->conn->prepare("UPDATE appointment_types SET unique_link = ? WHERE id = ?");
