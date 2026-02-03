@@ -665,6 +665,40 @@ class Database {
         if (!in_array('password_reset_expires', $client_column_names)) {
             $this->conn->exec("ALTER TABLE clients ADD COLUMN password_reset_expires TIMESTAMP");
         }
+        
+        // Add unique_link column to appointment_types table
+        $apt_columns = $this->conn->query("PRAGMA table_info(appointment_types)")->fetchAll(PDO::FETCH_ASSOC);
+        $apt_column_names = array_column($apt_columns, 'name');
+        
+        if (!in_array('unique_link', $apt_column_names)) {
+            // SQLite doesn't support adding UNIQUE constraint in ALTER TABLE,
+            // so we add it as a regular column and create a unique index
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN unique_link TEXT");
+            
+            // Create a unique index on the unique_link column
+            try {
+                $this->conn->exec("CREATE UNIQUE INDEX idx_appointment_types_unique_link ON appointment_types(unique_link)");
+            } catch (PDOException $e) {
+                // Index might already exist, ignore
+            }
+            
+            // Generate unique links for existing appointment types with collision detection
+            $stmt = $this->conn->query("SELECT id FROM appointment_types WHERE unique_link IS NULL");
+            $existing_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $update_stmt = $this->conn->prepare("UPDATE appointment_types SET unique_link = ? WHERE id = ?");
+            foreach ($existing_types as $type) {
+                // Generate unique link with collision detection
+                do {
+                    $unique_link = bin2hex(random_bytes(16));
+                    $check_stmt = $this->conn->prepare("SELECT COUNT(*) FROM appointment_types WHERE unique_link = ?");
+                    $check_stmt->execute([$unique_link]);
+                    $exists = $check_stmt->fetchColumn();
+                } while ($exists > 0);
+                
+                $update_stmt->execute([$unique_link, $type['id']]);
+            }
+        }
     }
 }
 ?>

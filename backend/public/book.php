@@ -9,25 +9,51 @@ require_once '../includes/database.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-// Get appointment type from URL if specified
-$appointment_type_id = isset($_GET['type']) ? intval($_GET['type']) : 0;
-
-// Get all active appointment types
-$stmt = $conn->query("SELECT * FROM appointment_types WHERE is_active = 1 ORDER BY name");
-$appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get specific appointment type if specified
+// Get appointment type from URL - supports both numeric ID and unique link
+$appointment_type_id = 0;
 $selected_type = null;
-if ($appointment_type_id > 0) {
-    foreach ($appointment_types as $type) {
-        if ($type['id'] == $appointment_type_id) {
-            $selected_type = $type;
-            break;
-        }
+$is_standalone = false; // All appointment types are now standalone
+
+// Check for unique link parameter first
+if (isset($_GET['link']) && !empty($_GET['link'])) {
+    $unique_link = $_GET['link'];
+    $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE unique_link = ? AND is_active = 1");
+    $stmt->execute([$unique_link]);
+    $selected_type = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($selected_type) {
+        $appointment_type_id = $selected_type['id'];
+        $is_standalone = true;
+    }
+}
+// Also support numeric type ID as standalone
+elseif (isset($_GET['type']) && !empty($_GET['type'])) {
+    $appointment_type_id = intval($_GET['type']);
+    $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE id = ? AND is_active = 1");
+    $stmt->execute([$appointment_type_id]);
+    $selected_type = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($selected_type) {
+        $is_standalone = true;
     }
 }
 
-$page_title = "Book an Appointment";
+// If no appointment type is specified, show error or redirect
+if (!$selected_type) {
+    // No appointment type specified - cannot proceed
+    $error_mode = true;
+    $appointment_types = [];
+} else {
+    // For standalone pages, only show the selected type
+    $appointment_types = [$selected_type];
+}
+
+// Set page title based on booking type
+if (isset($error_mode) && $error_mode) {
+    $page_title = "Invalid Booking Link";
+} elseif ($is_standalone && $selected_type) {
+    $page_title = "Book " . $selected_type['name'];
+} else {
+    $page_title = "Book an Appointment";
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -231,31 +257,47 @@ $page_title = "Book an Appointment";
 <body>
     <div class="booking-container">
         <div class="booking-header">
-            <h1><i class="fas fa-calendar-check me-2"></i>Book Your Appointment</h1>
-            <p class="text-muted mb-0">Schedule your dog training session with Brook's Dog Training Academy</p>
+            <?php if (isset($error_mode) && $error_mode): ?>
+                <h1><i class="fas fa-exclamation-circle me-2"></i>Invalid Booking Link</h1>
+                <p class="text-muted mb-0">Please use a valid appointment type link to book</p>
+            <?php elseif ($is_standalone && $selected_type): ?>
+                <h1><i class="fas fa-calendar-check me-2"></i>Book <?= escape($selected_type['name']) ?></h1>
+                <p class="text-muted mb-0"><?= escape($selected_type['description']) ?></p>
+            <?php else: ?>
+                <h1><i class="fas fa-calendar-check me-2"></i>Book Your Appointment</h1>
+                <p class="text-muted mb-0">Schedule your dog training session with Brook's Dog Training Academy</p>
+            <?php endif; ?>
         </div>
         
+        <?php if (isset($error_mode) && $error_mode): ?>
+            <!-- Error Message -->
+            <div class="booking-card">
+                <div class="alert alert-warning" role="alert">
+                    <h5 class="alert-heading"><i class="fas fa-info-circle me-2"></i>No Appointment Type Selected</h5>
+                    <p>To book an appointment, please use a specific appointment type link.</p>
+                    <hr>
+                    <p class="mb-0">Contact us to get the booking link for the service you're interested in.</p>
+                </div>
+            </div>
+        <?php else: ?>
+        
         <div class="booking-card">
-            <!-- Step Indicator -->
+            <!-- Step Indicator (All pages are now standalone with 4 steps) -->
             <div class="step-indicator">
                 <div class="step active" data-step="1">
                     <div class="step-circle">1</div>
-                    <div class="step-label">Service</div>
+                    <div class="step-label">Date</div>
                 </div>
                 <div class="step" data-step="2">
                     <div class="step-circle">2</div>
-                    <div class="step-label">Date</div>
+                    <div class="step-label">Time</div>
                 </div>
                 <div class="step" data-step="3">
                     <div class="step-circle">3</div>
-                    <div class="step-label">Time</div>
+                    <div class="step-label">Your Info</div>
                 </div>
                 <div class="step" data-step="4">
                     <div class="step-circle">4</div>
-                    <div class="step-label">Your Info</div>
-                </div>
-                <div class="step" data-step="5">
-                    <div class="step-circle">5</div>
                     <div class="step-label">Confirm</div>
                 </div>
             </div>
@@ -265,47 +307,11 @@ $page_title = "Book an Appointment";
             
             <!-- Booking Form -->
             <form id="bookingForm">
-                <!-- Step 1: Select Service -->
-                <div class="form-step active" data-step="1">
-                    <h3 class="mb-4">Select Your Service</h3>
-                    
-                    <?php foreach ($appointment_types as $type): ?>
-                        <div class="appointment-type-card" data-type-id="<?= $type['id'] ?>" 
-                             data-duration="<?= $type['duration_minutes'] ?>"
-                             data-requires-forms="<?= $type['requires_forms'] ?>"
-                             data-requires-contract="<?= $type['requires_contract'] ?>">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-grow-1">
-                                    <h5 class="mb-2"><?= escape($type['name']) ?></h5>
-                                    <p class="text-muted mb-2"><?= escape($type['description']) ?></p>
-                                    <div class="d-flex gap-3">
-                                        <span class="badge bg-primary"><i class="fas fa-clock me-1"></i><?= $type['duration_minutes'] ?> minutes</span>
-                                        <?php if ($type['requires_forms']): ?>
-                                            <span class="badge bg-info">Forms Required</span>
-                                        <?php endif; ?>
-                                        <?php if ($type['is_group_class']): ?>
-                                            <span class="badge bg-success">Group Class</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="appointment_type" 
-                                           value="<?= $type['id'] ?>" id="type<?= $type['id'] ?>"
-                                           <?= ($selected_type && $selected_type['id'] == $type['id']) ? 'checked' : '' ?>>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                    
-                    <div class="d-flex justify-content-end mt-4">
-                        <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()">
-                            Continue <i class="fas fa-arrow-right ms-2"></i>
-                        </button>
-                    </div>
-                </div>
+                <!-- Hidden input to store the pre-selected appointment type (all pages are standalone now) -->
+                <input type="hidden" name="appointment_type" value="<?= intval($selected_type['id']) ?>" id="standaloneType">
                 
-                <!-- Step 2: Select Date -->
-                <div class="form-step" data-step="2">
+                <!-- Step 1: Select Date -->
+                <div class="form-step active" data-step="1">
                     <h3 class="mb-4">Choose Your Date</h3>
                     
                     <div class="row">
@@ -317,18 +323,15 @@ $page_title = "Book an Appointment";
                         </div>
                     </div>
                     
-                    <div class="d-flex justify-content-between mt-4">
-                        <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
-                            <i class="fas fa-arrow-left me-2"></i> Back
-                        </button>
+                    <div class="d-flex justify-content-end mt-4">
                         <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()" id="step2Next">
                             Continue <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
                 </div>
                 
-                <!-- Step 3: Select Time -->
-                <div class="form-step" data-step="3">
+                <!-- Step 2: Select Time -->
+                <div class="form-step" data-step="2">
                     <h3 class="mb-4">Choose Your Time</h3>
                     
                     <div class="row">
@@ -356,8 +359,8 @@ $page_title = "Book an Appointment";
                     </div>
                 </div>
                 
-                <!-- Step 4: Your Information -->
-                <div class="form-step" data-step="4">
+                <!-- Step 3: Your Information -->
+                <div class="form-step" data-step="3">
                     <h3 class="mb-4">Your Information</h3>
                     
                     <div class="row">
@@ -399,8 +402,8 @@ $page_title = "Book an Appointment";
                     </div>
                 </div>
                 
-                <!-- Step 5: Confirmation -->
-                <div class="form-step" data-step="5">
+                <!-- Step 4: Confirmation -->
+                <div class="form-step" data-step="4">
                     <h3 class="mb-4">Confirm Your Booking</h3>
                     
                     <div class="card">
@@ -448,6 +451,7 @@ $page_title = "Book an Appointment";
                 </div>
             </form>
         </div>
+        <?php endif; // End error_mode check ?>
     </div>
     
     <!-- Success Modal -->
@@ -468,76 +472,52 @@ $page_title = "Book an Appointment";
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // All pages are now standalone with 4 steps
         let currentStep = 1;
-        let selectedType = null;
+        let selectedType = <?= $selected_type ? intval($selected_type['id']) : 'null' ?>;
         let selectedDate = null;
         let selectedTime = null;
+        const maxSteps = 4;
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            // Auto-select type if provided in URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const typeParam = urlParams.get('type');
-            if (typeParam) {
-                const radio = document.querySelector(`input[name="appointment_type"][value="${typeParam}"]`);
-                if (radio) {
-                    radio.checked = true;
-                    selectAppointmentType(typeParam);
-                }
+            // Only initialize form elements if they exist (not on error page)
+            const appointmentDate = document.getElementById('appointmentDate');
+            const bookingForm = document.getElementById('bookingForm');
+            
+            if (appointmentDate) {
+                // Date selection
+                appointmentDate.addEventListener('change', function() {
+                    selectedDate = this.value;
+                    // Enable the continue button on step 2
+                    document.getElementById('step2Next').disabled = false;
+                });
             }
             
-            // Appointment type selection
-            document.querySelectorAll('.appointment-type-card').forEach(card => {
-                card.addEventListener('click', function() {
-                    const radio = this.querySelector('input[type="radio"]');
-                    radio.checked = true;
-                    selectAppointmentType(radio.value);
-                });
-            });
-            
-            // Date selection
-            document.getElementById('appointmentDate').addEventListener('change', function() {
-                selectedDate = this.value;
-                // Enable the continue button on step 2
-                document.getElementById('step2Next').disabled = false;
-            });
-            
-            // Form submission
-            document.getElementById('bookingForm').addEventListener('submit', submitBooking);
+            if (bookingForm) {
+                // Form submission
+                bookingForm.addEventListener('submit', submitBooking);
+            }
         });
         
-        function selectAppointmentType(typeId) {
-            selectedType = typeId;
-            document.querySelectorAll('.appointment-type-card').forEach(card => {
-                card.classList.remove('selected');
-            });
-            const selectedCard = document.querySelector(`.appointment-type-card[data-type-id="${typeId}"]`);
-            if (selectedCard) {
-                selectedCard.classList.add('selected');
-            }
-        }
-        
         function nextStep() {
-            // Validation
+            // Validation (all pages are now standalone with 4 steps)
             if (currentStep === 1) {
-                if (!selectedType) {
-                    showAlert('Please select an appointment type', 'warning');
-                    return;
-                }
-            } else if (currentStep === 2) {
+                // Step 1 is date selection
                 if (!selectedDate) {
                     showAlert('Please select a date', 'warning');
                     return;
                 }
-                // Load available slots for step 3
                 updateSelectedDateDisplay();
                 loadAvailableSlots();
-            } else if (currentStep === 3) {
+            } else if (currentStep === 2) {
+                // Step 2 is time selection
                 if (!selectedTime) {
                     showAlert('Please select a time', 'warning');
                     return;
                 }
-            } else if (currentStep === 4) {
+            } else if (currentStep === 3) {
+                // Step 3 is info collection
                 const name = document.getElementById('clientName').value.trim();
                 const email = document.getElementById('clientEmail').value.trim();
                 if (!name || !email) {
@@ -546,10 +526,10 @@ $page_title = "Book an Appointment";
                 }
             }
             
-            if (currentStep < 5) {
+            if (currentStep < maxSteps) {
                 currentStep++;
                 updateSteps();
-                if (currentStep === 5) {
+                if (currentStep === maxSteps) {
                     updateConfirmation();
                 }
             }
