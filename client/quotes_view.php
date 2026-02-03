@@ -72,9 +72,8 @@ $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 $is_expired = $quote['expiration_date'] && strtotime($quote['expiration_date']) < time() && $quote['status'] == 'sent';
 $display_status = $is_expired ? 'expired' : $quote['status'];
 
-// Generate public link
-require_once '../backend/includes/settings.php';
-$base_url = Settings::get('base_url', 'http://localhost:8000');
+// Generate public link dynamically from current request
+$base_url = getDynamicBaseUrl();
 $public_link = $base_url . '/backend/public/quote.php?id=' . $quote_id;
 
 $page_title = "Quote " . escape($quote['quote_number']);
