@@ -481,16 +481,23 @@ if (isset($error_mode) && $error_mode) {
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            // Only initialize form elements if they exist (not on error page)
+            const appointmentDate = document.getElementById('appointmentDate');
+            const bookingForm = document.getElementById('bookingForm');
             
-            // Date selection
-            document.getElementById('appointmentDate').addEventListener('change', function() {
-                selectedDate = this.value;
-                // Enable the continue button on step 2
-                document.getElementById('step2Next').disabled = false;
-            });
+            if (appointmentDate) {
+                // Date selection
+                appointmentDate.addEventListener('change', function() {
+                    selectedDate = this.value;
+                    // Enable the continue button on step 2
+                    document.getElementById('step2Next').disabled = false;
+                });
+            }
             
-            // Form submission
-            document.getElementById('bookingForm').addEventListener('submit', submitBooking);
+            if (bookingForm) {
+                // Form submission
+                bookingForm.addEventListener('submit', submitBooking);
+            }
         });
         
         function nextStep() {
