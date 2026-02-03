@@ -28,9 +28,13 @@ $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="index.php">Blog</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../index.html#home">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../index.html#about">About</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../index.html#services">Services</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../index.html#events">Events</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../index.html#testimonials">Testimonials</a></li>
                     <li class="nav-item"><a class="nav-link" href="../index.html#contact">Contact</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="index.php">Blog</a></li>
                 </ul>
             </div>
         </div>
