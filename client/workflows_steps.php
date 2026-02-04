@@ -119,7 +119,6 @@ include '../backend/includes/header.php';
                                     
                                     <!-- Attachments -->
                                     <?php if ($step['attach_contract_id'] || $step['attach_form_id'] || 
-                                              $step['attach_quote_id'] || $step['attach_invoice_id'] || 
                                               $step['include_appointment_link']): ?>
                                         <div class="mt-2">
                                             <small class="text-muted"><strong>Includes:</strong></small>
@@ -129,12 +128,6 @@ include '../backend/includes/header.php';
                                                 <?php endif; ?>
                                                 <?php if ($step['attach_form_id']): ?>
                                                     <span class="badge bg-secondary">Form</span>
-                                                <?php endif; ?>
-                                                <?php if ($step['attach_quote_id']): ?>
-                                                    <span class="badge bg-primary">Quote</span>
-                                                <?php endif; ?>
-                                                <?php if ($step['attach_invoice_id']): ?>
-                                                    <span class="badge bg-success">Invoice</span>
                                                 <?php endif; ?>
                                                 <?php if ($step['include_appointment_link']): ?>
                                                     <span class="badge bg-warning">Appointment Link</span>

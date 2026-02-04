@@ -120,7 +120,7 @@ include '../backend/includes/header.php';
                     <h6>Features:</h6>
                     <ul>
                         <li><strong>Email Sequences:</strong> Create multi-step email campaigns</li>
-                        <li><strong>Attachments:</strong> Include contracts, forms, quotes, invoices, or appointment links</li>
+                        <li><strong>Attachments:</strong> Include contracts, forms, or appointment booking links</li>
                         <li><strong>Time-Based:</strong> Send emails based on delays (e.g., 3 days after enrollment)</li>
                         <li><strong>Date-Based:</strong> Send emails on specific dates</li>
                         <li><strong>Auto-Enrollment:</strong> Automatically enroll clients when they book appointments or complete forms</li>

@@ -124,26 +124,14 @@ class WorkflowProcessorTask {
         $base_url = getDynamicBaseUrl();
         $links = [];
         
-        // Contract link
+        // Contract link - use template to generate link to contract template
         if ($execution['attach_contract_id']) {
-            $stmt = $this->conn->prepare("
-                SELECT id, contract_number, client_id 
-                FROM contracts 
-                WHERE client_id = ? AND id IN (
-                    SELECT id FROM contract_templates WHERE id = ?
-                )
-                ORDER BY created_at DESC LIMIT 1
-            ");
-            $stmt->execute([$execution['client_id'], $execution['attach_contract_id']]);
-            $contract = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($contract) {
-                $link = $base_url . '/backend/public/contract.php?id=' . $contract['id'];
-                if ($html) {
-                    $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📄 View Contract</a></p>';
-                } else {
-                    $links[] = "\n\n📄 View Contract: " . $link;
-                }
+            // Link to the contract template (admin can create contract from template for client)
+            $link = $base_url . '/client/contracts_create.php?template_id=' . $execution['attach_contract_id'] . '&client_id=' . $execution['client_id'];
+            if ($html) {
+                $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📄 View Contract</a></p>';
+            } else {
+                $links[] = "\n\n📄 View Contract: " . $link;
             }
         }
         
@@ -154,26 +142,6 @@ class WorkflowProcessorTask {
                 $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #8b5cf6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📋 Complete Form</a></p>';
             } else {
                 $links[] = "\n\n📋 Complete Form: " . $link;
-            }
-        }
-        
-        // Quote link
-        if ($execution['attach_quote_id']) {
-            $link = $base_url . '/backend/public/quote.php?id=' . $execution['attach_quote_id'];
-            if ($html) {
-                $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">💰 View Quote</a></p>';
-            } else {
-                $links[] = "\n\n💰 View Quote: " . $link;
-            }
-        }
-        
-        // Invoice link
-        if ($execution['attach_invoice_id']) {
-            $link = $base_url . '/client/invoices_view.php?id=' . $execution['attach_invoice_id'];
-            if ($html) {
-                $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">💳 View Invoice</a></p>';
-            } else {
-                $links[] = "\n\n💳 View Invoice: " . $link;
             }
         }
         

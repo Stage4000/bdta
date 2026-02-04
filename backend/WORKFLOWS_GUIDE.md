@@ -4,14 +4,14 @@ This guide explains how to use the automated workflows system in Brook's Dog Tra
 
 ## Overview
 
-Automated workflows allow you to create sequences of emails that are automatically sent to clients based on time delays or specific dates. Workflows can include attachments like contracts, forms, quotes, invoices, and appointment booking links.
+Automated workflows allow you to create sequences of emails that are automatically sent to clients based on time delays or specific dates. Workflows can include attachments like contracts, forms, and appointment booking links.
 
 ## Key Features
 
 - **Email Sequences**: Create multi-step email campaigns
 - **Time-Based Scheduling**: Send emails based on delays (e.g., 3 days after enrollment)
 - **Date-Based Scheduling**: Send emails on specific dates
-- **Attachments**: Include contracts, forms, quotes, invoices, or appointment links
+- **Attachments**: Include contract templates, forms, or appointment booking links
 - **Auto-Enrollment**: Automatically enroll clients when they book appointments or complete forms
 - **Manual Enrollment**: Add clients to workflows manually
 - **Progress Tracking**: Monitor enrollment status and email delivery
@@ -74,11 +74,11 @@ After creating a workflow, add email steps:
 #### Attachments & Links
 
 You can attach:
-- **Contract Template**: Links to a specific contract
+- **Contract Template**: Links to a specific contract template
 - **Form Template**: Links to a form to complete
-- **Quote**: Links to an existing quote (must be created separately)
-- **Invoice**: Links to an existing invoice (must be created separately)
 - **Appointment Link**: Includes booking link for specified appointment type
+
+*Note: Quotes and invoices should be managed separately and can be mentioned in email content with manual links*
 
 ### 3. Set Up Auto-Enrollment Triggers (Optional)
 
