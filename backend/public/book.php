@@ -475,6 +475,8 @@ if (isset($error_mode) && $error_mode) {
         // All pages are now standalone with 4 steps
         let currentStep = 1;
         let selectedType = <?= $selected_type ? intval($selected_type['id']) : 'null' ?>;
+        let selectedTypeName = <?= $selected_type ? json_encode($selected_type['name']) : 'null' ?>;
+        let selectedTypeDuration = <?= $selected_type ? intval($selected_type['duration_minutes']) : 60 ?>;
         let selectedDate = null;
         let selectedTime = null;
         const maxSteps = 4;
@@ -627,8 +629,7 @@ if (isset($error_mode) && $error_mode) {
         }
         
         function updateConfirmation() {
-            const typeCard = document.querySelector(`.appointment-type-card[data-type-id="${selectedType}"]`);
-            const typeName = typeCard ? typeCard.querySelector('h5').textContent : '-';
+            const typeName = selectedTypeName || 'Appointment';
             
             document.getElementById('confirmService').textContent = typeName;
             document.getElementById('confirmDate').textContent = new Date(selectedDate + 'T00:00').toLocaleDateString('en-US', { 
@@ -650,8 +651,7 @@ if (isset($error_mode) && $error_mode) {
             submitBtn.disabled = true;
             spinner.classList.add('active');
             
-            const typeCard = document.querySelector(`.appointment-type-card[data-type-id="${selectedType}"]`);
-            const typeName = typeCard ? typeCard.querySelector('h5').textContent : 'Appointment';
+            const typeName = selectedTypeName || 'Appointment';
             
             const bookingData = {
                 appointment_type_id: selectedType,
@@ -663,7 +663,7 @@ if (isset($error_mode) && $error_mode) {
                 client_phone: document.getElementById('clientPhone').value,
                 dog_names: document.getElementById('dogNames').value,
                 notes: document.getElementById('notes').value,
-                duration_minutes: parseInt(typeCard.dataset.duration)
+                duration_minutes: selectedTypeDuration
             };
             
             fetch('api_bookings.php', {
