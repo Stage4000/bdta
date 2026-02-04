@@ -476,7 +476,7 @@ if (isset($error_mode) && $error_mode) {
         let currentStep = 1;
         let selectedType = <?= $selected_type ? intval($selected_type['id']) : 'null' ?>;
         let selectedTypeName = <?= $selected_type ? json_encode($selected_type['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null' ?>;
-        let selectedTypeDuration = <?= $selected_type ? intval($selected_type['duration_minutes']) : 'null' ?>;
+        let selectedTypeDuration = <?= ($selected_type && isset($selected_type['duration_minutes']) && $selected_type['duration_minutes'] > 0) ? intval($selected_type['duration_minutes']) : 'null' ?>;
         let selectedDate = null;
         let selectedTime = null;
         const maxSteps = 4;
