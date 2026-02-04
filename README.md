@@ -94,6 +94,14 @@ This is a **complete business management system** combining a public-facing webs
   - SEO-friendly slugs
   - Public blog listing and detail pages
   
+- ✅ **Automated Task Scheduling (CRON Jobs)**
+  - Booking reminder emails (24 hours before appointments)
+  - Contract reminder emails (for unsigned contracts)
+  - Form reminder emails (for incomplete forms)
+  - Customizable task schedules
+  - Task execution monitoring and logging
+  - Admin panel for managing scheduled tasks
+  
 - ✅ **Settings & Configuration**
   - Business information
   - Email settings
@@ -620,6 +628,32 @@ echo "Backup completed: $DATE"
 crontab -e
 
 # Add this line (runs daily at 2 AM)
+0 2 * * * /usr/local/bin/backup.sh
+```
+
+### Cron Job for Automated Tasks
+
+The system includes automated task scheduling for sending reminders and notifications. See [backend/CRON_SETUP.md](backend/CRON_SETUP.md) for detailed setup instructions.
+
+Quick setup (runs every 15 minutes):
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line
+*/15 * * * * php /var/www/bdta/backend/cron/cron.php >> /var/log/bdta-cron.log 2>&1
+```
+
+**Automated tasks include:**
+- Booking reminders (sent 24 hours before appointments)
+- Contract signature reminders (for unsigned contracts)
+- Form completion reminders (for pending forms)
+
+**Managing scheduled tasks:**
+1. Navigate to Admin Panel → Scheduled Tasks
+2. View task execution logs
+3. Enable/disable tasks
+4. Configure task schedules
 0 2 * * * /path/to/backup.sh
 ```
 

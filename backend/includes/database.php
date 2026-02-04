@@ -414,6 +414,37 @@ class Database {
                 )
             ");
             
+            // Scheduled tasks table - for CRON job automation
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_name TEXT NOT NULL,
+                    task_type TEXT NOT NULL,
+                    schedule_type TEXT NOT NULL,
+                    schedule_value TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    last_run TIMESTAMP,
+                    next_run TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ");
+            
+            // Task execution log table - for tracking CRON job execution
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS task_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id INTEGER,
+                    task_name TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    message TEXT,
+                    items_processed INTEGER DEFAULT 0,
+                    execution_time REAL,
+                    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE
+                )
+            ");
+            
             // Create default admin if not exists
             $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
             $stmt->execute(['admin']);
@@ -644,6 +675,25 @@ class Database {
         }
         if (!in_array('override_credits', $column_names)) {
             $this->conn->exec("ALTER TABLE bookings ADD COLUMN override_credits INTEGER DEFAULT 0");
+        }
+        if (!in_array('reminder_sent', $column_names)) {
+            $this->conn->exec("ALTER TABLE bookings ADD COLUMN reminder_sent INTEGER DEFAULT 0");
+        }
+        
+        // Update contracts table to add reminder tracking
+        $contract_columns = $this->conn->query("PRAGMA table_info(contracts)")->fetchAll(PDO::FETCH_ASSOC);
+        $contract_column_names = array_column($contract_columns, 'name');
+        
+        if (!in_array('last_reminder_sent', $contract_column_names)) {
+            $this->conn->exec("ALTER TABLE contracts ADD COLUMN last_reminder_sent TIMESTAMP");
+        }
+        
+        // Update form_submissions table to add reminder tracking
+        $form_columns = $this->conn->query("PRAGMA table_info(form_submissions)")->fetchAll(PDO::FETCH_ASSOC);
+        $form_column_names = array_column($form_columns, 'name');
+        
+        if (!in_array('last_reminder_sent', $form_column_names)) {
+            $this->conn->exec("ALTER TABLE form_submissions ADD COLUMN last_reminder_sent TIMESTAMP");
         }
         
         // Update clients table to add password and admin fields for client login
