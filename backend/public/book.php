@@ -475,7 +475,7 @@ if (isset($error_mode) && $error_mode) {
         // All pages are now standalone with 4 steps
         let currentStep = 1;
         let selectedType = <?= $selected_type ? intval($selected_type['id']) : 'null' ?>;
-        let selectedTypeName = <?= $selected_type ? json_encode($selected_type['name']) : 'null' ?>;
+        let selectedTypeName = <?= $selected_type ? json_encode($selected_type['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null' ?>;
         let selectedTypeDuration = <?= $selected_type ? intval($selected_type['duration_minutes']) : 'null' ?>;
         let selectedDate = null;
         let selectedTime = null;
@@ -663,7 +663,7 @@ if (isset($error_mode) && $error_mode) {
                 client_phone: document.getElementById('clientPhone').value,
                 dog_names: document.getElementById('dogNames').value,
                 notes: document.getElementById('notes').value,
-                duration_minutes: selectedTypeDuration || 60
+                duration_minutes: selectedTypeDuration ?? 60
             };
             
             fetch('api_bookings.php', {
