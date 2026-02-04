@@ -195,8 +195,9 @@ include '../backend/includes/header.php';
                 <div class="card-body">
                     <p>To enable automated task execution, you need to set up a CRON job on your server.</p>
                     
+                    <?php $base_path = dirname(dirname(__DIR__)); ?>
                     <h6>Add this line to your crontab:</h6>
-                    <pre class="bg-light p-3 rounded"><code>*/15 * * * * php <?php echo dirname(dirname(__DIR__)); ?>/backend/cron/cron.php >> <?php echo dirname(dirname(__DIR__)); ?>/logs/cron.log 2>&1</code></pre>
+                    <pre class="bg-light p-3 rounded"><code>*/15 * * * * php <?php echo $base_path; ?>/backend/cron/cron.php >> <?php echo $base_path; ?>/logs/cron.log 2>&1</code></pre>
                     
                     <p class="mb-0">
                         <small class="text-muted">

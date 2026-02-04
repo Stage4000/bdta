@@ -45,8 +45,8 @@ class BookingReminderTask {
         foreach ($bookings as $booking) {
             try {
                 // Use client email if available, otherwise use booking email
-                $recipient_email = $booking['client_email'] ?: $booking['client_email'];
-                $recipient_name = $booking['client_name'] ?: $booking['client_name'];
+                $recipient_email = !empty($booking['client_email']) ? $booking['client_email'] : $booking['client_email'];
+                $recipient_name = !empty($booking['client_name']) ? $booking['client_name'] : $booking['client_name'];
                 
                 if (empty($recipient_email)) {
                     $errors[] = "No email found for booking #{$booking['id']}";
@@ -105,7 +105,7 @@ class BookingReminderTask {
         $html_body = $this->getReminderEmailHTML($booking, $date, $time, $google_link, $ical_link);
         $text_body = $this->getReminderEmailText($booking, $date, $time, $google_link, $ical_link);
         
-        $recipient_email = $booking['client_email'] ?: $booking['client_email'];
+        $recipient_email = !empty($booking['client_email']) ? $booking['client_email'] : $booking['client_email'];
         
         return $email_service->sendGenericEmail($recipient_email, $subject, $html_body, $text_body);
     }
@@ -114,7 +114,7 @@ class BookingReminderTask {
      * Get HTML email template for reminder
      */
     private function getReminderEmailHTML($booking, $date, $time, $google_link, $ical_link) {
-        $client_name = htmlspecialchars($booking['client_name'] ?: $booking['client_name']);
+        $client_name = htmlspecialchars(!empty($booking['client_name']) ? $booking['client_name'] : $booking['client_name']);
         $service_type = htmlspecialchars($booking['service_type']);
         $duration = htmlspecialchars($booking['duration_minutes']);
         
@@ -182,7 +182,7 @@ HTML;
      * Get plain text email template for reminder
      */
     private function getReminderEmailText($booking, $date, $time, $google_link, $ical_link) {
-        $client_name = $booking['client_name'] ?: $booking['client_name'];
+        $client_name = !empty($booking['client_name']) ? $booking['client_name'] : $booking['client_name'];
         $service_type = $booking['service_type'];
         $duration = $booking['duration_minutes'];
         

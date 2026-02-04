@@ -654,8 +654,6 @@ crontab -e
 2. View task execution logs
 3. Enable/disable tasks
 4. Configure task schedules
-0 2 * * * /path/to/backup.sh
-```
 
 ### Restore from Backup
 
