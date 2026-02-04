@@ -414,6 +414,126 @@ class Database {
                 )
             ");
             
+            // Scheduled tasks table - for CRON job automation
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_name TEXT NOT NULL,
+                    task_type TEXT NOT NULL,
+                    schedule_type TEXT NOT NULL,
+                    schedule_value TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    last_run TIMESTAMP,
+                    next_run TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ");
+            
+            // Task execution log table - for tracking CRON job execution
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS task_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id INTEGER,
+                    task_name TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    message TEXT,
+                    items_processed INTEGER DEFAULT 0,
+                    execution_time REAL,
+                    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE
+                )
+            ");
+            
+            // Workflows table - for custom automated email workflows
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS workflows (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ");
+            
+            // Workflow steps table - individual emails in a workflow
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS workflow_steps (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workflow_id INTEGER NOT NULL,
+                    step_order INTEGER NOT NULL,
+                    step_name TEXT NOT NULL,
+                    email_subject TEXT NOT NULL,
+                    email_body_html TEXT NOT NULL,
+                    email_body_text TEXT,
+                    delay_type TEXT NOT NULL,
+                    delay_value TEXT,
+                    scheduled_date DATE,
+                    attach_contract_id INTEGER,
+                    attach_form_id INTEGER,
+                    attach_quote_id INTEGER,
+                    attach_invoice_id INTEGER,
+                    include_appointment_link INTEGER DEFAULT 0,
+                    appointment_type_id INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE,
+                    FOREIGN KEY (attach_contract_id) REFERENCES contract_templates(id) ON DELETE SET NULL,
+                    FOREIGN KEY (attach_form_id) REFERENCES form_templates(id) ON DELETE SET NULL,
+                    FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE SET NULL
+                )
+            ");
+            
+            // Workflow enrollments table - clients enrolled in workflows
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS workflow_enrollments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workflow_id INTEGER NOT NULL,
+                    client_id INTEGER NOT NULL,
+                    enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    enrolled_by INTEGER,
+                    status TEXT DEFAULT 'active',
+                    completed_at TIMESTAMP,
+                    cancelled_at TIMESTAMP,
+                    FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                    FOREIGN KEY (enrolled_by) REFERENCES admin_users(id) ON DELETE SET NULL
+                )
+            ");
+            
+            // Workflow step executions table - track sent emails
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS workflow_step_executions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    enrollment_id INTEGER NOT NULL,
+                    step_id INTEGER NOT NULL,
+                    scheduled_for TIMESTAMP NOT NULL,
+                    executed_at TIMESTAMP,
+                    status TEXT DEFAULT 'pending',
+                    error_message TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (enrollment_id) REFERENCES workflow_enrollments(id) ON DELETE CASCADE,
+                    FOREIGN KEY (step_id) REFERENCES workflow_steps(id) ON DELETE CASCADE
+                )
+            ");
+            
+            // Workflow triggers table - auto-enrollment based on events
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS workflow_triggers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workflow_id INTEGER NOT NULL,
+                    trigger_type TEXT NOT NULL,
+                    appointment_type_id INTEGER,
+                    form_template_id INTEGER,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE,
+                    FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE CASCADE,
+                    FOREIGN KEY (form_template_id) REFERENCES form_templates(id) ON DELETE CASCADE
+                )
+            ");
+            
             // Create default admin if not exists
             $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
             $stmt->execute(['admin']);
@@ -644,6 +764,41 @@ class Database {
         }
         if (!in_array('override_credits', $column_names)) {
             $this->conn->exec("ALTER TABLE bookings ADD COLUMN override_credits INTEGER DEFAULT 0");
+        }
+        if (!in_array('reminder_sent', $column_names)) {
+            $this->conn->exec("ALTER TABLE bookings ADD COLUMN reminder_sent INTEGER DEFAULT 0");
+        }
+        
+        // Update contracts table to add reminder tracking
+        $contract_columns = $this->conn->query("PRAGMA table_info(contracts)")->fetchAll(PDO::FETCH_ASSOC);
+        $contract_column_names = array_column($contract_columns, 'name');
+        
+        if (!in_array('last_reminder_sent', $contract_column_names)) {
+            $this->conn->exec("ALTER TABLE contracts ADD COLUMN last_reminder_sent TIMESTAMP");
+        }
+        
+        // Update form_submissions table to add reminder tracking
+        $form_columns = $this->conn->query("PRAGMA table_info(form_submissions)")->fetchAll(PDO::FETCH_ASSOC);
+        $form_column_names = array_column($form_columns, 'name');
+        
+        if (!in_array('last_reminder_sent', $form_column_names)) {
+            $this->conn->exec("ALTER TABLE form_submissions ADD COLUMN last_reminder_sent TIMESTAMP");
+        }
+        
+        // Update quotes table to add reminder tracking
+        $quote_columns = $this->conn->query("PRAGMA table_info(quotes)")->fetchAll(PDO::FETCH_ASSOC);
+        $quote_column_names = array_column($quote_columns, 'name');
+        
+        if (!in_array('last_reminder_sent', $quote_column_names)) {
+            $this->conn->exec("ALTER TABLE quotes ADD COLUMN last_reminder_sent TIMESTAMP");
+        }
+        
+        // Update invoices table to add reminder tracking
+        $invoice_columns = $this->conn->query("PRAGMA table_info(invoices)")->fetchAll(PDO::FETCH_ASSOC);
+        $invoice_column_names = array_column($invoice_columns, 'name');
+        
+        if (!in_array('last_reminder_sent', $invoice_column_names)) {
+            $this->conn->exec("ALTER TABLE invoices ADD COLUMN last_reminder_sent TIMESTAMP");
         }
         
         // Update clients table to add password and admin fields for client login
