@@ -8,6 +8,9 @@ The CRON job system automates the following tasks:
 - **Booking Reminders**: Send reminder emails 24 hours before appointments
 - **Contract Reminders**: Remind clients to sign outstanding contracts
 - **Form Reminders**: Remind clients to complete pending forms
+- **Quote Reminders**: Remind clients about quotes awaiting approval (3+ days old)
+- **Invoice Reminders**: Send overdue payment reminders for unpaid invoices
+- **Workflow Processor**: Execute automated workflow email sequences
 
 ## Quick Setup
 
@@ -90,6 +93,34 @@ This will execute all scheduled tasks immediately and display the results.
 - **Email Features**:
   - Direct link to complete form
   - Professional reminder template
+
+### 4. Quote Reminder
+- **Task Type**: `quote_reminder`
+- **Description**: Sends reminders for quotes sent but not approved for 3+ days
+- **Default Schedule**: Daily at 11:00 AM
+- **Email Features**:
+  - Highlights expiration date if quote expires soon
+  - Direct link to view and respond to quote
+  - Professional reminder template
+
+### 5. Invoice Reminder
+- **Task Type**: `invoice_reminder`
+- **Description**: Sends reminders for overdue invoices
+- **Default Schedule**: Daily at 9:00 AM
+- **Email Features**:
+  - Shows days overdue
+  - Direct payment link
+  - Amount due (including partial payments)
+
+### 6. Workflow Processor
+- **Task Type**: `workflow_processor`
+- **Description**: Executes automated workflow email sequences
+- **Default Schedule**: Every hour
+- **Features**:
+  - Sends scheduled workflow emails to enrolled clients
+  - Supports time-based and date-based scheduling
+  - Includes contract, form, quote, invoice, and appointment link attachments
+  - Automatic enrollment completion tracking
 
 ## Managing Scheduled Tasks
 
