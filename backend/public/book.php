@@ -470,13 +470,21 @@ if (isset($error_mode) && $error_mode) {
         </div>
     </div>
     
+    <?php
+    // Prepare JavaScript variables for appointment type data
+    $js_type_id = $selected_type ? intval($selected_type['id']) : 'null';
+    $js_type_name = $selected_type ? json_encode($selected_type['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null';
+    $js_type_duration = ($selected_type && isset($selected_type['duration_minutes']) && $selected_type['duration_minutes'] > 0) 
+        ? intval($selected_type['duration_minutes']) 
+        : 'null';
+    ?>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // All pages are now standalone with 4 steps
         let currentStep = 1;
-        let selectedType = <?= $selected_type ? intval($selected_type['id']) : 'null' ?>;
-        let selectedTypeName = <?= $selected_type ? json_encode($selected_type['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null' ?>;
-        let selectedTypeDuration = <?= ($selected_type && isset($selected_type['duration_minutes']) && $selected_type['duration_minutes'] > 0) ? intval($selected_type['duration_minutes']) : 'null' ?>;
+        let selectedType = <?= $js_type_id ?>;
+        let selectedTypeName = <?= $js_type_name ?>;
+        let selectedTypeDuration = <?= $js_type_duration ?>;
         let selectedDate = null;
         let selectedTime = null;
         const maxSteps = 4;
@@ -663,6 +671,7 @@ if (isset($error_mode) && $error_mode) {
                 client_phone: document.getElementById('clientPhone').value,
                 dog_names: document.getElementById('dogNames').value,
                 notes: document.getElementById('notes').value,
+                // Default to 60 minutes if appointment type duration is not available
                 duration_minutes: selectedTypeDuration ?? 60
             };
             
