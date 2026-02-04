@@ -476,7 +476,7 @@ if (isset($error_mode) && $error_mode) {
         let currentStep = 1;
         let selectedType = <?= $selected_type ? intval($selected_type['id']) : 'null' ?>;
         let selectedTypeName = <?= $selected_type ? json_encode($selected_type['name']) : 'null' ?>;
-        let selectedTypeDuration = <?= $selected_type ? intval($selected_type['duration_minutes']) : 60 ?>;
+        let selectedTypeDuration = <?= $selected_type ? intval($selected_type['duration_minutes']) : 'null' ?>;
         let selectedDate = null;
         let selectedTime = null;
         const maxSteps = 4;
@@ -663,7 +663,7 @@ if (isset($error_mode) && $error_mode) {
                 client_phone: document.getElementById('clientPhone').value,
                 dog_names: document.getElementById('dogNames').value,
                 notes: document.getElementById('notes').value,
-                duration_minutes: selectedTypeDuration
+                duration_minutes: selectedTypeDuration || 60
             };
             
             fetch('api_bookings.php', {
