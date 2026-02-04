@@ -135,6 +135,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'reports_financial') !== false || strpos($_SERVER['PHP_SELF'], 'reports_export') !== false ? 'active' : ''; ?>" href="reports_financial.php">
+                                <i class="fas fa-chart-line me-2"></i> Financial Reports
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'blog') !== false ? 'active' : ''; ?>" href="blog_list.php">
                                 <i class="fas fa-blog me-2"></i> Blog Posts
                             </a>
