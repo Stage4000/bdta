@@ -165,6 +165,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'workflows') !== false ? 'active' : ''; ?>" href="workflows_list.php">
+                                <i class="fas fa-diagram-project me-2"></i> Workflows
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'scheduled_tasks') !== false ? 'active' : ''; ?>" href="scheduled_tasks_list.php">
                                 <i class="fas fa-clock me-2"></i> Scheduled Tasks
                             </a>
