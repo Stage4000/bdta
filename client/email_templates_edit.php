@@ -184,10 +184,12 @@ include '../backend/includes/header.php';
                             <h6 class="small mb-2 mt-3">Email Signature:</h6>
                             <ul class="small">
                                 <li><code>{{signature}}</code> - Inserts the default email signature</li>
+                                <li><code>{{signature:ID}}</code> - Inserts a specific signature by ID</li>
                             </ul>
                             <p class="small text-muted">
-                                <i class="fas fa-info-circle"></i> The signature will be automatically inserted from your 
-                                <a href="email_signatures_list.php" target="_blank">Email Signatures</a> settings.
+                                <i class="fas fa-info-circle"></i> The default signature is set in 
+                                <a href="email_signatures_list.php" target="_blank">Email Signatures</a>. 
+                                To use a specific signature, replace ID with the signature's ID number (e.g., <code>{{signature:1}}</code>).
                             </p>
                         </div>
                     </div>

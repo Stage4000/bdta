@@ -257,27 +257,39 @@ HTML;
     }
     
     /**
-     * Replace {{signature}} placeholder in email template with rendered signature
-     * @param string $email_content Email template content with {{signature}} placeholder
-     * @param int|null $signature_id Signature ID (null = use default)
+     * Replace {{signature}} and {{signature:id}} placeholders in email template
+     * @param string $email_content Email template content with signature placeholders
+     * @param int|null $signature_id Default signature ID (null = use system default)
      * @param array $custom_data Custom field data for signature
-     * @return string Email content with signature replaced
+     * @return string Email content with signature(s) replaced
      */
     public static function replaceSignaturePlaceholder($email_content, $signature_id = null, $custom_data = []) {
-        // Check if the placeholder exists
-        if (strpos($email_content, '{{signature}}') === false) {
+        // Pattern to match {{signature}} or {{signature:123}}
+        $pattern = '/\{\{signature(?::(\d+))?\}\}/';
+        
+        // Find all signature placeholders
+        preg_match_all($pattern, $email_content, $matches, PREG_SET_ORDER);
+        
+        if (empty($matches)) {
             return $email_content;
         }
         
-        // Get the rendered signature
-        $signature_html = self::render($signature_id, $custom_data);
-        
-        // If no signature found, remove the placeholder
-        if (!$signature_html) {
-            return str_replace('{{signature}}', '', $email_content);
+        // Replace each placeholder
+        foreach ($matches as $match) {
+            $full_placeholder = $match[0]; // e.g., {{signature}} or {{signature:5}}
+            $specified_id = isset($match[1]) ? (int)$match[1] : null;
+            
+            // Determine which signature to use
+            $sig_id = $specified_id ?? $signature_id; // Use specified ID, or fallback to parameter
+            
+            // Get the rendered signature
+            $signature_html = self::render($sig_id, $custom_data);
+            
+            // Replace the placeholder (remove if no signature found)
+            $replacement = $signature_html ?? '';
+            $email_content = str_replace($full_placeholder, $replacement, $email_content);
         }
         
-        // Replace the placeholder with the signature
-        return str_replace('{{signature}}', $signature_html, $email_content);
+        return $email_content;
     }
 }

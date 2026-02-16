@@ -98,6 +98,7 @@ include '../backend/includes/header.php';
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
+                                        <th>ID</th>
                                         <th>Name</th>
                                         <th>Description</th>
                                         <th>Status</th>
@@ -109,6 +110,9 @@ include '../backend/includes/header.php';
                                 <tbody>
                                     <?php foreach ($signatures as $sig): ?>
                                         <tr>
+                                            <td>
+                                                <code><?= $sig['id'] ?></code>
+                                            </td>
                                             <td>
                                                 <strong><?= escape($sig['name']) ?></strong>
                                             </td>
@@ -185,6 +189,11 @@ include '../backend/includes/header.php';
                         <p class="card-text">
                             Email signatures are automatically appended to outgoing emails. You can create multiple signatures
                             and set one as the default. Signatures support rich HTML formatting, images, and hyperlinks.
+                        </p>
+                        <p class="card-text">
+                            <strong>Using signatures in email templates:</strong><br>
+                            • <code>{{signature}}</code> - Inserts the default signature<br>
+                            • <code>{{signature:ID}}</code> - Inserts a specific signature (use the ID from the table above)
                         </p>
                         <p class="card-text">
                             <strong>Available custom fields:</strong> {{name}}, {{email}}, {{phone}}, {{business_name}}, {{business_address}}
