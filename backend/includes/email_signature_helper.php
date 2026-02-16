@@ -255,4 +255,29 @@ HTML;
         
         return $html;
     }
+    
+    /**
+     * Replace {{signature}} placeholder in email template with rendered signature
+     * @param string $email_content Email template content with {{signature}} placeholder
+     * @param int|null $signature_id Signature ID (null = use default)
+     * @param array $custom_data Custom field data for signature
+     * @return string Email content with signature replaced
+     */
+    public static function replaceSignaturePlaceholder($email_content, $signature_id = null, $custom_data = []) {
+        // Check if the placeholder exists
+        if (strpos($email_content, '{{signature}}') === false) {
+            return $email_content;
+        }
+        
+        // Get the rendered signature
+        $signature_html = self::render($signature_id, $custom_data);
+        
+        // If no signature found, remove the placeholder
+        if (!$signature_html) {
+            return str_replace('{{signature}}', '', $email_content);
+        }
+        
+        // Replace the placeholder with the signature
+        return str_replace('{{signature}}', $signature_html, $email_content);
+    }
 }
