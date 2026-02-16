@@ -107,7 +107,15 @@ class EmailSignatureHelper {
                 // Add rel="noopener noreferrer" to external links for security
                 if (strtolower($child->nodeName) === 'a' && $child->hasAttribute('href')) {
                     if ($child->hasAttribute('target') && $child->getAttribute('target') === '_blank') {
-                        $child->setAttribute('rel', 'noopener noreferrer');
+                        $existing_rel = $child->hasAttribute('rel') ? $child->getAttribute('rel') : '';
+                        $rel_values = array_filter(explode(' ', $existing_rel));
+                        if (!in_array('noopener', $rel_values)) {
+                            $rel_values[] = 'noopener';
+                        }
+                        if (!in_array('noreferrer', $rel_values)) {
+                            $rel_values[] = 'noreferrer';
+                        }
+                        $child->setAttribute('rel', implode(' ', $rel_values));
                     }
                 }
                 
@@ -225,7 +233,7 @@ class EmailSignatureHelper {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{$signature['name']}</title>
+    <title></title>
     <style>
         body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0; }
         .signature { max-width: 600px; }
@@ -233,11 +241,17 @@ class EmailSignatureHelper {
 </head>
 <body>
     <div class="signature">
-        {$signature['html_content']}
+        
     </div>
 </body>
 </html>
 HTML;
+        
+        // Safely insert the signature name and content
+        $safe_name = htmlspecialchars($signature['name'], ENT_QUOTES, 'UTF-8');
+        $html = str_replace('<title></title>', '<title>' . $safe_name . '</title>', $html);
+        // Content is already sanitized when saved via EmailSignatureHelper::sanitizeHTML()
+        $html = str_replace('<div class="signature">', '<div class="signature">' . "\n        " . $signature['html_content'], $html);
         
         return $html;
     }
