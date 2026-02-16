@@ -314,7 +314,7 @@ TEXT;
             
             // Set sender
             $mail->setFrom($this->from_email, $this->from_name);
-            $mail->addReplyTo('info@brooksdogtraining.com', $this->from_name);
+            $mail->addReplyTo('bookings@brooksdogtrainingacademy.com', $this->from_name);
             
             // Set recipient
             $mail->addAddress($to);
