@@ -180,6 +180,17 @@ include '../backend/includes/header.php';
                                 <li><code>{{business_email}}</code></li>
                                 <li><code>{{business_phone}}</code></li>
                             </ul>
+                            
+                            <h6 class="small mb-2 mt-3">Email Signature:</h6>
+                            <ul class="small">
+                                <li><code>{{signature}}</code> - Inserts the default email signature</li>
+                                <li><code>{{signature:ID}}</code> - Inserts a specific signature by ID</li>
+                            </ul>
+                            <p class="small text-muted">
+                                <i class="fas fa-info-circle"></i> The default signature is set in 
+                                <a href="email_signatures_list.php" target="_blank">Email Signatures</a>. 
+                                To use a specific signature, replace ID with the signature's ID number (e.g., <code>{{signature:1}}</code>).
+                            </p>
                         </div>
                     </div>
                     
@@ -201,7 +212,9 @@ Duration: {{duration}} minutes&lt;/p&gt;
 &lt;p&gt;&lt;a href="{{booking_link}}"&gt;View Booking&lt;/a&gt;&lt;/p&gt;
 
 &lt;p&gt;Thanks,&lt;br&gt;
-{{business_name}}&lt;/p&gt;</code></pre>
+{{business_name}}&lt;/p&gt;
+
+{{signature}}</code></pre>
                         </div>
                     </div>
                 </div>

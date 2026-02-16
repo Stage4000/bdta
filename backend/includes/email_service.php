@@ -198,10 +198,45 @@ TEXT;
     }
     
     /**
+     * Add email signature to message body
+     * @param string $body Message body
+     * @param bool $is_html Whether the body is HTML
+     * @return string Body with signature appended
+     */
+    private function addSignature($body, $is_html = true) {
+        require_once __DIR__ . '/email_signature_helper.php';
+        
+        // Get default signature
+        $signature_html = EmailSignatureHelper::render();
+        
+        if (!$signature_html) {
+            return $body; // No signature to add
+        }
+        
+        if ($is_html) {
+            // For HTML emails, append signature with a separator
+            $separator = '<hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">';
+            return $body . $separator . $signature_html;
+        } else {
+            // For plain text emails, strip HTML from signature and append
+            $signature_text = strip_tags($signature_html);
+            $separator = "\n\n---\n\n";
+            return $body . $separator . $signature_text;
+        }
+    }
+    
+    /**
      * Send email using PHPMailer with SMTP support
      */
     private function sendEmail($to, $subject, $html_body, $text_body) {
         try {
+            // Add email signature if enabled
+            $enable_signatures = Settings::get('enable_email_signatures', true);
+            if ($enable_signatures) {
+                $html_body = $this->addSignature($html_body);
+                $text_body = $this->addSignature($text_body, false);
+            }
+            
             $mail = new PHPMailer(true);
             
             // Enable debug mode if configured (useful for troubleshooting)
