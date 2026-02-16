@@ -321,7 +321,7 @@ class Database {
                     is_secret INTEGER DEFAULT 0,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            "            ");
+            ");
             
             // Email signature templates table
             $this->conn->exec("
@@ -342,7 +342,7 @@ class Database {
             ");
             
             // Form templates table
-            $this->conn->exec(""
+            $this->conn->exec("
                 CREATE TABLE IF NOT EXISTS form_templates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
