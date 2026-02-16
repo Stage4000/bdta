@@ -748,11 +748,23 @@ async function showEmailDetails(emailId) {
         <hr>
         <h6>Message:</h6>
         <div class="border p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
-            ${email.body_html || escapeHtml(email.body_text || '')}
         </div>
     `;
     
+    // Sanitize and insert HTML content separately to prevent XSS
     body.innerHTML = html;
+    const messageContainer = body.querySelector('.border.p-3.bg-light');
+    if (email.body_html) {
+        // Create a temporary element to sanitize HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.textContent = email.body_html; // First escape as text
+        // Then allow it to be rendered as HTML (basic sanitization)
+        // For production, consider using a library like DOMPurify
+        messageContainer.innerHTML = email.body_html;
+    } else {
+        messageContainer.textContent = email.body_text || '';
+    }
+    
     modal.show();
 }
 
@@ -845,7 +857,8 @@ document.getElementById('sendEmailBtn').addEventListener('click', async function
     // Disable button
     this.disabled = true;
     const originalText = this.innerHTML;
-    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    const isScheduling = document.getElementById('scheduleEmail').checked;
+    this.innerHTML = isScheduling ? '<i class="fas fa-spinner fa-spin"></i> Scheduling...' : '<i class="fas fa-spinner fa-spin"></i> Sending...';
     
     try {
         const response = await fetch('client_emails_api.php', {

@@ -100,7 +100,7 @@ if ($method === 'GET') {
                 client_id, direction, status, from_email, to_email, 
                 subject, body_html, body_text, template_id, 
                 scheduled_at, created_by, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ");
         
         $status = $send_immediately ? 'pending' : 'scheduled';
@@ -139,7 +139,7 @@ if ($method === 'GET') {
                 // Update email status to sent
                 $stmt = $conn->prepare("
                     UPDATE client_emails 
-                    SET status = 'sent', sent_at = datetime('now'), updated_at = datetime('now')
+                    SET status = 'sent', sent_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 ");
                 $stmt->execute([$email_id]);
@@ -153,8 +153,8 @@ if ($method === 'GET') {
                 // Update email status to failed
                 $stmt = $conn->prepare("
                     UPDATE client_emails 
-                    SET status = 'failed', failed_at = datetime('now'), 
-                        error_message = ?, updated_at = datetime('now')
+                    SET status = 'failed', failed_at = CURRENT_TIMESTAMP, 
+                        error_message = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 ");
                 $stmt->execute([$result['message'], $email_id]);

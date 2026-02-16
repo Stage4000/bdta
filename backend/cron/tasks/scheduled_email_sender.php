@@ -51,8 +51,8 @@ class ScheduledEmailSenderTask {
                     $update = $this->conn->prepare("
                         UPDATE client_emails 
                         SET status = 'sent', 
-                            sent_at = datetime('now'),
-                            updated_at = datetime('now')
+                            sent_at = CURRENT_TIMESTAMP,
+                            updated_at = CURRENT_TIMESTAMP
                         WHERE id = ?
                     ");
                     $update->execute([$email['id']]);
@@ -62,9 +62,9 @@ class ScheduledEmailSenderTask {
                     $update = $this->conn->prepare("
                         UPDATE client_emails 
                         SET status = 'failed', 
-                            failed_at = datetime('now'),
+                            failed_at = CURRENT_TIMESTAMP,
                             error_message = ?,
-                            updated_at = datetime('now')
+                            updated_at = CURRENT_TIMESTAMP
                         WHERE id = ?
                     ");
                     $update->execute([$result['message'], $email['id']]);
@@ -78,9 +78,9 @@ class ScheduledEmailSenderTask {
                 $update = $this->conn->prepare("
                     UPDATE client_emails 
                     SET status = 'failed', 
-                        failed_at = datetime('now'),
+                        failed_at = CURRENT_TIMESTAMP,
                         error_message = ?,
-                        updated_at = datetime('now')
+                        updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 ");
                 $update->execute([$error_message, $email['id']]);
