@@ -672,6 +672,7 @@ function getStatusBadge(status) {
         'scheduled': '<span class="badge bg-info">Scheduled</span>',
         'sent': '<span class="badge bg-success">Sent</span>',
         'delivered': '<span class="badge bg-success">Delivered</span>',
+        'received': '<span class="badge bg-primary">Received</span>',
         'failed': '<span class="badge bg-danger">Failed</span>'
     };
     return badges[status] || `<span class="badge bg-secondary">${status}</span>`;

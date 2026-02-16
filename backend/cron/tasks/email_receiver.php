@@ -1,0 +1,43 @@
+<?php
+/**
+ * Email Receiver Task
+ * Fetches incoming emails from IMAP server and stores them in the database
+ */
+
+require_once dirname(dirname(__DIR__)) . '/includes/imap_receiver.php';
+
+class EmailReceiverTask {
+    private $conn;
+    private $task;
+    
+    public function __construct($conn, $task) {
+        $this->conn = $conn;
+        $this->task = $task;
+    }
+    
+    public function execute() {
+        try {
+            $receiver = new ImapEmailReceiver();
+            $result = $receiver->fetchEmails();
+            
+            $message = $result['message'];
+            if (!empty($result['errors'])) {
+                $message .= ' with ' . count($result['errors']) . ' error(s)';
+            }
+            
+            return [
+                'success' => $result['success'],
+                'message' => $message,
+                'items_processed' => $result['emails_processed'],
+                'errors' => $result['errors'] ?? []
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage(),
+                'items_processed' => 0
+            ];
+        }
+    }
+}

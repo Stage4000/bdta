@@ -36,8 +36,15 @@ The Client Email Correspondence Management system enables per-client email track
 - **Pending**: Email queued but not yet sent
 - **Scheduled**: Email set to send at future date/time
 - **Sent**: Email successfully sent to client
+- **Received**: Email received from client (via IMAP)
 - **Delivered**: Email confirmed delivered (future enhancement)
 - **Failed**: Email send failed with error message logged
+
+### 5. Email Receiving (IMAP)
+- **Automatic Sync**: CRON task fetches incoming emails every 15 minutes
+- **Client Matching**: Incoming emails automatically matched to clients by email address
+- **Unified View**: Received emails displayed alongside sent emails
+- **IMAP Configuration**: Configure in **Settings → Email** (IMAP section)
 
 ## Usage Guide
 
@@ -72,6 +79,32 @@ The Client Email Correspondence Management system enables per-client email track
    - Body Text (plain text version)
 4. Click **Save Template**
 5. Template now available in compose modal dropdown
+
+### Configuring IMAP Email Receiving
+
+1. Navigate to **Settings** → **Email** in admin panel
+2. Scroll to **IMAP Settings** section
+3. Configure IMAP connection:
+   - **Enable IMAP**: Check to enable email receiving
+   - **IMAP Host**: Your mail server (e.g., `imap.gmail.com`)
+   - **IMAP Port**: Usually `993` for SSL or `143` for TLS
+   - **IMAP Encryption**: Choose `ssl`, `tls`, or `none`
+   - **IMAP Username**: Your email address
+   - **IMAP Password**: Your email password or app-specific password
+   - **IMAP Folder**: Mailbox folder (default: `INBOX`)
+   - **Sync Days**: How many days of emails to fetch (default: `30`)
+4. Click **Save Settings**
+5. CRON task will automatically fetch emails every 15 minutes
+
+**Gmail Users:** You may need to:
+- Enable "Less secure app access" OR
+- Use an [App Password](https://support.google.com/accounts/answer/185833)
+- Enable IMAP in Gmail settings
+
+**Office 365/Outlook Users:**
+- Host: `outlook.office365.com`
+- Port: `993`
+- Encryption: `ssl`
 
 ### Viewing Email Details
 
@@ -350,15 +383,37 @@ if (data.success) {
 2. **Check client has data:** Variables replace with empty string if client data missing
 3. **Supported variables:** See template variable documentation above
 
+### Incoming Emails Not Appearing
+
+1. **Check IMAP is enabled:**
+   - Navigate to **Settings** → **Email**
+   - Verify "Enable IMAP Email Receiving" is checked
+   - Confirm IMAP credentials are correct
+
+2. **Test IMAP connection:**
+   ```bash
+   php /path/to/backend/cron/cron.php
+   ```
+   - Check task logs for "Receive Emails (IMAP)" task
+
+3. **Common issues:**
+   - **Gmail:** Requires app-specific password or "Less secure app access"
+   - **Firewall:** IMAP port (993/143) must be open
+   - **Client email mismatch:** Incoming email sender must match a client email address
+
+4. **Check email is matched to client:**
+   - Incoming emails only appear if sender email matches a client in the database
+   - Verify client email address is correct
+
 ## Future Enhancements
 
-- **Email receiving:** Integrate with IMAP to fetch incoming emails
 - **Delivery tracking:** Webhook integration for email delivery status
-- **Attachments:** Support for file attachments
+- **Attachments:** Support for file attachments in both sent and received emails
 - **Rich text editor:** WYSIWYG editor for email composition
 - **Email threading:** Group related emails as conversations
 - **Email analytics:** Track open rates and click-through rates
 - **Advanced sanitization:** Integrate DOMPurify for production-grade XSS protection
+- **Reply functionality:** Quick reply to received emails from the UI
 
 ## Related Documentation
 
