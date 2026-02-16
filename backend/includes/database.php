@@ -321,10 +321,28 @@ class Database {
                     is_secret INTEGER DEFAULT 0,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
+            "            ");
+            
+            // Email signature templates table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS email_signature_templates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    html_content TEXT NOT NULL,
+                    is_default INTEGER DEFAULT 0,
+                    is_active INTEGER DEFAULT 1,
+                    max_image_width INTEGER DEFAULT 600,
+                    max_image_height INTEGER DEFAULT 200,
+                    created_by INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+                )
             ");
             
             // Form templates table
-            $this->conn->exec("
+            $this->conn->exec(""
                 CREATE TABLE IF NOT EXISTS form_templates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -591,6 +609,8 @@ class Database {
             ['sendgrid_api_key', '', 'password', 'email', 'SendGrid API Key', 'SendGrid API key (if using SendGrid)', 1],
             ['mailgun_api_key', '', 'password', 'email', 'Mailgun API Key', 'Mailgun API key (if using Mailgun)', 1],
             ['mailgun_domain', '', 'text', 'email', 'Mailgun Domain', 'Mailgun sending domain', 0],
+            ['default_email_signature_id', '0', 'number', 'email', 'Default Email Signature', 'Default email signature template (0 = none)', 0],
+            ['enable_email_signatures', '1', 'checkbox', 'email', 'Enable Email Signatures', 'Automatically include email signatures in outgoing emails', 0],
             
             // Stripe Payment Settings
             ['stripe_enabled', '0', 'checkbox', 'payment', 'Enable Stripe Payments', 'Enable online payment processing with Stripe', 0],
