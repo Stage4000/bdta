@@ -81,6 +81,11 @@ $stmt = $conn->prepare("SELECT * FROM client_credits WHERE client_id = ?");
 $stmt->execute([$id]);
 $credits = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Get email count
+$stmt = $conn->prepare("SELECT COUNT(*) as email_count FROM client_emails WHERE client_id = ?");
+$stmt->execute([$id]);
+$email_count = $stmt->fetchColumn();
+
 include '../backend/includes/header.php';
 ?>
 
@@ -213,6 +218,12 @@ include '../backend/includes/header.php';
                     <a class="nav-link" data-bs-toggle="tab" href="#invoices">
                         <i class="fas fa-receipt"></i> Invoices 
                         <span class="badge bg-secondary"><?= count($invoices) ?></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#emails">
+                        <i class="fas fa-envelope"></i> Email 
+                        <span class="badge bg-secondary"><?= $email_count ?></span>
                     </a>
                 </li>
             </ul>
@@ -462,9 +473,433 @@ include '../backend/includes/header.php';
                         </div>
                     <?php endif; ?>
                 </div>
+
+                <!-- Email Tab -->
+                <div id="emails" class="tab-pane fade">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Email Correspondence</h5>
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#composeEmailModal">
+                            <i class="fas fa-paper-plane"></i> Compose Email
+                        </button>
+                    </div>
+                    
+                    <div id="emailsList">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Compose Email Modal -->
+<div class="modal fade" id="composeEmailModal" tabindex="-1" aria-labelledby="composeEmailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="composeEmailModalLabel">
+                    <i class="fas fa-paper-plane"></i> Compose Email to <?= escape($client['name']) ?>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="composeEmailForm">
+                    <input type="hidden" name="client_id" value="<?= $id ?>">
+                    
+                    <!-- Template Selection -->
+                    <div class="mb-3">
+                        <label for="emailTemplate" class="form-label">Use Template (Optional)</label>
+                        <select class="form-select" id="emailTemplate" name="template_id">
+                            <option value="">-- Custom Message --</option>
+                        </select>
+                        <small class="form-text text-muted">Select a template to auto-fill the email content</small>
+                    </div>
+                    
+                    <!-- Subject -->
+                    <div class="mb-3">
+                        <label for="emailSubject" class="form-label">Subject <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="emailSubject" name="subject" required>
+                    </div>
+                    
+                    <!-- Body -->
+                    <div class="mb-3">
+                        <label for="emailBody" class="form-label">Message <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="emailBody" name="body_html" rows="10" required></textarea>
+                        <small class="form-text text-muted">HTML is supported</small>
+                    </div>
+                    
+                    <!-- Send Options -->
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="scheduleEmail" name="schedule">
+                            <label class="form-check-label" for="scheduleEmail">
+                                Schedule for later
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Schedule DateTime -->
+                    <div id="scheduleOptions" class="mb-3" style="display: none;">
+                        <label for="scheduledAt" class="form-label">Schedule Date & Time</label>
+                        <input type="datetime-local" class="form-control" id="scheduledAt" name="scheduled_at">
+                    </div>
+                    
+                    <div id="emailFormAlert" class="alert d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sendEmailBtn">
+                    <i class="fas fa-paper-plane"></i> Send Email
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Email Details Modal -->
+<div class="modal fade" id="emailDetailsModal" tabindex="-1" aria-labelledby="emailDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="emailDetailsModalLabel">
+                    <i class="fas fa-envelope"></i> Email Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="emailDetailsBody">
+                <!-- Email details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Email management
+const clientId = <?= $id ?>;
+let emailTemplates = [];
+
+// Load email templates on page load
+async function loadEmailTemplates() {
+    try {
+        const response = await fetch('email_templates_api.php?action=list');
+        const data = await response.json();
+        if (data.success) {
+            emailTemplates = data.templates;
+            const select = document.getElementById('emailTemplate');
+            data.templates.forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.id;
+                option.textContent = template.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading templates:', error);
+    }
+}
+
+// Load and display emails
+async function loadEmails() {
+    try {
+        const response = await fetch(`client_emails_api.php?client_id=${clientId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            displayEmails(data.emails);
+        } else {
+            document.getElementById('emailsList').innerHTML = 
+                '<div class="alert alert-danger">Failed to load emails</div>';
+        }
+    } catch (error) {
+        console.error('Error loading emails:', error);
+        document.getElementById('emailsList').innerHTML = 
+            '<div class="alert alert-danger">Error loading emails</div>';
+    }
+}
+
+// Display emails in the list
+function displayEmails(emails) {
+    const container = document.getElementById('emailsList');
+    
+    if (emails.length === 0) {
+        container.innerHTML = '<p class="text-muted">No emails found</p>';
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    
+    emails.forEach(email => {
+        const statusBadge = getStatusBadge(email.status);
+        const icon = email.direction === 'outgoing' ? 'fa-paper-plane' : 'fa-inbox';
+        const dateText = getEmailDateText(email);
+        
+        html += `
+            <a href="#" class="list-group-item list-group-item-action" onclick="showEmailDetails(${email.id}); return false;">
+                <div class="d-flex w-100 justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">
+                            <i class="fas ${icon} me-2"></i>
+                            ${escapeHtml(email.subject)}
+                        </h6>
+                        <p class="mb-1 text-muted small">
+                            ${email.direction === 'outgoing' ? 'To' : 'From'}: ${escapeHtml(email.direction === 'outgoing' ? email.to_email : email.from_email)}
+                        </p>
+                        ${email.template_name ? `<span class="badge bg-info me-2"><i class="fas fa-file-alt"></i> ${escapeHtml(email.template_name)}</span>` : ''}
+                        ${statusBadge}
+                    </div>
+                    <small class="text-muted">${dateText}</small>
+                </div>
+            </a>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Get status badge HTML
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="badge bg-warning">Pending</span>',
+        'scheduled': '<span class="badge bg-info">Scheduled</span>',
+        'sent': '<span class="badge bg-success">Sent</span>',
+        'delivered': '<span class="badge bg-success">Delivered</span>',
+        'failed': '<span class="badge bg-danger">Failed</span>'
+    };
+    return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+// Get email date text
+function getEmailDateText(email) {
+    if (email.status === 'scheduled' && email.scheduled_at) {
+        return 'Scheduled: ' + formatDateTime(email.scheduled_at);
+    } else if (email.sent_at) {
+        return formatDateTime(email.sent_at);
+    } else {
+        return formatDateTime(email.created_at);
+    }
+}
+
+// Format date time
+function formatDateTime(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+    });
+}
+
+// Escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Show email details
+async function showEmailDetails(emailId) {
+    const email = await getEmailById(emailId);
+    if (!email) return;
+    
+    const modal = new bootstrap.Modal(document.getElementById('emailDetailsModal'));
+    const body = document.getElementById('emailDetailsBody');
+    
+    let html = `
+        <dl class="row">
+            <dt class="col-sm-3">Subject:</dt>
+            <dd class="col-sm-9">${escapeHtml(email.subject)}</dd>
+            
+            <dt class="col-sm-3">From:</dt>
+            <dd class="col-sm-9">${escapeHtml(email.from_email)}</dd>
+            
+            <dt class="col-sm-3">To:</dt>
+            <dd class="col-sm-9">${escapeHtml(email.to_email)}</dd>
+            
+            <dt class="col-sm-3">Status:</dt>
+            <dd class="col-sm-9">${getStatusBadge(email.status)}</dd>
+            
+            ${email.scheduled_at ? `
+                <dt class="col-sm-3">Scheduled:</dt>
+                <dd class="col-sm-9">${formatDateTime(email.scheduled_at)}</dd>
+            ` : ''}
+            
+            ${email.sent_at ? `
+                <dt class="col-sm-3">Sent:</dt>
+                <dd class="col-sm-9">${formatDateTime(email.sent_at)}</dd>
+            ` : ''}
+            
+            ${email.error_message ? `
+                <dt class="col-sm-3">Error:</dt>
+                <dd class="col-sm-9 text-danger">${escapeHtml(email.error_message)}</dd>
+            ` : ''}
+        </dl>
+        
+        <hr>
+        <h6>Message:</h6>
+        <div class="border p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
+            ${email.body_html || escapeHtml(email.body_text || '')}
+        </div>
+    `;
+    
+    body.innerHTML = html;
+    modal.show();
+}
+
+// Get email by ID
+async function getEmailById(emailId) {
+    try {
+        const response = await fetch(`client_emails_api.php?client_id=${clientId}`);
+        const data = await response.json();
+        if (data.success) {
+            return data.emails.find(e => e.id == emailId);
+        }
+    } catch (error) {
+        console.error('Error getting email:', error);
+    }
+    return null;
+}
+
+// Handle template selection
+document.getElementById('emailTemplate').addEventListener('change', async function() {
+    const templateId = this.value;
+    if (!templateId) {
+        document.getElementById('emailSubject').value = '';
+        document.getElementById('emailBody').value = '';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`email_templates_api.php?action=preview&id=${templateId}&client_id=${clientId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('emailSubject').value = data.preview.subject;
+            document.getElementById('emailBody').value = data.preview.body_html || data.preview.body_text;
+        }
+    } catch (error) {
+        console.error('Error loading template:', error);
+    }
+});
+
+// Handle schedule checkbox
+document.getElementById('scheduleEmail').addEventListener('change', function() {
+    const scheduleOptions = document.getElementById('scheduleOptions');
+    const sendBtn = document.getElementById('sendEmailBtn');
+    
+    if (this.checked) {
+        scheduleOptions.style.display = 'block';
+        sendBtn.innerHTML = '<i class="fas fa-clock"></i> Schedule Email';
+        
+        // Set default to tomorrow at 9 AM
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(9, 0, 0, 0);
+        document.getElementById('scheduledAt').value = tomorrow.toISOString().slice(0, 16);
+    } else {
+        scheduleOptions.style.display = 'none';
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Email';
+    }
+});
+
+// Handle send email
+document.getElementById('sendEmailBtn').addEventListener('click', async function() {
+    const form = document.getElementById('composeEmailForm');
+    const formData = new FormData(form);
+    const alertDiv = document.getElementById('emailFormAlert');
+    
+    // Validate form
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    // Prepare data
+    const data = {
+        client_id: parseInt(formData.get('client_id')),
+        subject: formData.get('subject'),
+        body_html: formData.get('body_html'),
+        template_id: formData.get('template_id') ? parseInt(formData.get('template_id')) : null
+    };
+    
+    // Add scheduled_at if scheduling
+    if (document.getElementById('scheduleEmail').checked) {
+        const scheduledAt = formData.get('scheduled_at');
+        if (!scheduledAt) {
+            showFormAlert('Please select a date and time for scheduling', 'danger');
+            return;
+        }
+        data.scheduled_at = scheduledAt;
+    }
+    
+    // Disable button
+    this.disabled = true;
+    const originalText = this.innerHTML;
+    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    
+    try {
+        const response = await fetch('client_emails_api.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showFormAlert(result.message, 'success');
+            
+            // Reset form and close modal after 1 second
+            setTimeout(() => {
+                form.reset();
+                bootstrap.Modal.getInstance(document.getElementById('composeEmailModal')).hide();
+                loadEmails(); // Reload email list
+            }, 1000);
+        } else {
+            showFormAlert(result.error || 'Failed to send email', 'danger');
+        }
+    } catch (error) {
+        console.error('Error sending email:', error);
+        showFormAlert('Error sending email: ' + error.message, 'danger');
+    } finally {
+        this.disabled = false;
+        this.innerHTML = originalText;
+    }
+});
+
+// Show form alert
+function showFormAlert(message, type) {
+    const alertDiv = document.getElementById('emailFormAlert');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    alertDiv.classList.remove('d-none');
+    
+    setTimeout(() => {
+        alertDiv.classList.add('d-none');
+    }, 5000);
+}
+
+// Load emails when the email tab is shown
+document.querySelector('a[href="#emails"]').addEventListener('shown.bs.tab', function() {
+    loadEmails();
+});
+
+// Load templates on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadEmailTemplates();
+});
+</script>
 
 <?php include '../backend/includes/footer.php'; ?>

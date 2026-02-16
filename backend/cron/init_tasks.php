@@ -68,6 +68,14 @@ $default_tasks = [
         'schedule_value' => '60', // Every hour
         'is_active' => 1,
         'next_run' => date('Y-m-d H:i:s')
+    ],
+    [
+        'task_name' => 'Send Scheduled Emails',
+        'task_type' => 'scheduled_email_sender',
+        'schedule_type' => 'interval',
+        'schedule_value' => '15', // Every 15 minutes
+        'is_active' => 1,
+        'next_run' => date('Y-m-d H:i:s')
     ]
 ];
 

@@ -552,6 +552,33 @@ class Database {
                 )
             ");
             
+            // Client emails table - for per-client email correspondence
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS client_emails (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id INTEGER NOT NULL,
+                    direction TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    from_email TEXT NOT NULL,
+                    to_email TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    body_html TEXT,
+                    body_text TEXT,
+                    template_id INTEGER,
+                    scheduled_at TIMESTAMP,
+                    sent_at TIMESTAMP,
+                    delivered_at TIMESTAMP,
+                    failed_at TIMESTAMP,
+                    error_message TEXT,
+                    created_by INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                    FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE SET NULL,
+                    FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+                )
+            ");
+            
             // Create default admin if not exists
             $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
             $stmt->execute(['admin']);
