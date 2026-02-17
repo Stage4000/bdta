@@ -194,10 +194,19 @@ include '../backend/includes/header.php';
                                         </small>
                                     </div>
                                     <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#contactModal" onclick="editContact(<?= $contact['id'] ?>, '<?= escape($contact['name']) ?>', '<?= escape($contact['email']) ?>', '<?= escape($contact['phone']) ?>', <?= $contact['is_primary'] ?>)">
+                                        <button class="btn btn-outline-primary edit-contact-btn" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#contactModal"
+                                                data-contact-id="<?= $contact['id'] ?>"
+                                                data-contact-name="<?= escape($contact['name']) ?>"
+                                                data-contact-email="<?= escape($contact['email']) ?>"
+                                                data-contact-phone="<?= escape($contact['phone']) ?>"
+                                                data-contact-primary="<?= $contact['is_primary'] ?>">
                                             <i class="fas fa-pencil"></i>
                                         </button>
-                                        <button class="btn btn-outline-danger" onclick="deleteContact(<?= $contact['id'] ?>)">
+                                        <button class="btn btn-outline-danger delete-contact-btn" 
+                                                data-contact-id="<?= $contact['id'] ?>"
+                                                data-contact-name="<?= escape($contact['name']) ?>">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -1003,6 +1012,25 @@ document.querySelector('a[href="#emails"]').addEventListener('shown.bs.tab', fun
 // Load templates on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadEmailTemplates();
+    
+    // Event delegation for edit contact buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.edit-contact-btn')) {
+            const btn = e.target.closest('.edit-contact-btn');
+            editContact(
+                btn.dataset.contactId,
+                btn.dataset.contactName,
+                btn.dataset.contactEmail,
+                btn.dataset.contactPhone,
+                btn.dataset.contactPrimary
+            );
+        }
+        
+        if (e.target.closest('.delete-contact-btn')) {
+            const btn = e.target.closest('.delete-contact-btn');
+            deleteContact(btn.dataset.contactId, btn.dataset.contactName);
+        }
+    });
 });
 
 // Contact management functions
@@ -1012,10 +1040,6 @@ function showAddContactModal() {
     editingContactId = null;
     document.getElementById('contactModalLabel').textContent = 'Add Contact';
     document.getElementById('contactForm').reset();
-    document.getElementById('contactName').value = '';
-    document.getElementById('contactEmail').value = '';
-    document.getElementById('contactPhone').value = '';
-    document.getElementById('contactPrimary').checked = false;
 }
 
 function editContact(id, name, email, phone, isPrimary) {
@@ -1067,8 +1091,8 @@ function saveContact() {
     });
 }
 
-function deleteContact(id) {
-    if (!confirm('Are you sure you want to delete this contact?')) {
+function deleteContact(id, name) {
+    if (!confirm('Are you sure you want to delete contact: ' + name + '?')) {
         return;
     }
     

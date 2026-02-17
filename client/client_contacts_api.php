@@ -65,25 +65,35 @@ try {
                 throw new Exception('Phone number is required');
             }
             
-            // If setting as primary, unset other primary contacts
-            if ($is_primary) {
-                $stmt = $conn->prepare("UPDATE client_contacts SET is_primary = 0 WHERE client_id = ?");
-                $stmt->execute([$client_id]);
+            // Use transaction for primary contact management
+            $conn->beginTransaction();
+            
+            try {
+                // If setting as primary, unset other primary contacts
+                if ($is_primary) {
+                    $stmt = $conn->prepare("UPDATE client_contacts SET is_primary = 0 WHERE client_id = ?");
+                    $stmt->execute([$client_id]);
+                }
+                
+                $stmt = $conn->prepare("
+                    INSERT INTO client_contacts (client_id, name, email, phone, is_primary, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ");
+                $stmt->execute([$client_id, $name, $email, $phone, $is_primary]);
+                
+                $new_id = $conn->lastInsertId();
+                
+                $conn->commit();
+                
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'Contact added successfully',
+                    'id' => $new_id
+                ]);
+            } catch (Exception $e) {
+                $conn->rollBack();
+                throw $e;
             }
-            
-            $stmt = $conn->prepare("
-                INSERT INTO client_contacts (client_id, name, email, phone, is_primary, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ");
-            $stmt->execute([$client_id, $name, $email, $phone, $is_primary]);
-            
-            $new_id = $conn->lastInsertId();
-            
-            echo json_encode([
-                'success' => true, 
-                'message' => 'Contact added successfully',
-                'id' => $new_id
-            ]);
             break;
             
         case 'update':
@@ -122,23 +132,33 @@ try {
                 throw new Exception('Contact not found');
             }
             
-            // If setting as primary, unset other primary contacts
-            if ($is_primary) {
-                $stmt = $conn->prepare("UPDATE client_contacts SET is_primary = 0 WHERE client_id = ? AND id != ?");
-                $stmt->execute([$contact['client_id'], $contact_id]);
+            // Use transaction for primary contact management
+            $conn->beginTransaction();
+            
+            try {
+                // If setting as primary, unset other primary contacts
+                if ($is_primary) {
+                    $stmt = $conn->prepare("UPDATE client_contacts SET is_primary = 0 WHERE client_id = ? AND id != ?");
+                    $stmt->execute([$contact['client_id'], $contact_id]);
+                }
+                
+                $stmt = $conn->prepare("
+                    UPDATE client_contacts 
+                    SET name = ?, email = ?, phone = ?, is_primary = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ");
+                $stmt->execute([$name, $email, $phone, $is_primary, $contact_id]);
+                
+                $conn->commit();
+                
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'Contact updated successfully'
+                ]);
+            } catch (Exception $e) {
+                $conn->rollBack();
+                throw $e;
             }
-            
-            $stmt = $conn->prepare("
-                UPDATE client_contacts 
-                SET name = ?, email = ?, phone = ?, is_primary = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ");
-            $stmt->execute([$name, $email, $phone, $is_primary, $contact_id]);
-            
-            echo json_encode([
-                'success' => true, 
-                'message' => 'Contact updated successfully'
-            ]);
             break;
             
         case 'delete':
