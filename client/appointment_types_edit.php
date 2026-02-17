@@ -57,6 +57,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $max_participants = (int)($_POST['max_participants'] ?? 1);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
+    // Handle schedule type and specific date
+    $schedule_type = $_POST['schedule_type'] ?? 'recurring';
+    $specific_date = null;
+    if ($schedule_type === 'specific_date' && !empty($_POST['specific_date'])) {
+        $specific_date = $_POST['specific_date'];
+    }
+    
     // Handle availability configuration
     $available_days = isset($_POST['available_days']) && is_array($_POST['available_days']) 
         ? array_map('intval', $_POST['available_days']) 
@@ -88,6 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_group_class = ?,
                     max_participants = ?,
                     is_active = ?,
+                    schedule_type = ?,
+                    specific_date = ?,
                     available_days = ?,
                     available_start_time = ?,
                     available_end_time = ?,
@@ -105,6 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
                 $is_active,
+                $schedule_type, $specific_date,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $id
             ]);
@@ -129,8 +139,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     consumes_credits, credit_count,
                     is_group_class, max_participants,
                     is_active, unique_link,
+                    schedule_type, specific_date,
                     available_days, available_start_time, available_end_time, time_slot_interval
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -142,6 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
                 $is_active, $unique_link,
+                $schedule_type, $specific_date,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
@@ -270,6 +282,38 @@ include __DIR__ . '/../backend/includes/header.php';
                 <h6 class="border-bottom pb-2 mb-3">Availability Configuration</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-12">
+                        <label class="form-label">Schedule Type <span class="text-danger">*</span></label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="schedule_type" 
+                                           id="schedule_type_recurring" value="recurring"
+                                           <?= (!isset($type['schedule_type']) || $type['schedule_type'] === 'recurring') ? 'checked' : '' ?>
+                                           onchange="toggleScheduleType()">
+                                    <label class="form-check-label" for="schedule_type_recurring">
+                                        <strong>Recurring Schedule</strong>
+                                        <div class="form-text">Available on specific days of the week (e.g., every Monday and Wednesday)</div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="schedule_type" 
+                                           id="schedule_type_specific" value="specific_date"
+                                           <?= (isset($type['schedule_type']) && $type['schedule_type'] === 'specific_date') ? 'checked' : '' ?>
+                                           onchange="toggleScheduleType()">
+                                    <label class="form-check-label" for="schedule_type_specific">
+                                        <strong>Specific Date</strong>
+                                        <div class="form-text">Available only on one specific calendar date (e.g., October 31st, 2026)</div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="recurring_schedule_section">
+                    <div class="col-12">
                         <label class="form-label">Available Days</label>
                         <div class="row">
                             <?php 
@@ -294,6 +338,18 @@ include __DIR__ . '/../backend/includes/header.php';
                         </div>
                         <div class="form-text">Select which days of the week this appointment type is available</div>
                     </div>
+                </div>
+
+                <div id="specific_date_section" style="display: none;">
+                    <div class="col-12 mb-3">
+                        <label for="specific_date" class="form-label">Specific Date <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="specific_date" name="specific_date" 
+                               value="<?= htmlspecialchars($type['specific_date'] ?? '') ?>">
+                        <div class="form-text">Select the exact date this appointment will be available</div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4 mt-3">
                     <div class="col-md-4">
                         <label for="available_start_time" class="form-label">Available Start Time</label>
                         <input type="time" class="form-control" id="available_start_time" name="available_start_time" 
@@ -318,14 +374,26 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-12">
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i> 
-                            <strong>Preview:</strong> Based on your settings, appointment slots will be available 
+                            <strong>Preview:</strong> <span id="preview_text">
+                            <?php
+                            $schedule_type = $type['schedule_type'] ?? 'recurring';
+                            if ($schedule_type === 'specific_date' && !empty($type['specific_date'])) {
+                                echo 'This appointment will be available only on <strong>' . date('F j, Y', strtotime($type['specific_date'])) . '</strong>';
+                            } else {
+                                echo 'Based on your settings, appointment slots will be available ';
+                            }
+                            ?>
+                            </span>
+                            <span id="preview_recurring">
                             <span id="preview_days">
                                 <?php
-                                $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                                $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [0,1,2,3,4,5,6];
-                                if (!is_array($available_days)) $available_days = [0,1,2,3,4,5,6];
-                                $selected_day_names = array_map(function($d) use ($day_names) { return $day_names[$d]; }, $available_days);
-                                echo implode(', ', $selected_day_names);
+                                if (!isset($schedule_type) || $schedule_type === 'recurring') {
+                                    $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                                    $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [0,1,2,3,4,5,6];
+                                    if (!is_array($available_days)) $available_days = [0,1,2,3,4,5,6];
+                                    $selected_day_names = array_map(function($d) use ($day_names) { return $day_names[$d]; }, $available_days);
+                                    echo implode(', ', $selected_day_names);
+                                }
                                 ?>
                             </span> 
                             from <strong id="preview_start">
@@ -344,6 +412,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 ?>
                             </strong> 
                             in <strong id="preview_interval"><?= $type['time_slot_interval'] ?? 30 ?></strong>-minute intervals.
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -458,6 +527,26 @@ include __DIR__ . '/../backend/includes/header.php';
 </div>
 
 <script>
+// Toggle between schedule types
+function toggleScheduleType() {
+    const recurringRadio = document.getElementById('schedule_type_recurring');
+    const recurringSection = document.getElementById('recurring_schedule_section');
+    const specificDateSection = document.getElementById('specific_date_section');
+    const specificDateInput = document.getElementById('specific_date');
+    
+    if (recurringRadio.checked) {
+        recurringSection.style.display = 'block';
+        specificDateSection.style.display = 'none';
+        specificDateInput.removeAttribute('required');
+    } else {
+        recurringSection.style.display = 'none';
+        specificDateSection.style.display = 'block';
+        specificDateInput.setAttribute('required', 'required');
+    }
+    
+    updateAvailabilityPreview();
+}
+
 // Phase 2: Travel Time Buffer Toggle
 function toggleTravelTime() {
     const checkbox = document.getElementById('use_travel_time_buffer');
@@ -493,12 +582,18 @@ function copyBookingLink(event) {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     toggleTravelTime();
+    toggleScheduleType();
     updateAvailabilityPreview();
     
     // Add event listeners for availability fields
     document.getElementById('available_start_time').addEventListener('change', updateAvailabilityPreview);
     document.getElementById('available_end_time').addEventListener('change', updateAvailabilityPreview);
     document.getElementById('time_slot_interval').addEventListener('change', updateAvailabilityPreview);
+    
+    // Add event listeners for schedule type
+    document.getElementById('schedule_type_recurring').addEventListener('change', toggleScheduleType);
+    document.getElementById('schedule_type_specific').addEventListener('change', toggleScheduleType);
+    document.getElementById('specific_date').addEventListener('change', updateAvailabilityPreview);
     
     // Add event listeners for day checkboxes
     document.querySelectorAll('input[name="available_days[]"]').forEach(function(checkbox) {
@@ -508,30 +603,54 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Update the availability preview based on form inputs
 function updateAvailabilityPreview() {
-    const startTime = document.getElementById('available_start_time').value;
-    const endTime = document.getElementById('available_end_time').value;
-    const interval = document.getElementById('time_slot_interval').value;
+    const recurringRadio = document.getElementById('schedule_type_recurring');
+    const isRecurring = recurringRadio.checked;
+    const previewRecurring = document.getElementById('preview_recurring');
+    const previewText = document.getElementById('preview_text');
     
-    // Get selected days
-    const dayCheckboxes = document.querySelectorAll('input[name="available_days[]"]:checked');
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const selectedDays = Array.from(dayCheckboxes).map(cb => dayNames[parseInt(cb.value)]);
-    
-    // Format time for display (convert 24h to 12h format)
-    function formatTime(time) {
-        const [hours, minutes] = time.split(':');
-        const hourValue = parseInt(hours);
-        const ampm = hourValue >= 12 ? 'PM' : 'AM';
-        const displayHour = hourValue % 12 || 12;
-        return displayHour + ':' + minutes + ' ' + ampm;
+    if (isRecurring) {
+        // Show recurring schedule preview
+        previewRecurring.style.display = 'inline';
+        previewText.textContent = 'Based on your settings, appointment slots will be available ';
+        
+        const startTime = document.getElementById('available_start_time').value;
+        const endTime = document.getElementById('available_end_time').value;
+        const interval = document.getElementById('time_slot_interval').value;
+        
+        // Get selected days
+        const dayCheckboxes = document.querySelectorAll('input[name="available_days[]"]:checked');
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const selectedDays = Array.from(dayCheckboxes).map(cb => dayNames[parseInt(cb.value)]);
+        
+        // Format time for display (convert 24h to 12h format)
+        function formatTime(time) {
+            const [hours, minutes] = time.split(':');
+            const hourValue = parseInt(hours);
+            const ampm = hourValue >= 12 ? 'PM' : 'AM';
+            const displayHour = hourValue % 12 || 12;
+            return displayHour + ':' + minutes + ' ' + ampm;
+        }
+        
+        // Update preview text
+        const previewDays = selectedDays.length > 0 ? selectedDays.join(', ') : 'no days selected';
+        document.getElementById('preview_days').textContent = previewDays;
+        document.getElementById('preview_start').textContent = formatTime(startTime);
+        document.getElementById('preview_end').textContent = formatTime(endTime);
+        document.getElementById('preview_interval').textContent = interval;
+    } else {
+        // Show specific date preview
+        previewRecurring.style.display = 'none';
+        const specificDate = document.getElementById('specific_date').value;
+        if (specificDate) {
+            // Parse date components to avoid timezone issues
+            const [year, month, day] = specificDate.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            previewText.innerHTML = 'This appointment will be available only on <strong>' + formattedDate + '</strong>';
+        } else {
+            previewText.textContent = 'Please select a specific date';
+        }
     }
-    
-    // Update preview text
-    const previewDays = selectedDays.length > 0 ? selectedDays.join(', ') : 'no days selected';
-    document.getElementById('preview_days').textContent = previewDays;
-    document.getElementById('preview_start').textContent = formatTime(startTime);
-    document.getElementById('preview_end').textContent = formatTime(endTime);
-    document.getElementById('preview_interval').textContent = interval;
 }
 </script>
 

@@ -75,6 +75,7 @@ include __DIR__ . '/../backend/includes/header.php';
                             <tr>
                                 <th>Name</th>
                                 <th>Duration</th>
+                                <th>Schedule</th>
                                 <th>Buffers</th>
                                 <th>Advance Booking</th>
                                 <th>Requirements</th>
@@ -95,6 +96,33 @@ include __DIR__ . '/../backend/includes/header.php';
                                     </td>
                                     <td>
                                         <?= $type['duration_minutes'] ?> min
+                                    </td>
+                                    <td>
+                                        <?php 
+                                        $schedule_type = $type['schedule_type'] ?? 'recurring';
+                                        if ($schedule_type === 'specific_date' && !empty($type['specific_date'])): 
+                                        ?>
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-calendar-day"></i> Specific Date
+                                            </span><br>
+                                            <small><?= date('M j, Y', strtotime($type['specific_date'])) ?></small>
+                                        <?php else: ?>
+                                            <span class="badge bg-info text-dark">
+                                                <i class="fas fa-calendar-week"></i> Recurring
+                                            </span><br>
+                                            <small>
+                                                <?php
+                                                $day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                                                $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [];
+                                                if (is_array($available_days) && !empty($available_days)) {
+                                                    $selected_day_names = array_map(function($d) use ($day_names) { return $day_names[$d]; }, $available_days);
+                                                    echo implode(', ', $selected_day_names);
+                                                } else {
+                                                    echo 'All days';
+                                                }
+                                                ?>
+                                            </small>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <small>

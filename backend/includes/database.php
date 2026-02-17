@@ -1001,6 +1001,21 @@ class Database {
             // Set default for existing rows
             $this->conn->exec("UPDATE appointment_types SET time_slot_interval = 30 WHERE time_slot_interval IS NULL");
         }
+        
+        // Add schedule_type column for specific date scheduling
+        if (!in_array('schedule_type', $apt_column_names)) {
+            // Schedule type: 'recurring' for day-of-week based, 'specific_date' for one-time classes
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN schedule_type TEXT DEFAULT 'recurring'");
+            
+            // Set default for existing rows to maintain backward compatibility
+            $this->conn->exec("UPDATE appointment_types SET schedule_type = 'recurring' WHERE schedule_type IS NULL");
+        }
+        
+        // Add specific_date column for one-time scheduled classes
+        if (!in_array('specific_date', $apt_column_names)) {
+            // Date for specific date scheduling (NULL for recurring schedules)
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN specific_date DATE");
+        }
     }
 }
 ?>
