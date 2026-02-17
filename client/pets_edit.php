@@ -300,8 +300,8 @@ include '../backend/includes/header.php';
                         <div id="pet-files-section" class="mb-4">
                             <div class="row mb-3">
                                 <div class="col-md-12">
-                                    <label class="form-label">Upload Files</label>
-                                    <p class="text-muted small">Upload vaccination records, medical documents, photos, or other files related to <?= htmlspecialchars($pet['name']) ?>.</p>
+                                    <label for="pet-file-input" class="form-label">Upload Files</label>
+                                    <p class="text-muted small">Upload vaccination records, medical documents, photos, or other files related to <?= htmlspecialchars($pet['name'], ENT_QUOTES, 'UTF-8') ?>.</p>
                                     
                                     <div class="mb-3">
                                         <input type="file" id="pet-file-input" class="form-control" accept=".jpg,.jpeg,.png,.gif,.pdf">
@@ -396,6 +396,12 @@ include '../backend/includes/header.php';
         filesContainer.innerHTML = '';
         
         files.forEach(file => {
+            // Validate file.id is a number
+            if (!Number.isInteger(file.id) || file.id <= 0) {
+                console.error('Invalid file ID:', file.id);
+                return;
+            }
+            
             const fileCard = createFileCard(file);
             filesContainer.appendChild(fileCard);
         });
@@ -526,6 +532,13 @@ include '../backend/includes/header.php';
     
     // Delete file (global function)
     window.deleteFile = function(fileId) {
+        // Validate fileId is a positive integer
+        fileId = parseInt(fileId, 10);
+        if (!Number.isInteger(fileId) || fileId <= 0) {
+            showStatus('Invalid file ID', 'danger');
+            return;
+        }
+        
         if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
             return;
         }

@@ -65,6 +65,9 @@ try {
     ]);
     
 } catch (PDOException $e) {
+    // Log the error server-side (in production, use proper logging)
+    error_log('Pet file delete database error: ' . $e->getMessage());
+    
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Failed to delete file. Please try again.']);
 }

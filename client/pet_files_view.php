@@ -43,16 +43,21 @@ if (!file_exists($file_path)) {
 // Determine if we should force download or display inline
 $download = isset($_GET['download']) && $_GET['download'] == '1';
 
+// Sanitize filename for Content-Disposition header
+// Remove any characters that could cause header injection
+$safe_filename = preg_replace('/[^\w\s\.-]/', '_', $file['original_name']);
+$safe_filename = str_replace(["\r", "\n"], '', $safe_filename);
+
 // Set appropriate headers
 header('Content-Type: ' . $file['mime_type']);
 header('Content-Length: ' . filesize($file_path));
 
 if ($download) {
-    // Force download
-    header('Content-Disposition: attachment; filename="' . $file['original_name'] . '"');
+    // Force download with sanitized filename
+    header('Content-Disposition: attachment; filename="' . addslashes($safe_filename) . '"');
 } else {
-    // Display inline (for images and PDFs)
-    header('Content-Disposition: inline; filename="' . $file['original_name'] . '"');
+    // Display inline (for images and PDFs) with sanitized filename
+    header('Content-Disposition: inline; filename="' . addslashes($safe_filename) . '"');
 }
 
 // Prevent caching of sensitive files

@@ -75,6 +75,11 @@ if ($_FILES['file']['size'] > $max_file_size) {
 
 // Get file information
 $original_name = basename($_FILES['file']['name']);
+
+// Additional sanitization: remove any path separators and allow only safe characters
+$original_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $original_name);
+$original_name = str_replace(['/', '\\', '..'], '', $original_name);
+
 $file_size = $_FILES['file']['size'];
 $tmp_name = $_FILES['file']['tmp_name'];
 $mime_type = mime_content_type($tmp_name);
@@ -186,6 +191,9 @@ try {
         unlink($file_path);
     }
     
+    // Log the error server-side (in production, use proper logging)
+    error_log('Pet file upload database error: ' . $e->getMessage());
+    
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Failed to save file information. Please try again.']);
 }
