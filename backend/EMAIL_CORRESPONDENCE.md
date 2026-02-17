@@ -82,8 +82,13 @@ The Client Email Correspondence Management system enables per-client email track
 
 ### Configuring IMAP Email Receiving
 
+**Important:** If you don't see IMAP settings in Settings → Email, run the migration script first:
+```bash
+php /path/to/backend/add_imap_settings.php
+```
+
 1. Navigate to **Settings** → **Email** in admin panel
-2. Scroll to **IMAP Settings** section
+2. **Scroll down** to the **IMAP Settings** section (below SMTP, SendGrid, Mailgun settings)
 3. Configure IMAP connection:
    - **Enable IMAP**: Check to enable email receiving
    - **IMAP Host**: Your mail server (e.g., `imap.gmail.com`)
