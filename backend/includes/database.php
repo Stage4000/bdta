@@ -579,6 +579,29 @@ class Database {
                 )
             ");
             
+            // Unmatched emails table - for emails from unknown senders
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS unmatched_emails (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    from_email TEXT NOT NULL,
+                    from_name TEXT,
+                    to_email TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    body_html TEXT,
+                    body_text TEXT,
+                    received_at TIMESTAMP,
+                    is_assigned INTEGER DEFAULT 0,
+                    assigned_to_client_id INTEGER,
+                    assigned_at TIMESTAMP,
+                    assigned_by INTEGER,
+                    is_archived INTEGER DEFAULT 0,
+                    archived_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (assigned_to_client_id) REFERENCES clients(id) ON DELETE SET NULL,
+                    FOREIGN KEY (assigned_by) REFERENCES admin_users(id) ON DELETE SET NULL
+                )
+            ");
+            
             // Create default admin if not exists
             $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
             $stmt->execute(['admin']);

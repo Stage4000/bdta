@@ -43,8 +43,16 @@ The Client Email Correspondence Management system enables per-client email track
 ### 5. Email Receiving (IMAP)
 - **Automatic Sync**: CRON task fetches incoming emails every 15 minutes
 - **Client Matching**: Incoming emails automatically matched to clients by email address
+- **Unmatched Email Management**: Emails from unknown senders stored separately for review ✅ NEW
 - **Unified View**: Received emails displayed alongside sent emails
 - **IMAP Configuration**: Configure in **Settings → Email** (IMAP section)
+
+### 6. Unmatched Email Management ✅ NEW
+- **Automatic Storage**: Emails from senders not in the database are stored separately
+- **Review Interface**: Dedicated page to view and manage unmatched emails
+- **Client Assignment**: Assign unmatched emails to existing or new clients
+- **Archive System**: Archive emails that don't need action
+- **Badge Notifications**: Unassigned email count displayed in navigation
 
 ## Usage Guide
 
@@ -110,6 +118,32 @@ php /path/to/backend/add_imap_settings.php
 - Host: `outlook.office365.com`
 - Port: `993`
 - Encryption: `ssl`
+
+### Managing Unmatched Emails ✅ NEW
+
+**Unmatched emails** are emails received from senders whose email addresses don't match any client in your database.
+
+1. Navigate to **Unmatched Emails** in the navigation menu
+2. View emails organized by tabs:
+   - **Unassigned**: New emails waiting for review
+   - **Assigned**: Emails assigned to clients
+   - **Archived**: Emails marked as archived
+3. Click on an email to view details
+4. Available actions:
+   - **Assign to Client**: Link the email to an existing client
+   - **Archive**: Mark as archived (no action needed)
+   - **Delete**: Permanently remove the email
+
+**Assigning to a Client:**
+1. Click **Assign to Client** button
+2. Select a client from the dropdown
+3. Check "Add to client's email history" to create a record in the client's Email tab
+4. Click **Assign Email**
+
+**When to use:**
+- Emails from prospective clients not yet in the system
+- Emails from clients using alternate email addresses
+- Spam or unrelated emails (archive or delete)
 
 ### Viewing Email Details
 

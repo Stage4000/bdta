@@ -185,7 +185,8 @@ class ImapEmailReceiver {
         $client_id = $this->findClientByEmail($from_email);
         
         if (!$client_id) {
-            // No matching client found, skip this email
+            // No matching client found, store as unmatched email
+            $this->storeUnmatchedEmail($header, $from_email, $to_email, $subject, $body_html, $body_text, $received_date);
             return;
         }
         
@@ -328,5 +329,49 @@ class ImapEmailReceiver {
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         return $result ? $result['id'] : null;
+    }
+    
+    /**
+     * Store unmatched email (from unknown sender)
+     */
+    private function storeUnmatchedEmail($header, $from_email, $to_email, $subject, $body_html, $body_text, $received_date) {
+        // Get from name
+        $from_name = '';
+        if (isset($header->from) && count($header->from) > 0) {
+            $from = $header->from[0];
+            $from_name = isset($from->personal) ? $this->decodeHeader($from->personal) : '';
+        }
+        
+        // Check if this unmatched email already exists
+        $stmt = $this->conn->prepare("
+            SELECT id FROM unmatched_emails 
+            WHERE from_email = ? AND subject = ? AND received_at = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$from_email, $subject, $received_date]);
+        
+        if ($stmt->fetch()) {
+            // Already exists, skip
+            return;
+        }
+        
+        // Insert unmatched email
+        $stmt = $this->conn->prepare("
+            INSERT INTO unmatched_emails (
+                from_email, from_name, to_email, subject, 
+                body_html, body_text, received_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $from_email,
+            $from_name,
+            $to_email,
+            $subject,
+            $body_html,
+            $body_text,
+            $received_date,
+            date('Y-m-d H:i:s')
+        ]);
     }
 }
