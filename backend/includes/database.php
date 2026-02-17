@@ -552,6 +552,56 @@ class Database {
                 )
             ");
             
+            // Client emails table - for per-client email correspondence
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS client_emails (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id INTEGER NOT NULL,
+                    direction TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    from_email TEXT NOT NULL,
+                    to_email TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    body_html TEXT,
+                    body_text TEXT,
+                    template_id INTEGER,
+                    scheduled_at TIMESTAMP,
+                    sent_at TIMESTAMP,
+                    delivered_at TIMESTAMP,
+                    failed_at TIMESTAMP,
+                    error_message TEXT,
+                    created_by INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                    FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE SET NULL,
+                    FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+                )
+            ");
+            
+            // Unmatched emails table - for emails from unknown senders
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS unmatched_emails (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    from_email TEXT NOT NULL,
+                    from_name TEXT,
+                    to_email TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    body_html TEXT,
+                    body_text TEXT,
+                    received_at TIMESTAMP,
+                    is_assigned INTEGER DEFAULT 0,
+                    assigned_to_client_id INTEGER,
+                    assigned_at TIMESTAMP,
+                    assigned_by INTEGER,
+                    is_archived INTEGER DEFAULT 0,
+                    archived_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (assigned_to_client_id) REFERENCES clients(id) ON DELETE SET NULL,
+                    FOREIGN KEY (assigned_by) REFERENCES admin_users(id) ON DELETE SET NULL
+                )
+            ");
+            
             // Create default admin if not exists
             $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
             $stmt->execute(['admin']);
@@ -611,6 +661,16 @@ class Database {
             ['mailgun_domain', '', 'text', 'email', 'Mailgun Domain', 'Mailgun sending domain', 0],
             ['default_email_signature_id', '0', 'number', 'email', 'Default Email Signature', 'Default email signature template (0 = none)', 0],
             ['enable_email_signatures', '1', 'checkbox', 'email', 'Enable Email Signatures', 'Automatically include email signatures in outgoing emails', 0],
+            
+            // IMAP Settings for receiving emails
+            ['imap_enabled', '0', 'checkbox', 'email', 'Enable IMAP Email Receiving', 'Fetch incoming emails automatically', 0],
+            ['imap_host', '', 'text', 'email', 'IMAP Host', 'IMAP server hostname (e.g., imap.gmail.com)', 0],
+            ['imap_port', '993', 'number', 'email', 'IMAP Port', 'IMAP server port (993 for SSL, 143 for TLS)', 0],
+            ['imap_encryption', 'ssl', 'select', 'email', 'IMAP Encryption', 'Encryption method (ssl, tls, none)', 0],
+            ['imap_username', '', 'text', 'email', 'IMAP Username', 'IMAP authentication username (usually email address)', 0],
+            ['imap_password', '', 'password', 'email', 'IMAP Password', 'IMAP authentication password', 1],
+            ['imap_folder', 'INBOX', 'text', 'email', 'IMAP Folder', 'Folder to fetch emails from (default: INBOX)', 0],
+            ['imap_sync_days', '30', 'number', 'email', 'Sync Days', 'How many days of emails to sync (default: 30)', 0],
             
             // Stripe Payment Settings
             ['stripe_enabled', '0', 'checkbox', 'payment', 'Enable Stripe Payments', 'Enable online payment processing with Stripe', 0],
