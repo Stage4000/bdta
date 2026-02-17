@@ -130,7 +130,7 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
                 )
-            "            ");
+            ");
             
             // Pet files table - for storing uploaded documents and photos
             $this->conn->exec("
@@ -151,7 +151,7 @@ class Database {
             ");
             
             // Appointment pets junction table (for multi-pet appointments)
-            $this->conn->exec(""
+            $this->conn->exec("
                 CREATE TABLE IF NOT EXISTS appointment_pets (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     booking_id INTEGER NOT NULL,
