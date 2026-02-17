@@ -28,7 +28,8 @@ if ($method === 'GET') {
     
     if ($appointment_type_id) {
         $stmt = $conn->prepare("
-            SELECT available_days, available_start_time, available_end_time, time_slot_interval 
+            SELECT available_days, available_start_time, available_end_time, time_slot_interval,
+                   schedule_type, specific_date
             FROM appointment_types 
             WHERE id = ? AND is_active = 1
         ");
@@ -36,6 +37,21 @@ if ($method === 'GET') {
         $appointment_type = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($appointment_type) {
+            $schedule_type = $appointment_type['schedule_type'] ?? 'recurring';
+            $specific_date = $appointment_type['specific_date'] ?? null;
+            
+            // Check if this is a specific date appointment and the date matches
+            if ($schedule_type === 'specific_date') {
+                if ($specific_date !== $date) {
+                    echo json_encode([
+                        'date' => $date,
+                        'available_slots' => [],
+                        'message' => 'This appointment is only available on: ' . date('F j, Y', strtotime($specific_date))
+                    ]);
+                    exit;
+                }
+            }
+            
             $available_days = json_decode($appointment_type['available_days'], true);
             if (!is_array($available_days)) {
                 $available_days = [0,1,2,3,4,5,6];
@@ -46,20 +62,22 @@ if ($method === 'GET') {
         }
     }
     
-    // Check if the requested date's day of week is available
-    $day_of_week = (int)date('w', strtotime($date)); // 0 = Sunday, 6 = Saturday
-    if (!in_array($day_of_week, $available_days)) {
-        $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        $available_day_names = array_map(function($day) use ($day_names) {
-            return $day_names[$day];
-        }, $available_days);
-        
-        echo json_encode([
-            'date' => $date,
-            'available_slots' => [],
-            'message' => 'This appointment type is only available on: ' . implode(', ', $available_day_names)
-        ]);
-        exit;
+    // Check if the requested date's day of week is available (only for recurring schedules)
+    if (!isset($schedule_type) || $schedule_type === 'recurring') {
+        $day_of_week = (int)date('w', strtotime($date)); // 0 = Sunday, 6 = Saturday
+        if (!in_array($day_of_week, $available_days)) {
+            $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            $available_day_names = array_map(function($day) use ($day_names) {
+                return $day_names[$day];
+            }, $available_days);
+            
+            echo json_encode([
+                'date' => $date,
+                'available_slots' => [],
+                'message' => 'This appointment type is only available on: ' . implode(', ', $available_day_names)
+            ]);
+            exit;
+        }
     }
     
     $stmt = $conn->prepare("
