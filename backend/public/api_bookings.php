@@ -220,10 +220,21 @@ if ($method === 'GET') {
             }
         }
         
-        // Create booking with client_id
+        // Get appointment type info to check if it's a Mini Session
+        $location = null;
+        if (!empty($data['appointment_type_id'])) {
+            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location FROM appointment_types WHERE id = ?");
+            $stmt->execute([$data['appointment_type_id']]);
+            $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($apt_type && !empty($apt_type['is_mini_session'])) {
+                $location = $apt_type['mini_session_location'];
+            }
+        }
+        
+        // Create booking with client_id and location
         $stmt = $conn->prepare("
-            INSERT INTO bookings (client_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+            INSERT INTO bookings (client_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
         ");
         $stmt->execute([
             $client_id,
@@ -234,7 +245,8 @@ if ($method === 'GET') {
             $data['appointment_date'],
             $data['appointment_time'],
             $data['notes'] ?? '',
-            $data['duration_minutes'] ?? 60
+            $data['duration_minutes'] ?? 60,
+            $location
         ]);
         
         $booking_id = $conn->lastInsertId();

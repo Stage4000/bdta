@@ -156,7 +156,12 @@ include __DIR__ . '/../backend/includes/header.php';
                                                 <span class="badge bg-primary">Uses <?= $type['credit_count'] ?> Credit(s)</span><br>
                                             <?php endif; ?>
                                             <?php if ($type['is_group_class']): ?>
-                                                <span class="badge bg-secondary">Group Class (Max <?= $type['max_participants'] ?>)</span>
+                                                <span class="badge bg-secondary">Group Class (Max <?= $type['max_participants'] ?>)</span><br>
+                                            <?php endif; ?>
+                                            <?php if (!empty($type['is_mini_session'])): ?>
+                                                <span class="badge bg-info">
+                                                    <i class="fas fa-location-dot"></i> Mini Sessions
+                                                </span>
                                             <?php endif; ?>
                                         </small>
                                     </td>
