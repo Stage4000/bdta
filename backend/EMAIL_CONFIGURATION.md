@@ -124,13 +124,13 @@ SMTP Debug Mode: Off (enable only for troubleshooting)
 After configuring your SMTP settings, you have two testing options:
 
 ### Option 1: Quick Email Test
-1. Use the test email script: `http://yoursite.com/backend/public/test_email.php`
+1. Use the test email script: `http://yoursite.com/backend/public/test_email.php` (localhost only)
 2. Enter your email address
 3. Send a test email
 4. Check if you receive it
 
 ### Option 2: Email Deliverability Test (Recommended)
-1. Use the deliverability test script: `http://yoursite.com/backend/public/test_deliverability.php`
+1. Use the deliverability test script: `http://yoursite.com/backend/public/test_deliverability.php` (requires admin login)
    OR run from command line: `php backend/public/test_deliverability.php`
 2. This sends an email to `ping@tools.mxtoolbox.com`
 3. Visit [MXToolbox Email Health](https://mxtoolbox.com/EmailHealth.aspx)
@@ -142,6 +142,8 @@ After configuring your SMTP settings, you have two testing options:
    - Blacklist status of your mail server
    - Email headers and authentication
    - Overall spam score
+
+**Note:** The deliverability test can be accessed from anywhere when logged into the admin panel.
 
 ### Option 3: Real Booking Test
 1. Create a test booking from the public booking page

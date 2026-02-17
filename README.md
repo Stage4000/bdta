@@ -301,15 +301,15 @@ Password: your-app-specific-password
 After configuring SMTP settings, you have two testing options:
 
 1. **Quick Test** - Send test email to yourself:
-   - `http://localhost:8000/backend/public/test_email.php`
+   - `http://localhost:8000/backend/public/test_email.php` (localhost only)
 
 2. **Deliverability Test** (Recommended) - Test with MXToolbox:
-   - `http://localhost:8000/backend/public/test_deliverability.php`
+   - `http://localhost:8000/backend/public/test_deliverability.php` (requires admin login)
    - OR run from command line: `php backend/public/test_deliverability.php`
    - Sends email to `ping@tools.mxtoolbox.com` for comprehensive analysis
    - Get detailed report on SPF, DKIM, DMARC, blacklist status, and spam score
 
-⚠️ **Delete test scripts after testing** for security.
+**Note:** The deliverability test script can be accessed from anywhere when logged into the admin panel.
 
 For detailed configuration instructions for other email providers (Outlook, SendGrid, Mailgun, AWS SES), see [backend/EMAIL_CONFIGURATION.md](backend/EMAIL_CONFIGURATION.md).
 

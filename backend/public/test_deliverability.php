@@ -8,23 +8,24 @@
  * USAGE:
  * 1. Configure your email settings in Admin Panel → Settings → Email
  * 2. Run this script from command line: php test_deliverability.php
- *    OR access it via browser: http://yoursite.com/backend/public/test_deliverability.php
+ *    OR access it via browser (requires admin login): http://yoursite.com/backend/public/test_deliverability.php
  * 3. Check MXToolbox for deliverability results
  * 
- * SECURITY: This file should be deleted after testing is complete or restricted to localhost.
+ * SECURITY: Requires admin authentication for web access. Can also be run from command line.
  */
-
-// Allow access from localhost only for web access
-if (php_sapi_name() !== 'cli' && !in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1', 'localhost'])) {
-    die('Access denied. This test script can only be run from localhost or command line.');
-}
 
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/email_service.php';
 require_once __DIR__ . '/../includes/settings.php';
 
-$result = null;
 $is_cli = php_sapi_name() === 'cli';
+
+// Require admin authentication for web access
+if (!$is_cli) {
+    requireLogin();
+}
+
+$result = null;
 
 // Handle test execution
 if ($is_cli || ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test']))) {
@@ -224,8 +225,8 @@ if (!$is_cli):
                         </div>
                         
                         <div class="alert alert-warning">
-                            <strong>⚠️ Security Notice:</strong> This test file should be deleted after testing 
-                            or restricted to localhost access only.
+                            <strong>⚠️ Security Notice:</strong> This test requires admin authentication. 
+                            You can also run it from command line without authentication.
                         </div>
                         
                         <?php if ($result): ?>
