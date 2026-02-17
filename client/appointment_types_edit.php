@@ -642,7 +642,9 @@ function updateAvailabilityPreview() {
         previewRecurring.style.display = 'none';
         const specificDate = document.getElementById('specific_date').value;
         if (specificDate) {
-            const date = new Date(specificDate + 'T00:00:00');
+            // Parse date components to avoid timezone issues
+            const [year, month, day] = specificDate.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
             const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
             previewText.innerHTML = 'This appointment will be available only on <strong>' + formattedDate + '</strong>';
         } else {
