@@ -90,6 +90,21 @@ class Database {
                 )
             ");
             
+            // Client contacts table - support multiple contacts per client
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS client_contacts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    phone TEXT NOT NULL,
+                    is_primary INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+                )
+            ");
+            
             // Pets table (enhanced for multi-pet support)
             $this->conn->exec("
                 CREATE TABLE IF NOT EXISTS pets (

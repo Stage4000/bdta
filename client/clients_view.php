@@ -86,6 +86,11 @@ $stmt = $conn->prepare("SELECT COUNT(*) as email_count FROM client_emails WHERE 
 $stmt->execute([$id]);
 $email_count = $stmt->fetchColumn();
 
+// Get client contacts
+$stmt = $conn->prepare("SELECT * FROM client_contacts WHERE client_id = ? ORDER BY is_primary DESC, name ASC");
+$stmt->execute([$id]);
+$contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 include '../backend/includes/header.php';
 ?>
 
@@ -124,11 +129,12 @@ include '../backend/includes/header.php';
                 </div>
                 <div class="card-body">
                     <dl class="mb-0">
-                        <dt>Email:</dt>
-                        <dd><a href="mailto:<?= escape($client['email']) ?>"><?= escape($client['email']) ?></a></dd>
-                        
-                        <dt>Phone:</dt>
-                        <dd><?= escape($client['phone'] ?: 'Not provided') ?></dd>
+                        <dt>Primary Contact:</dt>
+                        <dd>
+                            <a href="mailto:<?= escape($client['email']) ?>"><?= escape($client['email']) ?></a>
+                            <br>
+                            <small class="text-muted"><?= escape($client['phone'] ?: 'No phone') ?></small>
+                        </dd>
                         
                         <dt>Address:</dt>
                         <dd><?= escape($client['address'] ?: 'Not provided') ?></dd>
@@ -155,6 +161,50 @@ include '../backend/includes/header.php';
                             <dd><?= nl2br(escape($client['notes'])) ?></dd>
                         <?php endif; ?>
                     </dl>
+                </div>
+            </div>
+
+            <!-- Contacts Card -->
+            <div class="card mt-3">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-address-book me-2"></i>Additional Contacts</h5>
+                    <button class="btn btn-sm btn-light" onclick="showAddContactModal()">
+                        <i class="fas fa-plus"></i> Add Contact
+                    </button>
+                </div>
+                <div class="card-body" id="contactsList">
+                    <?php if (empty($contacts)): ?>
+                        <p class="text-muted mb-0">No additional contacts</p>
+                    <?php else: ?>
+                        <?php foreach ($contacts as $contact): ?>
+                            <div class="border-bottom pb-2 mb-2" id="contact-<?= $contact['id'] ?>">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong><?= escape($contact['name']) ?></strong>
+                                        <?php if ($contact['is_primary']): ?>
+                                            <span class="badge bg-primary ms-1">Primary</span>
+                                        <?php endif; ?>
+                                        <br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-envelope"></i> <a href="mailto:<?= escape($contact['email']) ?>"><?= escape($contact['email']) ?></a>
+                                        </small>
+                                        <br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-phone"></i> <?= escape($contact['phone']) ?>
+                                        </small>
+                                    </div>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" onclick="editContact(<?= $contact['id'] ?>, '<?= escape($contact['name']) ?>', '<?= escape($contact['email']) ?>', '<?= escape($contact['phone']) ?>', <?= $contact['is_primary'] ?>)">
+                                            <i class="fas fa-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteContact(<?= $contact['id'] ?>)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -581,6 +631,46 @@ include '../backend/includes/header.php';
     </div>
 </div>
 
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactModalLabel">
+                    <i class="fas fa-user-plus"></i> Add Contact
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="contactForm">
+                    <div class="mb-3">
+                        <label for="contactName" class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="contactName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactEmail" class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="contactEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactPhone" class="form-label">Phone <span class="text-danger">*</span></label>
+                        <input type="tel" class="form-control" id="contactPhone" required>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="contactPrimary">
+                        <label class="form-check-label" for="contactPrimary">
+                            Set as primary contact
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveContact()">Save Contact</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Email management
 const clientId = <?= $id ?>;
@@ -914,6 +1004,92 @@ document.querySelector('a[href="#emails"]').addEventListener('shown.bs.tab', fun
 document.addEventListener('DOMContentLoaded', function() {
     loadEmailTemplates();
 });
+
+// Contact management functions
+let editingContactId = null;
+
+function showAddContactModal() {
+    editingContactId = null;
+    document.getElementById('contactModalLabel').textContent = 'Add Contact';
+    document.getElementById('contactForm').reset();
+    document.getElementById('contactName').value = '';
+    document.getElementById('contactEmail').value = '';
+    document.getElementById('contactPhone').value = '';
+    document.getElementById('contactPrimary').checked = false;
+    new bootstrap.Modal(document.getElementById('contactModal')).show();
+}
+
+function editContact(id, name, email, phone, isPrimary) {
+    editingContactId = id;
+    document.getElementById('contactModalLabel').textContent = 'Edit Contact';
+    document.getElementById('contactName').value = name;
+    document.getElementById('contactEmail').value = email;
+    document.getElementById('contactPhone').value = phone;
+    document.getElementById('contactPrimary').checked = isPrimary == 1;
+    new bootstrap.Modal(document.getElementById('contactModal')).show();
+}
+
+function saveContact() {
+    const name = document.getElementById('contactName').value.trim();
+    const email = document.getElementById('contactEmail').value.trim();
+    const phone = document.getElementById('contactPhone').value.trim();
+    const isPrimary = document.getElementById('contactPrimary').checked ? 1 : 0;
+    
+    if (!name || !email || !phone) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    const url = editingContactId 
+        ? `client_contacts_api.php?action=update&id=${editingContactId}`
+        : `client_contacts_api.php?action=add&client_id=<?= $id ?>`;
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            name: name,
+            email: email,
+            phone: phone,
+            is_primary: isPrimary
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error saving contact: ' + error);
+    });
+}
+
+function deleteContact(id) {
+    if (!confirm('Are you sure you want to delete this contact?')) {
+        return;
+    }
+    
+    fetch(`client_contacts_api.php?action=delete&id=${id}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error deleting contact: ' + error);
+    });
+}
+
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
