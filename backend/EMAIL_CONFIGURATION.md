@@ -121,8 +121,29 @@ SMTP Debug Mode: Off (enable only for troubleshooting)
 
 ## Testing Your Configuration
 
-After configuring your SMTP settings:
+After configuring your SMTP settings, you have two testing options:
 
+### Option 1: Quick Email Test
+1. Use the test email script: `http://yoursite.com/backend/public/test_email.php`
+2. Enter your email address
+3. Send a test email
+4. Check if you receive it
+
+### Option 2: Email Deliverability Test (Recommended)
+1. Use the deliverability test script: `http://yoursite.com/backend/public/test_deliverability.php`
+   OR run from command line: `php backend/public/test_deliverability.php`
+2. This sends an email to `ping@tools.mxtoolbox.com`
+3. Visit [MXToolbox Email Health](https://mxtoolbox.com/EmailHealth.aspx)
+4. Enter your configured email address
+5. Review the comprehensive deliverability report including:
+   - SPF (Sender Policy Framework) validation
+   - DKIM (DomainKeys Identified Mail) signature
+   - DMARC policy compliance
+   - Blacklist status of your mail server
+   - Email headers and authentication
+   - Overall spam score
+
+### Option 3: Real Booking Test
 1. Create a test booking from the public booking page
 2. Check if you receive the confirmation email
 3. If email doesn't arrive, check:
