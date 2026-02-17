@@ -34,6 +34,16 @@ function getSelectOptions($key) {
             'mailgun' => 'Mailgun',
             'ses' => 'Amazon SES'
         ],
+        'smtp_encryption' => [
+            'tls' => 'TLS',
+            'ssl' => 'SSL',
+            'none' => 'None'
+        ],
+        'imap_encryption' => [
+            'ssl' => 'SSL',
+            'tls' => 'TLS',
+            'none' => 'None'
+        ],
         'stripe_mode' => [
             'test' => 'Test Mode',
             'live' => 'Live Mode'
