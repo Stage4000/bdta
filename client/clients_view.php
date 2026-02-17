@@ -168,7 +168,7 @@ include '../backend/includes/header.php';
             <div class="card mt-3">
                 <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-address-book me-2"></i>Additional Contacts</h5>
-                    <button class="btn btn-sm btn-light" onclick="showAddContactModal()">
+                    <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#contactModal" onclick="showAddContactModal()">
                         <i class="fas fa-plus"></i> Add Contact
                     </button>
                 </div>
@@ -194,7 +194,7 @@ include '../backend/includes/header.php';
                                         </small>
                                     </div>
                                     <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-primary" onclick="editContact(<?= $contact['id'] ?>, '<?= escape($contact['name']) ?>', '<?= escape($contact['email']) ?>', '<?= escape($contact['phone']) ?>', <?= $contact['is_primary'] ?>)">
+                                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#contactModal" onclick="editContact(<?= $contact['id'] ?>, '<?= escape($contact['name']) ?>', '<?= escape($contact['email']) ?>', '<?= escape($contact['phone']) ?>', <?= $contact['is_primary'] ?>)">
                                             <i class="fas fa-pencil"></i>
                                         </button>
                                         <button class="btn btn-outline-danger" onclick="deleteContact(<?= $contact['id'] ?>)">
@@ -1016,7 +1016,6 @@ function showAddContactModal() {
     document.getElementById('contactEmail').value = '';
     document.getElementById('contactPhone').value = '';
     document.getElementById('contactPrimary').checked = false;
-    new bootstrap.Modal(document.getElementById('contactModal')).show();
 }
 
 function editContact(id, name, email, phone, isPrimary) {
@@ -1026,7 +1025,6 @@ function editContact(id, name, email, phone, isPrimary) {
     document.getElementById('contactEmail').value = email;
     document.getElementById('contactPhone').value = phone;
     document.getElementById('contactPrimary').checked = isPrimary == 1;
-    new bootstrap.Modal(document.getElementById('contactModal')).show();
 }
 
 function saveContact() {
