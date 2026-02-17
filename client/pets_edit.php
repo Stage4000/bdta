@@ -293,6 +293,41 @@ include '../backend/includes/header.php';
                         <small class="form-text text-muted">Training history, commands known, goals, etc.</small>
                     </div>
 
+                    <?php if ($pet_id): ?>
+                        <hr class="my-4">
+                        <h5 class="card-title mb-4">Documents & Photos</h5>
+                        
+                        <div id="pet-files-section" class="mb-4">
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Upload Files</label>
+                                    <p class="text-muted small">Upload vaccination records, medical documents, photos, or other files related to <?= htmlspecialchars($pet['name']) ?>.</p>
+                                    
+                                    <div class="mb-3">
+                                        <input type="file" id="pet-file-input" class="form-control" accept=".jpg,.jpeg,.png,.gif,.pdf">
+                                        <small class="form-text text-muted">Supported formats: JPG, PNG, GIF, PDF (Max 10MB)</small>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <input type="text" id="file-description-input" class="form-control" placeholder="Description (optional, e.g., 'Rabies vaccine 2024')">
+                                    </div>
+                                    
+                                    <button type="button" id="upload-file-btn" class="btn btn-sm btn-primary" disabled>
+                                        <i class="fas fa-cloud-upload"></i> Upload File
+                                    </button>
+                                    <div id="upload-status" class="mt-2"></div>
+                                </div>
+                            </div>
+                            
+                            <div id="uploaded-files-list" class="mt-3">
+                                <h6 class="mb-3">Uploaded Files</h6>
+                                <div id="files-container" class="row">
+                                    <!-- Files will be loaded here via JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
                     <hr class="my-4">
 
                     <div class="mb-3">
@@ -320,5 +355,206 @@ include '../backend/includes/header.php';
         </div>
     </div>
 </div>
+
+<?php if ($pet_id): ?>
+<script>
+// Pet File Upload Handler
+(function() {
+    const petId = <?= $pet_id ?>;
+    const fileInput = document.getElementById('pet-file-input');
+    const descriptionInput = document.getElementById('file-description-input');
+    const uploadBtn = document.getElementById('upload-file-btn');
+    const uploadStatus = document.getElementById('upload-status');
+    const filesContainer = document.getElementById('files-container');
+    
+    // Enable upload button when file is selected
+    fileInput.addEventListener('change', function() {
+        uploadBtn.disabled = !this.files.length;
+    });
+    
+    // Load existing files
+    function loadFiles() {
+        fetch('pet_files_list.php?pet_id=' + petId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayFiles(data.files);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading files:', error);
+            });
+    }
+    
+    // Display files
+    function displayFiles(files) {
+        if (!files || files.length === 0) {
+            filesContainer.innerHTML = '<div class="col-12"><p class="text-muted">No files uploaded yet.</p></div>';
+            return;
+        }
+        
+        filesContainer.innerHTML = '';
+        
+        files.forEach(file => {
+            const fileCard = createFileCard(file);
+            filesContainer.appendChild(fileCard);
+        });
+    }
+    
+    // Create file card
+    function createFileCard(file) {
+        const col = document.createElement('div');
+        col.className = 'col-md-6 col-lg-4 mb-3';
+        
+        const isImage = file.file_type === 'photo';
+        const icon = isImage ? 'fa-image' : 'fa-file-pdf';
+        const iconColor = isImage ? 'text-success' : 'text-danger';
+        
+        const fileSize = formatFileSize(file.file_size);
+        const uploadDate = new Date(file.uploaded_at).toLocaleDateString();
+        
+        col.innerHTML = `
+            <div class="card h-100">
+                ${isImage ? `
+                    <div class="card-img-top" style="height: 150px; overflow: hidden; background: #f8f9fa;">
+                        <img src="pet_files_view.php?id=${file.id}" 
+                             alt="${escapeHtml(file.original_name)}"
+                             style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"
+                             onclick="window.open('pet_files_view.php?id=${file.id}', '_blank')">
+                    </div>
+                ` : `
+                    <div class="card-body text-center pt-4">
+                        <i class="fas ${icon} ${iconColor}" style="font-size: 3rem;"></i>
+                    </div>
+                `}
+                <div class="card-body ${isImage ? 'pt-2' : ''}">
+                    <h6 class="card-title text-truncate" title="${escapeHtml(file.original_name)}">
+                        ${escapeHtml(file.original_name)}
+                    </h6>
+                    ${file.description ? `<p class="card-text small text-muted">${escapeHtml(file.description)}</p>` : ''}
+                    <p class="card-text small">
+                        <small class="text-muted">
+                            ${fileSize} • ${uploadDate}
+                        </small>
+                    </p>
+                    <div class="btn-group btn-group-sm w-100" role="group">
+                        <a href="pet_files_view.php?id=${file.id}" target="_blank" class="btn btn-outline-primary">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                        <a href="pet_files_view.php?id=${file.id}&download=1" class="btn btn-outline-secondary">
+                            <i class="fas fa-download"></i> Download
+                        </a>
+                        <button type="button" class="btn btn-outline-danger" onclick="deleteFile(${file.id})">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return col;
+    }
+    
+    // Format file size
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Show status message
+    function showStatus(message, type) {
+        uploadStatus.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    }
+    
+    // Upload file
+    uploadBtn.addEventListener('click', function() {
+        const file = fileInput.files[0];
+        if (!file) return;
+        
+        // Validate file size (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showStatus('File is too large. Maximum size is 10MB.', 'danger');
+            return;
+        }
+        
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('pet_id', petId);
+        formData.append('description', descriptionInput.value);
+        
+        fetch('pet_files_upload.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus('File uploaded successfully!', 'success');
+                fileInput.value = '';
+                descriptionInput.value = '';
+                loadFiles();
+            } else {
+                showStatus(data.message || 'Upload failed', 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus('Upload failed: ' + error.message, 'danger');
+        })
+        .finally(() => {
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '<i class="fas fa-cloud-upload"></i> Upload File';
+        });
+    });
+    
+    // Delete file (global function)
+    window.deleteFile = function(fileId) {
+        if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file_id', fileId);
+        
+        fetch('pet_files_delete.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus('File deleted successfully!', 'success');
+                loadFiles();
+            } else {
+                showStatus(data.message || 'Delete failed', 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus('Delete failed: ' + error.message, 'danger');
+        });
+    };
+    
+    // Load files on page load
+    loadFiles();
+})();
+</script>
+<?php endif; ?>
 
 <?php include '../backend/includes/footer.php'; ?>
