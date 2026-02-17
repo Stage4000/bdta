@@ -37,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($task_name) || empty($task_type) || empty($schedule_type)) {
         $_SESSION['error'] = "Task name, type, and schedule type are required";
+    } elseif ($schedule_type === 'custom' && empty($schedule_value)) {
+        $_SESSION['error'] = "Schedule value is required for custom cron expressions";
     } else {
         try {
             if ($is_edit) {
@@ -74,11 +76,11 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col">
-            <h2><i class="fas fa-clock me-2"></i><?= $is_edit ? 'Edit Scheduled Task' : 'Create Scheduled Task' ?></h2>
+            <h2><i class="fas fa-clock me-2" aria-hidden="true"></i><?= $is_edit ? 'Edit Scheduled Task' : 'Create Scheduled Task' ?></h2>
         </div>
         <div class="col-auto">
             <a href="scheduled_tasks_list.php" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-1"></i>Back to Tasks
+                <i class="fas fa-arrow-left me-1" aria-hidden="true"></i>Back to Tasks
             </a>
         </div>
     </div>
@@ -187,13 +189,13 @@ include '../backend/includes/header.php';
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100">
-                    <i class="fas fa-floppy-disk me-1"></i>
+                    <i class="fas fa-floppy-disk me-1" aria-hidden="true"></i>
                     <?= $is_edit ? 'Update Task' : 'Create Task' ?>
                 </button>
 
                 <?php if ($is_edit): ?>
                     <a href="scheduled_tasks_logs.php?task_id=<?= $task_id ?>" class="btn btn-outline-info w-100 mt-2">
-                        <i class="fas fa-list me-1"></i>View Task Logs
+                        <i class="fas fa-list me-1" aria-hidden="true"></i>View Task Logs
                     </a>
                 <?php endif; ?>
             </div>
