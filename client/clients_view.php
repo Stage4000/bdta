@@ -22,8 +22,15 @@ if (!$client) {
     redirect('clients_list.php');
 }
 
-// Get client's pets
-$stmt = $conn->prepare("SELECT * FROM pets WHERE client_id = ? ORDER BY name");
+// Get client's pets with file count
+$stmt = $conn->prepare("
+    SELECT p.*, COUNT(pf.id) as file_count
+    FROM pets p
+    LEFT JOIN pet_files pf ON p.id = pf.pet_id
+    WHERE p.client_id = ?
+    GROUP BY p.id
+    ORDER BY p.name
+");
 $stmt->execute([$id]);
 $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -236,6 +243,11 @@ include '../backend/includes/header.php';
                                     <?= escape($pet['species']) ?> 
                                     <?= $pet['breed'] ? '- ' . escape($pet['breed']) : '' ?>
                                 </small>
+                                <?php if ($pet['file_count'] > 0): ?>
+                                    <small class="text-info d-block">
+                                        <i class="fas fa-paperclip"></i> <?= $pet['file_count'] ?> file(s) uploaded
+                                    </small>
+                                <?php endif; ?>
                                 <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-xs btn-outline-secondary mt-1">
                                     <i class="fas fa-pencil"></i> Edit
                                 </a>

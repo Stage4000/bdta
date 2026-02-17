@@ -1,8 +1,9 @@
 # Test files
 test-scroll.html
 
-# Uploads
-backend/uploads/
+# Uploads - keep directory structure but ignore uploaded files
+backend/uploads/**/*
+!backend/uploads/**/.gitignore
 
 # Backup files
 *.sitebuilder

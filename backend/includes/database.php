@@ -132,6 +132,24 @@ class Database {
                 )
             ");
             
+            // Pet files table - for storing uploaded documents and photos
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS pet_files (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pet_id INTEGER NOT NULL,
+                    file_type TEXT NOT NULL,
+                    file_name TEXT NOT NULL,
+                    original_name TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    mime_type TEXT NOT NULL,
+                    description TEXT,
+                    uploaded_by INTEGER,
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE CASCADE,
+                    FOREIGN KEY (uploaded_by) REFERENCES admin_users(id) ON DELETE SET NULL
+                )
+            ");
+            
             // Appointment pets junction table (for multi-pet appointments)
             $this->conn->exec("
                 CREATE TABLE IF NOT EXISTS appointment_pets (

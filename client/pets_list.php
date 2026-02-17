@@ -31,12 +31,15 @@ $stmt->execute();
 $total_pets = $stmt->fetchColumn();
 $total_pages = ceil($total_pets / $per_page);
 
-// Get pets
+// Get pets with file count
 $query = "
-    SELECT p.*, c.name as client_name, c.email as client_email
+    SELECT p.*, c.name as client_name, c.email as client_email,
+           COUNT(pf.id) as file_count
     FROM pets p
     JOIN clients c ON p.client_id = c.id
+    LEFT JOIN pet_files pf ON p.id = pf.pet_id
     $where
+    GROUP BY p.id
     ORDER BY p.name ASC
     LIMIT :limit OFFSET :offset
 ";
@@ -115,6 +118,7 @@ include '../backend/includes/header.php';
                                 <?php endif; ?>
                                 <th>Spayed/Neutered</th>
                                 <th>Vaccines</th>
+                                <th>Files</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -154,6 +158,15 @@ include '../backend/includes/header.php';
                                             <span class="badge bg-success">Current</span>
                                         <?php else: ?>
                                             <span class="badge bg-warning">Needs Update</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($pet['file_count'] > 0): ?>
+                                            <span class="badge bg-info" title="<?= $pet['file_count'] ?> file(s) uploaded">
+                                                <i class="fas fa-paperclip"></i> <?= $pet['file_count'] ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="text-muted">—</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
