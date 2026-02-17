@@ -319,9 +319,31 @@ include __DIR__ . '/../backend/includes/header.php';
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i> 
                             <strong>Preview:</strong> Based on your settings, appointment slots will be available 
-                            <span id="preview_days">on selected days</span> 
-                            from <strong id="preview_start">9:00 AM</strong> to <strong id="preview_end">5:00 PM</strong> 
-                            in <strong id="preview_interval">30</strong>-minute intervals.
+                            <span id="preview_days">
+                                <?php
+                                $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                                $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [0,1,2,3,4,5,6];
+                                if (!is_array($available_days)) $available_days = [0,1,2,3,4,5,6];
+                                $selected_day_names = array_map(function($d) use ($day_names) { return $day_names[$d]; }, $available_days);
+                                echo implode(', ', $selected_day_names);
+                                ?>
+                            </span> 
+                            from <strong id="preview_start">
+                                <?php
+                                $start = $type['available_start_time'] ?? '09:00';
+                                list($h, $m) = explode(':', $start);
+                                $hi = (int)$h;
+                                echo ($hi % 12 ?: 12) . ':' . $m . ' ' . ($hi >= 12 ? 'PM' : 'AM');
+                                ?>
+                            </strong> to <strong id="preview_end">
+                                <?php
+                                $end = $type['available_end_time'] ?? '17:00';
+                                list($h, $m) = explode(':', $end);
+                                $hi = (int)$h;
+                                echo ($hi % 12 ?: 12) . ':' . $m . ' ' . ($hi >= 12 ? 'PM' : 'AM');
+                                ?>
+                            </strong> 
+                            in <strong id="preview_interval"><?= $type['time_slot_interval'] ?? 30 ?></strong>-minute intervals.
                         </div>
                     </div>
                 </div>
@@ -498,9 +520,9 @@ function updateAvailabilityPreview() {
     // Format time for display (convert 24h to 12h format)
     function formatTime(time) {
         const [hours, minutes] = time.split(':');
-        const h = parseInt(hours);
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        const displayHour = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+        const hourValue = parseInt(hours);
+        const ampm = hourValue >= 12 ? 'PM' : 'AM';
+        const displayHour = hourValue % 12 || 12;
         return displayHour + ':' + minutes + ' ' + ampm;
     }
     

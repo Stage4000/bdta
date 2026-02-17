@@ -49,10 +49,15 @@ if ($method === 'GET') {
     // Check if the requested date's day of week is available
     $day_of_week = (int)date('w', strtotime($date)); // 0 = Sunday, 6 = Saturday
     if (!in_array($day_of_week, $available_days)) {
+        $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        $available_day_names = array_map(function($day) use ($day_names) {
+            return $day_names[$day];
+        }, $available_days);
+        
         echo json_encode([
             'date' => $date,
             'available_slots' => [],
-            'message' => 'This appointment type is not available on this day of the week'
+            'message' => 'This appointment type is only available on: ' . implode(', ', $available_day_names)
         ]);
         exit;
     }
@@ -68,12 +73,25 @@ if ($method === 'GET') {
     // Generate available slots based on appointment type configuration
     $available_slots = [];
     
-    // Parse start and end times
-    list($start_hour, $start_minute) = explode(':', $available_start_time);
-    list($end_hour, $end_minute) = explode(':', $available_end_time);
+    // Parse start and end times with validation
+    $start_parts = explode(':', $available_start_time);
+    $end_parts = explode(':', $available_end_time);
     
-    $start_time_minutes = (int)$start_hour * 60 + (int)$start_minute;
-    $end_time_minutes = (int)$end_hour * 60 + (int)$end_minute;
+    if (count($start_parts) !== 2 || count($end_parts) !== 2) {
+        // Invalid time format, use defaults
+        $start_hour = 9;
+        $start_minute = 0;
+        $end_hour = 17;
+        $end_minute = 0;
+    } else {
+        $start_hour = (int)$start_parts[0];
+        $start_minute = (int)$start_parts[1];
+        $end_hour = (int)$end_parts[0];
+        $end_minute = (int)$end_parts[1];
+    }
+    
+    $start_time_minutes = $start_hour * 60 + $start_minute;
+    $end_time_minutes = $end_hour * 60 + $end_minute;
     
     // Generate slots at specified interval
     for ($time_minutes = $start_time_minutes; $time_minutes < $end_time_minutes; $time_minutes += $time_slot_interval) {
