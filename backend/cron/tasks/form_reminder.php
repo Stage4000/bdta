@@ -24,7 +24,7 @@ class FormReminderTask {
             SELECT f.*, c.email as client_email, c.name as client_name, ft.name as form_name
             FROM form_submissions f
             LEFT JOIN clients c ON f.client_id = c.id
-            LEFT JOIN form_templates ft ON f.form_template_id = ft.id
+            LEFT JOIN form_templates ft ON f.template_id = ft.id
             WHERE f.status = 'pending'
             AND f.sent_at < ?
             AND (f.last_reminder_sent IS NULL OR f.last_reminder_sent < ?)

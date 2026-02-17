@@ -914,6 +914,30 @@ class Database {
             $this->conn->exec("ALTER TABLE invoices ADD COLUMN last_reminder_sent TIMESTAMP");
         }
         
+        // Update contracts table to add reminder tracking
+        $contract_columns = $this->conn->query("PRAGMA table_info(contracts)")->fetchAll(PDO::FETCH_ASSOC);
+        $contract_column_names = array_column($contract_columns, 'name');
+        
+        if (!in_array('sent_at', $contract_column_names)) {
+            $this->conn->exec("ALTER TABLE contracts ADD COLUMN sent_at TIMESTAMP");
+        }
+        
+        if (!in_array('last_reminder_sent', $contract_column_names)) {
+            $this->conn->exec("ALTER TABLE contracts ADD COLUMN last_reminder_sent TIMESTAMP");
+        }
+        
+        // Update form_submissions table to add reminder tracking
+        $form_submission_columns = $this->conn->query("PRAGMA table_info(form_submissions)")->fetchAll(PDO::FETCH_ASSOC);
+        $form_submission_column_names = array_column($form_submission_columns, 'name');
+        
+        if (!in_array('sent_at', $form_submission_column_names)) {
+            $this->conn->exec("ALTER TABLE form_submissions ADD COLUMN sent_at TIMESTAMP");
+        }
+        
+        if (!in_array('last_reminder_sent', $form_submission_column_names)) {
+            $this->conn->exec("ALTER TABLE form_submissions ADD COLUMN last_reminder_sent TIMESTAMP");
+        }
+        
         // Update clients table to add password and admin fields for client login
         $client_columns = $this->conn->query("PRAGMA table_info(clients)")->fetchAll(PDO::FETCH_ASSOC);
         $client_column_names = array_column($client_columns, 'name');
