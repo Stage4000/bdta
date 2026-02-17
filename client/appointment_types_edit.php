@@ -57,6 +57,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $max_participants = (int)($_POST['max_participants'] ?? 1);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
+    // Handle availability configuration
+    $available_days = isset($_POST['available_days']) && is_array($_POST['available_days']) 
+        ? array_map('intval', $_POST['available_days']) 
+        : [0,1,2,3,4,5,6];
+    $available_days_json = json_encode($available_days);
+    $available_start_time = $_POST['available_start_time'] ?? '09:00';
+    $available_end_time = $_POST['available_end_time'] ?? '17:00';
+    $time_slot_interval = (int)($_POST['time_slot_interval'] ?? 30);
+    
     try {
         if ($is_edit) {
             $stmt = $conn->prepare("
@@ -79,6 +88,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_group_class = ?,
                     max_participants = ?,
                     is_active = ?,
+                    available_days = ?,
+                    available_start_time = ?,
+                    available_end_time = ?,
+                    time_slot_interval = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -91,7 +104,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $auto_invoice, $invoice_due_days,
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
-                $is_active, $id
+                $is_active,
+                $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
+                $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
         } else {
@@ -113,8 +128,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     auto_invoice, invoice_due_days,
                     consumes_credits, credit_count,
                     is_group_class, max_participants,
-                    is_active, unique_link
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_active, unique_link,
+                    available_days, available_start_time, available_end_time, time_slot_interval
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -125,7 +141,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $auto_invoice, $invoice_due_days,
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
-                $is_active, $unique_link
+                $is_active, $unique_link,
+                $available_days_json, $available_start_time, $available_end_time, $time_slot_interval
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
         }
@@ -247,6 +264,87 @@ include __DIR__ . '/../backend/includes/header.php';
                         <input type="number" class="form-control" id="advance_booking_max_days" name="advance_booking_max_days" 
                                value="<?= $type['advance_booking_max_days'] ?? 90 ?>" min="1">
                         <div class="form-text">Clients can book up to this many days in advance</div>
+                    </div>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-3">Availability Configuration</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <label class="form-label">Available Days</label>
+                        <div class="row">
+                            <?php 
+                            $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                            $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [0,1,2,3,4,5,6];
+                            if (!is_array($available_days)) {
+                                $available_days = [0,1,2,3,4,5,6];
+                            }
+                            foreach ($days as $index => $day): 
+                            ?>
+                            <div class="col-md-3 col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="available_days[]" 
+                                           id="day_<?= $index ?>" value="<?= $index ?>"
+                                           <?= in_array($index, $available_days) ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="day_<?= $index ?>">
+                                        <?= $day ?>
+                                    </label>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="form-text">Select which days of the week this appointment type is available</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="available_start_time" class="form-label">Available Start Time</label>
+                        <input type="time" class="form-control" id="available_start_time" name="available_start_time" 
+                               value="<?= $type['available_start_time'] ?? '09:00' ?>" required>
+                        <div class="form-text">Earliest time for appointments</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="available_end_time" class="form-label">Available End Time</label>
+                        <input type="time" class="form-control" id="available_end_time" name="available_end_time" 
+                               value="<?= $type['available_end_time'] ?? '17:00' ?>" required>
+                        <div class="form-text">Latest time for appointments</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="time_slot_interval" class="form-label">Time Slot Interval (minutes)</label>
+                        <select class="form-select" id="time_slot_interval" name="time_slot_interval" required>
+                            <option value="15" <?= ($type['time_slot_interval'] ?? 30) == 15 ? 'selected' : '' ?>>15 minutes</option>
+                            <option value="30" <?= ($type['time_slot_interval'] ?? 30) == 30 ? 'selected' : '' ?>>30 minutes</option>
+                            <option value="60" <?= ($type['time_slot_interval'] ?? 30) == 60 ? 'selected' : '' ?>>60 minutes</option>
+                        </select>
+                        <div class="form-text">Interval between available time slots</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>Preview:</strong> Based on your settings, appointment slots will be available 
+                            <span id="preview_days">
+                                <?php
+                                $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                                $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [0,1,2,3,4,5,6];
+                                if (!is_array($available_days)) $available_days = [0,1,2,3,4,5,6];
+                                $selected_day_names = array_map(function($d) use ($day_names) { return $day_names[$d]; }, $available_days);
+                                echo implode(', ', $selected_day_names);
+                                ?>
+                            </span> 
+                            from <strong id="preview_start">
+                                <?php
+                                $start = $type['available_start_time'] ?? '09:00';
+                                list($h, $m) = explode(':', $start);
+                                $hi = (int)$h;
+                                echo ($hi % 12 ?: 12) . ':' . $m . ' ' . ($hi >= 12 ? 'PM' : 'AM');
+                                ?>
+                            </strong> to <strong id="preview_end">
+                                <?php
+                                $end = $type['available_end_time'] ?? '17:00';
+                                list($h, $m) = explode(':', $end);
+                                $hi = (int)$h;
+                                echo ($hi % 12 ?: 12) . ':' . $m . ' ' . ($hi >= 12 ? 'PM' : 'AM');
+                                ?>
+                            </strong> 
+                            in <strong id="preview_interval"><?= $type['time_slot_interval'] ?? 30 ?></strong>-minute intervals.
+                        </div>
                     </div>
                 </div>
 
@@ -395,7 +493,46 @@ function copyBookingLink(event) {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     toggleTravelTime();
+    updateAvailabilityPreview();
+    
+    // Add event listeners for availability fields
+    document.getElementById('available_start_time').addEventListener('change', updateAvailabilityPreview);
+    document.getElementById('available_end_time').addEventListener('change', updateAvailabilityPreview);
+    document.getElementById('time_slot_interval').addEventListener('change', updateAvailabilityPreview);
+    
+    // Add event listeners for day checkboxes
+    document.querySelectorAll('input[name="available_days[]"]').forEach(function(checkbox) {
+        checkbox.addEventListener('change', updateAvailabilityPreview);
+    });
 });
+
+// Update the availability preview based on form inputs
+function updateAvailabilityPreview() {
+    const startTime = document.getElementById('available_start_time').value;
+    const endTime = document.getElementById('available_end_time').value;
+    const interval = document.getElementById('time_slot_interval').value;
+    
+    // Get selected days
+    const dayCheckboxes = document.querySelectorAll('input[name="available_days[]"]:checked');
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const selectedDays = Array.from(dayCheckboxes).map(cb => dayNames[parseInt(cb.value)]);
+    
+    // Format time for display (convert 24h to 12h format)
+    function formatTime(time) {
+        const [hours, minutes] = time.split(':');
+        const hourValue = parseInt(hours);
+        const ampm = hourValue >= 12 ? 'PM' : 'AM';
+        const displayHour = hourValue % 12 || 12;
+        return displayHour + ':' + minutes + ' ' + ampm;
+    }
+    
+    // Update preview text
+    const previewDays = selectedDays.length > 0 ? selectedDays.join(', ') : 'no days selected';
+    document.getElementById('preview_days').textContent = previewDays;
+    document.getElementById('preview_start').textContent = formatTime(startTime);
+    document.getElementById('preview_end').textContent = formatTime(endTime);
+    document.getElementById('preview_interval').textContent = interval;
+}
 </script>
 
 <?php include __DIR__ . '/../backend/includes/footer.php'; ?>

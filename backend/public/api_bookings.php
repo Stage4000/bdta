@@ -10,6 +10,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     // Check availability
     $date = $_GET['date'] ?? '';
+    $appointment_type_id = isset($_GET['appointment_type_id']) ? (int)$_GET['appointment_type_id'] : null;
     
     if (!$date) {
         echo json_encode(['error' => 'Date parameter required']);
@@ -19,6 +20,48 @@ if ($method === 'GET') {
     $db = new Database();
     $conn = $db->getConnection();
     
+    // Get appointment type configuration if provided
+    $available_days = [0,1,2,3,4,5,6]; // Default: all days
+    $available_start_time = '09:00';
+    $available_end_time = '17:00';
+    $time_slot_interval = 30;
+    
+    if ($appointment_type_id) {
+        $stmt = $conn->prepare("
+            SELECT available_days, available_start_time, available_end_time, time_slot_interval 
+            FROM appointment_types 
+            WHERE id = ? AND is_active = 1
+        ");
+        $stmt->execute([$appointment_type_id]);
+        $appointment_type = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($appointment_type) {
+            $available_days = json_decode($appointment_type['available_days'], true);
+            if (!is_array($available_days)) {
+                $available_days = [0,1,2,3,4,5,6];
+            }
+            $available_start_time = $appointment_type['available_start_time'] ?? '09:00';
+            $available_end_time = $appointment_type['available_end_time'] ?? '17:00';
+            $time_slot_interval = (int)($appointment_type['time_slot_interval'] ?? 30);
+        }
+    }
+    
+    // Check if the requested date's day of week is available
+    $day_of_week = (int)date('w', strtotime($date)); // 0 = Sunday, 6 = Saturday
+    if (!in_array($day_of_week, $available_days)) {
+        $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        $available_day_names = array_map(function($day) use ($day_names) {
+            return $day_names[$day];
+        }, $available_days);
+        
+        echo json_encode([
+            'date' => $date,
+            'available_slots' => [],
+            'message' => 'This appointment type is only available on: ' . implode(', ', $available_day_names)
+        ]);
+        exit;
+    }
+    
     $stmt = $conn->prepare("
         SELECT appointment_time, duration_minutes 
         FROM bookings 
@@ -27,24 +70,46 @@ if ($method === 'GET') {
     $stmt->execute([$date]);
     $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Generate available slots (9 AM to 5 PM)
+    // Generate available slots based on appointment type configuration
     $available_slots = [];
-    for ($hour = 9; $hour < 17; $hour++) {
-        foreach ([0, 30] as $minute) {
-            $time_slot = sprintf('%02d:%02d', $hour, $minute);
-            
-            // Check if slot is available
-            $is_available = true;
-            foreach ($bookings as $booking) {
-                if ($booking['appointment_time'] === $time_slot) {
-                    $is_available = false;
-                    break;
-                }
+    
+    // Parse start and end times with validation
+    $start_parts = explode(':', $available_start_time);
+    $end_parts = explode(':', $available_end_time);
+    
+    if (count($start_parts) !== 2 || count($end_parts) !== 2) {
+        // Invalid time format, use defaults
+        $start_hour = 9;
+        $start_minute = 0;
+        $end_hour = 17;
+        $end_minute = 0;
+    } else {
+        $start_hour = (int)$start_parts[0];
+        $start_minute = (int)$start_parts[1];
+        $end_hour = (int)$end_parts[0];
+        $end_minute = (int)$end_parts[1];
+    }
+    
+    $start_time_minutes = $start_hour * 60 + $start_minute;
+    $end_time_minutes = $end_hour * 60 + $end_minute;
+    
+    // Generate slots at specified interval
+    for ($time_minutes = $start_time_minutes; $time_minutes < $end_time_minutes; $time_minutes += $time_slot_interval) {
+        $hour = floor($time_minutes / 60);
+        $minute = $time_minutes % 60;
+        $time_slot = sprintf('%02d:%02d', $hour, $minute);
+        
+        // Check if slot is available
+        $is_available = true;
+        foreach ($bookings as $booking) {
+            if ($booking['appointment_time'] === $time_slot) {
+                $is_available = false;
+                break;
             }
-            
-            if ($is_available) {
-                $available_slots[] = $time_slot;
-            }
+        }
+        
+        if ($is_available) {
+            $available_slots[] = $time_slot;
         }
     }
     

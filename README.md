@@ -41,6 +41,7 @@ This is a **complete business management system** combining a public-facing webs
   - Public online booking (no login required)
   - Admin-side manual booking with override capabilities
   - Appointment types with custom rules
+  - **Configurable availability by appointment type** (days, hours, intervals)
   - Multi-pet appointment support
   - Booking confirmation emails with calendar links
   - Google Calendar integration (optional)
@@ -395,6 +396,21 @@ Direct booking link example:
 5. Add notes
 6. Override rules if needed (forms, contracts, credits)
 7. Save booking
+
+#### Configuring Appointment Type Availability
+1. **Admin Panel** → **Appointment Types** → **Edit Type**
+2. Scroll to **Availability Configuration** section
+3. **Available Days**: Check/uncheck days of the week
+4. **Available Start Time**: Set earliest booking time (e.g., 09:00)
+5. **Available End Time**: Set latest booking time (e.g., 17:00)
+6. **Time Slot Interval**: Choose 15, 30, or 60 minutes
+7. Preview shows when appointments will be available
+8. Save changes
+
+Each appointment type can now have its own unique schedule:
+- **Example**: "Morning Consultations" available Mon-Fri, 8:00 AM-12:00 PM
+- **Example**: "Evening Sessions" available Tue/Thu only, 5:00 PM-8:00 PM
+- **Example**: "Weekend Classes" available Sat-Sun, 10:00 AM-4:00 PM
 
 #### Time Tracking with Timer
 1. **Admin Panel** → **Time Tracker**
