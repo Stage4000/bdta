@@ -934,6 +934,40 @@ class Database {
                 $update_stmt->execute([$unique_link, $type['id']]);
             }
         }
+        
+        // Add availability configuration columns to appointment_types table
+        if (!in_array('available_days', $apt_column_names)) {
+            // JSON array of available day numbers (0=Sunday, 1=Monday, ..., 6=Saturday)
+            // Default to all days [0,1,2,3,4,5,6]
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN available_days TEXT DEFAULT '[0,1,2,3,4,5,6]'");
+            
+            // Set default for existing rows
+            $this->conn->exec("UPDATE appointment_types SET available_days = '[0,1,2,3,4,5,6]' WHERE available_days IS NULL");
+        }
+        
+        if (!in_array('available_start_time', $apt_column_names)) {
+            // Default start time (9:00 AM)
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN available_start_time TEXT DEFAULT '09:00'");
+            
+            // Set default for existing rows
+            $this->conn->exec("UPDATE appointment_types SET available_start_time = '09:00' WHERE available_start_time IS NULL");
+        }
+        
+        if (!in_array('available_end_time', $apt_column_names)) {
+            // Default end time (5:00 PM)
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN available_end_time TEXT DEFAULT '17:00'");
+            
+            // Set default for existing rows
+            $this->conn->exec("UPDATE appointment_types SET available_end_time = '17:00' WHERE available_end_time IS NULL");
+        }
+        
+        if (!in_array('time_slot_interval', $apt_column_names)) {
+            // Time slot interval in minutes (default 30)
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN time_slot_interval INTEGER DEFAULT 30");
+            
+            // Set default for existing rows
+            $this->conn->exec("UPDATE appointment_types SET time_slot_interval = 30 WHERE time_slot_interval IS NULL");
+        }
     }
 }
 ?>

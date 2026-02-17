@@ -585,7 +585,7 @@ if (isset($error_mode) && $error_mode) {
             slotsContainer.style.display = 'none';
             slotsContainer.innerHTML = '';
             
-            fetch(`api_bookings.php?date=${selectedDate}`)
+            fetch(`api_bookings.php?date=${selectedDate}&appointment_type_id=${selectedType}`)
                 .then(r => r.json())
                 .then(data => {
                     loadingSlots.style.display = 'none';
@@ -599,7 +599,11 @@ if (isset($error_mode) && $error_mode) {
                             slotsContainer.appendChild(slotDiv);
                         });
                     } else {
-                        slotsContainer.innerHTML = '<div class="col-12"><div class="alert alert-warning">No available time slots for this date. Please try another date.</div></div>';
+                        let message = 'No available time slots for this date.';
+                        if (data.message) {
+                            message = data.message;
+                        }
+                        slotsContainer.innerHTML = `<div class="col-12"><div class="alert alert-warning"><i class="fas fa-info-circle me-2"></i>${message} Please try another date.</div></div>`;
                     }
                 })
                 .catch(err => {
