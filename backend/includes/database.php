@@ -1016,6 +1016,66 @@ class Database {
             // Date for specific date scheduling (NULL for recurring schedules)
             $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN specific_date DATE");
         }
+        
+        // Add Mini Sessions support to appointment_types table
+        if (!in_array('is_mini_session', $apt_column_names)) {
+            // Flag to indicate this is a Mini Sessions appointment type
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN is_mini_session INTEGER DEFAULT 0");
+            
+            // Set default for existing rows
+            $this->conn->exec("UPDATE appointment_types SET is_mini_session = 0 WHERE is_mini_session IS NULL");
+        }
+        
+        if (!in_array('mini_session_location', $apt_column_names)) {
+            // Fixed location for Mini Sessions events
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN mini_session_location TEXT");
+        }
+        
+        if (!in_array('mini_session_topic', $apt_column_names)) {
+            // Topic/description for the Mini Sessions event
+            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN mini_session_topic TEXT");
+        }
+        
+        // Add location support to bookings table
+        $booking_columns = $this->conn->query("PRAGMA table_info(bookings)")->fetchAll(PDO::FETCH_ASSOC);
+        $booking_column_names = array_column($booking_columns, 'name');
+        
+        if (!in_array('location', $booking_column_names)) {
+            // Location/address for the appointment (especially for Mini Sessions)
+            $this->conn->exec("ALTER TABLE bookings ADD COLUMN location TEXT");
+        }
+        
+        // Create mini_session_blocks table for managing individual time blocks
+        $this->conn->exec("
+            CREATE TABLE IF NOT EXISTS mini_session_blocks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                appointment_type_id INTEGER NOT NULL,
+                event_date DATE NOT NULL,
+                start_time TIME NOT NULL,
+                end_time TIME NOT NULL,
+                topic TEXT,
+                location TEXT NOT NULL,
+                is_available INTEGER DEFAULT 1,
+                booking_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE CASCADE,
+                FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL
+            )
+        ");
+        
+        // Create index for efficient querying of available blocks
+        try {
+            $this->conn->exec("CREATE INDEX idx_mini_session_blocks_event_date ON mini_session_blocks(event_date)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
+        }
+        
+        try {
+            $this->conn->exec("CREATE INDEX idx_mini_session_blocks_appointment_type ON mini_session_blocks(appointment_type_id)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
+        }
     }
 }
 ?>

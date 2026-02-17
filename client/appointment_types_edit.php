@@ -57,6 +57,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $max_participants = (int)($_POST['max_participants'] ?? 1);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
+    // Handle Mini Sessions configuration
+    $is_mini_session = isset($_POST['is_mini_session']) ? 1 : 0;
+    $mini_session_location = $is_mini_session ? ($_POST['mini_session_location'] ?? '') : null;
+    $mini_session_topic = $is_mini_session ? ($_POST['mini_session_topic'] ?? '') : null;
+    
     // Handle schedule type and specific date
     $schedule_type = $_POST['schedule_type'] ?? 'recurring';
     $specific_date = null;
@@ -101,6 +106,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     available_start_time = ?,
                     available_end_time = ?,
                     time_slot_interval = ?,
+                    is_mini_session = ?,
+                    mini_session_location = ?,
+                    mini_session_topic = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -116,6 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_active,
                 $schedule_type, $specific_date,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
+                $is_mini_session, $mini_session_location, $mini_session_topic,
                 $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
@@ -140,8 +149,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_group_class, max_participants,
                     is_active, unique_link,
                     schedule_type, specific_date,
-                    available_days, available_start_time, available_end_time, time_slot_interval
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    available_days, available_start_time, available_end_time, time_slot_interval,
+                    is_mini_session, mini_session_location, mini_session_topic
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -154,7 +164,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_group_class, $max_participants,
                 $is_active, $unique_link,
                 $schedule_type, $specific_date,
-                $available_days_json, $available_start_time, $available_end_time, $time_slot_interval
+                $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
+                $is_mini_session, $mini_session_location, $mini_session_topic
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
         }
@@ -501,6 +512,52 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
 
+                <h6 class="border-bottom pb-2 mb-3">Mini Sessions (Venue-Based Events)</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="is_mini_session" name="is_mini_session"
+                                   <?= !empty($type['is_mini_session']) ? 'checked' : '' ?>
+                                   onchange="toggleMiniSessionFields()">
+                            <label class="form-check-label" for="is_mini_session">
+                                <strong>This is a Mini Sessions Event</strong>
+                            </label>
+                            <div class="form-text">Enable for venue-based events where clients book individual time blocks at a fixed location</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="mini_session_fields" style="display: none;">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <label for="mini_session_location" class="form-label">Event Location <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="mini_session_location" name="mini_session_location" 
+                                   value="<?= htmlspecialchars($type['mini_session_location'] ?? '') ?>"
+                                   placeholder="e.g., Greenwood Dog Park, 123 Main St, City, State ZIP">
+                            <div class="form-text">Fixed venue where all mini sessions will be held. This location will be shown to clients when booking.</div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <label for="mini_session_topic" class="form-label">Event Topic/Focus</label>
+                            <input type="text" class="form-control" id="mini_session_topic" name="mini_session_topic" 
+                                   value="<?= htmlspecialchars($type['mini_session_topic'] ?? '') ?>"
+                                   placeholder="e.g., Recall Training, Agility Introduction, Leash Manners">
+                            <div class="form-text">Optional: Specific topic or focus for this Mini Sessions event</div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> <strong>Mini Sessions Setup:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Configure your event date and time blocks using the schedule settings above</li>
+                            <li>Use "Specific Date" schedule type for single-day events</li>
+                            <li>Set the duration for each time block (e.g., 30 or 45 minutes)</li>
+                            <li>Each block can be booked by one client at the specified location</li>
+                            <li>Clients will see the location and topic when booking their slot</li>
+                        </ul>
+                    </div>
+                </div>
+
                 <h6 class="border-bottom pb-2 mb-3">Status</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
@@ -552,6 +609,21 @@ function toggleTravelTime() {
     const checkbox = document.getElementById('use_travel_time_buffer');
     const section = document.getElementById('travel_time_section');
     section.style.display = checkbox.checked ? 'block' : 'none';
+}
+
+// Toggle Mini Session fields
+function toggleMiniSessionFields() {
+    const checkbox = document.getElementById('is_mini_session');
+    const fieldsSection = document.getElementById('mini_session_fields');
+    const locationInput = document.getElementById('mini_session_location');
+    
+    if (checkbox.checked) {
+        fieldsSection.style.display = 'block';
+        locationInput.setAttribute('required', 'required');
+    } else {
+        fieldsSection.style.display = 'none';
+        locationInput.removeAttribute('required');
+    }
 }
 
 // Copy booking link to clipboard
@@ -652,6 +724,13 @@ function updateAvailabilityPreview() {
         }
     }
 }
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    toggleScheduleType();
+    toggleTravelTime();
+    toggleMiniSessionFields();
+});
 </script>
 
 <?php include __DIR__ . '/../backend/includes/footer.php'; ?>

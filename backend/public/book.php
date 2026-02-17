@@ -263,6 +263,26 @@ if (isset($error_mode) && $error_mode) {
             <?php elseif ($is_standalone && $selected_type): ?>
                 <h1><i class="fas fa-calendar-check me-2"></i>Book <?= escape($selected_type['name']) ?></h1>
                 <p class="text-muted mb-0"><?= escape($selected_type['description']) ?></p>
+                <?php if (!empty($selected_type['is_mini_session'])): ?>
+                    <div class="alert alert-info mt-3 mb-0">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-location-dot me-3 mt-1" style="font-size: 1.5rem;"></i>
+                            <div>
+                                <h5 class="mb-2"><strong>Mini Sessions Event</strong></h5>
+                                <?php if (!empty($selected_type['mini_session_topic'])): ?>
+                                    <p class="mb-2"><strong>Topic:</strong> <?= escape($selected_type['mini_session_topic']) ?></p>
+                                <?php endif; ?>
+                                <p class="mb-0">
+                                    <i class="fas fa-map-marker-alt me-2"></i>
+                                    <strong>Location:</strong> <?= escape($selected_type['mini_session_location']) ?>
+                                </p>
+                                <small class="text-muted d-block mt-2">
+                                    This event takes place at a fixed venue. Book your preferred time slot below.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
             <?php else: ?>
                 <h1><i class="fas fa-calendar-check me-2"></i>Book Your Appointment</h1>
                 <p class="text-muted mb-0">Schedule your dog training session with Brook's Dog Training Academy</p>
