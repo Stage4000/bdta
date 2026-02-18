@@ -152,9 +152,13 @@ include '../backend/includes/header.php';
                                     </span>
                                 </td>
                                 <td>
-                                    <?= $quote['expiration_date'] ? date('M j, Y', strtotime($quote['expiration_date'])) : 'No expiration' ?>
+                                    <?php if ($quote['expiration_date']): ?>
+                                        <span data-server-time="<?= escape($quote['expiration_date']) ?>" data-time-format="date"></span>
+                                    <?php else: ?>
+                                        No expiration
+                                    <?php endif; ?>
                                 </td>
-                                <td><?= date('M j, Y', strtotime($quote['created_at'])) ?></td>
+                                <td><span data-server-time="<?= escape($quote['created_at']) ?>" data-time-format="short"></span></td>
                                 <td>
                                     <a href="quotes_view.php?id=<?= $quote['id'] ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i>

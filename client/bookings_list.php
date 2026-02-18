@@ -68,8 +68,7 @@ require_once '../backend/includes/header.php';
                                 </td>
                                 <td><?php echo escape($booking['service_type']); ?></td>
                                 <td>
-                                    <?php echo escape($booking['appointment_date']); ?><br>
-                                    <small><?php echo escape($booking['appointment_time']); ?></small>
+                                    <span data-server-time="<?php echo escape($booking['appointment_date'] . ' ' . $booking['appointment_time']); ?>" data-time-format="full"></span>
                                 </td>
                                 <td>
                                     <form method="POST" class="d-inline">

@@ -74,7 +74,7 @@ include '../backend/includes/header.php';
                                     </td>
                                     <td><?= escape($client['email']) ?></td>
                                     <td><?= escape($client['phone'] ?? 'N/A') ?></td>
-                                    <td><?= formatDate($client['created_at']) ?></td>
+                                    <td><span data-server-time="<?= escape($client['created_at']) ?>" data-time-format="short"></span></td>
                                     <td>
                                         <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" title="View Profile">
                                             <i class="fas fa-eye"></i>

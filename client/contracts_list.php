@@ -55,7 +55,7 @@ include '../backend/includes/header.php';
                                 <td><strong><?= escape($contract['contract_number']) ?></strong></td>
                                 <td><?= escape($contract['client_name']) ?></td>
                                 <td><?= escape($contract['title']) ?></td>
-                                <td><?= formatDate($contract['created_date']) ?></td>
+                                <td><span data-server-time="<?= escape($contract['created_date']) ?>" data-time-format="date"></span></td>
                                 <td>
                                     <?php
                                     $colors = ['draft' => 'secondary', 'sent' => 'info', 'signed' => 'success', 'expired' => 'danger'];

@@ -172,11 +172,14 @@ include '../backend/includes/header.php';
                         <?php else: ?>
                             <?php foreach ($time_entries as $entry): ?>
                                 <tr>
-                                    <td><?= formatDate($entry['date']) ?></td>
+                                    <td><span data-server-time="<?= escape($entry['date']) ?>" data-time-format="date"></span></td>
                                     <td><strong><?= escape($entry['client_name']) ?></strong></td>
                                     <td><?= escape($entry['service_type']) ?></td>
                                     <td><?= escape($entry['description'] ?? '-') ?></td>
-                                    <td><?= date('g:i A', strtotime($entry['start_time'])) ?> - <?= date('g:i A', strtotime($entry['end_time'])) ?></td>
+                                    <td>
+                                        <span data-server-time="<?= escape($entry['start_time']) ?>" data-server-date="<?= escape($entry['date']) ?>" data-time-format="time"></span> - 
+                                        <span data-server-time="<?= escape($entry['end_time']) ?>" data-server-date="<?= escape($entry['date']) ?>" data-time-format="time"></span>
+                                    </td>
                                     <td><?= number_format($entry['duration_minutes'] / 60, 2) ?> hrs</td>
                                     <td>$<?= number_format($entry['hourly_rate'], 2) ?>/hr</td>
                                     <td><strong>$<?= number_format($entry['total_amount'], 2) ?></strong></td>

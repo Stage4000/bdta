@@ -97,8 +97,8 @@ include '../backend/includes/header.php';
                             <tr>
                                 <td><strong><?= escape($invoice['invoice_number']) ?></strong></td>
                                 <td><?= escape($invoice['client_name']) ?></td>
-                                <td><?= formatDate($invoice['issue_date']) ?></td>
-                                <td><?= formatDate($invoice['due_date']) ?></td>
+                                <td><span data-server-time="<?= escape($invoice['issue_date']) ?>" data-time-format="date"></span></td>
+                                <td><span data-server-time="<?= escape($invoice['due_date']) ?>" data-time-format="date"></span></td>
                                 <td><strong>$<?= number_format($invoice['total_amount'], 2) ?></strong></td>
                                 <td>
                                     <?php
