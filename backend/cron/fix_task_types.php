@@ -17,11 +17,10 @@ echo "=== Fixing Task Type Values ===\n\n";
 $db = new Database();
 $conn = $db->getConnection();
 
-// Mapping of incorrect task_type values to correct ones
-$task_type_fixes = [
+// Simple mapping of incorrect task_type values to correct ones
+$simple_fixes = [
     'reminder' => 'booking_reminder',
-    'workflow' => 'workflow_processor',
-    'email' => 'scheduled_email_sender'  // Default for generic 'email' type
+    'workflow' => 'workflow_processor'
 ];
 
 // First, let's see what tasks currently exist
@@ -75,11 +74,26 @@ $skipped_count = 0;
 
 foreach ($needs_fixing as $task) {
     $old_type = $task['task_type'];
+    $new_type = null;
     
-    // Check if we have a known fix for this task_type
-    if (isset($task_type_fixes[$old_type])) {
-        $new_type = $task_type_fixes[$old_type];
-        
+    // Check if we have a simple mapping fix for this task_type
+    if (isset($simple_fixes[$old_type])) {
+        $new_type = $simple_fixes[$old_type];
+    }
+    // Special handling for generic 'email' task_type - use task name to determine correct type
+    elseif ($old_type === 'email') {
+        $task_name_lower = strtolower($task['task_name']);
+        if (strpos($task_name_lower, 'receive') !== false || strpos($task_name_lower, 'imap') !== false) {
+            $new_type = 'email_receiver';
+        } elseif (strpos($task_name_lower, 'send') !== false || strpos($task_name_lower, 'scheduled') !== false) {
+            $new_type = 'scheduled_email_sender';
+        } else {
+            // Default to scheduled_email_sender if we can't determine from name
+            $new_type = 'scheduled_email_sender';
+        }
+    }
+    
+    if ($new_type) {
         // Verify the new handler file exists
         $new_handler = __DIR__ . '/tasks/' . $new_type . '.php';
         if (file_exists($new_handler)) {
