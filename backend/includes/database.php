@@ -161,6 +161,25 @@ class Database {
     }
     
     /**
+     * Build LIMIT clause compatible with both MySQL and SQLite
+     * MySQL doesn't support parameterized LIMIT/OFFSET properly, so we need to use literals
+     * 
+     * @param int $limit The number of rows to return
+     * @param int $offset The number of rows to skip
+     * @return string The LIMIT clause to append to SQL
+     */
+    public function buildLimitClause($limit, $offset = 0) {
+        $limit = (int)$limit;  // Ensure integer
+        $offset = (int)$offset; // Ensure integer
+        
+        if ($offset > 0) {
+            return " LIMIT $limit OFFSET $offset";
+        } else {
+            return " LIMIT $limit";
+        }
+    }
+    
+    /**
      * Convert SQL from SQLite syntax to MySQL syntax
      */
     private function convertSQL($sql) {

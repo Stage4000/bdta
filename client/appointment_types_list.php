@@ -25,12 +25,13 @@ $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
 // Get appointment types
+// Build LIMIT clause that works with both MySQL and SQLite
+$limit_clause = $db->buildLimitClause($per_page, $offset);
 $stmt = $conn->prepare("
     SELECT * FROM appointment_types 
-    ORDER BY is_active DESC, name ASC
-    LIMIT ? OFFSET ?
+    ORDER BY is_active DESC, name ASC" . $limit_clause . "
 ");
-$stmt->execute([$per_page, $offset]);
+$stmt->execute();
 $types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get total count for pagination

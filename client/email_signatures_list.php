@@ -56,8 +56,10 @@ $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
-$stmt = $conn->prepare("SELECT * FROM email_signature_templates ORDER BY is_default DESC, name LIMIT ? OFFSET ?");
-$stmt->execute([$per_page, $offset]);
+// Build LIMIT clause that works with both MySQL and SQLite
+$limit_clause = $db->buildLimitClause($per_page, $offset);
+$stmt = $conn->prepare("SELECT * FROM email_signature_templates ORDER BY is_default DESC, name" . $limit_clause);
+$stmt->execute();
 $signatures = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $total = $conn->query("SELECT COUNT(*) FROM email_signature_templates")->fetchColumn();
 $total_pages = ceil($total / $per_page);

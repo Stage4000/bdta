@@ -62,16 +62,17 @@ $query = "SELECT fs.*,
           LEFT JOIN admin_users au ON fs.submitted_by = au.id
           LEFT JOIN admin_users au2 ON fs.reviewed_by = au2.id
           $where_sql
-          ORDER BY fs.submitted_at DESC
-          LIMIT ? OFFSET ?";
+          ORDER BY fs.submitted_at DESC";
+
+// Build LIMIT clause that works with both MySQL and SQLite
+$limit_clause = $db->buildLimitClause($per_page, $offset);
+$query .= $limit_clause;
 
 $stmt = $conn->prepare($query);
 if (!empty($params)) {
-    $params[] = $per_page;
-    $params[] = $offset;
     $stmt->execute($params);
 } else {
-    $stmt->execute([$per_page, $offset]);
+    $stmt->execute();
 }
 $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
