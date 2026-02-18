@@ -79,6 +79,11 @@ class Settings {
      * Get all settings in a category
      */
     public static function getCategory($category) {
+        // Special handling for database category - read from .env
+        if ($category === 'database') {
+            return self::getDatabaseSettingsFromEnv();
+        }
+        
         $db = self::getDB();
         $stmt = $db->prepare("
             SELECT setting_key, setting_value, setting_type, label, description, is_secret 
@@ -105,12 +110,93 @@ class Settings {
     }
     
     /**
+     * Get database settings from .env file
+     */
+    private static function getDatabaseSettingsFromEnv() {
+        require_once __DIR__ . '/env_loader.php';
+        
+        return [
+            [
+                'key' => 'db_type',
+                'value' => EnvLoader::get('DB_TYPE', 'sqlite'),
+                'actual_value' => EnvLoader::get('DB_TYPE', 'sqlite'),
+                'type' => 'select',
+                'label' => 'Database Type',
+                'description' => 'Choose between SQLite (development) and MySQL (production)',
+                'is_secret' => false
+            ],
+            [
+                'key' => 'db_host',
+                'value' => EnvLoader::get('DB_HOST', 'localhost'),
+                'actual_value' => EnvLoader::get('DB_HOST', 'localhost'),
+                'type' => 'text',
+                'label' => 'MySQL Host',
+                'description' => 'MySQL server hostname (only used when Database Type is MySQL)',
+                'is_secret' => false
+            ],
+            [
+                'key' => 'db_port',
+                'value' => EnvLoader::get('DB_PORT', '3306'),
+                'actual_value' => EnvLoader::get('DB_PORT', '3306'),
+                'type' => 'number',
+                'label' => 'MySQL Port',
+                'description' => 'MySQL server port (default: 3306)',
+                'is_secret' => false
+            ],
+            [
+                'key' => 'db_name',
+                'value' => EnvLoader::get('DB_NAME', 'bdta'),
+                'actual_value' => EnvLoader::get('DB_NAME', 'bdta'),
+                'type' => 'text',
+                'label' => 'MySQL Database Name',
+                'description' => 'Name of the MySQL database',
+                'is_secret' => false
+            ],
+            [
+                'key' => 'db_user',
+                'value' => EnvLoader::get('DB_USER', 'root'),
+                'actual_value' => EnvLoader::get('DB_USER', 'root'),
+                'type' => 'text',
+                'label' => 'MySQL Username',
+                'description' => 'MySQL database username',
+                'is_secret' => false
+            ],
+            [
+                'key' => 'db_password',
+                'value' => '••••••••',
+                'actual_value' => EnvLoader::get('DB_PASSWORD', ''),
+                'type' => 'password',
+                'label' => 'MySQL Password',
+                'description' => 'MySQL database password',
+                'is_secret' => true
+            ],
+            [
+                'key' => 'sqlite_db_path',
+                'value' => EnvLoader::get('SQLITE_DB_PATH', 'bdta.db'),
+                'actual_value' => EnvLoader::get('SQLITE_DB_PATH', 'bdta.db'),
+                'type' => 'text',
+                'label' => 'SQLite Database Path',
+                'description' => 'Path to SQLite database file (relative to backend directory)',
+                'is_secret' => false
+            ]
+        ];
+    }
+    
+    /**
      * Get all categories
      */
     public static function getCategories() {
         $db = self::getDB();
         $stmt = $db->query("SELECT DISTINCT category FROM settings ORDER BY category");
-        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $categories = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Always include database category (it's read from .env)
+        if (!in_array('database', $categories)) {
+            $categories[] = 'database';
+            sort($categories);
+        }
+        
+        return $categories;
     }
     
     /**

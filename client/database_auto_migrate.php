@@ -12,35 +12,22 @@ header('Content-Type: application/json');
 
 // Helper function to load database settings
 function loadDatabaseSettings() {
-    try {
-        $db_file = __DIR__ . '/../backend/bdta.db';
-        if (!file_exists($db_file)) {
-            return null;
-        }
-        
-        $conn = new PDO('sqlite:' . $db_file);
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        $stmt = $conn->prepare("SELECT setting_key, setting_value FROM settings WHERE category = 'database'");
-        $stmt->execute();
-        $settings = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $settings[$row['setting_key']] = $row['setting_value'];
-        }
-        
-        return $settings;
-    } catch (Exception $e) {
-        return null;
-    }
+    // Load from .env file instead of database to avoid circular dependency
+    require_once __DIR__ . '/../backend/includes/env_loader.php';
+    EnvLoader::load();
+    
+    return [
+        'db_host' => EnvLoader::get('DB_HOST', 'localhost'),
+        'db_port' => EnvLoader::get('DB_PORT', '3306'),
+        'db_name' => EnvLoader::get('DB_NAME', 'bdta'),
+        'db_user' => EnvLoader::get('DB_USER', 'root'),
+        'db_password' => EnvLoader::get('DB_PASSWORD', ''),
+        'sqlite_db_path' => EnvLoader::get('SQLITE_DB_PATH', 'bdta.db')
+    ];
 }
 
 // Load settings
 $db_settings = loadDatabaseSettings();
-
-if (!$db_settings) {
-    echo json_encode(['success' => false, 'error' => 'Could not load database settings']);
-    exit;
-}
 
 $mysql_host = $db_settings['db_host'] ?? 'localhost';
 $mysql_port = $db_settings['db_port'] ?? '3306';

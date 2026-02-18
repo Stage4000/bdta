@@ -12,50 +12,30 @@ header('Content-Type: application/json');
 
 // Helper function to load database settings
 function loadDatabaseSettings() {
-    try {
-        $db_file = __DIR__ . '/../backend/bdta.db';
-        if (!file_exists($db_file)) {
-            return null;
-        }
-        
-        $conn = new PDO('sqlite:' . $db_file);
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        $stmt = $conn->prepare("SELECT setting_key, setting_value FROM settings WHERE category = 'database'");
-        $stmt->execute();
-        $settings = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $settings[$row['setting_key']] = $row['setting_value'];
-        }
-        
-        return $settings;
-    } catch (Exception $e) {
-        return null;
-    }
+    // Load from .env file instead of database to avoid circular dependency
+    require_once __DIR__ . '/../backend/includes/env_loader.php';
+    EnvLoader::load();
+    
+    return [
+        'db_host' => EnvLoader::get('DB_HOST', 'localhost'),
+        'db_port' => EnvLoader::get('DB_PORT', '3306'),
+        'db_name' => EnvLoader::get('DB_NAME', 'bdta'),
+        'db_user' => EnvLoader::get('DB_USER', 'root'),
+        'db_password' => EnvLoader::get('DB_PASSWORD', ''),
+        'sqlite_db_path' => EnvLoader::get('SQLITE_DB_PATH', 'bdta.db')
+    ];
 }
 
 // Load database settings from settings table
 $db_settings = loadDatabaseSettings();
 
-if ($db_settings) {
-    // Use settings from database
-    $mysql_host = $db_settings['db_host'] ?? 'localhost';
-    $mysql_port = $db_settings['db_port'] ?? '3306';
-    $mysql_db = $db_settings['db_name'] ?? 'bdta';
-    $mysql_user = $db_settings['db_user'] ?? 'root';
-    $mysql_pass = $db_settings['db_password'] ?? '';
-    $sqlite_path = $db_settings['sqlite_db_path'] ?? 'bdta.db';
-} else {
-    // Fallback to environment variables
-    require_once __DIR__ . '/../backend/includes/env_loader.php';
-    EnvLoader::load();
-    $mysql_host = EnvLoader::get('DB_HOST', 'localhost');
-    $mysql_port = EnvLoader::get('DB_PORT', '3306');
-    $mysql_db = EnvLoader::get('DB_NAME', 'bdta');
-    $mysql_user = EnvLoader::get('DB_USER', 'root');
-    $mysql_pass = EnvLoader::get('DB_PASSWORD', '');
-    $sqlite_path = EnvLoader::get('SQLITE_DB_PATH', 'bdta.db');
-}
+// Use settings from .env
+$mysql_host = $db_settings['db_host'] ?? 'localhost';
+$mysql_port = $db_settings['db_port'] ?? '3306';
+$mysql_db = $db_settings['db_name'] ?? 'bdta';
+$mysql_user = $db_settings['db_user'] ?? 'root';
+$mysql_pass = $db_settings['db_password'] ?? '';
+$sqlite_path = $db_settings['sqlite_db_path'] ?? 'bdta.db';
 
 // Get current database info
 require_once __DIR__ . '/../backend/includes/database.php';

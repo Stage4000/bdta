@@ -78,46 +78,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         $valid_settings = Settings::getCategory($current_category);
         $valid_keys = array_column($valid_settings, 'key');
         
-        // Track database settings for .env update
-        $db_settings_changed = false;
-        $env_updates = [];
-        
-        foreach ($_POST as $key => $value) {
-            if ($key !== 'save_settings' && $key !== 'category' && in_array($key, $valid_keys)) {
-                Settings::set($key, $value);
-                
-                // Track database settings for .env file
-                if ($current_category === 'database') {
-                    $db_settings_changed = true;
-                    $env_key_map = [
-                        'db_type' => 'DB_TYPE',
-                        'db_host' => 'DB_HOST',
-                        'db_port' => 'DB_PORT',
-                        'db_name' => 'DB_NAME',
-                        'db_user' => 'DB_USER',
-                        'db_password' => 'DB_PASSWORD',
-                        'sqlite_db_path' => 'SQLITE_DB_PATH'
-                    ];
+        // Special handling for database category - only update .env file
+        if ($current_category === 'database') {
+            $env_updates = [];
+            $env_key_map = [
+                'db_type' => 'DB_TYPE',
+                'db_host' => 'DB_HOST',
+                'db_port' => 'DB_PORT',
+                'db_name' => 'DB_NAME',
+                'db_user' => 'DB_USER',
+                'db_password' => 'DB_PASSWORD',
+                'sqlite_db_path' => 'SQLITE_DB_PATH'
+            ];
+            
+            foreach ($_POST as $key => $value) {
+                if ($key !== 'save_settings' && $key !== 'category' && in_array($key, $valid_keys)) {
                     if (isset($env_key_map[$key])) {
                         $env_updates[$env_key_map[$key]] = $value;
                     }
                 }
             }
-        }
-        
-        // Handle unchecked checkboxes (they don't appear in $_POST)
-        foreach ($valid_settings as $setting) {
-            if ($setting['type'] === 'checkbox' && !isset($_POST[$setting['key']])) {
-                Settings::set($setting['key'], '0');
+            
+            if (!empty($env_updates)) {
+                updateEnvFile($env_updates);
+                setFlashMessage('Database settings saved to .env file successfully! You may need to restart the application for changes to take effect.', 'success');
+            } else {
+                setFlashMessage('No changes to save.', 'info');
             }
+        } else {
+            // Handle non-database settings normally
+            foreach ($_POST as $key => $value) {
+                if ($key !== 'save_settings' && $key !== 'category' && in_array($key, $valid_keys)) {
+                    Settings::set($key, $value);
+                }
+            }
+            
+            // Handle unchecked checkboxes (they don't appear in $_POST)
+            foreach ($valid_settings as $setting) {
+                if ($setting['type'] === 'checkbox' && !isset($_POST[$setting['key']])) {
+                    Settings::set($setting['key'], '0');
+                }
+            }
+            
+            setFlashMessage('Settings saved successfully!', 'success');
         }
         
-        // Update .env file if database settings changed
-        if ($db_settings_changed && !empty($env_updates)) {
-            updateEnvFile($env_updates);
-        }
-        
-        setFlashMessage('Settings saved successfully!', 'success');
         redirect(ADMIN_URL . 'settings.php?category=' . $current_category);
     } catch (Exception $e) {
         setFlashMessage('Error saving settings: ' . $e->getMessage(), 'danger');
