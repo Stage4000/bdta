@@ -63,8 +63,9 @@ class Database {
                     $this->conn = new PDO($dsn, $this->db_user, $this->db_password);
                     $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     // Set MySQL specific settings
-                    $this->execSQL("SET NAMES utf8mb4");
-                    $this->execSQL("SET sql_mode='TRADITIONAL'");
+                    $this->conn->exec("SET NAMES utf8mb4");
+                    // Use modern SQL mode for MySQL 5.7+
+                    $this->conn->exec("SET sql_mode='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
                 } catch(PDOException $e) {
                     // MySQL connection failed, fallback to SQLite
                     error_log("MySQL connection failed, falling back to SQLite: " . $e->getMessage());
@@ -160,13 +161,26 @@ class Database {
      * Get column information in a database-agnostic way
      */
     private function getTableColumns($tableName) {
+        // Validate table name to prevent SQL injection
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
+            throw new InvalidArgumentException("Invalid table name: $tableName");
+        }
+        
         if ($this->db_type === 'sqlite') {
-            $result = $this->conn->query("PRAGMA table_info($tableName)")->fetchAll(PDO::FETCH_ASSOC);
-            return array_column($result, 'name');
+            $stmt = $this->conn->prepare("SELECT name FROM pragma_table_info(?)");
+            $stmt->execute([$tableName]);
+            $result = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            return $result;
         } else {
-            // MySQL
-            $result = $this->conn->query("SHOW COLUMNS FROM $tableName")->fetchAll(PDO::FETCH_ASSOC);
-            return array_column($result, 'Field');
+            // MySQL - use INFORMATION_SCHEMA for parameterized query
+            $stmt = $this->conn->prepare("
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = ?
+            ");
+            $stmt->execute([$tableName]);
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
         }
     }
     
@@ -174,13 +188,20 @@ class Database {
      * Check if a table exists
      */
     private function tableExists($tableName) {
+        // Validate table name to prevent SQL injection
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
+            throw new InvalidArgumentException("Invalid table name: $tableName");
+        }
+        
         try {
             if ($this->db_type === 'sqlite') {
-                $result = $this->conn->query("SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'");
+                $stmt = $this->conn->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?");
+                $stmt->execute([$tableName]);
             } else {
-                $result = $this->conn->query("SHOW TABLES LIKE '$tableName'");
+                $stmt = $this->conn->prepare("SHOW TABLES LIKE ?");
+                $stmt->execute([$tableName]);
             }
-            return $result->rowCount() > 0;
+            return $stmt->rowCount() > 0;
         } catch (PDOException $e) {
             return false;
         }
