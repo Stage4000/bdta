@@ -5,14 +5,99 @@
  */
 
 require_once __DIR__ . '/../backend/includes/config.php';
-require_once __DIR__ . '/../backend/includes/env_loader.php';
 
 requireLogin();
 
 header('Content-Type: application/json');
 
-// Load environment variables
-EnvLoader::load();
+// Helper function to load database settings
+function loadDatabaseSettings() {
+    try {
+        $db_file = __DIR__ . '/../backend/bdta.db';
+        if (!file_exists($db_file)) {
+            return null;
+        }
+        
+        $conn = new PDO('sqlite:' . $db_file);
+        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $stmt = $conn->prepare("SELECT setting_key, setting_value FROM settings WHERE category = 'database'");
+        $stmt->execute();
+        $settings = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $settings[$row['setting_key']] = $row['setting_value'];
+        }
+        
+        return $settings;
+    } catch (Exception $e) {
+        return null;
+    }
+}
+
+// Load database settings from settings table
+$db_settings = loadDatabaseSettings();
+
+if ($db_settings) {
+    // Use settings from database
+    $mysql_host = $db_settings['db_host'] ?? 'localhost';
+    $mysql_port = $db_settings['db_port'] ?? '3306';
+    $mysql_db = $db_settings['db_name'] ?? 'bdta';
+    $mysql_user = $db_settings['db_user'] ?? 'root';
+    $mysql_pass = $db_settings['db_password'] ?? '';
+    $sqlite_path = $db_settings['sqlite_db_path'] ?? 'bdta.db';
+} else {
+    // Fallback to environment variables
+    require_once __DIR__ . '/../backend/includes/env_loader.php';
+    EnvLoader::load();
+    $mysql_host = EnvLoader::get('DB_HOST', 'localhost');
+    $mysql_port = EnvLoader::get('DB_PORT', '3306');
+    $mysql_db = EnvLoader::get('DB_NAME', 'bdta');
+    $mysql_user = EnvLoader::get('DB_USER', 'root');
+    $mysql_pass = EnvLoader::get('DB_PASSWORD', '');
+    $sqlite_path = EnvLoader::get('SQLITE_DB_PATH', 'bdta.db');
+}
+
+// Get current database info
+require_once __DIR__ . '/../backend/includes/database.php';
+$db = new Database();
+$current_db_type = $db->getDatabaseType();
+
+$response = [
+    'success' => true,
+    'current_type' => $current_db_type,
+    'tests' => []
+];
+
+// Test current connection
+try {
+    $conn = $db->getConnection();
+    
+    if ($current_db_type === 'sqlite') {
+        $stmt = $conn->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table'");
+    } else {
+        $stmt = $conn->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()");
+    }
+    $table_count = $stmt->fetchColumn();
+    
+    $response['tests'][] = [
+        'type' => $current_db_type,
+        'status' => 'success',
+        'message' => 'Connected successfully',
+        'details' => [
+            'tables' => $table_count,
+            'active' => true
+        ]
+    ];
+} catch (Exception $e) {
+    $response['tests'][] = [
+        'type' => $current_db_type,
+        'status' => 'error',
+        'message' => 'Connection failed',
+        'details' => [
+            'error' => $e->getMessage()
+        ]
+    ];
+}
 
 // Get current database info
 require_once __DIR__ . '/../backend/includes/database.php';
@@ -58,12 +143,6 @@ try {
 
 // Test MySQL if not current
 if ($current_db_type !== 'mysql') {
-    $mysql_host = EnvLoader::get('DB_HOST', 'localhost');
-    $mysql_port = EnvLoader::get('DB_PORT', '3306');
-    $mysql_db = EnvLoader::get('DB_NAME', 'bdta');
-    $mysql_user = EnvLoader::get('DB_USER', 'root');
-    $mysql_pass = EnvLoader::get('DB_PASSWORD', '');
-    
     if ($mysql_host && $mysql_db) {
         try {
             $dsn = "mysql:host={$mysql_host};port={$mysql_port};dbname={$mysql_db};charset=utf8mb4";
@@ -80,6 +159,7 @@ if ($current_db_type !== 'mysql') {
                 'details' => [
                     'host' => $mysql_host,
                     'database' => $mysql_db,
+                    'user' => $mysql_user,
                     'tables' => $table_count,
                     'active' => false
                 ]
@@ -92,6 +172,7 @@ if ($current_db_type !== 'mysql') {
                 'details' => [
                     'host' => $mysql_host,
                     'database' => $mysql_db,
+                    'user' => $mysql_user,
                     'error' => $e->getMessage()
                 ]
             ];
@@ -110,7 +191,6 @@ if ($current_db_type !== 'mysql') {
 
 // Test SQLite if not current
 if ($current_db_type !== 'sqlite') {
-    $sqlite_path = EnvLoader::get('SQLITE_DB_PATH', 'bdta.db');
     $sqlite_file = __DIR__ . '/../backend/' . $sqlite_path;
     
     if (file_exists($sqlite_file)) {
