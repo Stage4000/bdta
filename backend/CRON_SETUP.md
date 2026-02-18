@@ -160,6 +160,19 @@ INSERT INTO scheduled_tasks (
 - **daily**: Runs once per day at specified time (e.g., "09:00")
 - **weekly**: Runs on specific day at specific time (e.g., "monday 09:00")
 - **interval**: Runs every X minutes (e.g., "15" for every 15 minutes)
+- **custom**: Runs based on cron expression (see Supported Cron Expressions below)
+
+#### Supported Cron Expressions
+
+When using `schedule_type = 'custom'`, you can use the following cron expression patterns:
+
+| Pattern | Description | Example |
+|---------|-------------|---------|
+| `*/N * * * *` | Every N minutes | `*/5 * * * *` = every 5 minutes |
+| `M * * * *` | Every hour at minute M | `30 * * * *` = every hour at 30 minutes past |
+| `M H * * *` | Daily at specific time | `0 9 * * *` = daily at 9:00 AM |
+
+**Note**: More complex cron expressions (with day/month/weekday specifications) are not currently supported and will fall back to a 15-minute interval with a warning logged. For these advanced scheduling needs, consider using the `interval`, `daily`, or `weekly` schedule types instead.
 
 ## Monitoring
 
