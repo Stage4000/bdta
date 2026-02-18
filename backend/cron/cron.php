@@ -220,7 +220,7 @@ class CronRunner {
     private function isCronExpression($value) {
         // Cron expressions have 5 parts: minute hour day month weekday
         // Pattern: each part can contain digits, *, commas, hyphens, or slashes
-        $pattern = '/^(?:[\d\*,\-\/]+\s+){4}[\d\*,\-\/]+$/';
+        $pattern = '/^(?:[\d*,\-\/]+\s+){4}[\d*,\-\/]+$/';
         return preg_match($pattern, trim($value));
     }
     
@@ -237,13 +237,13 @@ class CronRunner {
         list($minute, $hour, $day, $month, $weekday) = $parts;
         
         // Handle common interval patterns (e.g., */5 * * * * = every 5 minutes)
-        if (preg_match('/^\*\/(\d+)$/', $minute, $matches) && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
+        if (preg_match('/^\*\/(\d+)$/', $minute, $matches) && $this->areAllWildcards([$hour, $day, $month, $weekday])) {
             $interval = intval($matches[1]);
             return date('Y-m-d H:i:s', strtotime("+{$interval} minutes"));
         }
         
         // Handle hourly at specific minute (e.g., 15 * * * * = every hour at minute 15)
-        if (is_numeric($minute) && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
+        if (is_numeric($minute) && $this->areAllWildcards([$hour, $day, $month, $weekday])) {
             $current_minute = intval(date('i'));
             $target_minute = intval($minute);
             
@@ -258,7 +258,7 @@ class CronRunner {
         }
         
         // Handle daily at specific time (e.g., 0 9 * * * = daily at 9:00 AM)
-        if (is_numeric($minute) && is_numeric($hour) && $day === '*' && $month === '*' && $weekday === '*') {
+        if (is_numeric($minute) && is_numeric($hour) && $this->areAllWildcards([$day, $month, $weekday])) {
             $target_hour = intval($hour);
             $target_minute = intval($minute);
             $current_time = time();
@@ -269,12 +269,25 @@ class CronRunner {
                 return date('Y-m-d H:i:s', $today_run);
             } else {
                 // Tomorrow
-                return date('Y-m-d H:i:s', mktime($target_hour, $target_minute, 0, date('n'), date('j') + 1));
+                $tomorrow = strtotime('+1 day');
+                return date('Y-m-d H:i:s', mktime($target_hour, $target_minute, 0, date('n', $tomorrow), date('j', $tomorrow), date('Y', $tomorrow)));
             }
         }
         
         // Pattern not supported
         return null;
+    }
+    
+    /**
+     * Check if all provided cron parts are wildcards
+     */
+    private function areAllWildcards($parts) {
+        foreach ($parts as $part) {
+            if ($part !== '*') {
+                return false;
+            }
+        }
+        return true;
     }
     
     /**
