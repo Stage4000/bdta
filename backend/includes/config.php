@@ -3,6 +3,9 @@
  * Brook's Dog Training Academy - Configuration
  */
 
+// Set timezone
+date_default_timezone_set('America/New_York');
+
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
