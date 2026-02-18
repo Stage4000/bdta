@@ -1,5 +1,20 @@
 # Fixing "Task Handler Not Found" Errors
 
+## Update (Fixed)
+
+**The `email.php` handler has been added** to provide backward compatibility for tasks with `task_type = 'email'`. 
+
+If you previously saw the error:
+```
+Task handler not found: /var/www/.../backend/cron/tasks/email.php
+```
+
+This error should now be **resolved automatically**. The `email` task type is now valid and will delegate to the scheduled email sender.
+
+For `reminder` and `workflow` errors, continue reading below for the solution.
+
+---
+
 ## Problem Description
 
 If you're seeing errors like this in your Task Execution Logs:
@@ -7,7 +22,6 @@ If you're seeing errors like this in your Task Execution Logs:
 ```
 Task handler not found: /var/www/.../backend/cron/tasks/reminder.php
 Task handler not found: /var/www/.../backend/cron/tasks/workflow.php
-Task handler not found: /var/www/.../backend/cron/tasks/email.php
 ```
 
 This means your `scheduled_tasks` database table contains incorrect `task_type` values that don't match the actual task handler filenames.
@@ -19,11 +33,11 @@ The `scheduled_tasks` table has task_type values that don't correspond to the ac
 **Common Incorrect Values:**
 - `reminder` → Should be `booking_reminder`
 - `workflow` → Should be `workflow_processor`
-- `email` → Should be `scheduled_email_sender` or `email_receiver`
 
 **Available Task Handlers:**
 - `booking_reminder.php` - Send booking reminders
 - `contract_reminder.php` - Send contract reminders
+- `email.php` - Generic email handler (legacy, delegates to scheduled_email_sender)
 - `email_receiver.php` - Receive emails via IMAP
 - `form_reminder.php` - Send form reminders
 - `invoice_reminder.php` - Send invoice reminders
@@ -63,12 +77,15 @@ UPDATE scheduled_tasks
 SET task_type = 'workflow_processor', updated_at = datetime('now')
 WHERE task_type = 'workflow';
 
--- Fix generic 'email' → 'scheduled_email_sender' (for "Send Scheduled Emails" task)
+-- Note: 'email' is now a valid task_type (generic handler that delegates to scheduled_email_sender)
+-- However, for better clarity, you may optionally update to specific types:
+
+-- (Optional) Fix generic 'email' → 'scheduled_email_sender' (for "Send Scheduled Emails" task)
 UPDATE scheduled_tasks 
 SET task_type = 'scheduled_email_sender', updated_at = datetime('now')
 WHERE task_type = 'email' AND task_name = 'Send Scheduled Emails';
 
--- Fix generic 'email' → 'email_receiver' (for "Receive Emails" task)
+-- (Optional) Fix generic 'email' → 'email_receiver' (for "Receive Emails" task)
 UPDATE scheduled_tasks 
 SET task_type = 'email_receiver', updated_at = datetime('now')
 WHERE task_type = 'email' AND task_name LIKE '%Receive%';
