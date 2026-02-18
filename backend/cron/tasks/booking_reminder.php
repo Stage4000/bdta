@@ -31,7 +31,7 @@ class BookingReminderTask {
             FROM bookings b
             LEFT JOIN clients c ON b.client_id = c.id
             WHERE b.status = 'confirmed'
-            AND datetime(b.appointment_date || ' ' || b.appointment_time) BETWEEN ? AND ?
+            AND datetime(CONCAT(b.appointment_date, ' ', b.appointment_time)) BETWEEN ? AND ?
             AND b.reminder_sent = 0
             ORDER BY b.appointment_date, b.appointment_time
         ");

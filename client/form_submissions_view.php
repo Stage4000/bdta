@@ -50,13 +50,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
 
 // Get submission details
 $query = "SELECT fs.*, 
-          c.first_name || ' ' || c.last_name as client_name,
+          CONCAT(c.first_name, ' ', c.last_name) as client_name,
           c.email as client_email,
           c.phone as client_phone,
           ft.name as form_name,
           ft.form_type,
           ft.fields,
-          b.appointment_date || ' ' || b.appointment_time as appointment_datetime,
+          CONCAT(b.appointment_date, ' ', b.appointment_time) as appointment_datetime,
           b.service_type,
           au.username as submitted_by_name,
           au2.username as reviewed_by_name

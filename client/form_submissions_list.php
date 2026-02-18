@@ -52,7 +52,7 @@ $query = "SELECT fs.*,
           c.name as client_name,
           ft.name as form_name,
           ft.form_type,
-          b.appointment_date || ' ' || b.appointment_time as appointment_datetime,
+          CONCAT(b.appointment_date, ' ', b.appointment_time) as appointment_datetime,
           au.username as submitted_by_name,
           au2.username as reviewed_by_name
           FROM form_submissions fs
