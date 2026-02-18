@@ -17,6 +17,9 @@ backup.sitebuilder
 *.sqlite
 *.sqlite3
 
+# Environment configuration
+.env
+
 # Python
 __pycache__/
 *.py[cod]

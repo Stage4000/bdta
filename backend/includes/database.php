@@ -1,37 +1,195 @@
 <?php
 /**
  * Brook's Dog Training Academy - Database Configuration
- * SQLite database initialization and connection
+ * Supports MySQL (primary) and SQLite (fallback/development)
  */
+
+// Load environment variables
+require_once __DIR__ . '/env_loader.php';
+EnvLoader::load();
 
 class Database {
     private $db_file;
     private $conn = null;
+    private $db_type = 'sqlite'; // 'mysql' or 'sqlite'
+    private $db_host;
+    private $db_port;
+    private $db_name;
+    private $db_user;
+    private $db_password;
     
     public function __construct() {
-        // Use absolute path to database file in backend directory
-        $this->db_file = __DIR__ . '/../bdta.db';
+        // Load database configuration from environment
+        $this->loadConfig();
         $this->connect();
         $this->initTables();
     }
     
+    private function loadConfig() {
+        // Get database type from environment (default to sqlite)
+        $env_db_type = EnvLoader::get('DB_TYPE', 'sqlite');
+        
+        // MySQL configuration
+        $this->db_host = EnvLoader::get('DB_HOST', 'localhost');
+        $this->db_port = EnvLoader::get('DB_PORT', '3306');
+        $this->db_name = EnvLoader::get('DB_NAME', 'bdta');
+        $this->db_user = EnvLoader::get('DB_USER', 'root');
+        $this->db_password = EnvLoader::get('DB_PASSWORD', '');
+        
+        // SQLite configuration
+        $sqlite_path = EnvLoader::get('SQLITE_DB_PATH', 'bdta.db');
+        $this->db_file = __DIR__ . '/../' . $sqlite_path;
+        
+        // Determine which database to use
+        // Try MySQL first if configured, fallback to SQLite
+        if ($env_db_type === 'mysql' && $this->isMySQLConfigured()) {
+            $this->db_type = 'mysql';
+        } else {
+            $this->db_type = 'sqlite';
+        }
+    }
+    
+    private function isMySQLConfigured() {
+        // Check if MySQL is minimally configured
+        return !empty($this->db_host) && !empty($this->db_name);
+    }
+    
     private function connect() {
         try {
-            $this->conn = new PDO('sqlite:' . $this->db_file);
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            if ($this->db_type === 'mysql') {
+                // Try MySQL connection
+                $dsn = "mysql:host={$this->db_host};port={$this->db_port};dbname={$this->db_name};charset=utf8mb4";
+                try {
+                    $this->conn = new PDO($dsn, $this->db_user, $this->db_password);
+                    $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    // Set MySQL specific settings
+                    $this->execSQL("SET NAMES utf8mb4");
+                    $this->execSQL("SET sql_mode='TRADITIONAL'");
+                } catch(PDOException $e) {
+                    // MySQL connection failed, fallback to SQLite
+                    error_log("MySQL connection failed, falling back to SQLite: " . $e->getMessage());
+                    $this->db_type = 'sqlite';
+                    $this->connectSQLite();
+                }
+            } else {
+                // Use SQLite
+                $this->connectSQLite();
+            }
         } catch(PDOException $e) {
             die("Database connection failed: " . $e->getMessage());
         }
+    }
+    
+    private function connectSQLite() {
+        $this->conn = new PDO('sqlite:' . $this->db_file);
+        $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        // Enable foreign keys for SQLite
+        $this->execSQL('PRAGMA foreign_keys = ON');
     }
     
     public function getConnection() {
         return $this->conn;
     }
     
+    public function getDatabaseType() {
+        return $this->db_type;
+    }
+    
+    /**
+     * Convert SQL from SQLite syntax to MySQL syntax
+     */
+    private function convertSQL($sql) {
+        if ($this->db_type === 'sqlite') {
+            return $sql; // No conversion needed
+        }
+        
+        // MySQL conversions
+        $mysql_sql = $sql;
+        
+        // Convert INTEGER PRIMARY KEY AUTOINCREMENT to INT AUTO_INCREMENT PRIMARY KEY
+        $mysql_sql = preg_replace(
+            '/INTEGER PRIMARY KEY AUTOINCREMENT/i',
+            'INT AUTO_INCREMENT PRIMARY KEY',
+            $mysql_sql
+        );
+        
+        // Convert TEXT to VARCHAR or TEXT appropriately
+        // Keep TEXT for long content, convert to VARCHAR for shorter fields
+        $mysql_sql = preg_replace(
+            '/(\w+)\s+TEXT\s+(UNIQUE|NOT NULL|DEFAULT)/i',
+            '$1 VARCHAR(255) $2',
+            $mysql_sql
+        );
+        
+        // Handle standalone TEXT columns (no constraints after)
+        $mysql_sql = preg_replace(
+            '/(\w+)\s+TEXT\s*,/i',
+            '$1 TEXT,',
+            $mysql_sql
+        );
+        
+        // Convert INTEGER to INT
+        $mysql_sql = preg_replace(
+            '/(\w+)\s+INTEGER\s+/i',
+            '$1 INT ',
+            $mysql_sql
+        );
+        
+        // Convert INTEGER, at end of line
+        $mysql_sql = preg_replace(
+            '/(\w+)\s+INTEGER\s*,/i',
+            '$1 INT,',
+            $mysql_sql
+        );
+        
+        // Handle TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        // MySQL uses CURRENT_TIMESTAMP, which is compatible
+        
+        return $mysql_sql;
+    }
+    
+    /**
+     * Execute SQL with automatic conversion
+     */
+    private function execSQL($sql) {
+        $converted_sql = $this->convertSQL($sql);
+        return $this->conn->exec($converted_sql);
+    }
+    
+    /**
+     * Get column information in a database-agnostic way
+     */
+    private function getTableColumns($tableName) {
+        if ($this->db_type === 'sqlite') {
+            $result = $this->conn->query("PRAGMA table_info($tableName)")->fetchAll(PDO::FETCH_ASSOC);
+            return array_column($result, 'name');
+        } else {
+            // MySQL
+            $result = $this->conn->query("SHOW COLUMNS FROM $tableName")->fetchAll(PDO::FETCH_ASSOC);
+            return array_column($result, 'Field');
+        }
+    }
+    
+    /**
+     * Check if a table exists
+     */
+    private function tableExists($tableName) {
+        try {
+            if ($this->db_type === 'sqlite') {
+                $result = $this->conn->query("SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'");
+            } else {
+                $result = $this->conn->query("SHOW TABLES LIKE '$tableName'");
+            }
+            return $result->rowCount() > 0;
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+    
     private function initTables() {
         try {
             // Admin users table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS admin_users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE NOT NULL,
@@ -42,7 +200,7 @@ class Database {
             ");
             
             // Blog posts table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS blog_posts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT NOT NULL,
@@ -57,7 +215,7 @@ class Database {
             ");
             
             // Bookings table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS bookings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_name TEXT NOT NULL,
@@ -75,7 +233,7 @@ class Database {
             ");
             
             // Clients table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS clients (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -91,7 +249,7 @@ class Database {
             ");
             
             // Client contacts table - support multiple contacts per client
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS client_contacts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_id INTEGER NOT NULL,
@@ -106,7 +264,7 @@ class Database {
             ");
             
             // Pets table (enhanced for multi-pet support)
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS pets (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_id INTEGER NOT NULL,
@@ -133,7 +291,7 @@ class Database {
             ");
             
             // Pet files table - for storing uploaded documents and photos
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS pet_files (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     pet_id INTEGER NOT NULL,
@@ -151,7 +309,7 @@ class Database {
             ");
             
             // Appointment pets junction table (for multi-pet appointments)
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS appointment_pets (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     booking_id INTEGER NOT NULL,
@@ -163,7 +321,7 @@ class Database {
             ");
             
             // Appointment types table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS appointment_types (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -190,7 +348,7 @@ class Database {
             ");
             
             // Client credits table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS client_credits (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_id INTEGER NOT NULL UNIQUE,
@@ -207,7 +365,7 @@ class Database {
             ");
             
             // Credit transactions table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS credit_transactions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_id INTEGER NOT NULL,
@@ -226,7 +384,7 @@ class Database {
             ");
             
             // Time entries table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS time_entries (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_id INTEGER NOT NULL,
@@ -248,7 +406,7 @@ class Database {
             ");
             
             // Expenses table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS expenses (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_id INTEGER,
@@ -266,7 +424,7 @@ class Database {
             ");
             
             // Invoices table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS invoices (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     invoice_number TEXT UNIQUE NOT NULL,
@@ -289,7 +447,7 @@ class Database {
             ");
             
             // Invoice items table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS invoice_items (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     invoice_id INTEGER NOT NULL,
@@ -305,7 +463,7 @@ class Database {
             ");
             
             // Contracts table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS contracts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     contract_number TEXT UNIQUE NOT NULL,
@@ -327,7 +485,7 @@ class Database {
             ");
             
             // Contract templates table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS contract_templates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -342,7 +500,7 @@ class Database {
             ");
             
             // Settings table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS settings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     setting_key TEXT UNIQUE NOT NULL,
@@ -357,7 +515,7 @@ class Database {
             ");
             
             // Email signature templates table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS email_signature_templates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -375,7 +533,7 @@ class Database {
             ");
             
             // Form templates table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS form_templates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -393,7 +551,7 @@ class Database {
             ");
             
             // Form submissions table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS form_submissions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_id INTEGER NOT NULL,
@@ -415,7 +573,7 @@ class Database {
             ");
             
             // Quotes table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS quotes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     quote_number TEXT UNIQUE NOT NULL,
@@ -436,7 +594,7 @@ class Database {
             ");
             
             // Quote items table  
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS quote_items (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     quote_id INTEGER NOT NULL,
@@ -450,7 +608,7 @@ class Database {
             ");
             
             // Email templates table
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS email_templates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -466,7 +624,7 @@ class Database {
             ");
             
             // Scheduled tasks table - for CRON job automation
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS scheduled_tasks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     task_name TEXT NOT NULL,
@@ -482,7 +640,7 @@ class Database {
             ");
             
             // Task execution log table - for tracking CRON job execution
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS task_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     task_id INTEGER,
@@ -497,7 +655,7 @@ class Database {
             ");
             
             // Workflows table - for custom automated email workflows
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS workflows (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -509,7 +667,7 @@ class Database {
             ");
             
             // Workflow steps table - individual emails in a workflow
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS workflow_steps (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     workflow_id INTEGER NOT NULL,
@@ -537,7 +695,7 @@ class Database {
             ");
             
             // Workflow enrollments table - clients enrolled in workflows
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS workflow_enrollments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     workflow_id INTEGER NOT NULL,
@@ -554,7 +712,7 @@ class Database {
             ");
             
             // Workflow step executions table - track sent emails
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS workflow_step_executions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     enrollment_id INTEGER NOT NULL,
@@ -570,7 +728,7 @@ class Database {
             ");
             
             // Workflow triggers table - auto-enrollment based on events
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS workflow_triggers (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     workflow_id INTEGER NOT NULL,
@@ -586,7 +744,7 @@ class Database {
             ");
             
             // Client emails table - for per-client email correspondence
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS client_emails (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_id INTEGER NOT NULL,
@@ -613,7 +771,7 @@ class Database {
             ");
             
             // Unmatched emails table - for emails from unknown senders
-            $this->conn->exec("
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS unmatched_emails (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     from_email TEXT NOT NULL,
@@ -857,103 +1015,96 @@ class Database {
     private function runMigrations() {
         // Update bookings table to add new columns for enhanced booking
         // Check if columns exist before adding
-        $columns = $this->conn->query("PRAGMA table_info(bookings)")->fetchAll(PDO::FETCH_ASSOC);
-        $column_names = array_column($columns, 'name');
+        $column_names = $this->getTableColumns('bookings');
         
         if (!in_array('client_id', $column_names)) {
-            $this->conn->exec("ALTER TABLE bookings ADD COLUMN client_id INTEGER");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN client_id INTEGER");
         }
         if (!in_array('appointment_type_id', $column_names)) {
-            $this->conn->exec("ALTER TABLE bookings ADD COLUMN appointment_type_id INTEGER");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN appointment_type_id INTEGER");
         }
         if (!in_array('pets', $column_names)) {
-            $this->conn->exec("ALTER TABLE bookings ADD COLUMN pets TEXT");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN pets TEXT");
         }
         if (!in_array('override_forms', $column_names)) {
-            $this->conn->exec("ALTER TABLE bookings ADD COLUMN override_forms INTEGER DEFAULT 0");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN override_forms INTEGER DEFAULT 0");
         }
         if (!in_array('override_contract', $column_names)) {
-            $this->conn->exec("ALTER TABLE bookings ADD COLUMN override_contract INTEGER DEFAULT 0");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN override_contract INTEGER DEFAULT 0");
         }
         if (!in_array('override_credits', $column_names)) {
-            $this->conn->exec("ALTER TABLE bookings ADD COLUMN override_credits INTEGER DEFAULT 0");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN override_credits INTEGER DEFAULT 0");
         }
         if (!in_array('reminder_sent', $column_names)) {
-            $this->conn->exec("ALTER TABLE bookings ADD COLUMN reminder_sent INTEGER DEFAULT 0");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN reminder_sent INTEGER DEFAULT 0");
         }
         
         // Update contracts table to add reminder tracking
-        $contract_columns = $this->conn->query("PRAGMA table_info(contracts)")->fetchAll(PDO::FETCH_ASSOC);
-        $contract_column_names = array_column($contract_columns, 'name');
+        $contract_column_names = $this->getTableColumns('contracts');
         
         if (!in_array('sent_at', $contract_column_names)) {
-            $this->conn->exec("ALTER TABLE contracts ADD COLUMN sent_at TIMESTAMP");
+            $this->execSQL("ALTER TABLE contracts ADD COLUMN sent_at TIMESTAMP");
         }
         
         if (!in_array('last_reminder_sent', $contract_column_names)) {
-            $this->conn->exec("ALTER TABLE contracts ADD COLUMN last_reminder_sent TIMESTAMP");
+            $this->execSQL("ALTER TABLE contracts ADD COLUMN last_reminder_sent TIMESTAMP");
         }
         
         // Update form_submissions table to add reminder tracking
-        $form_columns = $this->conn->query("PRAGMA table_info(form_submissions)")->fetchAll(PDO::FETCH_ASSOC);
-        $form_column_names = array_column($form_columns, 'name');
+        $form_column_names = $this->getTableColumns('form_submissions');
         
         if (!in_array('sent_at', $form_column_names)) {
-            $this->conn->exec("ALTER TABLE form_submissions ADD COLUMN sent_at TIMESTAMP");
+            $this->execSQL("ALTER TABLE form_submissions ADD COLUMN sent_at TIMESTAMP");
         }
         
         if (!in_array('last_reminder_sent', $form_column_names)) {
-            $this->conn->exec("ALTER TABLE form_submissions ADD COLUMN last_reminder_sent TIMESTAMP");
+            $this->execSQL("ALTER TABLE form_submissions ADD COLUMN last_reminder_sent TIMESTAMP");
         }
         
         // Update quotes table to add reminder tracking
-        $quote_columns = $this->conn->query("PRAGMA table_info(quotes)")->fetchAll(PDO::FETCH_ASSOC);
-        $quote_column_names = array_column($quote_columns, 'name');
+        $quote_column_names = $this->getTableColumns('quotes');
         
         if (!in_array('last_reminder_sent', $quote_column_names)) {
-            $this->conn->exec("ALTER TABLE quotes ADD COLUMN last_reminder_sent TIMESTAMP");
+            $this->execSQL("ALTER TABLE quotes ADD COLUMN last_reminder_sent TIMESTAMP");
         }
         
         // Update invoices table to add reminder tracking
-        $invoice_columns = $this->conn->query("PRAGMA table_info(invoices)")->fetchAll(PDO::FETCH_ASSOC);
-        $invoice_column_names = array_column($invoice_columns, 'name');
+        $invoice_column_names = $this->getTableColumns('invoices');
         
         if (!in_array('last_reminder_sent', $invoice_column_names)) {
-            $this->conn->exec("ALTER TABLE invoices ADD COLUMN last_reminder_sent TIMESTAMP");
+            $this->execSQL("ALTER TABLE invoices ADD COLUMN last_reminder_sent TIMESTAMP");
         }
         
         // Update clients table to add password and admin fields for client login
-        $client_columns = $this->conn->query("PRAGMA table_info(clients)")->fetchAll(PDO::FETCH_ASSOC);
-        $client_column_names = array_column($client_columns, 'name');
+        $client_column_names = $this->getTableColumns('clients');
         
         if (!in_array('password_hash', $client_column_names)) {
-            $this->conn->exec("ALTER TABLE clients ADD COLUMN password_hash TEXT");
+            $this->execSQL("ALTER TABLE clients ADD COLUMN password_hash TEXT");
         }
         if (!in_array('is_admin', $client_column_names)) {
-            $this->conn->exec("ALTER TABLE clients ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
+            $this->execSQL("ALTER TABLE clients ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
         }
         if (!in_array('last_login', $client_column_names)) {
-            $this->conn->exec("ALTER TABLE clients ADD COLUMN last_login TIMESTAMP");
+            $this->execSQL("ALTER TABLE clients ADD COLUMN last_login TIMESTAMP");
         }
         if (!in_array('password_reset_token', $client_column_names)) {
-            $this->conn->exec("ALTER TABLE clients ADD COLUMN password_reset_token TEXT");
+            $this->execSQL("ALTER TABLE clients ADD COLUMN password_reset_token TEXT");
         }
         if (!in_array('password_reset_expires', $client_column_names)) {
-            $this->conn->exec("ALTER TABLE clients ADD COLUMN password_reset_expires TIMESTAMP");
+            $this->execSQL("ALTER TABLE clients ADD COLUMN password_reset_expires TIMESTAMP");
         }
         
         // Add unique_link column to appointment_types table
-        $apt_columns = $this->conn->query("PRAGMA table_info(appointment_types)")->fetchAll(PDO::FETCH_ASSOC);
-        $apt_column_names = array_column($apt_columns, 'name');
+        $apt_column_names = $this->getTableColumns('appointment_types');
         
         if (!in_array('unique_link', $apt_column_names)) {
             // SQLite doesn't support adding UNIQUE constraint in ALTER TABLE,
             // so we add it as a regular column and create a unique index
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN unique_link TEXT");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN unique_link TEXT");
             
             // Create a unique index on the unique_link column
             try {
-                $this->conn->exec("CREATE UNIQUE INDEX idx_appointment_types_unique_link ON appointment_types(unique_link)");
+                $this->execSQL("CREATE UNIQUE INDEX idx_appointment_types_unique_link ON appointment_types(unique_link)");
             } catch (PDOException $e) {
                 // Index might already exist, ignore
             }
@@ -980,81 +1131,80 @@ class Database {
         if (!in_array('available_days', $apt_column_names)) {
             // JSON array of available day numbers (0=Sunday, 1=Monday, ..., 6=Saturday)
             // Default to all days [0,1,2,3,4,5,6]
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN available_days TEXT DEFAULT '[0,1,2,3,4,5,6]'");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN available_days TEXT DEFAULT '[0,1,2,3,4,5,6]'");
             
             // Set default for existing rows
-            $this->conn->exec("UPDATE appointment_types SET available_days = '[0,1,2,3,4,5,6]' WHERE available_days IS NULL");
+            $this->execSQL("UPDATE appointment_types SET available_days = '[0,1,2,3,4,5,6]' WHERE available_days IS NULL");
         }
         
         if (!in_array('available_start_time', $apt_column_names)) {
             // Default start time (9:00 AM)
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN available_start_time TEXT DEFAULT '09:00'");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN available_start_time TEXT DEFAULT '09:00'");
             
             // Set default for existing rows
-            $this->conn->exec("UPDATE appointment_types SET available_start_time = '09:00' WHERE available_start_time IS NULL");
+            $this->execSQL("UPDATE appointment_types SET available_start_time = '09:00' WHERE available_start_time IS NULL");
         }
         
         if (!in_array('available_end_time', $apt_column_names)) {
             // Default end time (5:00 PM)
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN available_end_time TEXT DEFAULT '17:00'");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN available_end_time TEXT DEFAULT '17:00'");
             
             // Set default for existing rows
-            $this->conn->exec("UPDATE appointment_types SET available_end_time = '17:00' WHERE available_end_time IS NULL");
+            $this->execSQL("UPDATE appointment_types SET available_end_time = '17:00' WHERE available_end_time IS NULL");
         }
         
         if (!in_array('time_slot_interval', $apt_column_names)) {
             // Time slot interval in minutes (default 30)
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN time_slot_interval INTEGER DEFAULT 30");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN time_slot_interval INTEGER DEFAULT 30");
             
             // Set default for existing rows
-            $this->conn->exec("UPDATE appointment_types SET time_slot_interval = 30 WHERE time_slot_interval IS NULL");
+            $this->execSQL("UPDATE appointment_types SET time_slot_interval = 30 WHERE time_slot_interval IS NULL");
         }
         
         // Add schedule_type column for specific date scheduling
         if (!in_array('schedule_type', $apt_column_names)) {
             // Schedule type: 'recurring' for day-of-week based, 'specific_date' for one-time classes
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN schedule_type TEXT DEFAULT 'recurring'");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN schedule_type TEXT DEFAULT 'recurring'");
             
             // Set default for existing rows to maintain backward compatibility
-            $this->conn->exec("UPDATE appointment_types SET schedule_type = 'recurring' WHERE schedule_type IS NULL");
+            $this->execSQL("UPDATE appointment_types SET schedule_type = 'recurring' WHERE schedule_type IS NULL");
         }
         
         // Add specific_date column for one-time scheduled classes
         if (!in_array('specific_date', $apt_column_names)) {
             // Date for specific date scheduling (NULL for recurring schedules)
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN specific_date DATE");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN specific_date DATE");
         }
         
         // Add Mini Sessions support to appointment_types table
         if (!in_array('is_mini_session', $apt_column_names)) {
             // Flag to indicate this is a Mini Sessions appointment type
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN is_mini_session INTEGER DEFAULT 0");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN is_mini_session INTEGER DEFAULT 0");
             
             // Set default for existing rows
-            $this->conn->exec("UPDATE appointment_types SET is_mini_session = 0 WHERE is_mini_session IS NULL");
+            $this->execSQL("UPDATE appointment_types SET is_mini_session = 0 WHERE is_mini_session IS NULL");
         }
         
         if (!in_array('mini_session_location', $apt_column_names)) {
             // Fixed location for Mini Sessions events
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN mini_session_location TEXT");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN mini_session_location TEXT");
         }
         
         if (!in_array('mini_session_topic', $apt_column_names)) {
             // Topic/description for the Mini Sessions event
-            $this->conn->exec("ALTER TABLE appointment_types ADD COLUMN mini_session_topic TEXT");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN mini_session_topic TEXT");
         }
         
         // Add location support to bookings table
-        $booking_columns = $this->conn->query("PRAGMA table_info(bookings)")->fetchAll(PDO::FETCH_ASSOC);
-        $booking_column_names = array_column($booking_columns, 'name');
+        $booking_column_names = $this->getTableColumns('bookings');
         
         if (!in_array('location', $booking_column_names)) {
             // Location/address for the appointment (especially for Mini Sessions)
-            $this->conn->exec("ALTER TABLE bookings ADD COLUMN location TEXT");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN location TEXT");
         }
         
         // Create mini_session_blocks table for managing individual time blocks
-        $this->conn->exec("
+        $this->execSQL("
             CREATE TABLE IF NOT EXISTS mini_session_blocks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 appointment_type_id INTEGER NOT NULL,
@@ -1074,13 +1224,13 @@ class Database {
         
         // Create index for efficient querying of available blocks
         try {
-            $this->conn->exec("CREATE INDEX idx_mini_session_blocks_event_date ON mini_session_blocks(event_date)");
+            $this->execSQL("CREATE INDEX idx_mini_session_blocks_event_date ON mini_session_blocks(event_date)");
         } catch (PDOException $e) {
             // Index might already exist, ignore
         }
         
         try {
-            $this->conn->exec("CREATE INDEX idx_mini_session_blocks_appointment_type ON mini_session_blocks(appointment_type_id)");
+            $this->execSQL("CREATE INDEX idx_mini_session_blocks_appointment_type ON mini_session_blocks(appointment_type_id)");
         } catch (PDOException $e) {
             // Index might already exist, ignore
         }
