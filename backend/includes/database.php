@@ -1264,6 +1264,42 @@ class Database {
         } catch (PDOException $e) {
             // Index might already exist, ignore
         }
+        
+        // Add database settings for existing installations
+        $this->addDatabaseSettings();
+    }
+    
+    private function addDatabaseSettings() {
+        // Check if database settings already exist
+        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE category = ?");
+        $stmt->execute(['database']);
+        $count = $stmt->fetchColumn();
+        
+        // Only add if database category doesn't exist
+        if ($count == 0) {
+            $database_settings = [
+                ['db_type', 'sqlite', 'select', 'database', 'Database Type', 'Database backend: mysql or sqlite', 0],
+                ['db_host', 'localhost', 'text', 'database', 'MySQL Host', 'MySQL server hostname (only for MySQL)', 0],
+                ['db_port', '3306', 'number', 'database', 'MySQL Port', 'MySQL server port (only for MySQL)', 0],
+                ['db_name', 'bdta', 'text', 'database', 'MySQL Database', 'MySQL database name (only for MySQL)', 0],
+                ['db_user', 'root', 'text', 'database', 'MySQL Username', 'MySQL username (only for MySQL)', 0],
+                ['db_password', '', 'password', 'database', 'MySQL Password', 'MySQL password (only for MySQL)', 1],
+                ['sqlite_db_path', 'bdta.db', 'text', 'database', 'SQLite Database Path', 'SQLite database filename relative to backend/ (only for SQLite)', 0],
+            ];
+            
+            $stmt = $this->conn->prepare("
+                INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            
+            foreach ($database_settings as $setting) {
+                try {
+                    $stmt->execute($setting);
+                } catch (PDOException $e) {
+                    // Setting might already exist, ignore
+                }
+            }
+        }
     }
 }
 ?>
