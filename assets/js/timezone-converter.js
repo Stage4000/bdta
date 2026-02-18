@@ -41,6 +41,9 @@
         } else if (serverTime.includes(' ')) {
             // Already contains date and time
             dateTimeStr = serverTime;
+        } else if (serverTime.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Date only - add midnight time
+            dateTimeStr = serverTime + ' 00:00:00';
         } else {
             // Time only - use today's date
             const today = new Date().toISOString().split('T')[0];
@@ -48,7 +51,6 @@
         }
         
         // Parse the datetime string as if it's in the server timezone
-        // Note: This creates a Date in local time, but we interpret it as server time
         const parts = dateTimeStr.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
         if (!parts) {
             console.error('Invalid datetime format:', dateTimeStr);
@@ -63,9 +65,9 @@
         
         // Eastern Time offset: -5 hours (EST) or -4 hours (EDT)
         // For now, we'll use a simplified approach
-        const serverDate = new Date(year, month - 1, day, hour, minute, second);
+        const localDate = new Date(year, month - 1, day, hour, minute, second);
         
-        return serverDate;
+        return localDate;
     }
     
     /**

@@ -319,8 +319,8 @@ include '../backend/includes/header.php';
                                 <tbody>
                                     <?php foreach ($upcoming_appointments as $apt): ?>
                                         <tr>
-                                            <td><?= formatDate($apt['appointment_date']) ?></td>
-                                            <td><?= date('g:i A', strtotime($apt['appointment_time'])) ?></td>
+                                            <td><span data-server-time="<?= escape($apt['appointment_date']) ?>" data-time-format="date"></span></td>
+                                            <td><span data-server-time="<?= escape($apt['appointment_time']) ?>" data-server-date="<?= escape($apt['appointment_date']) ?>" data-time-format="time"></span></td>
                                             <td><?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?></td>
                                             <td><span class="badge bg-info"><?= escape($apt['status']) ?></span></td>
                                         </tr>
@@ -347,8 +347,8 @@ include '../backend/includes/header.php';
                                 <tbody>
                                     <?php foreach (array_slice($past_appointments, 0, 10) as $apt): ?>
                                         <tr>
-                                            <td><?= formatDate($apt['appointment_date']) ?></td>
-                                            <td><?= date('g:i A', strtotime($apt['appointment_time'])) ?></td>
+                                            <td><span data-server-time="<?= escape($apt['appointment_date']) ?>" data-time-format="date"></span></td>
+                                            <td><span data-server-time="<?= escape($apt['appointment_time']) ?>" data-server-date="<?= escape($apt['appointment_date']) ?>" data-time-format="time"></span></td>
                                             <td><?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?></td>
                                             <td><span class="badge bg-secondary"><?= escape($apt['status']) ?></span></td>
                                         </tr>
