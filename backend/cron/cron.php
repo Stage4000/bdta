@@ -220,7 +220,7 @@ class CronRunner {
     private function isCronExpression($value) {
         // Cron expressions have 5 parts: minute hour day month weekday
         // Pattern: each part can contain digits, *, commas, hyphens, or slashes
-        $pattern = '/^(?:[\d*,\-\/]+\s+){4}[\d*,\-\/]+$/';
+        $pattern = '/^(?:[\d*,\/-]+\s+){4}[\d*,\/-]+$/';
         return preg_match($pattern, trim($value));
     }
     
@@ -268,9 +268,8 @@ class CronRunner {
                 // Later today
                 return date('Y-m-d H:i:s', $today_run);
             } else {
-                // Tomorrow
-                $tomorrow = strtotime('+1 day');
-                return date('Y-m-d H:i:s', mktime($target_hour, $target_minute, 0, date('n', $tomorrow), date('j', $tomorrow), date('Y', $tomorrow)));
+                // Tomorrow at the same time
+                return date('Y-m-d H:i:s', strtotime('+1 day', $today_run));
             }
         }
         
