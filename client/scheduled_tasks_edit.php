@@ -172,7 +172,11 @@ include '../backend/includes/header.php';
                             <div class="mb-2">
                                 <strong>Last Run:</strong><br>
                                 <small class="text-muted">
-                                    <?= date('M j, Y g:i A', strtotime($task['last_run'])) ?>
+                                    <?php 
+                                    $datetime = new DateTime($task['last_run'], new DateTimeZone('UTC'));
+                                    $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                    echo $datetime->format('M j, Y g:i A');
+                                    ?>
                                 </small>
                             </div>
                         <?php endif; ?>
@@ -181,7 +185,11 @@ include '../backend/includes/header.php';
                             <div class="mb-2">
                                 <strong>Next Run:</strong><br>
                                 <small class="text-muted">
-                                    <?= date('M j, Y g:i A', strtotime($task['next_run'])) ?>
+                                    <?php 
+                                    $datetime = new DateTime($task['next_run'], new DateTimeZone('UTC'));
+                                    $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                    echo $datetime->format('M j, Y g:i A');
+                                    ?>
                                 </small>
                             </div>
                         <?php endif; ?>

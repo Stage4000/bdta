@@ -83,7 +83,11 @@ include '../backend/includes/header.php';
                                             <td>
                                                 <?php if ($task['last_run']): ?>
                                                     <small class="text-muted">
-                                                        <?php echo date('M j, Y g:i A', strtotime($task['last_run'])); ?>
+                                                        <?php 
+                                                        $datetime = new DateTime($task['last_run'], new DateTimeZone('UTC'));
+                                                        $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                                        echo $datetime->format('M j, Y g:i A');
+                                                        ?>
                                                     </small>
                                                 <?php else: ?>
                                                     <span class="text-muted">Never</span>
@@ -92,7 +96,11 @@ include '../backend/includes/header.php';
                                             <td>
                                                 <?php if ($task['next_run']): ?>
                                                     <small class="text-muted">
-                                                        <?php echo date('M j, Y g:i A', strtotime($task['next_run'])); ?>
+                                                        <?php 
+                                                        $datetime = new DateTime($task['next_run'], new DateTimeZone('UTC'));
+                                                        $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                                        echo $datetime->format('M j, Y g:i A');
+                                                        ?>
                                                     </small>
                                                 <?php else: ?>
                                                     <span class="text-muted">-</span>
@@ -158,7 +166,11 @@ include '../backend/includes/header.php';
                                         <tr>
                                             <td>
                                                 <small class="text-muted">
-                                                    <?php echo date('M j, g:i A', strtotime($log['executed_at'])); ?>
+                                                    <?php 
+                                                    $datetime = new DateTime($log['executed_at'], new DateTimeZone('UTC'));
+                                                    $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                                    echo $datetime->format('M j, g:i A');
+                                                    ?>
                                                 </small>
                                             </td>
                                             <td><?php echo htmlspecialchars($log['task_name']); ?></td>
