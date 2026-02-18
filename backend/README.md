@@ -72,9 +72,11 @@ Complete backend system with **blog, booking calendar, client management, time t
 - Booking management
 - Status updates across all modules
 
-### ✅ Database (SQLite)
-- No external database required
-- Automatic initialization
+### ✅ Database (MySQL/SQLite)
+- **MySQL support** for production environments
+- **SQLite fallback** for development and testing
+- Automatic initialization and migration
+- Seamless switching via environment configuration
 - Tables for:
   - admin_users
   - clients
@@ -84,23 +86,73 @@ Complete backend system with **blog, booking calendar, client management, time t
   - contracts
   - blog_posts
   - bookings
+  - ...and 27+ more tables
 
 ## Requirements
 
 - PHP 7.4 or higher
-- SQLite3 PHP extension (usually included)
+- **MySQL 5.7+** or **MariaDB 10.2+** for production (optional)
+- **SQLite3 PHP extension** for development/testing (usually included)
+- **PDO MySQL extension** for MySQL support (usually included)
 - Web server (Apache, Nginx, or PHP built-in server)
 - (Optional) Composer for Google Calendar & Stripe integration
 
 ## Installation
 
-### 1. Check PHP Version
+### 1. Database Configuration
+
+The application supports both MySQL (recommended for production) and SQLite (for development/testing).
+
+#### Option A: SQLite (Quick Start - No Setup Required)
+
+SQLite works out of the box with zero configuration. Perfect for:
+- Local development
+- Testing
+- Small deployments
+- CI/CD pipelines
+
+No `.env` file needed - just start using the application!
+
+#### Option B: MySQL (Production)
+
+For production environments, configure MySQL by creating a `.env` file:
 
 ```bash
-php --version
+# Copy the example file
+cp .env.example .env
+
+# Edit .env with your MySQL credentials
+nano .env
 ```
 
-### 2. Start PHP Built-in Server
+Example `.env` configuration:
+
+```env
+# Database Configuration
+DB_TYPE=mysql
+
+# MySQL Connection Settings
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=bdta
+DB_USER=your_mysql_user
+DB_PASSWORD=your_mysql_password
+```
+
+**Automatic Fallback:** If MySQL connection fails, the system automatically falls back to SQLite, ensuring your application stays online.
+
+#### Create MySQL Database
+
+```sql
+CREATE DATABASE bdta CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'bdta_user'@'localhost' IDENTIFIED BY 'secure_password';
+GRANT ALL PRIVILEGES ON bdta.* TO 'bdta_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+Tables will be created automatically on first run.
+
+### 3. Start PHP Built-in Server
 
 ```bash
 cd backend
@@ -112,7 +164,7 @@ The application will be available at:
 - **Blog:** http://localhost:8000/public/blog.php
 - **Admin Panel:** http://localhost:8000/admin/login.php
 
-### 3. Default Admin Credentials
+### 4. Default Admin Credentials
 
 **Username:** admin  
 **Password:** admin123
@@ -299,40 +351,101 @@ Update `/backend/includes/email_service.php` accordingly.
 ## Security Notes
 
 1. **Change Default Password** immediately
-2. **File Permissions:** Set proper permissions on bdta.db (660)
-3. **HTTPS:** Always use HTTPS in production
-4. **Input Validation:** All inputs are validated and escaped
-5. **SQL Injection Protection:** Using prepared statements
-6. **XSS Protection:** All outputs are escaped
-7. **Never commit** `google-calendar-credentials.json` to git
+2. **Environment File:** Never commit `.env` to version control (it's in `.gitignore`)
+3. **File Permissions:** 
+   - SQLite: Set proper permissions on bdta.db (660)
+   - .env file: Restrict access (600)
+4. **HTTPS:** Always use HTTPS in production
+5. **Input Validation:** All inputs are validated and escaped
+6. **SQL Injection Protection:** Using prepared statements
+7. **XSS Protection:** All outputs are escaped
+8. **Never commit:**
+   - `.env` file with credentials
+   - `google-calendar-credentials.json`
+   - Database files (`.db`, `.sqlite`)
 
 ## Backup
 
 ### Backup Database
 
+**SQLite:**
 ```bash
-cp bdta.db bdta_backup_$(date +%Y%m%d).db
+cp backend/bdta.db backend/bdta_backup_$(date +%Y%m%d).db
+```
+
+**MySQL:**
+```bash
+mysqldump -u bdta_user -p bdta > bdta_backup_$(date +%Y%m%d).sql
 ```
 
 ### Restore Database
 
+**SQLite:**
 ```bash
-cp bdta_backup_20240115.db bdta.db
+cp backend/bdta_backup_20240115.db backend/bdta.db
+```
+
+**MySQL:**
+```bash
+mysql -u bdta_user -p bdta < bdta_backup_20240115.sql
 ```
 
 ## Troubleshooting
 
-### Database Locked Error
-- Ensure proper file permissions
-- Restart PHP server
+### Database Issues
 
-### Permission Denied
-- Check file permissions: `chmod 660 bdta.db`
+#### MySQL Connection Failed
+If MySQL connection fails, the system automatically falls back to SQLite. Check:
+- MySQL server is running: `sudo systemctl status mysql`
+- Credentials in `.env` are correct
+- Database exists: `mysql -u root -p -e "SHOW DATABASES;"`
+- User has proper permissions
+- Check error logs in PHP error log
+
+To test MySQL connection:
+```bash
+php -r "new PDO('mysql:host=localhost;dbname=bdta', 'user', 'password');"
+```
+
+#### Database Locked Error (SQLite)
+- Ensure proper file permissions: `chmod 660 backend/bdta.db`
 - Check directory permissions: `chmod 775 backend`
+- Restart PHP server
+- Only one process should write at a time
 
-### Cannot Write to Database
+#### Cannot Write to Database (SQLite)
 - Ensure SQLite extension is enabled: `php -m | grep sqlite`
-- Check file ownership
+- Check file ownership: `ls -la backend/bdta.db`
+- Verify directory is writable
+
+#### Permission Denied
+- Check file permissions: `chmod 660 backend/bdta.db`
+- Check directory permissions: `chmod 775 backend`
+- Ensure web server user has access
+
+#### Tables Not Created
+- Check PHP error log for SQL errors
+- For MySQL: Verify user has CREATE TABLE permission
+- For SQLite: Ensure directory is writable
+
+### How to Switch Between MySQL and SQLite
+
+**To switch to MySQL:**
+1. Create/edit `.env` file
+2. Set `DB_TYPE=mysql`
+3. Configure MySQL credentials
+4. Restart application
+
+**To switch back to SQLite:**
+1. Edit `.env` file
+2. Set `DB_TYPE=sqlite`
+3. Or delete `.env` file entirely
+4. Restart application
+
+**To verify current database:**
+```bash
+php test_database.php
+```
 
 ### Email Not Sending
 - Check PHP `mail()` configuration
@@ -341,6 +454,20 @@ cp bdta_backup_20240115.db bdta.db
 
 ### Calendar Integration Issues
 - See [CALENDAR_INTEGRATION.md](CALENDAR_INTEGRATION.md) for detailed troubleshooting
+
+## Environment Variables Reference
+
+All environment variables are optional. The application works out-of-the-box with SQLite.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_TYPE` | `sqlite` | Database type: `mysql` or `sqlite` |
+| `DB_HOST` | `localhost` | MySQL server hostname |
+| `DB_PORT` | `3306` | MySQL server port |
+| `DB_NAME` | `bdta` | MySQL database name |
+| `DB_USER` | `root` | MySQL username |
+| `DB_PASSWORD` | *(empty)* | MySQL password |
+| `SQLITE_DB_PATH` | `bdta.db` | SQLite database filename (relative to backend/) |
 
 ## License
 
