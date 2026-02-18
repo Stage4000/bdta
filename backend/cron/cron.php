@@ -219,8 +219,9 @@ class CronRunner {
      */
     private function isCronExpression($value) {
         // Cron expressions have 5 parts: minute hour day month weekday
-        // Pattern: */number, number, number-number, number,number, *
-        return preg_match('/^[\d\*,\-\/]+\s+[\d\*,\-\/]+\s+[\d\*,\-\/]+\s+[\d\*,\-\/]+\s+[\d\*,\-\/]+$/', trim($value));
+        // Pattern: each part can contain digits, *, commas, hyphens, or slashes
+        $pattern = '/^(?:[\d\*,\-\/]+\s+){4}[\d\*,\-\/]+$/';
+        return preg_match($pattern, trim($value));
     }
     
     /**
@@ -270,19 +271,6 @@ class CronRunner {
                 // Tomorrow
                 return date('Y-m-d H:i:s', mktime($target_hour, $target_minute, 0, date('n'), date('j') + 1));
             }
-        }
-        
-        // Handle every hour (e.g., 0 * * * *)
-        if (is_numeric($minute) && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
-            $target_minute = intval($minute);
-            $current_minute = intval(date('i'));
-            
-            if ($current_minute < $target_minute) {
-                $next = mktime(intval(date('H')), $target_minute, 0);
-            } else {
-                $next = mktime(intval(date('H')) + 1, $target_minute, 0);
-            }
-            return date('Y-m-d H:i:s', $next);
         }
         
         // Pattern not supported
