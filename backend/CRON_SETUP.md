@@ -191,6 +191,20 @@ tail -f /path/to/logs/cron.log
 
 ## Troubleshooting
 
+### "Task Handler Not Found" Errors
+
+If you see errors like `Task handler not found: /path/to/backend/cron/tasks/reminder.php`:
+
+**This is the most common CRON issue** - it means your `scheduled_tasks` table has incorrect task_type values.
+
+**Quick Fix:**
+```bash
+cd /path/to/backend/cron
+php fix_task_types.php
+```
+
+See [FIX_TASK_HANDLER_ERROR.md](cron/FIX_TASK_HANDLER_ERROR.md) for detailed troubleshooting steps.
+
 ### CRON Job Not Running
 
 1. **Check CRON Service**: Ensure CRON daemon is running
