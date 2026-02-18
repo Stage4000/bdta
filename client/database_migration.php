@@ -101,7 +101,18 @@ include __DIR__ . '/../backend/includes/header.php';
                 </div>
                 <div class="card-body">
                     <p class="card-text">To migrate from SQLite to MySQL:</p>
-                    <ol>
+                    <?php if ($current_db_type === 'sqlite'): ?>
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-bolt"></i> Quick Migration Available!</h6>
+                            <p class="mb-2 small">You're currently using SQLite. Use the button below to automatically migrate all your data to MySQL.</p>
+                            <button class="btn btn-sm btn-success" onclick="performAutoMigration()">
+                                <i class="fas fa-magic"></i> Auto-Migrate to MySQL
+                            </button>
+                        </div>
+                        <hr>
+                    <?php endif; ?>
+                    <p class="small">Manual migration steps:</p>
+                    <ol class="small">
                         <li>Create a MySQL database and user</li>
                         <li>Configure MySQL credentials in <a href="settings.php?category=database">Database Settings</a></li>
                         <li>Export your SQLite data using the button below</li>
@@ -299,6 +310,62 @@ function testConnections() {
                     <p class="mb-0">Error: ${error.message}</p>
                 </div>
             `;
+        });
+}
+</script>
+
+<script>
+// Auto-migration function
+function performAutoMigration() {
+    if (!confirm('This will migrate all data from SQLite to MySQL. Make sure you have configured MySQL settings correctly.\n\nContinue with migration?')) {
+        return;
+    }
+    
+    const btn = event.target;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Migrating...';
+    
+    fetch('database_auto_migrate.php')
+        .then(response => response.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            
+            if (data.success) {
+                let message = `Migration completed successfully!\n\n`;
+                message += `Tables migrated: ${data.migrated_tables}/${data.total_tables}\n`;
+                message += `Total rows migrated: ${data.migrated_rows}\n`;
+                
+                if (data.errors && data.errors.length > 0) {
+                    message += `\nWarnings:\n` + data.errors.join('\n');
+                }
+                
+                alert(message);
+                
+                // Ask if user wants to switch to MySQL now
+                if (confirm('Migration successful! Do you want to switch to MySQL now?\n\n(This will update your database settings and reload the page)')) {
+                    // Update setting to use MySQL
+                    const formData = new FormData();
+                    formData.append('category', 'database');
+                    formData.append('db_type', 'mysql');
+                    formData.append('save_settings', '1');
+                    
+                    fetch('settings.php?category=database', {
+                        method: 'POST',
+                        body: formData
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                }
+            } else {
+                alert('Migration failed: ' + data.error);
+            }
+        })
+        .catch(error => {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            alert('Migration error: ' + error.message);
         });
 }
 </script>
