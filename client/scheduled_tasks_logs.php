@@ -92,7 +92,12 @@ include '../backend/includes/header.php';
                                         <tr class="<?php echo $log['status'] === 'error' ? 'table-danger' : ''; ?>">
                                             <td>
                                                 <small class="text-muted">
-                                                    <?php echo date('M j, Y g:i:s A', strtotime($log['executed_at'])); ?>
+                                                    <?php 
+                                                    // Convert UTC timestamp to local timezone for display
+                                                    $utc_time = new DateTime($log['executed_at'], new DateTimeZone('UTC'));
+                                                    $utc_time->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                                    echo $utc_time->format('M j, Y g:i:s A');
+                                                    ?>
                                                 </small>
                                             </td>
                                             <td>
