@@ -142,16 +142,17 @@ $stmt->execute([$client_id]);
 $total_transactions = $stmt->fetchColumn();
 $total_pages = ceil($total_transactions / $per_page);
 
+// Build LIMIT clause that works with both MySQL and SQLite
+$limit_clause = $db->buildLimitClause($per_page, $offset);
 $stmt = $conn->prepare("
     SELECT ct.*, au.username as admin_username, b.appointment_date
     FROM credit_transactions ct
     LEFT JOIN admin_users au ON ct.created_by = au.id
     LEFT JOIN bookings b ON ct.booking_id = b.id
     WHERE ct.client_id = ?
-    ORDER BY ct.created_at DESC
-    LIMIT ? OFFSET ?
+    ORDER BY ct.created_at DESC" . $limit_clause . "
 ");
-$stmt->execute([$client_id, $per_page, $offset]);
+$stmt->execute([$client_id]);
 $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 require_once '../backend/includes/header.php';

@@ -29,7 +29,12 @@ This is a **complete business management system** combining a public-facing webs
 - **Smooth Animations**: AOS (Animate On Scroll) library integration
 - **SEO Optimized**: Proper meta tags and semantic HTML
 
-### 💼 Complete CRM Backend (PHP + SQLite)
+### 💼 Complete CRM Backend (PHP + MySQL/SQLite)
+- **🔄 Dual Database Support**: MySQL for production, SQLite for development
+- **🔧 Zero-Config Development**: Works out-of-the-box with SQLite
+- **⚡ Production-Ready**: MySQL support with automatic failover to SQLite
+- **📦 Easy Migration**: Simple .env configuration switches databases
+
 - ✅ **Client Management**
   - Comprehensive client profiles with all related data
   - Pet information (multiple pets per client)
@@ -169,17 +174,22 @@ To customize branding colors, update the CSS variables:
 
 - **PHP**: 7.4 or higher
 - **PHP Extensions**:
-  - `sqlite3` (usually included)
-  - `pdo_sqlite` (usually included)
+  - `pdo_sqlite` (for SQLite - usually included)
+  - `pdo_mysql` (for MySQL - usually included)
   - `gd` or `imagick` (for image processing)
   - `mbstring` (for string handling)
   - `openssl` (for secure sessions)
+- **Database**: 
+  - **Development/Testing**: SQLite (no setup required)
+  - **Production (optional)**: MySQL 5.7+ or MariaDB 10.2+
 - **Web Server**: Apache, Nginx, or PHP built-in server
 - **Optional**: Composer (for Stripe and Google Calendar integrations)
 
 ## Installation & Setup
 
 ### Quick Start (Development)
+
+**SQLite is used by default - no database configuration needed!**
 
 1. **Clone the repository**
    ```bash
@@ -202,6 +212,28 @@ To customize branding colors, update the CSS variables:
 4. **Default Admin Credentials**
    - Username: `admin`
    - Password: `admin123`
+
+### Production Setup (MySQL)
+
+For production environments, configure MySQL:
+
+1. **Create MySQL database**
+   ```sql
+   CREATE DATABASE bdta CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'bdta_user'@'localhost' IDENTIFIED BY 'secure_password';
+   GRANT ALL PRIVILEGES ON bdta.* TO 'bdta_user'@'localhost';
+   FLUSH PRIVILEGES;
+   ```
+
+2. **Configure environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your MySQL credentials
+   ```
+
+3. **Tables auto-create on first run**
+
+📖 **See [backend/MYSQL_MIGRATION.md](backend/MYSQL_MIGRATION.md) for detailed setup and migration guide**
    
    ⚠️ **Change immediately after first login!**
 

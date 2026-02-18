@@ -15,25 +15,26 @@ $offset = ($page - 1) * $per_page;
 // Filter by task ID if provided
 $task_id = isset($_GET['task_id']) ? (int)$_GET['task_id'] : null;
 
+// Build LIMIT clause that works with both MySQL and SQLite
+$limit_clause = $db->buildLimitClause($per_page, $offset);
+
 // Get task logs
 if ($task_id) {
     $stmt = $conn->prepare("
         SELECT * FROM task_logs 
         WHERE task_id = ?
-        ORDER BY executed_at DESC 
-        LIMIT ? OFFSET ?
+        ORDER BY executed_at DESC" . $limit_clause . "
     ");
-    $stmt->execute([$task_id, $per_page, $offset]);
+    $stmt->execute([$task_id]);
     
     $count_stmt = $conn->prepare("SELECT COUNT(*) FROM task_logs WHERE task_id = ?");
     $count_stmt->execute([$task_id]);
 } else {
     $stmt = $conn->prepare("
         SELECT * FROM task_logs 
-        ORDER BY executed_at DESC 
-        LIMIT ? OFFSET ?
+        ORDER BY executed_at DESC" . $limit_clause . "
     ");
-    $stmt->execute([$per_page, $offset]);
+    $stmt->execute();
     
     $count_stmt = $conn->query("SELECT COUNT(*) FROM task_logs");
 }
