@@ -68,9 +68,13 @@ try {
     $mysql_conn->exec("CREATE DATABASE IF NOT EXISTS `{$mysql_db}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $mysql_conn->exec("USE `{$mysql_db}`");
     
+    // Disable foreign key checks during migration
+    $mysql_conn->exec("SET FOREIGN_KEY_CHECKS = 0");
+    
     // Step 3: Connect to SQLite
     $sqlite_file = __DIR__ . '/../backend/' . $sqlite_path;
     if (!file_exists($sqlite_file)) {
+        $mysql_conn->exec("SET FOREIGN_KEY_CHECKS = 1");
         echo json_encode(['success' => false, 'error' => 'SQLite database not found']);
         exit;
     }
@@ -86,7 +90,16 @@ try {
     $migrated_rows = 0;
     $errors = [];
     
-    // Step 5: Migrate each table
+    // Step 5: Drop all tables first to avoid foreign key issues
+    foreach ($tables as $table) {
+        try {
+            $mysql_conn->exec("DROP TABLE IF EXISTS `$table`");
+        } catch (Exception $e) {
+            // Ignore errors during drop
+        }
+    }
+    
+    // Step 6: Migrate schema for all tables
     foreach ($tables as $table) {
         try {
             // Get table schema from SQLite
@@ -96,12 +109,16 @@ try {
             if ($create_sql) {
                 // Convert SQLite syntax to MySQL
                 $mysql_sql = convertSQLiteToMySQL($create_sql);
-                
-                // Drop table if exists and recreate
-                $mysql_conn->exec("DROP TABLE IF EXISTS `$table`");
                 $mysql_conn->exec($mysql_sql);
             }
-            
+        } catch (Exception $e) {
+            $errors[] = "Schema for table $table: " . $e->getMessage();
+        }
+    }
+    
+    // Step 7: Migrate data for all tables
+    foreach ($tables as $table) {
+        try {
             // Get data from SQLite
             $data_stmt = $sqlite_conn->query("SELECT * FROM $table");
             $rows = $data_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -124,9 +141,12 @@ try {
             $migrated_tables++;
             
         } catch (Exception $e) {
-            $errors[] = "Table $table: " . $e->getMessage();
+            $errors[] = "Data for table $table: " . $e->getMessage();
         }
     }
+    
+    // Re-enable foreign key checks
+    $mysql_conn->exec("SET FOREIGN_KEY_CHECKS = 1");
     
     echo json_encode([
         'success' => true,

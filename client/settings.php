@@ -78,9 +78,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         $valid_settings = Settings::getCategory($current_category);
         $valid_keys = array_column($valid_settings, 'key');
         
+        // Track database settings for .env update
+        $db_settings_changed = false;
+        $env_updates = [];
+        
         foreach ($_POST as $key => $value) {
             if ($key !== 'save_settings' && $key !== 'category' && in_array($key, $valid_keys)) {
                 Settings::set($key, $value);
+                
+                // Track database settings for .env file
+                if ($current_category === 'database') {
+                    $db_settings_changed = true;
+                    $env_key_map = [
+                        'db_type' => 'DB_TYPE',
+                        'db_host' => 'DB_HOST',
+                        'db_port' => 'DB_PORT',
+                        'db_name' => 'DB_NAME',
+                        'db_user' => 'DB_USER',
+                        'db_password' => 'DB_PASSWORD',
+                        'sqlite_db_path' => 'SQLITE_DB_PATH'
+                    ];
+                    if (isset($env_key_map[$key])) {
+                        $env_updates[$env_key_map[$key]] = $value;
+                    }
+                }
             }
         }
         
@@ -91,11 +112,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             }
         }
         
+        // Update .env file if database settings changed
+        if ($db_settings_changed && !empty($env_updates)) {
+            updateEnvFile($env_updates);
+        }
+        
         setFlashMessage('Settings saved successfully!', 'success');
         redirect(ADMIN_URL . 'settings.php?category=' . $current_category);
     } catch (Exception $e) {
         setFlashMessage('Error saving settings: ' . $e->getMessage(), 'danger');
     }
+}
+
+/**
+ * Update .env file with new values
+ */
+function updateEnvFile($updates) {
+    $env_file = __DIR__ . '/../.env';
+    $env_example = __DIR__ . '/../.env.example';
+    
+    // Create .env from .env.example if it doesn't exist
+    if (!file_exists($env_file) && file_exists($env_example)) {
+        copy($env_example, $env_file);
+    }
+    
+    $lines = [];
+    if (file_exists($env_file)) {
+        $lines = file($env_file, FILE_IGNORE_NEW_LINES);
+    }
+    
+    $updated_keys = [];
+    
+    // Update existing keys
+    foreach ($lines as $i => $line) {
+        // Skip comments and empty lines
+        if (empty(trim($line)) || strpos(trim($line), '#') === 0) {
+            continue;
+        }
+        
+        if (strpos($line, '=') !== false) {
+            list($key, $old_value) = explode('=', $line, 2);
+            $key = trim($key);
+            
+            if (isset($updates[$key])) {
+                $new_value = $updates[$key];
+                // Quote value if it contains spaces or special characters
+                if (preg_match('/[\s#]/', $new_value)) {
+                    $new_value = '"' . addslashes($new_value) . '"';
+                }
+                $lines[$i] = "$key=$new_value";
+                $updated_keys[] = $key;
+            }
+        }
+    }
+    
+    // Add new keys that weren't found
+    foreach ($updates as $key => $value) {
+        if (!in_array($key, $updated_keys)) {
+            // Quote value if needed
+            if (preg_match('/[\s#]/', $value)) {
+                $value = '"' . addslashes($value) . '"';
+            }
+            $lines[] = "$key=$value";
+        }
+    }
+    
+    // Write back to file
+    file_put_contents($env_file, implode("\n", $lines) . "\n");
 }
 
 // Get settings for current category
