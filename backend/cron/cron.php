@@ -175,7 +175,7 @@ class CronRunner {
             
             case 'daily':
                 // Run at specific time (e.g., "09:00")
-                if ($schedule_value) {
+                if ($schedule_value && !$this->isCronExpression($schedule_value)) {
                     $time_parts = explode(':', $schedule_value);
                     $next = strtotime('tomorrow ' . $schedule_value);
                     return date('Y-m-d H:i:s', $next);
@@ -195,10 +195,98 @@ class CronRunner {
                 $minutes = intval($schedule_value) ?: 60;
                 return date('Y-m-d H:i:s', strtotime("+{$minutes} minutes"));
             
+            case 'custom':
+                // Custom schedule using cron expression
+                if ($schedule_value && $this->isCronExpression($schedule_value)) {
+                    $next_run = $this->parseCronExpression($schedule_value);
+                    if ($next_run) {
+                        return $next_run;
+                    }
+                    $this->log("Warning: Unsupported cron expression '{$schedule_value}' for task '{$task['task_name']}'. Defaulting to +15 minutes.");
+                }
+                // Fallback to 15 minutes for custom schedules
+                return date('Y-m-d H:i:s', strtotime('+15 minutes'));
+            
             default:
                 // Default to daily
+                $this->log("Warning: Unknown schedule_type '{$schedule_type}' for task '{$task['task_name']}'. Defaulting to +1 day.");
                 return date('Y-m-d H:i:s', strtotime('+1 day'));
         }
+    }
+    
+    /**
+     * Check if a string is a cron expression
+     */
+    private function isCronExpression($value) {
+        // Cron expressions have 5 parts: minute hour day month weekday
+        // Pattern: */number, number, number-number, number,number, *
+        return preg_match('/^[\d\*,\-\/]+\s+[\d\*,\-\/]+\s+[\d\*,\-\/]+\s+[\d\*,\-\/]+\s+[\d\*,\-\/]+$/', trim($value));
+    }
+    
+    /**
+     * Parse common cron expressions and calculate next run time
+     * Supports basic patterns like every N minutes, hourly, daily, etc.
+     */
+    private function parseCronExpression($cron) {
+        $parts = preg_split('/\s+/', trim($cron));
+        if (count($parts) !== 5) {
+            return null;
+        }
+        
+        list($minute, $hour, $day, $month, $weekday) = $parts;
+        
+        // Handle common interval patterns (e.g., */5 * * * * = every 5 minutes)
+        if (preg_match('/^\*\/(\d+)$/', $minute, $matches) && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
+            $interval = intval($matches[1]);
+            return date('Y-m-d H:i:s', strtotime("+{$interval} minutes"));
+        }
+        
+        // Handle hourly at specific minute (e.g., 15 * * * * = every hour at minute 15)
+        if (is_numeric($minute) && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
+            $current_minute = intval(date('i'));
+            $target_minute = intval($minute);
+            
+            if ($current_minute < $target_minute) {
+                // Later this hour
+                $next = mktime(intval(date('H')), $target_minute, 0);
+            } else {
+                // Next hour
+                $next = mktime(intval(date('H')) + 1, $target_minute, 0);
+            }
+            return date('Y-m-d H:i:s', $next);
+        }
+        
+        // Handle daily at specific time (e.g., 0 9 * * * = daily at 9:00 AM)
+        if (is_numeric($minute) && is_numeric($hour) && $day === '*' && $month === '*' && $weekday === '*') {
+            $target_hour = intval($hour);
+            $target_minute = intval($minute);
+            $current_time = time();
+            $today_run = mktime($target_hour, $target_minute, 0);
+            
+            if ($today_run > $current_time) {
+                // Later today
+                return date('Y-m-d H:i:s', $today_run);
+            } else {
+                // Tomorrow
+                return date('Y-m-d H:i:s', mktime($target_hour, $target_minute, 0, date('n'), date('j') + 1));
+            }
+        }
+        
+        // Handle every hour (e.g., 0 * * * *)
+        if (is_numeric($minute) && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
+            $target_minute = intval($minute);
+            $current_minute = intval(date('i'));
+            
+            if ($current_minute < $target_minute) {
+                $next = mktime(intval(date('H')), $target_minute, 0);
+            } else {
+                $next = mktime(intval(date('H')) + 1, $target_minute, 0);
+            }
+            return date('Y-m-d H:i:s', $next);
+        }
+        
+        // Pattern not supported
+        return null;
     }
     
     /**
