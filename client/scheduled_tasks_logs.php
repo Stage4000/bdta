@@ -94,9 +94,9 @@ include '../backend/includes/header.php';
                                                 <small class="text-muted">
                                                     <?php 
                                                     // Convert UTC timestamp to local timezone for display
-                                                    $utc_time = new DateTime($log['executed_at'], new DateTimeZone('UTC'));
-                                                    $utc_time->setTimezone(new DateTimeZone(date_default_timezone_get()));
-                                                    echo $utc_time->format('M j, Y g:i:s A');
+                                                    $datetime = new DateTime($log['executed_at'], new DateTimeZone('UTC'));
+                                                    $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                                    echo $datetime->format('M j, Y g:i:s A');
                                                     ?>
                                                 </small>
                                             </td>

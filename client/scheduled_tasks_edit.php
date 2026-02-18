@@ -173,9 +173,9 @@ include '../backend/includes/header.php';
                                 <strong>Last Run:</strong><br>
                                 <small class="text-muted">
                                     <?php 
-                                    $utc_time = new DateTime($task['last_run'], new DateTimeZone('UTC'));
-                                    $utc_time->setTimezone(new DateTimeZone(date_default_timezone_get()));
-                                    echo $utc_time->format('M j, Y g:i A');
+                                    $datetime = new DateTime($task['last_run'], new DateTimeZone('UTC'));
+                                    $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                    echo $datetime->format('M j, Y g:i A');
                                     ?>
                                 </small>
                             </div>
@@ -186,9 +186,9 @@ include '../backend/includes/header.php';
                                 <strong>Next Run:</strong><br>
                                 <small class="text-muted">
                                     <?php 
-                                    $utc_time = new DateTime($task['next_run'], new DateTimeZone('UTC'));
-                                    $utc_time->setTimezone(new DateTimeZone(date_default_timezone_get()));
-                                    echo $utc_time->format('M j, Y g:i A');
+                                    $datetime = new DateTime($task['next_run'], new DateTimeZone('UTC'));
+                                    $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                    echo $datetime->format('M j, Y g:i A');
                                     ?>
                                 </small>
                             </div>
