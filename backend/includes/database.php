@@ -927,6 +927,15 @@ class Database {
             ['timezone', 'America/New_York', 'text', 'advanced', 'Timezone', 'Your local timezone', 0],
             ['date_format', 'Y-m-d', 'text', 'advanced', 'Date Format', 'PHP date format string', 0],
             ['time_format', 'H:i', 'text', 'advanced', 'Time Format', 'PHP time format string', 0],
+            
+            // Database Settings
+            ['db_type', 'sqlite', 'select', 'database', 'Database Type', 'Database backend: mysql or sqlite', 0],
+            ['db_host', 'localhost', 'text', 'database', 'MySQL Host', 'MySQL server hostname (only for MySQL)', 0],
+            ['db_port', '3306', 'number', 'database', 'MySQL Port', 'MySQL server port (only for MySQL)', 0],
+            ['db_name', 'bdta', 'text', 'database', 'MySQL Database', 'MySQL database name (only for MySQL)', 0],
+            ['db_user', 'root', 'text', 'database', 'MySQL Username', 'MySQL username (only for MySQL)', 0],
+            ['db_password', '', 'password', 'database', 'MySQL Password', 'MySQL password (only for MySQL)', 1],
+            ['sqlite_db_path', 'bdta.db', 'text', 'database', 'SQLite Database Path', 'SQLite database filename relative to backend/ (only for SQLite)', 0],
         ];
         
         $stmt = $this->conn->prepare("

@@ -19,6 +19,7 @@ function getCategoryIcon($category) {
         'invoice' => 'file-invoice',
         'time_tracking' => 'clock',
         'social' => 'share-nodes',
+        'database' => 'database',
         'advanced' => 'gear'
     ];
     return $icons[$category] ?? 'gear';
@@ -54,6 +55,10 @@ function getSelectOptions($key) {
             '10' => '10 minutes',
             '15' => '15 minutes',
             '30' => '30 minutes'
+        ],
+        'db_type' => [
+            'sqlite' => 'SQLite (Development/Testing)',
+            'mysql' => 'MySQL (Production)'
         ]
     ];
     
@@ -169,6 +174,17 @@ include __DIR__ . '/../backend/includes/header.php';
                     </h5>
                 </div>
                 <div class="card-body">
+                    <?php if ($current_category === 'database'): ?>
+                        <!-- Database Category Special Section -->
+                        <div class="alert alert-info mb-4">
+                            <h6><i class="fas fa-circle-info"></i> Database Configuration</h6>
+                            <p class="mb-0 small">
+                                Configure your database backend. The system supports MySQL for production and SQLite for development.
+                                Changes to database settings require restarting your web server to take effect.
+                            </p>
+                        </div>
+                    <?php endif; ?>
+                    
                     <form method="POST" action="">
                         <input type="hidden" name="category" value="<?= escape($current_category) ?>">
                         
@@ -235,6 +251,29 @@ include __DIR__ . '/../backend/includes/header.php';
                             </button>
                         </div>
                     </form>
+                    
+                    <?php if ($current_category === 'database'): ?>
+                        <!-- Database Migration Tool -->
+                        <hr class="my-4">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-arrow-right-arrow-left"></i> Database Migration Tool
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">
+                                    Use this tool to migrate data from SQLite to MySQL or vice versa when updating existing installations.
+                                </p>
+                                <a href="database_migration.php" class="btn btn-warning">
+                                    <i class="fas fa-database"></i> Open Migration Tool
+                                </a>
+                                <a href="<?= ADMIN_URL ?>../backend/MYSQL_MIGRATION.md" target="_blank" class="btn btn-outline-secondary">
+                                    <i class="fas fa-book"></i> Migration Guide
+                                </a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
