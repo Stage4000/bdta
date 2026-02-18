@@ -26,90 +26,27 @@ class Database {
     }
     
     private function loadConfig() {
-        // First, try to load from database settings if available
-        // This allows runtime configuration changes without modifying .env
-        $settings_loaded = $this->loadFromSettings();
+        // Load database configuration from environment variables only
+        // This avoids circular dependency of storing database config in the database
+        $env_db_type = EnvLoader::get('DB_TYPE', 'sqlite');
         
-        // If settings not loaded (database not initialized yet), fall back to env
-        if (!$settings_loaded) {
-            // Get database type from environment (default to sqlite)
-            $env_db_type = EnvLoader::get('DB_TYPE', 'sqlite');
-            
-            // MySQL configuration
-            $this->db_host = EnvLoader::get('DB_HOST', 'localhost');
-            $this->db_port = EnvLoader::get('DB_PORT', '3306');
-            $this->db_name = EnvLoader::get('DB_NAME', 'bdta');
-            $this->db_user = EnvLoader::get('DB_USER', 'root');
-            $this->db_password = EnvLoader::get('DB_PASSWORD', '');
-            
-            // SQLite configuration
-            $sqlite_path = EnvLoader::get('SQLITE_DB_PATH', 'bdta.db');
-            $this->db_file = __DIR__ . '/../' . $sqlite_path;
-            
-            // Determine which database to use
-            // Try MySQL first if configured, fallback to SQLite
-            if ($env_db_type === 'mysql' && $this->isMySQLConfigured()) {
-                $this->db_type = 'mysql';
-            } else {
-                $this->db_type = 'sqlite';
-            }
-        }
-    }
-    
-    private function loadFromSettings() {
-        // Try to connect to SQLite to read settings
-        // This is called before the main connection is established
-        try {
-            $sqlite_path = EnvLoader::get('SQLITE_DB_PATH', 'bdta.db');
-            $settings_db_file = __DIR__ . '/../' . $sqlite_path;
-            
-            if (!file_exists($settings_db_file)) {
-                return false;
-            }
-            
-            $temp_conn = new PDO('sqlite:' . $settings_db_file);
-            $temp_conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            
-            // Check if settings table exists
-            $stmt = $temp_conn->query("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'");
-            if (!$stmt->fetch()) {
-                return false;
-            }
-            
-            // Load database settings
-            $stmt = $temp_conn->prepare("SELECT setting_key, setting_value FROM settings WHERE category = 'database'");
-            $stmt->execute();
-            $settings = [];
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $settings[$row['setting_key']] = $row['setting_value'];
-            }
-            
-            if (empty($settings)) {
-                return false;
-            }
-            
-            // Apply settings
-            $db_type = $settings['db_type'] ?? 'sqlite';
-            $this->db_host = $settings['db_host'] ?? 'localhost';
-            $this->db_port = $settings['db_port'] ?? '3306';
-            $this->db_name = $settings['db_name'] ?? 'bdta';
-            $this->db_user = $settings['db_user'] ?? 'root';
-            $this->db_password = $settings['db_password'] ?? '';
-            $sqlite_path = $settings['sqlite_db_path'] ?? 'bdta.db';
-            $this->db_file = __DIR__ . '/../' . $sqlite_path;
-            
-            // Determine which database to use based on settings
-            if ($db_type === 'mysql' && $this->isMySQLConfigured()) {
-                $this->db_type = 'mysql';
-            } else {
-                $this->db_type = 'sqlite';
-            }
-            
-            return true;
-            
-        } catch (Exception $e) {
-            // If we can't read settings, return false to use env fallback
-            return false;
+        // MySQL configuration
+        $this->db_host = EnvLoader::get('DB_HOST', 'localhost');
+        $this->db_port = EnvLoader::get('DB_PORT', '3306');
+        $this->db_name = EnvLoader::get('DB_NAME', 'bdta');
+        $this->db_user = EnvLoader::get('DB_USER', 'root');
+        $this->db_password = EnvLoader::get('DB_PASSWORD', '');
+        
+        // SQLite configuration
+        $sqlite_path = EnvLoader::get('SQLITE_DB_PATH', 'bdta.db');
+        $this->db_file = __DIR__ . '/../' . $sqlite_path;
+        
+        // Determine which database to use
+        // Try MySQL first if configured, fallback to SQLite
+        if ($env_db_type === 'mysql' && $this->isMySQLConfigured()) {
+            $this->db_type = 'mysql';
+        } else {
+            $this->db_type = 'sqlite';
         }
     }
     
