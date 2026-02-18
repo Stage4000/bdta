@@ -2,8 +2,8 @@
 /**
  * Email Task Handler (Legacy/Generic)
  * 
- * This is a compatibility handler for tasks with the generic 'email' task_type.
- * It delegates to ScheduledEmailSenderTask for backward compatibility.
+ * This handler supports the generic 'email' task_type for backward compatibility.
+ * It delegates execution to ScheduledEmailSenderTask.
  * 
  * Note: New tasks should use specific task types:
  * - 'scheduled_email_sender' for sending scheduled emails
