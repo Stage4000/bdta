@@ -204,27 +204,103 @@ include __DIR__ . '/../backend/includes/header.php';
 
 <!-- Test Connection Modal -->
 <div class="modal fade" id="testConnectionModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="fas fa-plug"></i> Test Database Connection</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-info">
-                    <h6><i class="fas fa-circle-check"></i> Connection Successful</h6>
-                    <p class="mb-0">Currently connected to: <strong><?= strtoupper($current_db_type) ?></strong></p>
-                    <p class="mb-0">Tables: <?= $table_count ?></p>
+                <div id="connectionTestResults">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Testing connections...</span>
+                        </div>
+                        <p class="mt-2">Testing database connections...</p>
+                    </div>
                 </div>
-                <p class="text-muted small">
-                    To test a different database configuration, update your settings first, then restart your web server.
-                </p>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="testConnections()">
+                    <i class="fas fa-rotate"></i> Retest
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// Test connections when modal is opened
+document.getElementById('testConnectionModal').addEventListener('show.bs.modal', function () {
+    testConnections();
+});
+
+function testConnections() {
+    const resultsDiv = document.getElementById('connectionTestResults');
+    resultsDiv.innerHTML = `
+        <div class="text-center py-3">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Testing connections...</span>
+            </div>
+            <p class="mt-2">Testing database connections...</p>
+        </div>
+    `;
+    
+    fetch('database_test_connection.php')
+        .then(response => response.json())
+        .then(data => {
+            let html = '';
+            
+            data.tests.forEach(test => {
+                const badgeClass = test.status === 'success' ? 'success' : 
+                                  test.status === 'error' ? 'danger' : 'warning';
+                const iconClass = test.status === 'success' ? 'circle-check' : 
+                                 test.status === 'error' ? 'circle-xmark' : 'triangle-exclamation';
+                
+                html += `
+                    <div class="alert alert-${badgeClass === 'success' ? 'success' : badgeClass === 'danger' ? 'danger' : 'warning'} mb-3">
+                        <h6>
+                            <i class="fas fa-${iconClass}"></i> 
+                            ${test.type.toUpperCase()}
+                            ${test.details.active ? '<span class="badge bg-primary ms-2">Active</span>' : ''}
+                        </h6>
+                        <p class="mb-1"><strong>${test.message}</strong></p>
+                `;
+                
+                if (test.details.host) {
+                    html += `<p class="mb-0 small">Host: ${test.details.host}</p>`;
+                }
+                if (test.details.database) {
+                    html += `<p class="mb-0 small">Database: ${test.details.database}</p>`;
+                }
+                if (test.details.file) {
+                    html += `<p class="mb-0 small">File: ${test.details.file}</p>`;
+                }
+                if (test.details.tables !== undefined) {
+                    html += `<p class="mb-0 small">Tables: ${test.details.tables}</p>`;
+                }
+                if (test.details.error) {
+                    html += `<p class="mb-0 small text-danger">Error: ${test.details.error}</p>`;
+                }
+                if (test.details.note) {
+                    html += `<p class="mb-0 small fst-italic">${test.details.note}</p>`;
+                }
+                
+                html += `</div>`;
+            });
+            
+            resultsDiv.innerHTML = html;
+        })
+        .catch(error => {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-circle-xmark"></i> Test Failed</h6>
+                    <p class="mb-0">Error: ${error.message}</p>
+                </div>
+            `;
+        });
+}
+</script>
 
 <?php include __DIR__ . '/../backend/includes/footer.php'; ?>
