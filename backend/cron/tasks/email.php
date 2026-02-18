@@ -28,9 +28,8 @@ class EmailTask {
         $task_name_lower = strtolower($this->task['task_name'] ?? '');
         
         // Check if this is an IMAP/receive emails task
-        if (strpos($task_name_lower, 'receive') !== false || 
-            strpos($task_name_lower, 'imap') !== false ||
-            strpos($task_name_lower, 'fetch') !== false) {
+        // Use word boundary matching to avoid false positives (e.g., "receipts" matching "receive")
+        if (preg_match('/\b(receive|imap|fetch)\b/', $task_name_lower)) {
             // Delegate to EmailReceiverTask
             require_once __DIR__ . '/email_receiver.php';
             $handler = new EmailReceiverTask($this->conn, $this->task);
