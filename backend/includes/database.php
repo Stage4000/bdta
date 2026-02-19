@@ -1285,6 +1285,114 @@ class Database {
             // Index might already exist, ignore
         }
         
+        // Add Field Rental support to appointment_types table
+        if (!in_array('is_field_rental', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN is_field_rental INTEGER DEFAULT 0");
+            $this->execSQL("UPDATE appointment_types SET is_field_rental = 0 WHERE is_field_rental IS NULL");
+        }
+        
+        if (!in_array('field_rental_location', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN field_rental_location TEXT");
+        }
+        
+        // Create packages table (bundle definitions)
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS packages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                price REAL DEFAULT 0,
+                expiration_days INTEGER,
+                is_active INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+        
+        // Create package_items table (per session-type allocations within a package)
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS package_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                package_id INTEGER NOT NULL,
+                session_type TEXT NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
+            )
+        ");
+        
+        // Create client_packages table (client purchases of packages)
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS client_packages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL,
+                package_id INTEGER NOT NULL,
+                package_name TEXT NOT NULL,
+                purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP,
+                is_active INTEGER DEFAULT 1,
+                notes TEXT,
+                created_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE RESTRICT,
+                FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+            )
+        ");
+        
+        // Create client_package_credits table (per-type credit tracking per purchased package)
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS client_package_credits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_package_id INTEGER NOT NULL,
+                client_id INTEGER NOT NULL,
+                session_type TEXT NOT NULL,
+                total_credits INTEGER NOT NULL DEFAULT 0,
+                used_credits INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_package_id) REFERENCES client_packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+            )
+        ");
+        
+        // Create package_credit_transactions table (audit trail for package credit usage)
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS package_credit_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_package_credit_id INTEGER NOT NULL,
+                client_id INTEGER NOT NULL,
+                session_type TEXT NOT NULL,
+                transaction_type TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                booking_id INTEGER,
+                notes TEXT,
+                created_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_package_credit_id) REFERENCES client_package_credits(id) ON DELETE CASCADE,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
+                FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+            )
+        ");
+        
+        try {
+            $this->execSQL("CREATE INDEX idx_client_package_credits_client ON client_package_credits(client_id)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
+        }
+        
+        try {
+            $this->execSQL("CREATE INDEX idx_client_packages_client ON client_packages(client_id)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
+        }
+        
+        // Add package_credit_id to bookings for tracking which package credit was consumed
+        $booking_column_names_pkg = $this->getTableColumns('bookings');
+        if (!in_array('package_credit_id', $booking_column_names_pkg)) {
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN package_credit_id INTEGER");
+        }
+        
         // Add database settings for existing installations
         $this->addDatabaseSettings();
     }

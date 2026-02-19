@@ -150,6 +150,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'packages') !== false ? 'active' : ''; ?>" href="packages_list.php">
+                                <i class="fas fa-box-open me-2"></i> Packages
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'form_templates') !== false ? 'active' : ''; ?>" href="form_templates_list.php">
                                 <i class="fas fa-file-lines me-2"></i> Form Templates
                             </a>

@@ -155,6 +155,29 @@ $stmt = $conn->prepare("
 $stmt->execute([$client_id]);
 $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch package credits summary for this client
+$stmt = $conn->prepare("
+    SELECT cpc.session_type,
+           SUM(cpc.total_credits) AS total,
+           SUM(cpc.used_credits)  AS used,
+           SUM(cpc.total_credits - cpc.used_credits) AS remaining
+    FROM client_package_credits cpc
+    JOIN client_packages cp ON cpc.client_package_id = cp.id
+    WHERE cpc.client_id = ?
+      AND cp.is_active = 1
+      AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+    GROUP BY cpc.session_type
+");
+$stmt->execute([$client_id]);
+$pkg_credit_summary = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$session_type_labels = [
+    'group'        => ['label' => 'Group Class',     'badge' => 'secondary', 'icon' => 'fas fa-users'],
+    'mini'         => ['label' => 'Mini Session',    'badge' => 'info',      'icon' => 'fas fa-stopwatch'],
+    'private'      => ['label' => 'Private Session', 'badge' => 'primary',   'icon' => 'fas fa-user'],
+    'field_rental' => ['label' => 'Field Rental',    'badge' => 'warning',   'icon' => 'fas fa-tree'],
+];
+
 require_once '../backend/includes/header.php';
 ?>
 
@@ -168,6 +191,9 @@ require_once '../backend/includes/header.php';
                         Client: <strong><?php echo htmlspecialchars($client['name']); ?></strong>
                         <a href="clients_edit.php?id=<?php echo $client_id; ?>" class="btn btn-sm btn-outline-primary ms-2">
                             <i class="fas fa-arrow-left"></i> Back to Client
+                        </a>
+                        <a href="client_packages_manage.php?client_id=<?php echo $client_id; ?>" class="btn btn-sm btn-outline-success ms-2">
+                            <i class="fas fa-box-open"></i> Manage Packages
                         </a>
                     </p>
                 </div>
@@ -282,6 +308,43 @@ require_once '../backend/includes/header.php';
                     </form>
                 </div>
             </div>
+
+            <!-- Package Credits Breakdown -->
+            <?php if (!empty($pkg_credit_summary)): ?>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-box-open me-2"></i>Package Credits (Active)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <?php foreach ($pkg_credit_summary as $row): ?>
+                            <?php $meta = $session_type_labels[$row['session_type']] ?? ['label' => ucfirst($row['session_type']), 'badge' => 'secondary', 'icon' => 'fas fa-circle']; ?>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card text-center h-100 border-<?= $meta['badge'] ?>">
+                                    <div class="card-body">
+                                        <i class="<?= $meta['icon'] ?> fa-2x mb-2 text-muted"></i>
+                                        <h6><?= $meta['label'] ?></h6>
+                                        <div class="display-6 fw-bold <?= $row['remaining'] > 0 ? 'text-success' : 'text-danger' ?>">
+                                            <?= $row['remaining'] ?>
+                                        </div>
+                                        <small class="text-muted">of <?= $row['total'] ?> remaining</small>
+                                        <?php if ($row['total'] > 0): ?>
+                                            <div class="progress mt-2" style="height:6px;">
+                                                <div class="progress-bar bg-<?= $meta['badge'] ?>"
+                                                     style="width:<?= round(($row['used'] / $row['total']) * 100) ?>%"></div>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <a href="client_packages_manage.php?client_id=<?= $client_id ?>" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-box-open"></i> View All Packages &amp; Details
+                    </a>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <!-- Transaction History -->
             <div class="card">

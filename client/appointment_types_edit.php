@@ -62,6 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mini_session_location = $is_mini_session ? ($_POST['mini_session_location'] ?? '') : null;
     $mini_session_topic = $is_mini_session ? ($_POST['mini_session_topic'] ?? '') : null;
     
+    // Handle Field Rental configuration
+    $is_field_rental = isset($_POST['is_field_rental']) ? 1 : 0;
+    $field_rental_location = $is_field_rental ? ($_POST['field_rental_location'] ?? '') : null;
+    
     // Handle schedule type and specific date
     $schedule_type = $_POST['schedule_type'] ?? 'recurring';
     $specific_date = null;
@@ -109,6 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_mini_session = ?,
                     mini_session_location = ?,
                     mini_session_topic = ?,
+                    is_field_rental = ?,
+                    field_rental_location = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -125,6 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $schedule_type, $specific_date,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
+                $is_field_rental, $field_rental_location,
                 $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
@@ -150,8 +157,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_active, unique_link,
                     schedule_type, specific_date,
                     available_days, available_start_time, available_end_time, time_slot_interval,
-                    is_mini_session, mini_session_location, mini_session_topic
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_mini_session, mini_session_location, mini_session_topic,
+                    is_field_rental, field_rental_location
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -165,7 +173,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_active, $unique_link,
                 $schedule_type, $specific_date,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
-                $is_mini_session, $mini_session_location, $mini_session_topic
+                $is_mini_session, $mini_session_location, $mini_session_topic,
+                $is_field_rental, $field_rental_location
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
         }
@@ -558,6 +567,41 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
 
+                <h6 class="border-bottom pb-2 mb-3">Field Rentals</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="is_field_rental" name="is_field_rental"
+                                   <?= !empty($type['is_field_rental']) ? 'checked' : '' ?>
+                                   onchange="toggleFieldRentalFields()">
+                            <label class="form-check-label" for="is_field_rental">
+                                <strong>This is a Field Rental</strong>
+                            </label>
+                            <div class="form-text">Enable for appointments where clients rent a training field or outdoor space</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="field_rental_fields" style="display: <?= !empty($type['is_field_rental']) ? 'block' : 'none' ?>;">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <label for="field_rental_location" class="form-label">Field Location <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="field_rental_location" name="field_rental_location" 
+                                   value="<?= htmlspecialchars($type['field_rental_location'] ?? '') ?>"
+                                   placeholder="e.g., Brooks Training Field - 456 Park Ave, City, State ZIP">
+                            <div class="form-text">Address or description of the rental field.</div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> <strong>Field Rental Setup:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Set the duration for each rental block (e.g., 60 minutes)</li>
+                            <li>Use the availability configuration above to define open rental slots</li>
+                            <li>Field rental credits in bundled packages apply exclusively to this appointment type</li>
+                        </ul>
+                    </div>
+                </div>
+
                 <h6 class="border-bottom pb-2 mb-3">Status</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
@@ -626,6 +670,21 @@ function toggleMiniSessionFields() {
     }
 }
 
+// Toggle Field Rental fields
+function toggleFieldRentalFields() {
+    const checkbox = document.getElementById('is_field_rental');
+    const fieldsSection = document.getElementById('field_rental_fields');
+    const locationInput = document.getElementById('field_rental_location');
+    
+    if (checkbox.checked) {
+        fieldsSection.style.display = 'block';
+        locationInput.setAttribute('required', 'required');
+    } else {
+        fieldsSection.style.display = 'none';
+        locationInput.removeAttribute('required');
+    }
+}
+
 // Copy booking link to clipboard
 function copyBookingLink(event) {
     const linkInput = document.getElementById('booking-link');
@@ -656,6 +715,7 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleTravelTime();
     toggleScheduleType();
     updateAvailabilityPreview();
+    toggleFieldRentalFields();
     
     // Add event listeners for availability fields
     document.getElementById('available_start_time').addEventListener('change', updateAvailabilityPreview);

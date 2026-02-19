@@ -164,6 +164,11 @@ include __DIR__ . '/../backend/includes/header.php';
                                                     <i class="fas fa-location-dot"></i> Mini Sessions
                                                 </span>
                                             <?php endif; ?>
+                                            <?php if (!empty($type['is_field_rental'])): ?>
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-tree"></i> Field Rental
+                                                </span>
+                                            <?php endif; ?>
                                         </small>
                                     </td>
                                     <td>
