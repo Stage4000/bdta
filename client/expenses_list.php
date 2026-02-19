@@ -88,7 +88,7 @@ include '../backend/includes/header.php';
                             </td></tr>
                         <?php else: foreach ($expenses as $expense): ?>
                             <tr>
-                                <td><?= formatDate($expense['expense_date']) ?></td>
+                                <td><span data-server-time="<?= escape($expense['expense_date']) ?>" data-time-format="date"></span></td>
                                 <td><?= escape($expense['category']) ?></td>
                                 <td><?= escape($expense['description']) ?></td>
                                 <td><?= escape($expense['client_name'] ?? 'General') ?></td>

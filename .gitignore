@@ -47,3 +47,4 @@ package-lock.json
 
 # Temporary files
 tmp/
+test-timezone.html

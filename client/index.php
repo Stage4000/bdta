@@ -67,8 +67,8 @@ require_once '../backend/includes/header.php';
                                 <td><?php echo $booking['id']; ?></td>
                                 <td><?php echo escape($booking['client_name']); ?></td>
                                 <td><?php echo escape($booking['service_type']); ?></td>
-                                <td><?php echo escape($booking['appointment_date']); ?></td>
-                                <td><?php echo escape($booking['appointment_time']); ?></td>
+                                <td><span data-server-time="<?php echo escape($booking['appointment_date']); ?>" data-time-format="date"></span></td>
+                                <td><span data-server-time="<?php echo escape($booking['appointment_time']); ?>" data-server-date="<?php echo escape($booking['appointment_date']); ?>" data-time-format="time"></span></td>
                                 <td>
                                     <span class="badge bg-<?php echo $booking['status'] === 'pending' ? 'warning' : ($booking['status'] === 'confirmed' ? 'success' : 'secondary'); ?>">
                                         <?php echo escape($booking['status']); ?>

@@ -44,7 +44,7 @@ require_once '../backend/includes/header.php';
                                         <?php echo $post['published'] ? 'Published' : 'Draft'; ?>
                                     </span>
                                 </td>
-                                <td><?php echo date('Y-m-d', strtotime($post['created_at'])); ?></td>
+                                <td><span data-server-time="<?php echo escape($post['created_at']); ?>" data-time-format="date"></span></td>
                                 <td>
                                     <a href="blog_edit.php?id=<?php echo $post['id']; ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-pencil"></i>
