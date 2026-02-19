@@ -59,13 +59,54 @@
         
         const [, year, month, day, hour, minute, second] = parts;
         
-        // Create a date string in ISO format with timezone offset
-        // We'll use a workaround since JavaScript doesn't natively support timezone conversion
-        // For simplicity, we'll calculate the offset between server timezone and UTC
+        // Create an ISO 8601 string that specifies this is in the server timezone
+        // For America/New_York, we'll use a manual offset calculation
+        // This is a simplified approach that works for most cases
         
-        // Eastern Time offset: -5 hours (EST) or -4 hours (EDT)
-        // For now, we'll use a simplified approach
-        const localDate = new Date(year, month - 1, day, hour, minute, second);
+        // Create the datetime string in ISO format
+        // We interpret the server time as being in Eastern Time
+        // To convert properly, we create a date string that the browser will interpret correctly
+        const isoString = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+        
+        // Create a date by parsing the ISO string (this will interpret it as local time)
+        const tempDate = new Date(isoString);
+        
+        // Get the timezone offset for Eastern Time at this date
+        // We need to account for DST: EST is UTC-5, EDT is UTC-4
+        // Use Intl.DateTimeFormat to determine if DST is in effect
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/New_York',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+        
+        // Format a known date/time to get the offset
+        const etDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 
+                                         parseInt(hour), parseInt(minute), parseInt(second)));
+        const etParts = formatter.formatToParts(etDate);
+        
+        // Extract formatted values
+        const etYear = etParts.find(p => p.type === 'year').value;
+        const etMonth = etParts.find(p => p.type === 'month').value;
+        const etDay = etParts.find(p => p.type === 'day').value;
+        const etHour = etParts.find(p => p.type === 'hour').value;
+        const etMinute = etParts.find(p => p.type === 'minute').value;
+        const etSecond = etParts.find(p => p.type === 'second').value;
+        
+        // Calculate offset by comparing UTC time to formatted ET time
+        const utcMs = etDate.getTime();
+        const etMs = new Date(etYear, etMonth - 1, etDay, etHour, etMinute, etSecond).getTime();
+        const offsetMs = utcMs - etMs;
+        
+        // Now create the correct local date
+        // Parse the server time as if it's in ET, then adjust to local
+        const serverMs = new Date(year, month - 1, day, hour, minute, second).getTime();
+        const localDate = new Date(serverMs - offsetMs);
         
         return localDate;
     }
@@ -144,6 +185,37 @@
     }
     
     /**
+     * Determine the format to use for displaying a time
+     * @param {string} serverTime - Server time string
+     * @param {string} serverDate - Optional separate date string
+     * @param {string} explicitFormat - Explicitly requested format
+     * @returns {string} - Format to use
+     */
+    function determineFormat(serverTime, serverDate, explicitFormat) {
+        if (explicitFormat) {
+            return explicitFormat;
+        }
+        
+        // If there's a separate date, it's a time-only display
+        if (serverDate) {
+            return 'time';
+        }
+        
+        // If serverTime contains a space, it's a full datetime
+        if (serverTime.includes(' ')) {
+            return 'full';
+        }
+        
+        // If it matches date pattern, it's date-only
+        if (serverTime.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return 'date';
+        }
+        
+        // Otherwise treat as time-only
+        return 'time';
+    }
+    
+    /**
      * Process all elements with data-server-time attribute
      */
     function convertAllTimes() {
@@ -154,8 +226,8 @@
             const serverTime = element.getAttribute('data-server-time');
             const serverDate = element.getAttribute('data-server-date');
             const serverTimezone = element.getAttribute('data-server-timezone');
-            const format = element.getAttribute('data-time-format') || 
-                          (serverDate || !serverTime.includes(' ') ? 'time' : 'full');
+            const explicitFormat = element.getAttribute('data-time-format');
+            const format = determineFormat(serverTime, serverDate, explicitFormat);
             
             if (!serverTime) return;
             
@@ -167,8 +239,8 @@
             // Update element content
             element.textContent = formattedTime;
             
-            // Add timezone indicator if not present
-            if (userTz && !element.querySelector('.timezone-indicator')) {
+            // Add timezone indicator if not present and format includes time
+            if (userTz && !element.querySelector('.timezone-indicator') && format !== 'date') {
                 const tzIndicator = document.createElement('small');
                 tzIndicator.className = 'timezone-indicator text-muted ms-1';
                 tzIndicator.textContent = userTz;
@@ -176,7 +248,7 @@
             }
             
             // Add title with original time
-            element.setAttribute('title', 'Server time: ' + serverTime + ' (ET)');
+            element.setAttribute('title', 'Server time (America/New_York): ' + serverTime);
         });
     }
     
@@ -190,8 +262,8 @@
         const serverTime = element.getAttribute('data-server-time');
         const serverDate = element.getAttribute('data-server-date');
         const serverTimezone = element.getAttribute('data-server-timezone');
-        const format = element.getAttribute('data-time-format') || 
-                      (serverDate || !serverTime.includes(' ') ? 'time' : 'full');
+        const explicitFormat = element.getAttribute('data-time-format');
+        const format = determineFormat(serverTime, serverDate, explicitFormat);
         
         const localDate = convertToLocalTime(serverTime, serverDate, serverTimezone);
         if (!localDate) return;
@@ -200,14 +272,14 @@
         element.textContent = formattedTime;
         
         const userTz = getUserTimezone();
-        if (userTz && !element.querySelector('.timezone-indicator')) {
+        if (userTz && !element.querySelector('.timezone-indicator') && format !== 'date') {
             const tzIndicator = document.createElement('small');
             tzIndicator.className = 'timezone-indicator text-muted ms-1';
             tzIndicator.textContent = userTz;
             element.appendChild(tzIndicator);
         }
         
-        element.setAttribute('title', 'Server time: ' + serverTime + ' (ET)');
+        element.setAttribute('title', 'Server time (America/New_York): ' + serverTime);
     }
     
     // Auto-initialize on DOM ready
