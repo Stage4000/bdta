@@ -5,6 +5,46 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
+// Helper: derive session_type string from appointment_type row
+function getSessionType(array $apt): string {
+    if (!empty($apt['is_group_class']))   return 'group';
+    if (!empty($apt['is_mini_session']))  return 'mini';
+    if (!empty($apt['is_field_rental']))  return 'field_rental';
+    return 'private';
+}
+
+// AJAX: get eligible package credits for a client + appointment type
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'credits') {
+    $client_id  = (int)($_GET['client_id']  ?? 0);
+    $type_id    = (int)($_GET['type_id']    ?? 0);
+    $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE id = ?");
+    $stmt->execute([$type_id]);
+    $at = $stmt->fetch(PDO::FETCH_ASSOC);
+    $result = [];
+    if ($at && $client_id) {
+        $session_type = getSessionType($at);
+        // Fetch active, non-expired package credits with remaining balance
+        $stmt = $conn->prepare("
+            SELECT cpc.id, cpc.client_package_id, cpc.session_type,
+                   (cpc.total_credits - cpc.used_credits) AS remaining,
+                   cp.package_name, cp.expires_at
+            FROM client_package_credits cpc
+            JOIN client_packages cp ON cpc.client_package_id = cp.id
+            WHERE cpc.client_id = ?
+              AND cpc.session_type = ?
+              AND cp.is_active = 1
+              AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+              AND (cpc.total_credits - cpc.used_credits) > 0
+            ORDER BY cp.expires_at ASC, cp.purchased_at ASC
+        ");
+        $stmt->execute([$client_id, $session_type]);
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    header('Content-Type: application/json');
+    echo json_encode($result);
+    exit;
+}
+
 // Get clients for dropdown
 $stmt = $conn->query("SELECT id, name, email FROM clients ORDER BY name");
 $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -24,6 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $override_forms = isset($_POST['override_forms']) ? 1 : 0;
     $override_contract = isset($_POST['override_contract']) ? 1 : 0;
     $override_credits = isset($_POST['override_credits']) ? 1 : 0;
+    // Package credit row ID selected by admin (0 = use legacy credits)
+    $package_credit_id = (int)($_POST['package_credit_id'] ?? 0);
     
     try {
         // Get appointment type details
@@ -49,7 +91,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Check required forms
         if ($apt_type['requires_forms'] && !$override_forms) {
-            // Check if client has submitted required forms
             $stmt = $conn->prepare("SELECT COUNT(*) FROM form_submissions WHERE client_id = ? AND status = 'submitted'");
             $stmt->execute([$client_id]);
             $forms_count = $stmt->fetchColumn();
@@ -68,16 +109,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        // Check credits
+        // Resolve which credit source to use
+        $use_package_credit  = false;
+        $package_credit_row  = null;
+        $credit_balance      = 0;
+
         if ($apt_type['consumes_credits'] && !$override_credits) {
-            $stmt = $conn->prepare("SELECT credit_balance FROM client_credits WHERE client_id = ?");
-            $stmt->execute([$client_id]);
-            $credit_balance = $stmt->fetchColumn();
-            if ($credit_balance === false) {
-                $credit_balance = 0;
-            }
-            if ($credit_balance < $apt_type['credit_count']) {
-                $errors[] = "Insufficient credits (need {$apt_type['credit_count']}, have $credit_balance) - override to proceed";
+            if ($package_credit_id > 0) {
+                // Validate the selected package credit
+                $session_type = getSessionType($apt_type);
+                $stmt = $conn->prepare("
+                    SELECT cpc.* FROM client_package_credits cpc
+                    JOIN client_packages cp ON cpc.client_package_id = cp.id
+                    WHERE cpc.id = ? AND cpc.client_id = ?
+                      AND cpc.session_type = ?
+                      AND cp.is_active = 1
+                      AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+                ");
+                $stmt->execute([$package_credit_id, $client_id, $session_type]);
+                $package_credit_row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$package_credit_row) {
+                    $errors[] = "Selected package credit is not valid for this appointment type.";
+                } elseif (($package_credit_row['total_credits'] - $package_credit_row['used_credits']) < 1) {
+                    $errors[] = "Selected package credit has no remaining balance.";
+                } else {
+                    $use_package_credit = true;
+                }
+            } else {
+                // Fall back to legacy client_credits
+                $stmt = $conn->prepare("SELECT credit_balance FROM client_credits WHERE client_id = ?");
+                $stmt->execute([$client_id]);
+                $credit_balance = $stmt->fetchColumn();
+                if ($credit_balance === false) $credit_balance = 0;
+                if ($credit_balance < $apt_type['credit_count']) {
+                    $errors[] = "Insufficient credits (need {$apt_type['credit_count']}, have $credit_balance) — select a package credit or override to proceed";
+                }
             }
         }
         
@@ -86,22 +153,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Create booking
             $pets_json = json_encode($pets);
+            $pkg_cred_col = $use_package_credit ? $package_credit_row['id'] : null;
             
-            $stmt = $conn->prepare("INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, appointment_date, appointment_time, service_type, notes, status, pets, override_forms, override_contract, override_credits, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, datetime('now'))");
-            $stmt->execute([$client_id, $appointment_type_id, $client['name'], $client['email'], $client['phone'], $booking_date, $booking_time, $apt_type['name'], $notes, $pets_json, $override_forms, $override_contract, $override_credits]);
+            $stmt = $conn->prepare("
+                INSERT INTO bookings (
+                    client_id, appointment_type_id, client_name, client_email, client_phone,
+                    appointment_date, appointment_time, service_type, notes, status,
+                    pets, override_forms, override_contract, override_credits,
+                    package_credit_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, datetime('now'))
+            ");
+            $stmt->execute([
+                $client_id, $appointment_type_id,
+                $client['name'], $client['email'], $client['phone'],
+                $booking_date, $booking_time, $apt_type['name'], $notes,
+                $pets_json, $override_forms, $override_contract, $override_credits,
+                $pkg_cred_col
+            ]);
             
             $booking_id = $conn->lastInsertId();
             
-            // Consume credits if applicable
+            // Consume credits
             if ($apt_type['consumes_credits'] && !$override_credits) {
-                // Deduct credits
-                $db->exec("UPDATE client_credits SET credit_balance = credit_balance - {$apt_type['credit_count']}, total_consumed = total_consumed + {$apt_type['credit_count']}, updated_at = datetime('now') WHERE client_id = $client_id");
-                
-                // Log transaction
-                $balance_before = $credit_balance;
-                $balance_after = $balance_before - $apt_type['credit_count'];
-                $stmt = $db->prepare("INSERT INTO credit_transactions (client_id, transaction_type, amount, balance_before, balance_after, booking_id, notes, created_by, created_at) VALUES (?, 'consume', ?, ?, ?, ?, ?, ?, datetime('now'))");
-                $stmt->execute([$client_id, -$apt_type['credit_count'], $balance_before, $balance_after, $booking_id, "Consumed by booking #{$booking_id}", $_SESSION['admin_id']]);
+                if ($use_package_credit && $package_credit_row) {
+                    // Deduct from package credit
+                    $conn->prepare("
+                        UPDATE client_package_credits
+                        SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    ")->execute([$package_credit_row['id']]);
+
+                    // Log package credit transaction
+                    $conn->prepare("
+                        INSERT INTO package_credit_transactions
+                            (client_package_credit_id, client_id, session_type, transaction_type, amount, booking_id, notes, created_by)
+                        VALUES (?, ?, ?, 'consume', -1, ?, ?, ?)
+                    ")->execute([
+                        $package_credit_row['id'], $client_id,
+                        $package_credit_row['session_type'],
+                        $booking_id,
+                        "Consumed by booking #{$booking_id}",
+                        $_SESSION['admin_id']
+                    ]);
+                } else {
+                    // Deduct legacy credits
+                    $db->exec("UPDATE client_credits SET credit_balance = credit_balance - {$apt_type['credit_count']}, total_consumed = total_consumed + {$apt_type['credit_count']}, updated_at = datetime('now') WHERE client_id = $client_id");
+                    $balance_before = $credit_balance;
+                    $balance_after  = $balance_before - $apt_type['credit_count'];
+                    $stmt = $db->prepare("INSERT INTO credit_transactions (client_id, transaction_type, amount, balance_before, balance_after, booking_id, notes, created_by, created_at) VALUES (?, 'consume', ?, ?, ?, ?, ?, ?, datetime('now'))");
+                    $stmt->execute([$client_id, -$apt_type['credit_count'], $balance_before, $balance_after, $booking_id, "Consumed by booking #{$booking_id}", $_SESSION['admin_id']]);
+                }
             }
             
             // Auto-invoice if configured
@@ -127,7 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get pets for selected client via AJAX
-if (isset($_GET['client_id']) && isset($_GET['ajax'])) {
+if (isset($_GET['client_id']) && isset($_GET['ajax']) && $_GET['ajax'] === 'pets') {
     $client_id = (int)$_GET['client_id'];
     $pets = $db->query("SELECT id, name, species, breed FROM pets WHERE client_id = $client_id AND is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
     header('Content-Type: application/json');
@@ -218,6 +319,26 @@ include '../backend/includes/header.php';
                                 <textarea name="notes" class="form-control" rows="3" placeholder="Booking notes..."></textarea>
                             </div>
 
+                            <!-- Package Credits Selector -->
+                            <div class="col-12 mb-3" id="packageCreditsContainer" style="display:none;">
+                                <div class="card border-success">
+                                    <div class="card-header bg-success text-white py-2">
+                                        <h6 class="mb-0"><i class="fas fa-box-open me-2"></i>Package Credits</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="text-muted small mb-2">
+                                            This appointment type consumes credits. Select a package credit to use, or leave on "Legacy Credits" to use the client's general credit balance.
+                                        </p>
+                                        <select name="package_credit_id" id="packageCreditSelect" class="form-select">
+                                            <option value="0">— Use Legacy Credits —</option>
+                                        </select>
+                                        <div id="noPkgCreditsMsg" class="text-muted small mt-2" style="display:none;">
+                                            <i class="fas fa-info-circle"></i> No eligible package credits found for this client and appointment type.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Rule Overrides -->
                             <div class="col-12 mb-3">
                                 <div class="card bg-light">
@@ -274,16 +395,53 @@ document.addEventListener('DOMContentLoaded', function() {
     const appointmentTypeSelect = document.getElementById('appointmentTypeSelect');
     const petsContainer = document.getElementById('petsContainer');
     const typeInfo = document.getElementById('typeInfo');
+    const packageCreditsContainer = document.getElementById('packageCreditsContainer');
+    const packageCreditSelect = document.getElementById('packageCreditSelect');
+    const noPkgCreditsMsg = document.getElementById('noPkgCreditsMsg');
     
+    function loadPkgCredits() {
+        const clientId = clientSelect.value;
+        const typeId   = appointmentTypeSelect.value;
+        const option   = appointmentTypeSelect.options[appointmentTypeSelect.selectedIndex];
+        const consumesCredits = option && option.dataset.consumesCredits === '1';
+
+        if (!consumesCredits || !clientId || !typeId) {
+            packageCreditsContainer.style.display = 'none';
+            return;
+        }
+
+        packageCreditsContainer.style.display = 'block';
+
+        fetch(`?ajax=credits&client_id=${clientId}&type_id=${typeId}`)
+            .then(r => r.json())
+            .then(credits => {
+                // Reset
+                packageCreditSelect.innerHTML = '<option value="0">— Use Legacy Credits —</option>';
+                if (credits.length === 0) {
+                    noPkgCreditsMsg.style.display = 'block';
+                } else {
+                    noPkgCreditsMsg.style.display = 'none';
+                    credits.forEach(c => {
+                        const expiry = c.expires_at ? ` (expires ${c.expires_at.substring(0,10)})` : '';
+                        const opt = document.createElement('option');
+                        opt.value = c.id;
+                        opt.textContent = `${c.package_name} — ${c.remaining} remaining${expiry}`;
+                        packageCreditSelect.appendChild(opt);
+                    });
+                }
+            });
+    }
+
     // Load pets when client selected
     clientSelect.addEventListener('change', function() {
         const clientId = this.value;
         if (!clientId) {
             petsContainer.innerHTML = '<p class="text-muted mb-0">Select a client to see their pets</p>';
+            packageCreditsContainer.style.display = 'none';
             return;
         }
         
-        fetch(`?client_id=${clientId}&ajax=1`)
+        fetch(`?client_id=${clientId}&ajax=pets`)
             .then(r => r.json())
             .then(pets => {
                 if (pets.length === 0) {
@@ -303,9 +461,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     petsContainer.innerHTML = html;
                 }
             });
+
+        loadPkgCredits();
     });
     
-    // Update type info and show override options
+    // Update type info, show override options, and refresh package credits
     appointmentTypeSelect.addEventListener('change', function() {
         const option = this.options[this.selectedIndex];
         if (!option.value) {
@@ -314,6 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('overrideFormsContainer').style.display = 'none';
             document.getElementById('overrideContractContainer').style.display = 'none';
             document.getElementById('overrideCreditsContainer').style.display = 'none';
+            packageCreditsContainer.style.display = 'none';
             return;
         }
         
@@ -336,8 +497,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('overrideFormsContainer').style.display = requiresForms ? 'block' : 'none';
         document.getElementById('overrideContractContainer').style.display = requiresContract ? 'block' : 'none';
         document.getElementById('overrideCreditsContainer').style.display = consumesCredits ? 'block' : 'none';
+
+        loadPkgCredits();
     });
 });
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
+
