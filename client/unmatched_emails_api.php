@@ -45,12 +45,17 @@ if ($method === 'GET') {
         $where_conditions = [];
         $params = [];
         
-        if (!$show_archived) {
+        if ($show_assigned) {
+            // Assigned tab: only assigned, non-archived emails
+            $where_conditions[] = "ue.is_assigned = 1";
             $where_conditions[] = "ue.is_archived = 0";
-        }
-        
-        if (!$show_assigned) {
+        } elseif ($show_archived) {
+            // Archived tab: only archived emails
+            $where_conditions[] = "ue.is_archived = 1";
+        } else {
+            // Default (unassigned tab): only unassigned, non-archived emails
             $where_conditions[] = "ue.is_assigned = 0";
+            $where_conditions[] = "ue.is_archived = 0";
         }
         
         $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
