@@ -170,6 +170,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'unmatched_emails') !== false ? 'active' : ''; ?>" href="unmatched_emails_list.php">
+                                <i class="fas fa-envelope-open-text me-2"></i> Unmatched Emails
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'form_submissions') !== false ? 'active' : ''; ?>" href="form_submissions_list.php">
                                 <i class="fas fa-file-circle-check me-2"></i> Form Submissions
                             </a>
