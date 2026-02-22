@@ -62,7 +62,10 @@ if ($method === 'GET') {
         
         $stmt = $conn->prepare("
             SELECT 
-                ue.*,
+                ue.id, ue.from_email, ue.from_name, ue.to_email, ue.subject,
+                ue.received_at, ue.is_assigned, ue.assigned_to_client_id,
+                ue.assigned_at, ue.assigned_by, ue.is_archived, ue.archived_at,
+                ue.created_at,
                 c.name as assigned_client_name
             FROM unmatched_emails ue
             LEFT JOIN clients c ON ue.assigned_to_client_id = c.id
@@ -80,7 +83,7 @@ if ($method === 'GET') {
             'success' => true,
             'emails' => $emails,
             'unassigned_count' => $unassigned_count
-        ]);
+        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     }
     
 } elseif ($method === 'POST') {
