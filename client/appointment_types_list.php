@@ -151,7 +151,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                     <td>
                                         <small>
                                             <?php if ($type['auto_invoice']): ?>
-                                                <span class="badge bg-success">Auto-Invoice</span><br>
+                                                <span class="badge bg-success">Auto-Invoice<?= !empty($type['default_amount']) ? ' ($' . number_format((float)$type['default_amount'], 2) . ')' : '' ?></span><br>
                                             <?php endif; ?>
                                             <?php if ($type['consumes_credits']): ?>
                                                 <span class="badge bg-primary">Uses <?= $type['credit_count'] ?> Credit(s)</span><br>

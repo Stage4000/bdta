@@ -1294,7 +1294,12 @@ class Database {
         if (!in_array('field_rental_location', $apt_column_names)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN field_rental_location TEXT");
         }
-        
+
+        // Add default_amount column to appointment_types table
+        if (!in_array('default_amount', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN default_amount REAL DEFAULT 0");
+        }
+
         // Create packages table (bundle definitions)
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS packages (
