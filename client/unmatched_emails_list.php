@@ -129,6 +129,10 @@ async function loadEmails(filter) {
         url += 'archived=1';
     }
     
+    const containerId = filter + 'Emails';
+    const container = document.getElementById(containerId);
+    container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-secondary" role="status"></div> Loading...</div>';
+
     try {
         const response = await fetch(url);
         const data = await response.json();
@@ -136,9 +140,12 @@ async function loadEmails(filter) {
         if (data.success) {
             displayEmails(data.emails, filter);
             document.getElementById('unassignedCount').textContent = data.unassigned_count || 0;
+        } else {
+            container.innerHTML = '<div class="alert alert-danger">Failed to load emails.</div>';
         }
     } catch (error) {
         console.error('Error loading emails:', error);
+        container.innerHTML = '<div class="alert alert-danger">Error loading emails. Please refresh the page.</div>';
     }
 }
 

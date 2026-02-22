@@ -45,19 +45,27 @@ if ($method === 'GET') {
         $where_conditions = [];
         $params = [];
         
-        if (!$show_archived) {
+        if ($show_assigned) {
+            // Assigned tab: only assigned, non-archived emails
+            $where_conditions[] = "ue.is_assigned = 1";
             $where_conditions[] = "ue.is_archived = 0";
-        }
-        
-        if (!$show_assigned) {
+        } elseif ($show_archived) {
+            // Archived tab: only archived emails
+            $where_conditions[] = "ue.is_archived = 1";
+        } else {
+            // Default (unassigned tab): only unassigned, non-archived emails
             $where_conditions[] = "ue.is_assigned = 0";
+            $where_conditions[] = "ue.is_archived = 0";
         }
         
         $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
         
         $stmt = $conn->prepare("
             SELECT 
-                ue.*,
+                ue.id, ue.from_email, ue.from_name, ue.to_email, ue.subject,
+                ue.received_at, ue.is_assigned, ue.assigned_to_client_id,
+                ue.assigned_at, ue.assigned_by, ue.is_archived, ue.archived_at,
+                ue.created_at,
                 c.name as assigned_client_name
             FROM unmatched_emails ue
             LEFT JOIN clients c ON ue.assigned_to_client_id = c.id
@@ -75,7 +83,7 @@ if ($method === 'GET') {
             'success' => true,
             'emails' => $emails,
             'unassigned_count' => $unassigned_count
-        ]);
+        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     }
     
 } elseif ($method === 'POST') {

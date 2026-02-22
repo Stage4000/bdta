@@ -149,6 +149,15 @@ class ImapEmailReceiver {
         $parsed_date = isset($header->date) ? strtotime($header->date) : false;
         $received_date = $parsed_date !== false ? date('Y-m-d H:i:s', $parsed_date) : date('Y-m-d H:i:s');
 
+        // Get from address (needed for duplicate check and storage)
+        $from_email = '';
+        if (isset($header->from) && count($header->from) > 0) {
+            $from = $header->from[0];
+            $from_email = isset($from->mailbox) && isset($from->host)
+                ? $from->mailbox . '@' . $from->host
+                : '';
+        }
+
         // Get message ID to avoid duplicates
         $message_id = isset($header->message_id) ? $header->message_id : null;
         
@@ -169,10 +178,10 @@ class ImapEmailReceiver {
             // Check if this email already exists in unmatched_emails
             $stmt = $this->conn->prepare("
                 SELECT id FROM unmatched_emails 
-                WHERE subject = ? AND received_at = ?
+                WHERE from_email = ? AND subject = ? AND received_at = ?
                 LIMIT 1
             ");
-            $stmt->execute([$subject, $received_date]);
+            $stmt->execute([$from_email, $subject, $received_date]);
 
             if ($stmt->fetch()) {
                 // Already stored as unmatched
@@ -184,15 +193,6 @@ class ImapEmailReceiver {
         $structure = imap_fetchstructure($this->imap_connection, $email_number);
         $body_html = $this->getEmailBody($email_number, $structure, 'html');
         $body_text = $this->getEmailBody($email_number, $structure, 'text');
-        
-        // Get from address
-        $from_email = '';
-        if (isset($header->from) && count($header->from) > 0) {
-            $from = $header->from[0];
-            $from_email = isset($from->mailbox) && isset($from->host) 
-                ? $from->mailbox . '@' . $from->host 
-                : '';
-        }
         
         // Get to address
         $to_email = Settings::get('imap_username', '');
