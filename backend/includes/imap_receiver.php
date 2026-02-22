@@ -144,22 +144,38 @@ class ImapEmailReceiver {
             throw new Exception('Failed to get email header');
         }
         
+        // Decode subject and received date (needed for both duplicate check and storage)
+        $subject = $this->decodeHeader($header->subject ?? '(No Subject)');
+        $parsed_date = isset($header->date) ? strtotime($header->date) : false;
+        $received_date = $parsed_date !== false ? date('Y-m-d H:i:s', $parsed_date) : date('Y-m-d H:i:s');
+
         // Get message ID to avoid duplicates
         $message_id = isset($header->message_id) ? $header->message_id : null;
         
         if ($message_id) {
-            // Check if this email already exists
+            // Check if this email already exists in client_emails
             $stmt = $this->conn->prepare("
                 SELECT id FROM client_emails 
                 WHERE direction = 'incoming' AND subject = ? AND created_at = ?
                 LIMIT 1
             ");
-            $date = isset($header->date) ? date('Y-m-d H:i:s', strtotime($header->date)) : date('Y-m-d H:i:s');
-            $subject = $this->decodeHeader($header->subject ?? '(No Subject)');
-            $stmt->execute([$subject, $date]);
+            $stmt->execute([$subject, $received_date]);
             
             if ($stmt->fetch()) {
                 // Email already processed
+                return;
+            }
+
+            // Check if this email already exists in unmatched_emails
+            $stmt = $this->conn->prepare("
+                SELECT id FROM unmatched_emails 
+                WHERE subject = ? AND received_at = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$subject, $received_date]);
+
+            if ($stmt->fetch()) {
+                // Already stored as unmatched
                 return;
             }
         }
@@ -189,9 +205,6 @@ class ImapEmailReceiver {
             $this->storeUnmatchedEmail($header, $from_email, $to_email, $subject, $body_html, $body_text, $received_date);
             return;
         }
-        
-        // Get received date
-        $received_date = isset($header->date) ? date('Y-m-d H:i:s', strtotime($header->date)) : date('Y-m-d H:i:s');
         
         // Insert email into database
         $stmt = $this->conn->prepare("
