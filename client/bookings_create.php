@@ -207,7 +207,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Auto-invoice if configured
             if ($apt_type['auto_invoice']) {
-                // TODO: Create invoice
+                $default_amount = floatval($apt_type['default_amount'] ?? 0);
+                $invoice_due_days = (int)($apt_type['invoice_due_days'] ?? 7);
+                $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+                $issue_date = date('Y-m-d');
+                $due_date = date('Y-m-d', strtotime("+{$invoice_due_days} days"));
+                $invoice_stmt = $conn->prepare("
+                    INSERT INTO invoices (invoice_number, client_id, issue_date, due_date, subtotal, tax_rate, tax_amount, total_amount, notes, status)
+                    VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, 'draft')
+                ");
+                $invoice_notes = "Auto-generated for booking #{$booking_id} ({$apt_type['name']})";
+                $invoice_stmt->execute([$invoice_number, $client_id, $issue_date, $due_date, $default_amount, $default_amount, $invoice_notes]);
+                $invoice_id = $conn->lastInsertId();
+                $item_stmt = $conn->prepare("
+                    INSERT INTO invoice_items (invoice_id, item_type, description, quantity, rate, amount)
+                    VALUES (?, 'custom', ?, 1, ?, ?)
+                ");
+                $item_stmt->execute([$invoice_id, $apt_type['name'], $default_amount, $default_amount]);
             }
             
             // Link pets to appointment

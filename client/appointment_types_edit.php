@@ -51,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $requires_contract = isset($_POST['requires_contract']) ? 1 : 0;
     $auto_invoice = isset($_POST['auto_invoice']) ? 1 : 0;
     $invoice_due_days = (int)($_POST['invoice_due_days'] ?? 7);
+    $default_amount = floatval($_POST['default_amount'] ?? 0);
     $consumes_credits = isset($_POST['consumes_credits']) ? 1 : 0;
     $credit_count = (int)($_POST['credit_count'] ?? 1);
     $is_group_class = isset($_POST['is_group_class']) ? 1 : 0;
@@ -115,6 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     mini_session_topic = ?,
                     is_field_rental = ?,
                     field_rental_location = ?,
+                    default_amount = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -132,6 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
                 $is_field_rental, $field_rental_location,
+                $default_amount,
                 $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
@@ -158,8 +161,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     schedule_type, specific_date,
                     available_days, available_start_time, available_end_time, time_slot_interval,
                     is_mini_session, mini_session_location, mini_session_topic,
-                    is_field_rental, field_rental_location
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_field_rental, field_rental_location,
+                    default_amount
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -174,7 +178,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $schedule_type, $specific_date,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
-                $is_field_rental, $field_rental_location
+                $is_field_rental, $field_rental_location,
+                $default_amount
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
         }
@@ -478,6 +483,14 @@ include __DIR__ . '/../backend/includes/header.php';
                         <input type="number" class="form-control" id="invoice_due_days" name="invoice_due_days" 
                                value="<?= $type['invoice_due_days'] ?? 7 ?>" min="0">
                         <div class="form-text">Invoice due date offset from appointment</div>
+                    </div>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="default_amount" class="form-label">Default Invoice Amount ($)</label>
+                        <input type="number" class="form-control" id="default_amount" name="default_amount"
+                               value="<?= htmlspecialchars((string)(float)($type['default_amount'] ?? 0)) ?>" min="0" step="0.01">
+                        <div class="form-text">Dollar amount used when auto-invoicing this appointment type</div>
                     </div>
                 </div>
 
