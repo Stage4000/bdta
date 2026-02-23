@@ -502,6 +502,24 @@ class Database {
                     FOREIGN KEY (invoice_id) REFERENCES invoices(id)
                 )
             ");
+
+            // Invoice installments table
+            $this->execSQL("
+                CREATE TABLE IF NOT EXISTS invoice_installments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    invoice_id INTEGER NOT NULL,
+                    installment_number INTEGER NOT NULL,
+                    amount REAL NOT NULL,
+                    due_date DATE NOT NULL,
+                    status TEXT DEFAULT 'unpaid',
+                    payment_method TEXT,
+                    payment_date DATE,
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+                )
+            ");
             
             // Contracts table
             $this->execSQL("
