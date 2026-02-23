@@ -1419,7 +1419,28 @@ class Database {
         if (!in_array('package_credit_id', $booking_column_names_pkg)) {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN package_credit_id INTEGER");
         }
-        
+
+        // Add share_token to packages for shareable public links
+        $pkg_column_names = $this->getTableColumns('packages');
+        if (!in_array('share_token', $pkg_column_names)) {
+            $this->execSQL("ALTER TABLE packages ADD COLUMN share_token TEXT");
+        }
+
+        // Create package_link_views table for analytics
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS package_link_views (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                package_id INTEGER NOT NULL,
+                ip_address TEXT,
+                user_agent TEXT,
+                referrer TEXT,
+                purchased INTEGER DEFAULT 0,
+                client_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
+            )
+        ");
+
         // Add database settings for existing installations
         $this->addDatabaseSettings();
     }

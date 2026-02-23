@@ -43,6 +43,24 @@ if (!empty($package_ids)) {
     }
 }
 
+// Fetch link analytics per package
+$link_stats = [];
+if (!empty($package_ids)) {
+    $placeholders = implode(',', array_fill(0, count($package_ids), '?'));
+    $stmt = $conn->prepare("
+        SELECT package_id,
+               COUNT(*) AS views,
+               SUM(purchased) AS purchases
+        FROM package_link_views
+        WHERE package_id IN ($placeholders)
+        GROUP BY package_id
+    ");
+    $stmt->execute($package_ids);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $link_stats[$row['package_id']] = $row;
+    }
+}
+
 $session_type_labels = [
     'group'        => ['label' => 'Group Class',    'badge' => 'secondary'],
     'mini'         => ['label' => 'Mini Session',   'badge' => 'info'],
@@ -91,11 +109,13 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <th>Price</th>
                                 <th>Expiration</th>
                                 <th>Status</th>
+                                <th>Link Stats</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($packages as $pkg): ?>
+                                <?php $share_url = getDynamicBaseUrl() . '/client/package_detail.php?token=' . ($pkg['share_token'] ?? ''); ?>
                                 <tr>
                                     <td>
                                         <strong><?= htmlspecialchars($pkg['name']) ?></strong>
@@ -132,9 +152,24 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
+                                        <?php $stats = $link_stats[$pkg['id']] ?? ['views' => 0, 'purchases' => 0]; ?>
+                                        <small>
+                                            <i class="fas fa-eye text-muted"></i> <?= (int)$stats['views'] ?>
+                                            &nbsp;
+                                            <i class="fas fa-shopping-cart text-success"></i> <?= (int)$stats['purchases'] ?>
+                                        </small>
+                                    </td>
+                                    <td>
                                         <a href="packages_edit.php?id=<?= $pkg['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                             <i class="fas fa-pencil"></i>
                                         </a>
+                                        <?php if (!empty($pkg['share_token'])): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-success"
+                                                title="Copy shareable link"
+                                                onclick="copyLink(<?= htmlspecialchars(json_encode($share_url)) ?>, this)">
+                                            <i class="fas fa-share-nodes"></i>
+                                        </button>
+                                        <?php endif; ?>
                                         <a href="packages_edit.php?id=<?= $pkg['id'] ?>&delete=1"
                                            class="btn btn-sm btn-outline-danger"
                                            onclick="return confirm('Delete this package? This cannot be undone if clients have purchased it.')"
@@ -163,5 +198,21 @@ include __DIR__ . '/../backend/includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+function copyLink(url, btn) {
+    navigator.clipboard.writeText(url).then(function() {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+        btn.classList.replace('btn-outline-success', 'btn-success');
+        setTimeout(function() {
+            btn.innerHTML = orig;
+            btn.classList.replace('btn-success', 'btn-outline-success');
+        }, 2000);
+    }).catch(function() {
+        prompt('Copy this link:', url);
+    });
+}
+</script>
 
 <?php include __DIR__ . '/../backend/includes/footer.php'; ?>

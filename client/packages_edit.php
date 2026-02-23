@@ -46,6 +46,12 @@ if ($is_edit) {
         header('Location: packages_list.php');
         exit;
     }
+    // Ensure the package has a share token
+    if (empty($package['share_token'])) {
+        $new_token = bin2hex(random_bytes(16));
+        $conn->prepare("UPDATE packages SET share_token=? WHERE id=?")->execute([$new_token, $id]);
+        $package['share_token'] = $new_token;
+    }
     $stmt = $conn->prepare("SELECT * FROM package_items WHERE package_id = ?");
     $stmt->execute([$id]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
@@ -98,13 +104,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$name, $description, $price, $expiration_days, $is_active, $id]);
                 // Replace items
                 $conn->prepare("DELETE FROM package_items WHERE package_id = ?")->execute([$id]);
+                // Regenerate share token if requested
+                if (isset($_POST['regenerate_token'])) {
+                    $new_token = bin2hex(random_bytes(16));
+                    $conn->prepare("UPDATE packages SET share_token=? WHERE id=?")->execute([$new_token, $id]);
+                }
                 $_SESSION['flash'] = ['type' => 'success', 'message' => 'Package updated successfully!'];
             } else {
+                $share_token = bin2hex(random_bytes(16));
                 $stmt = $conn->prepare("
-                    INSERT INTO packages (name, description, price, expiration_days, is_active)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO packages (name, description, price, expiration_days, is_active, share_token)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$name, $description, $price, $expiration_days, $is_active]);
+                $stmt->execute([$name, $description, $price, $expiration_days, $is_active, $share_token]);
                 $id = $conn->lastInsertId();
                 $_SESSION['flash'] = ['type' => 'success', 'message' => 'Package created successfully!'];
             }
@@ -217,6 +229,31 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
 
+                <?php if ($is_edit && !empty($package['share_token'])): ?>
+                <h6 class="border-bottom pb-2 mb-3">Shareable Link</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <p class="text-muted mb-2">Share this link with clients so they can view the package details and purchase it directly.</p>
+                        <?php $share_url = getDynamicBaseUrl() . '/client/package_detail.php?token=' . $package['share_token']; ?>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="share_link_input" value="<?= htmlspecialchars($share_url) ?>" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyShareLink()">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                            <a href="<?= htmlspecialchars($share_url) ?>" target="_blank" class="btn btn-outline-primary">
+                                <i class="fas fa-external-link-alt"></i> Preview
+                            </a>
+                        </div>
+                        <div class="mt-2">
+                            <button type="submit" name="regenerate_token" value="1" class="btn btn-sm btn-outline-warning"
+                                    onclick="return confirm('Regenerate the shareable link? The old link will stop working.')">
+                                <i class="fas fa-rotate"></i> Regenerate Link
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-check-circle"></i> <?= $is_edit ? 'Update' : 'Create' ?> Package
@@ -236,6 +273,22 @@ function highlightCard(type, value) {
     } else {
         card.classList.remove('border-primary');
     }
+}
+
+function copyShareLink() {
+    const input = document.getElementById('share_link_input');
+    navigator.clipboard.writeText(input.value).then(function() {
+        const btn = input.nextElementSibling;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.replace('btn-outline-secondary', 'btn-success');
+        setTimeout(function() {
+            btn.innerHTML = orig;
+            btn.classList.replace('btn-success', 'btn-outline-secondary');
+        }, 2000);
+    }).catch(function() {
+        prompt('Copy this link:', input.value);
+    });
 }
 </script>
 
