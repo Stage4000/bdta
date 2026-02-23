@@ -645,7 +645,7 @@ include '../backend/includes/header.php';
             <div class="modal-body" id="emailDetailsBody">
                 <!-- Email details will be loaded here -->
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer" id="emailDetailsFooter">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -753,9 +753,9 @@ function displayEmails(emails) {
         const dateText = getEmailDateText(email);
         
         html += `
-            <a href="#" class="list-group-item list-group-item-action" onclick="showEmailDetails(${email.id}); return false;">
+            <div class="list-group-item">
                 <div class="d-flex w-100 justify-content-between align-items-start">
-                    <div class="flex-grow-1">
+                    <a href="#" class="flex-grow-1 text-decoration-none text-reset" onclick="showEmailDetails(${email.id}); return false;">
                         <h6 class="mb-1">
                             <i class="fas ${icon} me-2"></i>
                             ${escapeHtml(email.subject)}
@@ -765,10 +765,13 @@ function displayEmails(emails) {
                         </p>
                         ${email.template_name ? `<span class="badge bg-info me-2"><i class="fas fa-file-alt"></i> ${escapeHtml(email.template_name)}</span>` : ''}
                         ${statusBadge}
+                    </a>
+                    <div class="d-flex flex-column align-items-end ms-2">
+                        <small class="text-muted mb-1">${dateText}</small>
+                        ${email.direction === 'incoming' ? `<button class="btn btn-sm btn-outline-primary" onclick="replyToEmail(${email.id})" title="Reply"><i class="fas fa-reply"></i> Reply</button>` : ''}
                     </div>
-                    <small class="text-muted">${dateText}</small>
                 </div>
-            </a>
+            </div>
         `;
     });
     
@@ -877,6 +880,18 @@ async function showEmailDetails(emailId) {
         messageContainer.textContent = email.body_text || '';
     }
     
+    // Show Reply button for incoming emails
+    const footer = document.getElementById('emailDetailsFooter');
+    footer.innerHTML = '';
+    if (email.direction === 'incoming') {
+        if (email.from_email) {
+            footer.innerHTML += `<button type="button" class="btn btn-primary" onclick="replyToEmail(${email.id})"><i class="fas fa-reply"></i> Reply</button>`;
+        } else {
+            footer.innerHTML += '<button type="button" class="btn btn-primary" disabled title="Cannot reply: sender address is missing"><i class="fas fa-reply"></i> Reply</button>';
+        }
+    }
+    footer.innerHTML += '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>';
+    
     modal.show();
 }
 
@@ -892,6 +907,48 @@ async function getEmailById(emailId) {
         console.error('Error getting email:', error);
     }
     return null;
+}
+
+// Open compose modal pre-filled as a reply to an incoming email
+async function replyToEmail(emailId) {
+    const email = await getEmailById(emailId);
+    if (!email) {
+        alert('Could not load email details for reply.');
+        return;
+    }
+
+    if (!email.from_email) {
+        alert('Cannot reply: sender address is missing.');
+        return;
+    }
+
+    // Close details modal if open
+    const detailsModalEl = document.getElementById('emailDetailsModal');
+    const detailsModal = bootstrap.Modal.getInstance(detailsModalEl);
+    if (detailsModal) detailsModal.hide();
+
+    // Pre-fill subject with "Re: " prefix (avoid double prefix)
+    const subject = email.subject.startsWith('Re: ') ? email.subject : 'Re: ' + email.subject;
+    document.getElementById('emailSubject').value = subject;
+
+    // Quote original message in body
+    let originalText = email.body_text || '';
+    if (!originalText && email.body_html) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = email.body_html;
+        originalText = tmp.textContent || tmp.innerText || '';
+    }
+    const quotedDate = email.sent_at ? formatDateTime(email.sent_at) : formatDateTime(email.created_at);
+    const quotedBody = '\n\n---\nOn ' + quotedDate +
+        ', ' + email.from_email + ' wrote:\n' + originalText.split('\n').map(l => '> ' + l).join('\n');
+    document.getElementById('emailBody').value = quotedBody;
+
+    // Reset template selection
+    document.getElementById('emailTemplate').value = '';
+
+    // Open compose modal
+    const composeModal = new bootstrap.Modal(document.getElementById('composeEmailModal'));
+    composeModal.show();
 }
 
 // Handle template selection
