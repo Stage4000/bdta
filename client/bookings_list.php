@@ -48,12 +48,23 @@ require_once '../backend/includes/header.php';
                             <th>Contact</th>
                             <th>Service</th>
                             <th>Date & Time</th>
+                            <th>Location</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (count($bookings) > 0): ?>
+                            <?php
+                            $location_type_labels = [
+                                'client_address' => '<i class="fas fa-home me-1" aria-hidden="true"></i>Client Address',
+                                'custom_address' => '<i class="fas fa-map-marker-alt me-1" aria-hidden="true"></i>',
+                                'phone_inbound'  => '<i class="fas fa-phone me-1" aria-hidden="true"></i>Phone (Inbound)',
+                                'phone_outbound' => '<i class="fas fa-phone me-1" aria-hidden="true"></i>Phone (Outbound)',
+                                'webcall'        => '<i class="fas fa-video me-1" aria-hidden="true"></i>',
+                                'fixed'          => '<i class="fas fa-location-dot me-1" aria-hidden="true"></i>',
+                            ];
+                            ?>
                             <?php foreach ($bookings as $booking): ?>
                             <tr>
                                 <td><?php echo $booking['id']; ?></td>
@@ -70,6 +81,24 @@ require_once '../backend/includes/header.php';
                                 <td>
                                     <?php echo escape($booking['appointment_date']); ?><br>
                                     <small><?php echo escape($booking['appointment_time']); ?></small>
+                                </td>
+                                <td>
+                                    <?php
+                                    $lt = $booking['location_type'] ?? '';
+                                    $lv = $booking['location'] ?? '';
+                                    if ($lt) {
+                                        $icon_prefix = $location_type_labels[$lt] ?? '<i class="fas fa-map-marker-alt me-1"></i>';
+                                        if (in_array($lt, ['custom_address', 'webcall', 'fixed'])) {
+                                            echo $icon_prefix . escape($lv);
+                                        } else {
+                                            echo $icon_prefix;
+                                        }
+                                    } elseif ($lv) {
+                                        echo '<small>' . escape($lv) . '</small>';
+                                    } else {
+                                        echo '<span class="text-muted small">—</span>';
+                                    }
+                                    ?>
                                 </td>
                                 <td>
                                     <form method="POST" class="d-inline">
@@ -91,7 +120,7 @@ require_once '../backend/includes/header.php';
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7" class="text-center text-muted">No bookings yet</td>
+                            <td colspan="8" class="text-center text-muted">No bookings yet</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>

@@ -235,21 +235,41 @@ if ($method === 'GET') {
         
         // Get appointment type info to check if it's a Mini Session or Field Rental
         $location = null;
+        $location_type = trim($data['location_type'] ?? '');
+        $location_value = trim($data['location_value'] ?? '');
+        $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
+
         if (!empty($data['appointment_type_id'])) {
             $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location FROM appointment_types WHERE id = ?");
             $stmt->execute([$data['appointment_type_id']]);
             $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($apt_type && !empty($apt_type['is_mini_session'])) {
+                // Fixed location: override any submitted location
+                $location_type = 'fixed';
                 $location = $apt_type['mini_session_location'];
             } elseif ($apt_type && !empty($apt_type['is_field_rental'])) {
+                $location_type = 'fixed';
                 $location = $apt_type['field_rental_location'];
             }
         }
+
+        // For non-fixed types, validate and resolve location
+        if ($location_type !== 'fixed') {
+            if (empty($location_type) || !in_array($location_type, $allowed_location_types)) {
+                echo json_encode(['error' => 'A valid location type is required. Please select how the appointment will be conducted.']);
+                exit;
+            }
+            if (in_array($location_type, ['custom_address', 'webcall']) && empty($location_value)) {
+                echo json_encode(['error' => $location_type === 'webcall' ? 'Webcall URL is required.' : 'Custom address is required.']);
+                exit;
+            }
+            $location = $location_value;
+        }
         
-        // Create booking with client_id and location
+        // Create booking with client_id, location, and location_type
         $stmt = $conn->prepare("
-            INSERT INTO bookings (client_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+            INSERT INTO bookings (client_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
         ");
         $stmt->execute([
             $client_id,
@@ -261,7 +281,8 @@ if ($method === 'GET') {
             $data['appointment_time'],
             $data['notes'] ?? '',
             $data['duration_minutes'] ?? 60,
-            $location
+            $location,
+            $location_type
         ]);
         
         $booking_id = $conn->lastInsertId();

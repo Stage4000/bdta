@@ -66,6 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $override_credits = isset($_POST['override_credits']) ? 1 : 0;
     // Package credit row ID selected by admin (0 = use legacy credits)
     $package_credit_id = (int)($_POST['package_credit_id'] ?? 0);
+    // Location fields
+    $location_type = trim($_POST['location_type'] ?? '');
+    $location_value = trim($_POST['location_value'] ?? '');
     
     try {
         // Get appointment type details
@@ -151,6 +154,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($errors) && !$override_forms && !$override_contract && !$override_credits) {
             setFlashMessage(implode('<br>', $errors), 'danger');
         } else {
+            // Resolve location type and value
+            $is_fixed = !empty($apt_type['is_mini_session']) || !empty($apt_type['is_field_rental']);
+            if ($is_fixed) {
+                $location_type = 'fixed';
+                $location_value = !empty($apt_type['is_mini_session'])
+                    ? ($apt_type['mini_session_location'] ?? '')
+                    : ($apt_type['field_rental_location'] ?? '');
+            }
+
+            // Validate location selection
+            $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
+            if (!in_array($location_type, $allowed_location_types)) {
+                $errors[] = "Please select a location type for the appointment.";
+            } elseif (in_array($location_type, ['custom_address', 'webcall']) && empty($location_value)) {
+                $errors[] = $location_type === 'webcall'
+                    ? "Please enter the webcall URL."
+                    : "Please enter the custom address.";
+            }
+
+            if (!empty($errors)) {
+                setFlashMessage(implode('<br>', $errors), 'danger');
+            } else {
             // Create booking
             $pets_json = json_encode($pets);
             $pkg_cred_col = $use_package_credit ? $package_credit_row['id'] : null;
@@ -160,15 +185,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     client_id, appointment_type_id, client_name, client_email, client_phone,
                     appointment_date, appointment_time, service_type, notes, status,
                     pets, override_forms, override_contract, override_credits,
-                    package_credit_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, datetime('now'))
+                    package_credit_id, location_type, location, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             ");
             $stmt->execute([
                 $client_id, $appointment_type_id,
                 $client['name'], $client['email'], $client['phone'],
                 $booking_date, $booking_time, $apt_type['name'], $notes,
                 $pets_json, $override_forms, $override_contract, $override_credits,
-                $pkg_cred_col
+                $pkg_cred_col, $location_type, $location_value
             ]);
             
             $booking_id = $conn->lastInsertId();
@@ -237,7 +262,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['success'] = "Booking created successfully!";
             header('Location: bookings_list.php');
             exit;
-        }
+            } // end location validation else
+        } // end outer errors else
     } catch (Exception $e) {
         $_SESSION['error'] = "Error creating booking: " . $e->getMessage();
     }
@@ -300,7 +326,10 @@ include '../backend/includes/header.php';
                                                 data-requires-forms="<?php echo $type['requires_forms']; ?>"
                                                 data-requires-contract="<?php echo $type['requires_contract']; ?>"
                                                 data-consumes-credits="<?php echo $type['consumes_credits']; ?>"
-                                                data-credit-count="<?php echo $type['credit_count']; ?>">
+                                                data-credit-count="<?php echo $type['credit_count']; ?>"
+                                                data-is-mini="<?php echo !empty($type['is_mini_session']) ? '1' : '0'; ?>"
+                                                data-is-field="<?php echo !empty($type['is_field_rental']) ? '1' : '0'; ?>"
+                                                data-fixed-location="<?php echo htmlspecialchars(!empty($type['is_mini_session']) ? ($type['mini_session_location'] ?? '') : (!empty($type['is_field_rental']) ? ($type['field_rental_location'] ?? '') : '')); ?>">
                                             <?php echo htmlspecialchars($type['name']); ?> (<?php echo $type['duration_minutes']; ?> min)
                                         </option>
                                     <?php endforeach; ?>
@@ -333,6 +362,37 @@ include '../backend/includes/header.php';
                             <div class="col-12 mb-3">
                                 <label class="form-label">Notes</label>
                                 <textarea name="notes" class="form-control" rows="3" placeholder="Booking notes..."></textarea>
+                            </div>
+
+                            <!-- Location -->
+                            <div class="col-12 mb-3" id="locationSection">
+                                <div class="card border-primary">
+                                    <div class="card-header bg-primary text-white py-2">
+                                        <h6 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>Appointment Location <span class="text-warning">*</span></h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="fixedLocationDisplay" style="display:none;">
+                                            <p class="text-muted small mb-1">This appointment type has a fixed location:</p>
+                                            <p class="mb-0 fw-bold" id="fixedLocationText"></p>
+                                            <input type="hidden" name="location_type" id="locationTypeFixed" value="fixed">
+                                        </div>
+                                        <div id="locationTypeWrapper">
+                                            <label class="form-label">Location Type *</label>
+                                            <select name="location_type" id="locationTypeSelect" class="form-select" required>
+                                                <option value="">— Select location type —</option>
+                                                <option value="client_address">Client's Registered Address</option>
+                                                <option value="custom_address">Custom Address</option>
+                                                <option value="phone_inbound">Phone Call (Inbound — client calls provider)</option>
+                                                <option value="phone_outbound">Phone Call (Outbound — provider calls client)</option>
+                                                <option value="webcall">Webcall Link (Zoom, Google Meet, etc.)</option>
+                                            </select>
+                                            <div id="locationValueWrapper" class="mt-2" style="display:none;">
+                                                <label class="form-label" id="locationValueLabel">Value</label>
+                                                <input type="text" name="location_value" id="locationValueInput" class="form-control" placeholder="">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Package Credits Selector -->
@@ -414,6 +474,57 @@ document.addEventListener('DOMContentLoaded', function() {
     const packageCreditsContainer = document.getElementById('packageCreditsContainer');
     const packageCreditSelect = document.getElementById('packageCreditSelect');
     const noPkgCreditsMsg = document.getElementById('noPkgCreditsMsg');
+    const fixedLocationDisplay = document.getElementById('fixedLocationDisplay');
+    const fixedLocationText = document.getElementById('fixedLocationText');
+    const locationTypeWrapper = document.getElementById('locationTypeWrapper');
+    const locationTypeSelect = document.getElementById('locationTypeSelect');
+    const locationValueWrapper = document.getElementById('locationValueWrapper');
+    const locationValueLabel = document.getElementById('locationValueLabel');
+    const locationValueInput = document.getElementById('locationValueInput');
+
+    // Show/hide location value field based on type selection
+    locationTypeSelect.addEventListener('change', function() {
+        const type = this.value;
+        if (type === 'custom_address') {
+            locationValueWrapper.style.display = 'block';
+            locationValueLabel.textContent = 'Custom Address *';
+            locationValueInput.placeholder = 'Enter full address';
+            locationValueInput.type = 'text';
+            locationValueInput.required = true;
+        } else if (type === 'webcall') {
+            locationValueWrapper.style.display = 'block';
+            locationValueLabel.textContent = 'Webcall URL *';
+            locationValueInput.placeholder = 'https://zoom.us/j/... or similar';
+            locationValueInput.type = 'url';
+            locationValueInput.required = true;
+        } else {
+            locationValueWrapper.style.display = 'none';
+            locationValueInput.required = false;
+            locationValueInput.value = '';
+        }
+    });
+
+    function updateLocationForType(option) {
+        if (!option || !option.value) {
+            fixedLocationDisplay.style.display = 'none';
+            locationTypeWrapper.style.display = 'block';
+            locationTypeSelect.required = true;
+            return;
+        }
+        const isMini = option.dataset.isMini === '1';
+        const isField = option.dataset.isField === '1';
+        const fixedLoc = option.dataset.fixedLocation || '';
+        if (isMini || isField) {
+            fixedLocationDisplay.style.display = 'block';
+            fixedLocationText.textContent = fixedLoc || '(No location set)';
+            locationTypeWrapper.style.display = 'none';
+            locationTypeSelect.required = false;
+        } else {
+            fixedLocationDisplay.style.display = 'none';
+            locationTypeWrapper.style.display = 'block';
+            locationTypeSelect.required = true;
+        }
+    }
     
     function loadPkgCredits() {
         const clientId = clientSelect.value;
@@ -484,6 +595,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update type info, show override options, and refresh package credits
     appointmentTypeSelect.addEventListener('change', function() {
         const option = this.options[this.selectedIndex];
+        updateLocationForType(option);
         if (!option.value) {
             typeInfo.textContent = '';
             document.getElementById('noOverridesMsg').style.display = 'block';
