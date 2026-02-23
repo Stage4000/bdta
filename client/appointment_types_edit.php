@@ -82,6 +82,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $available_start_time = $_POST['available_start_time'] ?? '09:00';
     $available_end_time = $_POST['available_end_time'] ?? '17:00';
     $time_slot_interval = (int)($_POST['time_slot_interval'] ?? 30);
+
+    // Handle per-day schedule configuration
+    $per_day_schedule = null;
+    if (isset($_POST['use_per_day_schedule'])) {
+        $day_start_times = $_POST['day_start_time'] ?? [];
+        $day_end_times = $_POST['day_end_time'] ?? [];
+        $per_day = [];
+        foreach ($available_days as $day_index) {
+            $start = $day_start_times[$day_index] ?? '';
+            $end   = $day_end_times[$day_index] ?? '';
+            if (!empty($start) && !empty($end) && $start < $end) {
+                $per_day[$day_index] = ['start' => $start, 'end' => $end];
+            }
+        }
+        if (!empty($per_day)) {
+            $per_day_schedule = json_encode($per_day);
+        }
+    }
     
     try {
         if ($is_edit) {
@@ -116,6 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     mini_session_topic = ?,
                     is_field_rental = ?,
                     field_rental_location = ?,
+                    per_day_schedule = ?,
                     default_amount = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
@@ -134,6 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
                 $is_field_rental, $field_rental_location,
+                $per_day_schedule,
                 $default_amount,
                 $id
             ]);
@@ -162,8 +182,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     available_days, available_start_time, available_end_time, time_slot_interval,
                     is_mini_session, mini_session_location, mini_session_topic,
                     is_field_rental, field_rental_location,
+                    per_day_schedule,
                     default_amount
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -179,6 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
                 $is_field_rental, $field_rental_location,
+                $per_day_schedule,
                 $default_amount
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
@@ -347,6 +369,15 @@ include __DIR__ . '/../backend/includes/header.php';
                             if (!is_array($available_days)) {
                                 $available_days = [0,1,2,3,4,5,6];
                             }
+                            $per_day_data = [];
+                            $has_per_day = false;
+                            if (!empty($type['per_day_schedule'])) {
+                                $decoded_pds = json_decode($type['per_day_schedule'], true);
+                                if (is_array($decoded_pds) && !empty($decoded_pds)) {
+                                    $per_day_data = $decoded_pds;
+                                    $has_per_day = true;
+                                }
+                            }
                             foreach ($days as $index => $day): 
                             ?>
                             <div class="col-md-3 col-6">
@@ -362,6 +393,48 @@ include __DIR__ . '/../backend/includes/header.php';
                             <?php endforeach; ?>
                         </div>
                         <div class="form-text">Select which days of the week this appointment type is available</div>
+                    </div>
+
+                    <div class="col-12 mt-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="use_per_day_schedule"
+                                   name="use_per_day_schedule" <?= $has_per_day ? 'checked' : '' ?>
+                                   onchange="togglePerDaySchedule()">
+                            <label class="form-check-label" for="use_per_day_schedule">
+                                <strong>Set different times per day</strong>
+                            </label>
+                            <div class="form-text">Configure a different start/end time for each selected day (e.g., 8am–12pm on Monday, 4pm–7pm on Friday)</div>
+                        </div>
+                    </div>
+
+                    <div id="per_day_schedule_section" class="col-12 mt-2" style="display: <?= $has_per_day ? 'block' : 'none' ?>;">
+                        <table class="table table-bordered table-sm align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:35%">Day</th>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($days as $index => $day): ?>
+                                <tr id="per_day_row_<?= $index ?>" style="display: <?= in_array($index, $available_days) ? 'table-row' : 'none' ?>;">
+                                    <td><strong><?= $day ?></strong></td>
+                                    <td>
+                                        <input type="time" class="form-control form-control-sm"
+                                               name="day_start_time[<?= $index ?>]"
+                                               value="<?= htmlspecialchars($per_day_data[$index]['start'] ?? ($type['available_start_time'] ?? '09:00')) ?>">
+                                    </td>
+                                    <td>
+                                        <input type="time" class="form-control form-control-sm"
+                                               name="day_end_time[<?= $index ?>]"
+                                               value="<?= htmlspecialchars($per_day_data[$index]['end'] ?? ($type['available_end_time'] ?? '17:00')) ?>">
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <div class="form-text"><i class="fas fa-info-circle"></i> Per-day times override the global start/end times below for each specific day.</div>
                     </div>
                 </div>
 
@@ -698,6 +771,13 @@ function toggleFieldRentalFields() {
     }
 }
 
+// Toggle Per-Day Schedule fields
+function togglePerDaySchedule() {
+    const checkbox = document.getElementById('use_per_day_schedule');
+    const section = document.getElementById('per_day_schedule_section');
+    section.style.display = checkbox.checked ? 'block' : 'none';
+}
+
 // Copy booking link to clipboard
 function copyBookingLink(event) {
     const linkInput = document.getElementById('booking-link');
@@ -729,6 +809,7 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleScheduleType();
     updateAvailabilityPreview();
     toggleFieldRentalFields();
+    togglePerDaySchedule();
     
     // Add event listeners for availability fields
     document.getElementById('available_start_time').addEventListener('change', updateAvailabilityPreview);
@@ -742,7 +823,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add event listeners for day checkboxes
     document.querySelectorAll('input[name="available_days[]"]').forEach(function(checkbox) {
-        checkbox.addEventListener('change', updateAvailabilityPreview);
+        checkbox.addEventListener('change', function() {
+            updateAvailabilityPreview();
+            // Keep per-day row in sync with day selection
+            const row = document.getElementById('per_day_row_' + checkbox.value);
+            if (row) {
+                row.style.display = checkbox.checked ? 'table-row' : 'none';
+            }
+        });
     });
 });
 

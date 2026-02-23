@@ -1295,6 +1295,10 @@ class Database {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN field_rental_location TEXT");
         }
 
+        if (!in_array('per_day_schedule', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN per_day_schedule TEXT");
+        }
+
         // Add default_amount column to appointment_types table
         if (!in_array('default_amount', $apt_column_names)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN default_amount REAL DEFAULT 0");

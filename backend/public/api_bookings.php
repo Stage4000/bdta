@@ -29,7 +29,7 @@ if ($method === 'GET') {
     if ($appointment_type_id) {
         $stmt = $conn->prepare("
             SELECT available_days, available_start_time, available_end_time, time_slot_interval,
-                   schedule_type, specific_date
+                   schedule_type, specific_date, per_day_schedule
             FROM appointment_types 
             WHERE id = ? AND is_active = 1
         ");
@@ -77,6 +77,19 @@ if ($method === 'GET') {
                 'message' => 'This appointment type is only available on: ' . implode(', ', $available_day_names)
             ]);
             exit;
+        }
+
+        // Apply per-day time overrides if configured
+        if (!empty($appointment_type['per_day_schedule'])) {
+            $per_day = json_decode($appointment_type['per_day_schedule'], true);
+            if (is_array($per_day) && isset($per_day[$day_of_week])) {
+                $day_start = $per_day[$day_of_week]['start'] ?? '';
+                $day_end   = $per_day[$day_of_week]['end']   ?? '';
+                if (!empty($day_start) && !empty($day_end) && $day_start < $day_end) {
+                    $available_start_time = $day_start;
+                    $available_end_time   = $day_end;
+                }
+            }
         }
     }
     
