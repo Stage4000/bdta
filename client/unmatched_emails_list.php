@@ -69,6 +69,43 @@ include __DIR__ . '/../backend/includes/header.php';
     </div>
 </div>
 
+<!-- Reply Modal -->
+<div class="modal fade" id="replyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-reply"></i> Reply</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="replyForm">
+                    <input type="hidden" id="replyEmailId">
+                    <div class="mb-3">
+                        <label for="replyTo" class="form-label">To</label>
+                        <input type="email" class="form-control" id="replyTo" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="replySubject" class="form-label">Subject <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="replySubject" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="replyBody" class="form-label">Message <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="replyBody" rows="10" required></textarea>
+                        <small class="form-text text-muted">HTML is supported</small>
+                    </div>
+                    <div id="replyFormAlert" class="alert d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sendReplyBtn" onclick="sendReply()">
+                    <i class="fas fa-paper-plane"></i> Send Reply
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Assign to Client Modal -->
 <div class="modal fade" id="assignModal" tabindex="-1">
     <div class="modal-dialog">
@@ -104,6 +141,7 @@ include __DIR__ . '/../backend/includes/header.php';
 
 <script>
 let currentEmailId = null;
+let currentEmailData = null;
 
 // Load emails on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -197,6 +235,7 @@ async function showEmailDetails(emailId) {
         
         if (data.success) {
             const email = data.email;
+            currentEmailData = email;
             const modal = new bootstrap.Modal(document.getElementById('emailDetailsModal'));
             
             const body = document.getElementById('emailDetailsBody');
@@ -232,8 +271,12 @@ async function showEmailDetails(emailId) {
             const footer = document.getElementById('emailDetailsFooter');
             footer.innerHTML = '';
             
+            if (email.from_email) {
+                footer.innerHTML += `<button type="button" class="btn btn-primary" onclick="openReplyModal()"><i class="fas fa-reply"></i> Reply</button>`;
+            }
+            
             if (!email.is_assigned) {
-                footer.innerHTML += '<button type="button" class="btn btn-primary" onclick="openAssignModal()">Assign to Client</button>';
+                footer.innerHTML += '<button type="button" class="btn btn-success" onclick="openAssignModal()">Assign to Client</button>';
             }
             
             if (!email.is_archived) {
@@ -280,6 +323,89 @@ function openAssignModal() {
     const detailsModal = bootstrap.Modal.getInstance(document.getElementById('emailDetailsModal'));
     detailsModal.hide();
     assignModal.show();
+}
+
+// Open reply modal
+function openReplyModal() {
+    if (!currentEmailData) return;
+
+    document.getElementById('replyEmailId').value = currentEmailId;
+    document.getElementById('replyTo').value = currentEmailData.from_email || '';
+
+    const subject = currentEmailData.subject || '';
+    document.getElementById('replySubject').value = subject.startsWith('Re: ') ? subject : 'Re: ' + subject;
+
+    // Quote original message
+    let originalText = currentEmailData.body_text || '';
+    if (!originalText && currentEmailData.body_html) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = currentEmailData.body_html;
+        originalText = tmp.textContent || tmp.innerText || '';
+    }
+    const date = currentEmailData.received_at ? new Date(currentEmailData.received_at).toLocaleString() : '';
+    const quoted = '\n\n---\nOn ' + date + ', ' + (currentEmailData.from_email || '') + ' wrote:\n' +
+        originalText.split('\n').map(l => '> ' + l).join('\n');
+    document.getElementById('replyBody').value = quoted;
+
+    document.getElementById('replyFormAlert').className = 'alert d-none';
+
+    const detailsModal = bootstrap.Modal.getInstance(document.getElementById('emailDetailsModal'));
+    detailsModal.hide();
+    const replyModal = new bootstrap.Modal(document.getElementById('replyModal'));
+    replyModal.show();
+}
+
+// Send reply to unmatched email sender
+async function sendReply() {
+    const emailId = document.getElementById('replyEmailId').value;
+    const subject = document.getElementById('replySubject').value.trim();
+    const bodyHtml = document.getElementById('replyBody').value.trim();
+
+    if (!subject || !bodyHtml) {
+        showReplyAlert('Subject and message body are required.', 'danger');
+        return;
+    }
+
+    const btn = document.getElementById('sendReplyBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+    try {
+        const response = await fetch('unmatched_emails_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: parseInt(emailId),
+                action: 'reply',
+                subject: subject,
+                body_html: bodyHtml
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showReplyAlert('Reply sent successfully!', 'success');
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('replyModal')).hide();
+            }, 1500);
+        } else {
+            showReplyAlert('Error: ' + (data.error || 'Failed to send reply'), 'danger');
+        }
+    } catch (error) {
+        console.error('Error sending reply:', error);
+        showReplyAlert('Error sending reply: ' + error.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Reply';
+    }
+}
+
+// Show alert in reply form
+function showReplyAlert(message, type) {
+    const alertDiv = document.getElementById('replyFormAlert');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
 }
 
 // Assign email to client

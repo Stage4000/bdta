@@ -199,6 +199,57 @@ if ($method === 'GET') {
                 'message' => 'Email unarchived successfully'
             ]);
             
+        } elseif ($action === 'reply') {
+            // Reply to the sender of an unmatched email
+            $subject = isset($data['subject']) ? trim($data['subject']) : '';
+            $body_html = isset($data['body_html']) ? trim($data['body_html']) : '';
+            $body_text = isset($data['body_text']) ? trim($data['body_text']) : '';
+
+            if (empty($subject)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Subject is required']);
+                exit;
+            }
+            if (empty($body_html)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Message body is required']);
+                exit;
+            }
+
+            // Get the unmatched email to find the sender address
+            $stmt = $conn->prepare("SELECT from_email FROM unmatched_emails WHERE id = ?");
+            $stmt->execute([$email_id]);
+            $unmatched_email = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$unmatched_email) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Email not found']);
+                exit;
+            }
+
+            $to_email = $unmatched_email['from_email'];
+            if (empty($to_email)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Cannot reply: sender address is missing']);
+                exit;
+            }
+
+            require_once '../backend/includes/email_service.php';
+            $emailService = new EmailService();
+            $result = $emailService->sendGenericEmail(
+                $to_email,
+                $subject,
+                $body_html,
+                $body_text ?: strip_tags($body_html)
+            );
+
+            if ($result['success']) {
+                echo json_encode(['success' => true, 'message' => 'Reply sent successfully']);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Failed to send reply: ' . $result['message']]);
+            }
+            
         } else {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid action or missing client_id']);
