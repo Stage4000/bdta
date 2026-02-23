@@ -25,6 +25,11 @@ $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?")
 $items_stmt->execute([$id]);
 $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch installments
+$inst_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id = ? ORDER BY installment_number");
+$inst_stmt->execute([$id]);
+$installments = $inst_stmt->fetchAll(PDO::FETCH_ASSOC);
+
 include '../backend/includes/header.php';
 ?>
 
@@ -35,9 +40,11 @@ include '../backend/includes/header.php';
                 <h2><i class="fas fa-file-invoice me-2"></i>Invoice: <?= escape($invoice['invoice_number']) ?></h2>
                 <div>
                     <?php if ($invoice['status'] !== 'paid'): ?>
-                        <a href="invoices_payment.php?id=<?= $id ?>" class="btn btn-success">
-                            <i class="fas fa-credit-card"></i> Record Payment
-                        </a>
+                        <?php if (empty($installments)): ?>
+                            <a href="invoices_payment.php?id=<?= $id ?>" class="btn btn-success">
+                                <i class="fas fa-credit-card"></i> Record Payment
+                            </a>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <a href="invoices_list.php" class="btn btn-secondary">Back to List</a>
                 </div>
@@ -98,7 +105,14 @@ include '../backend/includes/header.php';
                             <tbody>
                                 <?php foreach ($items as $item): ?>
                                     <tr>
-                                        <td><?= escape($item['description']) ?></td>
+                                        <td>
+                                            <?= escape($item['description']) ?>
+                                            <?php if ($item['item_type'] === 'package'): ?>
+                                                <span class="badge bg-info ms-1"><i class="fas fa-box-open"></i> Package</span>
+                                            <?php elseif ($item['item_type'] === 'appointment_type'): ?>
+                                                <span class="badge bg-primary ms-1"><i class="fas fa-calendar-check"></i> Appointment</span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td class="text-end"><?= number_format($item['quantity'], 2) ?></td>
                                         <td class="text-end">$<?= number_format($item['rate'], 2) ?></td>
                                         <td class="text-end">$<?= number_format($item['amount'], 2) ?></td>
@@ -146,8 +160,91 @@ include '../backend/includes/header.php';
                     <?php endif; ?>
                 </div>
             </div>
+
+            <!-- Installments Section -->
+            <?php if (!empty($installments)): ?>
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Installment Schedule</h5>
+                    <?php
+                    $paid_count = count(array_filter($installments, fn($i) => $i['status'] === 'paid'));
+                    $total_count = count($installments);
+                    $paid_amount = array_sum(array_column(array_filter($installments, fn($i) => $i['status'] === 'paid'), 'amount'));
+                    ?>
+                    <span class="badge bg-<?= $paid_count === $total_count ? 'success' : 'warning' ?>">
+                        <?= $paid_count ?>/<?= $total_count ?> Paid
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Amount</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th>Paid Date</th>
+                                    <th>Method</th>
+                                    <?php if ($invoice['status'] !== 'paid'): ?>
+                                        <th>Action</th>
+                                    <?php endif; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($installments as $inst): ?>
+                                    <?php
+                                    $is_overdue = $inst['status'] === 'unpaid' && $inst['due_date'] < date('Y-m-d');
+                                    $row_class = $inst['status'] === 'paid' ? 'table-success' : ($is_overdue ? 'table-danger' : '');
+                                    ?>
+                                    <tr class="<?= $row_class ?>">
+                                        <td><?= $inst['installment_number'] ?></td>
+                                        <td><strong>$<?= number_format($inst['amount'], 2) ?></strong></td>
+                                        <td>
+                                            <?= formatDate($inst['due_date']) ?>
+                                            <?php if ($is_overdue): ?>
+                                                <span class="badge bg-danger ms-1">Overdue</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if ($inst['status'] === 'paid'): ?>
+                                                <span class="badge bg-success">Paid</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-warning text-dark">Unpaid</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= $inst['payment_date'] ? formatDate($inst['payment_date']) : '—' ?></td>
+                                        <td><?= $inst['payment_method'] ? escape(ucwords(str_replace('_', ' ', $inst['payment_method']))) : '—' ?></td>
+                                        <?php if ($invoice['status'] !== 'paid'): ?>
+                                            <td>
+                                                <?php if ($inst['status'] === 'unpaid'): ?>
+                                                    <a href="invoices_payment.php?id=<?= $id ?>&installment_id=<?= $inst['id'] ?>"
+                                                       class="btn btn-sm btn-success">
+                                                        <i class="fas fa-check"></i> Pay
+                                                    </a>
+                                                <?php endif; ?>
+                                            </td>
+                                        <?php endif; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-light">
+                                    <td><strong>Total Paid</strong></td>
+                                    <td><strong>$<?= number_format($paid_amount, 2) ?></strong></td>
+                                    <td colspan="<?= $invoice['status'] !== 'paid' ? 5 : 4 ?>">
+                                        Remaining: <strong>$<?= number_format($invoice['total_amount'] - $paid_amount, 2) ?></strong>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
 
 <?php include '../backend/includes/footer.php'; ?>
+
