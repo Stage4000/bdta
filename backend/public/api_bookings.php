@@ -220,14 +220,16 @@ if ($method === 'GET') {
             }
         }
         
-        // Get appointment type info to check if it's a Mini Session
+        // Get appointment type info to check if it's a Mini Session or Field Rental
         $location = null;
         if (!empty($data['appointment_type_id'])) {
-            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location FROM appointment_types WHERE id = ?");
+            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location FROM appointment_types WHERE id = ?");
             $stmt->execute([$data['appointment_type_id']]);
             $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($apt_type && !empty($apt_type['is_mini_session'])) {
                 $location = $apt_type['mini_session_location'];
+            } elseif ($apt_type && !empty($apt_type['is_field_rental'])) {
+                $location = $apt_type['field_rental_location'];
             }
         }
         
