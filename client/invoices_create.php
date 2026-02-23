@@ -12,6 +12,10 @@ $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 $packages_stmt = $conn->query("SELECT * FROM packages WHERE is_active = 1 ORDER BY name");
 $packages = $packages_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Load active appointment types for the appointment type selector
+$appt_types_stmt = $conn->query("SELECT id, name, default_amount FROM appointment_types WHERE is_active = 1 ORDER BY name");
+$appt_types = $appt_types_stmt->fetchAll(PDO::FETCH_ASSOC);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $client_id = intval($_POST['client_id'] ?? 0);
     $issue_date = $_POST['issue_date'] ?? date('Y-m-d');
@@ -43,6 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($_POST['item_package_id'][$index])) {
                     $item_type = 'package';
                     $reference_id = intval($_POST['item_package_id'][$index]);
+                } elseif (!empty($_POST['item_appointment_type_id'][$index])) {
+                    $item_type = 'appointment_type';
+                    $reference_id = intval($_POST['item_appointment_type_id'][$index]);
                 }
 
                 $items[] = [
@@ -155,6 +162,29 @@ include '../backend/includes/header.php';
                             <small class="text-muted">Package credits will be automatically applied to the client when this invoice is paid.</small>
                         </div>
                         <?php endif; ?>
+
+                        <!-- Appointment Type Selector -->
+                        <?php if (!empty($appt_types)): ?>
+                        <div class="mb-3">
+                            <label class="form-label">Add Appointment Type</label>
+                            <div class="input-group">
+                                <select class="form-select" id="apptTypeSelector">
+                                    <option value="">— Select an appointment type to add —</option>
+                                    <?php foreach ($appt_types as $at): ?>
+                                        <option value="<?= $at['id'] ?>"
+                                                data-name="<?= escape($at['name']) ?>"
+                                                data-price="<?= floatval($at['default_amount'] ?? 0) ?>">
+                                            <?= escape($at['name']) ?><?= $at['default_amount'] > 0 ? ' — $' . number_format($at['default_amount'], 2) : '' ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="btn btn-outline-secondary" id="addApptTypeItem">
+                                    <i class="fas fa-plus"></i> Add to Invoice
+                                </button>
+                            </div>
+                            <small class="text-muted">Individual appointment type billed at its default rate.</small>
+                        </div>
+                        <?php endif; ?>
                         
                         <h5 class="mt-4 mb-3">Line Items</h5>
                         <div id="lineItems">
@@ -162,6 +192,7 @@ include '../backend/includes/header.php';
                                 <div class="col-md-5">
                                     <input type="text" class="form-control" name="item_desc[]" placeholder="Description" required>
                                     <input type="hidden" name="item_package_id[]" value="">
+                                    <input type="hidden" name="item_appointment_type_id[]" value="">
                                 </div>
                                 <div class="col-md-2">
                                     <input type="number" step="0.01" class="form-control item-qty" name="item_qty[]" placeholder="Qty" value="1" required>
@@ -327,8 +358,32 @@ document.addEventListener('DOMContentLoaded', function() {
             newItem.querySelector('.item-qty').value = '1';
             newItem.querySelector('.item-rate').value = price.toFixed(2);
             newItem.querySelector('input[name="item_package_id[]"]').value = pkgId;
+            newItem.querySelector('input[name="item_appointment_type_id[]"]').value = '';
             lineItems.appendChild(newItem);
             packageSelector.selectedIndex = 0;
+            calculateTotals();
+        });
+    }
+
+    // Appointment type selector
+    const apptTypeSelector = document.getElementById('apptTypeSelector');
+    const addApptTypeBtn = document.getElementById('addApptTypeItem');
+    if (addApptTypeBtn) {
+        addApptTypeBtn.addEventListener('click', function() {
+            const opt = apptTypeSelector.options[apptTypeSelector.selectedIndex];
+            if (!opt.value) return;
+            const name = opt.dataset.name;
+            const price = parseFloat(opt.dataset.price) || 0;
+            const atId = opt.value;
+
+            const newItem = lineItems.firstElementChild.cloneNode(true);
+            newItem.querySelector('input[name="item_desc[]"]').value = name;
+            newItem.querySelector('.item-qty').value = '1';
+            newItem.querySelector('.item-rate').value = price.toFixed(2);
+            newItem.querySelector('input[name="item_package_id[]"]').value = '';
+            newItem.querySelector('input[name="item_appointment_type_id[]"]').value = atId;
+            lineItems.appendChild(newItem);
+            apptTypeSelector.selectedIndex = 0;
             calculateTotals();
         });
     }

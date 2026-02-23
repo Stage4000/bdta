@@ -109,6 +109,8 @@ include '../backend/includes/header.php';
                                             <?= escape($item['description']) ?>
                                             <?php if ($item['item_type'] === 'package'): ?>
                                                 <span class="badge bg-info ms-1"><i class="fas fa-box-open"></i> Package</span>
+                                            <?php elseif ($item['item_type'] === 'appointment_type'): ?>
+                                                <span class="badge bg-primary ms-1"><i class="fas fa-calendar-check"></i> Appointment</span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-end"><?= number_format($item['quantity'], 2) ?></td>
