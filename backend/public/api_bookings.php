@@ -29,7 +29,7 @@ if ($method === 'GET') {
     if ($appointment_type_id) {
         $stmt = $conn->prepare("
             SELECT available_days, available_start_time, available_end_time, time_slot_interval,
-                   schedule_type, specific_date
+                   schedule_type, specific_date, per_day_schedule
             FROM appointment_types 
             WHERE id = ? AND is_active = 1
         ");
@@ -77,6 +77,19 @@ if ($method === 'GET') {
                 'message' => 'This appointment type is only available on: ' . implode(', ', $available_day_names)
             ]);
             exit;
+        }
+
+        // Apply per-day time overrides if configured
+        if (!empty($appointment_type['per_day_schedule'])) {
+            $per_day = json_decode($appointment_type['per_day_schedule'], true);
+            if (is_array($per_day) && isset($per_day[$day_of_week])) {
+                $day_start = $per_day[$day_of_week]['start'] ?? '';
+                $day_end   = $per_day[$day_of_week]['end']   ?? '';
+                if (!empty($day_start) && !empty($day_end) && $day_start < $day_end) {
+                    $available_start_time = $day_start;
+                    $available_end_time   = $day_end;
+                }
+            }
         }
     }
     
@@ -220,14 +233,16 @@ if ($method === 'GET') {
             }
         }
         
-        // Get appointment type info to check if it's a Mini Session
+        // Get appointment type info to check if it's a Mini Session or Field Rental
         $location = null;
         if (!empty($data['appointment_type_id'])) {
-            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location FROM appointment_types WHERE id = ?");
+            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location FROM appointment_types WHERE id = ?");
             $stmt->execute([$data['appointment_type_id']]);
             $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($apt_type && !empty($apt_type['is_mini_session'])) {
                 $location = $apt_type['mini_session_location'];
+            } elseif ($apt_type && !empty($apt_type['is_field_rental'])) {
+                $location = $apt_type['field_rental_location'];
             }
         }
         

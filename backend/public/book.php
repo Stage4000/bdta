@@ -283,6 +283,23 @@ if (isset($error_mode) && $error_mode) {
                         </div>
                     </div>
                 <?php endif; ?>
+                <?php if (!empty($selected_type['is_field_rental'])): ?>
+                    <div class="alert alert-success mt-3 mb-0">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-tree me-3 mt-1" style="font-size: 1.5rem;"></i>
+                            <div>
+                                <h5 class="mb-2"><strong>Field Rental</strong></h5>
+                                <p class="mb-0">
+                                    <i class="fas fa-map-marker-alt me-2"></i>
+                                    <strong>Location:</strong> <?= escape($selected_type['field_rental_location']) ?>
+                                </p>
+                                <small class="text-muted d-block mt-2">
+                                    Reserve private time at this fenced training field. Book your preferred time slot below.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
             <?php else: ?>
                 <h1><i class="fas fa-calendar-check me-2"></i>Book Your Appointment</h1>
                 <p class="text-muted mb-0">Schedule your dog training session with Brook's Dog Training Academy</p>
