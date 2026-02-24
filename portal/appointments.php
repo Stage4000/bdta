@@ -58,7 +58,14 @@ include '../portal/includes/header.php';
                         <?php if (!empty($atype['description'])): ?>
                             <p class="text-muted small mb-2"><?php echo escape($atype['description']); ?></p>
                         <?php endif; ?>
-                        <a href="/backend/public/book.php?link=<?php echo escape($atype['unique_link']); ?>" class="btn btn-sm btn-primary" target="_blank">
+                        <?php
+                        if (!empty($atype['unique_link'])) {
+                            $book_url = '/backend/public/book.php?link=' . urlencode($atype['unique_link']);
+                        } else {
+                            $book_url = '/backend/public/book.php?type=' . intval($atype['id']);
+                        }
+                        ?>
+                        <a href="<?php echo escape($book_url); ?>" class="btn btn-sm btn-primary" target="_blank">
                             Book Now
                         </a>
                     </div>

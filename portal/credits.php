@@ -14,7 +14,7 @@ $legacy = $stmt->fetch(PDO::FETCH_ASSOC);
 // Package credits joined with client_packages and matched appointment type for booking
 $stmt = $conn->prepare("
     SELECT cpc.*, cp.package_name, cp.purchased_at, cp.expires_at, cp.is_active as pkg_active,
-           at.unique_link as appt_unique_link
+           at.id as appt_type_id, at.unique_link as appt_unique_link
     FROM client_package_credits cpc
     JOIN client_packages cp ON cpc.client_package_id = cp.id
     LEFT JOIN appointment_types at ON at.name = cpc.session_type AND at.is_active = 1
@@ -99,15 +99,25 @@ include '../portal/includes/header.php';
                         <?php endif; ?>
                     </td>
                     <td>
-                        <?php if ($remaining > 0 && $pc['pkg_active'] && !empty($pc['appt_unique_link'])): ?>
-                            <a href="/backend/public/book.php?link=<?php echo escape($pc['appt_unique_link']); ?>"
-                               class="btn btn-sm btn-primary" target="_blank">
-                                <i class="fas fa-calendar-plus me-1"></i>Book
-                            </a>
-                        <?php elseif ($remaining > 0 && $pc['pkg_active']): ?>
-                            <a href="appointments.php" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-calendar-plus me-1"></i>Book
-                            </a>
+                        <?php
+                        $remaining = intval($pc['total_credits']) - intval($pc['used_credits']);
+                        if ($remaining > 0 && $pc['pkg_active']):
+                            // Build booking URL: prefer unique_link, fall back to type ID
+                            if (!empty($pc['appt_unique_link'])) {
+                                $book_url = '/backend/public/book.php?link=' . urlencode($pc['appt_unique_link']);
+                            } elseif (!empty($pc['appt_type_id'])) {
+                                $book_url = '/backend/public/book.php?type=' . intval($pc['appt_type_id']);
+                            } else {
+                                $book_url = null;
+                            }
+                        ?>
+                            <?php if ($book_url): ?>
+                                <a href="<?php echo escape($book_url); ?>" class="btn btn-sm btn-primary" target="_blank">
+                                    <i class="fas fa-calendar-plus me-1"></i>Book
+                                </a>
+                            <?php else: ?>
+                                <span class="text-muted small">Contact us to book</span>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </td>
                 </tr>
