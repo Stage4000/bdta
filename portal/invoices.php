@@ -29,6 +29,7 @@ include '../portal/includes/header.php';
                     <th>Due Date</th>
                     <th>Total</th>
                     <th>Status</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -51,6 +52,7 @@ include '../portal/includes/header.php';
                     <td><?php echo escape($inv['due_date'] ?? ''); ?></td>
                     <td>$<?php echo number_format(floatval($inv['total_amount'] ?? 0), 2); ?></td>
                     <td><span class="badge bg-<?php echo $badge; ?>"><?php echo escape(ucfirst($status)); ?></span></td>
+                    <td><a href="invoice_view.php?id=<?php echo intval($inv['id']); ?>" class="btn btn-sm btn-outline-primary">View</a></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
