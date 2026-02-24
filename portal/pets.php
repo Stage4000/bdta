@@ -99,8 +99,7 @@ include '../portal/includes/header.php';
     <div class="card-body">
         <form method="POST">
             <input type="hidden" name="action" value="save">
-            <input type="hidden" name="pet_id" value="<?php echo $edit_pet ? intval($edit_pet['id']) : 0; ?>">
-            <div class="row g-3">
+            <input type="hidden" name="pet_id" value="<?php echo $edit_pet ? intval($edit_pet['id']) : 0; ?>">            <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Name <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" name="name" required
@@ -149,6 +148,27 @@ include '../portal/includes/header.php';
                 <button type="submit" class="btn btn-primary"><?php echo $edit_pet ? 'Update Pet' : 'Add Pet'; ?></button>
             </div>
         </form>
+
+        <?php if ($edit_pet): ?>
+        <hr>
+        <h6 class="mb-3">Documents &amp; Photos</h6>
+        <p class="text-muted small">Upload vaccination records, medical documents, photos, or other files.</p>
+        <div class="mb-3">
+            <input type="file" id="pet-file-input" class="form-control" accept=".jpg,.jpeg,.png,.gif,.pdf">
+            <small class="form-text text-muted">Supported formats: JPG, PNG, GIF, PDF (Max 10MB)</small>
+        </div>
+        <div class="mb-3">
+            <input type="text" id="file-description-input" class="form-control" placeholder="Description (optional, e.g., 'Rabies vaccine 2024')">
+        </div>
+        <button type="button" id="upload-file-btn" class="btn btn-sm btn-primary" disabled>
+            <i class="fas fa-cloud-upload-alt me-1"></i> Upload File
+        </button>
+        <div id="upload-status" class="mt-2"></div>
+        <div id="uploaded-files-list" class="mt-3">
+            <h6 class="mb-2">Uploaded Files</h6>
+            <div id="files-container" class="row g-2"></div>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -182,6 +202,132 @@ include '../portal/includes/header.php';
         </table>
     </div>
 </div>
+<?php endif; ?>
+
+<?php if ($edit_pet): ?>
+<script>
+(function() {
+    const petId = <?php echo intval($edit_pet['id']); ?>;
+    const fileInput = document.getElementById('pet-file-input');
+    const descriptionInput = document.getElementById('file-description-input');
+    const uploadBtn = document.getElementById('upload-file-btn');
+    const uploadStatus = document.getElementById('upload-status');
+    const filesContainer = document.getElementById('files-container');
+
+    fileInput.addEventListener('change', function() {
+        uploadBtn.disabled = !this.files.length;
+    });
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function showStatus(message, type) {
+        uploadStatus.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show">
+            ${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    }
+
+    function loadFiles() {
+        fetch('pet_files_list.php?pet_id=' + petId)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+                const files = data.files;
+                if (!files || files.length === 0) {
+                    filesContainer.innerHTML = '<div class="col-12"><p class="text-muted small">No files uploaded yet.</p></div>';
+                    return;
+                }
+                filesContainer.innerHTML = '';
+                files.forEach(file => {
+                    if (!Number.isInteger(file.id) || file.id <= 0) return;
+                    const isImage = file.file_type === 'photo';
+                    const icon = isImage ? 'fa-image' : 'fa-file-pdf';
+                    const iconColor = isImage ? 'text-success' : 'text-danger';
+                    const fileSize = formatFileSize(file.file_size);
+                    const uploadDate = new Date(file.uploaded_at).toLocaleDateString();
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 col-lg-4 mb-2';
+                    col.innerHTML = `<div class="card h-100">
+                        ${isImage ? `<div class="card-img-top" style="height:120px;overflow:hidden;background:#f8f9fa;">
+                            <img src="pet_files_view.php?id=${file.id}" alt="${escapeHtml(file.original_name)}"
+                                 style="width:100%;height:100%;object-fit:cover;cursor:pointer;"
+                                 onclick="window.open('pet_files_view.php?id=${file.id}','_blank')">
+                        </div>` : `<div class="card-body text-center pt-3 pb-0">
+                            <i class="fas ${icon} ${iconColor}" style="font-size:2.5rem;"></i>
+                        </div>`}
+                        <div class="card-body pt-2 pb-2">
+                            <div class="small fw-semibold text-truncate" title="${escapeHtml(file.original_name)}">${escapeHtml(file.original_name)}</div>
+                            ${file.description ? `<div class="text-muted small">${escapeHtml(file.description)}</div>` : ''}
+                            <div class="text-muted" style="font-size:0.75rem;">${fileSize} &bull; ${uploadDate}</div>
+                            <div class="btn-group btn-group-sm w-100 mt-1">
+                                <a href="pet_files_view.php?id=${file.id}" target="_blank" class="btn btn-outline-primary"><i class="fas fa-eye"></i></a>
+                                <a href="pet_files_view.php?id=${file.id}&download=1" class="btn btn-outline-secondary"><i class="fas fa-download"></i></a>
+                                <button type="button" class="btn btn-outline-danger" onclick="portalDeleteFile(${file.id})"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>`;
+                    filesContainer.appendChild(col);
+                });
+            })
+            .catch(err => console.error('Error loading files:', err));
+    }
+
+    uploadBtn.addEventListener('click', function() {
+        const file = fileInput.files[0];
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) { showStatus('File is too large. Maximum size is 10MB.', 'danger'); return; }
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('pet_id', petId);
+        formData.append('description', descriptionInput.value);
+        fetch('pet_files_upload.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus('File uploaded successfully!', 'success');
+                    fileInput.value = '';
+                    descriptionInput.value = '';
+                    loadFiles();
+                } else {
+                    showStatus(data.message || 'Upload failed', 'danger');
+                }
+            })
+            .catch(err => showStatus('Upload failed: ' + err.message, 'danger'))
+            .finally(() => {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-1"></i> Upload File';
+            });
+    });
+
+    window.portalDeleteFile = function(fileId) {
+        fileId = parseInt(fileId, 10);
+        if (!Number.isInteger(fileId) || fileId <= 0) { showStatus('Invalid file ID', 'danger'); return; }
+        if (!confirm('Delete this file? This cannot be undone.')) return;
+        const formData = new FormData();
+        formData.append('file_id', fileId);
+        fetch('pet_files_delete.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { loadFiles(); } else { showStatus(data.message || 'Delete failed', 'danger'); }
+            })
+            .catch(err => showStatus('Delete failed: ' + err.message, 'danger'));
+    };
+
+    loadFiles();
+})();
+</script>
 <?php endif; ?>
 
 <?php include '../portal/includes/footer.php'; ?>
