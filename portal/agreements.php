@@ -8,9 +8,8 @@ $conn = $db->getConnection();
 
 // Contracts
 $stmt = $conn->prepare("
-    SELECT c.*, ct.name as template_name
+    SELECT *
     FROM contracts c
-    LEFT JOIN contract_templates ct ON c.template_id = ct.id
     WHERE c.client_id = ?
     ORDER BY c.created_at DESC
 ");
@@ -19,7 +18,7 @@ $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Form submissions
 $stmt = $conn->prepare("
-    SELECT fs.*, ft.title as form_title
+    SELECT fs.*, ft.name as form_title
     FROM form_submissions fs
     LEFT JOIN form_templates ft ON fs.template_id = ft.id
     WHERE fs.client_id = ?
@@ -42,21 +41,21 @@ include '../portal/includes/header.php';
     <?php else: ?>
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Name</th><th>Template</th><th>Status</th><th>Date</th></tr></thead>
+            <thead><tr><th>Title</th><th>Status</th><th>Date</th></tr></thead>
             <tbody>
             <?php foreach ($contracts as $c): ?>
                 <?php
-                $status = strtolower($c['status'] ?? 'pending');
+                $status = strtolower($c['status'] ?? 'draft');
                 $badge = match($status) {
                     'signed'    => 'success',
                     'pending'   => 'warning',
+                    'draft'     => 'secondary',
                     'cancelled' => 'dark',
                     default     => 'secondary',
                 };
                 ?>
                 <tr>
-                    <td><?php echo escape($c['name'] ?? ''); ?></td>
-                    <td><?php echo escape($c['template_name'] ?? ''); ?></td>
+                    <td><?php echo escape($c['title'] ?? ''); ?></td>
                     <td><span class="badge bg-<?php echo $badge; ?>"><?php echo escape(ucfirst($status)); ?></span></td>
                     <td><?php echo escape($c['created_at'] ?? ''); ?></td>
                 </tr>
