@@ -97,7 +97,7 @@ include '../portal/includes/header.php';
                     <tr>
                         <td><?php echo escape($b['appointment_date'] ?? ''); ?></td>
                         <td><?php echo escape($b['appointment_time'] ?? ''); ?></td>
-                        <td><?php echo escape($b['appointment_type'] ?? ''); ?></td>
+                        <td><?php echo escape($b['service_type'] ?? ''); ?></td>
                         <td><?php echo escape($b['status'] ?? ''); ?></td>
                         <td><?php echo escape($b['notes'] ?? ''); ?></td>
                     </tr>
@@ -120,7 +120,7 @@ include '../portal/includes/header.php';
                     <tr>
                         <td><?php echo escape($b['appointment_date'] ?? ''); ?></td>
                         <td><?php echo escape($b['appointment_time'] ?? ''); ?></td>
-                        <td><?php echo escape($b['appointment_type'] ?? ''); ?></td>
+                        <td><?php echo escape($b['service_type'] ?? ''); ?></td>
                         <td><?php echo escape($b['status'] ?? ''); ?></td>
                         <td><?php echo escape($b['notes'] ?? ''); ?></td>
                     </tr>

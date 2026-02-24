@@ -49,7 +49,7 @@ include '../portal/includes/header.php';
                     <td><?php echo escape($inv['invoice_number'] ?? '#' . $inv['id']); ?></td>
                     <td><?php echo escape($inv['issue_date'] ?? ''); ?></td>
                     <td><?php echo escape($inv['due_date'] ?? ''); ?></td>
-                    <td>$<?php echo number_format(floatval($inv['total'] ?? 0), 2); ?></td>
+                    <td>$<?php echo number_format(floatval($inv['total_amount'] ?? 0), 2); ?></td>
                     <td><span class="badge bg-<?php echo $badge; ?>"><?php echo escape(ucfirst($status)); ?></span></td>
                 </tr>
             <?php endforeach; ?>

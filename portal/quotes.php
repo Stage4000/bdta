@@ -46,7 +46,7 @@ include '../portal/includes/header.php';
                 <tr>
                     <td><?php echo escape($q['quote_number'] ?? '#' . $q['id']); ?></td>
                     <td><?php echo escape($q['created_at'] ?? ''); ?></td>
-                    <td>$<?php echo number_format(floatval($q['total'] ?? 0), 2); ?></td>
+                    <td>$<?php echo number_format(floatval($q['amount'] ?? 0), 2); ?></td>
                     <td><span class="badge bg-<?php echo $badge; ?>"><?php echo escape(ucfirst($status)); ?></span></td>
                 </tr>
             <?php endforeach; ?>
