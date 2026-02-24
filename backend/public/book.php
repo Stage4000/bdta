@@ -431,28 +431,58 @@ if (isset($error_mode) && $error_mode) {
                         <!-- Location -->
                         <?php
                         $is_fixed_type = !empty($selected_type['is_mini_session']) || !empty($selected_type['is_field_rental']);
+                        $pub_loc_types_all = [
+                            'client_address' => ['label' => 'My registered address',                'needsValue' => false],
+                            'custom_address' => ['label' => 'A different address',                  'needsValue' => true,  'placeholder' => 'Enter full address',         'valueLabel' => 'Address *',   'type' => 'text'],
+                            'phone_inbound'  => ['label' => 'Phone call — I will call the trainer', 'needsValue' => false],
+                            'phone_outbound' => ['label' => 'Phone call — Trainer will call me',    'needsValue' => false],
+                            'webcall'        => ['label' => 'Video call (Zoom, Google Meet, etc.)', 'needsValue' => true,  'placeholder' => 'https://zoom.us/j/...',      'valueLabel' => 'Video call URL *', 'type' => 'url'],
+                        ];
+                        // Determine allowed types from appointment type config
+                        $pub_allowed = [];
+                        if (!$is_fixed_type && !empty($selected_type['location_types'])) {
+                            $pub_decoded = json_decode($selected_type['location_types'], true);
+                            if (is_array($pub_decoded) && !empty($pub_decoded)) {
+                                $pub_allowed = array_filter($pub_decoded, fn($t) => isset($pub_loc_types_all[$t]));
+                            }
+                        }
+                        if (empty($pub_allowed) && !$is_fixed_type) {
+                            $pub_allowed = array_keys($pub_loc_types_all); // Default: all types
+                        }
                         ?>
                         <div class="col-12 mb-3">
                             <div class="card border-primary">
                                 <div class="card-header bg-primary text-white py-2">
-                                    <h6 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>Appointment Location</h6>
+                                    <h6 class="mb-0"><i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>Appointment Location</h6>
                                 </div>
                                 <div class="card-body">
                                 <?php if ($is_fixed_type): ?>
                                     <?php $fixed_loc = !empty($selected_type['is_mini_session']) ? ($selected_type['mini_session_location'] ?? '') : ($selected_type['field_rental_location'] ?? ''); ?>
                                     <p class="mb-1 text-muted small">This appointment has a fixed location:</p>
-                                    <p class="mb-0 fw-bold"><i class="fas fa-map-marker-alt me-2"></i><?= escape($fixed_loc) ?></p>
+                                    <p class="mb-0 fw-bold"><i class="fas fa-location-dot me-2" aria-hidden="true"></i><?= escape($fixed_loc) ?></p>
                                     <input type="hidden" name="location_type" value="fixed">
                                     <input type="hidden" name="location_value" value="<?= escape($fixed_loc) ?>">
+                                <?php elseif (count($pub_allowed) === 1): ?>
+                                    <?php $only_lt = reset($pub_allowed); $only_def = $pub_loc_types_all[$only_lt]; ?>
+                                    <p class="mb-2 text-muted small">Location for this appointment:</p>
+                                    <p class="mb-2 fw-bold"><i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i><?= htmlspecialchars($only_def['label']) ?></p>
+                                    <input type="hidden" name="location_type" value="<?= htmlspecialchars($only_lt) ?>">
+                                    <?php if (!empty($only_def['needsValue'])): ?>
+                                    <div>
+                                        <label class="form-label"><?= htmlspecialchars($only_def['valueLabel']) ?></label>
+                                        <input type="<?= htmlspecialchars($only_def['type']) ?>" class="form-control form-control-lg"
+                                               name="location_value" id="publicLocationValueInput"
+                                               placeholder="<?= htmlspecialchars($only_def['placeholder']) ?>" required>
+                                    </div>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <label class="form-label">Where will this appointment take place? *</label>
                                     <select class="form-select form-select-lg" name="location_type" id="publicLocationType" required>
                                         <option value="">— Select location type —</option>
-                                        <option value="client_address">My registered address</option>
-                                        <option value="custom_address">A different address</option>
-                                        <option value="phone_inbound">Phone call — I will call the trainer</option>
-                                        <option value="phone_outbound">Phone call — Trainer will call me</option>
-                                        <option value="webcall">Video call (Zoom, Google Meet, etc.)</option>
+                                        <?php foreach ($pub_allowed as $lt_key): ?>
+                                            <?php $lt_def = $pub_loc_types_all[$lt_key]; ?>
+                                            <option value="<?= htmlspecialchars($lt_key) ?>"><?= htmlspecialchars($lt_def['label']) ?></option>
+                                        <?php endforeach; ?>
                                     </select>
                                     <div id="publicLocationValueWrapper" class="mt-2" style="display:none;">
                                         <label class="form-label" id="publicLocationValueLabel">Value *</label>
@@ -636,7 +666,7 @@ if (isset($error_mode) && $error_mode) {
                     showAlert('Please fill in your name and email', 'warning');
                     return;
                 }
-                // Validate location (only if selector is visible — not for fixed types)
+                // Validate location (only if selector is visible — not for fixed/single types)
                 const locTypeEl = document.getElementById('publicLocationType');
                 if (locTypeEl) {
                     if (!locTypeEl.value) {
@@ -649,6 +679,13 @@ if (isset($error_mode) && $error_mode) {
                             showAlert(locTypeEl.value === 'webcall' ? 'Please enter the webcall URL.' : 'Please enter the address.', 'warning');
                             return;
                         }
+                    }
+                } else {
+                    // Single-option or fixed: validate value field if present and required
+                    const locVal = document.getElementById('publicLocationValueInput');
+                    if (locVal && locVal.required && !locVal.value.trim()) {
+                        showAlert('Please enter the required location information.', 'warning');
+                        return;
                     }
                 }
             }

@@ -163,10 +163,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     : ($apt_type['field_rental_location'] ?? '');
             }
 
-            // Validate location selection
+            // Determine which location types are allowed for this appointment type
             $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
+            if (!$is_fixed && !empty($apt_type['location_types'])) {
+                $configured = json_decode($apt_type['location_types'], true);
+                if (is_array($configured) && !empty($configured)) {
+                    $allowed_location_types = array_merge($configured, ['fixed']);
+                }
+            }
+
+            // Validate location selection
             if (!in_array($location_type, $allowed_location_types)) {
-                $errors[] = "Please select a location type for the appointment.";
+                $errors[] = "Please select a valid location type for the appointment.";
             } elseif (in_array($location_type, ['custom_address', 'webcall']) && empty($location_value)) {
                 $errors[] = $location_type === 'webcall'
                     ? "Please enter the webcall URL."
@@ -329,7 +337,8 @@ include '../backend/includes/header.php';
                                                 data-credit-count="<?php echo $type['credit_count']; ?>"
                                                 data-is-mini="<?php echo !empty($type['is_mini_session']) ? '1' : '0'; ?>"
                                                 data-is-field="<?php echo !empty($type['is_field_rental']) ? '1' : '0'; ?>"
-                                                data-fixed-location="<?php echo htmlspecialchars(!empty($type['is_mini_session']) ? ($type['mini_session_location'] ?? '') : (!empty($type['is_field_rental']) ? ($type['field_rental_location'] ?? '') : '')); ?>">
+                                                data-fixed-location="<?php echo htmlspecialchars(!empty($type['is_mini_session']) ? ($type['mini_session_location'] ?? '') : (!empty($type['is_field_rental']) ? ($type['field_rental_location'] ?? '') : '')); ?>"
+                                                data-location-types="<?php echo htmlspecialchars($type['location_types'] ?? ''); ?>">
                                             <?php echo htmlspecialchars($type['name']); ?> (<?php echo $type['duration_minutes']; ?> min)
                                         </option>
                                     <?php endforeach; ?>
@@ -364,33 +373,14 @@ include '../backend/includes/header.php';
                                 <textarea name="notes" class="form-control" rows="3" placeholder="Booking notes..."></textarea>
                             </div>
 
-                            <!-- Location -->
-                            <div class="col-12 mb-3" id="locationSection">
+                            <!-- Location — rendered dynamically by JS based on appointment type config -->
+                            <div class="col-12 mb-3" id="locationSection" style="display:none;">
                                 <div class="card border-primary">
                                     <div class="card-header bg-primary text-white py-2">
-                                        <h6 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>Appointment Location <span class="text-warning">*</span></h6>
+                                        <h6 class="mb-0"><i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>Appointment Location <span class="text-warning">*</span></h6>
                                     </div>
-                                    <div class="card-body">
-                                        <div id="fixedLocationDisplay" style="display:none;">
-                                            <p class="text-muted small mb-1">This appointment type has a fixed location:</p>
-                                            <p class="mb-0 fw-bold" id="fixedLocationText"></p>
-                                            <input type="hidden" name="location_type" id="locationTypeFixed" value="fixed">
-                                        </div>
-                                        <div id="locationTypeWrapper">
-                                            <label class="form-label">Location Type *</label>
-                                            <select name="location_type" id="locationTypeSelect" class="form-select" required>
-                                                <option value="">— Select location type —</option>
-                                                <option value="client_address">Client's Registered Address</option>
-                                                <option value="custom_address">Custom Address</option>
-                                                <option value="phone_inbound">Phone Call (Inbound — client calls provider)</option>
-                                                <option value="phone_outbound">Phone Call (Outbound — provider calls client)</option>
-                                                <option value="webcall">Webcall Link (Zoom, Google Meet, etc.)</option>
-                                            </select>
-                                            <div id="locationValueWrapper" class="mt-2" style="display:none;">
-                                                <label class="form-label" id="locationValueLabel">Value</label>
-                                                <input type="text" name="location_value" id="locationValueInput" class="form-control" placeholder="">
-                                            </div>
-                                        </div>
+                                    <div class="card-body" id="locationCardBody">
+                                        <!-- Populated by renderLocationSelector() -->
                                     </div>
                                 </div>
                             </div>
@@ -466,6 +456,14 @@ include '../backend/includes/header.php';
 </div>
 
 <script>
+const LOC_TYPE_DEFS = {
+    'client_address': { label: "Client's Registered Address",     icon: 'fa-home',           needsValue: false },
+    'custom_address': { label: 'Custom Address',                   icon: 'fa-map-marker-alt', needsValue: true,  valuePlaceholder: 'Enter full address',           valueLabel: 'Address *',      valueType: 'text' },
+    'phone_inbound':  { label: 'Phone Call (Inbound)',             icon: 'fa-phone',          needsValue: false },
+    'phone_outbound': { label: 'Phone Call (Outbound)',            icon: 'fa-phone',          needsValue: false },
+    'webcall':        { label: 'Webcall (Zoom, Google Meet, etc.)',icon: 'fa-video',          needsValue: true,  valuePlaceholder: 'https://zoom.us/j/...', valueLabel: 'Webcall URL *',  valueType: 'url' },
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     const clientSelect = document.getElementById('clientSelect');
     const appointmentTypeSelect = document.getElementById('appointmentTypeSelect');
@@ -474,58 +472,80 @@ document.addEventListener('DOMContentLoaded', function() {
     const packageCreditsContainer = document.getElementById('packageCreditsContainer');
     const packageCreditSelect = document.getElementById('packageCreditSelect');
     const noPkgCreditsMsg = document.getElementById('noPkgCreditsMsg');
-    const fixedLocationDisplay = document.getElementById('fixedLocationDisplay');
-    const fixedLocationText = document.getElementById('fixedLocationText');
-    const locationTypeWrapper = document.getElementById('locationTypeWrapper');
-    const locationTypeSelect = document.getElementById('locationTypeSelect');
-    const locationValueWrapper = document.getElementById('locationValueWrapper');
-    const locationValueLabel = document.getElementById('locationValueLabel');
-    const locationValueInput = document.getElementById('locationValueInput');
+    const locationSection = document.getElementById('locationSection');
+    const locationCardBody = document.getElementById('locationCardBody');
 
-    // Show/hide location value field based on type selection
-    locationTypeSelect.addEventListener('change', function() {
-        const type = this.value;
-        if (type === 'custom_address') {
-            locationValueWrapper.style.display = 'block';
-            locationValueLabel.textContent = 'Custom Address *';
-            locationValueInput.placeholder = 'Enter full address';
-            locationValueInput.type = 'text';
-            locationValueInput.required = true;
-        } else if (type === 'webcall') {
-            locationValueWrapper.style.display = 'block';
-            locationValueLabel.textContent = 'Webcall URL *';
-            locationValueInput.placeholder = 'https://zoom.us/j/... or similar';
-            locationValueInput.type = 'url';
-            locationValueInput.required = true;
-        } else {
-            locationValueWrapper.style.display = 'none';
-            locationValueInput.required = false;
-            locationValueInput.value = '';
-        }
-    });
-
-    function updateLocationForType(option) {
+    // Render location selector based on allowed types for the selected appointment type
+    function renderLocationSelector(option) {
         if (!option || !option.value) {
-            fixedLocationDisplay.style.display = 'none';
-            locationTypeWrapper.style.display = 'block';
-            locationTypeSelect.required = true;
+            locationSection.style.display = 'none';
+            locationCardBody.innerHTML = '';
             return;
         }
+
         const isMini = option.dataset.isMini === '1';
         const isField = option.dataset.isField === '1';
         const fixedLoc = option.dataset.fixedLocation || '';
+
         if (isMini || isField) {
-            fixedLocationDisplay.style.display = 'block';
-            fixedLocationText.textContent = fixedLoc || '(No location set)';
-            locationTypeWrapper.style.display = 'none';
-            locationTypeSelect.required = false;
+            // Fixed location: display it prominently
+            locationSection.style.display = 'block';
+            locationCardBody.innerHTML = `
+                <p class="text-muted small mb-1">This appointment type has a fixed location:</p>
+                <p class="mb-0 fw-bold"><i class="fas fa-location-dot me-2 text-primary" aria-hidden="true"></i>${escapeHtml(fixedLoc || '(No location set)')}</p>
+                <input type="hidden" name="location_type" value="fixed">
+                <input type="hidden" name="location_value" value="${escapeHtml(fixedLoc)}">`;
+            return;
+        }
+
+        // Determine allowed types from data attribute
+        let allowed = [];
+        const raw = option.dataset.locationTypes || '';
+        if (raw) {
+            try { allowed = JSON.parse(raw); } catch(e) {}
+        }
+        if (!Array.isArray(allowed) || allowed.length === 0) {
+            allowed = Object.keys(LOC_TYPE_DEFS); // Default: all types
+        }
+
+        locationSection.style.display = 'block';
+
+        if (allowed.length === 1) {
+            // Single option: display prominently without dropdown
+            const lt = allowed[0];
+            const def = LOC_TYPE_DEFS[lt] || { label: lt, icon: 'fa-map-marker-alt', needsValue: false };
+            let html = `
+                <p class="text-muted small mb-2">Location for this appointment:</p>
+                <p class="mb-2 fw-bold"><i class="fas ${def.icon} me-2 text-primary" aria-hidden="true"></i>${escapeHtml(def.label)}</p>
+                <input type="hidden" name="location_type" value="${escapeHtml(lt)}">`;
+            if (def.needsValue) {
+                html += `
+                <div class="mt-2">
+                    <label class="form-label">${escapeHtml(def.valueLabel)}</label>
+                    <input type="text" name="location_value" id="locationValueInput" class="form-control"
+                           placeholder="${escapeHtml(def.valuePlaceholder)}" required>
+                </div>`;
+            }
+            locationCardBody.innerHTML = html;
         } else {
-            fixedLocationDisplay.style.display = 'none';
-            locationTypeWrapper.style.display = 'block';
-            locationTypeSelect.required = true;
+            // Multiple options: dropdown + conditional value field
+            let opts = `<option value="">— Select location type —</option>`;
+            allowed.forEach(lt => {
+                const def = LOC_TYPE_DEFS[lt] || { label: lt };
+                opts += `<option value="${escapeHtml(lt)}">${escapeHtml(def.label)}</option>`;
+            });
+            locationCardBody.innerHTML = `
+                <label class="form-label">Location Type *</label>
+                <select name="location_type" id="locationTypeSelect" class="form-select" required onchange="onLocationTypeChange(this)">
+                    ${opts}
+                </select>
+                <div id="locationValueWrapper" class="mt-2" style="display:none;">
+                    <label class="form-label" id="locationValueLabel">Value *</label>
+                    <input type="text" name="location_value" id="locationValueInput" class="form-control" placeholder="">
+                </div>`;
         }
     }
-    
+
     function loadPkgCredits() {
         const clientId = clientSelect.value;
         const typeId   = appointmentTypeSelect.value;
@@ -542,7 +562,6 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`?ajax=credits&client_id=${clientId}&type_id=${typeId}`)
             .then(r => r.json())
             .then(credits => {
-                // Reset
                 packageCreditSelect.innerHTML = '<option value="0">— Use Legacy Credits —</option>';
                 if (credits.length === 0) {
                     noPkgCreditsMsg.style.display = 'block';
@@ -592,10 +611,10 @@ document.addEventListener('DOMContentLoaded', function() {
         loadPkgCredits();
     });
     
-    // Update type info, show override options, and refresh package credits
+    // Update type info, show override options, location selector, and refresh package credits
     appointmentTypeSelect.addEventListener('change', function() {
         const option = this.options[this.selectedIndex];
-        updateLocationForType(option);
+        renderLocationSelector(option);
         if (!option.value) {
             typeInfo.textContent = '';
             document.getElementById('noOverridesMsg').style.display = 'block';
@@ -629,6 +648,34 @@ document.addEventListener('DOMContentLoaded', function() {
         loadPkgCredits();
     });
 });
+
+// Handle location type dropdown change (called via onchange attribute in dynamically rendered HTML)
+function onLocationTypeChange(sel) {
+    const type = sel.value;
+    const wrapper = document.getElementById('locationValueWrapper');
+    const label = document.getElementById('locationValueLabel');
+    const input = document.getElementById('locationValueInput');
+    if (!wrapper) return;
+    const def = LOC_TYPE_DEFS[type];
+    if (def && def.needsValue) {
+        wrapper.style.display = 'block';
+        if (label) label.textContent = def.valueLabel;
+        if (input) {
+            input.placeholder = def.valuePlaceholder;
+            input.type = def.valueType || 'text';
+            input.required = true;
+        }
+    } else {
+        wrapper.style.display = 'none';
+        if (input) { input.required = false; input.value = ''; }
+    }
+}
+
+function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(str));
+    return d.innerHTML;
+}
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>

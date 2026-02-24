@@ -1427,6 +1427,12 @@ class Database {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN location_type TEXT");
         }
 
+        // Add location_types (JSON array) to appointment_types so admins can configure allowed location options
+        $apt_col_names_loc = $this->getTableColumns('appointment_types');
+        if (!in_array('location_types', $apt_col_names_loc)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN location_types TEXT");
+        }
+
         // Add share_token to packages for shareable public links
         $pkg_column_names = $this->getTableColumns('packages');
         if (!in_array('share_token', $pkg_column_names)) {
