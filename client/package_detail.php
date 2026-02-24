@@ -33,17 +33,16 @@ if (!$package) {
     exit;
 }
 
-// Load package items
-$stmt = $conn->prepare("SELECT * FROM package_items WHERE package_id = ? ORDER BY session_type");
+// Load package items with appointment type name
+$stmt = $conn->prepare("
+    SELECT pi.*, at.name AS apt_type_name
+    FROM package_items pi
+    JOIN appointment_types at ON pi.appointment_type_id = at.id
+    WHERE pi.package_id = ?
+    ORDER BY at.name
+");
 $stmt->execute([$package['id']]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$session_type_labels = [
-    'group'        => ['label' => 'Group Class',     'badge' => 'secondary', 'icon' => 'fas fa-users'],
-    'mini'         => ['label' => 'Mini Session',    'badge' => 'info',      'icon' => 'fas fa-stopwatch'],
-    'private'      => ['label' => 'Private Session', 'badge' => 'primary',   'icon' => 'fas fa-user'],
-    'field_rental' => ['label' => 'Field Rental',    'badge' => 'warning text-dark', 'icon' => 'fas fa-tree'],
-];
 
 // Record page view (analytics)
 $ip = $_SERVER['REMOTE_ADDR'] ?? null;
@@ -108,11 +107,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purch
             // Create per-type credit rows
             $credit_stmt = $conn->prepare("
                 INSERT INTO client_package_credits
-                    (client_package_id, client_id, session_type, total_credits, used_credits)
+                    (client_package_id, client_id, appointment_type_id, total_credits, used_credits)
                 VALUES (?, ?, ?, ?, 0)
             ");
             foreach ($items as $item) {
-                $credit_stmt->execute([$cp_id, $client_id, $item['session_type'], $item['quantity']]);
+                $credit_stmt->execute([$cp_id, $client_id, $item['appointment_type_id'], $item['quantity']]);
             }
 
             // Log transactions
@@ -120,12 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purch
             $cred_stmt->execute([$cp_id]);
             $tx_stmt = $conn->prepare("
                 INSERT INTO package_credit_transactions
-                    (client_package_credit_id, client_id, session_type, transaction_type, amount, notes, created_by)
+                    (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, notes, created_by)
                 VALUES (?, ?, ?, 'purchase', ?, ?, NULL)
             ");
             foreach ($cred_stmt->fetchAll(PDO::FETCH_ASSOC) as $cred) {
                 $tx_stmt->execute([
-                    $cred['id'], $client_id, $cred['session_type'],
+                    $cred['id'], $client_id, $cred['appointment_type_id'],
                     $cred['total_credits'],
                     "Package '{$package['name']}' purchased via shareable link",
                 ]);
@@ -214,14 +213,12 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                         <hr>
                         <h6 class="mb-3">Credits Issued:</h6>
                         <div class="row g-2 justify-content-center">
-                            <?php foreach ($items as $item):
-                                $meta = $session_type_labels[$item['session_type']] ?? ['label' => ucfirst($item['session_type']), 'badge' => 'secondary', 'icon' => 'fas fa-circle'];
-                            ?>
+                            <?php foreach ($items as $item): ?>
                             <div class="col-6 col-md-4">
                                 <div class="credit-card">
-                                    <i class="<?= $meta['icon'] ?> fa-lg text-muted mb-1"></i>
+                                    <i class="fas fa-calendar-check fa-lg text-muted mb-1"></i>
                                     <div class="fs-3 fw-bold brand-purple"><?= $item['quantity'] ?></div>
-                                    <small class="text-muted"><?= $meta['label'] ?></small>
+                                    <small class="text-muted"><?= htmlspecialchars($item['apt_type_name']) ?></small>
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -243,15 +240,13 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                             <p class="text-muted">No items configured for this package.</p>
                         <?php else: ?>
                             <div class="row g-3">
-                                <?php foreach ($items as $item):
-                                    $meta = $session_type_labels[$item['session_type']] ?? ['label' => ucfirst($item['session_type']), 'badge' => 'secondary', 'icon' => 'fas fa-circle'];
-                                ?>
+                                <?php foreach ($items as $item): ?>
                                 <div class="col-6 col-md-4">
                                     <div class="credit-card">
-                                        <i class="<?= $meta['icon'] ?> fa-2x text-muted mb-2"></i>
+                                        <i class="fas fa-calendar-check fa-2x text-muted mb-2"></i>
                                         <div class="fs-2 fw-bold brand-purple"><?= $item['quantity'] ?></div>
-                                        <div class="small text-muted"><?= $meta['label'] ?></div>
-                                        <span class="badge bg-<?= $meta['badge'] ?> mt-1"><?= $item['quantity'] ?> credit<?= $item['quantity'] != 1 ? 's' : '' ?></span>
+                                        <div class="small text-muted"><?= htmlspecialchars($item['apt_type_name']) ?></div>
+                                        <span class="badge bg-primary mt-1"><?= $item['quantity'] ?> credit<?= $item['quantity'] != 1 ? 's' : '' ?></span>
                                     </div>
                                 </div>
                                 <?php endforeach; ?>
@@ -318,10 +313,8 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                                 <i class="fas fa-info-circle me-1"></i>
                                 On purchase, the following credits will be issued to your account:
                                 <ul class="mb-0 mt-1">
-                                    <?php foreach ($items as $item):
-                                        $meta = $session_type_labels[$item['session_type']] ?? ['label' => ucfirst($item['session_type'])];
-                                    ?>
-                                    <li><strong><?= $item['quantity'] ?>× <?= $meta['label'] ?></strong> credit<?= $item['quantity'] != 1 ? 's' : '' ?></li>
+                                    <?php foreach ($items as $item): ?>
+                                    <li><strong><?= $item['quantity'] ?>× <?= htmlspecialchars($item['apt_type_name']) ?></strong> credit<?= $item['quantity'] != 1 ? 's' : '' ?></li>
                                     <?php endforeach; ?>
                                 </ul>
                             </div>

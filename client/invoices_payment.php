@@ -69,11 +69,11 @@ function applyPackageCredits($conn, $invoice_id, $client_id, $admin_id) {
 
             $credit_stmt = $conn->prepare("
                 INSERT INTO client_package_credits
-                    (client_package_id, client_id, session_type, total_credits, used_credits)
+                    (client_package_id, client_id, appointment_type_id, total_credits, used_credits)
                 VALUES (?, ?, ?, ?, 0)
             ");
             foreach ($pkg_items as $pi) {
-                $credit_stmt->execute([$cp_id, $client_id, $pi['session_type'], $pi['quantity']]);
+                $credit_stmt->execute([$cp_id, $client_id, $pi['appointment_type_id'], $pi['quantity']]);
             }
 
             // Audit trail
@@ -81,12 +81,12 @@ function applyPackageCredits($conn, $invoice_id, $client_id, $admin_id) {
             $cred_stmt->execute([$cp_id]);
             $tx_stmt = $conn->prepare("
                 INSERT INTO package_credit_transactions
-                    (client_package_credit_id, client_id, session_type, transaction_type, amount, notes, created_by)
+                    (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, notes, created_by)
                 VALUES (?, ?, ?, 'purchase', ?, ?, ?)
             ");
             foreach ($cred_stmt->fetchAll(PDO::FETCH_ASSOC) as $cred) {
                 $tx_stmt->execute([
-                    $cred['id'], $client_id, $cred['session_type'],
+                    $cred['id'], $client_id, $cred['appointment_type_id'],
                     $cred['total_credits'],
                     "Package '{$package['name']}' from invoice payment",
                     $admin_id

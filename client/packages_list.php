@@ -31,12 +31,18 @@ $packages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $total = $conn->query("SELECT COUNT(*) FROM packages")->fetchColumn();
 $total_pages = ceil($total / $per_page);
 
-// Fetch items for each package
+// Fetch items for each package (join appointment_types for name)
 $package_ids = array_column($packages, 'id');
 $items_by_package = [];
 if (!empty($package_ids)) {
     $placeholders = implode(',', array_fill(0, count($package_ids), '?'));
-    $stmt = $conn->prepare("SELECT * FROM package_items WHERE package_id IN ($placeholders) ORDER BY session_type");
+    $stmt = $conn->prepare("
+        SELECT pi.*, at.name AS apt_type_name
+        FROM package_items pi
+        JOIN appointment_types at ON pi.appointment_type_id = at.id
+        WHERE pi.package_id IN ($placeholders)
+        ORDER BY at.name
+    ");
     $stmt->execute($package_ids);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
         $items_by_package[$item['package_id']][] = $item;
@@ -60,13 +66,6 @@ if (!empty($package_ids)) {
         $link_stats[$row['package_id']] = $row;
     }
 }
-
-$session_type_labels = [
-    'group'        => ['label' => 'Group Class',    'badge' => 'secondary'],
-    'mini'         => ['label' => 'Mini Session',   'badge' => 'info'],
-    'private'      => ['label' => 'Private Session','badge' => 'primary'],
-    'field_rental' => ['label' => 'Field Rental',   'badge' => 'warning text-dark'],
-];
 
 $page_title = "Bundled Packages";
 include __DIR__ . '/../backend/includes/header.php';
@@ -129,9 +128,8 @@ include __DIR__ . '/../backend/includes/header.php';
                                             <span class="text-muted">No items</span>
                                         <?php else: ?>
                                             <?php foreach ($items as $item): ?>
-                                                <?php $meta = $session_type_labels[$item['session_type']] ?? ['label' => ucfirst($item['session_type']), 'badge' => 'secondary']; ?>
-                                                <span class="badge bg-<?= $meta['badge'] ?> me-1">
-                                                    <?= $item['quantity'] ?>× <?= $meta['label'] ?>
+                                                <span class="badge bg-primary me-1">
+                                                    <?= $item['quantity'] ?>× <?= htmlspecialchars($item['apt_type_name']) ?>
                                                 </span>
                                             <?php endforeach; ?>
                                         <?php endif; ?>
