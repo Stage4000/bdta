@@ -145,6 +145,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'portal_homepage.php' ? 'active' : ''; ?>" href="portal_homepage.php">
+                                <i class="fas fa-door-open me-2"></i> Portal Homepage
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'appointment_types') !== false ? 'active' : ''; ?>" href="appointment_types_list.php">
                                 <i class="fas fa-calendar-plus me-2"></i> Appointment Types
                             </a>
