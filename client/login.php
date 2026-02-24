@@ -93,11 +93,11 @@ $page_title = 'Login';
             <div class="col-md-4">
                 <div class="card login-card">
                     <div class="login-header">
-                        <h3 class="mb-0">BDTA Client Area</h3>
-                        <small>Brooks Dog Training Academy</small>
+                        <h3 class="mb-0">BDTA Admin Login</h3>
+                        <small>Brook's Dog Training Academy</small>
                     </div>
                     <div class="card-body p-4">
-                        <h5 class="text-center mb-4">Sign In</h5>
+                        <h5 class="text-center mb-4">Admin Sign In</h5>
                         <?php if ($error): ?>
                             <div class="alert alert-danger"><?php echo escape($error); ?></div>
                         <?php endif; ?>
