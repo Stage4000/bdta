@@ -89,6 +89,68 @@ if ($method === 'GET') {
 } elseif ($method === 'POST') {
     // Assign email to a client or archive it
     $data = json_decode(file_get_contents('php://input'), true);
+    $action = $data['action'] ?? 'assign';
+
+    // Compose action does not require an existing email ID
+    if ($action === 'compose') {
+        $to = isset($data['to']) ? trim($data['to']) : '';
+        $cc_raw = isset($data['cc']) ? trim($data['cc']) : '';
+        $bcc_raw = isset($data['bcc']) ? trim($data['bcc']) : '';
+        $subject = isset($data['subject']) ? trim($data['subject']) : '';
+        $body_html = isset($data['body_html']) ? trim($data['body_html']) : '';
+
+        if (empty($to)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Recipient email (To) is required']);
+            exit;
+        }
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid recipient email address']);
+            exit;
+        }
+        if (empty($subject)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Subject is required']);
+            exit;
+        }
+        if (empty($body_html)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Message body is required']);
+            exit;
+        }
+
+        // Parse and validate CC/BCC addresses
+        $cc = array_values(array_filter(array_map('trim', $cc_raw !== '' ? explode(',', $cc_raw) : [])));
+        $bcc = array_values(array_filter(array_map('trim', $bcc_raw !== '' ? explode(',', $bcc_raw) : [])));
+
+        foreach ($cc as $cc_email) {
+            if (!filter_var($cc_email, FILTER_VALIDATE_EMAIL)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid CC email address: ' . $cc_email]);
+                exit;
+            }
+        }
+        foreach ($bcc as $bcc_email) {
+            if (!filter_var($bcc_email, FILTER_VALIDATE_EMAIL)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid BCC email address: ' . $bcc_email]);
+                exit;
+            }
+        }
+
+        require_once '../backend/includes/email_service.php';
+        $emailService = new EmailService();
+        $result = $emailService->sendComposeEmail($to, $cc, $bcc, $subject, $body_html);
+
+        if ($result['success']) {
+            echo json_encode(['success' => true, 'message' => 'Email sent successfully']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Failed to send email: ' . $result['message']]);
+        }
+        exit;
+    }
     
     if (!isset($data['id']) || $data['id'] <= 0) {
         http_response_code(400);
@@ -97,8 +159,7 @@ if ($method === 'GET') {
     }
     
     $email_id = $data['id'];
-    $action = $data['action'] ?? 'assign';
-    
+
     try {
         if ($action === 'assign' && isset($data['client_id']) && $data['client_id'] > 0) {
             // Assign to client and optionally create client_email record

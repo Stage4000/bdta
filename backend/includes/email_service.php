@@ -69,6 +69,24 @@ class EmailService {
         
         return $this->sendEmail($to, $subject, $html_body, $text_body);
     }
+
+    /**
+     * Send a composed email with optional CC and BCC recipients
+     * @param string $to Primary recipient email address
+     * @param array $cc Array of CC email addresses
+     * @param array $bcc Array of BCC email addresses
+     * @param string $subject Email subject
+     * @param string $html_body HTML body content
+     * @param string $text_body Plain text body content (optional)
+     * @return array Result array with 'success' and 'message' keys
+     */
+    public function sendComposeEmail($to, $cc, $bcc, $subject, $html_body, $text_body = '') {
+        if (empty($text_body)) {
+            $text_body = strip_tags($html_body);
+        }
+
+        return $this->sendEmail($to, $subject, $html_body, $text_body, $cc, $bcc);
+    }
     
     /**
      * Get HTML email template
@@ -251,7 +269,7 @@ TEXT;
     /**
      * Send email using PHPMailer with SMTP support
      */
-    private function sendEmail($to, $subject, $html_body, $text_body) {
+    private function sendEmail($to, $subject, $html_body, $text_body, $cc = [], $bcc = []) {
         try {
             // Add email signature if enabled
             $enable_signatures = Settings::get('enable_email_signatures', true);
@@ -341,6 +359,16 @@ TEXT;
             
             // Set recipient
             $mail->addAddress($to);
+            foreach ($cc as $cc_email) {
+                if (!empty($cc_email)) {
+                    $mail->addCC($cc_email);
+                }
+            }
+            foreach ($bcc as $bcc_email) {
+                if (!empty($bcc_email)) {
+                    $mail->addBCC($bcc_email);
+                }
+            }
             
             // Set email format and content
             $mail->isHTML(true);
