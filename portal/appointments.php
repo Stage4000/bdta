@@ -25,16 +25,24 @@ $past = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $stmt = $conn->query("SELECT * FROM appointment_types WHERE portal_available = 1 AND is_active = 1 ORDER BY name");
 $bookable_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Also include appointment types matching client's package session types
-$stmt = $conn->prepare("SELECT DISTINCT session_type FROM client_package_credits WHERE client_id = ? AND (total_credits - used_credits) > 0");
+// Also include appointment types matching client's package credits (not already portal_available)
+$stmt = $conn->prepare("
+    SELECT DISTINCT cpc.appointment_type_id
+    FROM client_package_credits cpc
+    JOIN client_packages cp ON cpc.client_package_id = cp.id
+    WHERE cpc.client_id = ?
+      AND (cpc.total_credits - cpc.used_credits) > 0
+      AND cp.is_active = 1
+      AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+");
 $stmt->execute([$client_id]);
-$session_types = $stmt->fetchAll(PDO::FETCH_COLUMN);
+$credited_type_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 $extra_types = [];
-if (!empty($session_types)) {
-    $placeholders = implode(',', array_fill(0, count($session_types), '?'));
-    $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE is_active = 1 AND name IN ($placeholders) AND (portal_available = 0 OR portal_available IS NULL) ORDER BY name");
-    $stmt->execute($session_types);
+if (!empty($credited_type_ids)) {
+    $placeholders = implode(',', array_fill(0, count($credited_type_ids), '?'));
+    $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE is_active = 1 AND id IN ($placeholders) AND (portal_available = 0 OR portal_available IS NULL) ORDER BY name");
+    $stmt->execute($credited_type_ids);
     $extra_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 

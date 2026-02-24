@@ -19,16 +19,18 @@ $stmt = $conn->prepare("SELECT COUNT(*) FROM bookings WHERE client_email = (SELE
 $stmt->execute([$client_id]);
 $upcoming_appointments = $stmt->fetchColumn();
 
-// Credit balance
-$stmt = $conn->prepare("SELECT credit_balance FROM client_credits WHERE client_id = ?");
+// Total available credits across all appointment types
+$stmt = $conn->prepare("
+    SELECT COALESCE(SUM(cpc.total_credits - cpc.used_credits), 0)
+    FROM client_package_credits cpc
+    JOIN client_packages cp ON cpc.client_package_id = cp.id
+    WHERE cpc.client_id = ?
+      AND cp.is_active = 1
+      AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+");
 $stmt->execute([$client_id]);
-$credit_row = $stmt->fetch(PDO::FETCH_ASSOC);
-$credit_balance = $credit_row ? intval($credit_row['credit_balance']) : 0;
-
-// Package credits balance
-$stmt = $conn->prepare("SELECT COALESCE(SUM(total_credits - used_credits), 0) FROM client_package_credits WHERE client_id = ?");
-$stmt->execute([$client_id]);
-$pkg_credits = intval($stmt->fetchColumn());
+$credit_balance = intval($stmt->fetchColumn());
+$pkg_credits = $credit_balance;
 
 // Pending agreements (unsigned contracts)
 $stmt = $conn->prepare("SELECT COUNT(*) FROM contracts WHERE client_id = ? AND status = 'pending'");
@@ -97,7 +99,7 @@ include '../portal/includes/header.php';
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <div class="fs-2 fw-bold"><?php echo $credit_balance + $pkg_credits; ?></div>
+                        <div class="fs-2 fw-bold"><?php echo $credit_balance; ?></div>
                         <div>Credit Balance</div>
                     </div>
                     <i class="fas fa-coins fa-2x opacity-75"></i>
