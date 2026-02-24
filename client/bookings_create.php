@@ -194,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     appointment_date, appointment_time, service_type, notes, status,
                     pets, override_forms, override_contract, override_credits,
                     package_credit_id, location_type, location, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ");
             $stmt->execute([
                 $client_id, $appointment_type_id,
@@ -230,10 +230,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                 } else {
                     // Deduct legacy credits
-                    $db->exec("UPDATE client_credits SET credit_balance = credit_balance - {$apt_type['credit_count']}, total_consumed = total_consumed + {$apt_type['credit_count']}, updated_at = datetime('now') WHERE client_id = $client_id");
+                    $db->exec("UPDATE client_credits SET credit_balance = credit_balance - {$apt_type['credit_count']}, total_consumed = total_consumed + {$apt_type['credit_count']}, updated_at = CURRENT_TIMESTAMP WHERE client_id = $client_id");
                     $balance_before = $credit_balance;
                     $balance_after  = $balance_before - $apt_type['credit_count'];
-                    $stmt = $db->prepare("INSERT INTO credit_transactions (client_id, transaction_type, amount, balance_before, balance_after, booking_id, notes, created_by, created_at) VALUES (?, 'consume', ?, ?, ?, ?, ?, ?, datetime('now'))");
+                    $stmt = $db->prepare("INSERT INTO credit_transactions (client_id, transaction_type, amount, balance_before, balance_after, booking_id, notes, created_by, created_at) VALUES (?, 'consume', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
                     $stmt->execute([$client_id, -$apt_type['credit_count'], $balance_before, $balance_after, $booking_id, "Consumed by booking #{$booking_id}", $_SESSION['admin_id']]);
                 }
             }
@@ -262,7 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Link pets to appointment
             if (!empty($pets)) {
                 foreach ($pets as $pet_id) {
-                    $stmt = $db->prepare("INSERT INTO appointment_pets (booking_id, pet_id, created_at) VALUES (?, ?, datetime('now'))");
+                    $stmt = $db->prepare("INSERT INTO appointment_pets (booking_id, pet_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
                     $stmt->execute([$booking_id, $pet_id]);
                 }
             }
