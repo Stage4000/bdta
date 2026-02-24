@@ -269,7 +269,20 @@ if ($method === 'GET') {
                 echo json_encode(['error' => $location_type === 'webcall' ? 'Webcall URL is required.' : 'Custom address is required.']);
                 exit;
             }
-            $location = $location_value;
+            // For client_address, resolve the actual address from the client's profile
+            if ($location_type === 'client_address') {
+                $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
+                $stmt->execute([$client_id]);
+                $client_row = $stmt->fetch(PDO::FETCH_ASSOC);
+                $resolved_address = trim($client_row['address'] ?? '');
+                if (empty($resolved_address)) {
+                    echo json_encode(['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.']);
+                    exit;
+                }
+                $location = $resolved_address;
+            } else {
+                $location = $location_value;
+            }
         }
         
         // Create booking with client_id, location, and location_type

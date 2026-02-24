@@ -181,6 +181,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     : "Please enter the custom address.";
             }
 
+            // For client_address type, resolve the actual address from the client profile
+            if (empty($errors) && $location_type === 'client_address') {
+                $location_value = trim($client['address'] ?? '');
+                if (empty($location_value)) {
+                    $errors[] = "The selected client does not have an address on file. Please add an address to their profile or choose a different location type.";
+                }
+            }
+
             if (!empty($errors)) {
                 setFlashMessage(implode('<br>', $errors), 'danger');
             } else {

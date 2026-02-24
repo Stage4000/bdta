@@ -87,8 +87,8 @@ require_once '../backend/includes/header.php';
                                     $lt = $booking['location_type'] ?? '';
                                     $lv = $booking['location'] ?? '';
                                     if ($lt) {
-                                        $icon_prefix = $location_type_labels[$lt] ?? '<i class="fas fa-map-marker-alt me-1"></i>';
-                                        if (in_array($lt, ['custom_address', 'webcall', 'fixed'])) {
+                                        $icon_prefix = $location_type_labels[$lt] ?? '<i class="fas fa-map-marker-alt me-1" aria-hidden="true"></i>';
+                                        if (in_array($lt, ['custom_address', 'webcall', 'fixed', 'client_address'])) {
                                             echo $icon_prefix . escape($lv);
                                         } else {
                                             echo $icon_prefix;
