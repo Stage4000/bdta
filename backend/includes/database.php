@@ -1336,14 +1336,28 @@ class Database {
             )
         ");
         
-        // Create package_items table (per session-type allocations within a package)
+        // Migrate legacy session_type-based tables to appointment_type_id-based schema.
+        // Since the app is in development mode, existing data is intentionally wiped.
+        if ($this->tableExists('package_items')) {
+            $pi_cols = $this->getTableColumns('package_items');
+            if (in_array('session_type', $pi_cols)) {
+                // Old schema detected — drop all dependent tables in reverse-dependency order
+                $this->execSQL("DROP TABLE IF EXISTS package_credit_transactions");
+                $this->execSQL("DROP TABLE IF EXISTS client_package_credits");
+                $this->execSQL("DROP TABLE IF EXISTS client_packages");
+                $this->execSQL("DROP TABLE IF EXISTS package_items");
+            }
+        }
+
+        // Create package_items table (per appointment-type allocations within a package)
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS package_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 package_id INTEGER NOT NULL,
-                session_type TEXT NOT NULL,
+                appointment_type_id INTEGER NOT NULL,
                 quantity INTEGER NOT NULL DEFAULT 1,
-                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
+                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE CASCADE
             )
         ");
         
@@ -1366,19 +1380,20 @@ class Database {
             )
         ");
         
-        // Create client_package_credits table (per-type credit tracking per purchased package)
+        // Create client_package_credits table (per-appointment-type credit tracking per purchased package)
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS client_package_credits (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 client_package_id INTEGER NOT NULL,
                 client_id INTEGER NOT NULL,
-                session_type TEXT NOT NULL,
+                appointment_type_id INTEGER NOT NULL,
                 total_credits INTEGER NOT NULL DEFAULT 0,
                 used_credits INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (client_package_id) REFERENCES client_packages(id) ON DELETE CASCADE,
-                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE CASCADE
             )
         ");
         
@@ -1388,7 +1403,7 @@ class Database {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 client_package_credit_id INTEGER NOT NULL,
                 client_id INTEGER NOT NULL,
-                session_type TEXT NOT NULL,
+                appointment_type_id INTEGER NOT NULL,
                 transaction_type TEXT NOT NULL,
                 amount INTEGER NOT NULL,
                 booking_id INTEGER,
@@ -1397,6 +1412,7 @@ class Database {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (client_package_credit_id) REFERENCES client_package_credits(id) ON DELETE CASCADE,
                 FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE CASCADE,
                 FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
                 FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
             )

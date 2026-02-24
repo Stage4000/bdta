@@ -5,39 +5,27 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-// Helper: derive session_type string from appointment_type row
-function getSessionType(array $apt): string {
-    if (!empty($apt['is_group_class']))   return 'group';
-    if (!empty($apt['is_mini_session']))  return 'mini';
-    if (!empty($apt['is_field_rental']))  return 'field_rental';
-    return 'private';
-}
-
 // AJAX: get eligible package credits for a client + appointment type
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'credits') {
     $client_id  = (int)($_GET['client_id']  ?? 0);
     $type_id    = (int)($_GET['type_id']    ?? 0);
-    $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE id = ?");
-    $stmt->execute([$type_id]);
-    $at = $stmt->fetch(PDO::FETCH_ASSOC);
     $result = [];
-    if ($at && $client_id) {
-        $session_type = getSessionType($at);
-        // Fetch active, non-expired package credits with remaining balance
+    if ($type_id && $client_id) {
+        // Fetch active, non-expired package credits matching this appointment type
         $stmt = $conn->prepare("
-            SELECT cpc.id, cpc.client_package_id, cpc.session_type,
+            SELECT cpc.id, cpc.client_package_id, cpc.appointment_type_id,
                    (cpc.total_credits - cpc.used_credits) AS remaining,
                    cp.package_name, cp.expires_at
             FROM client_package_credits cpc
             JOIN client_packages cp ON cpc.client_package_id = cp.id
             WHERE cpc.client_id = ?
-              AND cpc.session_type = ?
+              AND cpc.appointment_type_id = ?
               AND cp.is_active = 1
               AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
               AND (cpc.total_credits - cpc.used_credits) > 0
             ORDER BY cp.expires_at ASC, cp.purchased_at ASC
         ");
-        $stmt->execute([$client_id, $session_type]);
+        $stmt->execute([$client_id, $type_id]);
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     header('Content-Type: application/json');
@@ -64,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $override_forms = isset($_POST['override_forms']) ? 1 : 0;
     $override_contract = isset($_POST['override_contract']) ? 1 : 0;
     $override_credits = isset($_POST['override_credits']) ? 1 : 0;
-    // Package credit row ID selected by admin (0 = use legacy credits)
+    // Package credit row ID selected by admin
     $package_credit_id = (int)($_POST['package_credit_id'] ?? 0);
     // Location fields
     $location_type = trim($_POST['location_type'] ?? '');
@@ -115,21 +103,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Resolve which credit source to use
         $use_package_credit  = false;
         $package_credit_row  = null;
-        $credit_balance      = 0;
 
         if ($apt_type['consumes_credits'] && !$override_credits) {
             if ($package_credit_id > 0) {
-                // Validate the selected package credit
-                $session_type = getSessionType($apt_type);
+                // Validate the selected package credit for this appointment type
                 $stmt = $conn->prepare("
                     SELECT cpc.* FROM client_package_credits cpc
                     JOIN client_packages cp ON cpc.client_package_id = cp.id
                     WHERE cpc.id = ? AND cpc.client_id = ?
-                      AND cpc.session_type = ?
+                      AND cpc.appointment_type_id = ?
                       AND cp.is_active = 1
                       AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
                 ");
-                $stmt->execute([$package_credit_id, $client_id, $session_type]);
+                $stmt->execute([$package_credit_id, $client_id, $appointment_type_id]);
                 $package_credit_row = $stmt->fetch(PDO::FETCH_ASSOC);
 
                 if (!$package_credit_row) {
@@ -140,14 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $use_package_credit = true;
                 }
             } else {
-                // Fall back to legacy client_credits
-                $stmt = $conn->prepare("SELECT credit_balance FROM client_credits WHERE client_id = ?");
-                $stmt->execute([$client_id]);
-                $credit_balance = $stmt->fetchColumn();
-                if ($credit_balance === false) $credit_balance = 0;
-                if ($credit_balance < $apt_type['credit_count']) {
-                    $errors[] = "Insufficient credits (need {$apt_type['credit_count']}, have $credit_balance) — select a package credit or override to proceed";
-                }
+                $errors[] = "No credit source selected — select a package credit or override to proceed";
             }
         }
         
@@ -215,35 +194,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $booking_id = $conn->lastInsertId();
             
             // Consume credits
-            if ($apt_type['consumes_credits'] && !$override_credits) {
-                if ($use_package_credit && $package_credit_row) {
-                    // Deduct from package credit
-                    $conn->prepare("
-                        UPDATE client_package_credits
-                        SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
-                        WHERE id = ?
-                    ")->execute([$package_credit_row['id']]);
+            if ($apt_type['consumes_credits'] && !$override_credits && $use_package_credit && $package_credit_row) {
+                // Deduct from package credit
+                $conn->prepare("
+                    UPDATE client_package_credits
+                    SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ")->execute([$package_credit_row['id']]);
 
-                    // Log package credit transaction
-                    $conn->prepare("
-                        INSERT INTO package_credit_transactions
-                            (client_package_credit_id, client_id, session_type, transaction_type, amount, booking_id, notes, created_by)
-                        VALUES (?, ?, ?, 'consume', -1, ?, ?, ?)
-                    ")->execute([
-                        $package_credit_row['id'], $client_id,
-                        $package_credit_row['session_type'],
-                        $booking_id,
-                        "Consumed by booking #{$booking_id}",
-                        $_SESSION['admin_id']
-                    ]);
-                } else {
-                    // Deduct legacy credits
-                    $db->exec("UPDATE client_credits SET credit_balance = credit_balance - {$apt_type['credit_count']}, total_consumed = total_consumed + {$apt_type['credit_count']}, updated_at = CURRENT_TIMESTAMP WHERE client_id = $client_id");
-                    $balance_before = $credit_balance;
-                    $balance_after  = $balance_before - $apt_type['credit_count'];
-                    $stmt = $db->prepare("INSERT INTO credit_transactions (client_id, transaction_type, amount, balance_before, balance_after, booking_id, notes, created_by, created_at) VALUES (?, 'consume', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
-                    $stmt->execute([$client_id, -$apt_type['credit_count'], $balance_before, $balance_after, $booking_id, "Consumed by booking #{$booking_id}", $_SESSION['admin_id']]);
-                }
+                // Log package credit transaction
+                $conn->prepare("
+                    INSERT INTO package_credit_transactions
+                        (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
+                    VALUES (?, ?, ?, 'consume', -1, ?, ?, ?)
+                ")->execute([
+                    $package_credit_row['id'], $client_id,
+                    $package_credit_row['appointment_type_id'],
+                    $booking_id,
+                    "Consumed by booking #{$booking_id}",
+                    $_SESSION['admin_id']
+                ]);
             }
             
             // Auto-invoice if configured

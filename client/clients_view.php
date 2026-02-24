@@ -83,25 +83,21 @@ $stmt = $conn->prepare("SELECT * FROM invoices WHERE client_id = ? ORDER BY crea
 $stmt->execute([$id]);
 $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get credit balance
-$stmt = $conn->prepare("SELECT * FROM client_credits WHERE client_id = ?");
-$stmt->execute([$id]);
-$credits = $stmt->fetch(PDO::FETCH_ASSOC);
-
-// Get active package credit summary per session type
+// Get active package credit summary per appointment type
 $stmt = $conn->prepare("
-    SELECT cpc.session_type,
+    SELECT at.name AS apt_type_name,
            SUM(cpc.total_credits - cpc.used_credits) AS remaining
     FROM client_package_credits cpc
     JOIN client_packages cp ON cpc.client_package_id = cp.id
+    JOIN appointment_types at ON cpc.appointment_type_id = at.id
     WHERE cpc.client_id = ?
       AND cp.is_active = 1
       AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
       AND (cpc.total_credits - cpc.used_credits) > 0
-    GROUP BY cpc.session_type
+    GROUP BY cpc.appointment_type_id, at.name
 ");
 $stmt->execute([$id]);
-$pkg_credits_summary = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'remaining', 'session_type');
+$pkg_credits_summary = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'remaining', 'apt_type_name');
 
 // Get email count
 $stmt = $conn->prepare("SELECT COUNT(*) as email_count FROM client_emails WHERE client_id = ?");
@@ -164,28 +160,16 @@ include '../backend/includes/header.php';
                         <dt>Member Since:</dt>
                         <dd><?= formatDate($client['created_at']) ?></dd>
                         
-                        <?php if ($credits): ?>
-                            <dt>General Credits:</dt>
-                            <dd>
-                                <span class="badge bg-<?= $credits['credit_balance'] > 0 ? 'success' : 'secondary' ?> fs-6">
-                                    <?= $credits['credit_balance'] ?> credits
-                                </span>
-                            </dd>
-                        <?php endif; ?>
-
                         <?php if (!empty($pkg_credits_summary)): ?>
-                            <dt>Package Credits:</dt>
+                            <dt>Credits:</dt>
                             <dd>
-                                <?php
-                                $type_labels = ['group' => 'Group', 'mini' => 'Mini', 'private' => 'Private', 'field_rental' => 'Field'];
-                                foreach ($pkg_credits_summary as $type => $rem):
-                                ?>
-                                    <span class="badge bg-primary me-1"><?= htmlspecialchars($type_labels[$type] ?? ucfirst($type)) ?>: <?= (int)$rem ?></span>
+                                <?php foreach ($pkg_credits_summary as $apt_name => $rem): ?>
+                                    <span class="badge bg-primary me-1"><?= htmlspecialchars($apt_name) ?>: <?= (int)$rem ?></span>
                                 <?php endforeach; ?>
                             </dd>
                         <?php endif; ?>
 
-                        <?php if ($credits || !empty($pkg_credits_summary)): ?>
+                        <?php if (!empty($pkg_credits_summary)): ?>
                             <dd>
                                 <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-wallet"></i> Manage Credits

@@ -596,7 +596,7 @@ include __DIR__ . '/../backend/includes/header.php';
                             <label class="form-check-label" for="consumes_credits">
                                 Consumes Credits
                             </label>
-                            <div class="form-text">This appointment type uses session credits</div>
+                            <div class="form-text">This appointment type requires its own credits for booking</div>
                         </div>
                     </div>
                     <div class="col-md-6">
