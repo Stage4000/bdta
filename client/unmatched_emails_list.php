@@ -17,6 +17,9 @@ include __DIR__ . '/../backend/includes/header.php';
             <p class="text-muted">Manage emails from senders not in your client database</p>
         </div>
         <div>
+            <button type="button" class="btn btn-primary me-2" onclick="openComposeModal()">
+                <i class="fas fa-pen"></i> Compose Email
+            </button>
             <span class="badge bg-warning fs-5" id="unassignedCount">0</span>
             <span class="text-muted ms-2">Unassigned</span>
         </div>
@@ -134,6 +137,52 @@ include __DIR__ . '/../backend/includes/header.php';
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" onclick="assignEmail()">Assign Email</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Compose Email Modal -->
+<div class="modal fade" id="composeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-pen"></i> Compose Email</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="composeForm">
+                    <div class="mb-3">
+                        <label for="composeTo" class="form-label">To <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="composeTo" required placeholder="recipient@example.com">
+                    </div>
+                    <div class="mb-3">
+                        <label for="composeCC" class="form-label">CC</label>
+                        <input type="text" class="form-control" id="composeCC" placeholder="cc@example.com, another@example.com">
+                        <small class="form-text text-muted">Separate multiple addresses with commas</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="composeBCC" class="form-label">BCC</label>
+                        <input type="text" class="form-control" id="composeBCC" placeholder="bcc@example.com">
+                        <small class="form-text text-muted">Separate multiple addresses with commas</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="composeSubject" class="form-label">Subject <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="composeSubject" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="composeBody" class="form-label">Message <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="composeBody" rows="10" required></textarea>
+                        <small class="form-text text-muted">HTML is supported</small>
+                    </div>
+                    <div id="composeFormAlert" class="alert d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sendComposeBtn" onclick="sendComposedEmail()">
+                    <i class="fas fa-paper-plane"></i> Send Email
+                </button>
             </div>
         </div>
     </div>
@@ -273,6 +322,7 @@ async function showEmailDetails(emailId) {
             
             if (email.from_email) {
                 footer.innerHTML += `<button type="button" class="btn btn-primary" onclick="openReplyModal()"><i class="fas fa-reply"></i> Reply</button>`;
+                footer.innerHTML += `<button type="button" class="btn btn-info" onclick="openComposeFromEmail()"><i class="fas fa-pen"></i> Compose</button>`;
             }
             
             if (!email.is_assigned) {
@@ -522,6 +572,87 @@ async function deleteEmail() {
         console.error('Error deleting email:', error);
         alert('Error deleting email');
     }
+}
+
+// Open compose modal with optional prefill data
+function openComposeModal(prefillData) {
+    document.getElementById('composeTo').value = (prefillData && prefillData.to) ? prefillData.to : '';
+    document.getElementById('composeCC').value = (prefillData && prefillData.cc) ? prefillData.cc : '';
+    document.getElementById('composeBCC').value = (prefillData && prefillData.bcc) ? prefillData.bcc : '';
+    document.getElementById('composeSubject').value = (prefillData && prefillData.subject) ? prefillData.subject : '';
+    document.getElementById('composeBody').value = '';
+    document.getElementById('composeFormAlert').className = 'alert d-none';
+
+    const detailsModal = bootstrap.Modal.getInstance(document.getElementById('emailDetailsModal'));
+    if (detailsModal) {
+        detailsModal.hide();
+    }
+
+    const composeModal = new bootstrap.Modal(document.getElementById('composeModal'));
+    composeModal.show();
+}
+
+// Open compose modal prefilled from currently viewed unmatched email
+function openComposeFromEmail() {
+    if (!currentEmailData) return;
+    openComposeModal({ to: currentEmailData.from_email || '' });
+}
+
+// Send composed email
+async function sendComposedEmail() {
+    const to = document.getElementById('composeTo').value.trim();
+    const cc = document.getElementById('composeCC').value.trim();
+    const bcc = document.getElementById('composeBCC').value.trim();
+    const subject = document.getElementById('composeSubject').value.trim();
+    const bodyHtml = document.getElementById('composeBody').value.trim();
+
+    if (!to || !subject || !bodyHtml) {
+        showComposeAlert('To, Subject, and Message Body are required.', 'danger');
+        return;
+    }
+
+    const btn = document.getElementById('sendComposeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+    try {
+        const response = await fetch('unmatched_emails_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'compose',
+                to: to,
+                cc: cc,
+                bcc: bcc,
+                subject: subject,
+                body_html: bodyHtml
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showComposeAlert('Email sent successfully!', 'success');
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('composeModal')).hide();
+            }, 1500);
+        } else {
+            showComposeAlert('Error: ' + (data.error || 'Failed to send email'), 'danger');
+        }
+    } catch (error) {
+        console.error('Error sending email:', error);
+        showComposeAlert('Error sending email: ' + error.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Email';
+    }
+}
+
+// Show alert in compose form
+function showComposeAlert(message, type) {
+    const alertDiv = document.getElementById('composeFormAlert');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
 }
 
 // Escape HTML
