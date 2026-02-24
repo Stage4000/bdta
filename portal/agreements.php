@@ -22,7 +22,7 @@ $stmt = $conn->prepare("
     FROM form_submissions fs
     LEFT JOIN form_templates ft ON fs.template_id = ft.id
     WHERE fs.client_id = ?
-    ORDER BY fs.created_at DESC
+    ORDER BY fs.submitted_at DESC
 ");
 $stmt->execute([$client_id]);
 $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -79,7 +79,7 @@ include '../portal/includes/header.php';
             <?php foreach ($submissions as $fs): ?>
                 <tr>
                     <td><?php echo escape($fs['form_title'] ?? 'Unknown Form'); ?></td>
-                    <td><?php echo escape($fs['created_at'] ?? ''); ?></td>
+                    <td><?php echo escape($fs['submitted_at'] ?? ''); ?></td>
                     <td><?php echo escape($fs['status'] ?? ''); ?></td>
                 </tr>
             <?php endforeach; ?>
