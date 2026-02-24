@@ -7,7 +7,52 @@ header('Content-Type: application/json');
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-if ($method === 'GET') {
+if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits') {
+    // Check available credits for a client email + appointment type
+    $email = $_GET['email'] ?? '';
+    $appointment_type_id = isset($_GET['appointment_type_id']) ? (int)$_GET['appointment_type_id'] : 0;
+
+    if (!$email || !$appointment_type_id) {
+        echo json_encode(['credits' => []]);
+        exit;
+    }
+
+    $db = new Database();
+    $conn = $db->getConnection();
+
+    // Look up client by email
+    $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
+    $stmt->execute([$email]);
+    $client_row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$client_row) {
+        echo json_encode(['credits' => []]);
+        exit;
+    }
+
+    $client_id = (int)$client_row['id'];
+
+    // Fetch active, non-expired package credits for this client + appointment type
+    $stmt = $conn->prepare("
+        SELECT cpc.id, cpc.client_package_id,
+               (cpc.total_credits - cpc.used_credits) AS remaining,
+               cp.package_name
+        FROM client_package_credits cpc
+        JOIN client_packages cp ON cpc.client_package_id = cp.id
+        WHERE cpc.client_id = ?
+          AND cpc.appointment_type_id = ?
+          AND (cpc.total_credits - cpc.used_credits) > 0
+          AND cp.is_active = 1
+          AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+        ORDER BY cp.expires_at ASC
+    ");
+    $stmt->execute([$client_id, $appointment_type_id]);
+    $credits = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode(['credits' => $credits]);
+    exit;
+
+} elseif ($method === 'GET') {
     // Check availability
     $date = $_GET['date'] ?? '';
     $appointment_type_id = isset($_GET['appointment_type_id']) ? (int)$_GET['appointment_type_id'] : null;
@@ -285,13 +330,38 @@ if ($method === 'GET') {
             }
         }
         
-        // Create booking with client_id, location, and location_type
+        // Resolve credit to use, if requested
+        $use_credit = ($data['use_credit'] ?? false) === true;
+        $pkg_credit_id_to_use = null;
+        if ($use_credit && !empty($data['appointment_type_id'])) {
+            // Find the best eligible credit row (soonest expiry first)
+            $stmt = $conn->prepare("
+                SELECT cpc.id
+                FROM client_package_credits cpc
+                JOIN client_packages cp ON cpc.client_package_id = cp.id
+                WHERE cpc.client_id = ?
+                  AND cpc.appointment_type_id = ?
+                  AND (cpc.total_credits - cpc.used_credits) > 0
+                  AND cp.is_active = 1
+                  AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+                ORDER BY cp.expires_at ASC
+                LIMIT 1
+            ");
+            $stmt->execute([$client_id, (int)$data['appointment_type_id']]);
+            $credit_row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($credit_row) {
+                $pkg_credit_id_to_use = (int)$credit_row['id'];
+            }
+        }
+
+        // Create booking with client_id, appointment_type_id, location, location_type, and package_credit_id
         $stmt = $conn->prepare("
-            INSERT INTO bookings (client_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+            INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
         ");
         $stmt->execute([
             $client_id,
+            !empty($data['appointment_type_id']) ? (int)$data['appointment_type_id'] : null,
             $data['client_name'],
             $data['client_email'],
             $data['client_phone'] ?? '',
@@ -301,7 +371,8 @@ if ($method === 'GET') {
             $data['notes'] ?? '',
             $data['duration_minutes'] ?? 60,
             $location,
-            $location_type
+            $location_type,
+            $pkg_credit_id_to_use
         ]);
         
         $booking_id = $conn->lastInsertId();
@@ -316,7 +387,32 @@ if ($method === 'GET') {
                 $stmt->execute([$booking_id, $pet_id]);
             }
         }
-        
+
+        // Deduct credit if one was selected
+        if ($pkg_credit_id_to_use) {
+            $conn->prepare("
+                UPDATE client_package_credits
+                SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ")->execute([$pkg_credit_id_to_use]);
+
+            // Look up appointment_type_id for the transaction log
+            $apt_type_id_for_log = !empty($data['appointment_type_id']) ? (int)$data['appointment_type_id'] : null;
+            if ($apt_type_id_for_log) {
+                $conn->prepare("
+                    INSERT INTO package_credit_transactions
+                        (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
+                    VALUES (?, ?, ?, 'consume', -1, ?, ?, NULL)
+                ")->execute([
+                    $pkg_credit_id_to_use,
+                    $client_id,
+                    $apt_type_id_for_log,
+                    $booking_id,
+                    "Credit applied at booking #{$booking_id} via client portal"
+                ]);
+            }
+        }
+
         // Get the complete booking info
         $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
         $stmt->execute([$booking_id]);
@@ -343,6 +439,7 @@ if ($method === 'GET') {
             'success' => true,
             'message' => 'Booking created successfully!',
             'booking_id' => $booking_id,
+            'credit_applied' => $pkg_credit_id_to_use !== null,
             'calendar_links' => [
                 'google_calendar' => $google_calendar_link,
                 'ical_download' => $ical_download_link

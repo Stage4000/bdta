@@ -543,6 +543,18 @@ if (isset($error_mode) && $error_mode) {
                         <i class="fas fa-circle-info me-2"></i>
                         You will receive a confirmation email with your appointment details and calendar links.
                     </div>
+
+                    <!-- Credit toggle: shown only when client has available credits for this appointment type -->
+                    <div class="alert alert-success mt-3 d-none" id="creditToggleArea">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="useCreditToggle" name="use_credit" value="1">
+                            <label class="form-check-label fw-bold" for="useCreditToggle">
+                                <i class="fas fa-ticket me-1"></i>
+                                Use a credit from my package for this booking
+                            </label>
+                        </div>
+                        <small class="text-muted d-block mt-1" id="creditRemainingNote"></small>
+                    </div>
                     
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
@@ -826,6 +838,31 @@ if (isset($error_mode) && $error_mode) {
             document.getElementById('confirmPhone').textContent = document.getElementById('clientPhone').value || 'Not provided';
             document.getElementById('confirmDogs').textContent = document.getElementById('dogNames').value || 'Not specified';
             document.getElementById('confirmLocation').textContent = getLocationSummary() || 'Not specified';
+
+            // Check for available credits
+            const email = document.getElementById('clientEmail').value.trim();
+            const creditToggleArea = document.getElementById('creditToggleArea');
+            const creditRemainingNote = document.getElementById('creditRemainingNote');
+            if (email && selectedType) {
+                fetch(`api_bookings.php?action=credits&email=${encodeURIComponent(email)}&appointment_type_id=${selectedType}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.credits && data.credits.length > 0) {
+                            const best = data.credits[0];
+                            const totalRemaining = data.credits.reduce((sum, c) => sum + parseInt(c.remaining), 0);
+                            creditRemainingNote.textContent = `You have ${totalRemaining} credit(s) available for this appointment type.`;
+                            creditToggleArea.classList.remove('d-none');
+                        } else {
+                            creditToggleArea.classList.add('d-none');
+                            document.getElementById('useCreditToggle').checked = false;
+                        }
+                    })
+                    .catch(() => {
+                        creditToggleArea.classList.add('d-none');
+                    });
+            } else {
+                creditToggleArea.classList.add('d-none');
+            }
         }
         
         function submitBooking(e) {
@@ -868,7 +905,8 @@ if (isset($error_mode) && $error_mode) {
                 // Default to 60 minutes if appointment type duration is not available
                 duration_minutes: selectedTypeDuration ?? 60,
                 location_type: location_type,
-                location_value: location_value
+                location_value: location_value,
+                use_credit: !!document.getElementById('useCreditToggle')?.checked
             };
             
             fetch('api_bookings.php', {
@@ -879,6 +917,13 @@ if (isset($error_mode) && $error_mode) {
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
+                    if (data.credit_applied) {
+                        // Store the credit applied message for the success modal
+                        const modalBody = document.querySelector('#successModal .modal-body p.text-muted');
+                        if (modalBody) {
+                            modalBody.innerHTML = 'Your appointment has been successfully booked and a credit has been applied. Check your email for confirmation details and calendar links.';
+                        }
+                    }
                     const modal = new bootstrap.Modal(document.getElementById('successModal'));
                     modal.show();
                 } else {

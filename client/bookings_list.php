@@ -7,12 +7,114 @@ $conn = $db->getConnection();
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isset($_POST['status'])) {
-    $booking_id = $_POST['booking_id'];
+    $booking_id = (int)$_POST['booking_id'];
     $status = $_POST['status'];
-    
+
+    // Fetch current booking for credit handling
+    $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
+    $stmt->execute([$booking_id]);
+    $booking_row = $stmt->fetch(PDO::FETCH_ASSOC);
+
     $stmt = $conn->prepare("UPDATE bookings SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     $stmt->execute([$status, $booking_id]);
-    
+
+    if ($booking_row) {
+        $pkg_credit_id = (int)($booking_row['package_credit_id'] ?? 0);
+        $admin_id = $_SESSION['admin_id'] ?? null;
+
+        if ($status === 'cancelled' && $pkg_credit_id > 0) {
+            // Refund credit: check that a consume transaction exists (avoid double-refund)
+            $stmt = $conn->prepare("
+                SELECT COUNT(*) FROM package_credit_transactions
+                WHERE client_package_credit_id = ? AND booking_id = ? AND transaction_type = 'refund'
+            ");
+            $stmt->execute([$pkg_credit_id, $booking_id]);
+            $already_refunded = (int)$stmt->fetchColumn();
+
+            if (!$already_refunded) {
+                $conn->prepare("
+                    UPDATE client_package_credits
+                    SET used_credits = used_credits - 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND used_credits > 0
+                ")->execute([$pkg_credit_id]);
+
+                // Fetch appointment_type_id for log
+                $stmt = $conn->prepare("SELECT appointment_type_id, client_id FROM client_package_credits WHERE id = ?");
+                $stmt->execute([$pkg_credit_id]);
+                $cpc_row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($cpc_row) {
+                    $conn->prepare("
+                        INSERT INTO package_credit_transactions
+                            (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
+                        VALUES (?, ?, ?, 'refund', 1, ?, ?, ?)
+                    ")->execute([
+                        $pkg_credit_id,
+                        $cpc_row['client_id'],
+                        $cpc_row['appointment_type_id'],
+                        $booking_id,
+                        "Credit refunded for cancelled booking #{$booking_id}",
+                        $admin_id
+                    ]);
+                }
+                setFlashMessage("Booking cancelled and credit refunded.", 'success');
+                redirect('bookings_list.php');
+            }
+        } elseif (in_array($status, ['confirmed', 'completed']) && empty($pkg_credit_id)
+                  && !empty($booking_row['appointment_type_id']) && !empty($booking_row['client_id'])) {
+            // If no credit was applied at booking time, check if one should be consumed now
+            $apt_type_id = (int)$booking_row['appointment_type_id'];
+            $client_id_b  = (int)$booking_row['client_id'];
+
+            // Only deduct if appointment type has consumes_credits set
+            $stmt = $conn->prepare("SELECT consumes_credits FROM appointment_types WHERE id = ?");
+            $stmt->execute([$apt_type_id]);
+            $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($apt_type && $apt_type['consumes_credits']) {
+                $stmt = $conn->prepare("
+                    SELECT cpc.id, cpc.appointment_type_id
+                    FROM client_package_credits cpc
+                    JOIN client_packages cp ON cpc.client_package_id = cp.id
+                    WHERE cpc.client_id = ?
+                      AND cpc.appointment_type_id = ?
+                      AND (cpc.total_credits - cpc.used_credits) > 0
+                      AND cp.is_active = 1
+                      AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+                    ORDER BY cp.expires_at ASC
+                    LIMIT 1
+                ");
+                $stmt->execute([$client_id_b, $apt_type_id]);
+                $credit_row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($credit_row) {
+                    $conn->prepare("
+                        UPDATE client_package_credits
+                        SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    ")->execute([$credit_row['id']]);
+
+                    // Link credit to booking
+                    $conn->prepare("
+                        UPDATE bookings SET package_credit_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+                    ")->execute([$credit_row['id'], $booking_id]);
+
+                    $conn->prepare("
+                        INSERT INTO package_credit_transactions
+                            (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
+                        VALUES (?, ?, ?, 'consume', -1, ?, ?, ?)
+                    ")->execute([
+                        $credit_row['id'],
+                        $client_id_b,
+                        $apt_type_id,
+                        $booking_id,
+                        "Credit consumed on status change to {$status} for booking #{$booking_id}",
+                        $admin_id
+                    ]);
+                }
+            }
+        }
+    }
+
     setFlashMessage("Booking status updated to $status.", 'success');
     redirect('bookings_list.php');
 }
