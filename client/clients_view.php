@@ -88,6 +88,21 @@ $stmt = $conn->prepare("SELECT * FROM client_credits WHERE client_id = ?");
 $stmt->execute([$id]);
 $credits = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Get active package credit summary per session type
+$stmt = $conn->prepare("
+    SELECT cpc.session_type,
+           SUM(cpc.total_credits - cpc.used_credits) AS remaining
+    FROM client_package_credits cpc
+    JOIN client_packages cp ON cpc.client_package_id = cp.id
+    WHERE cpc.client_id = ?
+      AND cp.is_active = 1
+      AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+      AND (cpc.total_credits - cpc.used_credits) > 0
+    GROUP BY cpc.session_type
+");
+$stmt->execute([$id]);
+$pkg_credits_summary = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'remaining', 'session_type');
+
 // Get email count
 $stmt = $conn->prepare("SELECT COUNT(*) as email_count FROM client_emails WHERE client_id = ?");
 $stmt->execute([$id]);
@@ -150,16 +165,31 @@ include '../backend/includes/header.php';
                         <dd><?= formatDate($client['created_at']) ?></dd>
                         
                         <?php if ($credits): ?>
-                            <dt>Credit Balance:</dt>
+                            <dt>General Credits:</dt>
                             <dd>
                                 <span class="badge bg-<?= $credits['credit_balance'] > 0 ? 'success' : 'secondary' ?> fs-6">
                                     <?= $credits['credit_balance'] ?> credits
                                 </span>
-                                <div class="mt-2">
-                                    <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-wallet"></i> Manage Credits
-                                    </a>
-                                </div>
+                            </dd>
+                        <?php endif; ?>
+
+                        <?php if (!empty($pkg_credits_summary)): ?>
+                            <dt>Package Credits:</dt>
+                            <dd>
+                                <?php
+                                $type_labels = ['group' => 'Group', 'mini' => 'Mini', 'private' => 'Private', 'field_rental' => 'Field'];
+                                foreach ($pkg_credits_summary as $type => $rem):
+                                ?>
+                                    <span class="badge bg-primary me-1"><?= htmlspecialchars($type_labels[$type] ?? ucfirst($type)) ?>: <?= (int)$rem ?></span>
+                                <?php endforeach; ?>
+                            </dd>
+                        <?php endif; ?>
+
+                        <?php if ($credits || !empty($pkg_credits_summary)): ?>
+                            <dd>
+                                <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-wallet"></i> Manage Credits
+                                </a>
                             </dd>
                         <?php endif; ?>
                         
