@@ -115,9 +115,6 @@ $page_title = 'Login';
                         <div class="text-center mt-3">
                             <a href="forgot_password.php" class="text-decoration-none">Forgot Password?</a>
                         </div>
-                        <div class="text-center mt-2">
-                            <small class="text-muted">Are you a client? <a href="../portal/login.php" class="text-decoration-none">Client Portal Login &rarr;</a></small>
-                        </div>
                     </div>
                 </div>
             </div>

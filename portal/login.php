@@ -106,6 +106,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="text-center mt-3">
                             <a href="forgot_password.php" class="text-decoration-none">Forgot Password?</a>
                         </div>
+                        <div class="text-center mt-4 pt-3 border-top">
+                            <small class="text-muted"><a href="../client/login.php" class="text-muted text-decoration-none">Admin login</a></small>
+                        </div>
                     </div>
                 </div>
             </div>
