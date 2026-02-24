@@ -36,7 +36,6 @@ if ($is_edit && isset($_GET['delete'])) {
 
 // Load existing package
 $package = null;
-$existing_items = [];
 if ($is_edit) {
     $stmt = $conn->prepare("SELECT * FROM packages WHERE id = ?");
     $stmt->execute([$id]);
@@ -52,19 +51,20 @@ if ($is_edit) {
         $conn->prepare("UPDATE packages SET share_token=? WHERE id=?")->execute([$new_token, $id]);
         $package['share_token'] = $new_token;
     }
+}
+
+$stmt = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name");
+$appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Map existing items by appointment_type_id for pre-fill on edit
+$existing_items = [];
+if ($is_edit) {
     $stmt = $conn->prepare("SELECT * FROM package_items WHERE package_id = ?");
     $stmt->execute([$id]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
-        $existing_items[$item['session_type']] = $item['quantity'];
+        $existing_items[$item['appointment_type_id']] = $item['quantity'];
     }
 }
-
-$session_types = [
-    'group'        => 'Group Class',
-    'mini'         => 'Mini Session',
-    'private'      => 'Private Session',
-    'field_rental' => 'Field Rental',
-];
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -80,16 +80,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Package name is required.';
     }
 
-    // Build items: only session types with quantity > 0
+    // Build items: only appointment types with quantity > 0
     $items = [];
-    foreach ($session_types as $type => $label) {
-        $qty = (int)($_POST['qty_' . $type] ?? 0);
+    foreach ($appointment_types as $apt) {
+        $qty = (int)($_POST['qty_' . $apt['id']] ?? 0);
         if ($qty > 0) {
-            $items[$type] = $qty;
+            $items[$apt['id']] = $qty;
         }
     }
     if (empty($items)) {
-        $errors[] = 'At least one session type must have a quantity greater than zero.';
+        $errors[] = 'At least one appointment type must have a quantity greater than zero.';
     }
 
     if (empty($errors)) {
@@ -122,9 +122,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Insert items
-            $item_stmt = $conn->prepare("INSERT INTO package_items (package_id, session_type, quantity) VALUES (?, ?, ?)");
-            foreach ($items as $type => $qty) {
-                $item_stmt->execute([$id, $type, $qty]);
+            $item_stmt = $conn->prepare("INSERT INTO package_items (package_id, appointment_type_id, quantity) VALUES (?, ?, ?)");
+            foreach ($items as $apt_type_id => $qty) {
+                $item_stmt->execute([$id, $apt_type_id, $qty]);
             }
 
             $conn->commit();
@@ -188,34 +188,31 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
 
-                <h6 class="border-bottom pb-2 mb-3">Session-Type Allocations</h6>
-                <p class="text-muted">Set the number of credits each session type contributes to this package. Leave at 0 to exclude a type.</p>
+                <h6 class="border-bottom pb-2 mb-3">Appointment-Type Credit Allocations</h6>
+                <p class="text-muted">Set the number of credits each appointment type contributes to this package. Leave at 0 to exclude a type.</p>
+                <?php if (empty($appointment_types)): ?>
+                    <div class="alert alert-warning">No active appointment types found. <a href="appointment_types_list.php">Create appointment types first.</a></div>
+                <?php else: ?>
                 <div class="row g-3 mb-4">
-                    <?php
-                    $type_icons = [
-                        'group'        => 'fas fa-users',
-                        'mini'         => 'fas fa-stopwatch',
-                        'private'      => 'fas fa-user',
-                        'field_rental' => 'fas fa-tree',
-                    ];
-                    foreach ($session_types as $type => $label):
-                        $qty = $existing_items[$type] ?? (isset($_POST['qty_' . $type]) ? (int)$_POST['qty_' . $type] : 0);
+                    <?php foreach ($appointment_types as $apt):
+                        $qty = $existing_items[$apt['id']] ?? (isset($_POST['qty_' . $apt['id']]) ? (int)$_POST['qty_' . $apt['id']] : 0);
                     ?>
                     <div class="col-md-3 col-sm-6">
-                        <div class="card h-100 <?= $qty > 0 ? 'border-primary' : '' ?>" id="card_<?= $type ?>">
+                        <div class="card h-100 <?= $qty > 0 ? 'border-primary' : '' ?>" id="card_<?= $apt['id'] ?>">
                             <div class="card-body text-center">
-                                <i class="<?= $type_icons[$type] ?> fa-2x mb-2 text-muted"></i>
-                                <h6 class="card-title"><?= $label ?></h6>
+                                <i class="fas fa-calendar-check fa-2x mb-2 text-muted"></i>
+                                <h6 class="card-title"><?= htmlspecialchars($apt['name']) ?></h6>
                                 <input type="number" class="form-control form-control-lg text-center"
-                                       id="qty_<?= $type ?>" name="qty_<?= $type ?>"
+                                       id="qty_<?= $apt['id'] ?>" name="qty_<?= $apt['id'] ?>"
                                        value="<?= $qty ?>" min="0" max="100"
-                                       onchange="highlightCard('<?= $type ?>', this.value)">
+                                       onchange="highlightCard('<?= $apt['id'] ?>', this.value)">
                                 <div class="form-text">credits</div>
                             </div>
                         </div>
                     </div>
                     <?php endforeach; ?>
                 </div>
+                <?php endif; ?>
 
                 <h6 class="border-bottom pb-2 mb-3">Status</h6>
                 <div class="row g-3 mb-4">
