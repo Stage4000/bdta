@@ -57,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_group_class = isset($_POST['is_group_class']) ? 1 : 0;
     $max_participants = (int)($_POST['max_participants'] ?? 1);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
+    $portal_available = isset($_POST['portal_available']) ? 1 : 0;
     
     // Handle Mini Sessions configuration
     $is_mini_session = isset($_POST['is_mini_session']) ? 1 : 0;
@@ -135,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_group_class = ?,
                     max_participants = ?,
                     is_active = ?,
+                    portal_available = ?,
                     schedule_type = ?,
                     specific_date = ?,
                     available_days = ?,
@@ -161,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $auto_invoice, $invoice_due_days,
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
-                $is_active,
+                $is_active, $portal_available,
                 $schedule_type, $specific_date,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
@@ -192,6 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     consumes_credits, credit_count,
                     is_group_class, max_participants,
                     is_active, unique_link,
+                    portal_available,
                     schedule_type, specific_date,
                     available_days, available_start_time, available_end_time, time_slot_interval,
                     is_mini_session, mini_session_location, mini_session_topic,
@@ -199,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     per_day_schedule,
                     default_amount,
                     location_types
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -211,6 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
                 $is_active, $unique_link,
+                $portal_available,
                 $schedule_type, $specific_date,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
@@ -757,6 +761,16 @@ include __DIR__ . '/../backend/includes/header.php';
                                 Active
                             </label>
                             <div class="form-text">Only active types are available for booking</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="portal_available" name="portal_available"
+                                   <?= !empty($type['portal_available']) ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="portal_available">
+                                Available in Client Portal
+                            </label>
+                            <div class="form-text">Allow clients to book this type directly from the client portal</div>
                         </div>
                     </div>
                 </div>

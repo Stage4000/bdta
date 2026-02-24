@@ -70,7 +70,7 @@ include '../backend/includes/header.php';
                             <i class="fas fa-wallet"></i> Manage Credits
                         </a>
                         <a href="client_set_password.php?client_id=<?= $id ?>" class="btn btn-warning me-2">
-                            <i class="fas fa-key"></i> Set Password
+                            <i class="fas fa-key"></i> Set Portal Password
                         </a>
                     <?php endif; ?>
                     <a href="clients_list.php" class="btn btn-secondary">

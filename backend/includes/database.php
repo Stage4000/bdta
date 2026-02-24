@@ -1454,6 +1454,41 @@ class Database {
             )
         ");
 
+        // Add portal_available column to appointment_types
+        $apt_column_names = $this->getTableColumns('appointment_types');
+        if (!in_array('portal_available', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN portal_available INTEGER DEFAULT 0");
+            $this->execSQL("UPDATE appointment_types SET portal_available = 0 WHERE portal_available IS NULL");
+        }
+
+        // Create portal_content table for customizable homepage
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS portal_content (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content_html TEXT,
+                notice_html TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_by INTEGER
+            )
+        ");
+        $count = $this->conn->query("SELECT COUNT(*) FROM portal_content")->fetchColumn();
+        if ($count == 0) {
+            $this->execSQL("INSERT INTO portal_content (content_html, notice_html) VALUES ('', '')");
+        }
+
+        // Create client_activity_log table
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS client_activity_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                description TEXT,
+                ip_address TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+            )
+        ");
+
         // Add database settings for existing installations
         $this->addDatabaseSettings();
     }
