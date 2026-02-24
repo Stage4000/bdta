@@ -124,7 +124,7 @@ include '../portal/includes/header.php';
                 <div class="col-md-4 d-flex align-items-end">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="spayed_neutered" name="spayed_neutered"
-                               <?php echo !empty($edit_pet['spayed_neutered']) ? 'checked' : ''; ?>>
+                               <?php echo (!empty($edit_pet['spayed_neutered']) || (!empty($errors) && isset($_POST['spayed_neutered']))) ? 'checked' : ''; ?>>
                         <label class="form-check-label" for="spayed_neutered">Spayed / Neutered</label>
                     </div>
                 </div>
