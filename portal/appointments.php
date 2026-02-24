@@ -12,12 +12,12 @@ $stmt->execute([$client_id]);
 $client_email = $stmt->fetchColumn();
 
 // Upcoming appointments
-$stmt = $conn->prepare("SELECT * FROM bookings WHERE client_email = ? AND appointment_date >= date('now') ORDER BY appointment_date ASC, appointment_time ASC");
+$stmt = $conn->prepare("SELECT * FROM bookings WHERE client_email = ? AND appointment_date >= CURDATE() ORDER BY appointment_date ASC, appointment_time ASC");
 $stmt->execute([$client_email]);
 $upcoming = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Past appointments
-$stmt = $conn->prepare("SELECT * FROM bookings WHERE client_email = ? AND appointment_date < date('now') ORDER BY appointment_date DESC, appointment_time DESC");
+$stmt = $conn->prepare("SELECT * FROM bookings WHERE client_email = ? AND appointment_date < CURDATE() ORDER BY appointment_date DESC, appointment_time DESC");
 $stmt->execute([$client_email]);
 $past = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

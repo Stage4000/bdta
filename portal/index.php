@@ -15,7 +15,7 @@ $stmt->execute([$client_id]);
 $open_invoices = $stmt->fetchColumn();
 
 // Upcoming appointments count
-$stmt = $conn->prepare("SELECT COUNT(*) FROM bookings WHERE client_email = (SELECT email FROM clients WHERE id = ?) AND appointment_date >= date('now')");
+$stmt = $conn->prepare("SELECT COUNT(*) FROM bookings WHERE client_email = (SELECT email FROM clients WHERE id = ?) AND appointment_date >= CURDATE()");
 $stmt->execute([$client_id]);
 $upcoming_appointments = $stmt->fetchColumn();
 
