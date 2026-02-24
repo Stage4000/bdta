@@ -99,13 +99,12 @@ include '../backend/includes/header.php';
                 </div>
             </div>
 
-            <div class="alert alert-warning mt-3">
-                <i class="fas fa-triangle-exclamation"></i> <strong>Note:</strong>
+            <div class="alert alert-success mt-3">
+                <i class="fas fa-circle-check"></i> <strong>Client Portal Access</strong>
                 <ul class="mb-0 mt-2">
-                    <li>The client can use their <strong>email (<?= escape($client['email']) ?>)</strong> and this password to log in</li>
-                    <li>Make sure to communicate this password securely to the client</li>
-                    <li>The client must have admin access enabled to log in to the system</li>
-                    <li>They can change their password after logging in</li>
+                    <li>The client logs in at <strong><a href="../portal/login.php" target="_blank">/portal/login.php</a></strong></li>
+                    <li>Username: <strong><?= escape($client['email']) ?></strong> (their email address)</li>
+                    <li>Share the password securely — the client can change it after logging in</li>
                 </ul>
             </div>
         </div>
