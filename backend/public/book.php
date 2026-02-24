@@ -427,6 +427,71 @@ if (isset($error_mode) && $error_mode) {
                             <textarea class="form-control" name="notes" id="notes" rows="3" 
                                       placeholder="Tell us about your dog's needs, behavior concerns, or any special requirements..."></textarea>
                         </div>
+
+                        <!-- Location -->
+                        <?php
+                        $is_fixed_type = !empty($selected_type['is_mini_session']) || !empty($selected_type['is_field_rental']);
+                        $pub_loc_types_all = [
+                            'client_address' => ['label' => 'My registered address',                'needsValue' => false],
+                            'custom_address' => ['label' => 'A different address',                  'needsValue' => true,  'placeholder' => 'Enter full address',         'valueLabel' => 'Address *',   'type' => 'text'],
+                            'phone_inbound'  => ['label' => 'Phone call — I will call the trainer', 'needsValue' => false],
+                            'phone_outbound' => ['label' => 'Phone call — Trainer will call me',    'needsValue' => false],
+                            'webcall'        => ['label' => 'Video call (Zoom, Google Meet, etc.)', 'needsValue' => true,  'placeholder' => 'https://zoom.us/j/...',      'valueLabel' => 'Video call URL *', 'type' => 'url'],
+                        ];
+                        // Determine allowed types from appointment type config
+                        $pub_allowed = [];
+                        if (!$is_fixed_type && !empty($selected_type['location_types'])) {
+                            $pub_decoded = json_decode($selected_type['location_types'], true);
+                            if (is_array($pub_decoded) && !empty($pub_decoded)) {
+                                $pub_allowed = array_filter($pub_decoded, fn($t) => isset($pub_loc_types_all[$t]));
+                            }
+                        }
+                        if (empty($pub_allowed) && !$is_fixed_type) {
+                            $pub_allowed = array_keys($pub_loc_types_all); // Default: all types
+                        }
+                        ?>
+                        <div class="col-12 mb-3">
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white py-2">
+                                    <h6 class="mb-0"><i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>Appointment Location</h6>
+                                </div>
+                                <div class="card-body">
+                                <?php if ($is_fixed_type): ?>
+                                    <?php $fixed_loc = !empty($selected_type['is_mini_session']) ? ($selected_type['mini_session_location'] ?? '') : ($selected_type['field_rental_location'] ?? ''); ?>
+                                    <p class="mb-1 text-muted small">This appointment has a fixed location:</p>
+                                    <p class="mb-0 fw-bold"><i class="fas fa-location-dot me-2" aria-hidden="true"></i><?= escape($fixed_loc) ?></p>
+                                    <input type="hidden" name="location_type" value="fixed">
+                                    <input type="hidden" name="location_value" value="<?= escape($fixed_loc) ?>">
+                                <?php elseif (count($pub_allowed) === 1): ?>
+                                    <?php $only_lt = reset($pub_allowed); $only_def = $pub_loc_types_all[$only_lt]; ?>
+                                    <p class="mb-2 text-muted small">Location for this appointment:</p>
+                                    <p class="mb-2 fw-bold"><i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i><?= htmlspecialchars($only_def['label']) ?></p>
+                                    <input type="hidden" name="location_type" value="<?= htmlspecialchars($only_lt) ?>">
+                                    <?php if (!empty($only_def['needsValue'])): ?>
+                                    <div>
+                                        <label class="form-label"><?= htmlspecialchars($only_def['valueLabel']) ?></label>
+                                        <input type="<?= htmlspecialchars($only_def['type']) ?>" class="form-control form-control-lg"
+                                               name="location_value" id="publicLocationValueInput"
+                                               placeholder="<?= htmlspecialchars($only_def['placeholder']) ?>" required>
+                                    </div>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <label class="form-label">Where will this appointment take place? *</label>
+                                    <select class="form-select form-select-lg" name="location_type" id="publicLocationType" required>
+                                        <option value="">— Select location type —</option>
+                                        <?php foreach ($pub_allowed as $lt_key): ?>
+                                            <?php $lt_def = $pub_loc_types_all[$lt_key]; ?>
+                                            <option value="<?= htmlspecialchars($lt_key) ?>"><?= htmlspecialchars($lt_def['label']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <div id="publicLocationValueWrapper" class="mt-2" style="display:none;">
+                                        <label class="form-label" id="publicLocationValueLabel">Value *</label>
+                                        <input type="text" class="form-control form-control-lg" name="location_value" id="publicLocationValueInput" placeholder="">
+                                    </div>
+                                <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="d-flex justify-content-between mt-4">
@@ -467,6 +532,9 @@ if (isset($error_mode) && $error_mode) {
                                 
                                 <dt class="col-sm-4">Dog(s):</dt>
                                 <dd class="col-sm-8" id="confirmDogs">-</dd>
+                                
+                                <dt class="col-sm-4">Location:</dt>
+                                <dd class="col-sm-8" id="confirmLocation">-</dd>
                             </dl>
                         </div>
                     </div>
@@ -531,6 +599,7 @@ if (isset($error_mode) && $error_mode) {
             // Only initialize form elements if they exist (not on error page)
             const appointmentDate = document.getElementById('appointmentDate');
             const bookingForm = document.getElementById('bookingForm');
+            const publicLocationType = document.getElementById('publicLocationType');
             
             if (appointmentDate) {
                 // Date selection
@@ -538,6 +607,32 @@ if (isset($error_mode) && $error_mode) {
                     selectedDate = this.value;
                     // Enable the continue button on step 2
                     document.getElementById('step2Next').disabled = false;
+                });
+            }
+
+            if (publicLocationType) {
+                publicLocationType.addEventListener('change', function() {
+                    const type = this.value;
+                    const wrapper = document.getElementById('publicLocationValueWrapper');
+                    const label = document.getElementById('publicLocationValueLabel');
+                    const input = document.getElementById('publicLocationValueInput');
+                    if (type === 'custom_address') {
+                        wrapper.style.display = 'block';
+                        label.textContent = 'Address *';
+                        input.placeholder = 'Enter full address';
+                        input.type = 'text';
+                        input.required = true;
+                    } else if (type === 'webcall') {
+                        wrapper.style.display = 'block';
+                        label.textContent = 'Webcall URL *';
+                        input.placeholder = 'https://zoom.us/j/... or similar';
+                        input.type = 'url';
+                        input.required = true;
+                    } else {
+                        wrapper.style.display = 'none';
+                        input.required = false;
+                        input.value = '';
+                    }
                 });
             }
             
@@ -570,6 +665,28 @@ if (isset($error_mode) && $error_mode) {
                 if (!name || !email) {
                     showAlert('Please fill in your name and email', 'warning');
                     return;
+                }
+                // Validate location (only if selector is visible — not for fixed/single types)
+                const locTypeEl = document.getElementById('publicLocationType');
+                if (locTypeEl) {
+                    if (!locTypeEl.value) {
+                        showAlert('Please select a location type for your appointment', 'warning');
+                        return;
+                    }
+                    if (['custom_address', 'webcall'].includes(locTypeEl.value)) {
+                        const locVal = document.getElementById('publicLocationValueInput');
+                        if (!locVal || !locVal.value.trim()) {
+                            showAlert(locTypeEl.value === 'webcall' ? 'Please enter the webcall URL.' : 'Please enter the address.', 'warning');
+                            return;
+                        }
+                    }
+                } else {
+                    // Single-option or fixed: validate value field if present and required
+                    const locVal = document.getElementById('publicLocationValueInput');
+                    if (locVal && locVal.required && !locVal.value.trim()) {
+                        showAlert('Please enter the required location information.', 'warning');
+                        return;
+                    }
                 }
             }
             
@@ -677,6 +794,25 @@ if (isset($error_mode) && $error_mode) {
             return `${hour12}:${minutes} ${ampm}`;
         }
         
+        function getLocationSummary() {
+            const locTypeEl = document.getElementById('publicLocationType');
+            if (!locTypeEl) {
+                // Fixed type — find the hidden input
+                const hiddenType = document.querySelector('input[name="location_type"]');
+                const hiddenVal = document.querySelector('input[name="location_value"]');
+                return hiddenVal ? hiddenVal.value : 'Fixed location';
+            }
+            const type = locTypeEl.value;
+            const labels = {
+                'client_address': 'My registered address',
+                'custom_address': document.getElementById('publicLocationValueInput')?.value || 'Custom address',
+                'phone_inbound': 'Phone call (I call the trainer)',
+                'phone_outbound': 'Phone call (trainer calls me)',
+                'webcall': document.getElementById('publicLocationValueInput')?.value || 'Video call',
+            };
+            return labels[type] || '';
+        }
+
         function updateConfirmation() {
             const typeName = selectedTypeName || 'Appointment';
             
@@ -689,6 +825,7 @@ if (isset($error_mode) && $error_mode) {
             document.getElementById('confirmEmail').textContent = document.getElementById('clientEmail').value;
             document.getElementById('confirmPhone').textContent = document.getElementById('clientPhone').value || 'Not provided';
             document.getElementById('confirmDogs').textContent = document.getElementById('dogNames').value || 'Not specified';
+            document.getElementById('confirmLocation').textContent = getLocationSummary() || 'Not specified';
         }
         
         function submitBooking(e) {
@@ -702,6 +839,22 @@ if (isset($error_mode) && $error_mode) {
             
             const typeName = selectedTypeName || 'Appointment';
             
+            // Gather location data
+            let location_type = '';
+            let location_value = '';
+            const locTypeEl = document.getElementById('publicLocationType');
+            if (locTypeEl) {
+                location_type = locTypeEl.value;
+                const locValEl = document.getElementById('publicLocationValueInput');
+                location_value = locValEl ? locValEl.value.trim() : '';
+            } else {
+                // Fixed type from hidden inputs
+                const hiddenType = document.querySelector('input[name="location_type"]');
+                const hiddenVal = document.querySelector('input[name="location_value"]');
+                location_type = hiddenType ? hiddenType.value : 'fixed';
+                location_value = hiddenVal ? hiddenVal.value : '';
+            }
+
             const bookingData = {
                 appointment_type_id: selectedType,
                 service_type: typeName,
@@ -713,7 +866,9 @@ if (isset($error_mode) && $error_mode) {
                 dog_names: document.getElementById('dogNames').value,
                 notes: document.getElementById('notes').value,
                 // Default to 60 minutes if appointment type duration is not available
-                duration_minutes: selectedTypeDuration ?? 60
+                duration_minutes: selectedTypeDuration ?? 60,
+                location_type: location_type,
+                location_value: location_value
             };
             
             fetch('api_bookings.php', {

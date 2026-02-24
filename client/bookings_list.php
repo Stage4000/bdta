@@ -27,7 +27,12 @@ if (isset($_GET['delete'])) {
     redirect('bookings_list.php');
 }
 
-$stmt = $conn->query("SELECT * FROM bookings ORDER BY appointment_date DESC, appointment_time DESC");
+$stmt = $conn->query("
+    SELECT b.*, c.address AS client_address_on_file
+    FROM bookings b
+    LEFT JOIN clients c ON b.client_id = c.id
+    ORDER BY b.appointment_date DESC, b.appointment_time DESC
+");
 $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = 'Bookings';
@@ -48,12 +53,23 @@ require_once '../backend/includes/header.php';
                             <th>Contact</th>
                             <th>Service</th>
                             <th>Date & Time</th>
+                            <th>Location</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (count($bookings) > 0): ?>
+                            <?php
+                            $location_type_labels = [
+                                'client_address' => '<i class="fas fa-home me-1" aria-hidden="true"></i>',
+                                'custom_address' => '<i class="fas fa-map-marker-alt me-1" aria-hidden="true"></i>',
+                                'phone_inbound'  => '<i class="fas fa-phone me-1" aria-hidden="true"></i>Phone (Inbound)',
+                                'phone_outbound' => '<i class="fas fa-phone me-1" aria-hidden="true"></i>Phone (Outbound)',
+                                'webcall'        => '<i class="fas fa-video me-1" aria-hidden="true"></i>',
+                                'fixed'          => '<i class="fas fa-location-dot me-1" aria-hidden="true"></i>',
+                            ];
+                            ?>
                             <?php foreach ($bookings as $booking): ?>
                             <tr>
                                 <td><?php echo $booking['id']; ?></td>
@@ -70,6 +86,28 @@ require_once '../backend/includes/header.php';
                                 <td>
                                     <?php echo escape($booking['appointment_date']); ?><br>
                                     <small><?php echo escape($booking['appointment_time']); ?></small>
+                                </td>
+                                <td>
+                                    <?php
+                                    $lt = $booking['location_type'] ?? '';
+                                    $lv = $booking['location'] ?? '';
+                                    // For client_address: use stored location value; fall back to current client address on file
+                                    if ($lt === 'client_address' && empty($lv)) {
+                                        $lv = $booking['client_address_on_file'] ?? '';
+                                    }
+                                    if ($lt) {
+                                        $icon_prefix = $location_type_labels[$lt] ?? '<i class="fas fa-map-marker-alt me-1" aria-hidden="true"></i>';
+                                        if (in_array($lt, ['custom_address', 'webcall', 'fixed', 'client_address'])) {
+                                            echo $icon_prefix . escape($lv ?: '—');
+                                        } else {
+                                            echo $icon_prefix;
+                                        }
+                                    } elseif ($lv) {
+                                        echo '<small>' . escape($lv) . '</small>';
+                                    } else {
+                                        echo '<span class="text-muted small">—</span>';
+                                    }
+                                    ?>
                                 </td>
                                 <td>
                                     <form method="POST" class="d-inline">
@@ -91,7 +129,7 @@ require_once '../backend/includes/header.php';
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7" class="text-center text-muted">No bookings yet</td>
+                            <td colspan="8" class="text-center text-muted">No bookings yet</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>

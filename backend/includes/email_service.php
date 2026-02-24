@@ -108,7 +108,7 @@ class EmailService {
                 <p><strong>Date:</strong> {$date}</p>
                 <p><strong>Time:</strong> {$time}</p>
                 <p><strong>Duration:</strong> {$booking['duration_minutes']} minutes</p>
-                <p><strong>Location:</strong> Highlands County, Florida</p>
+                <p><strong>Location:</strong> {$this->formatLocationForEmail($booking)}</p>
             </div>
             
             <h3>Add to Your Calendar</h3>
@@ -166,7 +166,7 @@ Service: {$booking['service_type']}
 Date: {$date}
 Time: {$time}
 Duration: {$booking['duration_minutes']} minutes
-Location: Highlands County, Florida
+Location: {$this->formatLocationForEmail($booking)}
 
 ADD TO YOUR CALENDAR
 --------------------
@@ -197,6 +197,29 @@ This is an automated confirmation email.
 TEXT;
     }
     
+    /**
+     * Format the location for display in emails based on location_type
+     */
+    private function formatLocationForEmail($booking) {
+        $type = $booking['location_type'] ?? '';
+        $value = $booking['location'] ?? '';
+
+        switch ($type) {
+            case 'client_address':
+            case 'custom_address':
+            case 'fixed':
+                return $value ?: 'TBD';
+            case 'phone_inbound':
+                return 'Phone call — you will call us';
+            case 'phone_outbound':
+                return 'Phone call — we will call you';
+            case 'webcall':
+                return $value ? "Video call: {$value}" : 'Video call (link to follow)';
+            default:
+                return $value ?: 'TBD';
+        }
+    }
+
     /**
      * Add email signature to message body
      * @param string $body Message body

@@ -52,8 +52,8 @@ try {
     $post_id = $conn->lastInsertId();
     echo "   ✓ Blog post created with ID: $post_id\n\n";
     
-    echo "4. Testing Booking Creation (simulating api_bookings.php)...\n";
-    // Simulate creating a booking
+    echo "4. Testing Booking Creation with location (simulating api_bookings.php)...\n";
+    // Simulate creating a booking with location_type
     $booking_data = [
         'client_name' => 'John Doe',
         'client_email' => 'john@example.com',
@@ -63,19 +63,59 @@ try {
         'appointment_time' => '10:00',
         'duration_minutes' => 60,
         'status' => 'pending',
-        'notes' => 'First time client'
+        'notes' => 'First time client',
+        'location_type' => 'client_address',
+        'location' => null
     ];
     
     $stmt = $conn->prepare("
         INSERT INTO bookings (
             client_name, client_email, client_phone, service_type,
-            appointment_date, appointment_time, duration_minutes, status, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            appointment_date, appointment_time, duration_minutes, status, notes,
+            location_type, location
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     $stmt->execute(array_values($booking_data));
     $booking_id = $conn->lastInsertId();
     echo "   ✓ Booking created with ID: $booking_id\n";
-    echo "   ✓ Appointment: {$booking_data['appointment_date']} at {$booking_data['appointment_time']}\n\n";
+    echo "   ✓ Appointment: {$booking_data['appointment_date']} at {$booking_data['appointment_time']}\n";
+    
+    // Verify location_type was saved
+    $stmt = $conn->prepare("SELECT location_type FROM bookings WHERE id = ?");
+    $stmt->execute([$booking_id]);
+    $saved_booking = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($saved_booking && $saved_booking['location_type'] === 'client_address') {
+        echo "   ✓ location_type saved correctly: {$saved_booking['location_type']}\n\n";
+    } else {
+        throw new Exception("location_type not saved correctly");
+    }
+
+    // Test webcall location type
+    echo "4b. Testing Booking with webcall location...\n";
+    $stmt = $conn->prepare("
+        INSERT INTO bookings (
+            client_name, client_email, service_type,
+            appointment_date, appointment_time, status,
+            location_type, location
+        ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
+    ");
+    $stmt->execute([
+        'Jane Zoom', 'janezoom@example.com', 'Virtual Session',
+        date('Y-m-d', strtotime('+8 days')), '14:00',
+        'webcall', 'https://zoom.us/j/123456'
+    ]);
+    $webcall_booking_id = $conn->lastInsertId();
+    $stmt = $conn->prepare("SELECT location_type, location FROM bookings WHERE id = ?");
+    $stmt->execute([$webcall_booking_id]);
+    $wb = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($wb && $wb['location_type'] === 'webcall' && $wb['location'] === 'https://zoom.us/j/123456') {
+        echo "   ✓ Webcall booking created with correct location_type and URL\n\n";
+    } else {
+        throw new Exception("Webcall booking location not saved correctly");
+    }
+    // Cleanup webcall booking
+    $stmt = $conn->prepare("DELETE FROM bookings WHERE id = ?");
+    $stmt->execute([$webcall_booking_id]);
     
     echo "5. Testing Client Management (simulating clients_edit.php)...\n";
     $stmt = $conn->prepare("

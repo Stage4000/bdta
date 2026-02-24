@@ -66,6 +66,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle Field Rental configuration
     $is_field_rental = isset($_POST['is_field_rental']) ? 1 : 0;
     $field_rental_location = $is_field_rental ? ($_POST['field_rental_location'] ?? '') : null;
+
+    // Handle allowed location types configuration
+    // Fixed types (mini_session/field_rental) don't need this — location is always 'fixed'
+    $allowed_loc_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall'];
+    if ($is_mini_session || $is_field_rental) {
+        $location_types_json = null; // Fixed location — no selection needed
+    } else {
+        $selected_loc_types = isset($_POST['location_types']) && is_array($_POST['location_types'])
+            ? array_values(array_filter($_POST['location_types'], fn($t) => in_array($t, $allowed_loc_types)))
+            : [];
+        $location_types_json = !empty($selected_loc_types) ? json_encode($selected_loc_types) : null;
+    }
     
     // Handle schedule type and specific date
     $schedule_type = $_POST['schedule_type'] ?? 'recurring';
@@ -136,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     field_rental_location = ?,
                     per_day_schedule = ?,
                     default_amount = ?,
+                    location_types = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -155,6 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_field_rental, $field_rental_location,
                 $per_day_schedule,
                 $default_amount,
+                $location_types_json,
                 $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
@@ -183,8 +197,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_mini_session, mini_session_location, mini_session_topic,
                     is_field_rental, field_rental_location,
                     per_day_schedule,
-                    default_amount
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    default_amount,
+                    location_types
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -201,7 +216,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_mini_session, $mini_session_location, $mini_session_topic,
                 $is_field_rental, $field_rental_location,
                 $per_day_schedule,
-                $default_amount
+                $default_amount,
+                $location_types_json
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
         }
@@ -688,6 +704,49 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
 
+                <?php
+                $current_location_types = [];
+                if (!empty($type['location_types'])) {
+                    $decoded = json_decode($type['location_types'], true);
+                    if (is_array($decoded)) $current_location_types = $decoded;
+                }
+                $is_fixed_type = !empty($type['is_mini_session']) || !empty($type['is_field_rental']);
+                ?>
+
+                <div id="locationTypesSection" style="display: <?= $is_fixed_type ? 'none' : 'block' ?>;">
+                    <h6 class="border-bottom pb-2 mb-3">Appointment Location Options</h6>
+                    <p class="text-muted small mb-3">
+                        Select which location options are available when booking this appointment type.
+                        If only one option is selected, it will be displayed prominently without a dropdown.
+                        If none are selected, all options will be available.
+                    </p>
+                    <div class="row g-3 mb-4">
+                        <?php
+                        $loc_type_defs = [
+                            'client_address'  => ['label' => "Client's Registered Address",    'icon' => 'fa-home',           'desc' => 'Appointment takes place at the client\'s address on file'],
+                            'custom_address'  => ['label' => 'Custom Address',                 'icon' => 'fa-map-marker-alt', 'desc' => 'A user-specified address entered at booking time'],
+                            'phone_inbound'   => ['label' => 'Phone Call (Inbound)',            'icon' => 'fa-phone',          'desc' => 'Client calls the provider\'s number'],
+                            'phone_outbound'  => ['label' => 'Phone Call (Outbound)',           'icon' => 'fa-phone',          'desc' => 'Provider calls the client\'s number'],
+                            'webcall'         => ['label' => 'Webcall (Zoom, Google Meet…)',   'icon' => 'fa-video',          'desc' => 'Video call via a URL provided at booking time'],
+                        ];
+                        foreach ($loc_type_defs as $lt_key => $lt_def):
+                            $checked = in_array($lt_key, $current_location_types) ? 'checked' : '';
+                        ?>
+                        <div class="col-md-6">
+                            <div class="form-check border rounded p-3">
+                                <input class="form-check-input" type="checkbox" name="location_types[]"
+                                       id="lt_<?= $lt_key ?>" value="<?= $lt_key ?>" <?= $checked ?>>
+                                <label class="form-check-label w-100" for="lt_<?= $lt_key ?>">
+                                    <i class="fas <?= $lt_def['icon'] ?> me-2 text-primary" aria-hidden="true"></i>
+                                    <strong><?= htmlspecialchars($lt_def['label']) ?></strong>
+                                    <div class="form-text mb-0"><?= htmlspecialchars($lt_def['desc']) ?></div>
+                                </label>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
                 <h6 class="border-bottom pb-2 mb-3">Status</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
@@ -754,6 +813,7 @@ function toggleMiniSessionFields() {
         fieldsSection.style.display = 'none';
         locationInput.removeAttribute('required');
     }
+    updateLocationTypesVisibility();
 }
 
 // Toggle Field Rental fields
@@ -768,6 +828,17 @@ function toggleFieldRentalFields() {
     } else {
         fieldsSection.style.display = 'none';
         locationInput.removeAttribute('required');
+    }
+    updateLocationTypesVisibility();
+}
+
+// Show/hide the location options section based on whether this is a fixed-location type
+function updateLocationTypesVisibility() {
+    const isMini = document.getElementById('is_mini_session').checked;
+    const isField = document.getElementById('is_field_rental').checked;
+    const section = document.getElementById('locationTypesSection');
+    if (section) {
+        section.style.display = (isMini || isField) ? 'none' : 'block';
     }
 }
 

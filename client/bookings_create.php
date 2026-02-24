@@ -66,6 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $override_credits = isset($_POST['override_credits']) ? 1 : 0;
     // Package credit row ID selected by admin (0 = use legacy credits)
     $package_credit_id = (int)($_POST['package_credit_id'] ?? 0);
+    // Location fields
+    $location_type = trim($_POST['location_type'] ?? '');
+    $location_value = trim($_POST['location_value'] ?? '');
     
     try {
         // Get appointment type details
@@ -151,6 +154,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($errors) && !$override_forms && !$override_contract && !$override_credits) {
             setFlashMessage(implode('<br>', $errors), 'danger');
         } else {
+            // Resolve location type and value
+            $is_fixed = !empty($apt_type['is_mini_session']) || !empty($apt_type['is_field_rental']);
+            if ($is_fixed) {
+                $location_type = 'fixed';
+                $location_value = !empty($apt_type['is_mini_session'])
+                    ? ($apt_type['mini_session_location'] ?? '')
+                    : ($apt_type['field_rental_location'] ?? '');
+            }
+
+            // Determine which location types are allowed for this appointment type
+            $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
+            if (!$is_fixed && !empty($apt_type['location_types'])) {
+                $configured = json_decode($apt_type['location_types'], true);
+                if (is_array($configured) && !empty($configured)) {
+                    $allowed_location_types = array_merge($configured, ['fixed']);
+                }
+            }
+
+            // Validate location selection
+            if (!in_array($location_type, $allowed_location_types)) {
+                $errors[] = "Please select a valid location type for the appointment.";
+            } elseif (in_array($location_type, ['custom_address', 'webcall']) && empty($location_value)) {
+                $errors[] = $location_type === 'webcall'
+                    ? "Please enter the webcall URL."
+                    : "Please enter the custom address.";
+            }
+
+            // For client_address type, resolve the actual address from the client profile
+            if (empty($errors) && $location_type === 'client_address') {
+                $location_value = trim($client['address'] ?? '');
+                if (empty($location_value)) {
+                    $errors[] = "The selected client does not have an address on file. Please add an address to their profile or choose a different location type.";
+                }
+            }
+
+            if (!empty($errors)) {
+                setFlashMessage(implode('<br>', $errors), 'danger');
+            } else {
             // Create booking
             $pets_json = json_encode($pets);
             $pkg_cred_col = $use_package_credit ? $package_credit_row['id'] : null;
@@ -160,15 +201,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     client_id, appointment_type_id, client_name, client_email, client_phone,
                     appointment_date, appointment_time, service_type, notes, status,
                     pets, override_forms, override_contract, override_credits,
-                    package_credit_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, datetime('now'))
+                    package_credit_id, location_type, location, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ");
             $stmt->execute([
                 $client_id, $appointment_type_id,
                 $client['name'], $client['email'], $client['phone'],
                 $booking_date, $booking_time, $apt_type['name'], $notes,
                 $pets_json, $override_forms, $override_contract, $override_credits,
-                $pkg_cred_col
+                $pkg_cred_col, $location_type, $location_value
             ]);
             
             $booking_id = $conn->lastInsertId();
@@ -197,10 +238,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                 } else {
                     // Deduct legacy credits
-                    $db->exec("UPDATE client_credits SET credit_balance = credit_balance - {$apt_type['credit_count']}, total_consumed = total_consumed + {$apt_type['credit_count']}, updated_at = datetime('now') WHERE client_id = $client_id");
+                    $db->exec("UPDATE client_credits SET credit_balance = credit_balance - {$apt_type['credit_count']}, total_consumed = total_consumed + {$apt_type['credit_count']}, updated_at = CURRENT_TIMESTAMP WHERE client_id = $client_id");
                     $balance_before = $credit_balance;
                     $balance_after  = $balance_before - $apt_type['credit_count'];
-                    $stmt = $db->prepare("INSERT INTO credit_transactions (client_id, transaction_type, amount, balance_before, balance_after, booking_id, notes, created_by, created_at) VALUES (?, 'consume', ?, ?, ?, ?, ?, ?, datetime('now'))");
+                    $stmt = $db->prepare("INSERT INTO credit_transactions (client_id, transaction_type, amount, balance_before, balance_after, booking_id, notes, created_by, created_at) VALUES (?, 'consume', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
                     $stmt->execute([$client_id, -$apt_type['credit_count'], $balance_before, $balance_after, $booking_id, "Consumed by booking #{$booking_id}", $_SESSION['admin_id']]);
                 }
             }
@@ -229,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Link pets to appointment
             if (!empty($pets)) {
                 foreach ($pets as $pet_id) {
-                    $stmt = $db->prepare("INSERT INTO appointment_pets (booking_id, pet_id, created_at) VALUES (?, ?, datetime('now'))");
+                    $stmt = $db->prepare("INSERT INTO appointment_pets (booking_id, pet_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
                     $stmt->execute([$booking_id, $pet_id]);
                 }
             }
@@ -237,7 +278,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['success'] = "Booking created successfully!";
             header('Location: bookings_list.php');
             exit;
-        }
+            } // end location validation else
+        } // end outer errors else
     } catch (Exception $e) {
         $_SESSION['error'] = "Error creating booking: " . $e->getMessage();
     }
@@ -300,7 +342,11 @@ include '../backend/includes/header.php';
                                                 data-requires-forms="<?php echo $type['requires_forms']; ?>"
                                                 data-requires-contract="<?php echo $type['requires_contract']; ?>"
                                                 data-consumes-credits="<?php echo $type['consumes_credits']; ?>"
-                                                data-credit-count="<?php echo $type['credit_count']; ?>">
+                                                data-credit-count="<?php echo $type['credit_count']; ?>"
+                                                data-is-mini="<?php echo !empty($type['is_mini_session']) ? '1' : '0'; ?>"
+                                                data-is-field="<?php echo !empty($type['is_field_rental']) ? '1' : '0'; ?>"
+                                                data-fixed-location="<?php echo htmlspecialchars(!empty($type['is_mini_session']) ? ($type['mini_session_location'] ?? '') : (!empty($type['is_field_rental']) ? ($type['field_rental_location'] ?? '') : '')); ?>"
+                                                data-location-types="<?php echo htmlspecialchars($type['location_types'] ?? ''); ?>">
                                             <?php echo htmlspecialchars($type['name']); ?> (<?php echo $type['duration_minutes']; ?> min)
                                         </option>
                                     <?php endforeach; ?>
@@ -333,6 +379,18 @@ include '../backend/includes/header.php';
                             <div class="col-12 mb-3">
                                 <label class="form-label">Notes</label>
                                 <textarea name="notes" class="form-control" rows="3" placeholder="Booking notes..."></textarea>
+                            </div>
+
+                            <!-- Location — rendered dynamically by JS based on appointment type config -->
+                            <div class="col-12 mb-3" id="locationSection" style="display:none;">
+                                <div class="card border-primary">
+                                    <div class="card-header bg-primary text-white py-2">
+                                        <h6 class="mb-0"><i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>Appointment Location <span class="text-warning">*</span></h6>
+                                    </div>
+                                    <div class="card-body" id="locationCardBody">
+                                        <!-- Populated by renderLocationSelector() -->
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Package Credits Selector -->
@@ -406,6 +464,14 @@ include '../backend/includes/header.php';
 </div>
 
 <script>
+const LOC_TYPE_DEFS = {
+    'client_address': { label: "Client's Registered Address",     icon: 'fa-home',           needsValue: false },
+    'custom_address': { label: 'Custom Address',                   icon: 'fa-map-marker-alt', needsValue: true,  valuePlaceholder: 'Enter full address',           valueLabel: 'Address *',      valueType: 'text' },
+    'phone_inbound':  { label: 'Phone Call (Inbound)',             icon: 'fa-phone',          needsValue: false },
+    'phone_outbound': { label: 'Phone Call (Outbound)',            icon: 'fa-phone',          needsValue: false },
+    'webcall':        { label: 'Webcall (Zoom, Google Meet, etc.)',icon: 'fa-video',          needsValue: true,  valuePlaceholder: 'https://zoom.us/j/...', valueLabel: 'Webcall URL *',  valueType: 'url' },
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     const clientSelect = document.getElementById('clientSelect');
     const appointmentTypeSelect = document.getElementById('appointmentTypeSelect');
@@ -414,7 +480,80 @@ document.addEventListener('DOMContentLoaded', function() {
     const packageCreditsContainer = document.getElementById('packageCreditsContainer');
     const packageCreditSelect = document.getElementById('packageCreditSelect');
     const noPkgCreditsMsg = document.getElementById('noPkgCreditsMsg');
-    
+    const locationSection = document.getElementById('locationSection');
+    const locationCardBody = document.getElementById('locationCardBody');
+
+    // Render location selector based on allowed types for the selected appointment type
+    function renderLocationSelector(option) {
+        if (!option || !option.value) {
+            locationSection.style.display = 'none';
+            locationCardBody.innerHTML = '';
+            return;
+        }
+
+        const isMini = option.dataset.isMini === '1';
+        const isField = option.dataset.isField === '1';
+        const fixedLoc = option.dataset.fixedLocation || '';
+
+        if (isMini || isField) {
+            // Fixed location: display it prominently
+            locationSection.style.display = 'block';
+            locationCardBody.innerHTML = `
+                <p class="text-muted small mb-1">This appointment type has a fixed location:</p>
+                <p class="mb-0 fw-bold"><i class="fas fa-location-dot me-2 text-primary" aria-hidden="true"></i>${escapeHtml(fixedLoc || '(No location set)')}</p>
+                <input type="hidden" name="location_type" value="fixed">
+                <input type="hidden" name="location_value" value="${escapeHtml(fixedLoc)}">`;
+            return;
+        }
+
+        // Determine allowed types from data attribute
+        let allowed = [];
+        const raw = option.dataset.locationTypes || '';
+        if (raw) {
+            try { allowed = JSON.parse(raw); } catch(e) {}
+        }
+        if (!Array.isArray(allowed) || allowed.length === 0) {
+            allowed = Object.keys(LOC_TYPE_DEFS); // Default: all types
+        }
+
+        locationSection.style.display = 'block';
+
+        if (allowed.length === 1) {
+            // Single option: display prominently without dropdown
+            const lt = allowed[0];
+            const def = LOC_TYPE_DEFS[lt] || { label: lt, icon: 'fa-map-marker-alt', needsValue: false };
+            let html = `
+                <p class="text-muted small mb-2">Location for this appointment:</p>
+                <p class="mb-2 fw-bold"><i class="fas ${def.icon} me-2 text-primary" aria-hidden="true"></i>${escapeHtml(def.label)}</p>
+                <input type="hidden" name="location_type" value="${escapeHtml(lt)}">`;
+            if (def.needsValue) {
+                html += `
+                <div class="mt-2">
+                    <label class="form-label">${escapeHtml(def.valueLabel)}</label>
+                    <input type="text" name="location_value" id="locationValueInput" class="form-control"
+                           placeholder="${escapeHtml(def.valuePlaceholder)}" required>
+                </div>`;
+            }
+            locationCardBody.innerHTML = html;
+        } else {
+            // Multiple options: dropdown + conditional value field
+            let opts = `<option value="">— Select location type —</option>`;
+            allowed.forEach(lt => {
+                const def = LOC_TYPE_DEFS[lt] || { label: lt };
+                opts += `<option value="${escapeHtml(lt)}">${escapeHtml(def.label)}</option>`;
+            });
+            locationCardBody.innerHTML = `
+                <label class="form-label">Location Type *</label>
+                <select name="location_type" id="locationTypeSelect" class="form-select" required onchange="onLocationTypeChange(this)">
+                    ${opts}
+                </select>
+                <div id="locationValueWrapper" class="mt-2" style="display:none;">
+                    <label class="form-label" id="locationValueLabel">Value *</label>
+                    <input type="text" name="location_value" id="locationValueInput" class="form-control" placeholder="">
+                </div>`;
+        }
+    }
+
     function loadPkgCredits() {
         const clientId = clientSelect.value;
         const typeId   = appointmentTypeSelect.value;
@@ -431,7 +570,6 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`?ajax=credits&client_id=${clientId}&type_id=${typeId}`)
             .then(r => r.json())
             .then(credits => {
-                // Reset
                 packageCreditSelect.innerHTML = '<option value="0">— Use Legacy Credits —</option>';
                 if (credits.length === 0) {
                     noPkgCreditsMsg.style.display = 'block';
@@ -481,9 +619,10 @@ document.addEventListener('DOMContentLoaded', function() {
         loadPkgCredits();
     });
     
-    // Update type info, show override options, and refresh package credits
+    // Update type info, show override options, location selector, and refresh package credits
     appointmentTypeSelect.addEventListener('change', function() {
         const option = this.options[this.selectedIndex];
+        renderLocationSelector(option);
         if (!option.value) {
             typeInfo.textContent = '';
             document.getElementById('noOverridesMsg').style.display = 'block';
@@ -517,6 +656,34 @@ document.addEventListener('DOMContentLoaded', function() {
         loadPkgCredits();
     });
 });
+
+// Handle location type dropdown change (called via onchange attribute in dynamically rendered HTML)
+function onLocationTypeChange(sel) {
+    const type = sel.value;
+    const wrapper = document.getElementById('locationValueWrapper');
+    const label = document.getElementById('locationValueLabel');
+    const input = document.getElementById('locationValueInput');
+    if (!wrapper) return;
+    const def = LOC_TYPE_DEFS[type];
+    if (def && def.needsValue) {
+        wrapper.style.display = 'block';
+        if (label) label.textContent = def.valueLabel;
+        if (input) {
+            input.placeholder = def.valuePlaceholder;
+            input.type = def.valueType || 'text';
+            input.required = true;
+        }
+    } else {
+        wrapper.style.display = 'none';
+        if (input) { input.required = false; input.value = ''; }
+    }
+}
+
+function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(str));
+    return d.innerHTML;
+}
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
