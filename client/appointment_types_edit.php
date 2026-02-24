@@ -513,7 +513,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                     echo implode(', ', $selected_day_names);
                                 }
                                 ?>
-                            </span> 
+                            </span><span id="preview_global_time"> 
                             from <strong id="preview_start">
                                 <?php
                                 $start = $type['available_start_time'] ?? '09:00';
@@ -528,7 +528,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 $hi = (int)$h;
                                 echo ($hi % 12 ?: 12) . ':' . $m . ' ' . ($hi >= 12 ? 'PM' : 'AM');
                                 ?>
-                            </strong> 
+                            </strong></span> 
                             in <strong id="preview_interval"><?= $type['time_slot_interval'] ?? 30 ?></strong>-minute intervals.
                             </span>
                         </div>
@@ -861,6 +861,7 @@ function togglePerDaySchedule() {
     const checkbox = document.getElementById('use_per_day_schedule');
     const section = document.getElementById('per_day_schedule_section');
     section.style.display = checkbox.checked ? 'block' : 'none';
+    updateAvailabilityPreview();
 }
 
 // Copy booking link to clipboard
@@ -917,6 +918,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+    
+    // Add event listeners for per-day time inputs
+    document.querySelectorAll('input[name^="day_start_time"], input[name^="day_end_time"]').forEach(function(input) {
+        input.addEventListener('change', updateAvailabilityPreview);
+    });
 });
 
 // Update the availability preview based on form inputs
@@ -938,7 +944,6 @@ function updateAvailabilityPreview() {
         // Get selected days
         const dayCheckboxes = document.querySelectorAll('input[name="available_days[]"]:checked');
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const selectedDays = Array.from(dayCheckboxes).map(cb => dayNames[parseInt(cb.value)]);
         
         // Format time for display (convert 24h to 12h format)
         function formatTime(time) {
@@ -949,11 +954,34 @@ function updateAvailabilityPreview() {
             return displayHour + ':' + minutes + ' ' + ampm;
         }
         
+        const usePerDay = document.getElementById('use_per_day_schedule').checked;
+        const previewGlobalTime = document.getElementById('preview_global_time');
+        
+        if (usePerDay) {
+            // Build per-day preview showing each day's individual time range
+            const dayParts = Array.from(dayCheckboxes).map(function(cb) {
+                const idx = parseInt(cb.value);
+                const row = document.getElementById('per_day_row_' + idx);
+                const dayStartInput = row ? row.querySelector('input[name="day_start_time[' + idx + ']"]') : null;
+                const dayEndInput = row ? row.querySelector('input[name="day_end_time[' + idx + ']"]') : null;
+                const dayStart = dayStartInput ? dayStartInput.value : startTime;
+                const dayEnd = dayEndInput ? dayEndInput.value : endTime;
+                return dayNames[idx] + ' ' + formatTime(dayStart) + ' to ' + formatTime(dayEnd);
+            });
+            const previewDays = dayParts.length > 0 ? dayParts.join(', ') : 'no days selected';
+            document.getElementById('preview_days').textContent = previewDays;
+            previewGlobalTime.style.display = 'none';
+        } else {
+            // Use global times
+            const selectedDays = Array.from(dayCheckboxes).map(cb => dayNames[parseInt(cb.value)]);
+            const previewDays = selectedDays.length > 0 ? selectedDays.join(', ') : 'no days selected';
+            document.getElementById('preview_days').textContent = previewDays;
+            document.getElementById('preview_start').textContent = formatTime(startTime);
+            document.getElementById('preview_end').textContent = formatTime(endTime);
+            previewGlobalTime.style.display = 'inline';
+        }
+        
         // Update preview text
-        const previewDays = selectedDays.length > 0 ? selectedDays.join(', ') : 'no days selected';
-        document.getElementById('preview_days').textContent = previewDays;
-        document.getElementById('preview_start').textContent = formatTime(startTime);
-        document.getElementById('preview_end').textContent = formatTime(endTime);
         document.getElementById('preview_interval').textContent = interval;
     } else {
         // Show specific date preview
