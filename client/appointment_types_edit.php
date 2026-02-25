@@ -233,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Save form associations
         $conn->prepare("DELETE FROM appointment_type_forms WHERE appointment_type_id = ?")->execute([$id]);
         if (!empty($selected_form_ids)) {
-            $ins = $conn->prepare("INSERT OR IGNORE INTO appointment_type_forms (appointment_type_id, form_template_id) VALUES (?, ?)");
+            $ins = $conn->prepare("INSERT IGNORE INTO appointment_type_forms (appointment_type_id, form_template_id) VALUES (?, ?)");
             foreach ($selected_form_ids as $fid) {
                 $ins->execute([$id, $fid]);
             }
