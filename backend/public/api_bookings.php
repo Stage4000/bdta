@@ -388,6 +388,16 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             }
         }
 
+        // Save form responses submitted during booking
+        if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+            $ins = $conn->prepare("INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at) VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)");
+            foreach ($data['form_responses'] as $template_id => $responses) {
+                if (is_array($responses) && !empty($responses)) {
+                    $ins->execute([$client_id, (int)$template_id, $booking_id, json_encode($responses)]);
+                }
+            }
+        }
+
         // Deduct credit if one was selected
         if ($pkg_credit_id_to_use) {
             $conn->prepare("
