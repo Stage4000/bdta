@@ -96,7 +96,7 @@ if (isset($error_mode) && $error_mode) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Dancing+Script:wght@700&family=Pacifico&family=Satisfy&family=Great+Vibes&family=Allura&display=swap" rel="stylesheet">
     
     <style>
         :root {
@@ -279,6 +279,33 @@ if (isset($error_mode) && $error_mode) {
         .loading-spinner.active {
             display: inline-block;
         }
+
+        /* Signature font styles */
+        .font-dancing     { font-family: 'Dancing Script', cursive; }
+        .font-pacifico    { font-family: 'Pacifico', cursive; }
+        .font-satisfy     { font-family: 'Satisfy', cursive; }
+        .font-great-vibes { font-family: 'Great Vibes', cursive; }
+        .font-allura      { font-family: 'Allura', cursive; }
+
+        .sig-preview {
+            font-size: 2.2rem;
+            color: #1a1a2e;
+            min-height: 3.5rem;
+            border-bottom: 2px solid #495057;
+            padding-bottom: 0.25rem;
+            line-height: 1.2;
+        }
+        .font-option-btn {
+            cursor: pointer;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-size: 1.5rem;
+            background: white;
+            transition: border-color .2s;
+        }
+        .font-option-btn.selected,
+        .font-option-btn:hover { border-color: #9a0073; background: #fdf0f9; }
     </style>
 </head>
 <body>
@@ -595,20 +622,69 @@ if (isset($error_mode) && $error_mode) {
                     <?php if (!empty($required_contract)): ?>
                     <hr class="my-4">
                     <h5 class="mb-1"><i class="fas fa-file-contract me-2"></i>Required Contract</h5>
-                    <p class="text-muted mb-3">Please review and accept the following contract to continue with your booking.</p>
+                    <p class="text-muted mb-3">Please review and sign the following contract to continue with your booking.</p>
                     <div class="card mb-3">
                         <div class="card-header bg-light">
                             <h6 class="mb-0"><?= htmlspecialchars($required_contract['name']) ?></h6>
                         </div>
                         <div class="card-body">
-                            <div class="border rounded p-3 mb-3 bg-white" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem;"><?= htmlspecialchars($required_contract['template_text']) ?></div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="contractAccepted" name="contract_accepted" value="1" required>
-                                <label class="form-check-label fw-bold" for="contractAccepted">
-                                    I have read and agree to the above contract <span class="text-danger">*</span>
+                            <div class="border rounded p-3 mb-4 bg-white" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem;"><?= htmlspecialchars($required_contract['template_text']) ?></div>
+
+                            <!-- Typed Name -->
+                            <div class="mb-4">
+                                <label for="contractTypedName" class="form-label fw-semibold">
+                                    Type your full legal name to sign <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control form-control-lg"
+                                       id="contractTypedName" name="contract_typed_name"
+                                       placeholder="Your full name"
+                                       autocomplete="name"
+                                       maxlength="200">
+                            </div>
+
+                            <!-- Font Style Selector -->
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">Choose a signature style</label>
+                                <div class="d-flex flex-wrap gap-3" id="contractFontOptions">
+                                    <button type="button" class="font-option-btn font-dancing selected"
+                                            data-font="font-dancing">
+                                        <span class="contract-font-preview">Your Name</span>
+                                    </button>
+                                    <button type="button" class="font-option-btn font-pacifico"
+                                            data-font="font-pacifico">
+                                        <span class="contract-font-preview">Your Name</span>
+                                    </button>
+                                    <button type="button" class="font-option-btn font-satisfy"
+                                            data-font="font-satisfy">
+                                        <span class="contract-font-preview">Your Name</span>
+                                    </button>
+                                    <button type="button" class="font-option-btn font-great-vibes"
+                                            data-font="font-great-vibes">
+                                        <span class="contract-font-preview">Your Name</span>
+                                    </button>
+                                    <button type="button" class="font-option-btn font-allura"
+                                            data-font="font-allura">
+                                        <span class="contract-font-preview">Your Name</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Live Preview -->
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">Signature preview</label>
+                                <div class="sig-preview font-dancing" id="contractSigPreview">&nbsp;</div>
+                            </div>
+
+                            <!-- Confirmation -->
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="contractConfirmation" name="contract_confirmation">
+                                <label class="form-check-label" for="contractConfirmation">
+                                    I have read and agree to the terms outlined in this contract.
                                 </label>
                             </div>
+
                             <input type="hidden" name="contract_template_id" value="<?= intval($required_contract['id']) ?>">
+                            <input type="hidden" id="contractSignatureFont" name="contract_signature_font" value="font-dancing">
                         </div>
                     </div>
                     <?php endif; ?>
@@ -819,11 +895,19 @@ if (isset($error_mode) && $error_mode) {
                         return;
                     }
                 }
-                // Validate contract acceptance if required
-                const contractCheck = document.getElementById('contractAccepted');
-                if (contractCheck && !contractCheck.checked) {
-                    showAlert('You must read and accept the required contract to continue.', 'warning');
-                    return;
+                // Validate contract signature if required
+                const contractNameEl = document.getElementById('contractTypedName');
+                if (contractNameEl) {
+                    if (!contractNameEl.value.trim()) {
+                        showAlert('Please type your full name to sign the required contract.', 'warning');
+                        contractNameEl.focus();
+                        return;
+                    }
+                    const contractConfirm = document.getElementById('contractConfirmation');
+                    if (contractConfirm && !contractConfirm.checked) {
+                        showAlert('You must check the confirmation box to accept the contract.', 'warning');
+                        return;
+                    }
                 }
             }
             
@@ -1067,8 +1151,9 @@ if (isset($error_mode) && $error_mode) {
                 location_value: location_value,
                 use_credit: !!document.getElementById('useCreditToggle')?.checked,
                 form_responses: collectFormResponses(),
-                contract_accepted: !!(document.getElementById('contractAccepted')?.checked),
-                contract_template_id: document.querySelector('input[name="contract_template_id"]') ? parseInt(document.querySelector('input[name="contract_template_id"]').value) : null
+                contract_template_id: document.querySelector('input[name="contract_template_id"]') ? parseInt(document.querySelector('input[name="contract_template_id"]').value) : null,
+                contract_typed_name: document.getElementById('contractTypedName')?.value.trim() || null,
+                contract_signature_font: document.getElementById('contractSignatureFont')?.value || null
             };
             
             fetch('api_bookings.php', {
@@ -1111,6 +1196,38 @@ if (isset($error_mode) && $error_mode) {
             `;
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+
+        // Contract signature UI
+        (function () {
+            const typedNameEl  = document.getElementById('contractTypedName');
+            const sigPreviewEl = document.getElementById('contractSigPreview');
+            const fontInput    = document.getElementById('contractSignatureFont');
+            const fontButtons  = document.querySelectorAll('#contractFontOptions .font-option-btn');
+
+            if (!typedNameEl) return; // no contract required for this appointment type
+
+            function updateContractPreview() {
+                const name = typedNameEl.value.trim() || '\u00a0';
+                sigPreviewEl.textContent = name;
+                document.querySelectorAll('.contract-font-preview').forEach(function (span) {
+                    span.textContent = typedNameEl.value.trim() || 'Your Name';
+                });
+            }
+
+            function selectContractFont(btn) {
+                fontButtons.forEach(function (b) { b.classList.remove('selected'); });
+                btn.classList.add('selected');
+                const font = btn.dataset.font;
+                fontInput.value = font;
+                sigPreviewEl.className = 'sig-preview ' + font;
+            }
+
+            typedNameEl.addEventListener('input', updateContractPreview);
+
+            fontButtons.forEach(function (btn) {
+                btn.addEventListener('click', function () { selectContractFont(btn); });
+            });
+        })();
     </script>
 </body>
 </html>

@@ -1491,6 +1491,12 @@ class Database {
         if (!in_array('contract_accepted_at', $booking_column_names)) {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN contract_accepted_at TIMESTAMP");
         }
+        if (!in_array('contract_signature_name', $booking_column_names)) {
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN contract_signature_name TEXT");
+        }
+        if (!in_array('contract_signature_font', $booking_column_names)) {
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN contract_signature_font TEXT");
+        }
 
         // Create portal_content table for customizable homepage
         $this->execSQL("

@@ -303,10 +303,11 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 }
             }
 
-            // Validate contract acceptance if this appointment type requires one
+            // Validate contract signature if this appointment type requires one
             if (!empty($apt_type['contract_template_id'])) {
-                if (empty($data['contract_accepted']) || $data['contract_accepted'] !== true) {
-                    echo json_encode(['error' => 'You must accept the required contract to complete your booking.']);
+                $contract_typed_name = trim($data['contract_typed_name'] ?? '');
+                if (empty($contract_typed_name)) {
+                    echo json_encode(['error' => 'You must sign the required contract (type your full name) to complete your booking.']);
                     exit;
                 }
             }
@@ -362,14 +363,19 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             }
         }
 
-        // Determine contract acceptance
-        $contract_accepted = ($data['contract_accepted'] ?? false) === true ? 1 : 0;
+        // Determine contract signature data
+        $contract_typed_name = trim($data['contract_typed_name'] ?? '');
+        $allowed_sig_fonts = ['font-dancing', 'font-pacifico', 'font-satisfy', 'font-great-vibes', 'font-allura'];
+        $contract_sig_font = in_array($data['contract_signature_font'] ?? '', $allowed_sig_fonts)
+            ? $data['contract_signature_font']
+            : 'font-dancing';
+        $contract_accepted = !empty($contract_typed_name) ? 1 : 0;
         $contract_accepted_at = $contract_accepted ? date('Y-m-d H:i:s') : null;
 
         // Create booking with client_id, appointment_type_id, location, location_type, and package_credit_id
         $stmt = $conn->prepare("
-            INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, contract_accepted, contract_accepted_at, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+            INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
         ");
         $stmt->execute([
             $client_id,
@@ -386,7 +392,9 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             $location_type,
             $pkg_credit_id_to_use,
             $contract_accepted,
-            $contract_accepted_at
+            $contract_accepted_at,
+            $contract_accepted ? $contract_typed_name : null,
+            $contract_accepted ? $contract_sig_font : null
         ]);
         
         $booking_id = $conn->lastInsertId();
