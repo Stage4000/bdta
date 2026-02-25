@@ -285,7 +285,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
 
         if (!empty($data['appointment_type_id'])) {
-            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, location_types FROM appointment_types WHERE id = ?");
+            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, location_types, contract_template_id FROM appointment_types WHERE id = ?");
             $stmt->execute([$data['appointment_type_id']]);
             $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($apt_type && !empty($apt_type['is_mini_session'])) {
@@ -300,6 +300,15 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 $configured = json_decode($apt_type['location_types'], true);
                 if (is_array($configured) && !empty($configured)) {
                     $allowed_location_types = array_merge($configured, ['fixed']);
+                }
+            }
+
+            // Validate contract signature if this appointment type requires one
+            if (!empty($apt_type['contract_template_id'])) {
+                $contract_typed_name = trim($data['contract_typed_name'] ?? '');
+                if (empty($contract_typed_name)) {
+                    echo json_encode(['error' => 'You must sign the required contract (type your full name) to complete your booking.']);
+                    exit;
                 }
             }
         }
@@ -354,10 +363,19 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             }
         }
 
+        // Determine contract signature data
+        $contract_typed_name = trim($data['contract_typed_name'] ?? '');
+        $allowed_sig_fonts = ['font-dancing', 'font-pacifico', 'font-satisfy', 'font-great-vibes', 'font-allura'];
+        $contract_sig_font = in_array($data['contract_signature_font'] ?? '', $allowed_sig_fonts)
+            ? $data['contract_signature_font']
+            : 'font-dancing';
+        $contract_accepted = !empty($contract_typed_name) ? 1 : 0;
+        $contract_accepted_at = $contract_accepted ? date('Y-m-d H:i:s') : null;
+
         // Create booking with client_id, appointment_type_id, location, location_type, and package_credit_id
         $stmt = $conn->prepare("
-            INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+            INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
         ");
         $stmt->execute([
             $client_id,
@@ -372,7 +390,11 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             $data['duration_minutes'] ?? 60,
             $location,
             $location_type,
-            $pkg_credit_id_to_use
+            $pkg_credit_id_to_use,
+            $contract_accepted,
+            $contract_accepted_at,
+            $contract_accepted ? $contract_typed_name : null,
+            $contract_accepted ? $contract_sig_font : null
         ]);
         
         $booking_id = $conn->lastInsertId();
