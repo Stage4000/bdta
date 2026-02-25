@@ -1477,6 +1477,21 @@ class Database {
             $this->execSQL("UPDATE appointment_types SET portal_available = 0 WHERE portal_available IS NULL");
         }
 
+        // Add contract_template_id column to appointment_types (replaces requires_contract toggle)
+        $apt_column_names = $this->getTableColumns('appointment_types');
+        if (!in_array('contract_template_id', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN contract_template_id INTEGER DEFAULT NULL REFERENCES contract_templates(id) ON DELETE SET NULL");
+        }
+
+        // Add contract_accepted and contract_template_id columns to bookings for recording client acceptance
+        $booking_column_names = $this->getTableColumns('bookings');
+        if (!in_array('contract_accepted', $booking_column_names)) {
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN contract_accepted INTEGER DEFAULT 0");
+        }
+        if (!in_array('contract_accepted_at', $booking_column_names)) {
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN contract_accepted_at TIMESTAMP");
+        }
+
         // Create portal_content table for customizable homepage
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS portal_content (

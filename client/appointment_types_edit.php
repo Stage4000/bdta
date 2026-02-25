@@ -51,7 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ? array_map('intval', $_POST['form_ids'])
         : [];
     $requires_forms = !empty($selected_form_ids) ? 1 : 0;
-    $requires_contract = isset($_POST['requires_contract']) ? 1 : 0;
+    $contract_template_id = !empty($_POST['contract_template_id']) ? (int)$_POST['contract_template_id'] : null;
+    $requires_contract = ($contract_template_id !== null) ? 1 : 0;
     $auto_invoice = isset($_POST['auto_invoice']) ? 1 : 0;
     $invoice_due_days = (int)($_POST['invoice_due_days'] ?? 7);
     $default_amount = floatval($_POST['default_amount'] ?? 0);
@@ -132,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     advance_booking_max_days = ?,
                     requires_forms = ?,
                     requires_contract = ?,
+                    contract_template_id = ?,
                     auto_invoice = ?,
                     invoice_due_days = ?,
                     consumes_credits = ?,
@@ -162,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $buffer_before_minutes, $buffer_after_minutes,
                 $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
-                $requires_forms, $requires_contract,
+                $requires_forms, $requires_contract, $contract_template_id,
                 $auto_invoice, $invoice_due_days,
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
@@ -192,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     buffer_before_minutes, buffer_after_minutes,
                     use_travel_time_buffer, travel_time_minutes,
                     advance_booking_min_days, advance_booking_max_days,
-                    requires_forms, requires_contract,
+                    requires_forms, requires_contract, contract_template_id,
                     auto_invoice, invoice_due_days,
                     consumes_credits, credit_count,
                     is_group_class, max_participants,
@@ -205,14 +207,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     per_day_schedule,
                     default_amount,
                     location_types
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
                 $buffer_before_minutes, $buffer_after_minutes,
                 $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
-                $requires_forms, $requires_contract,
+                $requires_forms, $requires_contract, $contract_template_id,
                 $auto_invoice, $invoice_due_days,
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
@@ -248,6 +250,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Load all active form templates for the selection UI
 $all_forms = $conn->query("SELECT id, name FROM form_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+
+// Load all active contract templates for the dropdown
+$all_contract_templates = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
 // Load currently associated form IDs for this appointment type
 $selected_form_ids_current = [];
@@ -582,14 +587,22 @@ include __DIR__ . '/../backend/includes/header.php';
                         <?php endif; ?>
                     </div>
                     <div class="col-md-6">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="requires_contract" name="requires_contract"
-                                   <?= !empty($type['requires_contract']) ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="requires_contract">
-                                Requires Contract
-                            </label>
-                            <div class="form-text">Client must sign contract before booking</div>
-                        </div>
+                        <label class="form-label">Required Contract</label>
+                        <?php if (empty($all_contract_templates)): ?>
+                            <p class="text-muted small">No active contract templates available. <a href="contract_templates_edit.php">Create a template</a> first.</p>
+                            <input type="hidden" name="contract_template_id" value="">
+                        <?php else: ?>
+                            <select class="form-select" id="contract_template_id" name="contract_template_id">
+                                <option value="">— None (no contract required) —</option>
+                                <?php foreach ($all_contract_templates as $tmpl): ?>
+                                    <option value="<?= $tmpl['id'] ?>"
+                                        <?= (isset($type['contract_template_id']) && $type['contract_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($tmpl['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="form-text">Select a contract clients must review and accept before booking. Leave blank for no contract requirement.</div>
+                        <?php endif; ?>
                     </div>
                 </div>
 

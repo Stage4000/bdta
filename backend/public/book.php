@@ -42,6 +42,7 @@ if (!$selected_type) {
     $error_mode = true;
     $appointment_types = [];
     $required_forms = [];
+    $required_contract = null;
 } else {
     // For standalone pages, only show the selected type
     $appointment_types = [$selected_type];
@@ -62,6 +63,14 @@ if (!$selected_type) {
     }
     unset($req_row);
     $required_forms = $req_rows;
+
+    // Load required contract template for this appointment type
+    $required_contract = null;
+    if (!empty($selected_type['contract_template_id'])) {
+        $stmt = $conn->prepare("SELECT id, name, template_text FROM contract_templates WHERE id = ? AND is_active = 1");
+        $stmt->execute([$selected_type['contract_template_id']]);
+        $required_contract = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
 }
 
 // Set page title based on booking type
@@ -583,6 +592,27 @@ if (isset($error_mode) && $error_mode) {
                     <?php endforeach; ?>
                     <?php endif; ?>
 
+                    <?php if (!empty($required_contract)): ?>
+                    <hr class="my-4">
+                    <h5 class="mb-1"><i class="fas fa-file-contract me-2"></i>Required Contract</h5>
+                    <p class="text-muted mb-3">Please review and accept the following contract to continue with your booking.</p>
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><?= htmlspecialchars($required_contract['name']) ?></h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="border rounded p-3 mb-3 bg-white" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem;"><?= htmlspecialchars($required_contract['template_text']) ?></div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="contractAccepted" name="contract_accepted" value="1" required>
+                                <label class="form-check-label fw-bold" for="contractAccepted">
+                                    I have read and agree to the above contract <span class="text-danger">*</span>
+                                </label>
+                            </div>
+                            <input type="hidden" name="contract_template_id" value="<?= intval($required_contract['id']) ?>">
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
                             <i class="fas fa-arrow-left me-2"></i> Back
@@ -788,6 +818,12 @@ if (isset($error_mode) && $error_mode) {
                         showAlert('Please enter the required location information.', 'warning');
                         return;
                     }
+                }
+                // Validate contract acceptance if required
+                const contractCheck = document.getElementById('contractAccepted');
+                if (contractCheck && !contractCheck.checked) {
+                    showAlert('You must read and accept the required contract to continue.', 'warning');
+                    return;
                 }
             }
             
@@ -1030,7 +1066,9 @@ if (isset($error_mode) && $error_mode) {
                 location_type: location_type,
                 location_value: location_value,
                 use_credit: !!document.getElementById('useCreditToggle')?.checked,
-                form_responses: collectFormResponses()
+                form_responses: collectFormResponses(),
+                contract_accepted: !!(document.getElementById('contractAccepted')?.checked),
+                contract_template_id: document.querySelector('input[name="contract_template_id"]') ? parseInt(document.querySelector('input[name="contract_template_id"]').value) : null
             };
             
             fetch('api_bookings.php', {

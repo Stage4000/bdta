@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Check required contract
-        if ($apt_type['requires_contract'] && !$override_contract) {
+        if (!empty($apt_type['contract_template_id']) && !$override_contract) {
             $stmt = $conn->prepare("SELECT COUNT(*) FROM contracts WHERE client_id = ? AND status = 'signed'");
             $stmt->execute([$client_id]);
             $contract_count = $stmt->fetchColumn();
@@ -323,7 +323,7 @@ include '../backend/includes/header.php';
                                         <option value="<?php echo $type['id']; ?>" 
                                                 data-duration="<?php echo $type['duration_minutes']; ?>"
                                                 data-requires-forms="<?php echo $type['requires_forms']; ?>"
-                                                data-requires-contract="<?php echo $type['requires_contract']; ?>"
+                                                data-requires-contract="<?php echo !empty($type['contract_template_id']) ? '1' : '0'; ?>"
                                                 data-consumes-credits="<?php echo $type['consumes_credits']; ?>"
                                                 data-credit-count="<?php echo $type['credit_count']; ?>"
                                                 data-is-mini="<?php echo !empty($type['is_mini_session']) ? '1' : '0'; ?>"
