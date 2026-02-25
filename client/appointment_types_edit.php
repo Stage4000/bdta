@@ -47,7 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $travel_time_minutes = (int)($_POST['travel_time_minutes'] ?? 0);
     $advance_booking_min_days = (int)($_POST['advance_booking_min_days'] ?? 1);
     $advance_booking_max_days = (int)($_POST['advance_booking_max_days'] ?? 90);
-    $requires_forms = isset($_POST['requires_forms']) ? 1 : 0;
+    $selected_form_ids = isset($_POST['form_ids']) && is_array($_POST['form_ids'])
+        ? array_map('intval', $_POST['form_ids'])
+        : [];
+    $requires_forms = !empty($selected_form_ids) ? 1 : 0;
     $requires_contract = isset($_POST['requires_contract']) ? 1 : 0;
     $auto_invoice = isset($_POST['auto_invoice']) ? 1 : 0;
     $invoice_due_days = (int)($_POST['invoice_due_days'] ?? 7);
@@ -223,7 +226,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $default_amount,
                 $location_types_json
             ]);
+            $id = $conn->lastInsertId();
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
+        }
+
+        // Save form associations
+        $conn->prepare("DELETE FROM appointment_type_forms WHERE appointment_type_id = ?")->execute([$id]);
+        if (!empty($selected_form_ids)) {
+            $ins = $conn->prepare("INSERT OR IGNORE INTO appointment_type_forms (appointment_type_id, form_template_id) VALUES (?, ?)");
+            foreach ($selected_form_ids as $fid) {
+                $ins->execute([$id, $fid]);
+            }
         }
         
         header('Location: appointment_types_list.php');
@@ -231,6 +244,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (PDOException $e) {
         $error = "Error saving appointment type: " . $e->getMessage();
     }
+}
+
+// Load all active form templates for the selection UI
+$all_forms = $conn->query("SELECT id, name FROM form_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+
+// Load currently associated form IDs for this appointment type
+$selected_form_ids_current = [];
+if ($is_edit) {
+    $stmt = $conn->prepare("SELECT form_template_id FROM appointment_type_forms WHERE appointment_type_id = ?");
+    $stmt->execute([$id]);
+    $selected_form_ids_current = $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
 $page_title = $is_edit ? "Edit Appointment Type" : "Add Appointment Type";
@@ -538,14 +562,24 @@ include __DIR__ . '/../backend/includes/header.php';
                 <h6 class="border-bottom pb-2 mb-3">Requirements</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="requires_forms" name="requires_forms"
-                                   <?= !empty($type['requires_forms']) ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="requires_forms">
-                                Requires Forms
-                            </label>
-                            <div class="form-text">Client must complete required forms before booking</div>
-                        </div>
+                        <label class="form-label">Required Forms</label>
+                        <?php if (empty($all_forms)): ?>
+                            <p class="text-muted small">No active form templates available. <a href="form_templates_edit.php">Create a form</a> first.</p>
+                        <?php else: ?>
+                            <div class="border rounded p-2" style="max-height: 160px; overflow-y: auto;">
+                                <?php foreach ($all_forms as $form): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="form_ids[]"
+                                               id="form_<?= $form['id'] ?>" value="<?= $form['id'] ?>"
+                                               <?= in_array($form['id'], $selected_form_ids_current) ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="form_<?= $form['id'] ?>">
+                                            <?= htmlspecialchars($form['name']) ?>
+                                        </label>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <div class="form-text">Select forms clients must complete before booking. If none selected, no forms are required.</div>
+                        <?php endif; ?>
                     </div>
                     <div class="col-md-6">
                         <div class="form-check form-switch">
