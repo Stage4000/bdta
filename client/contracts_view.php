@@ -50,8 +50,35 @@ if (!$contract) {
 $base_url = getDynamicBaseUrl();
 $public_link = $base_url . '/backend/public/contract.php?id=' . $id;
 
+// Fetch audit log for this contract
+$log_stmt = $conn->prepare("
+    SELECT * FROM contract_signature_log
+    WHERE contract_id = ?
+    ORDER BY created_at ASC
+");
+$log_stmt->execute([$id]);
+$sig_log = $log_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Font labels for display
+$font_labels = [
+    'font-dancing'     => 'Dancing Script',
+    'font-pacifico'    => 'Pacifico',
+    'font-satisfy'     => 'Satisfy',
+    'font-great-vibes' => 'Great Vibes',
+    'font-allura'      => 'Allura',
+];
+
 include '../backend/includes/header.php';
 ?>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Pacifico&family=Satisfy&family=Great+Vibes&family=Allura&display=swap" rel="stylesheet">
+<style>
+.font-dancing     { font-family: 'Dancing Script', cursive; }
+.font-pacifico    { font-family: 'Pacifico', cursive; }
+.font-satisfy     { font-family: 'Satisfy', cursive; }
+.font-great-vibes { font-family: 'Great Vibes', cursive; }
+.font-allura      { font-family: 'Allura', cursive; }
+.signed-sig { font-size: 2.2rem; color: #1a1a2e; border-bottom: 2px solid #495057; display: inline-block; padding-bottom: .2rem; }
+</style>
 
 <div class="container-fluid mt-4">
     <?php
@@ -117,7 +144,18 @@ include '../backend/includes/header.php';
                             
                             <div class="mt-4 contract-content"><?= $contract['contract_text'] ?></div>
                             
-                            <?php if ($contract['signature_data']): ?>
+                            <?php if ($contract['signature_typed_name']): ?>
+                                <hr>
+                                <h5>Electronic Signature</h5>
+                                <div class="signed-sig <?= escape($contract['signature_font'] ?? 'font-dancing') ?>">
+                                    <?= escape($contract['signature_typed_name']) ?>
+                                </div>
+                                <p class="text-muted small mt-2">
+                                    Style: <?= escape($font_labels[$contract['signature_font']] ?? $contract['signature_font']) ?><br>
+                                    Signed on <?= escape(date('F j, Y \a\t g:i A T', strtotime($contract['signed_date']))) ?>
+                                    &mdash; IP: <?= escape($contract['ip_address']) ?>
+                                </p>
+                            <?php elseif ($contract['signature_data']): ?>
                                 <hr>
                                 <h5>Signature</h5>
                                 <img src="<?= escape($contract['signature_data']) ?>" alt="Signature" class="border p-2" style="max-width: 400px;">
@@ -168,6 +206,29 @@ include '../backend/includes/header.php';
                                     <i class="fas fa-clipboard"></i>
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Signature Audit Log -->
+                    <?php if (!empty($sig_log)): ?>
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-list-check me-1"></i>Signature Audit Log</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush">
+                                <?php foreach ($sig_log as $entry): ?>
+                                <li class="list-group-item small">
+                                    <div class="fw-semibold text-capitalize"><?= escape($entry['event_type']) ?></div>
+                                    <div><?= escape($entry['details']) ?></div>
+                                    <div class="text-muted">
+                                        <?= escape(date('M j, Y g:i A T', strtotime($entry['created_at']))) ?><br>
+                                        IP: <?= escape($entry['ip_address']) ?>
+                                    </div>
+                                </li>
+                                <?php endforeach; ?>
+                            </ul>
                         </div>
                     </div>
                     <?php endif; ?>

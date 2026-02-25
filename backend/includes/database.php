@@ -1518,6 +1518,29 @@ class Database {
             )
         ");
 
+        // Add typed-signature columns to contracts (electronic signature feature)
+        $contract_column_names = $this->getTableColumns('contracts');
+        if (!in_array('signature_typed_name', $contract_column_names)) {
+            $this->execSQL("ALTER TABLE contracts ADD COLUMN signature_typed_name TEXT");
+        }
+        if (!in_array('signature_font', $contract_column_names)) {
+            $this->execSQL("ALTER TABLE contracts ADD COLUMN signature_font TEXT");
+        }
+
+        // Create contract_signature_log table for audit trail
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS contract_signature_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                contract_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                details TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE
+            )
+        ");
+
         // Add database settings for existing installations
         $this->addDatabaseSettings();
     }

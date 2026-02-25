@@ -41,7 +41,7 @@ include '../portal/includes/header.php';
     <?php else: ?>
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Title</th><th>Status</th><th>Date</th></tr></thead>
+            <thead><tr><th>Title</th><th>Status</th><th>Date</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($contracts as $c): ?>
                 <?php
@@ -53,11 +53,21 @@ include '../portal/includes/header.php';
                     'cancelled' => 'dark',
                     default     => 'secondary',
                 };
+                $base_url = getDynamicBaseUrl();
+                $can_view = in_array($status, ['sent', 'signed']);
                 ?>
                 <tr>
                     <td><?php echo escape($c['title'] ?? ''); ?></td>
                     <td><span class="badge bg-<?php echo $badge; ?>"><?php echo escape(ucfirst($status)); ?></span></td>
                     <td><?php echo escape($c['created_at'] ?? ''); ?></td>
+                    <td>
+                        <?php if ($can_view): ?>
+                            <a href="<?php echo $base_url; ?>/backend/public/contract.php?id=<?php echo intval($c['id']); ?>"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i><?php echo $status === 'signed' ? 'View' : 'View &amp; Sign'; ?>
+                            </a>
+                        <?php endif; ?>
+                    </td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
