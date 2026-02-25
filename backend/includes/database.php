@@ -1505,6 +1505,19 @@ class Database {
             )
         ");
 
+        // Create appointment_type_forms join table for many-to-many relationship
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS appointment_type_forms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                appointment_type_id INTEGER NOT NULL,
+                form_template_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE CASCADE,
+                FOREIGN KEY (form_template_id) REFERENCES form_templates(id) ON DELETE CASCADE,
+                UNIQUE(appointment_type_id, form_template_id)
+            )
+        ");
+
         // Add database settings for existing installations
         $this->addDatabaseSettings();
     }

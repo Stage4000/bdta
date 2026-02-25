@@ -82,11 +82,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Check required forms
         if ($apt_type['requires_forms'] && !$override_forms) {
-            $stmt = $conn->prepare("SELECT COUNT(*) FROM form_submissions WHERE client_id = ? AND status = 'submitted'");
-            $stmt->execute([$client_id]);
-            $forms_count = $stmt->fetchColumn();
-            if ($forms_count == 0) {
-                $errors[] = "Client must submit required forms before booking (or override)";
+            $stmt = $conn->prepare("
+                SELECT atf.form_template_id FROM appointment_type_forms atf
+                WHERE atf.appointment_type_id = ?
+            ");
+            $stmt->execute([$apt_type['id']]);
+            $required_form_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!empty($required_form_ids)) {
+                $placeholders = implode(',', array_fill(0, count($required_form_ids), '?'));
+                $stmt2 = $conn->prepare("
+                    SELECT DISTINCT template_id FROM form_submissions
+                    WHERE client_id = ? AND status = 'submitted' AND template_id IN ($placeholders)
+                ");
+                $stmt2->execute(array_merge([$client_id], $required_form_ids));
+                $submitted_form_ids = $stmt2->fetchAll(PDO::FETCH_COLUMN);
+                $missing = array_diff($required_form_ids, $submitted_form_ids);
+                if (!empty($missing)) {
+                    $errors[] = "Client must submit required forms before booking (or override)";
+                }
             }
         }
         

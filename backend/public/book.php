@@ -41,9 +41,27 @@ if (!$selected_type) {
     // No appointment type specified - cannot proceed
     $error_mode = true;
     $appointment_types = [];
+    $required_forms = [];
 } else {
     // For standalone pages, only show the selected type
     $appointment_types = [$selected_type];
+
+    // Load required form templates for this appointment type
+    $required_forms = [];
+    $stmt = $conn->prepare("
+        SELECT ft.id, ft.name, ft.description, ft.fields
+        FROM appointment_type_forms atf
+        JOIN form_templates ft ON atf.form_template_id = ft.id
+        WHERE atf.appointment_type_id = ? AND ft.is_active = 1
+        ORDER BY ft.name
+    ");
+    $stmt->execute([$appointment_type_id]);
+    $req_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($req_rows as &$req_row) {
+        $req_row['fields'] = json_decode($req_row['fields'], true) ?: [];
+    }
+    unset($req_row);
+    $required_forms = $req_rows;
 }
 
 // Set page title based on booking type
@@ -493,7 +511,78 @@ if (isset($error_mode) && $error_mode) {
                             </div>
                         </div>
                     </div>
-                    
+
+                    <?php if (!empty($required_forms)): ?>
+                    <hr class="my-4">
+                    <h5 class="mb-1"><i class="fas fa-file-alt me-2"></i>Required Forms</h5>
+                    <p class="text-muted mb-3">Please complete the following forms as part of your booking.</p>
+                    <?php foreach ($required_forms as $form): ?>
+                        <div class="card mb-4" data-form-id="<?= $form['id'] ?>">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><?= htmlspecialchars($form['name']) ?></h6>
+                                <?php if (!empty($form['description'])): ?>
+                                    <small class="text-muted"><?= htmlspecialchars($form['description']) ?></small>
+                                <?php endif; ?>
+                            </div>
+                            <div class="card-body">
+                                <?php foreach ($form['fields'] as $fi => $field):
+                                    $fn = 'form_resp_' . $form['id'] . '_' . $fi;
+                                    $is_req = !empty($field['required']);
+                                    $ph = htmlspecialchars($field['placeholder'] ?? '');
+                                ?>
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <?= htmlspecialchars($field['label']) ?>
+                                        <?php if ($is_req): ?><span class="text-danger">*</span><?php endif; ?>
+                                    </label>
+                                    <?php switch ($field['type']):
+                                        case 'textarea': ?>
+                                        <textarea class="form-control" data-form-field="<?= $fi ?>"
+                                                  placeholder="<?= $ph ?>"
+                                                  <?= $is_req ? 'required' : '' ?>></textarea>
+                                        <?php break; case 'select': ?>
+                                        <select class="form-select" data-form-field="<?= $fi ?>"
+                                                <?= $is_req ? 'required' : '' ?>>
+                                            <option value="">— Select —</option>
+                                            <?php foreach ($field['options'] ?? [] as $opt): ?>
+                                                <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <?php break; case 'radio': ?>
+                                        <?php foreach ($field['options'] ?? [] as $oi => $opt): ?>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio"
+                                                   data-form-field="<?= $fi ?>"
+                                                   name="<?= $fn ?>"
+                                                   id="<?= $fn ?>_<?= $oi ?>"
+                                                   value="<?= htmlspecialchars($opt) ?>"
+                                                   <?= ($is_req && $oi === 0) ? 'required' : '' ?>>
+                                            <label class="form-check-label" for="<?= $fn ?>_<?= $oi ?>"><?= htmlspecialchars($opt) ?></label>
+                                        </div>
+                                        <?php endforeach;
+                                        break; case 'checkbox': ?>
+                                        <?php foreach ($field['options'] ?? [] as $oi => $opt): ?>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   data-form-field="<?= $fi ?>"
+                                                   id="<?= $fn ?>_<?= $oi ?>"
+                                                   value="<?= htmlspecialchars($opt) ?>">
+                                            <label class="form-check-label" for="<?= $fn ?>_<?= $oi ?>"><?= htmlspecialchars($opt) ?></label>
+                                        </div>
+                                        <?php endforeach;
+                                        break; default: ?>
+                                        <input type="<?= htmlspecialchars($field['type']) ?>"
+                                               class="form-control" data-form-field="<?= $fi ?>"
+                                               placeholder="<?= $ph ?>"
+                                               <?= $is_req ? 'required' : '' ?>>
+                                        <?php break; endswitch; ?>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
                             <i class="fas fa-arrow-left me-2"></i> Back
@@ -865,6 +954,40 @@ if (isset($error_mode) && $error_mode) {
             }
         }
         
+        function collectFormResponses() {
+            const responses = {};
+            document.querySelectorAll('[data-form-id]').forEach(section => {
+                const formId = section.dataset.formId;
+                const fields = {};
+                // text, email, tel, number, date, textarea, select
+                section.querySelectorAll('input:not([type=checkbox]):not([type=radio]), textarea, select').forEach(el => {
+                    if (el.dataset.formField !== undefined) {
+                        fields[el.dataset.formField] = el.value;
+                    }
+                });
+                // radio — pick checked value per group
+                const radioSeen = {};
+                section.querySelectorAll('input[type=radio]').forEach(el => {
+                    const fi = el.dataset.formField;
+                    if (fi !== undefined && radioSeen[fi] === undefined) radioSeen[fi] = '';
+                    if (el.checked) radioSeen[fi] = el.value;
+                });
+                Object.assign(fields, radioSeen);
+                // checkboxes — collect array of checked values
+                const cbGroups = {};
+                section.querySelectorAll('input[type=checkbox]').forEach(el => {
+                    const fi = el.dataset.formField;
+                    if (fi !== undefined) {
+                        if (!cbGroups[fi]) cbGroups[fi] = [];
+                        if (el.checked) cbGroups[fi].push(el.value);
+                    }
+                });
+                Object.assign(fields, cbGroups);
+                responses[formId] = fields;
+            });
+            return responses;
+        }
+
         function submitBooking(e) {
             e.preventDefault();
             
@@ -906,7 +1029,8 @@ if (isset($error_mode) && $error_mode) {
                 duration_minutes: selectedTypeDuration ?? 60,
                 location_type: location_type,
                 location_value: location_value,
-                use_credit: !!document.getElementById('useCreditToggle')?.checked
+                use_credit: !!document.getElementById('useCreditToggle')?.checked,
+                form_responses: collectFormResponses()
             };
             
             fetch('api_bookings.php', {
