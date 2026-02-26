@@ -862,7 +862,7 @@ class Database {
                     INSERT INTO admin_users (username, password_hash, email) 
                     VALUES (?, ?, ?)
                 ");
-                $stmt->execute(['admin', $password_hash, 'admin@brooksdogtraining.com']);
+                $stmt->execute(['admin', $password_hash, 'admin@brooksdogtrainingacademy.com']);
             }
             
             // Initialize default settings if table is empty
@@ -891,13 +891,13 @@ class Database {
             // General Settings
             ['site_name', "Brook's Dog Training Academy", 'text', 'general', 'Site Name', 'The name of your business', 0],
             ['site_tagline', 'Teaching Humans to Speak Dog', 'text', 'general', 'Site Tagline', 'Your business tagline or slogan', 0],
-            ['business_email', 'info@brooksdogtraining.com', 'email', 'general', 'Business Email', 'Primary contact email', 0],
+            ['business_email', 'bookings@brooksdogtrainingacademy.com', 'email', 'general', 'Business Email', 'Primary contact email', 0],
             ['business_phone', '(555) 123-4567', 'text', 'general', 'Business Phone', 'Primary contact phone number', 0],
             ['business_address', 'Sebring, Florida', 'textarea', 'general', 'Business Address', 'Your business address', 0],
             ['founded_year', '2018', 'number', 'general', 'Founded Year', 'Year your business was founded', 0],
             
             // Email Settings
-            ['email_from_address', 'bookings@brooksdogtraining.com', 'email', 'email', 'From Email Address', 'Email address for outgoing emails', 0],
+            ['email_from_address', 'bookings@brooksdogtrainingacademy.com', 'email', 'email', 'From Email Address', 'Email address for outgoing emails', 0],
             ['email_from_name', "Brook's Dog Training Academy", 'text', 'email', 'From Name', 'Name displayed in outgoing emails', 0],
             ['email_service', 'mail', 'select', 'email', 'Email Service', 'Email delivery service (mail, smtp, sendgrid, mailgun, ses)', 0],
             ['smtp_host', '', 'text', 'email', 'SMTP Host', 'SMTP server hostname (if using SMTP)', 0],

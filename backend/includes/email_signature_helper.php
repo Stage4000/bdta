@@ -137,7 +137,7 @@ class EmailSignatureHelper {
         
         $defaults = [
             'name' => Settings::get('email_from_name', "Brook's Dog Training Academy"),
-            'email' => Settings::get('business_email', 'info@brooksdogtraining.com'),
+            'email' => Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com'),
             'phone' => Settings::get('business_phone', '(555) 123-4567'),
             'business_name' => Settings::get('site_name', "Brook's Dog Training Academy"),
             'business_address' => Settings::get('business_address', 'Sebring, Florida')

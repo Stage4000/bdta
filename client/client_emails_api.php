@@ -89,7 +89,7 @@ if ($method === 'GET') {
         
         // Get from email from settings
         require_once '../backend/includes/settings.php';
-        $from_email = Settings::get('email_from_address', 'bookings@brooksdogtraining.com');
+        $from_email = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
         
         // Determine send mode: immediate or scheduled
         $send_immediately = !isset($data['scheduled_at']) || empty($data['scheduled_at']);
