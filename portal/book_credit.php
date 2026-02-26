@@ -94,7 +94,9 @@ if (!empty($selected_type['contract_template_id'])) {
 
 // ── Contract skip logic ──────────────────────────────────────────────────────
 // Check whether the client already has a valid signed contract for this template
-// within the configured renewal period.
+// within the configured renewal period. We match on the contract template ID
+// (not the appointment type) so any prior signing of this same template counts,
+// regardless of which appointment type it was booked under.
 $skip_contract = false;
 $contract_skip_reason = '';
 if ($required_contract) {
@@ -104,13 +106,13 @@ if ($required_contract) {
         FROM bookings b
         JOIN appointment_types apt ON apt.id = b.appointment_type_id
         WHERE b.client_id = ?
-          AND b.appointment_type_id = ?
+          AND apt.contract_template_id = ?
           AND b.contract_accepted = 1
           AND b.contract_accepted_at IS NOT NULL
         ORDER BY b.contract_accepted_at DESC
         LIMIT 1
     ");
-    $stmt->execute([$client_id, $appointment_type_id]);
+    $stmt->execute([$client_id, $required_contract['id']]);
     $prev = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($prev) {
         $expiry = strtotime($prev['contract_accepted_at'] . " +{$renewal_months} months");

@@ -146,16 +146,17 @@ if (!empty($apt_type['contract_template_id'])) {
     }
 
     $stmt = $conn->prepare("
-        SELECT contract_accepted_at
-        FROM bookings
-        WHERE client_id = ?
-          AND appointment_type_id = ?
-          AND contract_accepted = 1
-          AND contract_accepted_at IS NOT NULL
-        ORDER BY contract_accepted_at DESC
+        SELECT b.contract_accepted_at
+        FROM bookings b
+        JOIN appointment_types apt ON apt.id = b.appointment_type_id
+        WHERE b.client_id = ?
+          AND apt.contract_template_id = ?
+          AND b.contract_accepted = 1
+          AND b.contract_accepted_at IS NOT NULL
+        ORDER BY b.contract_accepted_at DESC
         LIMIT 1
     ");
-    $stmt->execute([$client_id, $appointment_type_id]);
+    $stmt->execute([$client_id, $ctpl_id]);
     $prev = $stmt->fetch(PDO::FETCH_ASSOC);
 
     $can_skip = false;

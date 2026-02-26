@@ -76,16 +76,17 @@ try {
     echo "\nTest 3: Contract skip logic — no prior contract (should require signing)\n";
     $renewal_months = 12;
     $stmt = $conn->prepare("
-        SELECT contract_accepted_at
-        FROM bookings
-        WHERE client_id = ?
-          AND appointment_type_id = ?
-          AND contract_accepted = 1
-          AND contract_accepted_at IS NOT NULL
-        ORDER BY contract_accepted_at DESC
+        SELECT b.contract_accepted_at
+        FROM bookings b
+        JOIN appointment_types apt ON apt.id = b.appointment_type_id
+        WHERE b.client_id = ?
+          AND apt.contract_template_id = ?
+          AND b.contract_accepted = 1
+          AND b.contract_accepted_at IS NOT NULL
+        ORDER BY b.contract_accepted_at DESC
         LIMIT 1
     ");
-    $stmt->execute([$client_id, $apt_type_id]);
+    $stmt->execute([$client_id, $contract_template_id]);
     $prev = $stmt->fetch(PDO::FETCH_ASSOC);
     $can_skip = false;
     if ($prev) {
@@ -110,7 +111,7 @@ try {
         VALUES (?,?,?,?,'Portal Test Session','2024-01-01','09:00',1,?,'completed')
     ")->execute([$client_id, $apt_type_id, 'Portal Test Client', 'portal_booking_test@example.com', $accepted_6_months_ago]);
 
-    $stmt->execute([$client_id, $apt_type_id]);
+    $stmt->execute([$client_id, $contract_template_id]);
     $prev = $stmt->fetch(PDO::FETCH_ASSOC);
     $can_skip = false;
     if ($prev) {
@@ -209,6 +210,38 @@ try {
         echo "  ✗ credits.php still has old public booking URL\n"; exit(1);
     }
 
+    // ── Test 10: Contract skip works across different appointment types ────
+    echo "\nTest 10: Contract skip works when signed via a different appointment type (same template)\n";
+    // Create a second appointment type using the same contract template
+    $conn->prepare("INSERT INTO appointment_types (name, duration_minutes, is_active, contract_template_id) VALUES (?,60,1,?)")
+         ->execute(['Portal Test Session B', $contract_template_id]);
+    $apt_type_id_b = (int)$conn->lastInsertId();
+
+    // The existing booking in test 4 was for $apt_type_id; now we check skip for $apt_type_id_b
+    $cross_stmt = $conn->prepare("
+        SELECT b.contract_accepted_at
+        FROM bookings b
+        JOIN appointment_types apt ON apt.id = b.appointment_type_id
+        WHERE b.client_id = ?
+          AND apt.contract_template_id = ?
+          AND b.contract_accepted = 1
+          AND b.contract_accepted_at IS NOT NULL
+        ORDER BY b.contract_accepted_at DESC
+        LIMIT 1
+    ");
+    $cross_stmt->execute([$client_id, $contract_template_id]);
+    $cross_prev = $cross_stmt->fetch(PDO::FETCH_ASSOC);
+    $cross_skip = false;
+    if ($cross_prev) {
+        $expiry = strtotime($cross_prev['contract_accepted_at'] . " +{$renewal_months} months");
+        if ($expiry >= time()) $cross_skip = true;
+    }
+    if ($cross_skip) {
+        echo "  ✓ Contract skip correctly fires for second appointment type sharing same template\n";
+    } else {
+        echo "  ✗ Contract skip FAILED for cross-appointment-type check\n"; exit(1);
+    }
+
     // ── Cleanup ────────────────────────────────────────────────────────────
     echo "\nCleanup…\n";
     $conn->prepare("DELETE FROM form_submissions WHERE client_id = ?")->execute([$client_id]);
@@ -216,7 +249,7 @@ try {
     $conn->prepare("DELETE FROM pets WHERE client_id IN (?,?)")->execute([$client_id, $other_client_id]);
     $conn->prepare("DELETE FROM client_contacts WHERE client_id = ?")->execute([$client_id]);
     $conn->prepare("DELETE FROM clients WHERE id IN (?,?)")->execute([$client_id, $other_client_id]);
-    $conn->prepare("DELETE FROM appointment_types WHERE id = ?")->execute([$apt_type_id]);
+    $conn->prepare("DELETE FROM appointment_types WHERE id IN (?,?)")->execute([$apt_type_id, $apt_type_id_b]);
     $conn->prepare("DELETE FROM contract_templates WHERE id = ?")->execute([$contract_template_id]);
     $conn->prepare("DELETE FROM form_templates WHERE id = ?")->execute([$form_template_id]);
     echo "  ✓ Test data cleaned up\n";
