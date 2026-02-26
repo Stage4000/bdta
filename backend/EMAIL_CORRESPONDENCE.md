@@ -49,6 +49,8 @@ The Client Email Correspondence Management system enables per-client email track
 
 ### 6. Unmatched Email Management ✅ NEW
 - **Automatic Storage**: Emails from senders not in the database are stored separately
+- **Sent Email Tracking**: Outgoing emails to recipients not in the database are also stored as unmatched
+- **Direction Indicators**: Each email is clearly labeled as **Received** or **Sent** with a badge
 - **Review Interface**: Dedicated page to view and manage unmatched emails
 - **Client Assignment**: Assign unmatched emails to existing or new clients
 - **Archive System**: Archive emails that don't need action
@@ -121,15 +123,18 @@ php /path/to/backend/add_imap_settings.php
 
 ### Managing Unmatched Emails ✅ NEW
 
-**Unmatched emails** are emails received from senders whose email addresses don't match any client in your database.
+**Unmatched emails** are emails from senders or to recipients whose email addresses don't match any client in your database. This includes both **received** emails from unknown senders and **sent** emails to non-client recipients.
 
 1. Navigate to **Unmatched Emails** in the navigation menu
 2. View emails organized by tabs:
    - **Unassigned**: New emails waiting for review
    - **Assigned**: Emails assigned to clients
    - **Archived**: Emails marked as archived
-3. Click on an email to view details
-4. Available actions:
+3. Each email in the list shows a **Received** or **Sent** badge to indicate direction
+4. Click on an email to view details
+5. Available actions:
+   - **Reply** (received emails only): Reply to the original sender
+   - **Compose to Recipient** (sent emails): Compose a new email to the same recipient
    - **Assign to Client**: Link the email to an existing client
    - **Archive**: Mark as archived (no action needed)
    - **Delete**: Permanently remove the email

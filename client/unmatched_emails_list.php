@@ -252,17 +252,21 @@ function displayEmails(emails, filter) {
         const date = new Date(email.received_at).toLocaleString();
         const assignedBadge = email.is_assigned ? `<span class="badge bg-success">Assigned to ${escapeHtml(email.assigned_client_name)}</span>` : '';
         const archivedBadge = email.is_archived ? '<span class="badge bg-secondary">Archived</span>' : '';
+        const isSent = email.direction === 'outgoing';
+        const directionBadge = isSent
+            ? '<span class="badge bg-primary"><i class="fas fa-paper-plane"></i> Sent</span>'
+            : '<span class="badge bg-info text-dark"><i class="fas fa-inbox"></i> Received</span>';
+        const contactLine = isSent
+            ? `To: ${escapeHtml(email.to_email)}`
+            : `From: ${escapeHtml(email.from_name || email.from_email)}${email.from_name ? ` &lt;${escapeHtml(email.from_email)}&gt;` : ''}`;
         
         html += `
             <div class="list-group-item list-group-item-action" onclick="showEmailDetails(${email.id})">
                 <div class="d-flex w-100 justify-content-between">
                     <div>
                         <h6 class="mb-1">${escapeHtml(email.subject)}</h6>
-                        <p class="mb-1 text-muted small">
-                            From: ${escapeHtml(email.from_name || email.from_email)}
-                            ${email.from_name ? `&lt;${escapeHtml(email.from_email)}&gt;` : ''}
-                        </p>
-                        ${assignedBadge} ${archivedBadge}
+                        <p class="mb-1 text-muted small">${contactLine}</p>
+                        ${directionBadge} ${assignedBadge} ${archivedBadge}
                     </div>
                     <small class="text-muted">${date}</small>
                 </div>
@@ -287,9 +291,18 @@ async function showEmailDetails(emailId) {
             currentEmailData = email;
             const modal = new bootstrap.Modal(document.getElementById('emailDetailsModal'));
             
+            const isSent = email.direction === 'outgoing';
+            const directionBadge = isSent
+                ? '<span class="badge bg-primary"><i class="fas fa-paper-plane"></i> Sent</span>'
+                : '<span class="badge bg-info text-dark"><i class="fas fa-inbox"></i> Received</span>';
+            const dateLabel = isSent ? 'Sent:' : 'Received:';
+            
             const body = document.getElementById('emailDetailsBody');
             body.innerHTML = `
                 <dl class="row">
+                    <dt class="col-sm-3">Direction:</dt>
+                    <dd class="col-sm-9">${directionBadge}</dd>
+                    
                     <dt class="col-sm-3">From:</dt>
                     <dd class="col-sm-9">${escapeHtml(email.from_name || email.from_email)} ${email.from_name ? `&lt;${escapeHtml(email.from_email)}&gt;` : ''}</dd>
                     
@@ -299,7 +312,7 @@ async function showEmailDetails(emailId) {
                     <dt class="col-sm-3">Subject:</dt>
                     <dd class="col-sm-9">${escapeHtml(email.subject)}</dd>
                     
-                    <dt class="col-sm-3">Received:</dt>
+                    <dt class="col-sm-3">${dateLabel}</dt>
                     <dd class="col-sm-9">${new Date(email.received_at).toLocaleString()}</dd>
                     
                     ${email.is_assigned ? `
@@ -320,9 +333,19 @@ async function showEmailDetails(emailId) {
             const footer = document.getElementById('emailDetailsFooter');
             footer.innerHTML = '';
             
-            if (email.from_email) {
-                footer.innerHTML += `<button type="button" class="btn btn-primary" onclick="openReplyModal()"><i class="fas fa-reply"></i> Reply</button>`;
-                footer.innerHTML += `<button type="button" class="btn btn-info" onclick="openComposeFromEmail()"><i class="fas fa-pen"></i> Compose</button>`;
+            if (isSent) {
+                // For sent emails: offer composing a new email to same recipient
+                const recipientEmail = email.to_email || '';
+                footer.innerHTML += `<button type="button" class="btn btn-info" id="composeToRecipientBtn"><i class="fas fa-pen"></i> Compose to Recipient</button>`;
+                document.getElementById('composeToRecipientBtn').addEventListener('click', function() {
+                    openComposeModal({ to: recipientEmail });
+                });
+            } else {
+                // For received emails: offer reply and compose
+                if (email.from_email) {
+                    footer.innerHTML += `<button type="button" class="btn btn-primary" onclick="openReplyModal()"><i class="fas fa-reply"></i> Reply</button>`;
+                    footer.innerHTML += `<button type="button" class="btn btn-info" onclick="openComposeFromEmail()"><i class="fas fa-pen"></i> Compose</button>`;
+                }
             }
             
             if (!email.is_assigned) {
