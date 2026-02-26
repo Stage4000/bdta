@@ -65,17 +65,17 @@ include '../portal/includes/header.php';
                     <td>
                         <?php
                         if ($remaining > 0 && $pc['pkg_active']):
-                            // Build booking URL: prefer unique_link, fall back to type ID
+                            // Build portal booking URL (uses credit-aware flow)
                             if (!empty($pc['appt_unique_link'])) {
-                                $book_url = '/backend/public/book.php?link=' . urlencode($pc['appt_unique_link']);
+                                $book_url = '/portal/book_credit.php?link=' . urlencode($pc['appt_unique_link']);
                             } elseif (!empty($pc['appt_type_id'])) {
-                                $book_url = '/backend/public/book.php?type=' . intval($pc['appt_type_id']);
+                                $book_url = '/portal/book_credit.php?type=' . intval($pc['appt_type_id']);
                             } else {
                                 $book_url = null;
                             }
                         ?>
                             <?php if ($book_url): ?>
-                                <a href="<?php echo escape($book_url); ?>" class="btn btn-sm btn-primary" target="_blank">
+                                <a href="<?php echo escape($book_url); ?>" class="btn btn-sm btn-primary">
                                     <i class="fas fa-calendar-plus me-1"></i>Book
                                 </a>
                             <?php else: ?>
