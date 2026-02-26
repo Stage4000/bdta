@@ -179,6 +179,33 @@ try {
     echo "  ✓ Credits for 'Test Session' do not appear for 'Other Session'\n\n";
 
     // ------------------------------------------------------------------
+    // Test 7: Manual credits appear in admin-view summary (no package filter)
+    // Verifies the fix: the admin "Credits by Appointment Type" query must
+    // NOT exclude the __manual_credit__ package so that manually-adjusted
+    // credits are visible alongside package-based credits.
+    // ------------------------------------------------------------------
+    echo "Test 7: Manual credits visible in admin 'Credits by Appointment Type' summary\n";
+
+    $stmt = $conn->prepare("
+        SELECT cpc.appointment_type_id,
+               SUM(cpc.total_credits) AS total,
+               SUM(cpc.used_credits)  AS used,
+               SUM(cpc.total_credits - cpc.used_credits) AS remaining
+        FROM client_package_credits cpc
+        JOIN client_packages cp ON cpc.client_package_id = cp.id
+        WHERE cpc.client_id = ?
+          AND cp.is_active = 1
+          AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+        GROUP BY cpc.appointment_type_id
+    ");
+    $stmt->execute([$client_id]);
+    $admin_summary = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'remaining', 'appointment_type_id');
+
+    assert(isset($admin_summary[$apt_type_id]), 'Manual-credit appointment type must appear in admin summary');
+    assert((int)$admin_summary[$apt_type_id] === 2, 'Admin summary should show 2 remaining manual credits');
+    echo "  ✓ Admin summary includes manual credits: appointment_type_id=$apt_type_id with 2 remaining\n\n";
+
+    // ------------------------------------------------------------------
     // Cleanup
     // ------------------------------------------------------------------
     echo "Cleanup...\n";

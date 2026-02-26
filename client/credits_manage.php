@@ -274,6 +274,7 @@ $stmt->execute([$client_id]);
 $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch package credits summary for this client (grouped by appointment type)
+// Includes manually-adjusted credits (via the __manual_credit__ package) alongside package credits.
 $stmt = $conn->prepare("
     SELECT cpc.appointment_type_id,
            SUM(cpc.total_credits) AS total,
@@ -281,14 +282,12 @@ $stmt = $conn->prepare("
            SUM(cpc.total_credits - cpc.used_credits) AS remaining
     FROM client_package_credits cpc
     JOIN client_packages cp ON cpc.client_package_id = cp.id
-    JOIN packages p ON cp.package_id = p.id
     WHERE cpc.client_id = ?
       AND cp.is_active = 1
-      AND p.name != ?
       AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
     GROUP BY cpc.appointment_type_id
 ");
-$stmt->execute([$client_id, MANUAL_CREDIT_PKG_NAME]);
+$stmt->execute([$client_id]);
 $pkg_credit_summary = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch available packages for assign dropdown
