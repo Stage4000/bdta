@@ -373,7 +373,7 @@ document.getElementById('previewBtn').addEventListener('click', function() {
     // Replace custom fields with sample data for preview
     const previewContent = content
         .replace(/\{\{name\}\}/g, 'Brook Lefkowitz')
-        .replace(/\{\{email\}\}/g, 'info@brooksdogtraining.com')
+        .replace(/\{\{email\}\}/g, 'bookings@brooksdogtrainingacademy.com')
         .replace(/\{\{phone\}\}/g, '(555) 123-4567')
         .replace(/\{\{business_name\}\}/g, "Brook's Dog Training Academy")
         .replace(/\{\{business_address\}\}/g, 'Sebring, Florida');

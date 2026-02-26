@@ -19,7 +19,7 @@ class EmailService {
     private $base_url;
     
     public function __construct($base_url = null) {
-        $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtraining.com');
+        $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
         $this->from_name = Settings::get('email_from_name', "Brook's Dog Training Academy");
         
         // Use provided base_url, or get it dynamically
@@ -147,7 +147,7 @@ class EmailService {
             
             <h3>What to Expect</h3>
             <p>Please arrive 5 minutes early. If you need to reschedule or have any questions, please contact us at:</p>
-            <p>📧 Email: info@brooksdogtraining.com<br>
+            <p>📧 Email: bookings@brooksdogtrainingacademy.com<br>
             🔗 Website: https://brooksdogtrainingacademy.com</p>
             
             <p>We look forward to seeing you!</p>
@@ -199,7 +199,7 @@ WHAT TO EXPECT
 --------------
 Please arrive 5 minutes early. If you need to reschedule or have any questions, please contact us at:
 
-Email: info@brooksdogtraining.com
+Email: bookings@brooksdogtrainingacademy.com
 Website: https://brooksdogtrainingacademy.com
 
 We look forward to seeing you!

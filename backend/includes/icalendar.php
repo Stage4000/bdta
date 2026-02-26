@@ -28,12 +28,12 @@ class ICalendarGenerator {
             "Service: " . $booking['service_type'] . "\n" .
             "Client: " . $booking['client_name'] . "\n" .
             ($booking['notes'] ? "Notes: " . $booking['notes'] . "\n" : "") .
-            "\nFor questions, contact: info@brooksdogtraining.com"
+            "\nFor questions, contact: bookings@brooksdogtrainingacademy.com"
         );
         $location = self::escapeString('Highlands County, Florida');
         
         // Generate unique ID
-        $uid = 'booking-' . $booking['id'] . '@brooksdogtraining.com';
+        $uid = 'booking-' . $booking['id'] . '@brooksdogtrainingacademy.com';
         
         // Build iCalendar content
         $ics = "BEGIN:VCALENDAR\r\n";
@@ -88,7 +88,7 @@ class ICalendarGenerator {
             'details' => "Dog Training Appointment\n\nService: " . $booking['service_type'] . 
                         "\nClient: " . $booking['client_name'] .
                         ($booking['notes'] ? "\nNotes: " . $booking['notes'] : "") .
-                        "\n\nFor questions, contact: info@brooksdogtraining.com",
+                        "\n\nFor questions, contact: bookings@brooksdogtrainingacademy.com",
             'location' => 'Highlands County, Florida',
             'trp' => 'false'
         ];

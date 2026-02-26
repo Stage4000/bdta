@@ -20,7 +20,7 @@ if (!$signature) {
 // Render signature with sample data
 $sample_data = [
     'name' => 'Brook Lefkowitz',
-    'email' => 'info@brooksdogtraining.com',
+    'email' => 'bookings@brooksdogtrainingacademy.com',
     'phone' => '(555) 123-4567',
     'business_name' => "Brook's Dog Training Academy",
     'business_address' => 'Sebring, Florida'
