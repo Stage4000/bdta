@@ -14,6 +14,9 @@ $stmt = $conn->prepare("
     JOIN client_packages cp ON cpc.client_package_id = cp.id
     LEFT JOIN appointment_types at ON at.id = cpc.appointment_type_id AND at.is_active = 1
     WHERE cpc.client_id = ?
+      AND cp.is_active = 1
+      AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+      AND (cpc.total_credits - cpc.used_credits) > 0
     ORDER BY cp.purchased_at DESC
 ");
 $stmt->execute([$client_id]);

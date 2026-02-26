@@ -426,7 +426,7 @@ require_once '../backend/includes/header.php';
                                         <div class="display-6 fw-bold <?= $row['remaining'] > 0 ? 'text-success' : 'text-danger' ?>">
                                             <?= $row['remaining'] ?>
                                         </div>
-                                        <small class="text-muted">of <?= $row['total'] ?> remaining</small>
+                                        <small class="text-muted">of <?= $row['total'] ?> total</small>
                                         <?php if ($row['total'] > 0): ?>
                                             <div class="progress mt-2" style="height:6px;">
                                                 <div class="progress-bar bg-primary"
