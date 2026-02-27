@@ -63,7 +63,7 @@ if ($method === 'GET') {
         $stmt = $conn->prepare("
             SELECT 
                 ue.id, ue.from_email, ue.from_name, ue.to_email, ue.subject,
-                ue.received_at, ue.is_assigned, ue.assigned_to_client_id,
+                ue.received_at, ue.direction, ue.is_assigned, ue.assigned_to_client_id,
                 ue.assigned_at, ue.assigned_by, ue.is_archived, ue.archived_at,
                 ue.created_at,
                 c.name as assigned_client_name
@@ -144,6 +144,29 @@ if ($method === 'GET') {
         $result = $emailService->sendComposeEmail($to, $cc, $bcc, $subject, $body_html);
 
         if ($result['success']) {
+            // Check if recipient is not an existing client; if so, record in unmatched_emails
+            $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
+            $stmt->execute([$to]);
+            if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
+                $from_email_addr = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
+                $from_name_val = Settings::get('email_from_name', "Brook's Dog Training Academy");
+                $now = date('Y-m-d H:i:s');
+                $stmt = $conn->prepare("
+                    INSERT INTO unmatched_emails
+                        (from_email, from_name, to_email, subject, body_html, body_text, received_at, direction, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'outgoing', ?)
+                ");
+                $stmt->execute([
+                    $from_email_addr,
+                    $from_name_val,
+                    $to,
+                    $subject,
+                    $body_html,
+                    strip_tags($body_html),
+                    $now,
+                    $now
+                ]);
+            }
             echo json_encode(['success' => true, 'message' => 'Email sent successfully']);
         } else {
             http_response_code(500);
@@ -204,14 +227,18 @@ if ($method === 'GET') {
             
             // Optionally create client_email record
             if ($create_client_email) {
+                $email_direction = $unmatched_email['direction'] ?? 'incoming';
+                $email_status = ($email_direction === 'outgoing') ? 'sent' : 'received';
                 $stmt = $conn->prepare("
                     INSERT INTO client_emails (
                         client_id, direction, status, from_email, to_email,
                         subject, body_html, body_text, sent_at, created_at, updated_at
-                    ) VALUES (?, 'incoming', 'received', ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([
                     $client_id,
+                    $email_direction,
+                    $email_status,
                     $unmatched_email['from_email'],
                     $unmatched_email['to_email'],
                     $unmatched_email['subject'],
@@ -305,6 +332,25 @@ if ($method === 'GET') {
             );
 
             if ($result['success']) {
+                // Record the sent reply in unmatched_emails so it appears in the list
+                $from_email_addr = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
+                $from_name_val = Settings::get('email_from_name', "Brook's Dog Training Academy");
+                $now = date('Y-m-d H:i:s');
+                $stmt = $conn->prepare("
+                    INSERT INTO unmatched_emails
+                        (from_email, from_name, to_email, subject, body_html, body_text, received_at, direction, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'outgoing', ?)
+                ");
+                $stmt->execute([
+                    $from_email_addr,
+                    $from_name_val,
+                    $to_email,
+                    $subject,
+                    $body_html,
+                    $body_text ?: strip_tags($body_html),
+                    $now,
+                    $now
+                ]);
                 echo json_encode(['success' => true, 'message' => 'Reply sent successfully']);
             } else {
                 http_response_code(500);

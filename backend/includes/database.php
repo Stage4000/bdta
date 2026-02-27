@@ -1562,6 +1562,12 @@ class Database {
             )
         ");
 
+        // Add direction column to unmatched_emails to distinguish incoming vs outgoing
+        $unmatched_email_columns = $this->getTableColumns('unmatched_emails');
+        if (!in_array('direction', $unmatched_email_columns)) {
+            $this->execSQL("ALTER TABLE unmatched_emails ADD COLUMN direction TEXT DEFAULT 'incoming'");
+        }
+
         // Add database settings for existing installations
         $this->addDatabaseSettings();
     }
