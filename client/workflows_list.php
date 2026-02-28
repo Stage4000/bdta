@@ -38,6 +38,13 @@ include '../backend/includes/header.php';
                 </div>
             <?php endif; ?>
 
+            <?php if (isset($_SESSION['error'])): ?>
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+
             <?php if (empty($workflows)): ?>
                 <div class="alert alert-info">
                     <i class="fas fa-circle-info"></i>
@@ -100,6 +107,11 @@ include '../backend/includes/header.php';
                                         <a href="workflows_enrollments.php?workflow_id=<?php echo $workflow['id']; ?>" 
                                            class="btn btn-sm btn-outline-info">
                                             <i class="fas fa-list"></i>
+                                        </a>
+                                        <a href="workflows_delete.php?id=<?php echo $workflow['id']; ?>" 
+                                           class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Are you sure you want to delete this workflow? This will also delete all associated steps and enrollments.')">
+                                            <i class="fas fa-trash"></i>
                                         </a>
                                     </div>
                                 </div>
