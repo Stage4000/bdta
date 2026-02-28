@@ -19,26 +19,42 @@ class BookingReminderTask {
     }
     
     public function execute() {
-        // Load all active reminder rules ordered by largest lead time first
-        $rules = $this->conn->query(
-            "SELECT * FROM booking_reminder_rules WHERE is_active = 1 ORDER BY hours_before DESC"
+        // Load per-appointment-type rules (appointment_type_id IS NOT NULL)
+        $per_type_rules = $this->conn->query(
+            "SELECT * FROM booking_reminder_rules WHERE is_active = 1 AND appointment_type_id IS NOT NULL ORDER BY appointment_type_id, hours_before DESC"
         )->fetchAll(PDO::FETCH_ASSOC);
 
-        // If no rules are configured, fall back to the legacy 24-hour hardcoded reminder
-        if (empty($rules)) {
+        // Load global rules (appointment_type_id IS NULL)
+        $global_rules = $this->conn->query(
+            "SELECT * FROM booking_reminder_rules WHERE is_active = 1 AND appointment_type_id IS NULL ORDER BY hours_before DESC"
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($per_type_rules) && empty($global_rules)) {
             return $this->executeLegacy();
         }
+
+        // Appointment types that have their own rules (global rules skip these bookings)
+        $types_with_rules = array_unique(array_column($per_type_rules, 'appointment_type_id'));
 
         $total_sent = 0;
         $all_errors = [];
 
-        foreach ($rules as $rule) {
-            $result = $this->processRule($rule);
+        // Process per-appointment-type rules — each rule only sends to its own appointment type
+        foreach ($per_type_rules as $rule) {
+            $result = $this->processRule($rule, [$rule['appointment_type_id']], []);
             $total_sent  += $result['sent'];
             $all_errors   = array_merge($all_errors, $result['errors']);
         }
 
-        $message = "Sent {$total_sent} reminder email(s) across " . count($rules) . " rule(s)";
+        // Process global rules — skip bookings whose appointment type already has per-type rules
+        foreach ($global_rules as $rule) {
+            $result = $this->processRule($rule, null, $types_with_rules);
+            $total_sent  += $result['sent'];
+            $all_errors   = array_merge($all_errors, $result['errors']);
+        }
+
+        $rule_count = count($per_type_rules) + count($global_rules);
+        $message = "Sent {$total_sent} reminder email(s) across {$rule_count} rule(s)";
         if (!empty($all_errors)) {
             $message .= " with " . count($all_errors) . " error(s)";
         }
@@ -53,11 +69,34 @@ class BookingReminderTask {
 
     /**
      * Process a single reminder rule: find eligible bookings and send emails.
+     *
+     * @param array      $rule              Reminder rule row
+     * @param int[]|null $only_apt_types    Limit to these appointment_type_ids (null = no restriction)
+     * @param int[]      $exclude_apt_types Skip bookings whose appointment_type_id is in this list
      */
-    private function processRule(array $rule): array {
+    private function processRule(array $rule, ?array $only_apt_types, array $exclude_apt_types): array {
         $hours_before = (int)$rule['hours_before'];
         $start_time   = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours"));
         $end_time     = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours + 2 hours"));
+
+        // Build WHERE clause additions for appointment-type filtering
+        $extra_where = '';
+        $extra_params = [];
+
+        if (!empty($only_apt_types)) {
+            $placeholders = implode(',', array_fill(0, count($only_apt_types), '?'));
+            $extra_where .= " AND b.appointment_type_id IN ({$placeholders})";
+            $extra_params = array_merge($extra_params, $only_apt_types);
+        }
+
+        if (!empty($exclude_apt_types)) {
+            // Bookings with NULL appointment_type_id have no type-specific rules
+            // so global rules should apply to them — include them here.
+            // Only skip bookings whose appointment type IS in $exclude_apt_types.
+            $placeholders = implode(',', array_fill(0, count($exclude_apt_types), '?'));
+            $extra_where .= " AND (b.appointment_type_id IS NULL OR b.appointment_type_id NOT IN ({$placeholders}))";
+            $extra_params = array_merge($extra_params, $exclude_apt_types);
+        }
 
         // Find confirmed bookings in the time window that haven't been sent this rule yet
         $stmt = $this->conn->prepare("
@@ -69,9 +108,10 @@ class BookingReminderTask {
             WHERE b.status = 'confirmed'
             AND CONCAT(b.appointment_date, ' ', b.appointment_time) BETWEEN ? AND ?
             AND brs.id IS NULL
+            {$extra_where}
             ORDER BY b.appointment_date, b.appointment_time
         ");
-        $stmt->execute([$rule['id'], $start_time, $end_time]);
+        $stmt->execute(array_merge([$rule['id'], $start_time, $end_time], $extra_params));
         $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $sent   = 0;

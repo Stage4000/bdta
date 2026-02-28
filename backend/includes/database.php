@@ -686,12 +686,14 @@ class Database {
             $this->execSQL("
                 CREATE TABLE IF NOT EXISTS booking_reminder_rules (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    appointment_type_id INTEGER DEFAULT NULL,
                     name TEXT NOT NULL,
                     hours_before INTEGER NOT NULL,
                     template_id INTEGER,
                     is_active INTEGER DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE CASCADE,
                     FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE SET NULL
                 )
             ");
@@ -1608,6 +1610,14 @@ class Database {
             $this->execSQL("CREATE UNIQUE INDEX idx_booking_reminders_sent_unique ON booking_reminders_sent(booking_id, rule_id)");
         } catch (PDOException $e) {
             // Index might already exist, ignore
+        }
+
+        // Add appointment_type_id to booking_reminder_rules for per-appointment-type rules
+        // Note: SQLite does not support adding foreign key constraints via ALTER TABLE;
+        // the FK is enforced on fresh installs via the CREATE TABLE definition above.
+        $brr_cols = $this->getTableColumns('booking_reminder_rules');
+        if (!in_array('appointment_type_id', $brr_cols)) {
+            $this->execSQL("ALTER TABLE booking_reminder_rules ADD COLUMN appointment_type_id INTEGER DEFAULT NULL");
         }
 
         // Seed a default reminder rule if none exist

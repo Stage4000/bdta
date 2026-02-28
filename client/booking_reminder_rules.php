@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'delete') {
         $del_id = (int)($_POST['rule_id'] ?? 0);
         if ($del_id > 0) {
-            $conn->prepare("DELETE FROM booking_reminder_rules WHERE id = ?")->execute([$del_id]);
+            $conn->prepare("DELETE FROM booking_reminder_rules WHERE id = ? AND appointment_type_id IS NULL")->execute([$del_id]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Reminder rule deleted.'];
         }
         header('Location: booking_reminder_rules.php');
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'toggle') {
         $tog_id = (int)($_POST['rule_id'] ?? 0);
         if ($tog_id > 0) {
-            $conn->prepare("UPDATE booking_reminder_rules SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+            $conn->prepare("UPDATE booking_reminder_rules SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND appointment_type_id IS NULL")
                  ->execute([$tog_id]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Rule status updated.'];
         }
@@ -62,13 +62,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->prepare("
                 UPDATE booking_reminder_rules
                 SET name = ?, hours_before = ?, template_id = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                WHERE id = ? AND appointment_type_id IS NULL
             ")->execute([$name, $hours_before, $template_id, $is_active, $rule_id]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Reminder rule updated.'];
         } else {
             $conn->prepare("
-                INSERT INTO booking_reminder_rules (name, hours_before, template_id, is_active)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO booking_reminder_rules (appointment_type_id, name, hours_before, template_id, is_active)
+                VALUES (NULL, ?, ?, ?, ?)
             ")->execute([$name, $hours_before, $template_id, $is_active]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Reminder rule added.'];
         }
@@ -79,12 +79,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // -------------------------------------------------------------------
-// Load data
+// Load data — global rules only (appointment_type_id IS NULL)
 // -------------------------------------------------------------------
 $rules = $conn->query(
     "SELECT r.*, et.name AS template_name
      FROM booking_reminder_rules r
      LEFT JOIN email_templates et ON et.id = r.template_id
+     WHERE r.appointment_type_id IS NULL
      ORDER BY r.hours_before ASC"
 )->fetchAll(PDO::FETCH_ASSOC);
 
@@ -92,12 +93,12 @@ $reminder_templates = $conn->query(
     "SELECT id, name FROM email_templates WHERE template_type = 'booking_reminder' AND is_active = 1 ORDER BY name"
 )->fetchAll(PDO::FETCH_ASSOC);
 
-// If editing an existing rule, pre-load it
+// If editing an existing global rule, pre-load it
 $edit_rule = null;
 $editing   = false;
 if (isset($_GET['edit'])) {
     $edit_id = (int)$_GET['edit'];
-    $stmt    = $conn->prepare("SELECT * FROM booking_reminder_rules WHERE id = ?");
+    $stmt    = $conn->prepare("SELECT * FROM booking_reminder_rules WHERE id = ? AND appointment_type_id IS NULL");
     $stmt->execute([$edit_id]);
     $edit_rule = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($edit_rule) {
@@ -138,9 +139,11 @@ include __DIR__ . '/../backend/includes/header.php';
 
             <div class="alert alert-info">
                 <i class="fas fa-circle-info me-1"></i>
-                Each active rule sends a separate reminder email at the configured time before each appointment.
+                These are <strong>global default</strong> reminder rules — they apply to all appointment types that don't have their own per-type rules configured.
+                Each active rule sends a separate reminder email at the configured time.
                 You can assign a different email template to each rule — for example, a gentle teaser 2 days out
-                and a detailed checklist the day before. If no template is assigned, the system default is used.
+                and a detailed checklist the day before.<br>
+                <small>To configure reminder rules for a specific appointment type, edit the appointment type and use the <strong>Reminder Rules</strong> section there.</small>
             </div>
 
             <!-- Add / Edit Rule Form -->
