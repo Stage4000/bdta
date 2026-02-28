@@ -64,10 +64,15 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row">
         <div class="col-md-8 offset-md-2">
-            <div class="mb-4">
+            <div class="mb-4 d-flex justify-content-between align-items-center">
                 <a href="workflows_list.php" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left"></i> Back to Workflows
                 </a>
+                <?php if ($is_edit): ?>
+                    <a href="workflows_steps.php?workflow_id=<?php echo $workflow_id; ?>" class="btn btn-primary">
+                        <i class="fas fa-list-ol"></i> Manage Steps
+                    </a>
+                <?php endif; ?>
             </div>
 
             <div class="card">
@@ -124,8 +129,16 @@ include '../backend/includes/header.php';
 
             <?php if ($is_edit): ?>
                 <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Next Steps</h5>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Workflow Steps</h5>
+                        <div class="d-flex gap-2">
+                            <a href="workflows_steps_edit.php?workflow_id=<?php echo $workflow_id; ?>" class="btn btn-sm btn-primary">
+                                <i class="fas fa-plus"></i> Add Step
+                            </a>
+                            <a href="workflows_steps.php?workflow_id=<?php echo $workflow_id; ?>" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-list-ol"></i> View All Steps
+                            </a>
+                        </div>
                     </div>
                     <div class="card-body">
                         <p>After saving your workflow details:</p>
