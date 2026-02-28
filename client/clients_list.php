@@ -77,7 +77,7 @@ include '../backend/includes/header.php';
                                     <td><?= formatDate($client['created_at']) ?></td>
                                     <td>
                                         <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" title="View Profile">
-                                            <i class="fas fa-eye"></i>
+                                            <i class="fa-solid fa-address-book"></i>
                                         </a>
                                         <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                             <i class="fas fa-pencil"></i>
