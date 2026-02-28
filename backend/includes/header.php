@@ -165,8 +165,13 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'email_templates') !== false ? 'active' : ''; ?>" href="email_templates_list.php">
+                            <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], 'email_templates') !== false && basename($_SERVER['PHP_SELF']) !== 'email_template_defaults.php') ? 'active' : ''; ?>" href="email_templates_list.php">
                                 <i class="fas fa-envelope me-2"></i> Email Templates
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'email_template_defaults.php' ? 'active' : ''; ?>" href="email_template_defaults.php">
+                                <i class="fas fa-envelope-open-text me-2"></i> Template Defaults
                             </a>
                         </li>
                         <li class="nav-item">

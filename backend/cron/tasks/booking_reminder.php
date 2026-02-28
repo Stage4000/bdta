@@ -1,10 +1,13 @@
 <?php
 /**
  * Booking Reminder Task
- * Sends reminder emails to clients with upcoming appointments
+ * Sends reminder emails to clients with upcoming appointments.
+ * Supports multiple configurable reminder rules (e.g. 2 days before, 1 day before),
+ * each with an optional email template override.
  */
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
+require_once dirname(dirname(__DIR__)) . '/includes/settings.php';
 
 class BookingReminderTask {
     private $conn;
@@ -16,18 +19,144 @@ class BookingReminderTask {
     }
     
     public function execute() {
-        // Get reminder settings from scheduled task or use defaults
-        // Default: Send reminders 24 hours before appointment
-        $hours_before = 24;
-        
-        // Calculate the time window for upcoming appointments
-        $start_time = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours"));
-        $end_time = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours + 2 hours"));
-        
-        // Get bookings that need reminders
-        // Only send reminders for confirmed bookings that haven't been sent yet
+        // Load per-appointment-type rules (appointment_type_id IS NOT NULL)
+        $per_type_rules = $this->conn->query(
+            "SELECT * FROM booking_reminder_rules WHERE is_active = 1 AND appointment_type_id IS NOT NULL ORDER BY appointment_type_id, hours_before DESC"
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        // Load global rules (appointment_type_id IS NULL)
+        $global_rules = $this->conn->query(
+            "SELECT * FROM booking_reminder_rules WHERE is_active = 1 AND appointment_type_id IS NULL ORDER BY hours_before DESC"
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($per_type_rules) && empty($global_rules)) {
+            return $this->executeLegacy();
+        }
+
+        // Appointment types that have their own rules (global rules skip these bookings)
+        $types_with_rules = array_unique(array_column($per_type_rules, 'appointment_type_id'));
+
+        $total_sent = 0;
+        $all_errors = [];
+
+        // Process per-appointment-type rules — each rule only sends to its own appointment type
+        foreach ($per_type_rules as $rule) {
+            $result = $this->processRule($rule, [$rule['appointment_type_id']], []);
+            $total_sent  += $result['sent'];
+            $all_errors   = array_merge($all_errors, $result['errors']);
+        }
+
+        // Process global rules — skip bookings whose appointment type already has per-type rules
+        foreach ($global_rules as $rule) {
+            $result = $this->processRule($rule, null, $types_with_rules);
+            $total_sent  += $result['sent'];
+            $all_errors   = array_merge($all_errors, $result['errors']);
+        }
+
+        $rule_count = count($per_type_rules) + count($global_rules);
+        $message = "Sent {$total_sent} reminder email(s) across {$rule_count} rule(s)";
+        if (!empty($all_errors)) {
+            $message .= " with " . count($all_errors) . " error(s)";
+        }
+
+        return [
+            'success'         => true,
+            'items_processed' => $total_sent,
+            'message'         => $message,
+            'errors'          => $all_errors,
+        ];
+    }
+
+    /**
+     * Process a single reminder rule: find eligible bookings and send emails.
+     *
+     * @param array      $rule              Reminder rule row
+     * @param int[]|null $only_apt_types    Limit to these appointment_type_ids (null = no restriction)
+     * @param int[]      $exclude_apt_types Skip bookings whose appointment_type_id is in this list
+     */
+    private function processRule(array $rule, ?array $only_apt_types, array $exclude_apt_types): array {
+        $hours_before = (int)$rule['hours_before'];
+        $start_time   = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours"));
+        $end_time     = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours + 2 hours"));
+
+        // Build WHERE clause additions for appointment-type filtering
+        $extra_where = '';
+        $extra_params = [];
+
+        if (!empty($only_apt_types)) {
+            $placeholders = implode(',', array_fill(0, count($only_apt_types), '?'));
+            $extra_where .= " AND b.appointment_type_id IN ({$placeholders})";
+            $extra_params = array_merge($extra_params, $only_apt_types);
+        }
+
+        if (!empty($exclude_apt_types)) {
+            // Bookings with NULL appointment_type_id have no type-specific rules
+            // so global rules should apply to them — include them here.
+            // Only skip bookings whose appointment type IS in $exclude_apt_types.
+            $placeholders = implode(',', array_fill(0, count($exclude_apt_types), '?'));
+            $extra_where .= " AND (b.appointment_type_id IS NULL OR b.appointment_type_id NOT IN ({$placeholders}))";
+            $extra_params = array_merge($extra_params, $exclude_apt_types);
+        }
+
+        // Find confirmed bookings in the time window that haven't been sent this rule yet
         $stmt = $this->conn->prepare("
-            SELECT b.*, c.email as client_email, c.name as client_name
+            SELECT b.*, c.email AS client_email, c.name AS client_name
+            FROM bookings b
+            LEFT JOIN clients c ON b.client_id = c.id
+            LEFT JOIN booking_reminders_sent brs
+                ON brs.booking_id = b.id AND brs.rule_id = ?
+            WHERE b.status = 'confirmed'
+            AND CONCAT(b.appointment_date, ' ', b.appointment_time) BETWEEN ? AND ?
+            AND brs.id IS NULL
+            {$extra_where}
+            ORDER BY b.appointment_date, b.appointment_time
+        ");
+        $stmt->execute(array_merge([$rule['id'], $start_time, $end_time], $extra_params));
+        $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $sent   = 0;
+        $errors = [];
+
+        foreach ($bookings as $booking) {
+            try {
+                if (empty($booking['client_email'])) {
+                    $errors[] = "No email found for booking #{$booking['id']}";
+                    continue;
+                }
+
+                $result = $this->sendReminderEmail($booking, $rule);
+
+                if ($result['success']) {
+                    // Record this rule as sent for this booking
+                    $mark = $this->conn->prepare(
+                        "INSERT INTO booking_reminders_sent (booking_id, rule_id) VALUES (?, ?)"
+                    );
+                    $mark->execute([$booking['id'], $rule['id']]);
+                    // Also set the legacy reminder_sent flag for backward compatibility
+                    $this->conn->prepare("UPDATE bookings SET reminder_sent = 1 WHERE id = ?")
+                               ->execute([$booking['id']]);
+                    $sent++;
+                } else {
+                    $errors[] = "Failed for booking #{$booking['id']}: {$result['message']}";
+                }
+            } catch (Exception $e) {
+                $errors[] = "Error on booking #{$booking['id']}: " . $e->getMessage();
+            }
+        }
+
+        return ['sent' => $sent, 'errors' => $errors];
+    }
+
+    /**
+     * Legacy fallback: send a single 24-hour reminder when no rules are configured.
+     */
+    private function executeLegacy(): array {
+        $hours_before = 24;
+        $start_time   = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours"));
+        $end_time     = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours + 2 hours"));
+
+        $stmt = $this->conn->prepare("
+            SELECT b.*, c.email AS client_email, c.name AS client_name
             FROM bookings b
             LEFT JOIN clients c ON b.client_id = c.id
             WHERE b.status = 'confirmed'
@@ -35,60 +164,48 @@ class BookingReminderTask {
             AND b.reminder_sent = 0
             ORDER BY b.appointment_date, b.appointment_time
         ");
-        
         $stmt->execute([$start_time, $end_time]);
         $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         $sent_count = 0;
-        $errors = [];
-        
+        $errors     = [];
+
         foreach ($bookings as $booking) {
-            try {
-                // Use client email if available, otherwise use booking email
-                $recipient_email = !empty($booking['client_email']) ? $booking['client_email'] : $booking['client_email'];
-                $recipient_name = !empty($booking['client_name']) ? $booking['client_name'] : $booking['client_name'];
-                
-                if (empty($recipient_email)) {
-                    $errors[] = "No email found for booking #{$booking['id']}";
-                    continue;
-                }
-                
-                // Send reminder email
-                $result = $this->sendReminderEmail($booking);
-                
-                if ($result['success']) {
-                    // Mark reminder as sent
-                    $update = $this->conn->prepare("UPDATE bookings SET reminder_sent = 1 WHERE id = ?");
-                    $update->execute([$booking['id']]);
-                    $sent_count++;
-                } else {
-                    $errors[] = "Failed to send to {$recipient_email}: {$result['message']}";
-                }
-                
-            } catch (Exception $e) {
-                $errors[] = "Error processing booking #{$booking['id']}: " . $e->getMessage();
+            if (empty($booking['client_email'])) {
+                $errors[] = "No email found for booking #{$booking['id']}";
+                continue;
+            }
+            $result = $this->sendReminderEmail($booking, null);
+            if ($result['success']) {
+                $this->conn->prepare("UPDATE bookings SET reminder_sent = 1 WHERE id = ?")
+                           ->execute([$booking['id']]);
+                $sent_count++;
+            } else {
+                $errors[] = "Failed for booking #{$booking['id']}: {$result['message']}";
             }
         }
-        
-        // Prepare result message
-        $message = "Sent {$sent_count} reminder email(s)";
+
+        $message = "Sent {$sent_count} reminder email(s) (legacy mode — no rules configured)";
         if (!empty($errors)) {
             $message .= " with " . count($errors) . " error(s)";
         }
-        
+
         return [
-            'success' => true,
+            'success'         => true,
             'items_processed' => $sent_count,
-            'message' => $message,
-            'errors' => $errors
+            'message'         => $message,
+            'errors'          => $errors,
         ];
     }
     
     /**
-     * Send reminder email for a booking
+     * Send reminder email for a booking, using the rule's template when available.
+     *
+     * @param array      $booking  Booking row
+     * @param array|null $rule     Reminder rule row (or null for legacy mode)
      */
-    private function sendReminderEmail($booking) {
-        $email_service = new EmailService();
+    private function sendReminderEmail($booking, $rule) {
+        $email_service = new EmailService(null, $this->conn);
         
         // Format date and time
         $date = date('l, F j, Y', strtotime($booking['appointment_date']));
@@ -97,26 +214,57 @@ class BookingReminderTask {
         // Get calendar links
         require_once dirname(dirname(__DIR__)) . '/includes/icalendar.php';
         $google_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
-        $ical_link = getDynamicBaseUrl() . '/backend/public/download_ical.php?booking_id=' . $booking['id'];
+        $ical_link   = getDynamicBaseUrl() . '/backend/public/download_ical.php?booking_id=' . $booking['id'];
+
+        $appointment_type_id = !empty($booking['appointment_type_id']) ? (int)$booking['appointment_type_id'] : null;
+        $rule_template_id    = !empty($rule['template_id'])            ? (int)$rule['template_id']            : null;
+
+        // Priority: appt-type override → rule template → system default → hardcoded
+        $db_template = $email_service->getTemplateForTask('booking_reminder', $appointment_type_id, $rule_template_id);
+
+        if ($db_template) {
+            $variables = [
+                'client_name'          => $booking['client_name']      ?? '',
+                'client_email'         => $booking['client_email']      ?? '',
+                'appointment_date'     => $date,
+                'appointment_time'     => $time,
+                'appointment_type'     => $booking['service_type']      ?? '',
+                'duration'             => $booking['duration_minutes']  ?? '',
+                'google_calendar_link' => $google_link,
+                'ical_link'            => $ical_link,
+                'business_name'        => Settings::get('site_name',      "Brook's Dog Training Academy"),
+                'business_email'       => Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com'),
+                'business_phone'       => Settings::get('business_phone', ''),
+            ];
+            $rendered  = $email_service->renderTemplate($db_template, $variables);
+            $subject   = $rendered['subject'];
+            $html_body = $rendered['body_html'];
+            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+        } else {
+            // Fallback hardcoded template — derive subject from rule timing
+            $hours = $rule ? (int)$rule['hours_before'] : 24;
+            if ($hours >= 48) {
+                $days    = (int)round($hours / 24);
+                $subject = "Reminder: Your appointment is in {$days} day" . ($days !== 1 ? 's' : '');
+            } elseif ($hours >= 24) {
+                $subject = "Reminder: Your appointment is tomorrow";
+            } else {
+                $subject = "Reminder: Your appointment is in {$hours} hours";
+            }
+            $html_body = $this->getReminderEmailHTML($booking, $date, $time, $google_link, $ical_link);
+            $text_body = $this->getReminderEmailText($booking, $date, $time, $google_link, $ical_link);
+        }
         
-        // Prepare email content
-        $subject = "Reminder: Upcoming Appointment Tomorrow";
-        
-        $html_body = $this->getReminderEmailHTML($booking, $date, $time, $google_link, $ical_link);
-        $text_body = $this->getReminderEmailText($booking, $date, $time, $google_link, $ical_link);
-        
-        $recipient_email = !empty($booking['client_email']) ? $booking['client_email'] : $booking['client_email'];
-        
-        return $email_service->sendGenericEmail($recipient_email, $subject, $html_body, $text_body);
+        return $email_service->sendGenericEmail($booking['client_email'], $subject, $html_body, $text_body);
     }
     
     /**
      * Get HTML email template for reminder
      */
     private function getReminderEmailHTML($booking, $date, $time, $google_link, $ical_link) {
-        $client_name = htmlspecialchars(!empty($booking['client_name']) ? $booking['client_name'] : $booking['client_name']);
-        $service_type = htmlspecialchars($booking['service_type']);
-        $duration = htmlspecialchars($booking['duration_minutes']);
+        $client_name  = htmlspecialchars($booking['client_name']      ?? '');
+        $service_type = htmlspecialchars($booking['service_type']     ?? '');
+        $duration     = htmlspecialchars($booking['duration_minutes'] ?? '');
         
         return <<<HTML
 <!DOCTYPE html>
@@ -182,9 +330,9 @@ HTML;
      * Get plain text email template for reminder
      */
     private function getReminderEmailText($booking, $date, $time, $google_link, $ical_link) {
-        $client_name = !empty($booking['client_name']) ? $booking['client_name'] : $booking['client_name'];
-        $service_type = $booking['service_type'];
-        $duration = $booking['duration_minutes'];
+        $client_name  = $booking['client_name']      ?? '';
+        $service_type = $booking['service_type']     ?? '';
+        $duration     = $booking['duration_minutes'] ?? '';
         
         return <<<TEXT
 APPOINTMENT REMINDER - Brook's Dog Training Academy
@@ -217,3 +365,4 @@ TEXT;
     }
 }
 ?>
+

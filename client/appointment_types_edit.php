@@ -62,6 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $max_participants = (int)($_POST['max_participants'] ?? 1);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     $portal_available = isset($_POST['portal_available']) ? 1 : 0;
+    $confirmation_template_id = !empty($_POST['confirmation_template_id']) ? (int)$_POST['confirmation_template_id'] : null;
+    $reminder_template_id     = !empty($_POST['reminder_template_id'])     ? (int)$_POST['reminder_template_id']     : null;
     
     // Handle Mini Sessions configuration
     $is_mini_session = isset($_POST['is_mini_session']) ? 1 : 0;
@@ -156,6 +158,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     per_day_schedule = ?,
                     default_amount = ?,
                     location_types = ?,
+                    confirmation_template_id = ?,
+                    reminder_template_id = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -176,6 +180,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $per_day_schedule,
                 $default_amount,
                 $location_types_json,
+                $confirmation_template_id,
+                $reminder_template_id,
                 $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
@@ -206,8 +212,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_field_rental, field_rental_location,
                     per_day_schedule,
                     default_amount,
-                    location_types
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    location_types,
+                    confirmation_template_id,
+                    reminder_template_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -226,7 +234,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_field_rental, $field_rental_location,
                 $per_day_schedule,
                 $default_amount,
-                $location_types_json
+                $location_types_json,
+                $confirmation_template_id,
+                $reminder_template_id
             ]);
             $id = $conn->lastInsertId();
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
@@ -248,11 +258,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Handle reminder rule sub-actions (add/delete/toggle) — must be editing an existing type
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sub_action']) && $is_edit) {
+    $sub_action = $_POST['sub_action'];
+
+    if ($sub_action === 'add_rule') {
+        $rule_name    = trim($_POST['rule_name'] ?? '');
+        $hours_before = (int)($_POST['rule_hours_before'] ?? 0);
+        $tpl_id       = !empty($_POST['rule_template_id']) ? (int)$_POST['rule_template_id'] : null;
+        $rule_active  = isset($_POST['rule_is_active']) ? 1 : 0;
+        if ($rule_name !== '' && $hours_before >= 1) {
+            $conn->prepare("INSERT INTO booking_reminder_rules (appointment_type_id, name, hours_before, template_id, is_active) VALUES (?, ?, ?, ?, ?)")
+                 ->execute([$id, $rule_name, $hours_before, $tpl_id, $rule_active]);
+            $_SESSION['flash'] = ['type' => 'success', 'message' => 'Reminder rule added.'];
+        } else {
+            $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Name and hours (≥1) are required for a reminder rule.'];
+        }
+        header("Location: appointment_types_edit.php?id={$id}#reminder-rules");
+        exit;
+    }
+
+    if ($sub_action === 'delete_rule') {
+        $rule_id = (int)($_POST['rule_id'] ?? 0);
+        $conn->prepare("DELETE FROM booking_reminder_rules WHERE id = ? AND appointment_type_id = ?")
+             ->execute([$rule_id, $id]);
+        $_SESSION['flash'] = ['type' => 'success', 'message' => 'Reminder rule removed.'];
+        header("Location: appointment_types_edit.php?id={$id}#reminder-rules");
+        exit;
+    }
+
+    if ($sub_action === 'toggle_rule') {
+        $rule_id = (int)($_POST['rule_id'] ?? 0);
+        $conn->prepare("UPDATE booking_reminder_rules SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND appointment_type_id = ?")
+             ->execute([$rule_id, $id]);
+        $_SESSION['flash'] = ['type' => 'success', 'message' => 'Reminder rule status updated.'];
+        header("Location: appointment_types_edit.php?id={$id}#reminder-rules");
+        exit;
+    }
+}
+
 // Load all active form templates for the selection UI
 $all_forms = $conn->query("SELECT id, name FROM form_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
 // Load all active contract templates for the dropdown
 $all_contract_templates = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+
+// Load email templates for confirmation/reminder overrides
+$confirmation_templates = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_confirmation' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$reminder_templates     = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_reminder'     AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+
+// Load per-appointment-type reminder rules (only when editing)
+$type_reminder_rules = [];
+if ($is_edit) {
+    $stmt = $conn->prepare("
+        SELECT r.*, et.name AS template_name
+        FROM booking_reminder_rules r
+        LEFT JOIN email_templates et ON et.id = r.template_id
+        WHERE r.appointment_type_id = ?
+        ORDER BY r.hours_before ASC
+    ");
+    $stmt->execute([$id]);
+    $type_reminder_rules = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Human-readable label for hours_before, e.g. 48 → "2 days before"
+ */
+function formatHoursBefore(int $hours): string {
+    if ($hours >= 168 && $hours % 168 === 0) {
+        $w = $hours / 168;
+        return $w . ' week' . ($w !== 1 ? 's' : '') . ' before';
+    }
+    if ($hours >= 24 && $hours % 24 === 0) {
+        $d = $hours / 24;
+        return $d . ' day' . ($d !== 1 ? 's' : '') . ' before';
+    }
+    return $hours . ' hour' . ($hours !== 1 ? 's' : '') . ' before';
+}
 
 // Load currently associated form IDs for this appointment type
 $selected_form_ids_current = [];
@@ -796,6 +878,172 @@ include __DIR__ . '/../backend/includes/header.php';
                         </div>
                         <?php endforeach; ?>
                     </div>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-3">Email Template Overrides</h6>
+                <p class="text-muted small mb-3">
+                    Optionally assign specific email templates for confirmations and reminders sent for this appointment type.
+                    If left blank, the system-wide default template (configured in 
+                    <a href="email_template_defaults.php">Email Template Defaults</a>) will be used.
+                </p>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="confirmation_template_id" class="form-label">Confirmation Email Template</label>
+                        <select class="form-select" id="confirmation_template_id" name="confirmation_template_id">
+                            <option value="">— Use system default —</option>
+                            <?php foreach ($confirmation_templates as $tmpl): ?>
+                                <option value="<?= $tmpl['id'] ?>"
+                                    <?= (isset($type['confirmation_template_id']) && $type['confirmation_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Override the booking confirmation email for this appointment type.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="reminder_template_id" class="form-label">Reminder Email Template</label>
+                        <select class="form-select" id="reminder_template_id" name="reminder_template_id">
+                            <option value="">— Use system default —</option>
+                            <?php foreach ($reminder_templates as $tmpl): ?>
+                                <option value="<?= $tmpl['id'] ?>"
+                                    <?= (isset($type['reminder_template_id']) && $type['reminder_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Default reminder template for this appointment type (overridden per rule below).</div>
+                    </div>
+                </div>
+
+                <!-- Per-appointment-type reminder rules -->
+                <div id="reminder-rules">
+                    <h6 class="border-bottom pb-2 mb-3">
+                        <i class="fas fa-bell me-1"></i>Reminder Rules
+                    </h6>
+                    <?php if (!$is_edit): ?>
+                        <div class="alert alert-info small">
+                            <i class="fas fa-circle-info me-1"></i>
+                            Save this appointment type first, then return to configure per-type reminder rules.
+                        </div>
+                    <?php else: ?>
+                        <p class="text-muted small mb-3">
+                            Configure separate reminder emails at different times before the appointment.
+                            Each rule can use a different template (e.g. a 2-day teaser and a day-before checklist).
+                            If no rules are set here, the <a href="booking_reminder_rules.php">global reminder rules</a> apply.
+                        </p>
+
+                        <!-- Existing rules table -->
+                        <?php if (!empty($type_reminder_rules)): ?>
+                            <div class="table-responsive mb-3">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Timing</th>
+                                            <th>Template</th>
+                                            <th>Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($type_reminder_rules as $rule): ?>
+                                            <tr>
+                                                <td><strong><?= htmlspecialchars($rule['name']) ?></strong></td>
+                                                <td>
+                                                    <span class="badge bg-secondary"><?= (int)$rule['hours_before'] ?>h</span>
+                                                    <small class="text-muted ms-1"><?= formatHoursBefore((int)$rule['hours_before']) ?></small>
+                                                </td>
+                                                <td>
+                                                    <?php if ($rule['template_name']): ?>
+                                                        <small><?= htmlspecialchars($rule['template_name']) ?></small>
+                                                    <?php else: ?>
+                                                        <small class="text-muted fst-italic">system default</small>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($rule['is_active']): ?>
+                                                        <span class="badge bg-success">Active</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-secondary">Inactive</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <form method="POST" class="d-inline">
+                                                            <input type="hidden" name="sub_action" value="toggle_rule">
+                                                            <input type="hidden" name="rule_id" value="<?= (int)$rule['id'] ?>">
+                                                            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                                                                    title="<?= $rule['is_active'] ? 'Deactivate' : 'Activate' ?>">
+                                                                <i class="fas fa-<?= $rule['is_active'] ? 'pause' : 'play' ?>"></i>
+                                                            </button>
+                                                        </form>
+                                                        <form method="POST" class="d-inline"
+                                                              onsubmit="return confirm('Remove this reminder rule?')">
+                                                            <input type="hidden" name="sub_action" value="delete_rule">
+                                                            <input type="hidden" name="rule_id" value="<?= (int)$rule['id'] ?>">
+                                                            <button type="submit" class="btn btn-outline-danger btn-sm" title="Remove">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <div class="alert alert-light border small mb-3">
+                                <i class="fas fa-circle-info me-1 text-muted"></i>
+                                No per-type rules yet — global reminder rules will be used.
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Add new rule form -->
+                        <details class="mb-4">
+                            <summary class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-plus me-1"></i>Add Reminder Rule
+                            </summary>
+                            <div class="card mt-2">
+                                <div class="card-body">
+                                    <form method="POST">
+                                        <input type="hidden" name="sub_action" value="add_rule">
+                                        <div class="row g-2">
+                                            <div class="col-md-3">
+                                                <label class="form-label form-label-sm">Rule Name <span class="text-danger">*</span></label>
+                                                <input type="text" name="rule_name" class="form-control form-control-sm"
+                                                       placeholder="e.g. Day Before" required>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label form-label-sm">Hours Before <span class="text-danger">*</span></label>
+                                                <input type="number" name="rule_hours_before" class="form-control form-control-sm"
+                                                       min="1" step="1" value="24" required>
+                                                <div class="form-text" style="font-size:0.7rem">24=1d • 48=2d • 168=1w</div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label form-label-sm">Email Template</label>
+                                                <select name="rule_template_id" class="form-select form-select-sm">
+                                                    <option value="">— Use system default —</option>
+                                                    <?php foreach ($reminder_templates as $tmpl): ?>
+                                                        <option value="<?= $tmpl['id'] ?>"><?= htmlspecialchars($tmpl['name']) ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2 d-flex align-items-end">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="rule_is_active" id="new_rule_active" checked>
+                                                    <label class="form-check-label form-label-sm" for="new_rule_active">Active</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-1 d-flex align-items-end">
+                                                <button type="submit" class="btn btn-primary btn-sm w-100">Add</button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </details>
+                    <?php endif; ?>
                 </div>
 
                 <h6 class="border-bottom pb-2 mb-3">Status</h6>

@@ -17,14 +17,121 @@ class EmailService {
     private $from_email;
     private $from_name;
     private $base_url;
+    private $conn;
     
-    public function __construct($base_url = null) {
+    public function __construct($base_url = null, $conn = null) {
         $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
         $this->from_name = Settings::get('email_from_name', "Brook's Dog Training Academy");
         
         // Use provided base_url, or get it dynamically
         // getDynamicBaseUrl() handles both HTTP and CLI contexts internally
         $this->base_url = $base_url ?? getDynamicBaseUrl();
+        $this->conn = $conn;
+    }
+
+    /**
+     * Look up the applicable email template for a given task type and optional appointment type.
+     * Priority: appointment-type override → rule template → system default → null (use hardcoded fallback).
+     *
+     * @param string   $template_type      One of: booking_confirmation, booking_reminder, payment_receipt, …
+     * @param int|null $appointment_type_id  ID of the appointment type (for per-type overrides)
+     * @param int|null $rule_template_id     Template ID from the specific reminder rule being processed
+     * @return array|null  Row from email_templates, or null
+     */
+    public function getTemplateForTask($template_type, $appointment_type_id = null, $rule_template_id = null) {
+        if (!$this->conn) {
+            return null;
+        }
+
+        // Column name in appointment_types for the override
+        $override_col_map = [
+            'booking_confirmation' => 'confirmation_template_id',
+            'booking_reminder'     => 'reminder_template_id',
+        ];
+
+        // Setting key for the system-wide default
+        $default_setting_map = [
+            'booking_confirmation' => 'default_confirmation_template_id',
+            'booking_reminder'     => 'default_reminder_template_id',
+            'payment_receipt'      => 'default_payment_receipt_template_id',
+        ];
+
+        // 1. Check per-appointment-type override
+        if ($appointment_type_id && isset($override_col_map[$template_type])) {
+            $col = $override_col_map[$template_type];
+            // Whitelist the column name to prevent any future SQL injection risk
+            $allowed_cols = ['confirmation_template_id', 'reminder_template_id'];
+            if (!in_array($col, $allowed_cols, true)) {
+                // Should never happen since $override_col_map is hardcoded
+                return null;
+            }
+            $stmt = $this->conn->prepare(
+                "SELECT et.* FROM email_templates et
+                 INNER JOIN appointment_types at2 ON at2.{$col} = et.id
+                 WHERE at2.id = ? AND et.is_active = 1"
+            );
+            $stmt->execute([$appointment_type_id]);
+            $tmpl = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($tmpl) {
+                return $tmpl;
+            }
+        }
+
+        // 2. Check the reminder-rule-specific template (if provided)
+        if ($rule_template_id) {
+            $stmt = $this->conn->prepare(
+                "SELECT * FROM email_templates WHERE id = ? AND is_active = 1"
+            );
+            $stmt->execute([$rule_template_id]);
+            $tmpl = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($tmpl) {
+                return $tmpl;
+            }
+        }
+
+        // 3. Check system default setting
+        if (isset($default_setting_map[$template_type])) {
+            $setting_key = $default_setting_map[$template_type];
+            $default_id = (int) Settings::get($setting_key, 0);
+            if ($default_id > 0) {
+                $stmt = $this->conn->prepare(
+                    "SELECT * FROM email_templates WHERE id = ? AND is_active = 1"
+                );
+                $stmt->execute([$default_id]);
+                $tmpl = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($tmpl) {
+                    return $tmpl;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Render an email template row by replacing {{variable}} placeholders.
+     *
+     * @param array $template  Row from email_templates (keys: subject, body_html, body_text)
+     * @param array $variables Map of variable name => value
+     * @return array  ['subject' => …, 'body_html' => …, 'body_text' => …]
+     */
+    public function renderTemplate($template, $variables) {
+        $subject   = $template['subject']   ?? '';
+        $body_html = $template['body_html'] ?? '';
+        $body_text = $template['body_text'] ?? '';
+
+        foreach ($variables as $key => $value) {
+            $placeholder = '{{' . $key . '}}';
+            $subject   = str_replace($placeholder, $value, $subject);
+            $body_html = str_replace($placeholder, $value, $body_html);
+            $body_text = str_replace($placeholder, $value, $body_text);
+        }
+
+        return [
+            'subject'   => $subject,
+            'body_html' => $body_html,
+            'body_text' => $body_text,
+        ];
     }
     
     /**
@@ -32,7 +139,6 @@ class EmailService {
      */
     public function sendBookingConfirmation($booking) {
         $to = $booking['client_email'];
-        $subject = 'Booking Confirmation - Brook\'s Dog Training Academy';
         
         // Generate calendar links
         require_once __DIR__ . '/icalendar.php';
@@ -42,12 +148,23 @@ class EmailService {
         // Format date and time nicely
         $date = date('l, F j, Y', strtotime($booking['appointment_date']));
         $time = date('g:i A', strtotime($booking['appointment_time']));
-        
-        // HTML email body
-        $html_body = $this->getConfirmationEmailHTML($booking, $date, $time, $google_link, $ical_link);
-        
-        // Plain text alternative
-        $text_body = $this->getConfirmationEmailText($booking, $date, $time, $google_link, $ical_link);
+
+        // Try to use a custom DB template (appointment-type override or system default)
+        $appointment_type_id = !empty($booking['appointment_type_id']) ? (int)$booking['appointment_type_id'] : null;
+        $db_template = $this->getTemplateForTask('booking_confirmation', $appointment_type_id);
+
+        if ($db_template) {
+            $variables = $this->buildBookingVariables($booking, $date, $time, $google_link, $ical_link);
+            $rendered  = $this->renderTemplate($db_template, $variables);
+            $subject   = $rendered['subject'];
+            $html_body = $rendered['body_html'];
+            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+        } else {
+            // Fallback to hardcoded template
+            $subject   = 'Booking Confirmation - Brook\'s Dog Training Academy';
+            $html_body = $this->getConfirmationEmailHTML($booking, $date, $time, $google_link, $ical_link);
+            $text_body = $this->getConfirmationEmailText($booking, $date, $time, $google_link, $ical_link);
+        }
         
         // Send email
         return $this->sendEmail($to, $subject, $html_body, $text_body);
@@ -68,6 +185,26 @@ class EmailService {
         }
         
         return $this->sendEmail($to, $subject, $html_body, $text_body);
+    }
+
+    /**
+     * Build variable map for booking-related email templates.
+     */
+    private function buildBookingVariables($booking, $date, $time, $google_link, $ical_link) {
+        return [
+            'client_name'      => $booking['client_name'] ?? '',
+            'client_email'     => $booking['client_email'] ?? '',
+            'appointment_date' => $date,
+            'appointment_time' => $time,
+            'appointment_type' => $booking['service_type'] ?? '',
+            'duration'         => $booking['duration_minutes'] ?? '',
+            'location'         => $this->formatLocationForEmail($booking),
+            'google_calendar_link' => $google_link,
+            'ical_link'        => $ical_link,
+            'business_name'    => Settings::get('site_name', "Brook's Dog Training Academy"),
+            'business_email'   => Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com'),
+            'business_phone'   => Settings::get('business_phone', ''),
+        ];
     }
 
     /**

@@ -681,6 +681,34 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
+
+            // Booking reminder rules table — configurable multi-rule reminders
+            $this->execSQL("
+                CREATE TABLE IF NOT EXISTS booking_reminder_rules (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    appointment_type_id INTEGER DEFAULT NULL,
+                    name TEXT NOT NULL,
+                    hours_before INTEGER NOT NULL,
+                    template_id INTEGER,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (appointment_type_id) REFERENCES appointment_types(id) ON DELETE CASCADE,
+                    FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE SET NULL
+                )
+            ");
+
+            // Booking reminders sent — per-rule tracking (replaces single reminder_sent boolean)
+            $this->execSQL("
+                CREATE TABLE IF NOT EXISTS booking_reminders_sent (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    booking_id INTEGER NOT NULL,
+                    rule_id INTEGER NOT NULL,
+                    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+                    FOREIGN KEY (rule_id) REFERENCES booking_reminder_rules(id) ON DELETE CASCADE
+                )
+            ");
             
             // Scheduled tasks table - for CRON job automation
             $this->execSQL("
@@ -1568,10 +1596,79 @@ class Database {
             $this->execSQL("ALTER TABLE unmatched_emails ADD COLUMN direction TEXT DEFAULT 'incoming'");
         }
 
+        // Add email template override columns to appointment_types
+        $apt_col_names_tmpl = $this->getTableColumns('appointment_types');
+        if (!in_array('confirmation_template_id', $apt_col_names_tmpl)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN confirmation_template_id INTEGER DEFAULT NULL");
+        }
+        if (!in_array('reminder_template_id', $apt_col_names_tmpl)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN reminder_template_id INTEGER DEFAULT NULL");
+        }
+
+        // Add unique index for booking_reminders_sent to prevent duplicate sends per rule
+        try {
+            $this->execSQL("CREATE UNIQUE INDEX idx_booking_reminders_sent_unique ON booking_reminders_sent(booking_id, rule_id)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
+        }
+
+        // Add appointment_type_id to booking_reminder_rules for per-appointment-type rules
+        // Note: SQLite does not support adding foreign key constraints via ALTER TABLE;
+        // the FK is enforced on fresh installs via the CREATE TABLE definition above.
+        $brr_cols = $this->getTableColumns('booking_reminder_rules');
+        if (!in_array('appointment_type_id', $brr_cols)) {
+            $this->execSQL("ALTER TABLE booking_reminder_rules ADD COLUMN appointment_type_id INTEGER DEFAULT NULL");
+        }
+
+        // Seed a default reminder rule if none exist
+        $rule_count = $this->conn->query("SELECT COUNT(*) FROM booking_reminder_rules")->fetchColumn();
+        if ($rule_count == 0) {
+            $this->execSQL("INSERT INTO booking_reminder_rules (name, hours_before, is_active) VALUES ('Day Before', 24, 1)");
+            $this->execSQL("INSERT INTO booking_reminder_rules (name, hours_before, is_active) VALUES ('2 Days Before', 48, 0)");
+        }
+
+        // Add default email template settings for automated tasks
+        $this->addEmailTemplateDefaultSettings();
+
         // Add database settings for existing installations
         $this->addDatabaseSettings();
     }
     
+    private function addEmailTemplateDefaultSettings() {
+        $template_settings = [
+            'default_confirmation_template_id',
+            'default_reminder_template_id',
+            'default_payment_receipt_template_id',
+        ];
+        $labels = [
+            'default_confirmation_template_id' => 'Default Booking Confirmation Template',
+            'default_reminder_template_id'      => 'Default Booking Reminder Template',
+            'default_payment_receipt_template_id' => 'Default Payment Receipt Template',
+        ];
+        $descriptions = [
+            'default_confirmation_template_id' => 'Email template used for booking confirmations (0 = use built-in template)',
+            'default_reminder_template_id'      => 'Email template used for booking reminders (0 = use built-in template)',
+            'default_payment_receipt_template_id' => 'Email template used for payment receipts (0 = use built-in template)',
+        ];
+
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $insert = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($template_settings as $key) {
+            $check->execute([$key]);
+            if ($check->fetchColumn() == 0) {
+                try {
+                    $insert->execute([$key, '0', 'number', 'email', $labels[$key], $descriptions[$key], 0]);
+                } catch (PDOException $e) {
+                    // Already exists, ignore
+                }
+            }
+        }
+    }
+
     private function addDatabaseSettings() {
         // Check if database settings already exist
         $stmt = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE category = ?");
