@@ -200,6 +200,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'booking_reminder_rules.php' ? 'active' : ''; ?>" href="booking_reminder_rules.php">
+                                <i class="fas fa-bell me-2"></i> Reminder Rules
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>" href="settings.php">
                                 <i class="fas fa-gear me-2"></i> Settings
                             </a>

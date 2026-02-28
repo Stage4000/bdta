@@ -681,6 +681,32 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
+
+            // Booking reminder rules table — configurable multi-rule reminders
+            $this->execSQL("
+                CREATE TABLE IF NOT EXISTS booking_reminder_rules (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    hours_before INTEGER NOT NULL,
+                    template_id INTEGER,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE SET NULL
+                )
+            ");
+
+            // Booking reminders sent — per-rule tracking (replaces single reminder_sent boolean)
+            $this->execSQL("
+                CREATE TABLE IF NOT EXISTS booking_reminders_sent (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    booking_id INTEGER NOT NULL,
+                    rule_id INTEGER NOT NULL,
+                    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+                    FOREIGN KEY (rule_id) REFERENCES booking_reminder_rules(id) ON DELETE CASCADE
+                )
+            ");
             
             // Scheduled tasks table - for CRON job automation
             $this->execSQL("
@@ -1575,6 +1601,20 @@ class Database {
         }
         if (!in_array('reminder_template_id', $apt_col_names_tmpl)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN reminder_template_id INTEGER DEFAULT NULL");
+        }
+
+        // Add unique index for booking_reminders_sent to prevent duplicate sends per rule
+        try {
+            $this->execSQL("CREATE UNIQUE INDEX idx_booking_reminders_sent_unique ON booking_reminders_sent(booking_id, rule_id)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
+        }
+
+        // Seed a default reminder rule if none exist
+        $rule_count = $this->conn->query("SELECT COUNT(*) FROM booking_reminder_rules")->fetchColumn();
+        if ($rule_count == 0) {
+            $this->execSQL("INSERT INTO booking_reminder_rules (name, hours_before, is_active) VALUES ('Day Before', 24, 1)");
+            $this->execSQL("INSERT INTO booking_reminder_rules (name, hours_before, is_active) VALUES ('2 Days Before', 48, 0)");
         }
 
         // Add default email template settings for automated tasks

@@ -31,13 +31,14 @@ class EmailService {
 
     /**
      * Look up the applicable email template for a given task type and optional appointment type.
-     * Priority: appointment-type override → system default → null (use hardcoded fallback).
+     * Priority: appointment-type override → rule template → system default → null (use hardcoded fallback).
      *
      * @param string   $template_type      One of: booking_confirmation, booking_reminder, payment_receipt, …
      * @param int|null $appointment_type_id  ID of the appointment type (for per-type overrides)
+     * @param int|null $rule_template_id     Template ID from the specific reminder rule being processed
      * @return array|null  Row from email_templates, or null
      */
-    public function getTemplateForTask($template_type, $appointment_type_id = null) {
+    public function getTemplateForTask($template_type, $appointment_type_id = null, $rule_template_id = null) {
         if (!$this->conn) {
             return null;
         }
@@ -76,7 +77,19 @@ class EmailService {
             }
         }
 
-        // 2. Check system default setting
+        // 2. Check the reminder-rule-specific template (if provided)
+        if ($rule_template_id) {
+            $stmt = $this->conn->prepare(
+                "SELECT * FROM email_templates WHERE id = ? AND is_active = 1"
+            );
+            $stmt->execute([$rule_template_id]);
+            $tmpl = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($tmpl) {
+                return $tmpl;
+            }
+        }
+
+        // 3. Check system default setting
         if (isset($default_setting_map[$template_type])) {
             $setting_key = $default_setting_map[$template_type];
             $default_id = (int) Settings::get($setting_key, 0);
