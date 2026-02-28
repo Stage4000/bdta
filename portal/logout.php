@@ -1,6 +1,11 @@
 <?php
 require_once '../portal/includes/config.php';
 
+// If an admin is impersonating a client, stop impersonation instead of logging out
+if (!empty($_SESSION['portal_impersonating_admin_id'])) {
+    redirect(PORTAL_URL . 'stop_impersonation.php');
+}
+
 if (isPortalLoggedIn()) {
     $client_id = intval($_SESSION['portal_client_id']);
     $db   = new Database();

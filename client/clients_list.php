@@ -77,7 +77,7 @@ include '../backend/includes/header.php';
                                     <td><?= formatDate($client['created_at']) ?></td>
                                     <td>
                                         <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" title="View Profile">
-                                            <i class="fas fa-eye"></i>
+                                            <i class="fa-solid fa-address-book"></i>
                                         </a>
                                         <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                             <i class="fas fa-pencil"></i>
@@ -88,6 +88,12 @@ include '../backend/includes/header.php';
                                         <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary" title="Time Entries">
                                             <i class="fas fa-clock"></i>
                                         </a>
+                                        <?php if (empty($client['is_admin'])): ?>
+                                        <a href="impersonate_client.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-warning" title="View Portal as Client"
+                                           onclick="return confirm('View the client portal as this client?')">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <?php endif; ?>
                                         <a href="?delete=<?= $client['id'] ?>" class="btn btn-sm btn-outline-danger" 
                                            onclick="return confirm('Are you sure you want to delete this client? This cannot be undone.')" title="Delete">
                                             <i class="fas fa-trash"></i>

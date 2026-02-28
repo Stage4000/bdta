@@ -54,6 +54,15 @@
     </style>
 </head>
 <body>
+    <?php if (!empty($_SESSION['portal_impersonating_admin_id'])): ?>
+    <div class="alert alert-warning mb-0 rounded-0 text-center py-2" style="z-index:1050;">
+        <i class="fas fa-user-secret me-2"></i>
+        <strong>Admin View:</strong> You are viewing the portal as <strong><?php echo escape($_SESSION['portal_client_name'] ?? 'this client'); ?></strong>.
+        <a href="<?php echo PORTAL_URL; ?>stop_impersonation.php" class="btn btn-sm btn-dark ms-3">
+            <i class="fas fa-arrow-left me-1"></i> Return to Admin
+        </a>
+    </div>
+    <?php endif; ?>
     <?php $flash = getFlashMessage(); ?>
     <?php if ($flash): ?>
     <div class="position-fixed top-0 end-0 p-3" style="z-index: 11">
