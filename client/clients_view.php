@@ -122,6 +122,12 @@ include '../backend/includes/header.php';
             <a href="bookings_create.php?client_id=<?= $id ?>" class="btn btn-success me-2">
                 <i class="fas fa-calendar-plus"></i> New Booking
             </a>
+            <?php if (empty($client['is_admin'])): ?>
+            <a href="impersonate_client.php?id=<?= $id ?>" class="btn btn-warning me-2"
+               onclick="return confirm('View the client portal as this client?')">
+                <i class="fas fa-eye"></i> View Portal as Client
+            </a>
+            <?php endif; ?>
             <a href="clients_list.php" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
