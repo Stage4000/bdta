@@ -5,6 +5,7 @@
  */
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
+require_once dirname(dirname(__DIR__)) . '/includes/settings.php';
 
 class BookingReminderTask {
     private $conn;
@@ -88,7 +89,7 @@ class BookingReminderTask {
      * Send reminder email for a booking
      */
     private function sendReminderEmail($booking) {
-        $email_service = new EmailService();
+        $email_service = new EmailService(null, $this->conn);
         
         // Format date and time
         $date = date('l, F j, Y', strtotime($booking['appointment_date']));
@@ -98,12 +99,34 @@ class BookingReminderTask {
         require_once dirname(dirname(__DIR__)) . '/includes/icalendar.php';
         $google_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
         $ical_link = getDynamicBaseUrl() . '/backend/public/download_ical.php?booking_id=' . $booking['id'];
-        
-        // Prepare email content
-        $subject = "Reminder: Upcoming Appointment Tomorrow";
-        
-        $html_body = $this->getReminderEmailHTML($booking, $date, $time, $google_link, $ical_link);
-        $text_body = $this->getReminderEmailText($booking, $date, $time, $google_link, $ical_link);
+
+        $appointment_type_id = !empty($booking['appointment_type_id']) ? (int)$booking['appointment_type_id'] : null;
+        $db_template = $email_service->getTemplateForTask('booking_reminder', $appointment_type_id);
+
+        if ($db_template) {
+            $variables = [
+                'client_name'      => !empty($booking['client_name']) ? $booking['client_name'] : '',
+                'client_email'     => $booking['client_email'] ?? '',
+                'appointment_date' => $date,
+                'appointment_time' => $time,
+                'appointment_type' => $booking['service_type'] ?? '',
+                'duration'         => $booking['duration_minutes'] ?? '',
+                'google_calendar_link' => $google_link,
+                'ical_link'        => $ical_link,
+                'business_name'    => Settings::get('site_name', "Brook's Dog Training Academy"),
+                'business_email'   => Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com'),
+                'business_phone'   => Settings::get('business_phone', ''),
+            ];
+            $rendered  = $email_service->renderTemplate($db_template, $variables);
+            $subject   = $rendered['subject'];
+            $html_body = $rendered['body_html'];
+            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+        } else {
+            // Fallback to hardcoded template
+            $subject   = "Reminder: Upcoming Appointment Tomorrow";
+            $html_body = $this->getReminderEmailHTML($booking, $date, $time, $google_link, $ical_link);
+            $text_body = $this->getReminderEmailText($booking, $date, $time, $google_link, $ical_link);
+        }
         
         $recipient_email = !empty($booking['client_email']) ? $booking['client_email'] : $booking['client_email'];
         

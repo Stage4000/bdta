@@ -1568,10 +1568,57 @@ class Database {
             $this->execSQL("ALTER TABLE unmatched_emails ADD COLUMN direction TEXT DEFAULT 'incoming'");
         }
 
+        // Add email template override columns to appointment_types
+        $apt_col_names_tmpl = $this->getTableColumns('appointment_types');
+        if (!in_array('confirmation_template_id', $apt_col_names_tmpl)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN confirmation_template_id INTEGER DEFAULT NULL");
+        }
+        if (!in_array('reminder_template_id', $apt_col_names_tmpl)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN reminder_template_id INTEGER DEFAULT NULL");
+        }
+
+        // Add default email template settings for automated tasks
+        $this->addEmailTemplateDefaultSettings();
+
         // Add database settings for existing installations
         $this->addDatabaseSettings();
     }
     
+    private function addEmailTemplateDefaultSettings() {
+        $template_settings = [
+            'default_confirmation_template_id',
+            'default_reminder_template_id',
+            'default_payment_receipt_template_id',
+        ];
+        $labels = [
+            'default_confirmation_template_id' => 'Default Booking Confirmation Template',
+            'default_reminder_template_id'      => 'Default Booking Reminder Template',
+            'default_payment_receipt_template_id' => 'Default Payment Receipt Template',
+        ];
+        $descriptions = [
+            'default_confirmation_template_id' => 'Email template used for booking confirmations (0 = use built-in template)',
+            'default_reminder_template_id'      => 'Email template used for booking reminders (0 = use built-in template)',
+            'default_payment_receipt_template_id' => 'Email template used for payment receipts (0 = use built-in template)',
+        ];
+
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $insert = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($template_settings as $key) {
+            $check->execute([$key]);
+            if ($check->fetchColumn() == 0) {
+                try {
+                    $insert->execute([$key, '0', 'number', 'email', $labels[$key], $descriptions[$key], 0]);
+                } catch (PDOException $e) {
+                    // Already exists, ignore
+                }
+            }
+        }
+    }
+
     private function addDatabaseSettings() {
         // Check if database settings already exist
         $stmt = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE category = ?");

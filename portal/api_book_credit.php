@@ -322,7 +322,7 @@ $base_url          = getDynamicBaseUrl();
 $google_cal_link   = ICalendarGenerator::generateGoogleCalendarLink($booking);
 $ical_link         = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
 
-$email_service = new EmailService();
+$email_service = new EmailService(null, $conn);
 $email_result  = $email_service->sendBookingConfirmation($booking);
 
 $google_calendar = new GoogleCalendarIntegration();

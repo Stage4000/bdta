@@ -62,6 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $max_participants = (int)($_POST['max_participants'] ?? 1);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     $portal_available = isset($_POST['portal_available']) ? 1 : 0;
+    $confirmation_template_id = !empty($_POST['confirmation_template_id']) ? (int)$_POST['confirmation_template_id'] : null;
+    $reminder_template_id     = !empty($_POST['reminder_template_id'])     ? (int)$_POST['reminder_template_id']     : null;
     
     // Handle Mini Sessions configuration
     $is_mini_session = isset($_POST['is_mini_session']) ? 1 : 0;
@@ -156,6 +158,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     per_day_schedule = ?,
                     default_amount = ?,
                     location_types = ?,
+                    confirmation_template_id = ?,
+                    reminder_template_id = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -176,6 +180,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $per_day_schedule,
                 $default_amount,
                 $location_types_json,
+                $confirmation_template_id,
+                $reminder_template_id,
                 $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
@@ -206,8 +212,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_field_rental, field_rental_location,
                     per_day_schedule,
                     default_amount,
-                    location_types
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    location_types,
+                    confirmation_template_id,
+                    reminder_template_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -226,7 +234,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_field_rental, $field_rental_location,
                 $per_day_schedule,
                 $default_amount,
-                $location_types_json
+                $location_types_json,
+                $confirmation_template_id,
+                $reminder_template_id
             ]);
             $id = $conn->lastInsertId();
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
@@ -253,6 +263,10 @@ $all_forms = $conn->query("SELECT id, name FROM form_templates WHERE is_active =
 
 // Load all active contract templates for the dropdown
 $all_contract_templates = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+
+// Load email templates for confirmation/reminder overrides
+$confirmation_templates = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_confirmation' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$reminder_templates     = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_reminder'     AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
 // Load currently associated form IDs for this appointment type
 $selected_form_ids_current = [];
@@ -795,6 +809,41 @@ include __DIR__ . '/../backend/includes/header.php';
                             </div>
                         </div>
                         <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-3">Email Template Overrides</h6>
+                <p class="text-muted small mb-3">
+                    Optionally assign specific email templates for confirmations and reminders sent for this appointment type.
+                    If left blank, the system-wide default template (configured in 
+                    <a href="email_template_defaults.php">Email Template Defaults</a>) will be used.
+                </p>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="confirmation_template_id" class="form-label">Confirmation Email Template</label>
+                        <select class="form-select" id="confirmation_template_id" name="confirmation_template_id">
+                            <option value="">— Use system default —</option>
+                            <?php foreach ($confirmation_templates as $tmpl): ?>
+                                <option value="<?= $tmpl['id'] ?>"
+                                    <?= (isset($type['confirmation_template_id']) && $type['confirmation_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Override the booking confirmation email for this appointment type.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="reminder_template_id" class="form-label">Reminder Email Template</label>
+                        <select class="form-select" id="reminder_template_id" name="reminder_template_id">
+                            <option value="">— Use system default —</option>
+                            <?php foreach ($reminder_templates as $tmpl): ?>
+                                <option value="<?= $tmpl['id'] ?>"
+                                    <?= (isset($type['reminder_template_id']) && $type['reminder_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Override the booking reminder email for this appointment type.</div>
                     </div>
                 </div>
 

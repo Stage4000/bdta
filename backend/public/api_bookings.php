@@ -457,7 +457,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
         
         // Send confirmation email
-        $email_service = new EmailService();
+        $email_service = new EmailService(null, $conn);
         $email_result = $email_service->sendBookingConfirmation($booking);
         
         // Try to add to Google Calendar (if configured)
