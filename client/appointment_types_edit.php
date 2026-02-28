@@ -900,6 +900,19 @@ include __DIR__ . '/../backend/includes/header.php';
                         </select>
                         <div class="form-text">Override the booking confirmation email for this appointment type.</div>
                     </div>
+                    <div class="col-md-6">
+                        <label for="reminder_template_id" class="form-label">Reminder Email Template</label>
+                        <select class="form-select" id="reminder_template_id" name="reminder_template_id">
+                            <option value="">— Use system default —</option>
+                            <?php foreach ($reminder_templates as $tmpl): ?>
+                                <option value="<?= $tmpl['id'] ?>"
+                                    <?= (isset($type['reminder_template_id']) && $type['reminder_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Default reminder template for this appointment type (overridden per rule below).</div>
+                    </div>
                 </div>
 
                 <!-- Per-appointment-type reminder rules -->
