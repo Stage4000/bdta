@@ -44,9 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
     $email_body_text = trim($_POST['email_body_text']);
     $delay_type = $_POST['delay_type'];
     $delay_value = trim($_POST['delay_value']);
-    $scheduled_date = $_POST['scheduled_date'] ?? null;
+    $scheduled_date = !empty($_POST['scheduled_date']) ? $_POST['scheduled_date'] : null;
     $attach_contract_id = !empty($_POST['attach_contract_id']) ? (int)$_POST['attach_contract_id'] : null;
     $attach_form_id = !empty($_POST['attach_form_id']) ? (int)$_POST['attach_form_id'] : null;
+    $attach_quote_id = !empty($_POST['attach_quote_id']) ? (int)$_POST['attach_quote_id'] : null;
+    $attach_invoice_id = !empty($_POST['attach_invoice_id']) ? (int)$_POST['attach_invoice_id'] : null;
     $include_appointment_link = isset($_POST['include_appointment_link']) ? 1 : 0;
     $appointment_type_id = !empty($_POST['appointment_type_id']) ? (int)$_POST['appointment_type_id'] : null;
     
@@ -70,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
                 SET step_name = ?, email_subject = ?, email_body_html = ?, email_body_text = ?,
                     delay_type = ?, delay_value = ?, scheduled_date = ?,
                     attach_contract_id = ?, attach_form_id = ?,
+                    attach_quote_id = ?, attach_invoice_id = ?,
                     include_appointment_link = ?, appointment_type_id = ?,
                     updated_at = ?
                 WHERE id = ?
@@ -78,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
                 $step_name, $email_subject, $email_body_html, $email_body_text,
                 $delay_type, $delay_value, $scheduled_date,
                 $attach_contract_id, $attach_form_id,
+                $attach_quote_id, $attach_invoice_id,
                 $include_appointment_link, $appointment_type_id,
                 date('Y-m-d H:i:s'), $step_id
             ]);
@@ -89,13 +93,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
                     workflow_id, step_order, step_name, email_subject, email_body_html, email_body_text,
                     delay_type, delay_value, scheduled_date,
                     attach_contract_id, attach_form_id,
+                    attach_quote_id, attach_invoice_id,
                     include_appointment_link, appointment_type_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $workflow_id, $step_order, $step_name, $email_subject, $email_body_html, $email_body_text,
                 $delay_type, $delay_value, $scheduled_date,
                 $attach_contract_id, $attach_form_id,
+                $attach_quote_id, $attach_invoice_id,
                 $include_appointment_link, $appointment_type_id
             ]);
             $_SESSION['success'] = 'Step created successfully';
@@ -110,6 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
 $contract_templates = $conn->query("SELECT id, name FROM contract_templates ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 $form_templates = $conn->query("SELECT id, name FROM form_templates ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 $appointment_types = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$email_templates = $conn->query("SELECT id, name, subject, body_html, body_text FROM email_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$quotes = $conn->query("SELECT q.id, q.quote_number, q.title, c.name as client_name FROM quotes q JOIN clients c ON q.client_id = c.id ORDER BY q.created_at DESC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
+$invoices = $conn->query("SELECT i.id, i.invoice_number, c.name as client_name, i.total_amount FROM invoices i JOIN clients c ON i.client_id = c.id ORDER BY i.issue_date DESC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
 
 include '../backend/includes/header.php';
 ?>
@@ -138,6 +147,34 @@ include '../backend/includes/header.php';
                     <?php endif; ?>
 
                     <form method="POST">
+                        <!-- Email Template Selector -->
+                        <?php if (!empty($email_templates)): ?>
+                        <div class="mb-4 p-3 bg-light rounded">
+                            <label for="email_template_id" class="form-label fw-semibold">
+                                <i class="fas fa-envelope-open-text me-1"></i>Load from Email Template
+                            </label>
+                            <div class="d-flex gap-2">
+                                <select class="form-select" id="email_template_id" name="email_template_id">
+                                    <option value="">— Select a template to load —</option>
+                                    <?php foreach ($email_templates as $tmpl): ?>
+                                        <option value="<?php echo $tmpl['id']; ?>"
+                                                data-subject="<?php echo htmlspecialchars($tmpl['subject']); ?>"
+                                                data-body-html="<?php echo htmlspecialchars($tmpl['body_html']); ?>"
+                                                data-body-text="<?php echo htmlspecialchars($tmpl['body_text'] ?? ''); ?>">
+                                            <?php echo htmlspecialchars($tmpl['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" id="load_template_btn">
+                                    <i class="fas fa-file-import"></i> Load
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">
+                                Loading a template will overwrite the current subject and email body.
+                            </small>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- Step Name -->
                         <div class="mb-3">
                             <label for="step_name" class="form-label">Step Name *</label>
@@ -220,7 +257,7 @@ include '../backend/includes/header.php';
                         <hr class="my-4">
 
                         <!-- Attachments Section -->
-                        <h5 class="mb-3">Attachments & Links</h5>
+                        <h5 class="mb-3">Attachments &amp; Links</h5>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -247,6 +284,36 @@ include '../backend/includes/header.php';
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="attach_quote_id" class="form-label">Attach Quote</label>
+                                <select class="form-select" id="attach_quote_id" name="attach_quote_id">
+                                    <option value="">None</option>
+                                    <?php foreach ($quotes as $quote): ?>
+                                        <option value="<?php echo $quote['id']; ?>"
+                                                <?php echo ($step['attach_quote_id'] ?? 0) == $quote['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($quote['quote_number'] . ' — ' . $quote['title'] . ' (' . $quote['client_name'] . ')'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <small class="form-text text-muted">Link an existing quote to this workflow step.</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="attach_invoice_id" class="form-label">Attach Invoice</label>
+                                <select class="form-select" id="attach_invoice_id" name="attach_invoice_id">
+                                    <option value="">None</option>
+                                    <?php foreach ($invoices as $invoice): ?>
+                                        <option value="<?php echo $invoice['id']; ?>"
+                                                <?php echo ($step['attach_invoice_id'] ?? 0) == $invoice['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($invoice['invoice_number'] . ' — ' . $invoice['client_name'] . ' ($' . number_format($invoice['total_amount'], 2) . ')'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <small class="form-text text-muted">Link an existing invoice to this workflow step.</small>
                             </div>
                         </div>
 
@@ -289,6 +356,22 @@ include '../backend/includes/header.php';
 </div>
 
 <script>
+// Load email template into form fields
+document.getElementById('load_template_btn')?.addEventListener('click', function() {
+    const select = document.getElementById('email_template_id');
+    const option = select.options[select.selectedIndex];
+    if (!option || !option.value) {
+        alert('Please select a template first.');
+        return;
+    }
+    if (!confirm('Load this template? The current subject and email body will be replaced.')) {
+        return;
+    }
+    document.getElementById('email_subject').value = option.dataset.subject || '';
+    document.getElementById('email_body_html').value = option.dataset.bodyHtml || '';
+    document.getElementById('email_body_text').value = option.dataset.bodyText || '';
+});
+
 // Show/hide delay fields based on delay type
 document.getElementById('delay_type')?.addEventListener('change', function() {
     const delayValue = document.getElementById('delay_value_group');
