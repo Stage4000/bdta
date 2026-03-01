@@ -172,7 +172,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                     <div class="mb-3">
                         <label for="composeBody" class="form-label">Message <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="composeBody" rows="10" required></textarea>
+                        <textarea id="composeBody" required></textarea>
                         <small class="form-text text-muted">HTML is supported</small>
                     </div>
                     <div id="composeFormAlert" class="alert d-none"></div>
@@ -603,7 +603,11 @@ function openComposeModal(prefillData) {
     document.getElementById('composeCC').value = (prefillData && prefillData.cc) ? prefillData.cc : '';
     document.getElementById('composeBCC').value = (prefillData && prefillData.bcc) ? prefillData.bcc : '';
     document.getElementById('composeSubject').value = (prefillData && prefillData.subject) ? prefillData.subject : '';
-    document.getElementById('composeBody').value = '';
+    if (window.composeEditor) {
+        window.composeEditor.setData('');
+    } else {
+        document.getElementById('composeBody').value = '';
+    }
     document.getElementById('composeFormAlert').className = 'alert d-none';
 
     const detailsModal = bootstrap.Modal.getInstance(document.getElementById('emailDetailsModal'));
@@ -627,7 +631,9 @@ async function sendComposedEmail() {
     const cc = document.getElementById('composeCC').value.trim();
     const bcc = document.getElementById('composeBCC').value.trim();
     const subject = document.getElementById('composeSubject').value.trim();
-    const bodyHtml = document.getElementById('composeBody').value.trim();
+    const bodyHtml = window.composeEditor
+        ? window.composeEditor.getData().trim()
+        : document.getElementById('composeBody').value.trim();
 
     if (!to || !subject || !bodyHtml) {
         showComposeAlert('To, Subject, and Message Body are required.', 'danger');
@@ -687,3 +693,78 @@ function escapeHtml(text) {
 </script>
 
 <?php include __DIR__ . '/../backend/includes/footer.php'; ?>
+
+<!-- CKEditor 5 Rich Text Editor (Self-Hosted, GPL License) -->
+<link rel="stylesheet" href="js/ckeditor5/ckeditor5.css" />
+<script type="module">
+import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Underline,
+    Paragraph,
+    Heading,
+    Link,
+    List,
+    Alignment,
+    SourceEditing,
+    GeneralHtmlSupport
+} from './js/ckeditor5/ckeditor5.js';
+
+// Initialize CKEditor 5 for compose email modal (email-optimized preset)
+// Lazy-initialize on first modal show so the element is visible
+const composeModal = document.getElementById('composeModal');
+let editorInitialized = false;
+
+composeModal.addEventListener('shown.bs.modal', function () {
+    if (editorInitialized) return;
+    editorInitialized = true;
+
+    ClassicEditor
+        .create(document.querySelector('#composeBody'), {
+            licenseKey: 'GPL',
+            plugins: [
+                Essentials, Bold, Italic, Underline,
+                Paragraph, Heading, Link, List,
+                Alignment, SourceEditing, GeneralHtmlSupport
+            ],
+            toolbar: [
+                'undo', 'redo', '|',
+                'heading', '|',
+                'bold', 'italic', 'underline', '|',
+                'link', '|',
+                'bulletedList', 'numberedList', '|',
+                'alignment', '|',
+                'sourceEditing'
+            ],
+            heading: {
+                options: [
+                    { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                    { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                    { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+                ]
+            },
+            htmlSupport: {
+                allow: [
+                    {
+                        name: /.*/,
+                        attributes: true,
+                        classes: true,
+                        styles: true
+                    }
+                ]
+            }
+        })
+        .then(editor => {
+            window.composeEditor = editor;
+            // Sync with textarea on change
+            editor.model.document.on('change:data', () => {
+                document.querySelector('#composeBody').value = editor.getData();
+            });
+        })
+        .catch(error => {
+            console.error('CKEditor initialization error (composeBody):', error);
+        });
+});
+</script>
