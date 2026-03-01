@@ -44,7 +44,7 @@ include '../backend/includes/header.php';
                     Notice / Announcement
                     <span class="text-muted fw-normal small">(shown in a highlighted box at the top)</span>
                 </label>
-                <textarea class="form-control font-monospace" id="notice_html" name="notice_html" rows="4"><?php echo htmlspecialchars($content['notice_html'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
+                <textarea id="notice_html" name="notice_html"><?php echo htmlspecialchars($content['notice_html'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                 <div class="form-text">Leave blank to hide. HTML supported.</div>
             </div>
 
@@ -52,7 +52,7 @@ include '../backend/includes/header.php';
                 <label for="content_html" class="form-label fw-semibold">
                     Main Content
                 </label>
-                <textarea class="form-control font-monospace" id="content_html" name="content_html" rows="12"><?php echo htmlspecialchars($content['content_html'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
+                <textarea id="content_html" name="content_html"><?php echo htmlspecialchars($content['content_html'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                 <div class="form-text">HTML supported. Leave blank to hide.</div>
             </div>
 
@@ -69,3 +69,90 @@ include '../backend/includes/header.php';
 </div>
 
 <?php include '../backend/includes/footer.php'; ?>
+
+<!-- CKEditor 5 Rich Text Editor (Self-Hosted, GPL License) -->
+<link rel="stylesheet" href="js/ckeditor5/ckeditor5.css" />
+<script type="module">
+import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Underline,
+    Strikethrough,
+    Paragraph,
+    Heading,
+    Link,
+    List,
+    Table,
+    TableToolbar,
+    Alignment,
+    SourceEditing,
+    GeneralHtmlSupport
+} from './js/ckeditor5/ckeditor5.js';
+
+const editorConfig = {
+    licenseKey: 'GPL',
+    plugins: [
+        Essentials, Bold, Italic, Underline, Strikethrough,
+        Paragraph, Heading, Link, List, Table, TableToolbar,
+        Alignment, SourceEditing, GeneralHtmlSupport
+    ],
+    toolbar: [
+        'undo', 'redo', '|',
+        'heading', '|',
+        'bold', 'italic', 'underline', 'strikethrough', '|',
+        'link', 'insertTable', '|',
+        'bulletedList', 'numberedList', '|',
+        'alignment', '|',
+        'sourceEditing'
+    ],
+    heading: {
+        options: [
+            { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+            { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+            { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+            { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+        ]
+    },
+    table: {
+        contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+    },
+    htmlSupport: {
+        allow: [
+            {
+                name: /.*/,
+                attributes: true,
+                classes: true,
+                styles: true
+            }
+        ]
+    }
+};
+
+// Initialize CKEditor 5 for Notice / Announcement field
+ClassicEditor
+    .create(document.querySelector('#notice_html'), editorConfig)
+    .then(editor => {
+        window.noticeEditor = editor;
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#notice_html').value = editor.getData();
+        });
+    })
+    .catch(error => {
+        console.error('CKEditor initialization error (notice_html):', error);
+    });
+
+// Initialize CKEditor 5 for Main Content field
+ClassicEditor
+    .create(document.querySelector('#content_html'), editorConfig)
+    .then(editor => {
+        window.contentEditor = editor;
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#content_html').value = editor.getData();
+        });
+    })
+    .catch(error => {
+        console.error('CKEditor initialization error (content_html):', error);
+    });
+</script>

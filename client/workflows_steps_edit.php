@@ -200,8 +200,8 @@ include '../backend/includes/header.php';
                         <!-- Email Body HTML -->
                         <div class="mb-3">
                             <label for="email_body_html" class="form-label">Email Body (HTML) *</label>
-                            <textarea class="form-control" id="email_body_html" name="email_body_html" 
-                                      rows="10" required><?php echo htmlspecialchars($step['email_body_html'] ?? ''); ?></textarea>
+                            <textarea id="email_body_html" name="email_body_html" 
+                                      required><?php echo htmlspecialchars($step['email_body_html'] ?? ''); ?></textarea>
                             <small class="form-text text-muted">
                                 HTML email content. Placeholders: {client_name}, {workflow_name}, {step_name}
                             </small>
@@ -368,7 +368,12 @@ document.getElementById('load_template_btn')?.addEventListener('click', function
         return;
     }
     document.getElementById('email_subject').value = option.dataset.subject || '';
-    document.getElementById('email_body_html').value = option.dataset.bodyHtml || '';
+    // Use CKEditor API if the editor is initialized, otherwise fall back to direct textarea
+    if (window.workflowEmailEditor) {
+        window.workflowEmailEditor.setData(option.dataset.bodyHtml || '');
+    } else {
+        document.getElementById('email_body_html').value = option.dataset.bodyHtml || '';
+    }
     document.getElementById('email_body_text').value = option.dataset.bodyText || '';
 });
 
@@ -399,3 +404,69 @@ document.getElementById('delay_type')?.dispatchEvent(new Event('change'));
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
+
+<!-- CKEditor 5 Rich Text Editor (Self-Hosted, GPL License) -->
+<link rel="stylesheet" href="js/ckeditor5/ckeditor5.css" />
+<script type="module">
+import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Underline,
+    Paragraph,
+    Heading,
+    Link,
+    List,
+    Alignment,
+    SourceEditing,
+    GeneralHtmlSupport
+} from './js/ckeditor5/ckeditor5.js';
+
+// Initialize CKEditor 5 for email HTML body (email-optimized preset)
+ClassicEditor
+    .create(document.querySelector('#email_body_html'), {
+        licenseKey: 'GPL',
+        plugins: [
+            Essentials, Bold, Italic, Underline,
+            Paragraph, Heading, Link, List,
+            Alignment, SourceEditing, GeneralHtmlSupport
+        ],
+        toolbar: [
+            'undo', 'redo', '|',
+            'heading', '|',
+            'bold', 'italic', 'underline', '|',
+            'link', '|',
+            'bulletedList', 'numberedList', '|',
+            'alignment', '|',
+            'sourceEditing'
+        ],
+        heading: {
+            options: [
+                { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+            ]
+        },
+        htmlSupport: {
+            allow: [
+                {
+                    name: /.*/,
+                    attributes: true,
+                    classes: true,
+                    styles: true
+                }
+            ]
+        }
+    })
+    .then(editor => {
+        window.workflowEmailEditor = editor;
+        // Sync with textarea on change
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#email_body_html').value = editor.getData();
+        });
+    })
+    .catch(error => {
+        console.error('CKEditor initialization error:', error);
+    });
+</script>
