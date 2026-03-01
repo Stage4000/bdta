@@ -32,12 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     try {
         if ($id) {
-            $stmt = $conn->prepare("UPDATE email_templates SET name = ?, template_type = ?, subject = ?, body_html = ?, body_text = ?, variables = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?");
-            $stmt->execute([$name, $template_type, $subject, $body_html, $body_text, $variables, $is_active, $id]);
+            $stmt = $conn->prepare("UPDATE email_templates SET name = ?, template_type = ?, subject = ?, body_html = ?, body_text = ?, variables = ?, is_active = ?, updated_at = ? WHERE id = ?");
+            $stmt->execute([$name, $template_type, $subject, $body_html, $body_text, $variables, $is_active, date('Y-m-d H:i:s'), $id]);
             $_SESSION['success'] = "Template updated successfully!";
         } else {
-            $stmt = $conn->prepare("INSERT INTO email_templates (name, template_type, subject, body_html, body_text, variables, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))");
-            $stmt->execute([$name, $template_type, $subject, $body_html, $body_text, $variables, $is_active]);
+            $stmt = $conn->prepare("INSERT INTO email_templates (name, template_type, subject, body_html, body_text, variables, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$name, $template_type, $subject, $body_html, $body_text, $variables, $is_active, date('Y-m-d H:i:s'), date('Y-m-d H:i:s')]);
             $_SESSION['success'] = "Template created successfully!";
         }
         
