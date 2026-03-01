@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
     $email_body_text = trim($_POST['email_body_text']);
     $delay_type = $_POST['delay_type'];
     $delay_value = trim($_POST['delay_value']);
-    $scheduled_date = $_POST['scheduled_date'] ?? null;
+    $scheduled_date = !empty($_POST['scheduled_date']) ? $_POST['scheduled_date'] : null;
     $attach_contract_id = !empty($_POST['attach_contract_id']) ? (int)$_POST['attach_contract_id'] : null;
     $attach_form_id = !empty($_POST['attach_form_id']) ? (int)$_POST['attach_form_id'] : null;
     $attach_quote_id = !empty($_POST['attach_quote_id']) ? (int)$_POST['attach_quote_id'] : null;
