@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/email_service.php';
 requireLogin();
 
 $db = new Database();
@@ -26,6 +27,29 @@ if ($installment_id) {
     if (!$installment || $installment['status'] === 'paid') {
         setFlashMessage('Installment not found or already paid!', 'danger');
         redirect('invoices_view.php?id=' . $id);
+    }
+}
+
+/**
+ * Send a payment receipt for a fully-paid invoice and record the audit timestamp.
+ */
+function sendFullInvoiceReceipt($conn, $invoice_id) {
+    $invoice_stmt = $conn->prepare(
+        "SELECT i.*, c.name as client_name, c.email as client_email
+         FROM invoices i JOIN clients c ON i.client_id = c.id WHERE i.id = ?"
+    );
+    $invoice_stmt->execute([$invoice_id]);
+    $full_invoice = $invoice_stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$full_invoice) return;
+
+    $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
+    $items_stmt->execute([$invoice_id]);
+    $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $email_service = new EmailService(null, $conn);
+    $result = $email_service->sendPaymentReceipt($full_invoice, null, $items);
+    if ($result['success']) {
+        $conn->prepare("UPDATE invoices SET receipt_sent_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$invoice_id]);
     }
 }
 
@@ -111,6 +135,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             WHERE id = ?
         ")->execute([$payment_method, $payment_date, $installment_id]);
 
+        // Reload installment to get fresh data for the receipt
+        $stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE id = ?");
+        $stmt->execute([$installment_id]);
+        $installment = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Fetch client info for receipt
+        $client_stmt = $conn->prepare("SELECT name as client_name, email as client_email FROM clients WHERE id = ?");
+        $client_stmt->execute([$invoice['client_id']]);
+        $client = $client_stmt->fetch(PDO::FETCH_ASSOC);
+        $invoice_for_receipt = array_merge($invoice, $client ?: []);
+
+        // Send installment receipt
+        $email_service = new EmailService(null, $conn);
+        $receipt_result = $email_service->sendPaymentReceipt($invoice_for_receipt, $installment);
+        if ($receipt_result['success']) {
+            $conn->prepare("UPDATE invoice_installments SET receipt_sent_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$installment_id]);
+        }
+
         // Check if all installments are now paid
         $unpaid = $conn->prepare("SELECT COUNT(*) FROM invoice_installments WHERE invoice_id = ? AND status = 'unpaid'");
         $unpaid->execute([$id]);
@@ -121,6 +163,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = ?
             ")->execute([$payment_method, $payment_date, $id]);
             applyPackageCredits($conn, $id, $invoice['client_id'], $_SESSION['admin_id']);
+
+            // Send final invoice receipt and update audit timestamp
+            sendFullInvoiceReceipt($conn, $id);
+
             setFlashMessage('Final installment paid! Invoice marked as paid and package credits applied.', 'success');
         } else {
             setFlashMessage('Installment #' . $installment['installment_number'] . ' recorded as paid.', 'success');
@@ -143,6 +189,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Auto-apply package credits
         applyPackageCredits($conn, $id, $invoice['client_id'], $_SESSION['admin_id']);
+
+        // Send payment receipt
+        sendFullInvoiceReceipt($conn, $id);
 
         setFlashMessage('Payment recorded successfully! Package credits applied.', 'success');
         redirect('invoices_view.php?id=' . $id);

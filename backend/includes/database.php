@@ -1164,11 +1164,22 @@ class Database {
             $this->execSQL("ALTER TABLE quotes ADD COLUMN last_reminder_sent TIMESTAMP");
         }
         
-        // Update invoices table to add reminder tracking
+        // Update invoices table to add reminder tracking and receipt audit trail
         $invoice_column_names = $this->getTableColumns('invoices');
         
         if (!in_array('last_reminder_sent', $invoice_column_names)) {
             $this->execSQL("ALTER TABLE invoices ADD COLUMN last_reminder_sent TIMESTAMP");
+        }
+
+        if (!in_array('receipt_sent_at', $invoice_column_names)) {
+            $this->execSQL("ALTER TABLE invoices ADD COLUMN receipt_sent_at TIMESTAMP");
+        }
+
+        // Update invoice_installments table to add receipt audit trail
+        $installment_column_names = $this->getTableColumns('invoice_installments');
+
+        if (!in_array('receipt_sent_at', $installment_column_names)) {
+            $this->execSQL("ALTER TABLE invoice_installments ADD COLUMN receipt_sent_at TIMESTAMP");
         }
         
         // Update clients table to add password and admin fields for client login

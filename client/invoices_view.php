@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/email_service.php';
 requireLogin();
 
 $db = new Database();
@@ -20,10 +21,28 @@ if (!$invoice) {
     redirect('invoices_list.php');
 }
 
-// Fetch invoice items
+// Fetch invoice items (used for the view and for sending receipts)
 $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
 $items_stmt->execute([$id]);
 $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Handle "Send Receipt" POST action
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
+    if ($invoice['status'] !== 'paid') {
+        setFlashMessage('Cannot send receipt: invoice is not fully paid.', 'danger');
+    } else {
+        $email_service = new EmailService(null, $conn);
+        $result = $email_service->sendPaymentReceipt($invoice, null, $items);
+
+        if ($result['success']) {
+            $conn->prepare("UPDATE invoices SET receipt_sent_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$id]);
+            setFlashMessage('Payment receipt sent to ' . escape($invoice['client_email']) . '.', 'success');
+        } else {
+            setFlashMessage('Failed to send receipt: ' . $result['message'], 'danger');
+        }
+    }
+    redirect('invoices_view.php?id=' . $id);
+}
 
 // Fetch installments
 $inst_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id = ? ORDER BY installment_number");
@@ -45,6 +64,16 @@ include '../backend/includes/header.php';
                                 <i class="fas fa-credit-card"></i> Record Payment
                             </a>
                         <?php endif; ?>
+                    <?php endif; ?>
+                    <?php if ($invoice['status'] === 'paid'): ?>
+                        <form method="POST" class="d-inline">
+                            <input type="hidden" name="send_receipt" value="1">
+                            <button type="submit" class="btn btn-outline-success"
+                                    title="<?= $invoice['receipt_sent_at'] ? 'Last sent: ' . escape($invoice['receipt_sent_at']) : 'No receipt sent yet' ?>">
+                                <i class="fas fa-receipt"></i>
+                                <?= $invoice['receipt_sent_at'] ? 'Resend Receipt' : 'Send Receipt' ?>
+                            </button>
+                        </form>
                     <?php endif; ?>
                     <a href="invoices_list.php" class="btn btn-secondary">Back to List</a>
                 </div>
@@ -155,6 +184,9 @@ include '../backend/includes/header.php';
                             <strong>Payment Received:</strong> $<?= number_format($invoice['total_amount'], 2) ?> via <?= escape(ucwords($invoice['payment_method'])) ?>
                             <?php if ($invoice['stripe_payment_intent_id']): ?>
                                 <br><small>Stripe Payment ID: <?= escape($invoice['stripe_payment_intent_id']) ?></small>
+                            <?php endif; ?>
+                            <?php if ($invoice['receipt_sent_at']): ?>
+                                <br><small><i class="fas fa-receipt"></i> Receipt sent: <?= escape($invoice['receipt_sent_at']) ?></small>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>

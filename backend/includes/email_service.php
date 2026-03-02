@@ -171,6 +171,158 @@ class EmailService {
     }
     
     /**
+     * Send a payment receipt email for a fully-paid invoice or a single installment.
+     *
+     * @param array      $invoice     Row from invoices (joined with client name/email)
+     * @param array|null $installment Row from invoice_installments, or null for full invoice
+     * @param array      $items       Rows from invoice_items (used for full-invoice receipts)
+     * @return array Result array with 'success' and 'message' keys
+     */
+    public function sendPaymentReceipt($invoice, $installment = null, $items = []) {
+        $to = $invoice['client_email'] ?? '';
+        if (empty($to)) {
+            return ['success' => false, 'message' => 'No client email address on file'];
+        }
+
+        $client_name    = $invoice['client_name'] ?? 'Valued Client';
+        $invoice_number = $invoice['invoice_number'] ?? '';
+        $business_name  = Settings::get('site_name', "Brook's Dog Training Academy");
+        $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
+
+        // CC the business on receipts for record-keeping
+        $cc = array_filter([$business_email]);
+
+        if ($installment) {
+            // Installment receipt
+            $amount        = number_format($installment['amount'], 2);
+            $payment_date  = !empty($installment['payment_date'])
+                ? date('F j, Y', strtotime($installment['payment_date']))
+                : date('F j, Y');
+            $payment_method = ucwords(str_replace('_', ' ', $installment['payment_method'] ?? ''));
+            $inst_number   = $installment['installment_number'];
+
+            $subject = "Payment Receipt — {$business_name} (Invoice {$invoice_number}, Installment #{$inst_number})";
+
+            $items_html = '';
+            $items_text = '';
+        } else {
+            // Full invoice receipt
+            $amount        = number_format($invoice['total_amount'], 2);
+            $payment_date  = !empty($invoice['payment_date'])
+                ? date('F j, Y', strtotime($invoice['payment_date']))
+                : date('F j, Y');
+            $payment_method = ucwords(str_replace('_', ' ', $invoice['payment_method'] ?? ''));
+            $inst_number   = null;
+
+            $subject = "Payment Receipt — {$business_name} (Invoice {$invoice_number})";
+
+            // Build line-item HTML for full invoice
+            $items_html = '';
+            $items_text = '';
+            foreach ($items as $item) {
+                $desc   = htmlspecialchars($item['description'] ?? '');
+                $qty    = number_format($item['quantity'], 2);
+                $rate   = number_format($item['rate'], 2);
+                $lamt   = number_format($item['amount'], 2);
+                $items_html .= "<tr><td>{$desc}</td><td style='text-align:right'>{$qty}</td>"
+                    . "<td style='text-align:right'>\${$rate}</td>"
+                    . "<td style='text-align:right'>\${$lamt}</td></tr>";
+                $items_text .= "  {$desc} — Qty: {$qty}  Rate: \${$rate}  Amount: \${$lamt}\n";
+            }
+        }
+
+        // Try a custom DB template first
+        $db_template = $this->getTemplateForTask('payment_receipt');
+        if ($db_template) {
+            $variables = [
+                'client_name'      => $client_name,
+                'client_email'     => $to,
+                'invoice_number'   => $invoice_number,
+                'amount'           => $amount,
+                'payment_date'     => $payment_date,
+                'payment_method'   => $payment_method,
+                'installment_number' => $inst_number ?? '',
+                'business_name'    => $business_name,
+                'business_email'   => $business_email,
+            ];
+            $rendered  = $this->renderTemplate($db_template, $variables);
+            $html_body = $rendered['body_html'];
+            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $subject   = $rendered['subject'] ?: $subject;
+        } else {
+            // Built-in receipt template
+            $inst_label = $inst_number ? " — Installment #{$inst_number}" : '';
+
+            $items_section_html = '';
+            if (!$installment && !empty($items_html)) {
+                $items_section_html = <<<HTML
+<h3 style="margin:20px 0 10px">Services</h3>
+<table width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse">
+  <thead>
+    <tr style="background:#f0f4f8">
+      <th style="text-align:left">Description</th>
+      <th style="text-align:right">Qty</th>
+      <th style="text-align:right">Rate</th>
+      <th style="text-align:right">Amount</th>
+    </tr>
+  </thead>
+  <tbody>{$items_html}</tbody>
+</table>
+HTML;
+            }
+
+            $html_body = <<<HTML
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;color:#333;line-height:1.6">
+<div style="max-width:600px;margin:0 auto;padding:20px">
+  <div style="background:#10b981;color:white;padding:20px;text-align:center;border-radius:8px 8px 0 0">
+    <h1 style="margin:0">&#10003; Payment Receipt</h1>
+  </div>
+  <div style="background:#f8f9fa;padding:30px;border-radius:0 0 8px 8px">
+    <p>Dear {$client_name},</p>
+    <p>Thank you! We have received your payment. Please keep this receipt for your records.</p>
+    <div style="background:white;padding:20px;margin:20px 0;border-radius:8px;border-left:4px solid #10b981">
+      <h2 style="margin-top:0">Receipt Details{$inst_label}</h2>
+      <p><strong>Invoice Number:</strong> {$invoice_number}</p>
+      <p><strong>Date Paid:</strong> {$payment_date}</p>
+      <p><strong>Amount Paid:</strong> <span style="font-size:20px;font-weight:bold;color:#10b981">\${$amount}</span></p>
+      <p><strong>Payment Method:</strong> {$payment_method}</p>
+    </div>
+    {$items_section_html}
+    <p>If you have any questions about this receipt, please contact us at
+       <a href="mailto:{$business_email}">{$business_email}</a>.</p>
+    <p>Thank you for choosing {$business_name}!</p>
+  </div>
+</div>
+</body>
+</html>
+HTML;
+
+            $items_section_text = '';
+            if (!$installment && !empty($items_text)) {
+                $items_section_text = "\nSERVICES\n--------\n{$items_text}";
+            }
+
+            $text_body = "PAYMENT RECEIPT — {$business_name}\n\n"
+                . "Dear {$client_name},\n\n"
+                . "Thank you! We have received your payment.\n\n"
+                . "RECEIPT DETAILS{$inst_label}\n"
+                . str_repeat('-', 30) . "\n"
+                . "Invoice Number : {$invoice_number}\n"
+                . "Date Paid      : {$payment_date}\n"
+                . "Amount Paid    : \${$amount}\n"
+                . "Payment Method : {$payment_method}\n"
+                . $items_section_text . "\n\n"
+                . "Questions? Contact us at {$business_email}\n\n"
+                . "Thank you for choosing {$business_name}!";
+        }
+
+        return $this->sendEmail($to, $subject, $html_body, $text_body, $cc);
+    }
+
+    /**
      * Send a generic email
      * @param string $to Recipient email address
      * @param string $subject Email subject
