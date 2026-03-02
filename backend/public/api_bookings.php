@@ -460,11 +460,30 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         $email_service = new EmailService(null, $conn);
         $email_result = $email_service->sendBookingConfirmation($booking);
         
-        // Try to add to Google Calendar (if configured)
-        $google_calendar = new GoogleCalendarIntegration();
+        // Try to add to Google Calendar
+        // Priority: OAuth tokens (per admin user) → service account (legacy)
         $google_result = ['success' => false, 'message' => 'Google Calendar integration not configured'];
-        if ($google_calendar->isConfigured()) {
-            $google_result = $google_calendar->addEvent($booking);
+
+        // Attempt OAuth sync: use the first admin user that has a valid OAuth token
+        if (GoogleCalendarIntegration::isOAuthConfigured()) {
+            $stmt_admins = $conn->query("SELECT id FROM admin_users ORDER BY id");
+            while ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
+                $oauth_token = GoogleCalendarIntegration::getOAuthToken((int)$admin_row['id']);
+                if ($oauth_token) {
+                    $google_result = GoogleCalendarIntegration::addEventOAuth($booking, (int)$admin_row['id']);
+                    if ($google_result['success']) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Fall back to service account if OAuth did not succeed
+        if (!$google_result['success']) {
+            $google_calendar = new GoogleCalendarIntegration();
+            if ($google_calendar->isConfigured()) {
+                $google_result = $google_calendar->addEvent($booking);
+            }
         }
         
         echo json_encode([

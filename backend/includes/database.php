@@ -969,8 +969,11 @@ class Database {
             
             // Calendar Integration
             ['google_calendar_enabled', '0', 'checkbox', 'calendar', 'Enable Google Calendar Sync', 'Sync bookings to Google Calendar', 0],
-            ['google_calendar_id', 'primary', 'text', 'calendar', 'Google Calendar ID', 'Google Calendar ID to sync to', 0],
-            ['google_calendar_credentials_file', '', 'text', 'calendar', 'Credentials File Path', 'Path to Google Calendar credentials JSON file', 0],
+            ['google_calendar_id', 'primary', 'text', 'calendar', 'Google Calendar ID', 'Google Calendar ID to sync to (service account method)', 0],
+            ['google_calendar_credentials_file', '', 'text', 'calendar', 'Credentials File Path', 'Path to Google Calendar credentials JSON file (service account method)', 0],
+            ['google_oauth_client_id', '', 'text', 'calendar', 'OAuth Client ID', 'Google OAuth 2.0 Client ID (from Google Cloud Console)', 0],
+            ['google_oauth_client_secret', '', 'password', 'calendar', 'OAuth Client Secret', 'Google OAuth 2.0 Client Secret (from Google Cloud Console)', 1],
+            ['google_oauth_redirect_uri', '', 'text', 'calendar', 'OAuth Redirect URI', 'OAuth callback URL (e.g. https://yourdomain.com/backend/public/google_oauth_callback.php)', 0],
             
             // Invoice Settings
             ['invoice_prefix', 'INV-', 'text', 'invoice', 'Invoice Number Prefix', 'Prefix for invoice numbers', 0],
@@ -1651,6 +1654,26 @@ class Database {
 
         // Add database settings for existing installations
         $this->addDatabaseSettings();
+
+        // Create Google OAuth tokens table for per-user OAuth calendar integration
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS google_oauth_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                admin_user_id INTEGER NOT NULL,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                token_type TEXT DEFAULT 'Bearer',
+                expires_at TIMESTAMP,
+                calendar_id TEXT DEFAULT 'primary',
+                google_email TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (admin_user_id) REFERENCES admin_users(id) ON DELETE CASCADE
+            )
+        ");
+
+        // Add Google OAuth settings for existing installations
+        $this->addGoogleOAuthSettings();
     }
     
     private function addEmailTemplateDefaultSettings() {
@@ -1716,6 +1739,30 @@ class Database {
                     $stmt->execute($setting);
                 } catch (PDOException $e) {
                     // Setting might already exist, ignore
+                }
+            }
+        }
+    }
+    private function addGoogleOAuthSettings() {
+        $oauth_settings = [
+            ['google_oauth_client_id', '', 'text', 'calendar', 'OAuth Client ID', 'Google OAuth 2.0 Client ID (from Google Cloud Console)', 0],
+            ['google_oauth_client_secret', '', 'password', 'calendar', 'OAuth Client Secret', 'Google OAuth 2.0 Client Secret (from Google Cloud Console)', 1],
+            ['google_oauth_redirect_uri', '', 'text', 'calendar', 'OAuth Redirect URI', 'OAuth callback URL (e.g. https://yourdomain.com/backend/public/google_oauth_callback.php)', 0],
+        ];
+
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $insert = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($oauth_settings as $setting) {
+            $check->execute([$setting[0]]);
+            if ($check->fetchColumn() == 0) {
+                try {
+                    $insert->execute($setting);
+                } catch (PDOException $e) {
+                    // Already exists, ignore
                 }
             }
         }

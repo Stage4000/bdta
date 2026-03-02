@@ -189,6 +189,19 @@ function updateEnvFile($updates) {
 // Get settings for current category
 $settings = Settings::getCategory($current_category);
 
+// For calendar category: load OAuth connection status and generate CSRF token
+$oauth_token_row  = null;
+$oauth_configured = false;
+if ($current_category === 'calendar') {
+    require_once __DIR__ . '/../backend/includes/google_calendar.php';
+    $oauth_configured = GoogleCalendarIntegration::isOAuthConfigured();
+    $oauth_token_row  = GoogleCalendarIntegration::getOAuthToken((int)$_SESSION['admin_id']);
+    // Generate a CSRF token for the disconnect form
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
+    }
+}
+
 include __DIR__ . '/../backend/includes/header.php';
 ?>
 
@@ -359,6 +372,96 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <a href="<?= ADMIN_URL ?>../backend/MYSQL_MIGRATION.md" target="_blank" class="btn btn-outline-secondary">
                                     <i class="fas fa-book"></i> Migration Guide
                                 </a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($current_category === 'calendar'): ?>
+                        <!-- Google Calendar OAuth Connection -->
+                        <hr class="my-4">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fab fa-google"></i> Google Calendar – OAuth Connection
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <?php if ($oauth_token_row): ?>
+                                    <!-- Connected state -->
+                                    <div class="alert alert-success mb-3">
+                                        <i class="fas fa-circle-check"></i>
+                                        <strong>Connected</strong>
+                                        <?php if (!empty($oauth_token_row['google_email'])): ?>
+                                            as <strong><?= escape($oauth_token_row['google_email']) ?></strong>
+                                        <?php endif; ?>
+                                        <br>
+                                        <small class="text-muted">
+                                            Syncing to calendar:
+                                            <strong><?= escape($oauth_token_row['calendar_id'] ?? 'primary') ?></strong>
+                                            &mdash; connected <?= escape(date('M j, Y', strtotime($oauth_token_row['created_at']))) ?>
+                                        </small>
+                                    </div>
+
+                                    <!-- Calendar selector -->
+                                    <?php
+                                    $user_calendars = GoogleCalendarIntegration::listCalendars((int)$_SESSION['admin_id']);
+                                    if (!empty($user_calendars)):
+                                    ?>
+                                    <form method="POST" action="google_oauth_select_calendar.php" class="mb-3">
+                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                        <label class="form-label fw-semibold">
+                                            <i class="fas fa-calendar-days"></i> Choose Booking Calendar
+                                        </label>
+                                        <div class="input-group">
+                                            <select name="calendar_id" class="form-select">
+                                                <?php foreach ($user_calendars as $cal): ?>
+                                                    <option value="<?= escape($cal['id']) ?>"
+                                                        <?= ($oauth_token_row['calendar_id'] === $cal['id']) ? 'selected' : '' ?>>
+                                                        <?= escape($cal['summary']) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <button type="submit" class="btn btn-outline-primary">
+                                                <i class="fas fa-check"></i> Save
+                                            </button>
+                                        </div>
+                                        <div class="form-text">New bookings will be added to the selected calendar.</div>
+                                    </form>
+                                    <?php endif; ?>
+
+                                    <!-- Disconnect button -->
+                                    <form method="POST" action="../backend/public/google_oauth_revoke.php"
+                                          onsubmit="return confirm('Disconnect Google Calendar? Existing events will not be removed.');">
+                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                        <button type="submit" class="btn btn-outline-danger">
+                                            <i class="fas fa-link-slash"></i> Disconnect Google Calendar
+                                        </button>
+                                    </form>
+
+                                <?php elseif ($oauth_configured): ?>
+                                    <!-- Not connected, but credentials are saved -->
+                                    <p class="card-text">
+                                        Your OAuth credentials are saved. Click below to authorise access to your Google Calendar.
+                                        New bookings will automatically appear in your connected calendar.
+                                    </p>
+                                    <a href="../backend/public/google_oauth_initiate.php" class="btn btn-primary">
+                                        <i class="fab fa-google"></i> Connect Google Calendar
+                                    </a>
+
+                                <?php else: ?>
+                                    <!-- Credentials not yet configured -->
+                                    <p class="card-text">
+                                        To enable per-user Google Calendar sync, enter your
+                                        <strong>OAuth Client ID</strong>, <strong>Client Secret</strong>, and
+                                        <strong>Redirect URI</strong> in the settings form above, then click
+                                        <em>Save Settings</em> and return here to connect.
+                                    </p>
+                                    <p class="card-text small text-muted">
+                                        Need help? See the
+                                        <a href="../backend/CALENDAR_INTEGRATION.md" target="_blank">Calendar Integration Guide</a>
+                                        for step-by-step OAuth setup instructions.
+                                    </p>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php endif; ?>

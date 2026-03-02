@@ -5,7 +5,8 @@ Complete guide for setting up calendar integration for the booking system.
 ## Features
 
 ✅ **Email Confirmations** - Automatic booking confirmation emails with calendar links  
-✅ **Google Calendar Integration** - Optional sync to your Google Calendar  
+✅ **Google Calendar Integration (OAuth)** - Per-user OAuth 2.0 calendar sync (recommended)  
+✅ **Google Calendar Integration (Service Account)** - Legacy shared-calendar sync  
 ✅ **iCalendar Export** - Download .ics files for any calendar app  
 ✅ **Calendar Links** - One-click "Add to Calendar" buttons  
 
@@ -34,20 +35,80 @@ The .ics file works with:
 - ✅ Yahoo Calendar
 - ✅ Any calendar app supporting iCalendar format
 
-## Google Calendar Integration (Optional)
+---
 
-Automatically sync bookings to your Google Calendar in real-time.
+## Google Calendar OAuth Integration (Recommended)
+
+The OAuth 2.0 method lets each admin user connect their **personal or business Google Calendar**
+directly from the admin panel.  No file uploads or calendar sharing required.
+
+### How it works
+
+1. Admin enters OAuth credentials in **Settings → Calendar**.
+2. Admin clicks **Connect Google Calendar** — Google's consent page opens.
+3. After granting access, tokens are stored securely in the database.
+4. Admin selects which calendar to sync bookings to.
+5. All new bookings are automatically added to that calendar.
+6. Admin can disconnect at any time (tokens are revoked and deleted).
 
 ### Step 1: Create Google Cloud Project
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project: "BDTA Booking System"
+2. Create a new project (e.g., "BDTA Booking System")
 3. Enable **Google Calendar API**:
    - Navigate to "APIs & Services" → "Library"
    - Search for "Google Calendar API"
    - Click "Enable"
 
-### Step 2: Create Service Account
+### Step 2: Create OAuth 2.0 Credentials
+
+1. Go to "APIs & Services" → "Credentials"
+2. Click "Create Credentials" → **"OAuth client ID"**
+3. Choose **Application type: Web application**
+4. Fill in details:
+   - Name: `BDTA Calendar OAuth`
+   - Authorised redirect URIs: `https://yourdomain.com/backend/public/google_oauth_callback.php`
+5. Click "Create" and note the **Client ID** and **Client Secret**
+
+> ⚠️ If prompted, configure the **OAuth consent screen** first:
+> - User type: **External** (or Internal for Google Workspace)
+> - Scopes: `../auth/calendar` and `openid`, `email`
+> - Add your domain to authorised domains
+
+### Step 3: Configure in Admin Panel
+
+1. Go to **Admin Panel → Settings → Calendar**
+2. Fill in:
+   - **OAuth Client ID** – paste the Client ID from step 2
+   - **OAuth Client Secret** – paste the Client Secret from step 2
+   - **OAuth Redirect URI** – must match exactly what you entered in Google Cloud Console
+3. Click **Save Settings**
+
+### Step 4: Connect Your Google Calendar
+
+1. Still in **Settings → Calendar**, scroll to the **Google Calendar – OAuth Connection** panel
+2. Click **Connect Google Calendar**
+3. Sign in with your Google account and grant Calendar access
+4. You are redirected back – a success message confirms the connection
+5. Use the **Choose Booking Calendar** dropdown to select which calendar receives new bookings
+
+### Step 5: Test
+
+Create a test booking and verify the event appears in your Google Calendar.
+
+### Disconnecting
+
+Click **Disconnect Google Calendar** in **Settings → Calendar**.  
+The stored tokens are immediately revoked with Google and removed from the database.
+
+---
+
+## Google Calendar Integration (Service Account – Legacy)
+
+Automatically sync bookings to a **shared** Google Calendar using a service account.
+This method is kept for backwards compatibility.
+
+### Step 1: Create Google Cloud Project
 
 1. Go to "APIs & Services" → "Credentials"
 2. Click "Create Credentials" → "Service Account"
@@ -234,8 +295,11 @@ Update `/backend/includes/email_service.php` to use your chosen service.
 ⚠️ **Important:**
 - Never commit `google-calendar-credentials.json` to git (already in .gitignore)
 - Keep service account credentials secure
+- **OAuth tokens are stored in the database** – keep your database secure and backed up
+- **OAuth Client Secret** is stored as a masked/secret setting in the admin panel
+- Users can revoke their OAuth tokens at any time via the admin panel
+- Always use HTTPS in production so tokens are never transmitted in plaintext
 - Use environment variables for sensitive data in production
-- Enable HTTPS for all calendar links in production
 
 ## Testing
 
