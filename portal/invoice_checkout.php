@@ -1,0 +1,95 @@
+<?php
+/**
+ * Create a Stripe Checkout Session for an invoice and redirect to Stripe.
+ * Requires the client to be logged in to the portal.
+ */
+require_once '../portal/includes/config.php';
+requirePortalLogin();
+
+$client_id = intval($_SESSION['portal_client_id']);
+$db   = new Database();
+$conn = $db->getConnection();
+
+$id = intval($_GET['id'] ?? 0);
+if ($id <= 0) {
+    redirect(PORTAL_URL . 'invoices.php');
+}
+
+// Fetch invoice — client ownership enforced
+$stmt = $conn->prepare("
+    SELECT i.*, c.name as client_name, c.email as client_email
+    FROM invoices i
+    JOIN clients c ON i.client_id = c.id
+    WHERE i.id = ? AND i.client_id = ?
+");
+$stmt->execute([$id, $client_id]);
+$invoice = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$invoice || $invoice['status'] === 'paid') {
+    redirect(PORTAL_URL . 'invoice_view.php?id=' . $id);
+}
+
+require_once '../backend/includes/stripe_config.php';
+
+if (!isStripeEnabled()) {
+    setFlashMessage('Online payments are not currently available. Please contact us to arrange payment.', 'warning');
+    redirect(PORTAL_URL . 'invoice_view.php?id=' . $id);
+}
+
+$base_url   = getDynamicBaseUrl();
+$amount_cents = (int) round($invoice['total_amount'] * 100, 0);
+$currency   = STRIPE_CURRENCY;
+$secret_key = STRIPE_SECRET_KEY;
+
+// Build the success / cancel URLs
+$success_url = $base_url . '/portal/invoice_pay_return.php?id=' . $id . '&session_id={CHECKOUT_SESSION_ID}';
+$cancel_url  = $base_url . '/portal/invoice_view.php?id=' . $id;
+
+// Create a Stripe Checkout Session via the Stripe API (no SDK needed)
+$post_data = http_build_query([
+    'mode'                          => 'payment',
+    'success_url'                   => $success_url,
+    'cancel_url'                    => $cancel_url,
+    'customer_email'                => $invoice['client_email'],
+    'line_items[0][quantity]'       => 1,
+    'line_items[0][price_data][currency]'                 => $currency,
+    'line_items[0][price_data][unit_amount]'              => $amount_cents,
+    'line_items[0][price_data][product_data][name]'       => 'Invoice ' . $invoice['invoice_number'],
+    'line_items[0][price_data][product_data][description]'=> 'Payment for invoice ' . $invoice['invoice_number'],
+    'metadata[invoice_id]'          => $id,
+    'metadata[client_id]'           => $client_id,
+    'payment_intent_data[metadata][invoice_id]' => $id,
+    'payment_intent_data[description]'          => 'Invoice ' . $invoice['invoice_number'] . ' — ' . $invoice['client_name'],
+]);
+
+$ch = curl_init('https://api.stripe.com/v1/checkout/sessions');
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_POST           => true,
+    CURLOPT_POSTFIELDS     => $post_data,
+    CURLOPT_USERPWD        => $secret_key . ':',
+    CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
+]);
+$response = curl_exec($ch);
+if ($response === false) {
+    $curl_error = curl_error($ch);
+    curl_close($ch);
+    error_log("Stripe API request failed (curl): $curl_error");
+    setFlashMessage('Could not initiate online payment. Please try again or contact us.', 'danger');
+    redirect(PORTAL_URL . 'invoice_view.php?id=' . $id);
+}
+$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+$session = json_decode($response, true);
+
+if ($http_code !== 200 || empty($session['url'])) {
+    $error = $session['error']['message'] ?? 'Unknown error';
+    error_log("Stripe Checkout Session creation failed: $error (HTTP $http_code)");
+    setFlashMessage('Could not initiate online payment. Please try again or contact us.', 'danger');
+    redirect(PORTAL_URL . 'invoice_view.php?id=' . $id);
+}
+
+// Redirect to Stripe-hosted checkout page
+header('Location: ' . $session['url']);
+exit;

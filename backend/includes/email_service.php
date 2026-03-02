@@ -337,6 +337,7 @@ HTML;
 
         $client_name    = $invoice['client_name'] ?? 'Valued Client';
         $invoice_number = $invoice['invoice_number'] ?? '';
+        $invoice_id     = $invoice['id'] ?? 0;
         $business_name  = Settings::get('site_name', "Brook's Dog Training Academy");
         $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
         $total_amount   = number_format($invoice['total_amount'], 2);
@@ -348,6 +349,37 @@ HTML;
             : '';
 
         $subject = "Invoice {$invoice_number} — {$business_name}";
+
+        // Build portal link for viewing / paying the invoice
+        $portal_invoice_url = $this->base_url . '/portal/invoice_view.php?id=' . $invoice_id;
+
+        // Build "Pay Now" button section if Stripe is enabled and invoice is unpaid
+        require_once __DIR__ . '/stripe_config.php';
+        $pay_now_html = '';
+        $pay_now_text = '';
+        if (isStripeEnabled() && ($invoice['status'] ?? '') !== 'paid') {
+            $pay_url = $this->base_url . '/portal/invoice_checkout.php?id=' . $invoice_id;
+            $pay_now_html = <<<HTML
+    <div style="text-align:center;margin:24px 0">
+      <a href="{$pay_url}"
+         style="display:inline-block;padding:14px 32px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px">
+        &#128179; Pay Now with Credit Card
+      </a>
+    </div>
+HTML;
+            $pay_now_text = "\nPAY ONLINE\n----------\nPay securely with a credit card: {$pay_url}\n";
+        }
+
+        // Portal view link section
+        $view_invoice_html = <<<HTML
+    <div style="text-align:center;margin:16px 0">
+      <a href="{$portal_invoice_url}"
+         style="display:inline-block;padding:10px 24px;background:#2563eb;color:white;text-decoration:none;border-radius:6px;font-weight:bold">
+        &#128196; View Invoice Online
+      </a>
+    </div>
+HTML;
+        $view_invoice_text = "\nVIEW INVOICE ONLINE\n-------------------\n{$portal_invoice_url}\n";
 
         // Build line-item HTML and text
         $items_html = '';
@@ -401,6 +433,8 @@ HTML;
       <p><strong>Amount Due:</strong> <span style="font-size:20px;font-weight:bold;color:#2563eb">\${$total_amount}</span></p>
     </div>
     {$items_section_html}
+    {$pay_now_html}
+    {$view_invoice_html}
     <p>If you have any questions about this invoice, please contact us at
        <a href="mailto:{$business_email}">{$business_email}</a>.</p>
     <p>Thank you for choosing {$business_name}!</p>
@@ -421,7 +455,9 @@ HTML;
             . "Issue Date     : {$issue_date}\n"
             . "Due Date       : {$due_date}\n"
             . "Amount Due     : \${$total_amount}\n"
-            . $items_section_text . "\n\n"
+            . $items_section_text
+            . $pay_now_text
+            . $view_invoice_text . "\n"
             . "Questions? Contact us at {$business_email}\n\n"
             . "Thank you for choosing {$business_name}!";
 
