@@ -1175,6 +1175,10 @@ class Database {
             $this->execSQL("ALTER TABLE invoices ADD COLUMN receipt_sent_at TIMESTAMP");
         }
 
+        if (!in_array('invoice_sent_at', $invoice_column_names)) {
+            $this->execSQL("ALTER TABLE invoices ADD COLUMN invoice_sent_at TIMESTAMP");
+        }
+
         // Update invoice_installments table to add receipt audit trail
         $installment_column_names = $this->getTableColumns('invoice_installments');
 

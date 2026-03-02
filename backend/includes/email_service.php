@@ -323,6 +323,112 @@ HTML;
     }
 
     /**
+     * Send an invoice email to the client (before payment).
+     *
+     * @param array $invoice Row from invoices (joined with client name/email)
+     * @param array $items   Rows from invoice_items
+     * @return array Result array with 'success' and 'message' keys
+     */
+    public function sendInvoiceEmail($invoice, $items = []) {
+        $to = $invoice['client_email'] ?? '';
+        if (empty($to)) {
+            return ['success' => false, 'message' => 'No client email address on file'];
+        }
+
+        $client_name    = $invoice['client_name'] ?? 'Valued Client';
+        $invoice_number = $invoice['invoice_number'] ?? '';
+        $business_name  = Settings::get('site_name', "Brook's Dog Training Academy");
+        $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
+        $total_amount   = number_format($invoice['total_amount'], 2);
+        $due_date       = !empty($invoice['due_date'])
+            ? date('F j, Y', strtotime($invoice['due_date']))
+            : '';
+        $issue_date     = !empty($invoice['issue_date'])
+            ? date('F j, Y', strtotime($invoice['issue_date']))
+            : '';
+
+        $subject = "Invoice {$invoice_number} — {$business_name}";
+
+        // Build line-item HTML and text
+        $items_html = '';
+        $items_text = '';
+        foreach ($items as $item) {
+            $desc  = htmlspecialchars($item['description'] ?? '');
+            $qty   = number_format($item['quantity'], 2);
+            $rate  = number_format($item['rate'], 2);
+            $lamt  = number_format($item['amount'], 2);
+            $items_html .= "<tr><td>{$desc}</td><td style='text-align:right'>{$qty}</td>"
+                . "<td style='text-align:right'>\${$rate}</td>"
+                . "<td style='text-align:right'>\${$lamt}</td></tr>";
+            $items_text .= "  {$desc} — Qty: {$qty}  Rate: \${$rate}  Amount: \${$lamt}\n";
+        }
+
+        $items_section_html = '';
+        if (!empty($items_html)) {
+            $items_section_html = <<<HTML
+<h3 style="margin:20px 0 10px">Services</h3>
+<table width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse">
+  <thead>
+    <tr style="background:#f0f4f8">
+      <th style="text-align:left">Description</th>
+      <th style="text-align:right">Qty</th>
+      <th style="text-align:right">Rate</th>
+      <th style="text-align:right">Amount</th>
+    </tr>
+  </thead>
+  <tbody>{$items_html}</tbody>
+</table>
+HTML;
+        }
+
+        $html_body = <<<HTML
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;color:#333;line-height:1.6">
+<div style="max-width:600px;margin:0 auto;padding:20px">
+  <div style="background:#2563eb;color:white;padding:20px;text-align:center;border-radius:8px 8px 0 0">
+    <h1 style="margin:0">&#128196; Invoice</h1>
+  </div>
+  <div style="background:#f8f9fa;padding:30px;border-radius:0 0 8px 8px">
+    <p>Dear {$client_name},</p>
+    <p>Please find your invoice from {$business_name} below. Payment is due by the date shown.</p>
+    <div style="background:white;padding:20px;margin:20px 0;border-radius:8px;border-left:4px solid #2563eb">
+      <h2 style="margin-top:0">Invoice Details</h2>
+      <p><strong>Invoice Number:</strong> {$invoice_number}</p>
+      <p><strong>Issue Date:</strong> {$issue_date}</p>
+      <p><strong>Due Date:</strong> {$due_date}</p>
+      <p><strong>Amount Due:</strong> <span style="font-size:20px;font-weight:bold;color:#2563eb">\${$total_amount}</span></p>
+    </div>
+    {$items_section_html}
+    <p>If you have any questions about this invoice, please contact us at
+       <a href="mailto:{$business_email}">{$business_email}</a>.</p>
+    <p>Thank you for choosing {$business_name}!</p>
+  </div>
+</div>
+</body>
+</html>
+HTML;
+
+        $items_section_text = !empty($items_text) ? "\nSERVICES\n--------\n{$items_text}" : '';
+
+        $text_body = "INVOICE — {$business_name}\n\n"
+            . "Dear {$client_name},\n\n"
+            . "Please find your invoice details below.\n\n"
+            . "INVOICE DETAILS\n"
+            . str_repeat('-', 30) . "\n"
+            . "Invoice Number : {$invoice_number}\n"
+            . "Issue Date     : {$issue_date}\n"
+            . "Due Date       : {$due_date}\n"
+            . "Amount Due     : \${$total_amount}\n"
+            . $items_section_text . "\n\n"
+            . "Questions? Contact us at {$business_email}\n\n"
+            . "Thank you for choosing {$business_name}!";
+
+        return $this->sendEmail($to, $subject, $html_body, $text_body);
+    }
+
+    /**
      * Send a generic email
      * @param string $to Recipient email address
      * @param string $subject Email subject
