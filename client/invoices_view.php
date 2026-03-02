@@ -49,6 +49,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice'])) {
     if ($invoice['status'] === 'paid') {
         setFlashMessage('Invoice is already paid. Use "Send Receipt" instead.', 'warning');
     } else {
+        // Ensure a secure payment token exists for the guest pay link
+        if (empty($invoice['pay_token'])) {
+            $invoice['pay_token'] = bin2hex(random_bytes(32));
+            $conn->prepare("UPDATE invoices SET pay_token = ? WHERE id = ?")->execute([$invoice['pay_token'], $id]);
+        }
+
         $email_service = new EmailService(null, $conn);
         $result = $email_service->sendInvoiceEmail($invoice, $items);
 

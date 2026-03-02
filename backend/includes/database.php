@@ -1179,6 +1179,10 @@ class Database {
             $this->execSQL("ALTER TABLE invoices ADD COLUMN invoice_sent_at TIMESTAMP");
         }
 
+        if (!in_array('pay_token', $invoice_column_names)) {
+            $this->execSQL("ALTER TABLE invoices ADD COLUMN pay_token TEXT UNIQUE");
+        }
+
         // Update invoice_installments table to add receipt audit trail
         $installment_column_names = $this->getTableColumns('invoice_installments');
 

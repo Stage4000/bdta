@@ -350,15 +350,18 @@ HTML;
 
         $subject = "Invoice {$invoice_number} — {$business_name}";
 
-        // Build portal link for viewing / paying the invoice
-        $portal_invoice_url = $this->base_url . '/portal/invoice_view.php?id=' . $invoice_id;
+        // Use the secure pay_token for the guest payment link if available
+        $pay_token    = $invoice['pay_token'] ?? '';
+        $guest_pay_url = !empty($pay_token)
+            ? $this->base_url . '/portal/invoice_pay.php?token=' . urlencode($pay_token)
+            : $this->base_url . '/portal/invoice_view.php?id=' . $invoice_id;
 
         // Build "Pay Now" button section if Stripe is enabled and invoice is unpaid
         require_once __DIR__ . '/stripe_config.php';
         $pay_now_html = '';
         $pay_now_text = '';
         if (isStripeEnabled() && ($invoice['status'] ?? '') !== 'paid') {
-            $pay_url = $this->base_url . '/portal/invoice_checkout.php?id=' . $invoice_id;
+            $pay_url = $guest_pay_url;
             $pay_now_html = <<<HTML
     <div style="text-align:center;margin:24px 0">
       <a href="{$pay_url}"
@@ -370,16 +373,16 @@ HTML;
             $pay_now_text = "\nPAY ONLINE\n----------\nPay securely with a credit card: {$pay_url}\n";
         }
 
-        // Portal view link section
+        // View invoice link section — uses guest URL (no login required)
         $view_invoice_html = <<<HTML
     <div style="text-align:center;margin:16px 0">
-      <a href="{$portal_invoice_url}"
+      <a href="{$guest_pay_url}"
          style="display:inline-block;padding:10px 24px;background:#2563eb;color:white;text-decoration:none;border-radius:6px;font-weight:bold">
         &#128196; View Invoice Online
       </a>
     </div>
 HTML;
-        $view_invoice_text = "\nVIEW INVOICE ONLINE\n-------------------\n{$portal_invoice_url}\n";
+        $view_invoice_text = "\nVIEW INVOICE ONLINE\n-------------------\n{$guest_pay_url}\n";
 
         // Build line-item HTML and text
         $items_html = '';
