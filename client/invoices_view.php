@@ -44,6 +44,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
     redirect('invoices_view.php?id=' . $id);
 }
 
+// Handle "Send Invoice" POST action
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice'])) {
+    if ($invoice['status'] === 'paid') {
+        setFlashMessage('Invoice is already paid. Use "Send Receipt" instead.', 'warning');
+    } else {
+        // Ensure a secure payment token exists for the guest pay link
+        if (empty($invoice['pay_token'])) {
+            $invoice['pay_token'] = bin2hex(random_bytes(32));
+            $conn->prepare("UPDATE invoices SET pay_token = ? WHERE id = ?")->execute([$invoice['pay_token'], $id]);
+        }
+
+        $email_service = new EmailService(null, $conn);
+        $result = $email_service->sendInvoiceEmail($invoice, $items);
+
+        if ($result['success']) {
+            $conn->prepare("UPDATE invoices SET invoice_sent_at = CURRENT_TIMESTAMP, status = CASE WHEN status = 'draft' THEN 'sent' ELSE status END WHERE id = ?")->execute([$id]);
+            setFlashMessage('Invoice sent to ' . escape($invoice['client_email']) . '.', 'success');
+        } else {
+            setFlashMessage('Failed to send invoice: ' . $result['message'], 'danger');
+        }
+    }
+    redirect('invoices_view.php?id=' . $id);
+}
+
 // Fetch installments
 $inst_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id = ? ORDER BY installment_number");
 $inst_stmt->execute([$id]);
@@ -64,6 +88,14 @@ include '../backend/includes/header.php';
                                 <i class="fas fa-credit-card"></i> Record Payment
                             </a>
                         <?php endif; ?>
+                        <form method="POST" class="d-inline">
+                            <input type="hidden" name="send_invoice" value="1">
+                            <button type="submit" class="btn btn-primary"
+                                    title="<?= !empty($invoice['invoice_sent_at']) ? 'Last sent: ' . escape($invoice['invoice_sent_at']) : 'Invoice not yet sent' ?>">
+                                <i class="fas fa-paper-plane"></i>
+                                <?= !empty($invoice['invoice_sent_at']) ? 'Resend Invoice' : 'Send Invoice' ?>
+                            </button>
+                        </form>
                     <?php endif; ?>
                     <?php if ($invoice['status'] === 'paid'): ?>
                         <form method="POST" class="d-inline">
@@ -100,6 +132,9 @@ include '../backend/includes/header.php';
                                 ?>
                                 <span class="badge bg-<?= $color ?>"><?= strtoupper($invoice['status']) ?></span>
                             </p>
+                            <?php if (!empty($invoice['invoice_sent_at'])): ?>
+                                <p><small><i class="fas fa-paper-plane"></i> Invoice sent: <?= escape($invoice['invoice_sent_at']) ?></small></p>
+                            <?php endif; ?>
                         </div>
                     </div>
                     

@@ -48,6 +48,18 @@ include '../portal/includes/header.php';
     <div>
         <a href="invoices.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Back to Invoices</a>
         <button onclick="window.print()" class="btn btn-outline-primary btn-sm ms-1"><i class="fas fa-print me-1"></i>Print</button>
+        <?php
+        require_once '../backend/includes/stripe_config.php';
+        if ($status !== 'paid' && isStripeEnabled()):
+            // Use token-based checkout if available (no re-login on page redirect)
+            $checkout_url = !empty($invoice['pay_token'])
+                ? 'invoice_checkout.php?token=' . urlencode($invoice['pay_token'])
+                : 'invoice_checkout.php?id=' . $id;
+        ?>
+        <a href="<?php echo $checkout_url; ?>" class="btn btn-success btn-sm ms-1">
+            <i class="fas fa-credit-card me-1"></i>Pay with Credit Card
+        </a>
+        <?php endif; ?>
     </div>
 </div>
 
