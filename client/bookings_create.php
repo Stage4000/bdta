@@ -253,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Link pets to appointment
             if (!empty($pets)) {
                 foreach ($pets as $pet_id) {
-                    $stmt = $db->prepare("INSERT INTO appointment_pets (booking_id, pet_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
+                    $stmt = $conn->prepare("INSERT INTO appointment_pets (booking_id, pet_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
                     $stmt->execute([$booking_id, $pet_id]);
                 }
             }
