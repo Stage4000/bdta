@@ -271,7 +271,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Get pets for selected client via AJAX
 if (isset($_GET['client_id']) && isset($_GET['ajax']) && $_GET['ajax'] === 'pets') {
     $client_id = (int)$_GET['client_id'];
-    $pets = $db->query("SELECT id, name, species, breed FROM pets WHERE client_id = $client_id AND is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $conn->prepare("SELECT id, name, species, breed FROM pets WHERE client_id = ? AND is_active = 1");
+    $stmt->execute([$client_id]);
+    $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
     header('Content-Type: application/json');
     echo json_encode($pets);
     exit;
