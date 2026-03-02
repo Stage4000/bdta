@@ -70,12 +70,12 @@ body { background: #f8f9fa; }
 
     <?php
     // Flash message support — session is already started by config.php
-    if (!empty($_SESSION['flash_message'])): ?>
-        <div class="alert alert-<?php echo escape($_SESSION['flash_message_type'] ?? 'info'); ?> alert-dismissible fade show no-print">
-            <?php echo escape($_SESSION['flash_message']); ?>
+    $flash = getFlashMessage();
+    if ($flash): ?>
+        <div class="alert alert-<?php echo escape($flash['type']); ?> alert-dismissible fade show no-print">
+            <?php echo escape($flash['message']); ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
-        <?php unset($_SESSION['flash_message'], $_SESSION['flash_message_type']); ?>
     <?php endif; ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4 no-print">

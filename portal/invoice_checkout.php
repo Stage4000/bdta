@@ -77,6 +77,13 @@ $amount_cents = (int) round($invoice['total_amount'] * 100, 0);
 $currency     = STRIPE_CURRENCY;
 $secret_key   = STRIPE_SECRET_KEY;
 
+// Stripe requires a minimum charge amount (50 cents)
+if ($amount_cents < 50) {
+    setFlashMessage('Invoice amount is too low for online payment (minimum $0.50). Please contact us to arrange payment.', 'warning');
+    header('Location: ' . (!empty($token) ? $base_url . '/portal/invoice_pay.php?token=' . urlencode($token) : $base_url . '/portal/invoice_view.php?id=' . $id));
+    exit;
+}
+
 $success_url = $base_url . '/portal/' . $return_path;
 $cancel_url  = $base_url . '/portal/' . $cancel_path;
 
@@ -121,8 +128,10 @@ curl_close($ch);
 $session = json_decode($response, true);
 
 if ($http_code !== 200 || empty($session['url'])) {
-    $error = $session['error']['message'] ?? 'Unknown error';
-    error_log("Stripe Checkout Session creation failed: $error (HTTP $http_code)");
+    $error      = $session['error']['message'] ?? 'Unknown error';
+    $error_type = $session['error']['type']    ?? 'unknown';
+    $error_code = $session['error']['code']    ?? '';
+    error_log("Stripe Checkout Session creation failed [$error_type/$error_code]: $error (HTTP $http_code)");
     setFlashMessage('Could not initiate online payment. Please try again or contact us.', 'danger');
     header('Location: ' . $cancel_url);
     exit;
