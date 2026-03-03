@@ -466,14 +466,11 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
 
         // Attempt OAuth sync: use the first admin user that has a valid OAuth token
         if (GoogleCalendarIntegration::isOAuthConfigured()) {
-            $stmt_admins = $conn->query("SELECT id FROM admin_users ORDER BY id");
+            $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
             while ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
-                $oauth_token = GoogleCalendarIntegration::getOAuthToken((int)$admin_row['id']);
-                if ($oauth_token) {
-                    $google_result = GoogleCalendarIntegration::addEventOAuth($booking, (int)$admin_row['id']);
-                    if ($google_result['success']) {
-                        break;
-                    }
+                $google_result = GoogleCalendarIntegration::addEventOAuth($booking, (int)$admin_row['admin_user_id']);
+                if ($google_result['success']) {
+                    break;
                 }
             }
         }

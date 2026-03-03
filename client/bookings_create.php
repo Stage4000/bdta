@@ -1,5 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/email_service.php';
+require_once '../backend/includes/google_calendar.php';
 requireLogin();
 
 $db = new Database();
@@ -257,7 +259,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$booking_id, $pet_id]);
                 }
             }
-            
+
+            // Fetch the full booking row for email/calendar
+            $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
+            $stmt->execute([$booking_id]);
+            $new_booking = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Send confirmation email to the client
+            if ($new_booking) {
+                $email_service = new EmailService(null, $conn);
+                $email_service->sendBookingConfirmation($new_booking);
+            }
+
+            // Push to Google Calendar (OAuth first, then service account fallback)
+            if ($new_booking) {
+                $google_synced = false;
+                if (GoogleCalendarIntegration::isOAuthConfigured()) {
+                    $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+                    while ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
+                        $cal_result = GoogleCalendarIntegration::addEventOAuth($new_booking, (int)$admin_row['admin_user_id']);
+                        if ($cal_result['success']) {
+                            $google_synced = true;
+                            break;
+                        }
+                    }
+                }
+                if (!$google_synced) {
+                    $google_calendar = new GoogleCalendarIntegration();
+                    if ($google_calendar->isConfigured()) {
+                        $google_calendar->addEvent($new_booking);
+                    }
+                }
+            }
+
             $_SESSION['success'] = "Booking created successfully!";
             header('Location: bookings_list.php');
             exit;
