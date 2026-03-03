@@ -78,7 +78,7 @@ class ContractReminderTask {
      * Send contract reminder email
      */
     private function sendContractReminder($contract) {
-        $email_service = new EmailService();
+        $email_service = new EmailService(null, $this->conn);
         
         $client_name = htmlspecialchars($contract['client_name']);
         $contract_link = getDynamicBaseUrl() . '/backend/public/contract.php?id=' . $contract['id'];
@@ -143,7 +143,11 @@ Brook Lefkowitz
 Brook's Dog Training Academy
 TEXT;
         
-        return $email_service->sendGenericEmail($contract['client_email'], $subject, $html_body, $text_body);
+        $log_context = [
+            'client_id'     => $contract['client_id'] ?? null,
+            'template_type' => 'contract_reminder',
+        ];
+        return $email_service->sendGenericEmail($contract['client_email'], $subject, $html_body, $text_body, $log_context);
     }
 }
 ?>

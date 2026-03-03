@@ -487,15 +487,16 @@ HTML;
      * @param string $subject Email subject
      * @param string $html_body HTML body content
      * @param string $text_body Plain text body content (optional)
+     * @param array $log_context Optional logging context: ['client_id' => int, 'template_type' => string, 'template_id' => int]
      * @return array Result array with 'success' and 'message' keys
      */
-    public function sendGenericEmail($to, $subject, $html_body, $text_body = '') {
+    public function sendGenericEmail($to, $subject, $html_body, $text_body = '', $log_context = []) {
         // If no text body provided, generate a basic one from HTML
         if (empty($text_body)) {
             $text_body = strip_tags($html_body);
         }
         
-        return $this->sendEmail($to, $subject, $html_body, $text_body);
+        return $this->sendEmail($to, $subject, $html_body, $text_body, [], [], $log_context);
     }
 
     /**
@@ -526,14 +527,15 @@ HTML;
      * @param string $subject Email subject
      * @param string $html_body HTML body content
      * @param string $text_body Plain text body content (optional)
+     * @param array $log_context Optional logging context: ['client_id' => int, 'template_type' => string, 'template_id' => int]
      * @return array Result array with 'success' and 'message' keys
      */
-    public function sendComposeEmail($to, $cc, $bcc, $subject, $html_body, $text_body = '') {
+    public function sendComposeEmail($to, $cc, $bcc, $subject, $html_body, $text_body = '', $log_context = []) {
         if (empty($text_body)) {
             $text_body = strip_tags($html_body);
         }
 
-        return $this->sendEmail($to, $subject, $html_body, $text_body, $cc, $bcc);
+        return $this->sendEmail($to, $subject, $html_body, $text_body, $cc, $bcc, $log_context);
     }
     
     /**

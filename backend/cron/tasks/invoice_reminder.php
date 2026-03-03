@@ -79,7 +79,7 @@ class InvoiceReminderTask {
      * Send invoice reminder email
      */
     private function sendInvoiceReminder($invoice) {
-        $email_service = new EmailService();
+        $email_service = new EmailService(null, $this->conn);
         
         $client_name = htmlspecialchars($invoice['client_name']);
         $invoice_number = htmlspecialchars($invoice['invoice_number']);
@@ -172,7 +172,11 @@ HTML;
         $text_body .= "If you've already sent payment or have any questions, please contact us immediately.\n\n";
         $text_body .= "Best regards,\nBrook Lefkowitz\nBrook's Dog Training Academy";
         
-        return $email_service->sendGenericEmail($invoice['client_email'], $subject, $html_body, $text_body);
+        $log_context = [
+            'client_id'     => $invoice['client_id'] ?? null,
+            'template_type' => 'invoice_reminder',
+        ];
+        return $email_service->sendGenericEmail($invoice['client_email'], $subject, $html_body, $text_body, $log_context);
     }
 }
 ?>
