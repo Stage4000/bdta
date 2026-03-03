@@ -1674,6 +1674,13 @@ class Database {
 
         // Add Google OAuth settings for existing installations
         $this->addGoogleOAuthSettings();
+
+        // Add google_event_id column to bookings so cancelled bookings can be
+        // removed from the connected Google Calendar
+        $booking_col_names_gcal = $this->getTableColumns('bookings');
+        if (!in_array('google_event_id', $booking_col_names_gcal)) {
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN google_event_id TEXT DEFAULT NULL");
+        }
     }
     
     private function addEmailTemplateDefaultSettings() {

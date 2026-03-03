@@ -273,13 +273,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Push to Google Calendar (OAuth first, then service account fallback)
             if ($new_booking) {
-                $google_synced = false;
+                $google_synced    = false;
+                $gcal_event_id    = null;
                 if (GoogleCalendarIntegration::isOAuthConfigured()) {
                     $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
                     while ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
                         $cal_result = GoogleCalendarIntegration::addEventOAuth($new_booking, (int)$admin_row['admin_user_id']);
                         if ($cal_result['success']) {
                             $google_synced = true;
+                            $gcal_event_id = $cal_result['event_id'] ?? null;
                             break;
                         }
                     }
@@ -287,8 +289,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$google_synced) {
                     $google_calendar = new GoogleCalendarIntegration();
                     if ($google_calendar->isConfigured()) {
-                        $google_calendar->addEvent($new_booking);
+                        $svc_result = $google_calendar->addEvent($new_booking);
+                        $gcal_event_id = $svc_result['event_id'] ?? null;
                     }
+                }
+                // Persist the Google event ID so we can delete it later if cancelled
+                if ($gcal_event_id) {
+                    $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")->execute([$gcal_event_id, $booking_id]);
                 }
             }
 

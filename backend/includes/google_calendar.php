@@ -247,6 +247,47 @@ class GoogleCalendarIntegration {
     }
 
     /**
+     * Delete a calendar event from the connected OAuth calendar.
+     * $event_id is the Google event ID stored in bookings.google_event_id.
+     */
+    public static function deleteEventOAuth(string $event_id, int $admin_user_id): bool {
+        $access_token = self::getValidAccessToken($admin_user_id);
+        if (!$access_token) {
+            error_log('GoogleCalendarIntegration: deleteEventOAuth – no valid token for admin_user_id=' . $admin_user_id);
+            return false;
+        }
+
+        $token_row   = self::getOAuthToken($admin_user_id);
+        $calendar_id = $token_row['calendar_id'] ?? 'primary';
+
+        $url = 'https://www.googleapis.com/calendar/v3/calendars/'
+            . urlencode($calendar_id) . '/events/' . urlencode($event_id)
+            . '?sendUpdates=none';
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $access_token]);
+        $result   = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_err  = curl_error($ch);
+        curl_close($ch);
+
+        if ($curl_err) {
+            error_log('GoogleCalendarIntegration: deleteEventOAuth cURL error: ' . $curl_err);
+            return false;
+        }
+        // 204 No Content = success; 410 Gone = already deleted – both are acceptable
+        if ($http_code === 204 || $http_code === 410) {
+            return true;
+        }
+        $body = json_decode($result ?: '{}', true);
+        $error = $body['error']['message'] ?? ('HTTP ' . $http_code);
+        error_log('GoogleCalendarIntegration: deleteEventOAuth failed for event_id=' . $event_id . ', admin_user_id=' . $admin_user_id . ', error=' . $error);
+        return false;
+    }
+
+    /**
      * Add a booking event to the connected calendar for a given admin user using OAuth.
      */
     public static function addEventOAuth(array $booking, int $admin_user_id): array {

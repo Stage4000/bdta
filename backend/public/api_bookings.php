@@ -482,6 +482,12 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 $google_result = $google_calendar->addEvent($booking);
             }
         }
+
+        // Persist the Google event ID so we can delete it later if cancelled
+        if (!empty($google_result['event_id'])) {
+            $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
+                 ->execute([$google_result['event_id'], $booking_id]);
+        }
         
         echo json_encode([
             'success' => true,
