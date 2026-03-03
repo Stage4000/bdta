@@ -30,17 +30,20 @@ class GoogleCalendarIntegration {
      * Build the Google Calendar event body array from a booking row.
      */
     private function buildEventBody(array $booking): array {
-        $timezone  = 'America/New_York';
-        $start_dt  = $booking['appointment_date'] . 'T' . $booking['appointment_time'] . ':00';
+        $timezone = 'America/New_York';
+        // Normalise to HH:MM – MySQL TIME columns return HH:MM:SS which would
+        // produce an invalid RFC3339 string like "2026-03-02T14:30:00:00".
+        $time_hhmm = substr($booking['appointment_time'], 0, 5);
+        $start_dt  = $booking['appointment_date'] . 'T' . $time_hhmm . ':00';
         $duration  = (int)($booking['duration_minutes'] ?? 60);
         // Use the full date+time so end-time is correct even when crossing midnight
-        $start_ts  = strtotime($booking['appointment_date'] . ' ' . $booking['appointment_time']);
+        $start_ts  = strtotime($booking['appointment_date'] . ' ' . $time_hhmm);
         if ($start_ts === false || $start_ts === 0) {
             // Fallback: parse time only (today's date) – end date will match start date
-            $start_ts = strtotime($booking['appointment_time']) ?: time();
+            $start_ts = strtotime($time_hhmm) ?: time();
         }
-        $end_ts    = $start_ts + $duration * 60;
-        $end_dt    = date('Y-m-d', $end_ts) . 'T' . date('H:i:s', $end_ts);
+        $end_ts = $start_ts + $duration * 60;
+        $end_dt = date('Y-m-d', $end_ts) . 'T' . date('H:i:s', $end_ts);
 
         return [
             'summary'     => ($booking['service_type'] ?? 'Appointment') . ' - ' . ($booking['client_name'] ?? ''),
@@ -54,9 +57,10 @@ class GoogleCalendarIntegration {
             'end'         => ['dateTime' => $end_dt,   'timeZone' => $timezone],
             'reminders'   => [
                 'useDefault' => false,
+                // Only 'popup' is universally supported; 'email' overrides are not
+                // available on personal Gmail accounts and return HTTP 400.
                 'overrides'  => [
-                    ['method' => 'email',  'minutes' => 1440],
-                    ['method' => 'popup',  'minutes' => 60],
+                    ['method' => 'popup', 'minutes' => 60],
                 ],
             ],
         ];
