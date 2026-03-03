@@ -30,11 +30,17 @@ class GoogleCalendarIntegration {
      * Build the Google Calendar event body array from a booking row.
      */
     private function buildEventBody(array $booking): array {
-        $timezone = 'America/New_York';
-        $start_dt = $booking['appointment_date'] . 'T' . $booking['appointment_time'] . ':00';
-        $duration = (int)($booking['duration_minutes'] ?? 60);
-        $end_ts   = strtotime($booking['appointment_time']) + $duration * 60;
-        $end_dt   = $booking['appointment_date'] . 'T' . date('H:i:s', $end_ts);
+        $timezone  = 'America/New_York';
+        $start_dt  = $booking['appointment_date'] . 'T' . $booking['appointment_time'] . ':00';
+        $duration  = (int)($booking['duration_minutes'] ?? 60);
+        // Use the full date+time so end-time is correct even when crossing midnight
+        $start_ts  = strtotime($booking['appointment_date'] . ' ' . $booking['appointment_time']);
+        if ($start_ts === false || $start_ts === 0) {
+            // Fallback: parse time only (today's date) – end date will match start date
+            $start_ts = strtotime($booking['appointment_time']) ?: time();
+        }
+        $end_ts    = $start_ts + $duration * 60;
+        $end_dt    = date('Y-m-d', $end_ts) . 'T' . date('H:i:s', $end_ts);
 
         return [
             'summary'     => ($booking['service_type'] ?? 'Appointment') . ' - ' . ($booking['client_name'] ?? ''),
@@ -46,7 +52,6 @@ class GoogleCalendarIntegration {
             ])),
             'start'       => ['dateTime' => $start_dt, 'timeZone' => $timezone],
             'end'         => ['dateTime' => $end_dt,   'timeZone' => $timezone],
-            'attendees'   => !empty($booking['client_email']) ? [['email' => $booking['client_email']]] : [],
             'reminders'   => [
                 'useDefault' => false,
                 'overrides'  => [
@@ -135,9 +140,13 @@ class GoogleCalendarIntegration {
         // Check if expired (with 60-second buffer)
         if (!empty($token['expires_at']) && strtotime($token['expires_at']) < (time() + 60)) {
             if (empty($token['refresh_token'])) {
+                error_log('GoogleCalendarIntegration: token for admin_user_id=' . $admin_user_id . ' is expired and no refresh_token stored');
                 return null;
             }
             $refreshed = self::refreshAccessToken($token['refresh_token'], $admin_user_id);
+            if (!$refreshed) {
+                error_log('GoogleCalendarIntegration: failed to refresh token for admin_user_id=' . $admin_user_id);
+            }
             return $refreshed;
         }
 
@@ -239,16 +248,18 @@ class GoogleCalendarIntegration {
     public static function addEventOAuth(array $booking, int $admin_user_id): array {
         $access_token = self::getValidAccessToken($admin_user_id);
         if (!$access_token) {
+            error_log('GoogleCalendarIntegration: no valid access token for admin_user_id=' . $admin_user_id);
             return ['success' => false, 'message' => 'No valid OAuth token for this user'];
         }
 
-        $token_row  = self::getOAuthToken($admin_user_id);
+        $token_row   = self::getOAuthToken($admin_user_id);
         $calendar_id = $token_row['calendar_id'] ?? 'primary';
 
         $instance   = new self();
         $event_body = $instance->buildEventBody($booking);
 
-        $url      = 'https://www.googleapis.com/calendar/v3/calendars/' . urlencode($calendar_id) . '/events';
+        // sendUpdates=none prevents Google from emailing attendees (avoids scope/policy issues)
+        $url      = 'https://www.googleapis.com/calendar/v3/calendars/' . urlencode($calendar_id) . '/events?sendUpdates=none';
         $response = self::httpPost($url, $event_body, [
             'Authorization: Bearer ' . $access_token,
             'Content-Type: application/json',
@@ -259,6 +270,8 @@ class GoogleCalendarIntegration {
         }
 
         $error = $response['error']['message'] ?? 'Unknown error inserting event';
+        $error_code = $response['error']['code'] ?? 'unknown';
+        error_log('GoogleCalendarIntegration: addEventOAuth failed for admin_user_id=' . $admin_user_id . ', calendar=' . $calendar_id . ', http_error=' . $error_code . ': ' . $error);
         return ['success' => false, 'message' => $error];
     }
 
