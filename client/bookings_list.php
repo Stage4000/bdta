@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/google_calendar.php';
 requireLogin();
 
 $db = new Database();
@@ -21,6 +22,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
     if ($booking_row) {
         $pkg_credit_id = (int)($booking_row['package_credit_id'] ?? 0);
         $admin_id = $_SESSION['admin_id'] ?? null;
+
+        // Remove the event from Google Calendar when a booking is cancelled
+        if ($status === 'cancelled' && !empty($booking_row['google_event_id'])) {
+            $gcal_event_id = $booking_row['google_event_id'];
+            if (GoogleCalendarIntegration::isOAuthConfigured()) {
+                $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+                while ($tok_row = $stmt_tok->fetch(PDO::FETCH_ASSOC)) {
+                    if (GoogleCalendarIntegration::deleteEventOAuth($gcal_event_id, (int)$tok_row['admin_user_id'])) {
+                        // Clear stored event ID so a future re-activation doesn't try to delete again
+                        $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
+                        break;
+                    }
+                }
+            }
+        }
 
         if ($status === 'cancelled' && $pkg_credit_id > 0) {
             // Refund credit: check that a consume transaction exists (avoid double-refund)

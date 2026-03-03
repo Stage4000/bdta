@@ -1,5 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/email_service.php';
+require_once '../backend/includes/google_calendar.php';
 requireLogin();
 
 $db = new Database();
@@ -253,11 +255,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Link pets to appointment
             if (!empty($pets)) {
                 foreach ($pets as $pet_id) {
-                    $stmt = $db->prepare("INSERT INTO appointment_pets (booking_id, pet_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
+                    $stmt = $conn->prepare("INSERT INTO appointment_pets (booking_id, pet_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
                     $stmt->execute([$booking_id, $pet_id]);
                 }
             }
-            
+
+            // Fetch the full booking row for email/calendar
+            $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
+            $stmt->execute([$booking_id]);
+            $new_booking = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Send confirmation email to the client
+            if ($new_booking) {
+                $email_service = new EmailService(null, $conn);
+                $email_service->sendBookingConfirmation($new_booking);
+            }
+
+            // Push to Google Calendar (OAuth first, then service account fallback)
+            if ($new_booking) {
+                $google_synced    = false;
+                $gcal_event_id    = null;
+                if (GoogleCalendarIntegration::isOAuthConfigured()) {
+                    $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+                    while ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
+                        $cal_result = GoogleCalendarIntegration::addEventOAuth($new_booking, (int)$admin_row['admin_user_id']);
+                        if ($cal_result['success']) {
+                            $google_synced = true;
+                            $gcal_event_id = $cal_result['event_id'] ?? null;
+                            break;
+                        }
+                    }
+                }
+                if (!$google_synced) {
+                    $google_calendar = new GoogleCalendarIntegration();
+                    if ($google_calendar->isConfigured()) {
+                        $svc_result = $google_calendar->addEvent($new_booking);
+                        $gcal_event_id = $svc_result['event_id'] ?? null;
+                    }
+                }
+                // Persist the Google event ID so we can delete it later if cancelled
+                if ($gcal_event_id) {
+                    $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")->execute([$gcal_event_id, $booking_id]);
+                }
+            }
+
             $_SESSION['success'] = "Booking created successfully!";
             header('Location: bookings_list.php');
             exit;
@@ -271,7 +312,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Get pets for selected client via AJAX
 if (isset($_GET['client_id']) && isset($_GET['ajax']) && $_GET['ajax'] === 'pets') {
     $client_id = (int)$_GET['client_id'];
-    $pets = $db->query("SELECT id, name, species, breed FROM pets WHERE client_id = $client_id AND is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $conn->prepare("SELECT id, name, species, breed FROM pets WHERE client_id = ? AND is_active = 1");
+    $stmt->execute([$client_id]);
+    $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
     header('Content-Type: application/json');
     echo json_encode($pets);
     exit;
