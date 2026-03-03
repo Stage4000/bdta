@@ -1681,6 +1681,15 @@ class Database {
         if (!in_array('google_event_id', $booking_col_names_gcal)) {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN google_event_id TEXT DEFAULT NULL");
         }
+
+        // Add delivery_attempts and template_type columns to client_emails for enhanced logging
+        $client_email_cols = $this->getTableColumns('client_emails');
+        if (!in_array('delivery_attempts', $client_email_cols)) {
+            $this->execSQL("ALTER TABLE client_emails ADD COLUMN delivery_attempts INTEGER DEFAULT 0");
+        }
+        if (!in_array('template_type', $client_email_cols)) {
+            $this->execSQL("ALTER TABLE client_emails ADD COLUMN template_type TEXT");
+        }
     }
     
     private function addEmailTemplateDefaultSettings() {

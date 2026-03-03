@@ -167,7 +167,12 @@ class EmailService {
         }
         
         // Send email
-        return $this->sendEmail($to, $subject, $html_body, $text_body);
+        $log_context = [
+            'client_id'     => $booking['client_id'] ?? null,
+            'template_type' => 'booking_confirmation',
+            'template_id'   => $db_template['id'] ?? null,
+        ];
+        return $this->sendEmail($to, $subject, $html_body, $text_body, [], [], $log_context);
     }
     
     /**
@@ -319,7 +324,12 @@ HTML;
                 . "Thank you for choosing {$business_name}!";
         }
 
-        return $this->sendEmail($to, $subject, $html_body, $text_body, $cc);
+        $log_context = [
+            'client_id'     => $invoice['client_id'] ?? null,
+            'template_type' => 'payment_receipt',
+            'template_id'   => $db_template['id'] ?? null,
+        ];
+        return $this->sendEmail($to, $subject, $html_body, $text_body, $cc, [], $log_context);
     }
 
     /**
@@ -464,7 +474,11 @@ HTML;
             . "Questions? Contact us at {$business_email}\n\n"
             . "Thank you for choosing {$business_name}!";
 
-        return $this->sendEmail($to, $subject, $html_body, $text_body);
+        $log_context = [
+            'client_id'     => $invoice['client_id'] ?? null,
+            'template_type' => 'invoice',
+        ];
+        return $this->sendEmail($to, $subject, $html_body, $text_body, [], [], $log_context);
     }
 
     /**
@@ -702,8 +716,39 @@ TEXT;
     
     /**
      * Send email using PHPMailer with SMTP support
+     * @param string $to Recipient email address
+     * @param string $subject Email subject
+     * @param string $html_body HTML body content
+     * @param string $text_body Plain text body content
+     * @param array $cc CC email addresses
+     * @param array $bcc BCC email addresses
+     * @param array $log_context Optional logging context: ['client_id' => int, 'template_type' => string, 'template_id' => int]
      */
-    private function sendEmail($to, $subject, $html_body, $text_body, $cc = [], $bcc = []) {
+    private function sendEmail($to, $subject, $html_body, $text_body, $cc = [], $bcc = [], $log_context = []) {
+        // Create email log entry before sending if DB and client context are available
+        $email_log_id = null;
+        if ($this->conn && !empty($log_context['client_id'])) {
+            try {
+                $stmt = $this->conn->prepare("
+                    INSERT INTO client_emails (client_id, direction, status, from_email, to_email, subject, body_html, body_text, template_id, template_type, delivery_attempts, created_at, updated_at)
+                    VALUES (?, 'outgoing', 'sending', ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ");
+                $stmt->execute([
+                    (int)$log_context['client_id'],
+                    $this->from_email,
+                    $to,
+                    $subject,
+                    $html_body,
+                    $text_body,
+                    $log_context['template_id'] ?? null,
+                    $log_context['template_type'] ?? null,
+                ]);
+                $email_log_id = $this->conn->lastInsertId();
+            } catch (PDOException $dbe) {
+                error_log("Email log insert failed: " . $dbe->getMessage());
+            }
+        }
+
         try {
             // Add email signature if enabled
             $enable_signatures = Settings::get('enable_email_signatures', true);
@@ -815,6 +860,20 @@ TEXT;
             
             // Send email
             $mail->send();
+
+            // Update log entry to 'sent'
+            if ($email_log_id && $this->conn) {
+                try {
+                    $this->conn->prepare("
+                        UPDATE client_emails
+                        SET status = 'sent', sent_at = CURRENT_TIMESTAMP,
+                            delivery_attempts = delivery_attempts + 1, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    ")->execute([$email_log_id]);
+                } catch (PDOException $dbe) {
+                    error_log("Email log update (sent) failed: " . $dbe->getMessage());
+                }
+            }
             
             return [
                 'success' => true,
@@ -827,6 +886,21 @@ TEXT;
                 $error_message .= " | PHPMailer Error: " . $mail->ErrorInfo;
             }
             error_log($error_message);
+
+            // Update log entry to 'failed'
+            if ($email_log_id && $this->conn) {
+                try {
+                    $this->conn->prepare("
+                        UPDATE client_emails
+                        SET status = 'failed', failed_at = CURRENT_TIMESTAMP,
+                            error_message = ?, delivery_attempts = delivery_attempts + 1,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    ")->execute([$error_message, $email_log_id]);
+                } catch (PDOException $dbe) {
+                    error_log("Email log update (failed) failed: " . $dbe->getMessage());
+                }
+            }
             
             return [
                 'success' => false,

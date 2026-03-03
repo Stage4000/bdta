@@ -185,6 +185,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'email_logs') !== false ? 'active' : ''; ?>" href="email_logs_list.php">
+                                <i class="fas fa-list-check me-2"></i> Email Logs
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'form_submissions') !== false ? 'active' : ''; ?>" href="form_submissions_list.php">
                                 <i class="fas fa-file-circle-check me-2"></i> Form Submissions
                             </a>

@@ -52,6 +52,7 @@ class ScheduledEmailSenderTask {
                         UPDATE client_emails 
                         SET status = 'sent', 
                             sent_at = CURRENT_TIMESTAMP,
+                            delivery_attempts = delivery_attempts + 1,
                             updated_at = CURRENT_TIMESTAMP
                         WHERE id = ?
                     ");
@@ -64,6 +65,7 @@ class ScheduledEmailSenderTask {
                         SET status = 'failed', 
                             failed_at = CURRENT_TIMESTAMP,
                             error_message = ?,
+                            delivery_attempts = delivery_attempts + 1,
                             updated_at = CURRENT_TIMESTAMP
                         WHERE id = ?
                     ");
@@ -80,6 +82,7 @@ class ScheduledEmailSenderTask {
                     SET status = 'failed', 
                         failed_at = CURRENT_TIMESTAMP,
                         error_message = ?,
+                        delivery_attempts = delivery_attempts + 1,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 ");
