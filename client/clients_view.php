@@ -769,6 +769,7 @@ function displayEmails(emails) {
     
     emails.forEach(email => {
         const statusBadge = getStatusBadge(email.status);
+        const typeBadge = getEmailTypeBadge(email.email_type);
         const icon = email.direction === 'outgoing' ? 'fa-paper-plane' : 'fa-inbox';
         const dateText = getEmailDateText(email);
         
@@ -783,6 +784,7 @@ function displayEmails(emails) {
                         <p class="mb-1 text-muted small">
                             ${email.direction === 'outgoing' ? 'To' : 'From'}: ${escapeHtml(email.direction === 'outgoing' ? email.to_email : email.from_email)}
                         </p>
+                        ${typeBadge}
                         ${email.template_name ? `<span class="badge bg-info me-2"><i class="fas fa-file-alt"></i> ${escapeHtml(email.template_name)}</span>` : ''}
                         ${statusBadge}
                     </a>
@@ -799,7 +801,19 @@ function displayEmails(emails) {
     container.innerHTML = html;
 }
 
-// Get status badge HTML
+// Get email type badge HTML
+function getEmailTypeBadge(emailType) {
+    const badges = {
+        'manual': '<span class="badge bg-secondary me-2"><i class="fas fa-user"></i> Manual</span>',
+        'booking_confirmation': '<span class="badge bg-primary me-2"><i class="fas fa-calendar-check"></i> Booking Confirmation</span>',
+        'booking_reminder': '<span class="badge bg-warning me-2"><i class="fas fa-bell"></i> Reminder</span>',
+        'workflow': '<span class="badge me-2" style="background-color:#6f42c1;color:white"><i class="fas fa-project-diagram"></i> Workflow</span>',
+        'payment_receipt': '<span class="badge bg-success me-2"><i class="fas fa-receipt"></i> Payment Receipt</span>',
+    };
+    return badges[emailType] || (emailType ? `<span class="badge bg-secondary me-2">${escapeHtml(emailType)}</span>` : '');
+}
+
+
 function getStatusBadge(status) {
     const badges = {
         'pending': '<span class="badge bg-warning">Pending</span>',

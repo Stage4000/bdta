@@ -167,7 +167,18 @@ class EmailService {
         }
         
         // Send email
-        return $this->sendEmail($to, $subject, $html_body, $text_body);
+        $result = $this->sendEmail($to, $subject, $html_body, $text_body);
+
+        // Log to client email history
+        if ($result['success'] && !empty($booking['client_id'])) {
+            $template_id = $db_template ? ($db_template['id'] ?? null) : null;
+            $this->logToClientEmails(
+                $booking['client_id'], $to, $subject, $html_body, $text_body,
+                'booking_confirmation', $template_id
+            );
+        }
+
+        return $result;
     }
     
     /**
@@ -319,7 +330,16 @@ HTML;
                 . "Thank you for choosing {$business_name}!";
         }
 
-        return $this->sendEmail($to, $subject, $html_body, $text_body, $cc);
+        $result = $this->sendEmail($to, $subject, $html_body, $text_body, $cc);
+
+        // Log to client email history
+        if ($result['success'] && !empty($invoice['client_id'])) {
+            $this->logToClientEmails(
+                $invoice['client_id'], $to, $subject, $html_body, $text_body, 'payment_receipt'
+            );
+        }
+
+        return $result;
     }
 
     /**
@@ -482,6 +502,48 @@ HTML;
         }
         
         return $this->sendEmail($to, $subject, $html_body, $text_body);
+    }
+
+    /**
+     * Log a sent email to the client_emails table for unified email history.
+     *
+     * @param int    $client_id   Client ID
+     * @param string $to_email    Recipient email address
+     * @param string $subject     Email subject
+     * @param string $html_body   HTML body
+     * @param string $text_body   Plain text body
+     * @param string $email_type  One of: manual, booking_confirmation, booking_reminder, workflow, payment_receipt
+     * @param int|null $template_id  Associated email template ID, or null
+     */
+    public function logToClientEmails($client_id, $to_email, $subject, $html_body, $text_body, $email_type = 'manual', $template_id = null) {
+        $valid_types = ['manual', 'booking_confirmation', 'booking_reminder', 'workflow', 'payment_receipt'];
+        if (!in_array($email_type, $valid_types, true)) {
+            $email_type = 'manual';
+        }
+        if (!$this->conn || !$client_id) {
+            return;
+        }
+        try {
+            $stmt = $this->conn->prepare("
+                INSERT INTO client_emails (
+                    client_id, direction, status, from_email, to_email,
+                    subject, body_html, body_text, template_id, email_type,
+                    sent_at, created_at, updated_at
+                ) VALUES (?, 'outgoing', 'sent', ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ");
+            $stmt->execute([
+                $client_id,
+                $this->from_email,
+                $to_email,
+                $subject,
+                $html_body,
+                $text_body,
+                $template_id,
+                $email_type,
+            ]);
+        } catch (Exception $e) {
+            error_log("Failed to log email to client_emails: " . $e->getMessage());
+        }
     }
 
     /**

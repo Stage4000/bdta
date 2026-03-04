@@ -843,6 +843,7 @@ class Database {
                     body_html TEXT,
                     body_text TEXT,
                     template_id INTEGER,
+                    email_type TEXT DEFAULT 'manual',
                     scheduled_at TIMESTAMP,
                     sent_at TIMESTAMP,
                     delivered_at TIMESTAMP,
@@ -1680,6 +1681,12 @@ class Database {
         $booking_col_names_gcal = $this->getTableColumns('bookings');
         if (!in_array('google_event_id', $booking_col_names_gcal)) {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN google_event_id TEXT DEFAULT NULL");
+        }
+
+        // Add email_type column to client_emails to distinguish manual vs automated emails
+        $client_email_columns = $this->getTableColumns('client_emails');
+        if (!in_array('email_type', $client_email_columns)) {
+            $this->execSQL("ALTER TABLE client_emails ADD COLUMN email_type TEXT DEFAULT 'manual'");
         }
     }
     

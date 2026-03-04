@@ -88,7 +88,7 @@ class WorkflowProcessorTask {
      * Send workflow email with attachments
      */
     private function sendWorkflowEmail($execution) {
-        $email_service = new EmailService();
+        $email_service = new EmailService(null, $this->conn);
         
         $client_name = htmlspecialchars($execution['client_name']);
         $subject = $this->replacePlaceholders($execution['email_subject'], $execution);
@@ -101,7 +101,16 @@ class WorkflowProcessorTask {
         $html_body = $this->addAttachmentLinks($html_body, $execution);
         $text_body = $this->addAttachmentLinks($text_body, $execution, false);
         
-        return $email_service->sendGenericEmail($execution['client_email'], $subject, $html_body, $text_body);
+        $result = $email_service->sendGenericEmail($execution['client_email'], $subject, $html_body, $text_body);
+
+        // Log to client email history
+        if ($result['success'] && !empty($execution['client_id'])) {
+            $email_service->logToClientEmails(
+                $execution['client_id'], $execution['client_email'], $subject, $html_body, $text_body, 'workflow'
+            );
+        }
+
+        return $result;
     }
     
     /**
