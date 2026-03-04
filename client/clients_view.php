@@ -619,7 +619,7 @@ include '../backend/includes/header.php';
                     <!-- Body -->
                     <div class="mb-3">
                         <label for="emailBody" class="form-label">Message <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="emailBody" name="body_html" rows="10" required></textarea>
+                        <textarea id="emailBody" name="body_html" required></textarea>
                         <small class="form-text text-muted">HTML is supported</small>
                     </div>
                     
@@ -961,7 +961,13 @@ async function replyToEmail(emailId) {
     const quotedDate = email.sent_at ? formatDateTime(email.sent_at) : formatDateTime(email.created_at);
     const quotedBody = '\n\n---\nOn ' + quotedDate +
         ', ' + email.from_email + ' wrote:\n' + originalText.split('\n').map(l => '> ' + l).join('\n');
-    document.getElementById('emailBody').value = quotedBody;
+    if (window.emailBodyEditor) {
+        const quotedHtml = '<p><br></p><hr><p>On ' + quotedDate + ', ' + email.from_email + ' wrote:</p><blockquote>' +
+            originalText.replace(/\n/g, '<br>') + '</blockquote>';
+        window.emailBodyEditor.setData(quotedHtml);
+    } else {
+        document.getElementById('emailBody').value = quotedBody;
+    }
 
     // Reset template selection
     document.getElementById('emailTemplate').value = '';
@@ -976,7 +982,11 @@ document.getElementById('emailTemplate').addEventListener('change', async functi
     const templateId = this.value;
     if (!templateId) {
         document.getElementById('emailSubject').value = '';
-        document.getElementById('emailBody').value = '';
+        if (window.emailBodyEditor) {
+            window.emailBodyEditor.setData('');
+        } else {
+            document.getElementById('emailBody').value = '';
+        }
         return;
     }
     
@@ -986,7 +996,12 @@ document.getElementById('emailTemplate').addEventListener('change', async functi
         
         if (data.success) {
             document.getElementById('emailSubject').value = data.preview.subject;
-            document.getElementById('emailBody').value = data.preview.body_html || data.preview.body_text;
+            const bodyContent = data.preview.body_html || data.preview.body_text || '';
+            if (window.emailBodyEditor) {
+                window.emailBodyEditor.setData(bodyContent);
+            } else {
+                document.getElementById('emailBody').value = bodyContent;
+            }
         }
     } catch (error) {
         console.error('Error loading template:', error);
@@ -1016,6 +1031,12 @@ document.getElementById('scheduleEmail').addEventListener('change', function() {
 // Handle send email
 document.getElementById('sendEmailBtn').addEventListener('click', async function() {
     const form = document.getElementById('composeEmailForm');
+
+    // Sync CKEditor content to textarea before reading FormData
+    if (window.emailBodyEditor) {
+        document.getElementById('emailBody').value = window.emailBodyEditor.getData();
+    }
+
     const formData = new FormData(form);
     const alertDiv = document.getElementById('emailFormAlert');
     
@@ -1066,6 +1087,9 @@ document.getElementById('sendEmailBtn').addEventListener('click', async function
             // Reset form and close modal after 1 second
             setTimeout(() => {
                 form.reset();
+                if (window.emailBodyEditor) {
+                    window.emailBodyEditor.setData('');
+                }
                 bootstrap.Modal.getInstance(document.getElementById('composeEmailModal')).hide();
                 loadEmails(); // Reload email list
             }, 1000);
@@ -1204,3 +1228,74 @@ function deleteContact(id, name) {
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
+
+<!-- CKEditor 5 Rich Text Editor (Self-Hosted, GPL License) -->
+<link rel="stylesheet" href="js/ckeditor5/ckeditor5.css" />
+<script type="module">
+import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Underline,
+    Paragraph,
+    Heading,
+    Link,
+    List,
+    Alignment,
+    SourceEditing,
+    GeneralHtmlSupport
+} from './js/ckeditor5/ckeditor5.js';
+
+// Initialize CKEditor 5 for compose email modal (email-optimized preset)
+// Lazy-initialize on first modal show so the element is visible
+const composeEmailModal = document.getElementById('composeEmailModal');
+let emailEditorInitialized = false;
+
+composeEmailModal.addEventListener('shown.bs.modal', function () {
+    if (emailEditorInitialized) return;
+
+    ClassicEditor
+        .create(document.querySelector('#emailBody'), {
+            licenseKey: 'GPL',
+            plugins: [
+                Essentials, Bold, Italic, Underline,
+                Paragraph, Heading, Link, List,
+                Alignment, SourceEditing, GeneralHtmlSupport
+            ],
+            toolbar: [
+                'undo', 'redo', '|',
+                'heading', '|',
+                'bold', 'italic', 'underline', '|',
+                'link', '|',
+                'bulletedList', 'numberedList', '|',
+                'alignment', '|',
+                'sourceEditing'
+            ],
+            heading: {
+                options: [
+                    { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                    { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                    { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+                ]
+            },
+            htmlSupport: {
+                allow: [
+                    {
+                        name: /.*/,
+                        attributes: true,
+                        classes: true,
+                        styles: true
+                    }
+                ]
+            }
+        })
+        .then(editor => {
+            window.emailBodyEditor = editor;
+            emailEditorInitialized = true;
+        })
+        .catch(error => {
+            console.error('CKEditor initialization error (emailBody):', error);
+        });
+});
+</script>
