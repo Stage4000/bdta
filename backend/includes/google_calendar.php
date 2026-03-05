@@ -321,6 +321,63 @@ class GoogleCalendarIntegration {
     }
 
     /**
+     * Query Google Calendar for busy periods on a given date for a specific admin user.
+     *
+     * Uses the freebusy API to find any events marked as "busy" on the calendar
+     * for the full day. Returns an array of busy windows in the form:
+     *   [['start' => '<RFC3339>', 'end' => '<RFC3339>'], ...]
+     * Returns an empty array on any failure (network error, expired token, etc.)
+     * so that callers can degrade gracefully.
+     *
+     * @param  string $date          Date string in Y-m-d format.
+     * @param  int    $admin_user_id The admin user whose connected calendar is queried.
+     * @return array<int, array{start: string, end: string}>
+     */
+    public static function getFreeBusy(string $date, int $admin_user_id): array {
+        $access_token = self::getValidAccessToken($admin_user_id);
+        if (!$access_token) {
+            return [];
+        }
+
+        $token_row   = self::getOAuthToken($admin_user_id);
+        $calendar_id = $token_row['calendar_id'] ?? 'primary';
+        $timezone    = 'America/New_York';
+
+        try {
+            $tz_obj    = new DateTimeZone($timezone);
+            $day_start = new DateTime($date . 'T00:00:00', $tz_obj);
+            $day_end   = new DateTime($date . 'T23:59:59', $tz_obj);
+        } catch (Exception $e) {
+            error_log('GoogleCalendarIntegration: getFreeBusy – invalid date "' . $date . '": ' . $e->getMessage());
+            return [];
+        }
+
+        $request_body = [
+            'timeMin'  => $day_start->format(DateTime::RFC3339),
+            'timeMax'  => $day_end->format(DateTime::RFC3339),
+            'timeZone' => $timezone,
+            'items'    => [['id' => $calendar_id]],
+        ];
+
+        $response = self::httpPost(
+            'https://www.googleapis.com/calendar/v3/freeBusy',
+            $request_body,
+            [
+                'Authorization: Bearer ' . $access_token,
+                'Content-Type: application/json',
+            ],
+            true
+        );
+
+        if (!empty($response['error'])) {
+            error_log('GoogleCalendarIntegration: getFreeBusy error for admin_user_id=' . $admin_user_id . ': ' . json_encode($response['error']));
+            return [];
+        }
+
+        return $response['calendars'][$calendar_id]['busy'] ?? [];
+    }
+
+    /**
      * List available calendars for the given admin user.
      * Returns array of ['id' => ..., 'summary' => ...] or empty array on failure.
      */
