@@ -45,14 +45,30 @@ class GoogleCalendarIntegration {
         $end_ts = $start_ts + $duration * 60;
         $end_dt = date('Y-m-d', $end_ts) . 'T' . date('H:i:s', $end_ts);
 
-        return [
+        $location      = trim($booking['location'] ?? '');
+        $location_type = trim($booking['location_type'] ?? '');
+
+        // Physical address types get added to the event's Location field so
+        // Google Calendar can display them on a map.  Phone and webcall entries
+        // are only surfaced in the description to avoid spurious geocode lookups.
+        // If location_type is unset (legacy booking), fall back to showing the
+        // location value in the description only, to avoid misclassifying a
+        // non-physical value as a mappable address.
+        $physical_types   = ['client_address', 'custom_address', 'fixed'];
+        $is_physical_addr = !empty($location_type) && in_array($location_type, $physical_types, true);
+        $event_location   = ($is_physical_addr && $location !== '') ? $location : '';
+
+        $description_lines = array_filter([
+            'Client: '   . ($booking['client_name']  ?? ''),
+            'Email: '    . ($booking['client_email'] ?? ''),
+            'Phone: '    . ($booking['client_phone'] ?? ''),
+            $location !== '' ? 'Address: ' . $location : '',
+            'Notes: '    . ($booking['notes']        ?? ''),
+        ]);
+
+        $event_body = [
             'summary'     => ($booking['service_type'] ?? 'Appointment') . ' - ' . ($booking['client_name'] ?? ''),
-            'description' => implode("\n", array_filter([
-                'Client: '  . ($booking['client_name']  ?? ''),
-                'Email: '   . ($booking['client_email'] ?? ''),
-                'Phone: '   . ($booking['client_phone'] ?? ''),
-                'Notes: '   . ($booking['notes']        ?? ''),
-            ])),
+            'description' => implode("\n", $description_lines),
             'start'       => ['dateTime' => $start_dt, 'timeZone' => $timezone],
             'end'         => ['dateTime' => $end_dt,   'timeZone' => $timezone],
             'reminders'   => [
@@ -64,6 +80,12 @@ class GoogleCalendarIntegration {
                 ],
             ],
         ];
+
+        if ($event_location !== '') {
+            $event_body['location'] = $event_location;
+        }
+
+        return $event_body;
     }
 
     // -------------------------------------------------------------------------
@@ -100,6 +122,34 @@ class GoogleCalendarIntegration {
             $created = $service->events->insert($this->calendar_id, $event);
 
             return ['success' => true, 'event_id' => $created->getId(), 'link' => $created->getHtmlLink()];
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Update an existing event using a Google service account.
+     * $event_id is the Google event ID stored in bookings.google_event_id.
+     */
+    public function updateEvent(array $booking, string $event_id): array {
+        if (!$this->isConfigured()) {
+            return ['success' => false, 'message' => 'Google Calendar not configured'];
+        }
+
+        try {
+            if (!class_exists('Google_Client')) {
+                return ['success' => false, 'message' => 'Google API client library not installed. Run: composer require google/apiclient'];
+            }
+
+            $client = new Google_Client();
+            $client->setAuthConfig($this->credentials_file);
+            $client->addScope(Google_Service_Calendar::CALENDAR);
+
+            $service = new Google_Service_Calendar($client);
+            $event   = new Google_Service_Calendar_Event($this->buildEventBody($booking));
+            $updated = $service->events->update($this->calendar_id, $event_id, $event);
+
+            return ['success' => true, 'event_id' => $updated->getId(), 'link' => $updated->getHtmlLink()];
         } catch (Exception $e) {
             return ['success' => false, 'message' => $e->getMessage()];
         }
@@ -317,6 +367,61 @@ class GoogleCalendarIntegration {
         $error = $response['error']['message'] ?? 'Unknown error inserting event';
         $error_code = $response['error']['code'] ?? 'unknown';
         error_log('GoogleCalendarIntegration: addEventOAuth failed for admin_user_id=' . $admin_user_id . ', calendar=' . $calendar_id . ', http_error=' . $error_code . ': ' . $error);
+        return ['success' => false, 'message' => $error];
+    }
+
+    /**
+     * Update an existing Google Calendar event for the given admin user using OAuth.
+     * $event_id is the Google event ID stored in bookings.google_event_id.
+     * Uses a PUT (full update) request so all event fields – including location – are refreshed.
+     */
+    public static function updateEventOAuth(array $booking, string $event_id, int $admin_user_id): array {
+        $access_token = self::getValidAccessToken($admin_user_id);
+        if (!$access_token) {
+            error_log('GoogleCalendarIntegration: updateEventOAuth – no valid token for admin_user_id=' . $admin_user_id);
+            return ['success' => false, 'message' => 'No valid OAuth token for this user'];
+        }
+
+        $token_row   = self::getOAuthToken($admin_user_id);
+        $calendar_id = $token_row['calendar_id'] ?? 'primary';
+
+        $instance   = new self();
+        $event_body = $instance->buildEventBody($booking);
+
+        // PUT replaces the entire event resource; sendUpdates=none suppresses attendee emails
+        $url = 'https://www.googleapis.com/calendar/v3/calendars/'
+            . urlencode($calendar_id) . '/events/' . urlencode($event_id)
+            . '?sendUpdates=none';
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+        $body = json_encode($event_body);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $access_token,
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen($body),
+        ]);
+        $result    = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_err  = curl_error($ch);
+        curl_close($ch);
+
+        if ($curl_err) {
+            error_log('GoogleCalendarIntegration: updateEventOAuth cURL error: ' . $curl_err);
+            return ['success' => false, 'message' => $curl_err];
+        }
+
+        $response = json_decode($result ?: '{}', true) ?: [];
+
+        if (!empty($response['id'])) {
+            return ['success' => true, 'event_id' => $response['id'], 'link' => $response['htmlLink'] ?? ''];
+        }
+
+        $error      = $response['error']['message'] ?? 'Unknown error updating event';
+        $error_code = $response['error']['code'] ?? 'unknown';
+        error_log('GoogleCalendarIntegration: updateEventOAuth failed for event_id=' . $event_id . ', admin_user_id=' . $admin_user_id . ', http_error=' . $error_code . ': ' . $error);
         return ['success' => false, 'message' => $error];
     }
 
