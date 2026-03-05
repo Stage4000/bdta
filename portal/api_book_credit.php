@@ -275,6 +275,8 @@ foreach ($pet_ids as $pid) {
 }
 
 // ── Save form responses ───────────────────────────────────────────────────
+require_once '../backend/includes/workflow_helper.php';
+$workflow_helper = new WorkflowHelper($conn);
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
     $ins = $conn->prepare("
         INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at)
@@ -283,9 +285,14 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
     foreach ($data['form_responses'] as $template_id => $responses) {
         if (is_array($responses) && !empty($responses)) {
             $ins->execute([$client_id, (int)$template_id, $booking_id, json_encode($responses)]);
+            $form_submission_id = (int)$conn->lastInsertId();
+            $workflow_helper->checkFormTriggers($form_submission_id);
         }
     }
 }
+
+// ── Trigger auto-enrollment for appointment workflow triggers ─────────────
+$workflow_helper->checkAppointmentTriggers($booking_id);
 
 // ── Deduct credit ─────────────────────────────────────────────────────────
 $conn->prepare("

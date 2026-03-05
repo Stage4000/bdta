@@ -2,6 +2,7 @@
 require_once '../includes/config.php';
 require_once '../includes/email_service.php';
 require_once '../includes/google_calendar.php';
+require_once '../includes/workflow_helper.php';
 
 header('Content-Type: application/json');
 
@@ -513,14 +514,20 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         }
 
         // Save form responses submitted during booking
+        $workflow_helper = new WorkflowHelper($conn);
         if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
             $ins = $conn->prepare("INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at) VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)");
             foreach ($data['form_responses'] as $template_id => $responses) {
                 if (is_array($responses) && !empty($responses)) {
                     $ins->execute([$client_id, (int)$template_id, $booking_id, json_encode($responses)]);
+                    $form_submission_id = $conn->lastInsertId();
+                    $workflow_helper->checkFormTriggers($form_submission_id);
                 }
             }
         }
+
+        // Trigger auto-enrollment for matching appointment workflow triggers
+        $workflow_helper->checkAppointmentTriggers($booking_id);
 
         // Deduct credit if one was selected
         if ($pkg_credit_id_to_use) {

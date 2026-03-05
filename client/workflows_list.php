@@ -11,9 +11,11 @@ $conn = $db->getConnection();
 $workflows = $conn->query("
     SELECT w.*, 
            COUNT(DISTINCT we.id) as enrollment_count,
-           COUNT(DISTINCT CASE WHEN we.status = 'active' THEN we.id END) as active_enrollments
+           COUNT(DISTINCT CASE WHEN we.status = 'active' THEN we.id END) as active_enrollments,
+           COUNT(DISTINCT wt.id) as trigger_count
     FROM workflows w
     LEFT JOIN workflow_enrollments we ON w.id = we.workflow_id
+    LEFT JOIN workflow_triggers wt ON w.id = wt.workflow_id AND wt.is_active = 1
     GROUP BY w.id
     ORDER BY w.name
 ")->fetchAll(PDO::FETCH_ASSOC);
@@ -74,7 +76,7 @@ include '../backend/includes/header.php';
                                     <?php endif; ?>
                                     
                                     <div class="row mt-3">
-                                        <div class="col-6">
+                                        <div class="col-4">
                                             <div class="text-center">
                                                 <h4 class="mb-0">
                                                     <?php 
@@ -87,10 +89,19 @@ include '../backend/includes/header.php';
                                                 <small class="text-muted">Steps</small>
                                             </div>
                                         </div>
-                                        <div class="col-6">
+                                        <div class="col-4">
                                             <div class="text-center">
                                                 <h4 class="mb-0 text-primary"><?php echo $workflow['active_enrollments']; ?></h4>
                                                 <small class="text-muted">Active Enrollments</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-center">
+                                                <a href="workflows_edit.php?id=<?php echo $workflow['id']; ?>#triggers" 
+                                                   class="text-decoration-none">
+                                                    <h4 class="mb-0 text-warning"><?php echo $workflow['trigger_count']; ?></h4>
+                                                    <small class="text-muted">Triggers</small>
+                                                </a>
                                             </div>
                                         </div>
                                     </div>

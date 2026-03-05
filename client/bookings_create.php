@@ -2,6 +2,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/email_service.php';
 require_once '../backend/includes/google_calendar.php';
+require_once '../backend/includes/workflow_helper.php';
 requireLogin();
 
 $db = new Database();
@@ -207,6 +208,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             
             $booking_id = $conn->lastInsertId();
+            
+            // Trigger auto-enrollment for matching workflow triggers
+            $workflow_helper = new WorkflowHelper($conn);
+            $workflow_helper->checkAppointmentTriggers($booking_id);
             
             // Consume credits
             if ($apt_type['consumes_credits'] && !$override_credits && $use_package_credit && $package_credit_row) {

@@ -24,7 +24,7 @@ if ($is_edit) {
     }
 }
 
-// Handle form submission
+// Handle workflow save
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
     $name = trim($_POST['name']);
     $description = trim($_POST['description']);
@@ -56,6 +56,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
         header('Location: workflows_steps.php?workflow_id=' . $workflow_id);
         exit;
     }
+}
+
+// Handle adding a trigger
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_trigger']) && $is_edit) {
+    $trigger_type = $_POST['trigger_type'] ?? '';
+    $appointment_type_id = !empty($_POST['trigger_appointment_type_id']) ? (int)$_POST['trigger_appointment_type_id'] : null;
+    $form_template_id = !empty($_POST['trigger_form_template_id']) ? (int)$_POST['trigger_form_template_id'] : null;
+
+    $valid = false;
+    if ($trigger_type === 'appointment_booking' && $appointment_type_id) {
+        $valid = true;
+    } elseif ($trigger_type === 'form_submission' && $form_template_id) {
+        $valid = true;
+    }
+
+    if ($valid) {
+        // Avoid duplicate triggers
+        if ($trigger_type === 'appointment_booking') {
+            $check = $conn->prepare("
+                SELECT id FROM workflow_triggers
+                WHERE workflow_id = ? AND trigger_type = ? AND appointment_type_id = ?
+            ");
+            $check->execute([$workflow_id, $trigger_type, $appointment_type_id]);
+        } else {
+            $check = $conn->prepare("
+                SELECT id FROM workflow_triggers
+                WHERE workflow_id = ? AND trigger_type = ? AND form_template_id = ?
+            ");
+            $check->execute([$workflow_id, $trigger_type, $form_template_id]);
+        }
+        if (!$check->fetch()) {
+            $stmt = $conn->prepare("
+                INSERT INTO workflow_triggers (workflow_id, trigger_type, appointment_type_id, form_template_id, is_active)
+                VALUES (?, ?, ?, ?, 1)
+            ");
+            $stmt->execute([$workflow_id, $trigger_type, $appointment_type_id, $form_template_id]);
+            $_SESSION['success'] = 'Trigger added successfully';
+        } else {
+            $_SESSION['error'] = 'This trigger already exists for this workflow';
+        }
+    } else {
+        $_SESSION['error'] = 'Please select a valid trigger type and target';
+    }
+
+    header('Location: workflows_edit.php?id=' . $workflow_id . '#triggers');
+    exit;
+}
+
+// Handle deleting a trigger
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_trigger']) && $is_edit) {
+    $trigger_id = (int)($_POST['trigger_id'] ?? 0);
+    if ($trigger_id) {
+        $stmt = $conn->prepare("DELETE FROM workflow_triggers WHERE id = ? AND workflow_id = ?");
+        $stmt->execute([$trigger_id, $workflow_id]);
+        $_SESSION['success'] = 'Trigger removed successfully';
+    }
+    header('Location: workflows_edit.php?id=' . $workflow_id . '#triggers');
+    exit;
+}
+
+// Load triggers and available options when editing
+$triggers = [];
+$appointment_types = [];
+$form_templates = [];
+if ($is_edit) {
+    $stmt = $conn->prepare("
+        SELECT wt.*, 
+               at.name as appointment_type_name,
+               ft.name as form_template_name
+        FROM workflow_triggers wt
+        LEFT JOIN appointment_types at ON wt.appointment_type_id = at.id
+        LEFT JOIN form_templates ft ON wt.form_template_id = ft.id
+        WHERE wt.workflow_id = ?
+        ORDER BY wt.created_at
+    ");
+    $stmt->execute([$workflow_id]);
+    $triggers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $appointment_types = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+    $form_templates = $conn->query("SELECT id, name FROM form_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 }
 
 include '../backend/includes/header.php';
@@ -128,6 +208,126 @@ include '../backend/includes/header.php';
             </div>
 
             <?php if ($is_edit): ?>
+                <!-- Auto-Enrollment Triggers -->
+                <div class="card mt-4" id="triggers">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bolt me-2"></i>Auto-Enrollment Triggers
+                            <span class="badge bg-secondary ms-2"><?php echo count($triggers); ?></span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Clients will be automatically enrolled in this workflow when they book a specified appointment type or complete a specified form.
+                        </p>
+
+                        <?php if (isset($_SESSION['success'])): ?>
+                            <div class="alert alert-success alert-dismissible fade show">
+                                <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        <?php endif; ?>
+                        <?php if (isset($_SESSION['error'])): ?>
+                            <div class="alert alert-danger alert-dismissible fade show">
+                                <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if (empty($triggers)): ?>
+                            <div class="alert alert-info">
+                                <i class="fas fa-circle-info me-1"></i>
+                                No auto-enrollment triggers configured. Add one below to automatically enroll clients.
+                            </div>
+                        <?php else: ?>
+                            <table class="table table-sm table-bordered mb-4">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Trigger Type</th>
+                                        <th>Target</th>
+                                        <th>Status</th>
+                                        <th style="width:80px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($triggers as $trigger): ?>
+                                        <tr>
+                                            <td>
+                                                <?php if ($trigger['trigger_type'] === 'appointment_booking'): ?>
+                                                    <i class="fas fa-calendar-check text-primary me-1"></i> Appointment Booking
+                                                <?php else: ?>
+                                                    <i class="fas fa-file-alt text-success me-1"></i> Form Submission
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?php if ($trigger['trigger_type'] === 'appointment_booking'): ?>
+                                                    <?php echo htmlspecialchars($trigger['appointment_type_name'] ?? '(deleted)'); ?>
+                                                <?php else: ?>
+                                                    <?php echo htmlspecialchars($trigger['form_template_name'] ?? '(deleted)'); ?>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?php if ($trigger['is_active']): ?>
+                                                    <span class="badge bg-success">Active</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary">Inactive</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <form method="POST">
+                                                    <input type="hidden" name="trigger_id" value="<?php echo (int)$trigger['id']; ?>">
+                                                    <button type="submit" name="delete_trigger" class="btn btn-sm btn-outline-danger"
+                                                            onclick="return confirm('Remove this trigger?')">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        <?php endif; ?>
+
+                        <!-- Add Trigger Form -->
+                        <h6 class="mb-3">Add New Trigger</h6>
+                        <form method="POST" class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">Trigger Type</label>
+                                <select class="form-select" name="trigger_type" id="triggerType" required>
+                                    <option value="">— Select type —</option>
+                                    <option value="appointment_booking">Appointment Booking</option>
+                                    <option value="form_submission">Form Submission</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5" id="aptTypeGroup" style="display:none">
+                                <label class="form-label">Appointment Type</label>
+                                <select class="form-select" name="trigger_appointment_type_id">
+                                    <option value="">— Select appointment type —</option>
+                                    <?php foreach ($appointment_types as $at): ?>
+                                        <option value="<?php echo (int)$at['id']; ?>"><?php echo htmlspecialchars($at['name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-5" id="formTplGroup" style="display:none">
+                                <label class="form-label">Form Template</label>
+                                <select class="form-select" name="trigger_form_template_id">
+                                    <option value="">— Select form template —</option>
+                                    <?php foreach ($form_templates as $ft): ?>
+                                        <option value="<?php echo (int)$ft['id']; ?>"><?php echo htmlspecialchars($ft['name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" name="add_trigger" class="btn btn-success w-100">
+                                    <i class="fas fa-plus me-1"></i> Add Trigger
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Workflow Steps -->
                 <div class="card mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Workflow Steps</h5>
@@ -150,7 +350,8 @@ include '../backend/includes/header.php';
                                 </a>
                             </li>
                             <li>
-                                <strong>Set Triggers:</strong> Configure automatic enrollment based on appointments or forms
+                                <strong>Set Triggers:</strong> 
+                                <a href="#triggers">Configure automatic enrollment based on appointments or forms</a>
                             </li>
                             <li>
                                 <strong>Enroll Clients:</strong> 
@@ -162,6 +363,21 @@ include '../backend/includes/header.php';
                     </div>
                 </div>
             <?php endif; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var typeSelect = document.getElementById('triggerType');
+    var aptGroup   = document.getElementById('aptTypeGroup');
+    var formGroup  = document.getElementById('formTplGroup');
+
+    if (typeSelect) {
+        typeSelect.addEventListener('change', function () {
+            aptGroup.style.display  = this.value === 'appointment_booking' ? '' : 'none';
+            formGroup.style.display = this.value === 'form_submission'     ? '' : 'none';
+        });
+    }
+});
+</script>
         </div>
     </div>
 </div>
