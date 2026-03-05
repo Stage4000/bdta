@@ -70,11 +70,15 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $available_start_time = '09:00';
     $available_end_time = '17:00';
     $time_slot_interval = 30;
+    $slot_duration = 60; // appointment duration in minutes (used for overlap detection)
+    $is_group_class = false;
+    $max_participants = 1;
     
     if ($appointment_type_id) {
         $stmt = $conn->prepare("
             SELECT available_days, available_start_time, available_end_time, time_slot_interval,
-                   schedule_type, specific_date, per_day_schedule
+                   schedule_type, specific_date, per_day_schedule,
+                   duration_minutes, is_group_class, max_participants
             FROM appointment_types 
             WHERE id = ? AND is_active = 1
         ");
@@ -104,6 +108,9 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             $available_start_time = $appointment_type['available_start_time'] ?? '09:00';
             $available_end_time = $appointment_type['available_end_time'] ?? '17:00';
             $time_slot_interval = (int)($appointment_type['time_slot_interval'] ?? 30);
+            $slot_duration      = (int)($appointment_type['duration_minutes']   ?? 60);
+            $is_group_class     = !empty($appointment_type['is_group_class']);
+            $max_participants   = max(1, (int)($appointment_type['max_participants'] ?? 1));
         }
     }
     
@@ -139,12 +146,29 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     }
     
     $stmt = $conn->prepare("
-        SELECT appointment_time, duration_minutes 
+        SELECT appointment_time, duration_minutes, appointment_type_id
         FROM bookings 
         WHERE appointment_date = ? AND status != 'cancelled'
     ");
     $stmt->execute([$date]);
-    $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $existing_bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Query Google Calendar for busy periods on this date (best-effort; errors are non-fatal)
+    $google_busy_periods = [];
+    $google_calendar_checked = false;
+    if (GoogleCalendarIntegration::isOAuthConfigured()) {
+        try {
+            // Use the first connected admin's calendar – consistent with how the POST
+            // handler adds events (it iterates all admins and stops on first success).
+            $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id LIMIT 1");
+            if ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
+                $google_busy_periods = GoogleCalendarIntegration::getFreeBusy($date, (int)$admin_row['admin_user_id']);
+                $google_calendar_checked = true;
+            }
+        } catch (Exception $e) {
+            error_log('api_bookings: Google Calendar free/busy check failed: ' . $e->getMessage());
+        }
+    }
     
     // Generate available slots based on appointment type configuration
     $available_slots = [];
@@ -174,13 +198,68 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         $hour = floor($time_minutes / 60);
         $minute = $time_minutes % 60;
         $time_slot = sprintf('%02d:%02d', $hour, $minute);
+        $time_slot_end_minutes = $time_minutes + $slot_duration;
         
         // Check if slot is available
         $is_available = true;
-        foreach ($bookings as $booking) {
-            if ($booking['appointment_time'] === $time_slot) {
+
+        // ── Internal booking conflict detection ──────────────────────────────
+        if ($is_group_class && $appointment_type_id) {
+            // Group class: count existing participants for this exact slot and type.
+            // Allow booking as long as capacity is not yet reached.
+            $participant_count = 0;
+            foreach ($existing_bookings as $booking) {
+                $b_time = substr($booking['appointment_time'], 0, 5);
+                if ($b_time === $time_slot && (int)$booking['appointment_type_id'] === $appointment_type_id) {
+                    $participant_count++;
+                }
+            }
+            if ($participant_count >= $max_participants) {
                 $is_available = false;
-                break;
+            }
+        } else {
+            // Regular appointment: block if any existing booking overlaps with the proposed window.
+            // De-duplicate by [start, end) window so that group-class bookings (multiple rows
+            // at the same time) are treated as a single occupancy block.
+            $seen_windows = [];
+            foreach ($existing_bookings as $booking) {
+                $b_time   = substr($booking['appointment_time'], 0, 5);
+                $b_parts  = explode(':', $b_time);
+                if (count($b_parts) !== 2) continue;
+                $b_start  = (int)$b_parts[0] * 60 + (int)$b_parts[1];
+                $b_dur    = max(1, (int)($booking['duration_minutes'] ?? 60));
+                $b_end    = $b_start + $b_dur;
+                $win_key  = $b_start . '-' . $b_end;
+
+                if (isset($seen_windows[$win_key])) {
+                    continue; // Already evaluated this time window
+                }
+                $seen_windows[$win_key] = true;
+
+                // Two intervals [A,B) and [C,D) overlap iff A < D && C < B
+                if ($time_minutes < $b_end && $b_start < $time_slot_end_minutes) {
+                    $is_available = false;
+                    break;
+                }
+            }
+        }
+
+        // ── Google Calendar busy-period check ────────────────────────────────
+        if ($is_available && !empty($google_busy_periods)) {
+            $slot_start_ts = strtotime($date . 'T' . $time_slot . ':00');
+            $slot_end_ts   = $slot_start_ts + $slot_duration * 60;
+
+            foreach ($google_busy_periods as $busy) {
+                if (empty($busy['start']) || empty($busy['end'])) continue;
+                $busy_start_ts = strtotime($busy['start']);
+                $busy_end_ts   = strtotime($busy['end']);
+                if ($busy_start_ts === false || $busy_end_ts === false) continue;
+
+                // Overlap check (same logic as internal bookings)
+                if ($slot_start_ts < $busy_end_ts && $busy_start_ts < $slot_end_ts) {
+                    $is_available = false;
+                    break;
+                }
             }
         }
         
@@ -191,7 +270,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     
     echo json_encode([
         'date' => $date,
-        'available_slots' => $available_slots
+        'available_slots' => $available_slots,
+        'google_calendar_checked' => $google_calendar_checked,
     ]);
     
 } elseif ($method === 'POST') {
