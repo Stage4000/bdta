@@ -20,6 +20,13 @@ define('DEFAULT_LOCALHOST_URL', 'http://localhost:8000');
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/settings.php';
 
+// Apply the user-configured timezone from advanced settings
+$_configured_tz = Settings::get('timezone', 'America/New_York');
+if ($_configured_tz && @timezone_open($_configured_tz)) {
+    date_default_timezone_set($_configured_tz);
+}
+unset($_configured_tz);
+
 // Helper functions
 function redirect($url) {
     header("Location: $url");
