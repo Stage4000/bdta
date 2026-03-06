@@ -4,6 +4,7 @@
  */
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
+require_once '../backend/includes/email_service.php';
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -130,6 +131,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $conn->commit();
+            
+            if (!$is_edit) {
+                // Fetch the new quote with client info to send the email
+                $email_stmt = $conn->prepare("
+                    SELECT q.*, c.name as client_name, c.email as client_email
+                    FROM quotes q
+                    INNER JOIN clients c ON q.client_id = c.id
+                    WHERE q.id = ?
+                ");
+                $email_stmt->execute([$quote_id]);
+                $new_quote = $email_stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($new_quote && !empty($new_quote['client_email'])) {
+                    $email_items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
+                    $email_items_stmt->execute([$quote_id]);
+                    $email_items = $email_items_stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    $email_service = new EmailService(null, $conn);
+                    $email_service->sendQuoteEmail($new_quote, $email_items);
+                }
+            }
+            
             $_SESSION['success'] = $is_edit ? "Quote updated successfully" : "Quote created successfully";
             header('Location: quotes_view.php?id=' . $quote_id);
             exit;

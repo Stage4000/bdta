@@ -4,6 +4,7 @@
  */
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
+require_once '../backend/includes/email_service.php';
 requireLogin();
 
 $db = new Database();
@@ -13,10 +14,28 @@ $quote_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 // Handle resend action
 if (isset($_POST['resend_quote'])) {
-    // TODO: Implement email sending
-    // For now, just update the status to 'sent'
     $stmt = $conn->prepare("UPDATE quotes SET status = 'sent', updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     $stmt->execute([$quote_id]);
+    
+    // Fetch quote with client info to send the email
+    $email_stmt = $conn->prepare("
+        SELECT q.*, c.name as client_name, c.email as client_email
+        FROM quotes q
+        INNER JOIN clients c ON q.client_id = c.id
+        WHERE q.id = ?
+    ");
+    $email_stmt->execute([$quote_id]);
+    $resend_quote = $email_stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($resend_quote && !empty($resend_quote['client_email'])) {
+        $email_items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
+        $email_items_stmt->execute([$quote_id]);
+        $email_items = $email_items_stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $email_service = new EmailService(null, $conn);
+        $email_service->sendQuoteEmail($resend_quote, $email_items);
+    }
+    
     setFlashMessage('Quote resent successfully!', 'success');
     header('Location: quotes_view.php?id=' . $quote_id);
     exit;
