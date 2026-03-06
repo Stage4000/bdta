@@ -1634,6 +1634,9 @@ class Database {
         if (!in_array('reminder_template_id', $apt_col_names_tmpl)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN reminder_template_id INTEGER DEFAULT NULL");
         }
+        if (!in_array('cancellation_template_id', $apt_col_names_tmpl)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN cancellation_template_id INTEGER DEFAULT NULL");
+        }
 
         // Add unique index for booking_reminders_sent to prevent duplicate sends per rule
         try {
@@ -1699,16 +1702,19 @@ class Database {
             'default_confirmation_template_id',
             'default_reminder_template_id',
             'default_payment_receipt_template_id',
+            'default_cancellation_template_id',
         ];
         $labels = [
             'default_confirmation_template_id' => 'Default Booking Confirmation Template',
             'default_reminder_template_id'      => 'Default Booking Reminder Template',
             'default_payment_receipt_template_id' => 'Default Payment Receipt Template',
+            'default_cancellation_template_id'  => 'Default Booking Cancellation Template',
         ];
         $descriptions = [
             'default_confirmation_template_id' => 'Email template used for booking confirmations (0 = use built-in template)',
             'default_reminder_template_id'      => 'Email template used for booking reminders (0 = use built-in template)',
             'default_payment_receipt_template_id' => 'Email template used for payment receipts (0 = use built-in template)',
+            'default_cancellation_template_id'  => 'Email template used for booking cancellation notifications (0 = use built-in template)',
         ];
 
         $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");

@@ -47,6 +47,7 @@ include '../backend/includes/header.php';
                     $template_types = [
                         'booking_confirmation' => ['icon' => 'calendar-check', 'color' => 'primary'],
                         'booking_reminder' => ['icon' => 'bell', 'color' => 'warning'],
+                        'booking_cancellation' => ['icon' => 'calendar-xmark', 'color' => 'danger'],
                         'payment_receipt' => ['icon' => 'receipt', 'color' => 'success'],
                         'contract_request' => ['icon' => 'file-invoice', 'color' => 'info'],
                         'form_request' => ['icon' => 'file', 'color' => 'secondary'],

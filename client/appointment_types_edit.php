@@ -64,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $portal_available = isset($_POST['portal_available']) ? 1 : 0;
     $confirmation_template_id = !empty($_POST['confirmation_template_id']) ? (int)$_POST['confirmation_template_id'] : null;
     $reminder_template_id     = !empty($_POST['reminder_template_id'])     ? (int)$_POST['reminder_template_id']     : null;
+    $cancellation_template_id = !empty($_POST['cancellation_template_id']) ? (int)$_POST['cancellation_template_id'] : null;
     
     // Handle Mini Sessions configuration
     $is_mini_session = isset($_POST['is_mini_session']) ? 1 : 0;
@@ -160,6 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     location_types = ?,
                     confirmation_template_id = ?,
                     reminder_template_id = ?,
+                    cancellation_template_id = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -182,6 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $location_types_json,
                 $confirmation_template_id,
                 $reminder_template_id,
+                $cancellation_template_id,
                 $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
@@ -214,8 +217,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     default_amount,
                     location_types,
                     confirmation_template_id,
-                    reminder_template_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    reminder_template_id,
+                    cancellation_template_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -236,7 +240,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $default_amount,
                 $location_types_json,
                 $confirmation_template_id,
-                $reminder_template_id
+                $reminder_template_id,
+                $cancellation_template_id
             ]);
             $id = $conn->lastInsertId();
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
@@ -303,9 +308,10 @@ $all_forms = $conn->query("SELECT id, name FROM form_templates WHERE is_active =
 // Load all active contract templates for the dropdown
 $all_contract_templates = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
-// Load email templates for confirmation/reminder overrides
-$confirmation_templates = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_confirmation' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-$reminder_templates     = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_reminder'     AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+// Load email templates for confirmation/reminder/cancellation overrides
+$confirmation_templates  = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_confirmation' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$reminder_templates      = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_reminder'     AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$cancellation_templates  = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_cancellation' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
 // Load per-appointment-type reminder rules (only when editing)
 $type_reminder_rules = [];
@@ -912,6 +918,21 @@ include __DIR__ . '/../backend/includes/header.php';
                             <?php endforeach; ?>
                         </select>
                         <div class="form-text">Default reminder template for this appointment type (overridden per rule below).</div>
+                    </div>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="cancellation_template_id" class="form-label">Cancellation Email Template</label>
+                        <select class="form-select" id="cancellation_template_id" name="cancellation_template_id">
+                            <option value="">— Use system default —</option>
+                            <?php foreach ($cancellation_templates as $tmpl): ?>
+                                <option value="<?= $tmpl['id'] ?>"
+                                    <?= (isset($type['cancellation_template_id']) && $type['cancellation_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Override the cancellation notification email for this appointment type.</div>
                     </div>
                 </div>
 

@@ -55,6 +55,9 @@ class EmailService {
     /** Reminder sent to the client for an incomplete form. */
     const MAIL_TYPE_FORM_REMINDER        = 'form_reminder';
 
+    /** Cancellation notification sent to the client when an appointment is cancelled. */
+    const MAIL_TYPE_BOOKING_CANCELLATION = 'booking_cancellation';
+
     /** Automated email dispatched by a workflow step. */
     const MAIL_TYPE_WORKFLOW             = 'workflow';
 
@@ -196,6 +199,7 @@ class EmailService {
         $override_col_map = [
             'booking_confirmation' => 'confirmation_template_id',
             'booking_reminder'     => 'reminder_template_id',
+            'booking_cancellation' => 'cancellation_template_id',
         ];
 
         // Setting key for the system-wide default
@@ -203,13 +207,14 @@ class EmailService {
             'booking_confirmation' => 'default_confirmation_template_id',
             'booking_reminder'     => 'default_reminder_template_id',
             'payment_receipt'      => 'default_payment_receipt_template_id',
+            'booking_cancellation' => 'default_cancellation_template_id',
         ];
 
         // 1. Check per-appointment-type override
         if ($appointment_type_id && isset($override_col_map[$template_type])) {
             $col = $override_col_map[$template_type];
             // Whitelist the column name to prevent any future SQL injection risk
-            $allowed_cols = ['confirmation_template_id', 'reminder_template_id'];
+            $allowed_cols = ['confirmation_template_id', 'reminder_template_id', 'cancellation_template_id'];
             if (!in_array($col, $allowed_cols, true)) {
                 // Should never happen since $override_col_map is hardcoded
                 return null;
@@ -317,6 +322,46 @@ class EmailService {
         
         // Route through central mail router
         return $this->routeMail(self::MAIL_TYPE_BOOKING_CONFIRMATION, $to, $subject, $html_body, $text_body);
+    }
+
+    /**
+     * Send a booking cancellation email to the client.
+     *
+     * @param array  $booking  Row from bookings (must include client_email, client_name, etc.)
+     * @param string $reason   Optional reason for the cancellation
+     * @return array{success: bool, message: string}
+     */
+    public function sendBookingCancellation($booking, $reason = '') {
+        $to = $booking['client_email'] ?? '';
+        if (empty($to)) {
+            return ['success' => false, 'message' => 'No client email address on file'];
+        }
+
+        // Format date and time nicely
+        $date = date('l, F j, Y', strtotime($booking['appointment_date']));
+        $time = date('g:i A', strtotime($booking['appointment_time']));
+
+        // Try to use a custom DB template (appointment-type override or system default)
+        $appointment_type_id = !empty($booking['appointment_type_id']) ? (int)$booking['appointment_type_id'] : null;
+        $db_template = $this->getTemplateForTask('booking_cancellation', $appointment_type_id);
+
+        if ($db_template) {
+            $variables = array_merge(
+                $this->buildBookingVariables($booking, $date, $time, '', ''),
+                ['cancellation_reason' => $reason]
+            );
+            $rendered  = $this->renderTemplate($db_template, $variables);
+            $subject   = $rendered['subject'];
+            $html_body = $rendered['body_html'];
+            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+        } else {
+            // Fallback to hardcoded template
+            $subject   = 'Appointment Cancelled - Brook\'s Dog Training Academy';
+            $html_body = $this->getCancellationEmailHTML($booking, $date, $time, $reason);
+            $text_body = $this->getCancellationEmailText($booking, $date, $time, $reason);
+        }
+
+        return $this->routeMail(self::MAIL_TYPE_BOOKING_CANCELLATION, $to, $subject, $html_body, $text_body);
     }
 
     /**
@@ -803,7 +848,119 @@ Brook's Dog Training Academy
 This is an automated confirmation email.
 TEXT;
     }
-    
+
+    /**
+     * Get HTML email template for cancellation notification
+     */
+    private function getCancellationEmailHTML($booking, $date, $time, $reason = '') {
+        $client_name  = htmlspecialchars($booking['client_name'] ?? '');
+        $service_type = htmlspecialchars($booking['service_type'] ?? '');
+        $duration     = htmlspecialchars((string)($booking['duration_minutes'] ?? ''));
+        $location     = htmlspecialchars($this->formatLocationForEmail($booking));
+        $reason_block = '';
+        if (!empty($reason)) {
+            $reason_html  = htmlspecialchars($reason);
+            $reason_block = "<p><strong>Reason:</strong> {$reason_html}</p>";
+        }
+
+        return <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #dc3545; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+        .booking-details { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #dc3545; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Appointment Cancelled</h1>
+        </div>
+        <div class="content">
+            <p>Dear {$client_name},</p>
+
+            <p>We're writing to let you know that your upcoming appointment has been cancelled.</p>
+
+            <div class="booking-details">
+                <h2>Cancelled Appointment Details</h2>
+                <p><strong>Service:</strong> {$service_type}</p>
+                <p><strong>Date:</strong> {$date}</p>
+                <p><strong>Time:</strong> {$time}</p>
+                <p><strong>Duration:</strong> {$duration} minutes</p>
+                <p><strong>Location:</strong> {$location}</p>
+                {$reason_block}
+            </div>
+
+            <p>If you have any questions or would like to reschedule, please contact us at:</p>
+            <p>📧 Email: bookings@brooksdogtrainingacademy.com<br>
+            🔗 Website: https://brooksdogtrainingacademy.com</p>
+
+            <p>We apologise for any inconvenience this may cause and hope to see you soon.</p>
+
+            <p>Best regards,<br>
+            <strong>Brook Lefkowitz</strong><br>
+            ABC Certified Dog Trainer<br>
+            Brook's Dog Training Academy</p>
+        </div>
+        <div class="footer">
+            <p>© 2024 Brook's Dog Training Academy | "Teaching Humans to Speak Dog"</p>
+            <p>This is an automated cancellation notification. Please do not reply directly to this message.</p>
+        </div>
+    </div>
+</body>
+</html>
+HTML;
+    }
+
+    /**
+     * Get plain text email template for cancellation notification
+     */
+    private function getCancellationEmailText($booking, $date, $time, $reason = '') {
+        $client_name  = $booking['client_name'] ?? '';
+        $service_type = $booking['service_type'] ?? '';
+        $duration     = $booking['duration_minutes'] ?? '';
+        $location     = $this->formatLocationForEmail($booking);
+        $reason_line  = !empty($reason) ? "Reason: {$reason}\n" : '';
+
+        return <<<TEXT
+APPOINTMENT CANCELLED - Brook's Dog Training Academy
+
+Dear {$client_name},
+
+We're writing to let you know that your upcoming appointment has been cancelled.
+
+CANCELLED APPOINTMENT DETAILS
+------------------------------
+Service: {$service_type}
+Date: {$date}
+Time: {$time}
+Duration: {$duration} minutes
+Location: {$location}
+{$reason_line}
+If you have any questions or would like to reschedule, please contact us at:
+
+Email: bookings@brooksdogtrainingacademy.com
+Website: https://brooksdogtrainingacademy.com
+
+We apologise for any inconvenience this may cause and hope to see you soon.
+
+Best regards,
+Brook Lefkowitz
+ABC Certified Dog Trainer
+Brook's Dog Training Academy
+
+---
+© 2024 Brook's Dog Training Academy | "Teaching Humans to Speak Dog"
+This is an automated cancellation notification.
+TEXT;
+    }
+
     /**
      * Format the location for display in emails based on location_type
      */
