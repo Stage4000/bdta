@@ -440,8 +440,10 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
     // ------------------------------------------------------------------
     const titleDisplay = document.getElementById('page-title-display');
     const titleInput   = document.getElementById('page-title-input');
+    let originalTitle  = titleDisplay.textContent;
 
     titleDisplay.addEventListener('click', function () {
+        originalTitle = titleDisplay.textContent;
         titleDisplay.style.display = 'none';
         titleInput.style.display   = 'inline-block';
         titleInput.focus();
@@ -450,11 +452,11 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
 
     async function commitRename() {
         const newTitle = titleInput.value.trim();
-        if (!newTitle) { titleInput.value = titleDisplay.textContent; }
-        titleDisplay.textContent = newTitle || titleDisplay.textContent;
+        titleDisplay.textContent = newTitle || originalTitle;
         titleDisplay.style.display = 'inline';
         titleInput.style.display   = 'none';
-        if (!newTitle || newTitle === titleDisplay.textContent) return;
+        if (!newTitle || newTitle === originalTitle) return;
+        originalTitle = newTitle;
 
         try {
             const res  = await fetch('site_pages_api.php?action=rename', {
@@ -473,7 +475,7 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
     titleInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') titleInput.blur();
         if (e.key === 'Escape') {
-            titleInput.value = titleDisplay.textContent;
+            titleInput.value = originalTitle;
             titleInput.blur();
         }
     });

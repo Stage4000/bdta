@@ -53,11 +53,15 @@ switch ($action) {
             $slug = $slug . '-' . time();
         }
 
+        // Calculate sort_order before INSERT to avoid subquery race condition
+        $max_order_stmt = $conn->query("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM site_pages");
+        $next_order = intval($max_order_stmt->fetchColumn());
+
         $stmt = $conn->prepare(
             "INSERT INTO site_pages (slug, title, html_content, css_content, is_homepage, is_published, sort_order, updated_by)
-             VALUES (?, ?, '', '', 0, 0, (SELECT COALESCE(MAX(sort_order),0)+1 FROM site_pages), ?)"
+             VALUES (?, ?, '', '', 0, 0, ?, ?)"
         );
-        $stmt->execute([$slug, $title, $_SESSION['admin_id']]);
+        $stmt->execute([$slug, $title, $next_order, $_SESSION['admin_id']]);
         $new_id = $conn->lastInsertId();
         echo json_encode(['success' => true, 'id' => $new_id, 'slug' => $slug]);
         break;
