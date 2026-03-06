@@ -502,10 +502,12 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
     let previewing = false;
     document.getElementById('btn-preview').addEventListener('click', function () {
         previewing = !previewing;
-        editor.runCommand(previewing ? 'preview' : 'core:canvas-clear');
-        if (!previewing) {
-            editor.setComponents(editor.getHtml());
-            editor.setStyle(editor.getCss());
+        if (previewing) {
+            editor.runCommand('core:preview');
+        } else {
+            // stopCommand correctly exits preview mode and restores all panels/content.
+            // Never use 'core:canvas-clear' here — that destroys the component tree.
+            editor.stopCommand('core:preview');
         }
         this.innerHTML = previewing
             ? '<i class="fas fa-edit me-1"></i> Edit'
