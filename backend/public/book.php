@@ -430,6 +430,15 @@ if (isset($error_mode) && $error_mode) {
                 <!-- Hidden input to store the pre-selected appointment type (all pages are standalone now) -->
                 <input type="hidden" name="appointment_type" value="<?= intval($selected_type['id']) ?>" id="standaloneType">
                 
+                <?php
+                // Determine whether this appointment type is locked to a single specific date
+                $is_specific_date_type = !empty($selected_type['schedule_type'])
+                    && $selected_type['schedule_type'] === 'specific_date'
+                    && !empty($selected_type['specific_date'])
+                    && (DateTime::createFromFormat('Y-m-d', $selected_type['specific_date']) !== false);
+                $specific_date_value = $is_specific_date_type ? $selected_type['specific_date'] : null;
+                ?>
+                
                 <!-- Step 1: Select Date -->
                 <div class="form-step active" data-step="1">
                     <h3 class="mb-4">Choose Your Date</h3>
@@ -437,9 +446,22 @@ if (isset($error_mode) && $error_mode) {
                     <div class="row">
                         <div class="col-md-8 mx-auto mb-3">
                             <label class="form-label fw-bold">Select Date *</label>
+                            <?php if ($is_specific_date_type): ?>
+                            <input type="date" class="form-control form-control-lg" id="appointmentDate"
+                                   name="appointment_date" required
+                                   value="<?= htmlspecialchars($specific_date_value) ?>"
+                                   min="<?= htmlspecialchars($specific_date_value) ?>"
+                                   max="<?= htmlspecialchars($specific_date_value) ?>"
+                                   readonly>
+                            <small class="text-muted mt-2 d-block">
+                                <i class="fas fa-calendar-check me-1"></i>
+                                This session is only available on <strong><?= date('F j, Y', strtotime($specific_date_value)) ?></strong>.
+                            </small>
+                            <?php else: ?>
                             <input type="date" class="form-control form-control-lg" id="appointmentDate" 
                                    name="appointment_date" required min="<?= date('Y-m-d') ?>">
                             <small class="text-muted mt-2 d-block">Choose a date for your appointment. You'll select a time in the next step.</small>
+                            <?php endif; ?>
                         </div>
                     </div>
                     
@@ -818,6 +840,9 @@ if (isset($error_mode) && $error_mode) {
     $js_type_duration = ($selected_type && isset($selected_type['duration_minutes']) && $selected_type['duration_minutes'] > 0) 
         ? intval($selected_type['duration_minutes']) 
         : 'null';
+    $js_specific_date = ($is_specific_date_type && $specific_date_value)
+        ? json_encode($specific_date_value)
+        : 'null';
     ?>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -826,7 +851,7 @@ if (isset($error_mode) && $error_mode) {
         let selectedType = <?= $js_type_id ?>;
         let selectedTypeName = <?= $js_type_name ?>;
         let selectedTypeDuration = <?= $js_type_duration ?>;
-        let selectedDate = null;
+        let selectedDate = <?= $js_specific_date ?>;
         let selectedTime = null;
         const maxSteps = 4;
         
