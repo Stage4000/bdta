@@ -174,6 +174,7 @@
                         $isContractTpls   = strpos($currentPath, 'contract_template') !== false;
                         $isBlog           = strpos($currentPath, 'blog') !== false;
                         $isPortal         = $currentFile === 'portal_homepage.php';
+                        $isSitePages      = strpos($currentPath, 'site_pages') !== false || strpos($currentPath, 'site_editor') !== false;
                         $isFormTpls       = strpos($currentPath, 'form_templates') !== false;
                         $isFormSubs       = strpos($currentPath, 'form_submissions') !== false;
                         $isUnmatched      = strpos($currentPath, 'unmatched_emails') !== false;
@@ -320,7 +321,14 @@
                             </a>
                         </li>
 
-                        <!-- 8. Portal Homepage -->
+                        <!-- 8. Site Editor (front-end pages) -->
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo $isSitePages ? 'active' : ''; ?>" href="site_pages_list.php">
+                                <i class="fas fa-file-code me-2"></i> Site Editor
+                            </a>
+                        </li>
+
+                        <!-- 9. Portal Homepage -->
                         <li class="nav-item">
                             <a class="nav-link <?php echo $isPortal ? 'active' : ''; ?>" href="portal_homepage.php">
                                 <i class="fas fa-door-open me-2"></i> Portal Homepage

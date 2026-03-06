@@ -1192,7 +1192,14 @@ class Database {
         }
 
         if (!in_array('pay_token', $invoice_column_names)) {
-            $this->execSQL("ALTER TABLE invoices ADD COLUMN pay_token TEXT UNIQUE");
+            // SQLite doesn't support UNIQUE in ALTER TABLE ADD COLUMN,
+            // so we add the column then create a separate unique index
+            $this->execSQL("ALTER TABLE invoices ADD COLUMN pay_token TEXT");
+            try {
+                $this->execSQL("CREATE UNIQUE INDEX idx_invoices_pay_token ON invoices(pay_token)");
+            } catch (PDOException $e) {
+                // Index already exists, ignore
+            }
         }
 
         // Update invoice_installments table to add receipt audit trail
@@ -1710,6 +1717,30 @@ class Database {
         }
         if (!in_array('reference_id', $quote_items_cols)) {
             $this->execSQL("ALTER TABLE quote_items ADD COLUMN reference_id INTEGER DEFAULT NULL");
+        }
+
+        // Create site_pages table for the front-end visual page editor
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS site_pages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                slug TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                html_content TEXT,
+                css_content TEXT,
+                meta_description TEXT,
+                is_homepage INTEGER NOT NULL DEFAULT 0,
+                is_published INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_by INTEGER
+            )
+        ");
+        // Seed the home page entry if none exists yet
+        $sp_count = $this->conn->query("SELECT COUNT(*) FROM site_pages WHERE slug = 'home'")->fetchColumn();
+        if ($sp_count == 0) {
+            $this->execSQL("INSERT INTO site_pages (slug, title, html_content, css_content, is_homepage, is_published, sort_order)
+                VALUES ('home', 'Home', '', '', 1, 0, 0)");
         }
     }
     
