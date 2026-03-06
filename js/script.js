@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initBackToTop();
     initContactForm();
     initSmoothScroll();
+    loadPackages();
+    loadEvents();
 });
 
 // ==========================================
@@ -313,3 +315,210 @@ document.addEventListener('DOMContentLoaded', function() {
 // Console greeting
 console.log('%c🐕 Brook\'s Dog Training Academy', 'color: #2563eb; font-size: 20px; font-weight: bold;');
 console.log('%cWebsite designed with ❤️', 'color: #10b981; font-size: 14px;');
+
+// ==========================================
+// Dynamic Packages Section
+// ==========================================
+function loadPackages() {
+    var grid    = document.getElementById('packages-grid');
+    var loading = document.getElementById('packages-loading');
+    var empty   = document.getElementById('packages-empty');
+
+    if (!grid) return;
+
+    fetch('backend/public/api_packages.php')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (loading) loading.remove();
+
+            var packages = (data && Array.isArray(data.packages)) ? data.packages : [];
+            if (packages.length === 0) {
+                if (empty) empty.classList.remove('d-none');
+                return;
+            }
+
+            packages.forEach(function(pkg, idx) {
+                var delay = ((idx % 3) + 1) * 100;
+                var priceText = pkg.price > 0
+                    ? '$' + pkg.price.toFixed(2)
+                    : 'Contact Us';
+
+                // Build "What's Included" list
+                var itemsHtml = '';
+                if (pkg.items && pkg.items.length > 0) {
+                    itemsHtml = '<ul class="list-unstyled mb-4">';
+                    pkg.items.forEach(function(item) {
+                        itemsHtml += '<li class="mb-2">'
+                            + '<i class="fas fa-check-circle text-success me-2"></i>'
+                            + escapeHtml(item.quantity + '× ' + item.apt_type_name)
+                            + '</li>';
+                    });
+                    itemsHtml += '</ul>';
+                }
+
+                // Expiry note
+                var expiryHtml = pkg.expiration_days
+                    ? '<small class="text-muted d-block mb-3">Credits valid for ' + pkg.expiration_days + ' days</small>'
+                    : '';
+
+                // CTA button
+                var ctaHtml = pkg.purchase_url
+                    ? '<a href="' + escapeHtml(pkg.purchase_url) + '" class="btn btn-primary mt-auto" target="_blank" rel="noopener">'
+                      + '<i class="fas fa-shopping-cart me-2"></i>Purchase Package</a>'
+                    : '<a href="#contact" class="btn btn-outline-primary mt-auto">Contact Us</a>';
+
+                var col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4';
+                col.setAttribute('data-aos', 'fade-up');
+                col.setAttribute('data-aos-delay', delay);
+                col.innerHTML = '<div class="service-card card h-100 border-0 shadow-sm hover-lift">'
+                    + '<div class="card-body p-4 d-flex flex-column">'
+                    + '<div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width:80px;height:80px;">'
+                    + '<i class="fas fa-box-open text-primary fs-2"></i></div>'
+                    + '<h4 class="fw-bold mb-2">' + escapeHtml(pkg.name) + '</h4>'
+                    + '<p class="text-primary fw-bold fs-5 mb-2">' + escapeHtml(priceText) + '</p>'
+                    + (pkg.description ? '<p class="text-muted mb-3">' + escapeHtml(pkg.description) + '</p>' : '')
+                    + itemsHtml
+                    + expiryHtml
+                    + ctaHtml
+                    + '</div></div>';
+                grid.appendChild(col);
+            });
+
+            // Re-init AOS so new cards animate in
+            if (typeof AOS !== 'undefined') { AOS.refreshHard(); }
+        })
+        .catch(function() {
+            if (loading) loading.remove();
+            if (empty) empty.classList.remove('d-none');
+        });
+}
+
+// ==========================================
+// Dynamic Events Section
+// ==========================================
+function loadEvents() {
+    var grid    = document.getElementById('events-grid');
+    var loading = document.getElementById('events-loading');
+    var empty   = document.getElementById('events-empty');
+
+    if (!grid) return;
+
+    fetch('backend/public/api_events.php')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (loading) loading.remove();
+
+            var events = (data && Array.isArray(data.events)) ? data.events : [];
+            if (events.length === 0) {
+                if (empty) empty.classList.remove('d-none');
+                return;
+            }
+
+            events.forEach(function(evt, idx) {
+                var delay = ((idx % 3) + 1) * 100;
+                var isGroupClass  = evt.type === 'group_class';
+                var isMiniSession = evt.type === 'mini_session';
+                var fullyBooked   = !!evt.fully_booked;
+
+                // Format date
+                var dateObj  = evt.date ? new Date(evt.date + 'T00:00:00') : null;
+                var dateStr  = dateObj ? dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '';
+
+                // Format times
+                var timeStr = formatTime(evt.start_time);
+                if (isGroupClass) {
+                    // For group class: show single slot start time + duration
+                    timeStr += ' (' + evt.duration_minutes + ' min)';
+                } else if (isMiniSession) {
+                    // For mini session: show availability window
+                    timeStr = formatTime(evt.start_time) + ' – ' + formatTime(evt.end_time);
+                }
+
+                // Price
+                var priceText = evt.price > 0 ? '$' + evt.price.toFixed(2) : 'Contact Us';
+
+                // Type badge
+                var typeBadge = isGroupClass
+                    ? '<span class="badge bg-primary mb-3">Group Class</span>'
+                    : '<span class="badge bg-info text-dark mb-3">Mini Sessions</span>';
+
+                // Location (mini sessions only)
+                var locationHtml = (isMiniSession && evt.location)
+                    ? '<p class="mb-1 small"><i class="fas fa-location-dot text-primary me-1"></i>' + escapeHtml(evt.location) + '</p>'
+                    : '';
+
+                // Topic (mini sessions only)
+                var topicHtml = (isMiniSession && evt.topic)
+                    ? '<p class="mb-2 small"><i class="fas fa-tag text-secondary me-1"></i>' + escapeHtml(evt.topic) + '</p>'
+                    : '';
+
+                // Fully booked badge or CTA
+                var ctaHtml;
+                if (fullyBooked) {
+                    ctaHtml = '<span class="badge bg-danger py-2 px-3 mt-auto">Fully Booked</span>';
+                } else if (evt.booking_url) {
+                    ctaHtml = '<a href="' + escapeHtml(evt.booking_url) + '" class="btn btn-sm btn-primary mt-auto" target="_blank" rel="noopener">'
+                        + '<i class="fas fa-calendar-check me-1"></i>Book Now</a>';
+                } else {
+                    ctaHtml = '<a href="#contact" class="btn btn-sm btn-outline-primary mt-auto">Register</a>';
+                }
+
+                var col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4';
+                col.setAttribute('data-aos', 'fade-up');
+                col.setAttribute('data-aos-delay', delay);
+                col.innerHTML = '<div class="card h-100 border-0 shadow-sm hover-lift' + (fullyBooked ? ' opacity-75' : '') + '">'
+                    + '<div class="card-body p-4 d-flex flex-column">'
+                    + '<div class="mb-2"><i class="fas fa-calendar-days text-primary fs-1"></i></div>'
+                    + typeBadge
+                    + '<h5 class="fw-bold mb-2">' + escapeHtml(evt.name) + '</h5>'
+                    + (evt.description ? '<p class="text-muted mb-2 small">' + escapeHtml(evt.description) + '</p>' : '')
+                    + '<div class="mb-2">'
+                    + (dateStr ? '<p class="mb-1 small"><i class="fas fa-calendar text-primary me-1"></i>' + escapeHtml(dateStr) + '</p>' : '')
+                    + '<p class="mb-1 small"><i class="fas fa-clock text-primary me-1"></i>' + escapeHtml(timeStr) + '</p>'
+                    + locationHtml
+                    + topicHtml
+                    + '<p class="mb-0 small fw-bold"><i class="fas fa-tag text-primary me-1"></i>' + escapeHtml(priceText) + '</p>'
+                    + '</div>'
+                    + ctaHtml
+                    + '</div></div>';
+                grid.appendChild(col);
+            });
+
+            // Re-init AOS so new cards animate in
+            if (typeof AOS !== 'undefined') { AOS.refreshHard(); }
+        })
+        .catch(function() {
+            if (loading) loading.remove();
+            if (empty) empty.classList.remove('d-none');
+        });
+}
+
+// ==========================================
+// Shared Utilities
+// ==========================================
+
+/** Escape a string for safe insertion as HTML text content */
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/** Format a HH:MM time string to a human-readable 12-hour format */
+function formatTime(timeStr) {
+    if (!timeStr) return '';
+    var parts = timeStr.split(':');
+    if (parts.length < 2) return timeStr;
+    var h = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return timeStr;
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + ':' + (m < 10 ? '0' + m : m) + ' ' + ampm;
+}
