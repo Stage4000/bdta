@@ -7,10 +7,25 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/mobile.css">
+    <?php
+    $theme = Settings::getThemeColors();
+    $tc_primary       = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['primary']))        ? $theme['primary']        : '#9a0073';
+    $tc_primary_dark  = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['primary_dark']))   ? $theme['primary_dark']   : '#7a005a';
+    $tc_secondary     = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['secondary']))      ? $theme['secondary']      : '#0a9a9c';
+    $tc_sidebar_start = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['sidebar_bg_start'])) ? $theme['sidebar_bg_start'] : '#9a0073';
+    $tc_sidebar_end   = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['sidebar_bg_end']))   ? $theme['sidebar_bg_end']   : '#7a005a';
+    ?>
     <style>
+        :root {
+            --theme-primary:       <?= $tc_primary ?>;
+            --theme-primary-dark:  <?= $tc_primary_dark ?>;
+            --theme-secondary:     <?= $tc_secondary ?>;
+            --theme-sidebar-start: <?= $tc_sidebar_start ?>;
+            --theme-sidebar-end:   <?= $tc_sidebar_end ?>;
+        }
         .sidebar {
             min-height: 100vh;
-            background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%);
+            background: linear-gradient(135deg, <?= $tc_sidebar_start ?> 0%, <?= $tc_sidebar_end ?> 100%);
         }
         .sidebar .nav-link {
             color: rgba(255,255,255,0.8);
@@ -22,35 +37,35 @@
             background: rgba(10,154,156,0.3);
         }
         .btn-primary {
-            background-color: #9a0073;
-            border-color: #9a0073;
+            background-color: <?= $tc_primary ?>;
+            border-color: <?= $tc_primary ?>;
         }
         .btn-primary:hover {
-            background-color: #7a005a;
-            border-color: #7a005a;
+            background-color: <?= $tc_primary_dark ?>;
+            border-color: <?= $tc_primary_dark ?>;
         }
         .btn-success {
-            background-color: #0a9a9c;
-            border-color: #0a9a9c;
+            background-color: <?= $tc_secondary ?>;
+            border-color: <?= $tc_secondary ?>;
         }
         .btn-success:hover {
-            background-color: #088587;
-            border-color: #088587;
+            background-color: color-mix(in srgb, <?= $tc_secondary ?> 85%, black);
+            border-color: color-mix(in srgb, <?= $tc_secondary ?> 85%, black);
         }
         .badge.bg-primary {
-            background-color: #9a0073 !important;
+            background-color: <?= $tc_primary ?> !important;
         }
         .badge.bg-info {
-            background-color: #0a9a9c !important;
+            background-color: <?= $tc_secondary ?> !important;
         }
         .text-primary {
-            color: #9a0073 !important;
+            color: <?= $tc_primary ?> !important;
         }
         a {
-            color: #9a0073;
+            color: <?= $tc_primary ?>;
         }
         a:hover {
-            color: #7a005a;
+            color: <?= $tc_primary_dark ?>;
         }
         /* Submenu parent row layout */
         .nav-item-parent {

@@ -991,6 +991,14 @@ class Database {
             ['instagram_url', 'https://www.instagram.com/brooksdogtrainingacademy', 'url', 'social', 'Instagram URL', 'Instagram profile URL', 0],
             ['linktree_url', 'https://linktr.ee/brooksdogtrainingacademy', 'url', 'social', 'Linktree URL', 'Linktree URL', 0],
             
+            // Theme Settings
+            ['theme_primary_color', '#9a0073', 'color', 'theme', 'Primary Color', 'Main branding color used for buttons, links, and highlights', 0],
+            ['theme_primary_dark_color', '#7a005a', 'color', 'theme', 'Primary Dark Color', 'Darker shade of primary color used for hover states', 0],
+            ['theme_secondary_color', '#0a9a9c', 'color', 'theme', 'Secondary Color', 'Secondary accent color used for success states and accents', 0],
+            ['theme_accent_color', '#a39f89', 'color', 'theme', 'Accent Color', 'Supporting accent color (tan/beige tones)', 0],
+            ['theme_sidebar_bg_start', '#9a0073', 'color', 'theme', 'Sidebar Gradient Start', 'Starting color of the sidebar gradient', 0],
+            ['theme_sidebar_bg_end', '#7a005a', 'color', 'theme', 'Sidebar Gradient End', 'Ending color of the sidebar gradient', 0],
+
             // Advanced
             ['base_url', 'http://localhost:8000', 'url', 'advanced', 'Base URL', 'Base URL of your website', 0],
             ['timezone', 'America/New_York', 'text', 'advanced', 'Timezone', 'Your local timezone', 0],
@@ -1675,6 +1683,9 @@ class Database {
         // Add Google OAuth settings for existing installations
         $this->addGoogleOAuthSettings();
 
+        // Add theme customization settings for existing installations
+        $this->addThemeSettings();
+
         // Add google_event_id column to bookings so cancelled bookings can be
         // removed from the connected Google Calendar
         $booking_col_names_gcal = $this->getTableColumns('bookings');
@@ -1764,6 +1775,34 @@ class Database {
         ");
 
         foreach ($oauth_settings as $setting) {
+            $check->execute([$setting[0]]);
+            if ($check->fetchColumn() == 0) {
+                try {
+                    $insert->execute($setting);
+                } catch (PDOException $e) {
+                    // Already exists, ignore
+                }
+            }
+        }
+    }
+
+    private function addThemeSettings() {
+        $theme_settings = [
+            ['theme_primary_color', '#9a0073', 'color', 'theme', 'Primary Color', 'Main branding color used for buttons, links, and highlights', 0],
+            ['theme_primary_dark_color', '#7a005a', 'color', 'theme', 'Primary Dark Color', 'Darker shade of primary color used for hover states', 0],
+            ['theme_secondary_color', '#0a9a9c', 'color', 'theme', 'Secondary Color', 'Secondary accent color used for success states and accents', 0],
+            ['theme_accent_color', '#a39f89', 'color', 'theme', 'Accent Color', 'Supporting accent color (tan/beige tones)', 0],
+            ['theme_sidebar_bg_start', '#9a0073', 'color', 'theme', 'Sidebar Gradient Start', 'Starting color of the sidebar gradient', 0],
+            ['theme_sidebar_bg_end', '#7a005a', 'color', 'theme', 'Sidebar Gradient End', 'Ending color of the sidebar gradient', 0],
+        ];
+
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $insert = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($theme_settings as $setting) {
             $check->execute([$setting[0]]);
             if ($check->fetchColumn() == 0) {
                 try {

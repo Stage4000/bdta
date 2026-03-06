@@ -98,12 +98,18 @@ if (isset($error_mode) && $error_mode) {
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Dancing+Script:wght@700&family=Pacifico&family=Satisfy&family=Great+Vibes&family=Allura&display=swap" rel="stylesheet">
     
+    <?php
+    $tc_primary      = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_color', '#9a0073')))      ? Settings::get('theme_primary_color', '#9a0073')      : '#9a0073';
+    $tc_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_dark_color', '#7a005a'))) ? Settings::get('theme_primary_dark_color', '#7a005a') : '#7a005a';
+    $tc_secondary    = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_secondary_color', '#0a9a9c')))    ? Settings::get('theme_secondary_color', '#0a9a9c')    : '#0a9a9c';
+    $tc_accent       = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_accent_color', '#a39f89')))       ? Settings::get('theme_accent_color', '#a39f89')       : '#a39f89';
+    ?>
     <style>
         :root {
-            --primary-color: #9a0073;
-            --primary-dark: #7a005a;
-            --secondary-color: #0a9a9c;
-            --accent-color: #a39f89;
+            --primary-color: <?= $tc_primary ?>;
+            --primary-dark: <?= $tc_primary_dark ?>;
+            --secondary-color: <?= $tc_secondary ?>;
+            --accent-color: <?= $tc_accent ?>;
             --dark-color: #1f2937;
             --light-color: #f9fafb;
         }

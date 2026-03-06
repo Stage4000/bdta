@@ -129,6 +129,11 @@ $font_labels = [
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Script-style fonts for signature display -->
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Pacifico&family=Satisfy&family=Great+Vibes&family=Allura&display=swap" rel="stylesheet">
+    <?php
+    $tc_primary      = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_color', '#9a0073')))      ? Settings::get('theme_primary_color', '#9a0073')      : '#9a0073';
+    $tc_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_dark_color', '#7a005a'))) ? Settings::get('theme_primary_dark_color', '#7a005a') : '#7a005a';
+    $tc_secondary    = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_secondary_color', '#0a9a9c')))    ? Settings::get('theme_secondary_color', '#0a9a9c')    : '#0a9a9c';
+    ?>
     <style>
         body { background: #f8f9fa; }
         .contract-content {
@@ -138,12 +143,12 @@ $font_labels = [
             border-radius: 8px;
             line-height: 1.8;
         }
-        .bg-primary  { background-color: #9a0073 !important; }
-        .btn-primary { background-color: #9a0073; border-color: #9a0073; }
-        .btn-primary:hover { background-color: #7a005a; border-color: #7a005a; }
-        .btn-success { background-color: #0a9a9c; border-color: #0a9a9c; }
-        .btn-success:hover { background-color: #088587; border-color: #088587; }
-        .bg-info     { background-color: #0a9a9c !important; }
+        .bg-primary  { background-color: <?= $tc_primary ?> !important; }
+        .btn-primary { background-color: <?= $tc_primary ?>; border-color: <?= $tc_primary ?>; }
+        .btn-primary:hover { background-color: <?= $tc_primary_dark ?>; border-color: <?= $tc_primary_dark ?>; }
+        .btn-success { background-color: <?= $tc_secondary ?>; border-color: <?= $tc_secondary ?>; }
+        .btn-success:hover { background-color: color-mix(in srgb, <?= $tc_secondary ?> 85%, black); border-color: color-mix(in srgb, <?= $tc_secondary ?> 85%, black); }
+        .bg-info     { background-color: <?= $tc_secondary ?> !important; }
 
         /* Signature font styles */
         .font-dancing     { font-family: 'Dancing Script', cursive; }
@@ -170,7 +175,7 @@ $font_labels = [
             transition: border-color .2s;
         }
         .font-option-btn.selected,
-        .font-option-btn:hover { border-color: #9a0073; background: #fdf0f9; }
+        .font-option-btn:hover { border-color: <?= $tc_primary ?>; background: #fdf0f9; }
         .signed-sig {
             font-size: 2.4rem;
             color: #1a1a2e;

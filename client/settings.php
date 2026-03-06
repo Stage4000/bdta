@@ -20,6 +20,7 @@ function getCategoryIcon($category) {
         'time_tracking' => 'clock',
         'social' => 'share-nodes',
         'database' => 'database',
+        'theme' => 'palette',
         'advanced' => 'gear'
     ];
     return $icons[$category] ?? 'gear';
@@ -109,6 +110,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             // Handle non-database settings normally
             foreach ($_POST as $key => $value) {
                 if ($key !== 'save_settings' && $key !== 'category' && in_array($key, $valid_keys)) {
+                    // Validate color values to only accept valid hex colors
+                    $setting_info = null;
+                    foreach ($valid_settings as $s) {
+                        if ($s['key'] === $key) { $setting_info = $s; break; }
+                    }
+                    if ($setting_info && $setting_info['type'] === 'color') {
+                        if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $value)) {
+                            continue; // Skip invalid color values
+                        }
+                    }
                     Settings::set($key, $value);
                 }
             }
@@ -126,6 +137,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         redirect(ADMIN_URL . 'settings.php?category=' . $current_category);
     } catch (Exception $e) {
         setFlashMessage('Error saving settings: ' . $e->getMessage(), 'danger');
+    }
+}
+
+// Handle theme reset to defaults
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_theme'])) {
+    try {
+        $defaults = Settings::getDefaultThemeColors();
+        foreach ($defaults as $key => $value) {
+            Settings::set($key, $value);
+        }
+        setFlashMessage('Theme colors reset to defaults successfully!', 'success');
+        redirect(ADMIN_URL . 'settings.php?category=theme');
+    } catch (Exception $e) {
+        setFlashMessage('Error resetting theme: ' . $e->getMessage(), 'danger');
     }
 }
 
@@ -205,16 +230,21 @@ if ($current_category === 'calendar') {
 include __DIR__ . '/../backend/includes/header.php';
 ?>
 
+<?php
+// Get theme colors for inline styles that aren't covered by header.php
+$st_primary      = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_color', '#9a0073')))      ? Settings::get('theme_primary_color', '#9a0073')      : '#9a0073';
+$st_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_dark_color', '#7a005a'))) ? Settings::get('theme_primary_dark_color', '#7a005a') : '#7a005a';
+?>
 <style>
     /* Custom styling for settings submenu active state */
     .list-group-item.active {
-        background-color: #9a0073 !important;
-        border-color: #9a0073 !important;
+        background-color: <?= $st_primary ?> !important;
+        border-color: <?= $st_primary ?> !important;
         color: white !important;
     }
     .list-group-item.active:hover {
-        background-color: #7a005a !important;
-        border-color: #7a005a !important;
+        background-color: <?= $st_primary_dark ?> !important;
+        border-color: <?= $st_primary_dark ?> !important;
     }
 </style>
 
@@ -285,8 +315,20 @@ include __DIR__ . '/../backend/includes/header.php';
                             </p>
                         </div>
                     <?php endif; ?>
+
+                    <?php if ($current_category === 'theme'): ?>
+                        <!-- Theme Category Info -->
+                        <div class="alert alert-info mb-4">
+                            <h6><i class="fas fa-palette"></i> Theme Customization</h6>
+                            <p class="mb-0 small">
+                                Customize the color scheme of the admin panel and client portal. Changes take effect immediately after saving.
+                                Use the live preview below to see how your selected colors will look before saving.
+                                Ensure colors have sufficient contrast for accessibility and readability.
+                            </p>
+                        </div>
+                    <?php endif; ?>
                     
-                    <form method="POST" action="">
+                    <form method="POST" action="" id="settings-form">
                         <input type="hidden" name="category" value="<?= escape($current_category) ?>">
                         
                         <?php foreach ($settings as $setting): ?>
@@ -330,6 +372,27 @@ include __DIR__ . '/../backend/includes/header.php';
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
+
+                                <?php elseif ($setting['type'] === 'color'): ?>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input 
+                                            type="color" 
+                                            class="form-control form-control-color theme-color-input"
+                                            id="<?= escape($setting['key']) ?>" 
+                                            name="<?= escape($setting['key']) ?>"
+                                            value="<?= escape($setting['actual_value']) ?>"
+                                            data-color-key="<?= escape($setting['key']) ?>"
+                                            title="Choose color">
+                                        <input 
+                                            type="text"
+                                            class="form-control font-monospace color-hex-display"
+                                            style="max-width: 110px;"
+                                            value="<?= escape($setting['actual_value']) ?>"
+                                            data-for="<?= escape($setting['key']) ?>"
+                                            placeholder="#000000"
+                                            maxlength="7"
+                                            aria-label="Hex color value for <?= escape($setting['label']) ?>">
+                                    </div>
                                 
                                 <?php else: ?>
                                     <input 
@@ -465,10 +528,166 @@ include __DIR__ . '/../backend/includes/header.php';
                             </div>
                         </div>
                     <?php endif; ?>
+
+                    <?php if ($current_category === 'theme'): ?>
+                        <!-- Theme Live Preview -->
+                        <hr class="my-4">
+                        <div class="card bg-light" id="theme-preview-card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-eye"></i> Live Preview
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text small text-muted mb-3">
+                                    This preview updates in real time as you adjust the colors above.
+                                </p>
+                                <div id="theme-preview" style="border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6;">
+                                    <!-- Sidebar preview -->
+                                    <div id="preview-sidebar" style="padding: 1rem; color: white;">
+                                        <div style="font-weight: bold; margin-bottom: 0.75rem; font-size: 0.9rem;">
+                                            <i class="fas fa-paw me-1"></i> BDTA Admin
+                                        </div>
+                                        <div id="preview-nav-link" style="padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.85rem; margin-bottom: 0.25rem; opacity: 0.85;">
+                                            <i class="fas fa-gauge me-2"></i> Dashboard
+                                        </div>
+                                        <div style="padding: 0.5rem 0.75rem; font-size: 0.85rem; margin-bottom: 0.25rem; opacity: 0.7;">
+                                            <i class="fas fa-calendar-check me-2"></i> Bookings
+                                        </div>
+                                        <div style="padding: 0.5rem 0.75rem; font-size: 0.85rem; opacity: 0.7;">
+                                            <i class="fas fa-users me-2"></i> Clients
+                                        </div>
+                                    </div>
+                                    <!-- Content preview -->
+                                    <div style="background: #f8f9fa; padding: 1rem;">
+                                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                                            <button id="preview-btn-primary" style="padding: 0.4rem 0.9rem; border: none; border-radius: 6px; color: white; font-size: 0.85rem; cursor: default;">
+                                                <i class="fas fa-check me-1"></i> Primary Button
+                                            </button>
+                                            <button id="preview-btn-secondary" style="padding: 0.4rem 0.9rem; border: none; border-radius: 6px; color: white; font-size: 0.85rem; cursor: default;">
+                                                <i class="fas fa-save me-1"></i> Secondary Button
+                                            </button>
+                                            <span id="preview-badge" style="padding: 0.25rem 0.6rem; border-radius: 999px; color: white; font-size: 0.75rem;">Badge</span>
+                                            <a id="preview-link" href="#" style="font-size: 0.85rem;" onclick="return false;">Sample link</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reset to Defaults -->
+                        <hr class="my-4">
+                        <div class="card border-warning">
+                            <div class="card-header bg-warning bg-opacity-10">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-rotate-left"></i> Reset to Default Colors
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text small">
+                                    Restore all theme colors to the original BDTA brand colors
+                                    (<strong>Purple</strong> primary, <strong>Teal</strong> secondary).
+                                </p>
+                                <form method="POST" action="?category=theme"
+                                      onsubmit="return confirm('Reset all theme colors to defaults? This cannot be undone.');">
+                                    <input type="hidden" name="category" value="theme">
+                                    <button type="submit" name="reset_theme" value="1" class="btn btn-outline-warning">
+                                        <i class="fas fa-rotate-left"></i> Reset to Defaults
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<?php if ($current_category === 'theme'): ?>
+<script>
+(function () {
+    // Map setting keys to preview element roles
+    const previewMap = {
+        theme_primary_color:      ['#preview-btn-primary', '#preview-badge', '#preview-link'],
+        theme_primary_dark_color: [],
+        theme_secondary_color:    ['#preview-btn-secondary'],
+        theme_sidebar_bg_start:   null, // handled via gradient
+        theme_sidebar_bg_end:     null,
+    };
+
+    function hexToRgb(hex) {
+        const r = parseInt(hex.slice(1,3),16);
+        const g = parseInt(hex.slice(3,5),16);
+        const b = parseInt(hex.slice(5,7),16);
+        return {r, g, b};
+    }
+
+    // Darken a hex color by a percentage
+    function darken(hex, pct) {
+        const {r, g, b} = hexToRgb(hex);
+        const factor = 1 - pct / 100;
+        const to2 = v => Math.round(Math.max(0, v * factor)).toString(16).padStart(2,'0');
+        return '#' + to2(r) + to2(g) + to2(b);
+    }
+
+    function getVal(key) {
+        const el = document.getElementById(key);
+        return el ? el.value : null;
+    }
+
+    function updatePreview() {
+        const primary      = getVal('theme_primary_color')      || '#9a0073';
+        const secondary    = getVal('theme_secondary_color')    || '#0a9a9c';
+        const sideStart    = getVal('theme_sidebar_bg_start')   || primary;
+        const sideEnd      = getVal('theme_sidebar_bg_end')     || darken(primary, 20);
+
+        const sidebar = document.getElementById('preview-sidebar');
+        if (sidebar) {
+            sidebar.style.background = 'linear-gradient(135deg, ' + sideStart + ' 0%, ' + sideEnd + ' 100%)';
+        }
+
+        const btnPrimary = document.getElementById('preview-btn-primary');
+        if (btnPrimary) btnPrimary.style.backgroundColor = primary;
+
+        const badge = document.getElementById('preview-badge');
+        if (badge) badge.style.backgroundColor = primary;
+
+        const link = document.getElementById('preview-link');
+        if (link) link.style.color = primary;
+
+        const navLink = document.getElementById('preview-nav-link');
+        if (navLink) navLink.style.backgroundColor = 'rgba(255,255,255,0.2)';
+
+        const btnSecondary = document.getElementById('preview-btn-secondary');
+        if (btnSecondary) btnSecondary.style.backgroundColor = secondary;
+    }
+
+    // Sync hex text input <-> color picker
+    document.querySelectorAll('.theme-color-input').forEach(function(picker) {
+        const key = picker.dataset.colorKey;
+        const hexInput = document.querySelector('.color-hex-display[data-for="' + key + '"]');
+
+        picker.addEventListener('input', function() {
+            if (hexInput) hexInput.value = picker.value;
+            updatePreview();
+        });
+
+        if (hexInput) {
+            hexInput.addEventListener('input', function() {
+                const val = hexInput.value.trim();
+                if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                    picker.value = val;
+                    updatePreview();
+                }
+            });
+        }
+    });
+
+    // Initial preview render
+    updatePreview();
+})();
+</script>
+<?php endif; ?>
 
 <?php include __DIR__ . '/../backend/includes/footer.php'; ?>

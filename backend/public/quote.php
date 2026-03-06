@@ -65,20 +65,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
     <title>Quote <?= htmlspecialchars($quote['quote_number']) ?> - Brook's Dog Training Academy</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <?php
+    $tc_primary   = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_color', '#9a0073')))   ? Settings::get('theme_primary_color', '#9a0073')   : '#9a0073';
+    $tc_secondary = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_secondary_color', '#0a9a9c'))) ? Settings::get('theme_secondary_color', '#0a9a9c') : '#0a9a9c';
+    ?>
     <style>
         .bg-primary {
-            background-color: #9a0073 !important;
+            background-color: <?= $tc_primary ?> !important;
         }
         .btn-success {
-            background-color: #0a9a9c;
-            border-color: #0a9a9c;
+            background-color: <?= $tc_secondary ?>;
+            border-color: <?= $tc_secondary ?>;
         }
         .btn-success:hover {
-            background-color: #088587;
-            border-color: #088587;
+            background-color: color-mix(in srgb, <?= $tc_secondary ?> 85%, black);
+            border-color: color-mix(in srgb, <?= $tc_secondary ?> 85%, black);
         }
         .bg-info {
-            background-color: #0a9a9c !important;
+            background-color: <?= $tc_secondary ?> !important;
         }
     </style>
 </head>
