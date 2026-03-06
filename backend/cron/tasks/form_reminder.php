@@ -79,7 +79,7 @@ class FormReminderTask {
      * Send form reminder email
      */
     private function sendFormReminder($form) {
-        $email_service = new EmailService();
+        $email_service = new EmailService(null, $this->conn);
         
         $client_name = htmlspecialchars($form['client_name']);
         $form_name = htmlspecialchars($form['form_name'] ?: 'Client Form');
@@ -145,7 +145,7 @@ Brook Lefkowitz
 Brook's Dog Training Academy
 TEXT;
         
-        return $email_service->sendGenericEmail($form['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_FORM_REMINDER);
+        return $email_service->sendGenericEmail($form['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_FORM_REMINDER, $form['client_id'] ?? null);
     }
 }
 ?>

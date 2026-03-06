@@ -255,7 +255,7 @@ class BookingReminderTask {
             $text_body = $this->getReminderEmailText($booking, $date, $time, $google_link, $ical_link);
         }
         
-        return $email_service->sendGenericEmail($booking['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_BOOKING_REMINDER);
+        return $email_service->sendGenericEmail($booking['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_BOOKING_REMINDER, $booking['client_id'] ?? null);
     }
     
     /**
