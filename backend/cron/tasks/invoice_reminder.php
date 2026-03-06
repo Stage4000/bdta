@@ -172,7 +172,7 @@ HTML;
         $text_body .= "If you've already sent payment or have any questions, please contact us immediately.\n\n";
         $text_body .= "Best regards,\nBrook Lefkowitz\nBrook's Dog Training Academy";
         
-        return $email_service->sendGenericEmail($invoice['client_email'], $subject, $html_body, $text_body);
+        return $email_service->sendGenericEmail($invoice['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_INVOICE_REMINDER);
     }
 }
 ?>

@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Try to send email using EmailService
             $emailService = new EmailService();
-            $email_result = $emailService->sendGenericEmail($email, $subject, $html_message, $text_message);
+            $email_result = $emailService->sendGenericEmail($email, $subject, $html_message, $text_message, EmailService::MAIL_TYPE_PASSWORD_RESET);
             
             // Log result for debugging
             if (!$email_result['success']) {

@@ -1,8 +1,13 @@
-# Email Configuration Guide
+## Email Architecture
 
-This guide will help you configure email sending for Brook's Dog Training Academy CRM system.
+All outgoing email in the application is routed through the central
+`EmailService::routeMail()` function.  This ensures every message is consistently
+logged, transport-configured, and signed before delivery.
 
-## Overview
+For a developer-oriented guide on how to send email, add new mail types, or extend
+the routing logic, see **[`MAIL_ROUTING.md`](MAIL_ROUTING.md)**.
+
+
 
 The system uses PHPMailer library to send emails reliably. You can configure it to use either:
 - **PHP mail()** - Basic email function (not recommended for production)

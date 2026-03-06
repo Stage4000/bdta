@@ -132,7 +132,8 @@ if ($method === 'GET') {
                 $client['email'],
                 $data['subject'],
                 $data['body_html'],
-                $data['body_text'] ?? ''
+                $data['body_text'] ?? '',
+                EmailService::MAIL_TYPE_COMPOSE
             );
             
             if ($result['success']) {

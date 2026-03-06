@@ -143,7 +143,7 @@ Brook Lefkowitz
 Brook's Dog Training Academy
 TEXT;
         
-        return $email_service->sendGenericEmail($contract['client_email'], $subject, $html_body, $text_body);
+        return $email_service->sendGenericEmail($contract['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_CONTRACT_REMINDER);
     }
 }
 ?>

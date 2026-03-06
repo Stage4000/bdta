@@ -1,7 +1,18 @@
 <?php
 /**
- * Email Service for Booking Confirmations
- * Sends confirmation emails with calendar export links
+ * Email Service
+ *
+ * Central hub for all outgoing email in the BDTA application.
+ * Every email must pass through {@see EmailService::routeMail()} so that
+ * sending, logging, and transport configuration are applied consistently.
+ *
+ * Quick reference for callers:
+ *   - Use the high-level helpers (sendBookingConfirmation, sendInvoiceEmail, …)
+ *     for typed transactional email.
+ *   - Use sendGenericEmail() with a MAIL_TYPE_* constant for ad-hoc messages.
+ *   - Never instantiate PHPMailer directly outside this file.
+ *
+ * @see backend/MAIL_ROUTING.md for full developer documentation.
  */
 
 require_once __DIR__ . '/settings.php';
@@ -14,20 +25,158 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 class EmailService {
+
+    // ─── Mail type constants ──────────────────────────────────────────────────
+    // Pass one of these to routeMail() / sendGenericEmail() so that every
+    // outgoing message is labelled in the logs and can be handled distinctly
+    // in the future (e.g. per-type rate-limiting, templates, or providers).
+
+    /** Booking confirmation sent to the client immediately after a booking is created. */
+    const MAIL_TYPE_BOOKING_CONFIRMATION = 'booking_confirmation';
+
+    /** Reminder sent to the client ahead of an upcoming appointment. */
+    const MAIL_TYPE_BOOKING_REMINDER     = 'booking_reminder';
+
+    /** Receipt sent to the client after a full invoice payment. */
+    const MAIL_TYPE_PAYMENT_RECEIPT      = 'payment_receipt';
+
+    /** Invoice sent to the client requesting payment. */
+    const MAIL_TYPE_INVOICE              = 'invoice';
+
+    /** Reminder sent to the client for an overdue invoice. */
+    const MAIL_TYPE_INVOICE_REMINDER     = 'invoice_reminder';
+
+    /** Reminder sent to the client for an unsigned contract. */
+    const MAIL_TYPE_CONTRACT_REMINDER    = 'contract_reminder';
+
+    /** Reminder sent to the client for an unanswered quote. */
+    const MAIL_TYPE_QUOTE_REMINDER       = 'quote_reminder';
+
+    /** Reminder sent to the client for an incomplete form. */
+    const MAIL_TYPE_FORM_REMINDER        = 'form_reminder';
+
+    /** Automated email dispatched by a workflow step. */
+    const MAIL_TYPE_WORKFLOW             = 'workflow';
+
+    /** Manually composed or scheduled email sent to a client. */
+    const MAIL_TYPE_COMPOSE              = 'compose';
+
+    /** Password-reset link sent to an admin or portal user. */
+    const MAIL_TYPE_PASSWORD_RESET       = 'password_reset';
+
+    /** General-purpose fallback type for emails that do not fit a specific category. */
+    const MAIL_TYPE_GENERIC              = 'generic';
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     private $from_email;
     private $from_name;
     private $base_url;
     private $conn;
-    
+
     public function __construct($base_url = null, $conn = null) {
         $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
-        $this->from_name = Settings::get('email_from_name', "Brook's Dog Training Academy");
-        
-        // Use provided base_url, or get it dynamically
-        // getDynamicBaseUrl() handles both HTTP and CLI contexts internally
+        $this->from_name  = Settings::get('email_from_name',    "Brook's Dog Training Academy");
+
+        // Use provided base_url, or get it dynamically.
+        // getDynamicBaseUrl() handles both HTTP and CLI contexts internally.
         $this->base_url = $base_url ?? getDynamicBaseUrl();
-        $this->conn = $conn;
+        $this->conn     = $conn;
     }
+
+    // =========================================================================
+    // CENTRAL MAIL ROUTING
+    // =========================================================================
+
+    /**
+     * Central mail routing function — the single unified entry point for every
+     * outgoing email in the application.
+     *
+     * All public send-methods in this class delegate to routeMail() so that:
+     *   - Every outgoing message is logged with its type, recipient, and subject.
+     *   - Transport configuration (SMTP vs PHP mail) is applied in one place.
+     *   - Future cross-cutting concerns (rate-limiting, multi-provider failover,
+     *     audit trails, metrics) can be added here without touching callers.
+     *
+     * Usage (for callers that build their own content):
+     * <code>
+     * $result = $emailService->routeMail(
+     *     EmailService::MAIL_TYPE_PASSWORD_RESET,
+     *     'user@example.com',
+     *     'Reset your password',
+     *     $html_body,
+     *     $text_body,
+     *     ['context' => ['user_id' => 42]]
+     * );
+     * if (!$result['success']) { … }
+     * </code>
+     *
+     * @param string $mail_type  One of the EmailService::MAIL_TYPE_* constants.
+     *                           Use MAIL_TYPE_GENERIC when no specific type applies.
+     * @param string $to         Recipient email address.
+     * @param string $subject    Email subject line.
+     * @param string $html_body  HTML version of the message body.
+     * @param string $text_body  Plain-text version. Auto-derived from HTML when empty.
+     * @param array  $options    Optional delivery overrides:
+     *                           - 'cc'      (array)  CC recipient addresses.
+     *                           - 'bcc'     (array)  BCC recipient addresses.
+     *                           - 'context' (array)  Extra key→value data appended
+     *                                                to the log entry for tracing.
+     * @return array{success: bool, message: string}
+     */
+    public function routeMail(
+        string $mail_type,
+        string $to,
+        string $subject,
+        string $html_body,
+        string $text_body = '',
+        array  $options   = []
+    ): array {
+        // Normalize plain-text fallback
+        if (empty($text_body)) {
+            $text_body = strip_tags($html_body);
+        }
+
+        $cc      = $options['cc']      ?? [];
+        $bcc     = $options['bcc']     ?? [];
+        $context = $options['context'] ?? [];
+
+        // ── Pre-send log entry ────────────────────────────────────────────────
+        $log_prefix = '[MailRouter]';
+        $log_entry  = sprintf(
+            '%s ROUTING type=%s to=%s subject="%s"',
+            $log_prefix,
+            $mail_type,
+            $to,
+            $subject
+        );
+        if (!empty($context)) {
+            $log_entry .= ' context=' . json_encode($context, JSON_UNESCAPED_SLASHES);
+        }
+        error_log($log_entry);
+
+        // ── Dispatch through the transport layer ──────────────────────────────
+        $result = $this->sendEmail($to, $subject, $html_body, $text_body, $cc, $bcc);
+
+        // ── Post-send log entry ───────────────────────────────────────────────
+        if ($result['success']) {
+            error_log(sprintf('%s SENT    type=%s to=%s', $log_prefix, $mail_type, $to));
+        } else {
+            error_log(sprintf(
+                '%s FAILED  type=%s to=%s reason="%s"',
+                $log_prefix,
+                $mail_type,
+                $to,
+                $result['message']
+            ));
+        }
+
+        return $result;
+    }
+
+    // =========================================================================
+    // TEMPLATE RESOLUTION
+    // =========================================================================
 
     /**
      * Look up the applicable email template for a given task type and optional appointment type.
@@ -166,10 +315,10 @@ class EmailService {
             $text_body = $this->getConfirmationEmailText($booking, $date, $time, $google_link, $ical_link);
         }
         
-        // Send email
-        return $this->sendEmail($to, $subject, $html_body, $text_body);
+        // Route through central mail router
+        return $this->routeMail(self::MAIL_TYPE_BOOKING_CONFIRMATION, $to, $subject, $html_body, $text_body);
     }
-    
+
     /**
      * Send a payment receipt email for a fully-paid invoice or a single installment.
      *
@@ -319,7 +468,7 @@ HTML;
                 . "Thank you for choosing {$business_name}!";
         }
 
-        return $this->sendEmail($to, $subject, $html_body, $text_body, $cc);
+        return $this->routeMail(self::MAIL_TYPE_PAYMENT_RECEIPT, $to, $subject, $html_body, $text_body, ['cc' => $cc]);
     }
 
     /**
@@ -464,24 +613,30 @@ HTML;
             . "Questions? Contact us at {$business_email}\n\n"
             . "Thank you for choosing {$business_name}!";
 
-        return $this->sendEmail($to, $subject, $html_body, $text_body);
+        return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body);
     }
 
     /**
-     * Send a generic email
-     * @param string $to Recipient email address
-     * @param string $subject Email subject
-     * @param string $html_body HTML body content
-     * @param string $text_body Plain text body content (optional)
-     * @return array Result array with 'success' and 'message' keys
+     * Send a generic email.
+     *
+     * Use this method when no more specific send-method exists.  Pass a MAIL_TYPE_*
+     * constant as $mail_type so that the routing log captures the correct category.
+     *
+     * NOTE: $mail_type is intentionally the *last* (optional) parameter to preserve
+     * backward compatibility with existing callers that pass only ($to, $subject,
+     * $html_body, $text_body).  New callers should always supply $mail_type explicitly.
+     * If you need $mail_type as the first argument, call routeMail() directly instead.
+     *
+     * @param string $to        Recipient email address.
+     * @param string $subject   Email subject line.
+     * @param string $html_body HTML version of the message body.
+     * @param string $text_body Plain-text version (auto-derived from HTML when empty).
+     * @param string $mail_type One of the EmailService::MAIL_TYPE_* constants.
+     *                          Defaults to MAIL_TYPE_GENERIC for backward compatibility.
+     * @return array{success: bool, message: string}
      */
-    public function sendGenericEmail($to, $subject, $html_body, $text_body = '') {
-        // If no text body provided, generate a basic one from HTML
-        if (empty($text_body)) {
-            $text_body = strip_tags($html_body);
-        }
-        
-        return $this->sendEmail($to, $subject, $html_body, $text_body);
+    public function sendGenericEmail($to, $subject, $html_body, $text_body = '', $mail_type = self::MAIL_TYPE_GENERIC) {
+        return $this->routeMail($mail_type, $to, $subject, $html_body, $text_body);
     }
 
     /**
@@ -519,7 +674,7 @@ HTML;
             $text_body = strip_tags($html_body);
         }
 
-        return $this->sendEmail($to, $subject, $html_body, $text_body, $cc, $bcc);
+        return $this->routeMail(self::MAIL_TYPE_COMPOSE, $to, $subject, $html_body, $text_body, ['cc' => $cc, 'bcc' => $bcc]);
     }
     
     /**
