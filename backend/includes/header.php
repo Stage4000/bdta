@@ -5,15 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
     <title><?php echo isset($page_title) ? escape($page_title) : 'Client Area'; ?> - BDTA</title>
-    <!-- Dark mode: detect system preference and apply Bootstrap dark theme before any CSS renders -->
+    <!-- Dark mode: respect saved user preference, fall back to system preference -->
     <script>
         (function () {
             'use strict';
-            var mq = window.matchMedia('(prefers-color-scheme: dark)');
-            document.documentElement.setAttribute('data-bs-theme', mq.matches ? 'dark' : 'light');
-            mq.addEventListener('change', function (e) {
-                document.documentElement.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
-            });
+            var saved = localStorage.getItem('bdta-theme');
+            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', theme);
         }());
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -431,6 +429,14 @@
                             </div>
                         </li>
 
+                        <!-- Dark Mode Toggle -->
+                        <li><hr class="sidebar-divider"></li>
+                        <li class="nav-item px-3 pb-3">
+                            <button id="darkModeToggle" class="btn btn-outline-light btn-sm w-100" title="Toggle dark mode" aria-label="Toggle dark mode">
+                                <i class="fas fa-moon me-2" id="darkModeIcon"></i><span id="darkModeLabel">Dark Mode</span>
+                            </button>
+                        </li>
+
                     </ul>
                 </div>
             </nav>
@@ -439,3 +445,26 @@
 <?php else: ?>
 <main class="container mt-5">
 <?php endif; ?>
+<!-- Dark mode toggle script -->
+<script>
+(function () {
+    'use strict';
+    function updateToggle() {
+        var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        var icon  = document.getElementById('darkModeIcon');
+        var label = document.getElementById('darkModeLabel');
+        if (icon)  icon.className = isDark ? 'fas fa-sun me-2' : 'fas fa-moon me-2';
+        if (label) label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+    }
+    updateToggle();
+    var btn = document.getElementById('darkModeToggle');
+    if (btn) {
+        btn.addEventListener('click', function () {
+            var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-bs-theme', next);
+            localStorage.setItem('bdta-theme', next);
+            updateToggle();
+        });
+    }
+}());
+</script>

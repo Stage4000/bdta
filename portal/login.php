@@ -48,18 +48,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
     <title>Client Portal Login - BDTA</title>
-    <!-- Dark mode: detect system preference and apply Bootstrap dark theme before any CSS renders -->
+    <!-- Dark mode: respect saved user preference, fall back to system preference -->
     <script>
         (function () {
             'use strict';
-            var mq = window.matchMedia('(prefers-color-scheme: dark)');
-            document.documentElement.setAttribute('data-bs-theme', mq.matches ? 'dark' : 'light');
-            mq.addEventListener('change', function (e) {
-                document.documentElement.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
-            });
+            var saved = localStorage.getItem('bdta-theme');
+            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', theme);
         }());
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body {
             background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%);
@@ -90,6 +89,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </style>
 </head>
 <body>
+    <!-- Dark mode toggle (floating) -->
+    <button id="darkModeToggle" class="btn btn-outline-light btn-sm position-fixed top-0 end-0 m-3" style="z-index:1100;" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <i class="fas fa-moon" id="darkModeIcon"></i>
+    </button>
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-4">
@@ -126,5 +129,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    (function () {
+        'use strict';
+        function updateIcon() {
+            var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            var icon = document.getElementById('darkModeIcon');
+            if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        }
+        updateIcon();
+        var btn = document.getElementById('darkModeToggle');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', next);
+                localStorage.setItem('bdta-theme', next);
+                updateIcon();
+            });
+        }
+    }());
+    </script>
 </body>
 </html>

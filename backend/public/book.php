@@ -89,15 +89,13 @@ if (isset($error_mode) && $error_mode) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
     <title><?= $page_title ?> - Brook's Dog Training Academy</title>
-    <!-- Dark mode: detect system preference and apply Bootstrap dark theme before any CSS renders -->
+    <!-- Dark mode: respect saved user preference, fall back to system preference -->
     <script>
         (function () {
             'use strict';
-            var mq = window.matchMedia('(prefers-color-scheme: dark)');
-            document.documentElement.setAttribute('data-bs-theme', mq.matches ? 'dark' : 'light');
-            mq.addEventListener('change', function (e) {
-                document.documentElement.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
-            });
+            var saved = localStorage.getItem('bdta-theme');
+            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', theme);
         }());
     </script>
     
@@ -1259,6 +1257,30 @@ if (isset($error_mode) && $error_mode) {
                 btn.addEventListener('click', function () { selectContractFont(btn); });
             });
         })();
+    </script>
+    <!-- Dark mode toggle (floating) -->
+    <button id="darkModeToggle" class="btn btn-outline-secondary btn-sm position-fixed top-0 end-0 m-3 no-print" style="z-index:1100;" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <i class="fas fa-moon" id="darkModeIcon"></i>
+    </button>
+    <script>
+    (function () {
+        'use strict';
+        function updateIcon() {
+            var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            var icon = document.getElementById('darkModeIcon');
+            if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        }
+        updateIcon();
+        var btn = document.getElementById('darkModeToggle');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', next);
+                localStorage.setItem('bdta-theme', next);
+                updateIcon();
+            });
+        }
+    }());
     </script>
 </body>
 </html>
