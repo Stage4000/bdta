@@ -310,8 +310,41 @@ textarea:focus {
 }
 
 /* ============================================
-   Print Optimization
+   Client List Action Buttons – Mobile Overrides
    ============================================ */
+
+/* Keep icon-only action buttons compact; do not override btn-sm in table cells globally */
+.client-action-btns .btn,
+.client-action-dropdown .btn {
+    min-height: 36px;
+    min-width: 36px;
+    padding: 6px 10px;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+}
+
+@media (max-width: 767.98px) {
+    /* Prevent the general block-display override from affecting action dropdowns */
+    .client-action-dropdown .btn,
+    .client-action-dropdown .dropdown-toggle {
+        display: inline-flex !important;
+        width: auto !important;
+        min-width: 36px;
+        min-height: 36px;
+        padding: 6px 10px;
+        font-size: 14px;
+        margin-bottom: 0;
+    }
+
+    /* Ensure the dropdown menu items are comfortable to tap */
+    .client-action-dropdown .dropdown-item {
+        padding: 10px 16px;
+        font-size: 15px;
+    }
+}
 
 @media print {
     /* Hide navigation and non-essential elements */
