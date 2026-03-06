@@ -28,12 +28,16 @@ if (isset($_POST['resend_quote'])) {
     $resend_quote = $email_stmt->fetch(PDO::FETCH_ASSOC);
     
     if ($resend_quote && !empty($resend_quote['client_email'])) {
-        $email_items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
-        $email_items_stmt->execute([$quote_id]);
-        $email_items = $email_items_stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        $email_service = new EmailService(null, $conn);
-        $email_service->sendQuoteEmail($resend_quote, $email_items);
+        try {
+            $email_items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
+            $email_items_stmt->execute([$quote_id]);
+            $email_items = $email_items_stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $email_service = new EmailService(null, $conn);
+            $email_service->sendQuoteEmail($resend_quote, $email_items);
+        } catch (Exception $e) {
+            error_log("Failed to send resend quote email for quote #{$quote_id}: " . $e->getMessage());
+        }
     }
     
     setFlashMessage('Quote resent successfully!', 'success');
