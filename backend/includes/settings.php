@@ -242,6 +242,34 @@ class Settings {
     }
     
     /**
+     * Get theme color settings with defaults
+     */
+    public static function getThemeColors() {
+        return [
+            'primary'           => self::get('theme_primary_color', '#9a0073'),
+            'primary_dark'      => self::get('theme_primary_dark_color', '#7a005a'),
+            'secondary'         => self::get('theme_secondary_color', '#0a9a9c'),
+            'accent'            => self::get('theme_accent_color', '#a39f89'),
+            'sidebar_bg_start'  => self::get('theme_sidebar_bg_start', '#9a0073'),
+            'sidebar_bg_end'    => self::get('theme_sidebar_bg_end', '#7a005a'),
+        ];
+    }
+
+    /**
+     * Get default theme colors
+     */
+    public static function getDefaultThemeColors() {
+        return [
+            'theme_primary_color'      => '#9a0073',
+            'theme_primary_dark_color' => '#7a005a',
+            'theme_secondary_color'    => '#0a9a9c',
+            'theme_accent_color'       => '#a39f89',
+            'theme_sidebar_bg_start'   => '#9a0073',
+            'theme_sidebar_bg_end'     => '#7a005a',
+        ];
+    }
+
+    /**
      * Get email configuration
      */
     public static function getEmailConfig() {

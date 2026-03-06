@@ -150,25 +150,35 @@ This is a **complete business management system** combining a public-facing webs
 - **Email Services** - SendGrid, Mailgun, or AWS SES for transactional emails
 
 ### Branding & Colors
-The system uses the official BDTA brand colors:
+The system uses the official BDTA brand colors by default:
 - **Primary (Purple)**: `#9a0073` - Main branding color
 - **Secondary (Teal)**: `#0a9a9c` - Accent and success states
 - **Accent (Tan)**: `#a39f89` - Supporting color
 
-These colors are consistently applied across:
-- Frontend website (CSS variables in `/css/style.css`)
-- Admin panel (inline styles in `/backend/includes/header.php`)
-- Public booking and contract pages
-- Email templates
+These colors are applied across the admin panel, client portal, public booking pages, and the frontend website.
 
-To customize branding colors, update the CSS variables:
-```css
-:root {
-    --primary-color: #9a0073;
-    --secondary-color: #0a9a9c;
-    --accent-color: #a39f89;
-}
-```
+#### Theme Customization (Admin Panel)
+Administrators can customize the site's color scheme directly from the admin panel without editing any code:
+
+1. Log in to the admin panel (`/client/`)
+2. Navigate to **Settings** → **Theme**
+3. Use the color pickers to adjust:
+   - **Primary Color** – buttons, links, and highlights
+   - **Primary Dark Color** – hover states
+   - **Secondary Color** – success states and secondary accents
+   - **Accent Color** – supporting decorative color
+   - **Sidebar Gradient Start / End** – admin and portal sidebar background
+4. The **Live Preview** panel updates in real time as you pick colors
+5. Click **Save Settings** to apply changes site-wide immediately
+6. To undo all customizations, use the **Reset to Defaults** button
+
+Theme colors are stored in the database and apply instantly across:
+- Admin panel sidebar and buttons
+- Client portal sidebar and buttons
+- Public booking, quote, and contract pages
+- Public website (`/index.html`) via the dynamic CSS endpoint
+
+**Accessibility**: Ensure sufficient contrast between your chosen colors and white text (minimum 4.5:1 ratio recommended for WCAG AA compliance).
 
 ## System Requirements
 
