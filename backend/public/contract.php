@@ -207,7 +207,7 @@ $font_labels = [
                 border-color: #374151;
             }
             .font-option-btn.selected,
-            .font-option-btn:hover { background: #2d1a2e; }
+            .font-option-btn:hover { background: #2a1f2d; }
             .sig-preview,
             .signed-sig { color: #e5e7eb; }
         }
