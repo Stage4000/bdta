@@ -42,14 +42,14 @@ include '../backend/includes/header.php';
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover client-list-table">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th class="d-none d-md-table-cell">ID</th>
                             <th>Name</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>Created</th>
+                            <th class="d-none d-sm-table-cell">Email</th>
+                            <th class="d-none d-md-table-cell">Phone</th>
+                            <th class="d-none d-lg-table-cell">Created</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -63,7 +63,7 @@ include '../backend/includes/header.php';
                         <?php else: ?>
                             <?php foreach ($clients as $client): ?>
                                 <tr>
-                                    <td><?= escape($client['id']) ?></td>
+                                    <td class="d-none d-md-table-cell"><?= escape($client['id']) ?></td>
                                     <td>
                                         <strong><?= escape($client['name']) ?></strong>
                                         <?php if (!empty($client['is_admin'])): ?>
@@ -72,32 +72,80 @@ include '../backend/includes/header.php';
                                             </span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= escape($client['email']) ?></td>
-                                    <td><?= escape($client['phone'] ?? 'N/A') ?></td>
-                                    <td><?= formatDate($client['created_at']) ?></td>
-                                    <td>
-                                        <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" title="View Profile">
-                                            <i class="fa-solid fa-address-book"></i>
-                                        </a>
-                                        <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
-                                            <i class="fas fa-pencil"></i>
-                                        </a>
-                                        <a href="pets_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-success" title="View Pets">
-                                            <i class="fa-solid fa-dog"></i>
-                                        </a>
-                                        <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary" title="Time Entries">
-                                            <i class="fas fa-clock"></i>
-                                        </a>
-                                        <?php if (empty($client['is_admin'])): ?>
-                                        <a href="impersonate_client.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-warning" title="View Portal as Client"
-                                           onclick="return confirm('View the client portal as this client?')">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        <?php endif; ?>
-                                        <a href="?delete=<?= $client['id'] ?>" class="btn btn-sm btn-outline-danger" 
-                                           onclick="return confirm('Are you sure you want to delete this client? This cannot be undone.')" title="Delete">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                                    <td class="d-none d-sm-table-cell"><?= escape($client['email']) ?></td>
+                                    <td class="d-none d-md-table-cell"><?= escape($client['phone'] ?? 'N/A') ?></td>
+                                    <td class="d-none d-lg-table-cell"><?= formatDate($client['created_at']) ?></td>
+                                    <td class="text-nowrap">
+                                        <!-- Desktop: individual icon buttons (hidden on mobile) -->
+                                        <div class="d-none d-md-inline-flex gap-1 client-action-btns">
+                                            <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" title="View Profile">
+                                                <i class="fa-solid fa-address-book"></i>
+                                            </a>
+                                            <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
+                                                <i class="fas fa-pencil"></i>
+                                            </a>
+                                            <a href="pets_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-success" title="View Pets">
+                                                <i class="fa-solid fa-dog"></i>
+                                            </a>
+                                            <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary" title="Time Entries">
+                                                <i class="fas fa-clock"></i>
+                                            </a>
+                                            <?php if (empty($client['is_admin'])): ?>
+                                            <a href="impersonate_client.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-warning" title="View Portal as Client"
+                                               onclick="return confirm('View the client portal as this client?')">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <?php endif; ?>
+                                            <a href="?delete=<?= $client['id'] ?>" class="btn btn-sm btn-outline-danger"
+                                               onclick="return confirm('Are you sure you want to delete this client? This cannot be undone.')" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                        <!-- Mobile: compact dropdown menu -->
+                                        <div class="d-md-none client-action-dropdown">
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li>
+                                                        <a class="dropdown-item" href="clients_view.php?id=<?= $client['id'] ?>">
+                                                            <i class="fa-solid fa-address-book me-2 text-info"></i>View Profile
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="dropdown-item" href="clients_edit.php?id=<?= $client['id'] ?>">
+                                                            <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="dropdown-item" href="pets_list.php?client_id=<?= $client['id'] ?>">
+                                                            <i class="fa-solid fa-dog me-2 text-success"></i>View Pets
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="dropdown-item" href="time_entries_list.php?client_id=<?= $client['id'] ?>">
+                                                            <i class="fas fa-clock me-2 text-secondary"></i>Time Entries
+                                                        </a>
+                                                    </li>
+                                                    <?php if (empty($client['is_admin'])): ?>
+                                                    <li>
+                                                        <a class="dropdown-item" href="impersonate_client.php?id=<?= $client['id'] ?>"
+                                                           onclick="return confirm('View the client portal as this client?')">
+                                                            <i class="fas fa-eye me-2 text-warning"></i>View Portal as Client
+                                                        </a>
+                                                    </li>
+                                                    <?php endif; ?>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <a class="dropdown-item text-danger" href="?delete=<?= $client['id'] ?>"
+                                                           onclick="return confirm('Are you sure you want to delete this client? This cannot be undone.')">
+                                                            <i class="fas fa-trash me-2"></i>Delete
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
