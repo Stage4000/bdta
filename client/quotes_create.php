@@ -4,6 +4,7 @@
  */
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
+require_once '../backend/includes/email_service.php';
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -86,8 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (count($line_items) == 0) {
-        $_SESSION['error'] = "Please add at least one line item";
+        setFlashMessage("Please add at least one line item with a description and a price greater than zero", 'error');
     } else {
+        $saved_quote_id = null;
+
         try {
             $conn->beginTransaction();
             
@@ -106,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $conn->prepare("DELETE FROM quote_items WHERE quote_id = ?")->execute([$quote_id]);
             } else {
                 // Generate quote number
-                $stmt = $conn->query("SELECT MAX(CAST(SUBSTR(quote_number, 5) AS INTEGER)) FROM quotes WHERE quote_number LIKE 'QT-%'");
+                $stmt = $conn->query("SELECT MAX(CAST(SUBSTR(quote_number, 4) AS INTEGER)) FROM quotes WHERE quote_number LIKE 'QT-%'");
                 $last_num = $stmt->fetchColumn();
                 $next_num = ($last_num ? $last_num + 1 : 1001);
                 $quote_number = 'QT-' . $next_num;
@@ -130,13 +133,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $conn->commit();
-            $_SESSION['success'] = $is_edit ? "Quote updated successfully" : "Quote created successfully";
-            header('Location: quotes_view.php?id=' . $quote_id);
-            exit;
+            $saved_quote_id = $quote_id;
             
         } catch (Exception $e) {
-            $conn->rollBack();
-            $_SESSION['error'] = "Error saving quote: " . $e->getMessage();
+            try {
+                $conn->rollBack();
+            } catch (Exception $re) {
+                // rollBack() may throw if beginTransaction() itself failed — safe to ignore
+            }
+            setFlashMessage("Error saving quote: " . $e->getMessage(), 'error');
+        }
+
+        if ($saved_quote_id !== null) {
+            // DB transaction succeeded — send email outside the transaction so
+            // any email failure cannot trigger a rollback on an already-committed quote.
+            if (!$is_edit) {
+                try {
+                    $email_stmt = $conn->prepare("
+                        SELECT q.*, c.name as client_name, c.email as client_email
+                        FROM quotes q
+                        INNER JOIN clients c ON q.client_id = c.id
+                        WHERE q.id = ?
+                    ");
+                    $email_stmt->execute([$saved_quote_id]);
+                    $new_quote = $email_stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($new_quote && !empty($new_quote['client_email'])) {
+                        $email_items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
+                        $email_items_stmt->execute([$saved_quote_id]);
+                        $email_items = $email_items_stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        $email_service = new EmailService(null, $conn);
+                        $email_service->sendQuoteEmail($new_quote, $email_items);
+                    }
+                } catch (Exception $e) {
+                    error_log("Failed to send quote email for quote #{$saved_quote_id}: " . $e->getMessage());
+                }
+            }
+            
+            setFlashMessage($is_edit ? "Quote updated successfully" : "Quote created successfully", 'success');
+            header('Location: quotes_view.php?id=' . $saved_quote_id);
+            exit;
         }
     }
 }
@@ -275,7 +312,7 @@ include '../backend/includes/header.php';
                                             </div>
                                             <div class="col-md-2">
                                                 <input type="number" name="item_price[]" class="form-control item-price" 
-                                                       placeholder="Price" value="<?= $item['unit_price'] ?>" step="0.01" min="0" onchange="calculateTotal()" required>
+                                                       placeholder="Price" value="<?= $item['unit_price'] ?>" step="0.01" min="0.01" onchange="calculateTotal()" required>
                                             </div>
                                             <div class="col-md-2">
                                                 <input type="text" class="form-control item-amount" placeholder="Amount" readonly>
@@ -300,7 +337,7 @@ include '../backend/includes/header.php';
                                             <input type="number" name="item_quantity[]" class="form-control" placeholder="Qty" value="1" min="1" onchange="calculateTotal()" required>
                                         </div>
                                         <div class="col-md-2">
-                                            <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" step="0.01" min="0" onchange="calculateTotal()" required>
+                                            <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" step="0.01" min="0.01" onchange="calculateTotal()" required>
                                         </div>
                                         <div class="col-md-2">
                                             <input type="text" class="form-control item-amount" placeholder="Amount" readonly>
@@ -374,7 +411,7 @@ function addLineItem(name, qty, price, pkgId, apptTypeId) {
                 <input type="number" name="item_quantity[]" class="form-control" placeholder="Qty" value="${qty || 1}" min="1" onchange="calculateTotal()" required>
             </div>
             <div class="col-md-2">
-                <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" value="${price != null ? parseFloat(price).toFixed(2) : ''}" step="0.01" min="0" onchange="calculateTotal()" required>
+                <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" value="${price != null ? parseFloat(price).toFixed(2) : ''}" step="0.01" min="0.01" onchange="calculateTotal()" required>
             </div>
             <div class="col-md-2">
                 <input type="text" class="form-control item-amount" placeholder="Amount" readonly>

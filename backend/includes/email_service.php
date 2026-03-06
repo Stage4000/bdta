@@ -46,6 +46,9 @@ class EmailService {
     /** Reminder sent to the client for an overdue invoice. */
     const MAIL_TYPE_INVOICE_REMINDER     = 'invoice_reminder';
 
+    /** Quote sent to the client (initial send or resend). */
+    const MAIL_TYPE_QUOTE                = 'quote';
+
     /** Reminder sent to the client for an unsigned contract. */
     const MAIL_TYPE_CONTRACT_REMINDER    = 'contract_reminder';
 
@@ -728,6 +731,135 @@ HTML;
 
         return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body, [
             'client_id' => $invoice['client_id'] ?? null,
+        ]);
+    }
+
+    /**
+     * Send a quote email to the client (initial send or resend).
+     *
+     * @param array $quote Row from quotes joined with client name/email
+     * @param array $items Rows from quote_items
+     * @return array{success: bool, message: string}
+     */
+    public function sendQuoteEmail($quote, $items = []) {
+        $to = $quote['client_email'] ?? '';
+        if (empty($to)) {
+            return ['success' => false, 'message' => 'No client email address on file'];
+        }
+
+        $client_name   = $quote['client_name'] ?? 'Valued Client';
+        $quote_title   = htmlspecialchars($quote['title'] ?? '');
+        $quote_number  = $quote['quote_number'] ?? '';
+        $quote_amount  = number_format($quote['amount'], 2);
+        $quote_link    = $this->base_url . '/backend/public/quote.php?id=' . ($quote['id'] ?? 0);
+        $business_name = Settings::get('site_name', "Brook's Dog Training Academy");
+        $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
+
+        $expiration_html = '';
+        $expiration_text = '';
+        if (!empty($quote['expiration_date'])) {
+            $exp_formatted = date('F j, Y', strtotime($quote['expiration_date']));
+            $expiration_html = "<p><strong>Expiration Date:</strong> {$exp_formatted}</p>";
+            $expiration_text = "Expiration Date: {$exp_formatted}\n";
+        }
+
+        // Build line-item HTML and text
+        $items_html = '';
+        $items_text = '';
+        foreach ($items as $item) {
+            $desc  = htmlspecialchars($item['description'] ?? '');
+            $qty   = (int)($item['quantity'] ?? 1);
+            $rate  = number_format($item['unit_price'] ?? 0, 2);
+            $lamt  = number_format($item['amount'] ?? 0, 2);
+            $items_html .= "<tr>"
+                . "<td style='padding:6px 8px'>{$desc}</td>"
+                . "<td style='text-align:center;padding:6px 8px'>{$qty}</td>"
+                . "<td style='text-align:right;padding:6px 8px'>\${$rate}</td>"
+                . "<td style='text-align:right;padding:6px 8px'>\${$lamt}</td>"
+                . "</tr>";
+            $items_text .= "  {$desc} — Qty: {$qty}  Unit Price: \${$rate}  Amount: \${$lamt}\n";
+        }
+
+        $items_section_html = '';
+        if (!empty($items_html)) {
+            $items_section_html = <<<HTML
+<h3 style="margin:20px 0 10px">Quote Items</h3>
+<table width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse">
+  <thead>
+    <tr style="background:#f0f4f8">
+      <th style="text-align:left;padding:6px 8px">Description</th>
+      <th style="text-align:center;padding:6px 8px">Qty</th>
+      <th style="text-align:right;padding:6px 8px">Unit Price</th>
+      <th style="text-align:right;padding:6px 8px">Amount</th>
+    </tr>
+  </thead>
+  <tbody>{$items_html}</tbody>
+  <tfoot>
+    <tr style="border-top:2px solid #dee2e6">
+      <td colspan="3" style="text-align:right;padding:6px 8px"><strong>Total:</strong></td>
+      <td style="text-align:right;padding:6px 8px"><strong>\${$quote_amount}</strong></td>
+    </tr>
+  </tfoot>
+</table>
+HTML;
+        }
+
+        $subject = "Quote {$quote_number} — {$business_name}";
+
+        $html_body = <<<HTML
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;color:#333;line-height:1.6">
+<div style="max-width:600px;margin:0 auto;padding:20px">
+  <div style="background:#3b82f6;color:white;padding:20px;text-align:center;border-radius:8px 8px 0 0">
+    <h1 style="margin:0">&#128203; Quote</h1>
+  </div>
+  <div style="background:#f8f9fa;padding:30px;border-radius:0 0 8px 8px">
+    <p>Dear {$client_name},</p>
+    <p>Please find your quote from {$business_name} below. We look forward to working with you!</p>
+    <div style="background:white;padding:20px;margin:20px 0;border-radius:8px;border-left:4px solid #3b82f6">
+      <h2 style="margin-top:0">{$quote_title}</h2>
+      <p><strong>Quote Number:</strong> {$quote_number}</p>
+      {$expiration_html}
+      <p><strong>Total Amount:</strong> <span style="font-size:20px;font-weight:bold;color:#3b82f6">\${$quote_amount}</span></p>
+    </div>
+    {$items_section_html}
+    <div style="text-align:center;margin:24px 0">
+      <a href="{$quote_link}"
+         style="display:inline-block;padding:14px 32px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px">
+        &#128203; View &amp; Respond to Quote
+      </a>
+    </div>
+    <p>If you have any questions about this quote, please contact us at
+       <a href="mailto:{$business_email}">{$business_email}</a>.</p>
+    <p>Thank you for choosing {$business_name}!</p>
+  </div>
+</div>
+</body>
+</html>
+HTML;
+
+        $items_section_text = !empty($items_text) ? "\nQUOTE ITEMS\n-----------\n{$items_text}" : '';
+
+        $text_body = "QUOTE — {$business_name}\n\n"
+            . "Dear {$client_name},\n\n"
+            . "Please find your quote details below.\n\n"
+            . "QUOTE DETAILS\n"
+            . str_repeat('-', 30) . "\n"
+            . "Quote Number: {$quote_number}\n"
+            . "Title: {$quote_title}\n"
+            . $expiration_text
+            . "Total Amount: \${$quote_amount}\n"
+            . $items_section_text . "\n\n"
+            . "VIEW & RESPOND TO QUOTE\n"
+            . str_repeat('-', 30) . "\n"
+            . "{$quote_link}\n\n"
+            . "Questions? Contact us at {$business_email}\n\n"
+            . "Thank you for choosing {$business_name}!";
+
+        return $this->routeMail(self::MAIL_TYPE_QUOTE, $to, $subject, $html_body, $text_body, [
+            'client_id' => $quote['client_id'] ?? null,
         ]);
     }
 
