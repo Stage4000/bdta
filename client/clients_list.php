@@ -42,7 +42,7 @@ include '../backend/includes/header.php';
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover client-list-table">
                     <thead>
                         <tr>
                             <th class="d-none d-md-table-cell">ID</th>

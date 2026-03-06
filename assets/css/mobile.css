@@ -344,6 +344,23 @@ textarea:focus {
         padding: 10px 16px;
         font-size: 15px;
     }
+
+    /* Client list table: override the global min-width so hidden columns
+       don't cause a horizontal scrollbar. Only Name + Actions are visible
+       on small screens — they fit naturally within the viewport. */
+    .client-list-table {
+        min-width: 0;
+    }
+
+    .client-list-table th,
+    .client-list-table td {
+        white-space: normal;
+    }
+
+    /* The name cell can wrap if needed; the action cell stays compact */
+    .client-list-table td.text-nowrap {
+        white-space: nowrap;
+    }
 }
 
 @media print {
