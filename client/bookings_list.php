@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/email_service.php';
 require_once '../backend/includes/google_calendar.php';
 requireLogin();
 
@@ -36,6 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
                     }
                 }
             }
+        }
+
+        // Send cancellation email to the client when a booking is cancelled
+        if ($status === 'cancelled' && !empty($booking_row['client_email'])) {
+            $email_service = new EmailService(null, $conn);
+            $email_service->sendBookingCancellation($booking_row);
         }
 
         if ($status === 'cancelled' && $pkg_credit_id > 0) {

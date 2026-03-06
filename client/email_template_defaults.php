@@ -35,6 +35,13 @@ $task_types = [
         'icon'        => 'receipt',
         'color'       => 'success',
     ],
+    'booking_cancellation' => [
+        'label'       => 'Booking Cancellation',
+        'description' => 'Sent automatically when an appointment is cancelled.',
+        'setting_key' => 'default_cancellation_template_id',
+        'icon'        => 'calendar-xmark',
+        'color'       => 'danger',
+    ],
 ];
 
 // Load available templates grouped by type

@@ -86,6 +86,7 @@ include '../backend/includes/header.php';
                                         <option value="">Select type...</option>
                                         <option value="booking_confirmation" <?php echo ($template['template_type'] ?? '') === 'booking_confirmation' ? 'selected' : ''; ?>>Booking Confirmation</option>
                                         <option value="booking_reminder" <?php echo ($template['template_type'] ?? '') === 'booking_reminder' ? 'selected' : ''; ?>>Booking Reminder</option>
+                                        <option value="booking_cancellation" <?php echo ($template['template_type'] ?? '') === 'booking_cancellation' ? 'selected' : ''; ?>>Booking Cancellation</option>
                                         <option value="payment_receipt" <?php echo ($template['template_type'] ?? '') === 'payment_receipt' ? 'selected' : ''; ?>>Payment Receipt</option>
                                         <option value="contract_request" <?php echo ($template['template_type'] ?? '') === 'contract_request' ? 'selected' : ''; ?>>Contract Request</option>
                                         <option value="form_request" <?php echo ($template['template_type'] ?? '') === 'form_request' ? 'selected' : ''; ?>>Form Request</option>
