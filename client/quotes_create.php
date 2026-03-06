@@ -15,6 +15,14 @@ $is_edit = $quote_id > 0;
 $clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Load active packages for the package selector
+$packages_stmt = $conn->query("SELECT * FROM packages WHERE is_active = 1 ORDER BY name");
+$packages = $packages_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Load active appointment types for the appointment type selector
+$appt_types_stmt = $conn->query("SELECT id, name, default_amount FROM appointment_types WHERE is_active = 1 ORDER BY name");
+$appt_types = $appt_types_stmt->fetchAll(PDO::FETCH_ASSOC);
+
 // Load quote if editing
 $quote = null;
 $items = [];
@@ -54,11 +62,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $amount = $qty * $price;
             
             if ($desc && $price > 0) {
+                $item_type = 'custom';
+                $reference_id = null;
+                if (!empty($_POST['item_package_id'][$i])) {
+                    $item_type = 'package';
+                    $reference_id = intval($_POST['item_package_id'][$i]);
+                } elseif (!empty($_POST['item_appointment_type_id'][$i])) {
+                    $item_type = 'appointment_type';
+                    $reference_id = intval($_POST['item_appointment_type_id'][$i]);
+                }
+
                 $line_items[] = [
                     'description' => $desc,
                     'quantity' => $qty,
                     'unit_price' => $price,
-                    'amount' => $amount
+                    'amount' => $amount,
+                    'item_type' => $item_type,
+                    'reference_id' => $reference_id,
                 ];
                 $total_amount += $amount;
             }
@@ -102,11 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Insert line items
             $stmt = $conn->prepare("
-                INSERT INTO quote_items (quote_id, description, quantity, unit_price, amount)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO quote_items (quote_id, description, quantity, unit_price, amount, item_type, reference_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             ");
             foreach ($line_items as $item) {
-                $stmt->execute([$quote_id, $item['description'], $item['quantity'], $item['unit_price'], $item['amount']]);
+                $stmt->execute([$quote_id, $item['description'], $item['quantity'], $item['unit_price'], $item['amount'], $item['item_type'], $item['reference_id']]);
             }
             
             $conn->commit();
@@ -175,7 +195,61 @@ include '../backend/includes/header.php';
                     </div>
                 </div>
 
-                <!-- Line Items -->
+                <!-- Package & Appointment Type Selectors -->
+                <?php if (!empty($packages) || !empty($appt_types)): ?>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Quick Add</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Package Selector -->
+                        <?php if (!empty($packages)): ?>
+                        <div class="mb-3">
+                            <label class="form-label">Add Package</label>
+                            <div class="input-group">
+                                <select class="form-select" id="packageSelector">
+                                    <option value="">— Select a package to add —</option>
+                                    <?php foreach ($packages as $pkg): ?>
+                                        <option value="<?= $pkg['id'] ?>"
+                                                data-name="<?= htmlspecialchars($pkg['name']) ?>"
+                                                data-price="<?= $pkg['price'] ?>">
+                                            <?= htmlspecialchars($pkg['name']) ?> — $<?= number_format($pkg['price'], 2) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="btn btn-outline-secondary" id="addPackageItem">
+                                    <i class="fas fa-plus"></i> Add to Quote
+                                </button>
+                            </div>
+                            <small class="text-muted">Package credits will be automatically applied to the client when this quote is converted to a paid invoice.</small>
+                        </div>
+                        <?php endif; ?>
+
+                        <!-- Appointment Type Selector -->
+                        <?php if (!empty($appt_types)): ?>
+                        <div class="mb-0">
+                            <label class="form-label">Add Appointment Type</label>
+                            <div class="input-group">
+                                <select class="form-select" id="apptTypeSelector">
+                                    <option value="">— Select an appointment type to add —</option>
+                                    <?php foreach ($appt_types as $at): ?>
+                                        <option value="<?= $at['id'] ?>"
+                                                data-name="<?= htmlspecialchars($at['name']) ?>"
+                                                data-price="<?= floatval($at['default_amount'] ?? 0) ?>">
+                                            <?= htmlspecialchars($at['name']) ?><?= $at['default_amount'] > 0 ? ' — $' . number_format($at['default_amount'], 2) : '' ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="btn btn-outline-secondary" id="addApptTypeItem">
+                                    <i class="fas fa-plus"></i> Add to Quote
+                                </button>
+                            </div>
+                            <small class="text-muted">Individual appointment type billed at its default rate.</small>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Line Items</h5>
@@ -192,16 +266,21 @@ include '../backend/includes/header.php';
                                             <div class="col-md-5">
                                                 <input type="text" name="item_description[]" class="form-control" 
                                                        placeholder="Description" value="<?= htmlspecialchars($item['description']) ?>" required>
+                                                <input type="hidden" name="item_package_id[]" value="<?= ($item['item_type'] ?? '') === 'package' && $item['reference_id'] ? intval($item['reference_id']) : '' ?>">
+                                                <input type="hidden" name="item_appointment_type_id[]" value="<?= ($item['item_type'] ?? '') === 'appointment_type' && $item['reference_id'] ? intval($item['reference_id']) : '' ?>">
                                             </div>
                                             <div class="col-md-2">
                                                 <input type="number" name="item_quantity[]" class="form-control" 
                                                        placeholder="Qty" value="<?= $item['quantity'] ?>" min="1" onchange="calculateTotal()" required>
                                             </div>
-                                            <div class="col-md-3">
-                                                <input type="number" name="item_price[]" class="form-control" 
+                                            <div class="col-md-2">
+                                                <input type="number" name="item_price[]" class="form-control item-price" 
                                                        placeholder="Price" value="<?= $item['unit_price'] ?>" step="0.01" min="0" onchange="calculateTotal()" required>
                                             </div>
                                             <div class="col-md-2">
+                                                <input type="text" class="form-control item-amount" placeholder="Amount" readonly>
+                                            </div>
+                                            <div class="col-md-1">
                                                 <button type="button" class="btn btn-outline-danger w-100" onclick="removeLineItem(this)">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
@@ -214,14 +293,19 @@ include '../backend/includes/header.php';
                                     <div class="row g-2">
                                         <div class="col-md-5">
                                             <input type="text" name="item_description[]" class="form-control" placeholder="Description" required>
+                                            <input type="hidden" name="item_package_id[]" value="">
+                                            <input type="hidden" name="item_appointment_type_id[]" value="">
                                         </div>
                                         <div class="col-md-2">
                                             <input type="number" name="item_quantity[]" class="form-control" placeholder="Qty" value="1" min="1" onchange="calculateTotal()" required>
                                         </div>
-                                        <div class="col-md-3">
-                                            <input type="number" name="item_price[]" class="form-control" placeholder="Price" step="0.01" min="0" onchange="calculateTotal()" required>
+                                        <div class="col-md-2">
+                                            <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" step="0.01" min="0" onchange="calculateTotal()" required>
                                         </div>
                                         <div class="col-md-2">
+                                            <input type="text" class="form-control item-amount" placeholder="Amount" readonly>
+                                        </div>
+                                        <div class="col-md-1">
                                             <button type="button" class="btn btn-outline-danger w-100" onclick="removeLineItem(this)">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -269,22 +353,33 @@ include '../backend/includes/header.php';
 </div>
 
 <script>
-function addLineItem() {
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str || ''));
+    return div.innerHTML;
+}
+
+function addLineItem(name, qty, price, pkgId, apptTypeId) {
     const container = document.getElementById('lineItemsContainer');
     const div = document.createElement('div');
     div.className = 'line-item mb-3';
     div.innerHTML = `
         <div class="row g-2">
             <div class="col-md-5">
-                <input type="text" name="item_description[]" class="form-control" placeholder="Description" required>
+                <input type="text" name="item_description[]" class="form-control" placeholder="Description" value="${escapeHtml(name)}" required>
+                <input type="hidden" name="item_package_id[]" value="${escapeHtml(pkgId)}">
+                <input type="hidden" name="item_appointment_type_id[]" value="${escapeHtml(apptTypeId)}">
             </div>
             <div class="col-md-2">
-                <input type="number" name="item_quantity[]" class="form-control" placeholder="Qty" value="1" min="1" onchange="calculateTotal()" required>
-            </div>
-            <div class="col-md-3">
-                <input type="number" name="item_price[]" class="form-control" placeholder="Price" step="0.01" min="0" onchange="calculateTotal()" required>
+                <input type="number" name="item_quantity[]" class="form-control" placeholder="Qty" value="${qty || 1}" min="1" onchange="calculateTotal()" required>
             </div>
             <div class="col-md-2">
+                <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" value="${price != null ? parseFloat(price).toFixed(2) : ''}" step="0.01" min="0" onchange="calculateTotal()" required>
+            </div>
+            <div class="col-md-2">
+                <input type="text" class="form-control item-amount" placeholder="Amount" readonly>
+            </div>
+            <div class="col-md-1">
                 <button type="button" class="btn btn-outline-danger w-100" onclick="removeLineItem(this)">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -292,6 +387,7 @@ function addLineItem() {
         </div>
     `;
     container.appendChild(div);
+    calculateTotal();
 }
 
 function removeLineItem(btn) {
@@ -309,13 +405,44 @@ function calculateTotal() {
     items.forEach(item => {
         const qty = parseFloat(item.querySelector('input[name="item_quantity[]"]').value) || 0;
         const price = parseFloat(item.querySelector('input[name="item_price[]"]').value) || 0;
-        total += qty * price;
+        const amount = qty * price;
+        const amountField = item.querySelector('.item-amount');
+        if (amountField) amountField.value = '$' + amount.toFixed(2);
+        total += amount;
     });
     document.getElementById('totalAmount').textContent = total.toFixed(2);
 }
 
-// Calculate total on page load
-document.addEventListener('DOMContentLoaded', calculateTotal);
+document.addEventListener('DOMContentLoaded', function() {
+    calculateTotal();
+
+    // Package selector
+    const packageSelector = document.getElementById('packageSelector');
+    const addPackageBtn = document.getElementById('addPackageItem');
+    if (addPackageBtn) {
+        addPackageBtn.addEventListener('click', function() {
+            const opt = packageSelector.options[packageSelector.selectedIndex];
+            if (!opt.value) return;
+            addLineItem(opt.dataset.name, 1, opt.dataset.price, opt.value, '');
+            packageSelector.selectedIndex = 0;
+        });
+    }
+
+    // Appointment type selector
+    const apptTypeSelector = document.getElementById('apptTypeSelector');
+    const addApptTypeBtn = document.getElementById('addApptTypeItem');
+    if (addApptTypeBtn) {
+        addApptTypeBtn.addEventListener('click', function() {
+            const opt = apptTypeSelector.options[apptTypeSelector.selectedIndex];
+            if (!opt.value) return;
+            addLineItem(opt.dataset.name, 1, opt.dataset.price, '', opt.value);
+            apptTypeSelector.selectedIndex = 0;
+        });
+    }
+
+    // Recalculate on input changes in existing line items
+    document.getElementById('lineItemsContainer').addEventListener('input', calculateTotal);
+});
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>

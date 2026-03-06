@@ -1702,6 +1702,15 @@ class Database {
         if (!in_array('mail_type', $client_emails_cols)) {
             $this->execSQL("ALTER TABLE client_emails ADD COLUMN mail_type TEXT DEFAULT NULL");
         }
+
+        // Add item_type and reference_id to quote_items to support package and appointment type line items
+        $quote_items_cols = $this->getTableColumns('quote_items');
+        if (!in_array('item_type', $quote_items_cols)) {
+            $this->execSQL("ALTER TABLE quote_items ADD COLUMN item_type TEXT NOT NULL DEFAULT 'custom'");
+        }
+        if (!in_array('reference_id', $quote_items_cols)) {
+            $this->execSQL("ALTER TABLE quote_items ADD COLUMN reference_id INTEGER DEFAULT NULL");
+        }
     }
     
     private function addEmailTemplateDefaultSettings() {
