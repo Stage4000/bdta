@@ -52,7 +52,19 @@ $page_title    = 'Invoice ' . escape($invoice['invoice_number']);
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title><?php echo $page_title; ?> — <?php echo escape($business_name); ?></title>
+<!-- Dark mode: detect system preference and apply Bootstrap dark theme before any CSS renders -->
+<script>
+    (function () {
+        'use strict';
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
+        document.documentElement.setAttribute('data-bs-theme', mq.matches ? 'dark' : 'light');
+        mq.addEventListener('change', function (e) {
+            document.documentElement.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
+        });
+    }());
+</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>

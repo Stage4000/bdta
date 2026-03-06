@@ -7,7 +7,19 @@
     <meta name="keywords" content="dog training, puppy training, sebring dog training, highlands county, avon park, lake placid, private dog trainer, professional dog training, pet sitting, obedience training, Brook Lefkowitz">
     <meta name="author" content="Brook's Dog Training Academy">
     
+    <meta name="color-scheme" content="light dark">
     <title>Brook's Dog Training Academy - Home</title>
+    <!-- Dark mode: detect system preference and apply Bootstrap dark theme before any CSS renders -->
+    <script>
+        (function () {
+            'use strict';
+            var mq = window.matchMedia('(prefers-color-scheme: dark)');
+            document.documentElement.setAttribute('data-bs-theme', mq.matches ? 'dark' : 'light');
+            mq.addEventListener('change', function (e) {
+                document.documentElement.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
+            });
+        }());
+    </script>
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">

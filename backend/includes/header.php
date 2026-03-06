@@ -3,7 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title><?php echo isset($page_title) ? escape($page_title) : 'Client Area'; ?> - BDTA</title>
+    <!-- Dark mode: detect system preference and apply Bootstrap dark theme before any CSS renders -->
+    <script>
+        (function () {
+            'use strict';
+            var mq = window.matchMedia('(prefers-color-scheme: dark)');
+            document.documentElement.setAttribute('data-bs-theme', mq.matches ? 'dark' : 'light');
+            mq.addEventListener('change', function (e) {
+                document.documentElement.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
+            });
+        }());
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/mobile.css">
@@ -105,6 +117,14 @@
         .sidebar-divider {
             border-top: 1px solid rgba(255,255,255,0.15);
             margin: 0.4rem 0.75rem;
+        }
+        /* Dark mode overrides for custom (non-Bootstrap) elements */
+        @media (prefers-color-scheme: dark) {
+            main.col-md-9,
+            main.col-md-10,
+            .main-content {
+                background-color: #111827;
+            }
         }
     </style>
 </head>

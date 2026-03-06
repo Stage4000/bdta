@@ -87,7 +87,19 @@ if (isset($error_mode) && $error_mode) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title><?= $page_title ?> - Brook's Dog Training Academy</title>
+    <!-- Dark mode: detect system preference and apply Bootstrap dark theme before any CSS renders -->
+    <script>
+        (function () {
+            'use strict';
+            var mq = window.matchMedia('(prefers-color-scheme: dark)');
+            document.documentElement.setAttribute('data-bs-theme', mq.matches ? 'dark' : 'light');
+            mq.addEventListener('change', function (e) {
+                document.documentElement.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
+            });
+        }());
+    </script>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -312,6 +324,19 @@ if (isset($error_mode) && $error_mode) {
         }
         .font-option-btn.selected,
         .font-option-btn:hover { border-color: #9a0073; background: #fdf0f9; }
+        /* Dark mode overrides */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%);
+            }
+            .booking-header,
+            .booking-card {
+                background: #1f2937;
+            }
+            .step-indicator::before {
+                background: #374151;
+            }
+        }
     </style>
 </head>
 <body>

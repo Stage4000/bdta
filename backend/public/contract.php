@@ -124,7 +124,19 @@ $font_labels = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>Contract <?= htmlspecialchars($contract['contract_number']) ?> - Brook's Dog Training Academy</title>
+    <!-- Dark mode: detect system preference and apply Bootstrap dark theme before any CSS renders -->
+    <script>
+        (function () {
+            'use strict';
+            var mq = window.matchMedia('(prefers-color-scheme: dark)');
+            document.documentElement.setAttribute('data-bs-theme', mq.matches ? 'dark' : 'light');
+            mq.addEventListener('change', function (e) {
+                document.documentElement.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
+            });
+        }());
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Script-style fonts for signature display -->
@@ -182,6 +194,22 @@ $font_labels = [
             border-bottom: 2px solid #495057;
             display: inline-block;
             padding-bottom: 0.2rem;
+        }
+        /* Dark mode overrides */
+        @media (prefers-color-scheme: dark) {
+            .contract-content {
+                background: #1f2937;
+                border-color: #374151;
+                color: #e5e7eb;
+            }
+            .font-option-btn {
+                background: #1f2937;
+                border-color: #374151;
+            }
+            .font-option-btn.selected,
+            .font-option-btn:hover { background: #2d1a2e; }
+            .sig-preview,
+            .signed-sig { color: #e5e7eb; }
         }
     </style>
 </head>
