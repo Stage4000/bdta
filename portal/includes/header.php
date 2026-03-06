@@ -3,7 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title><?php echo isset($page_title) ? escape($page_title) : 'Client Portal'; ?> - BDTA</title>
+    <!-- Dark mode: respect saved user preference, fall back to system preference -->
+    <script>
+        (function () {
+            'use strict';
+            var saved = localStorage.getItem('bdta-theme');
+            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        }());
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <?php
@@ -65,6 +75,18 @@
         }
         a:hover {
             color: <?= $tc_primary_dark ?>;
+        }
+        /* Dark mode overrides for custom (non-Bootstrap) elements */
+        .sidebar-divider {
+            border-top: 1px solid rgba(255,255,255,0.15);
+            margin: 0.4rem 0.75rem;
+        }
+        @media (prefers-color-scheme: dark) {
+            main.col-md-9,
+            main.col-md-10,
+            .main-content {
+                background-color: #111827;
+            }
         }
     </style>
 </head>
@@ -159,8 +181,38 @@
                                 <i class="fas fa-arrow-right-from-bracket me-2"></i> Logout
                             </a>
                         </li>
+                        <!-- Dark Mode Toggle -->
+                        <li><hr class="sidebar-divider"></li>
+                        <li class="nav-item px-3 pb-3">
+                            <button id="darkModeToggle" class="btn btn-outline-light btn-sm w-100" title="Toggle dark mode" aria-label="Toggle dark mode">
+                                <i class="fas fa-moon me-2" id="darkModeIcon"></i><span id="darkModeLabel">Dark Mode</span>
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </nav>
 
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 pt-3">
+<!-- Dark mode toggle script -->
+<script>
+(function () {
+    'use strict';
+    function updateToggle() {
+        var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        var icon  = document.getElementById('darkModeIcon');
+        var label = document.getElementById('darkModeLabel');
+        if (icon)  icon.className = isDark ? 'fas fa-sun me-2' : 'fas fa-moon me-2';
+        if (label) label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+    }
+    updateToggle();
+    var btn = document.getElementById('darkModeToggle');
+    if (btn) {
+        btn.addEventListener('click', function () {
+            var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-bs-theme', next);
+            localStorage.setItem('bdta-theme', next);
+            updateToggle();
+        });
+    }
+}());
+</script>

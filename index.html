@@ -7,7 +7,17 @@
     <meta name="keywords" content="dog training, puppy training, sebring dog training, highlands county, avon park, lake placid, private dog trainer, professional dog training, pet sitting, obedience training, Brook Lefkowitz">
     <meta name="author" content="Brook's Dog Training Academy">
     
+    <meta name="color-scheme" content="light dark">
     <title>Brook's Dog Training Academy - Home</title>
+    <!-- Dark mode: respect saved user preference, fall back to system preference -->
+    <script>
+        (function () {
+            'use strict';
+            var saved = localStorage.getItem('bdta-theme');
+            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        }());
+    </script>
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
@@ -67,6 +77,11 @@
                         <a class="btn btn-outline-primary ms-lg-2" href="portal/login.php">
                             <i class="fas fa-user-circle me-1"></i>Client Area
                         </a>
+                    </li>
+                    <li class="nav-item ms-lg-2">
+                        <button id="darkModeToggle" class="btn btn-outline-secondary" title="Toggle dark mode" aria-label="Toggle dark mode">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
                     </li>
                 </ul>
             </div>
@@ -670,5 +685,29 @@
     
     <!-- Custom JS -->
     <script src="js/script.js"></script>
+    <!-- Dark mode toggle -->
+    <script>
+        (function () {
+            'use strict';
+            function updateIcon() {
+                var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+                var icon = document.getElementById('darkModeIcon');
+                if (icon) {
+                    icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+                }
+            }
+            updateIcon();
+            var btn = document.getElementById('darkModeToggle');
+            if (btn) {
+                btn.addEventListener('click', function () {
+                    var current = document.documentElement.getAttribute('data-bs-theme');
+                    var next = current === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-bs-theme', next);
+                    localStorage.setItem('bdta-theme', next);
+                    updateIcon();
+                });
+            }
+        }());
+    </script>
 </body>
 </html>

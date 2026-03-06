@@ -12,7 +12,17 @@ $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>Blog - Brook's Dog Training Academy</title>
+    <!-- Dark mode: respect saved user preference, fall back to system preference -->
+    <script>
+        (function () {
+            'use strict';
+            var saved = localStorage.getItem('bdta-theme');
+            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        }());
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="../css/style.css" rel="stylesheet">
@@ -35,6 +45,11 @@ $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <li class="nav-item"><a class="nav-link" href="../index.html#testimonials">Testimonials</a></li>
                     <li class="nav-item"><a class="nav-link" href="../index.html#contact">Contact</a></li>
                     <li class="nav-item"><a class="nav-link active" href="index.php">Blog</a></li>
+                    <li class="nav-item ms-lg-2">
+                        <button id="darkModeToggle" class="btn btn-outline-secondary btn-sm" title="Toggle dark mode" aria-label="Toggle dark mode">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -42,7 +57,7 @@ $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     <main style="margin-top: 80px;">
         <div class="container py-5">
-            <h1 class="display-4 fw-bold mb-5">Training Tips & News</h1>
+            <h1 class="display-4 fw-bold mb-5">Training Tips &amp; News</h1>
             
             <div class="row g-4">
                 <?php if (count($posts) > 0): ?>
@@ -74,5 +89,26 @@ $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </main>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Dark mode toggle -->
+    <script>
+    (function () {
+        'use strict';
+        function updateIcon() {
+            var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            var icon = document.getElementById('darkModeIcon');
+            if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        }
+        updateIcon();
+        var btn = document.getElementById('darkModeToggle');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', next);
+                localStorage.setItem('bdta-theme', next);
+                updateIcon();
+            });
+        }
+    }());
+    </script>
 </body>
 </html>

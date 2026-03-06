@@ -87,7 +87,17 @@ if (isset($error_mode) && $error_mode) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title><?= $page_title ?> - Brook's Dog Training Academy</title>
+    <!-- Dark mode: respect saved user preference, fall back to system preference -->
+    <script>
+        (function () {
+            'use strict';
+            var saved = localStorage.getItem('bdta-theme');
+            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        }());
+    </script>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -312,6 +322,19 @@ if (isset($error_mode) && $error_mode) {
         }
         .font-option-btn.selected,
         .font-option-btn:hover { border-color: #9a0073; background: #fdf0f9; }
+        /* Dark mode overrides */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%);
+            }
+            .booking-header,
+            .booking-card {
+                background: #1f2937;
+            }
+            .step-indicator::before {
+                background: #374151;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1234,6 +1257,30 @@ if (isset($error_mode) && $error_mode) {
                 btn.addEventListener('click', function () { selectContractFont(btn); });
             });
         })();
+    </script>
+    <!-- Dark mode toggle (floating) -->
+    <button id="darkModeToggle" class="btn btn-outline-secondary btn-sm position-fixed top-0 end-0 m-3 no-print" style="z-index:1100;" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <i class="fas fa-moon" id="darkModeIcon"></i>
+    </button>
+    <script>
+    (function () {
+        'use strict';
+        function updateIcon() {
+            var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            var icon = document.getElementById('darkModeIcon');
+            if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        }
+        updateIcon();
+        var btn = document.getElementById('darkModeToggle');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', next);
+                localStorage.setItem('bdta-theme', next);
+                updateIcon();
+            });
+        }
+    }());
     </script>
 </body>
 </html>
