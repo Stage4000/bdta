@@ -25,20 +25,56 @@ if (!$page) {
     redirect('site_pages_list.php');
 }
 
+/**
+ * Convert relative asset paths in HTML to root-absolute paths.
+ * Ensures images, scripts, and local links work correctly both inside the
+ * GrapesJS canvas iframe (served from /client/) and on the published front-end.
+ *
+ * Transforms:  src="assets/..."  →  src="/assets/..."
+ *              href="js/..."      →  href="/js/..."
+ * Leaves alone: absolute URLs (http/https/://), fragment-only (#), data URIs.
+ */
+function makeHtmlPathsAbsolute(string $html): string {
+    // Fix src="<relative>"
+    $html = preg_replace(
+        '/\bsrc="(?!\/|https?:|data:|#)([^"]+)"/i',
+        'src="/$1"',
+        $html
+    );
+    // Fix href="<relative>" (skip anchors, mailto, external URLs)
+    $html = preg_replace(
+        '/\bhref="(?!\/|https?:|mailto:|tel:|data:|#)([^"]+)"/i',
+        'href="/$1"',
+        $html
+    );
+    // Fix CSS url(...) for inline background images using unquoted or quoted relative paths
+    $html = preg_replace(
+        '/url\((?![\'"]?(?:\/|https?:|data:))([\'"]?)([^\'"\)]+)\1\)/i',
+        'url($1/$2$1)',
+        $html
+    );
+    return $html;
+}
+
 // If this is the homepage and html_content is empty, seed from index.html
 if ($page['is_homepage'] && trim($page['html_content']) === '') {
     $index_file = dirname(__DIR__) . '/index.html';
     if (file_exists($index_file)) {
-        $seed_html = file_get_contents($index_file);
-        // We only take the <body> content for the editor canvas
-        if (preg_match('/<body[^>]*>(.*?)<\/body>/si', $seed_html, $m)) {
-            $seed_html = trim($m[1]);
-        }
-        // Extract <style> blocks from <head> as seed CSS
+        $raw_html = file_get_contents($index_file);
+        // Extract <style> blocks from <head> as seed CSS (before we strip the head)
         $seed_css = '';
-        if (preg_match_all('/<style[^>]*>(.*?)<\/style>/si', $seed_html, $styles)) {
+        if (preg_match_all('/<style[^>]*>(.*?)<\/style>/si', $raw_html, $styles)) {
             $seed_css = implode("\n", $styles[1]);
         }
+        // Only take the <body> content for the editor canvas
+        $seed_html = $raw_html;
+        if (preg_match('/<body[^>]*>(.*?)<\/body>/si', $raw_html, $m)) {
+            $seed_html = trim($m[1]);
+        }
+        // Convert relative paths → absolute so images load in the canvas
+        $seed_html = makeHtmlPathsAbsolute($seed_html);
+        $seed_css  = makeHtmlPathsAbsolute($seed_css);
+
         $upd = $conn->prepare(
             "UPDATE site_pages SET html_content=?, css_content=? WHERE id=?"
         );
@@ -47,6 +83,11 @@ if ($page['is_homepage'] && trim($page['html_content']) === '') {
         $page['css_content']  = $seed_css;
     }
 }
+
+// Also fix any previously saved content that still has relative paths
+// (e.g. seeded before this fix was applied).  This is idempotent.
+$page['html_content'] = makeHtmlPathsAbsolute($page['html_content'] ?? '');
+$page['css_content']  = makeHtmlPathsAbsolute($page['css_content']  ?? '');
 
 $page_title = 'Edit: ' . $page['title'];
 $is_homepage  = (bool)$page['is_homepage'];
@@ -246,8 +287,8 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
                 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
                 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap',
-                '../css/style.css',
-                '../backend/public/theme.css.php'
+                '/css/style.css',
+                '/backend/public/theme.css.php'
             ],
             scripts: [
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js'
@@ -292,6 +333,42 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
         editor.setComponents(savedHtml || '');
         editor.setStyle(savedCss || '');
     }
+
+    // ------------------------------------------------------------------
+    // Inject <base href="/"> into the GrapesJS canvas iframe so that any
+    // remaining relative paths in the editor content resolve from the site
+    // root rather than from /client/.  This acts as a belt-and-suspenders
+    // fix alongside the PHP-side path normalisation.
+    // ------------------------------------------------------------------
+    function injectBaseTag() {
+        try {
+            var frames = editor.Canvas.getFrames ? editor.Canvas.getFrames() : [];
+            if (!frames.length) {
+                // Fallback for GrapesJS 0.21.x single-frame mode
+                var frameEl = editor.Canvas.getFrameEl ? editor.Canvas.getFrameEl() : null;
+                if (frameEl && frameEl.contentDocument && frameEl.contentDocument.head) {
+                    if (!frameEl.contentDocument.head.querySelector('base')) {
+                        var base = frameEl.contentDocument.createElement('base');
+                        base.href = window.location.origin + '/';
+                        frameEl.contentDocument.head.insertBefore(base, frameEl.contentDocument.head.firstChild);
+                    }
+                }
+                return;
+            }
+            frames.forEach(function (frame) {
+                var doc = frame.view && frame.view.getWindow ? frame.view.getWindow().document : null;
+                if (doc && doc.head && !doc.head.querySelector('base')) {
+                    var base = doc.createElement('base');
+                    base.href = window.location.origin + '/';
+                    doc.head.insertBefore(base, doc.head.firstChild);
+                }
+            });
+        } catch (e) { /* cross-origin or not yet ready */ }
+    }
+
+    editor.on('load', injectBaseTag);
+    // Also run after a short delay to cover async canvas init
+    setTimeout(injectBaseTag, 800);
 
     // ------------------------------------------------------------------
     // Custom blocks: BDTA-specific components
