@@ -140,9 +140,10 @@ class EmailService {
             $text_body = strip_tags($html_body);
         }
 
-        $cc      = $options['cc']      ?? [];
-        $bcc     = $options['bcc']     ?? [];
-        $context = $options['context'] ?? [];
+        $cc        = $options['cc']        ?? [];
+        $bcc       = $options['bcc']       ?? [];
+        $context   = $options['context']   ?? [];
+        $client_id = $options['client_id'] ?? null;
 
         // ── Pre-send log entry ────────────────────────────────────────────────
         $log_prefix = '[MailRouter]';
@@ -174,7 +175,67 @@ class EmailService {
             ));
         }
 
+        // ── Persist to client email history ──────────────────────────────────
+        // Skip MAIL_TYPE_COMPOSE (already logged by client_emails_api.php before send)
+        // and MAIL_TYPE_PASSWORD_RESET (not a client-facing communication).
+        if (
+            $client_id
+            && $this->conn
+            && $mail_type !== self::MAIL_TYPE_COMPOSE
+            && $mail_type !== self::MAIL_TYPE_PASSWORD_RESET
+        ) {
+            $this->logToClientEmails($client_id, $to, $subject, $html_body, $text_body, $result, $mail_type);
+        }
+
         return $result;
+    }
+
+    /**
+     * Insert a row into client_emails to record an automated outgoing email.
+     *
+     * @param int    $client_id  Client the email was sent to.
+     * @param string $to         Recipient email address.
+     * @param string $subject    Email subject.
+     * @param string $html_body  HTML body.
+     * @param string $text_body  Plain-text body.
+     * @param array  $result     Return value of sendEmail() (has 'success' and 'message').
+     * @param string $mail_type  MAIL_TYPE_* constant for categorisation.
+     */
+    private function logToClientEmails($client_id, $to, $subject, $html_body, $text_body, $result, $mail_type) {
+        try {
+            $now    = date('Y-m-d H:i:s');
+            $status = $result['success'] ? 'sent' : 'failed';
+            $stmt   = $this->conn->prepare("
+                INSERT INTO client_emails (
+                    client_id, direction, status, from_email, to_email,
+                    subject, body_html, body_text, mail_type,
+                    sent_at, failed_at, error_message,
+                    created_at, updated_at
+                ) VALUES (
+                    ?, 'outgoing', ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?
+                )
+            ");
+            $stmt->execute([
+                (int)$client_id,
+                $status,
+                $this->from_email,
+                $to,
+                $subject,
+                $html_body,
+                $text_body,
+                $mail_type,
+                $result['success'] ? $now : null,
+                $result['success'] ? null : $now,
+                $result['success'] ? null : ($result['message'] ?? null),
+                $now,
+                $now,
+            ]);
+        } catch (\Exception $e) {
+            error_log('[MailRouter] Failed to log email to client_emails: ' . $e->getMessage());
+        }
     }
 
     // =========================================================================
@@ -321,7 +382,9 @@ class EmailService {
         }
         
         // Route through central mail router
-        return $this->routeMail(self::MAIL_TYPE_BOOKING_CONFIRMATION, $to, $subject, $html_body, $text_body);
+        return $this->routeMail(self::MAIL_TYPE_BOOKING_CONFIRMATION, $to, $subject, $html_body, $text_body, [
+            'client_id' => $booking['client_id'] ?? null,
+        ]);
     }
 
     /**
@@ -361,7 +424,9 @@ class EmailService {
             $text_body = $this->getCancellationEmailText($booking, $date, $time, $reason);
         }
 
-        return $this->routeMail(self::MAIL_TYPE_BOOKING_CANCELLATION, $to, $subject, $html_body, $text_body);
+        return $this->routeMail(self::MAIL_TYPE_BOOKING_CANCELLATION, $to, $subject, $html_body, $text_body, [
+            'client_id' => $booking['client_id'] ?? null,
+        ]);
     }
 
     /**
@@ -513,7 +578,10 @@ HTML;
                 . "Thank you for choosing {$business_name}!";
         }
 
-        return $this->routeMail(self::MAIL_TYPE_PAYMENT_RECEIPT, $to, $subject, $html_body, $text_body, ['cc' => $cc]);
+        return $this->routeMail(self::MAIL_TYPE_PAYMENT_RECEIPT, $to, $subject, $html_body, $text_body, [
+            'cc'        => $cc,
+            'client_id' => $invoice['client_id'] ?? null,
+        ]);
     }
 
     /**
@@ -658,7 +726,9 @@ HTML;
             . "Questions? Contact us at {$business_email}\n\n"
             . "Thank you for choosing {$business_name}!";
 
-        return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body);
+        return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body, [
+            'client_id' => $invoice['client_id'] ?? null,
+        ]);
     }
 
     /**
@@ -672,16 +742,19 @@ HTML;
      * $html_body, $text_body).  New callers should always supply $mail_type explicitly.
      * If you need $mail_type as the first argument, call routeMail() directly instead.
      *
-     * @param string $to        Recipient email address.
-     * @param string $subject   Email subject line.
-     * @param string $html_body HTML version of the message body.
-     * @param string $text_body Plain-text version (auto-derived from HTML when empty).
-     * @param string $mail_type One of the EmailService::MAIL_TYPE_* constants.
-     *                          Defaults to MAIL_TYPE_GENERIC for backward compatibility.
+     * @param string   $to        Recipient email address.
+     * @param string   $subject   Email subject line.
+     * @param string   $html_body HTML version of the message body.
+     * @param string   $text_body Plain-text version (auto-derived from HTML when empty).
+     * @param string   $mail_type One of the EmailService::MAIL_TYPE_* constants.
+     *                            Defaults to MAIL_TYPE_GENERIC for backward compatibility.
+     * @param int|null $client_id Client ID for logging to client email history (optional).
      * @return array{success: bool, message: string}
      */
-    public function sendGenericEmail($to, $subject, $html_body, $text_body = '', $mail_type = self::MAIL_TYPE_GENERIC) {
-        return $this->routeMail($mail_type, $to, $subject, $html_body, $text_body);
+    public function sendGenericEmail($to, $subject, $html_body, $text_body = '', $mail_type = self::MAIL_TYPE_GENERIC, $client_id = null) {
+        return $this->routeMail($mail_type, $to, $subject, $html_body, $text_body, [
+            'client_id' => $client_id,
+        ]);
     }
 
     /**

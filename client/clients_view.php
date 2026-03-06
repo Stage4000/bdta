@@ -784,6 +784,7 @@ function displayEmails(emails) {
                             ${email.direction === 'outgoing' ? 'To' : 'From'}: ${escapeHtml(email.direction === 'outgoing' ? email.to_email : email.from_email)}
                         </p>
                         ${email.template_name ? `<span class="badge bg-info me-2"><i class="fas fa-file-alt"></i> ${escapeHtml(email.template_name)}</span>` : ''}
+                        ${email.mail_type && email.mail_type !== 'compose' ? `<span class="badge bg-secondary me-2">${escapeHtml(getMailTypeLabel(email.mail_type))}</span>` : ''}
                         ${statusBadge}
                     </a>
                     <div class="d-flex flex-column align-items-end ms-2">
@@ -810,6 +811,24 @@ function getStatusBadge(status) {
         'failed': '<span class="badge bg-danger">Failed</span>'
     };
     return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+// Get human-readable label for mail type
+function getMailTypeLabel(mailType) {
+    const labels = {
+        'booking_confirmation': 'Booking Confirmation',
+        'booking_reminder':     'Booking Reminder',
+        'booking_cancellation': 'Cancellation',
+        'payment_receipt':      'Payment Receipt',
+        'invoice':              'Invoice',
+        'invoice_reminder':     'Invoice Reminder',
+        'contract_reminder':    'Contract Reminder',
+        'quote_reminder':       'Quote Reminder',
+        'form_reminder':        'Form Reminder',
+        'workflow':             'Workflow',
+        'generic':              'Automated',
+    };
+    return labels[mailType] || mailType;
 }
 
 // Get email date text

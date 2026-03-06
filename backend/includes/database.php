@@ -843,6 +843,7 @@ class Database {
                     body_html TEXT,
                     body_text TEXT,
                     template_id INTEGER,
+                    mail_type TEXT,
                     scheduled_at TIMESTAMP,
                     sent_at TIMESTAMP,
                     delivered_at TIMESTAMP,
@@ -1694,6 +1695,12 @@ class Database {
         $booking_col_names_gcal = $this->getTableColumns('bookings');
         if (!in_array('google_event_id', $booking_col_names_gcal)) {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN google_event_id TEXT DEFAULT NULL");
+        }
+
+        // Add mail_type column to client_emails to categorise automated vs composed emails
+        $client_emails_cols = $this->getTableColumns('client_emails');
+        if (!in_array('mail_type', $client_emails_cols)) {
+            $this->execSQL("ALTER TABLE client_emails ADD COLUMN mail_type TEXT DEFAULT NULL");
         }
     }
     
