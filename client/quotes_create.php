@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (count($line_items) == 0) {
-        $_SESSION['error'] = "Please add at least one line item";
+        setFlashMessage("Please add at least one line item with a description and a price greater than zero", 'error');
     } else {
         $saved_quote_id = null;
 
@@ -136,8 +136,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $saved_quote_id = $quote_id;
             
         } catch (Exception $e) {
-            $conn->rollBack();
-            setFlashMessage("Error saving quote: " . $e->getMessage(), 'danger');
+            try {
+                $conn->rollBack();
+            } catch (Exception $re) {
+                // rollBack() may throw if beginTransaction() itself failed — safe to ignore
+            }
+            setFlashMessage("Error saving quote: " . $e->getMessage(), 'error');
         }
 
         if ($saved_quote_id !== null) {
@@ -308,7 +312,7 @@ include '../backend/includes/header.php';
                                             </div>
                                             <div class="col-md-2">
                                                 <input type="number" name="item_price[]" class="form-control item-price" 
-                                                       placeholder="Price" value="<?= $item['unit_price'] ?>" step="0.01" min="0" onchange="calculateTotal()" required>
+                                                       placeholder="Price" value="<?= $item['unit_price'] ?>" step="0.01" min="0.01" onchange="calculateTotal()" required>
                                             </div>
                                             <div class="col-md-2">
                                                 <input type="text" class="form-control item-amount" placeholder="Amount" readonly>
@@ -333,7 +337,7 @@ include '../backend/includes/header.php';
                                             <input type="number" name="item_quantity[]" class="form-control" placeholder="Qty" value="1" min="1" onchange="calculateTotal()" required>
                                         </div>
                                         <div class="col-md-2">
-                                            <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" step="0.01" min="0" onchange="calculateTotal()" required>
+                                            <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" step="0.01" min="0.01" onchange="calculateTotal()" required>
                                         </div>
                                         <div class="col-md-2">
                                             <input type="text" class="form-control item-amount" placeholder="Amount" readonly>
@@ -407,7 +411,7 @@ function addLineItem(name, qty, price, pkgId, apptTypeId) {
                 <input type="number" name="item_quantity[]" class="form-control" placeholder="Qty" value="${qty || 1}" min="1" onchange="calculateTotal()" required>
             </div>
             <div class="col-md-2">
-                <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" value="${price != null ? parseFloat(price).toFixed(2) : ''}" step="0.01" min="0" onchange="calculateTotal()" required>
+                <input type="number" name="item_price[]" class="form-control item-price" placeholder="Price" value="${price != null ? parseFloat(price).toFixed(2) : ''}" step="0.01" min="0.01" onchange="calculateTotal()" required>
             </div>
             <div class="col-md-2">
                 <input type="text" class="form-control item-amount" placeholder="Amount" readonly>
