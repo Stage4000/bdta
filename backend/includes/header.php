@@ -52,6 +52,45 @@
         a:hover {
             color: #7a005a;
         }
+        /* Submenu parent row layout */
+        .nav-item-parent {
+            display: flex;
+            align-items: stretch;
+        }
+        .nav-item-parent > .nav-link {
+            flex-grow: 1;
+        }
+        /* Submenu toggle chevron button */
+        .submenu-toggle {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.8);
+            padding: 0 0.75rem;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        .submenu-toggle:hover {
+            color: #fff;
+        }
+        .submenu-toggle .fa-chevron-down {
+            font-size: 0.7rem;
+            transition: transform 0.2s ease;
+        }
+        .submenu-toggle[aria-expanded="true"] .fa-chevron-down {
+            transform: rotate(180deg);
+        }
+        /* Sub-menu items */
+        .sidebar .submenu .nav-link {
+            padding: 0.45rem 1rem 0.45rem 2.5rem;
+            font-size: 0.875em;
+        }
+        /* Sidebar divider */
+        .sidebar-divider {
+            border-top: 1px solid rgba(255,255,255,0.15);
+            margin: 0.4rem 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -83,142 +122,280 @@
             <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar collapse">
                 <div class="position-sticky pt-3">
                     <h5 class="text-white px-3 mb-3 d-none d-md-block">BDTA Client Area</h5>
+                    <?php
+                        $currentFile = basename($_SERVER['PHP_SELF']);
+                        $currentPath = $_SERVER['PHP_SELF'];
+                        // Individual active states
+                        $isClients        = strpos($currentPath, 'clients_') !== false;
+                        $isPets           = strpos($currentPath, 'pets') !== false;
+                        $isBookings       = strpos($currentPath, 'booking') !== false;
+                        $isApptTypes      = strpos($currentPath, 'appointment_types') !== false;
+                        $isPackages       = strpos($currentPath, 'packages') !== false;
+                        $isTplDefaults    = $currentFile === 'email_template_defaults.php';
+                        $isTimeTracker    = strpos($currentPath, 'time_entries') !== false || strpos($currentPath, 'time_tracker') !== false;
+                        $isInvoices       = strpos($currentPath, 'invoice') !== false;
+                        $isExpenses       = strpos($currentPath, 'expense') !== false;
+                        $isQuotes         = strpos($currentPath, 'quote') !== false;
+                        $isFinancial      = strpos($currentPath, 'reports_financial') !== false || strpos($currentPath, 'reports_export') !== false;
+                        $isContracts      = strpos($currentPath, 'contract') !== false && strpos($currentPath, 'template') === false;
+                        $isContractTpls   = strpos($currentPath, 'contract_template') !== false;
+                        $isBlog           = strpos($currentPath, 'blog') !== false;
+                        $isPortal         = $currentFile === 'portal_homepage.php';
+                        $isFormTpls       = strpos($currentPath, 'form_templates') !== false;
+                        $isFormSubs       = strpos($currentPath, 'form_submissions') !== false;
+                        $isUnmatched      = strpos($currentPath, 'unmatched_emails') !== false;
+                        $isEmailSigs      = strpos($currentPath, 'email_signatures') !== false;
+                        $isEmailTpls      = strpos($currentPath, 'email_templates') !== false && $currentFile !== 'email_template_defaults.php';
+                        $isWorkflows      = strpos($currentPath, 'workflows') !== false;
+                        $isScheduled      = strpos($currentPath, 'scheduled_tasks') !== false;
+                        $isSettings       = $currentFile === 'settings.php';
+                        $isChangePwd      = $currentFile === 'change_password.php';
+                        // Group active states (any child active → group open)
+                        $clientsOpen      = $isClients || $isPets;
+                        $bookingsOpen     = $isBookings || $isApptTypes || $isPackages || $isTplDefaults;
+                        $invoicesOpen     = $isInvoices || $isExpenses || $isQuotes || $isFinancial;
+                        $contractsOpen    = $isContracts || $isContractTpls;
+                        $formTplsOpen     = $isFormTpls || $isFormSubs;
+                        $unmatchedOpen    = $isUnmatched || $isEmailSigs || $isEmailTpls;
+                        $workflowsOpen    = $isWorkflows || $isScheduled;
+                        $settingsOpen     = $isSettings || $isChangePwd;
+                    ?>
                     <ul class="nav flex-column">
+
+                        <!-- 1. Dashboard -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>" href="index.php">
+                            <a class="nav-link <?php echo $currentFile === 'index.php' ? 'active' : ''; ?>" href="index.php">
                                 <i class="fas fa-gauge me-2"></i> Dashboard
                             </a>
                         </li>
+
+                        <!-- 2. Clients (+ Pets sub-item) -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'clients_') !== false ? 'active' : ''; ?>" href="clients_list.php">
-                                <i class="fas fa-users me-2"></i> Clients
-                            </a>
+                            <div class="nav-item-parent">
+                                <a class="nav-link <?php echo $clientsOpen ? 'active' : ''; ?>" href="clients_list.php">
+                                    <i class="fas fa-users me-2"></i> Clients
+                                </a>
+                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#clientsSubmenu" aria-expanded="<?php echo $clientsOpen ? 'true' : 'false'; ?>" aria-controls="clientsSubmenu">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="collapse <?php echo $clientsOpen ? 'show' : ''; ?>" id="clientsSubmenu">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isPets ? 'active' : ''; ?>" href="pets_list.php">
+                                            <i class="fa-solid fa-dog me-2"></i> Pets
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
+
+                        <!-- 3. Bookings (+ Appointment Types, Packages, Template Defaults) -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'pets') !== false ? 'active' : ''; ?>" href="pets_list.php">
-                                <i class="fa-solid fa-dog me-2"></i> Pets
-                            </a>
+                            <div class="nav-item-parent">
+                                <a class="nav-link <?php echo $bookingsOpen ? 'active' : ''; ?>" href="bookings_list.php">
+                                    <i class="fas fa-calendar-check me-2"></i> Bookings
+                                </a>
+                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#bookingsSubmenu" aria-expanded="<?php echo $bookingsOpen ? 'true' : 'false'; ?>" aria-controls="bookingsSubmenu">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="collapse <?php echo $bookingsOpen ? 'show' : ''; ?>" id="bookingsSubmenu">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isApptTypes ? 'active' : ''; ?>" href="appointment_types_list.php">
+                                            <i class="fas fa-calendar-plus me-2"></i> Appointment Types
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isPackages ? 'active' : ''; ?>" href="packages_list.php">
+                                            <i class="fas fa-box-open me-2"></i> Packages
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isTplDefaults ? 'active' : ''; ?>" href="email_template_defaults.php">
+                                            <i class="fas fa-envelope-open-text me-2"></i> Template Defaults
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
+
+                        <!-- 4. Time Tracker -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'booking') !== false ? 'active' : ''; ?>" href="bookings_list.php">
-                                <i class="fas fa-calendar-check me-2"></i> Bookings
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'time_entries') !== false || strpos($_SERVER['PHP_SELF'], 'time_tracker') !== false ? 'active' : ''; ?>" href="time_entries_list.php">
+                            <a class="nav-link <?php echo $isTimeTracker ? 'active' : ''; ?>" href="time_entries_list.php">
                                 <i class="fas fa-stopwatch me-2"></i> Time Tracker
                             </a>
                         </li>
+
+                        <!-- 5. Invoices (+ Expenses, Quotes, Financial Reports) -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'expense') !== false ? 'active' : ''; ?>" href="expenses_list.php">
-                                <i class="fas fa-receipt me-2"></i> Expenses
+                            <div class="nav-item-parent">
+                                <a class="nav-link <?php echo $invoicesOpen ? 'active' : ''; ?>" href="invoices_list.php">
+                                    <i class="fas fa-file-invoice me-2"></i> Invoices
+                                </a>
+                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#invoicesSubmenu" aria-expanded="<?php echo $invoicesOpen ? 'true' : 'false'; ?>" aria-controls="invoicesSubmenu">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="collapse <?php echo $invoicesOpen ? 'show' : ''; ?>" id="invoicesSubmenu">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isExpenses ? 'active' : ''; ?>" href="expenses_list.php">
+                                            <i class="fas fa-receipt me-2"></i> Expenses
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isQuotes ? 'active' : ''; ?>" href="quotes_list.php">
+                                            <i class="fas fa-file-invoice-dollar me-2"></i> Quotes
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isFinancial ? 'active' : ''; ?>" href="reports_financial.php">
+                                            <i class="fas fa-chart-line me-2"></i> Financial Reports
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+
+                        <!-- 6. Contracts (+ Contract Templates) -->
+                        <li class="nav-item">
+                            <div class="nav-item-parent">
+                                <a class="nav-link <?php echo $contractsOpen ? 'active' : ''; ?>" href="contracts_list.php">
+                                    <i class="fas fa-file-contract me-2"></i> Contracts
+                                </a>
+                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#contractsSubmenu" aria-expanded="<?php echo $contractsOpen ? 'true' : 'false'; ?>" aria-controls="contractsSubmenu">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="collapse <?php echo $contractsOpen ? 'show' : ''; ?>" id="contractsSubmenu">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isContractTpls ? 'active' : ''; ?>" href="contract_templates_list.php">
+                                            <i class="fas fa-file-medical me-2"></i> Contract Templates
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+
+                        <!-- 7. Blog -->
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo $isBlog ? 'active' : ''; ?>" href="blog_list.php">
+                                <i class="fas fa-blog me-2"></i> Blog
                             </a>
                         </li>
+
+                        <!-- 8. Portal Homepage -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'invoice') !== false ? 'active' : ''; ?>" href="invoices_list.php">
-                                <i class="fas fa-file-invoice me-2"></i> Invoices
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'contract') !== false && strpos($_SERVER['PHP_SELF'], 'template') === false ? 'active' : ''; ?>" href="contracts_list.php">
-                                <i class="fas fa-file-contract me-2"></i> Contracts
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'contract_template') !== false ? 'active' : ''; ?>" href="contract_templates_list.php">
-                                <i class="fas fa-file-medical me-2"></i> Contract Templates
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'quote') !== false ? 'active' : ''; ?>" href="quotes_list.php">
-                                <i class="fas fa-file-invoice-dollar me-2"></i> Quotes
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'reports_financial') !== false || strpos($_SERVER['PHP_SELF'], 'reports_export') !== false ? 'active' : ''; ?>" href="reports_financial.php">
-                                <i class="fas fa-chart-line me-2"></i> Financial Reports
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'blog') !== false ? 'active' : ''; ?>" href="blog_list.php">
-                                <i class="fas fa-blog me-2"></i> Blog Posts
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'portal_homepage.php' ? 'active' : ''; ?>" href="portal_homepage.php">
+                            <a class="nav-link <?php echo $isPortal ? 'active' : ''; ?>" href="portal_homepage.php">
                                 <i class="fas fa-door-open me-2"></i> Portal Homepage
                             </a>
                         </li>
+
+                        <!-- 9. Form Templates (+ Form Submissions) -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'appointment_types') !== false ? 'active' : ''; ?>" href="appointment_types_list.php">
-                                <i class="fas fa-calendar-plus me-2"></i> Appointment Types
-                            </a>
+                            <div class="nav-item-parent">
+                                <a class="nav-link <?php echo $formTplsOpen ? 'active' : ''; ?>" href="form_templates_list.php">
+                                    <i class="fas fa-file-lines me-2"></i> Form Templates
+                                </a>
+                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#formTplsSubmenu" aria-expanded="<?php echo $formTplsOpen ? 'true' : 'false'; ?>" aria-controls="formTplsSubmenu">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="collapse <?php echo $formTplsOpen ? 'show' : ''; ?>" id="formTplsSubmenu">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isFormSubs ? 'active' : ''; ?>" href="form_submissions_list.php">
+                                            <i class="fas fa-file-circle-check me-2"></i> Form Submissions
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
+
+                        <!-- 10. Unmatched Emails (+ Email Signatures, Email Templates) -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'packages') !== false ? 'active' : ''; ?>" href="packages_list.php">
-                                <i class="fas fa-box-open me-2"></i> Packages
-                            </a>
+                            <div class="nav-item-parent">
+                                <a class="nav-link <?php echo $unmatchedOpen ? 'active' : ''; ?>" href="unmatched_emails_list.php">
+                                    <i class="fas fa-envelope-open-text me-2"></i> Unmatched Emails
+                                </a>
+                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#unmatchedSubmenu" aria-expanded="<?php echo $unmatchedOpen ? 'true' : 'false'; ?>" aria-controls="unmatchedSubmenu">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="collapse <?php echo $unmatchedOpen ? 'show' : ''; ?>" id="unmatchedSubmenu">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isEmailSigs ? 'active' : ''; ?>" href="email_signatures_list.php">
+                                            <i class="fas fa-signature me-2"></i> Email Signatures
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isEmailTpls ? 'active' : ''; ?>" href="email_templates_list.php">
+                                            <i class="fas fa-envelope me-2"></i> Email Templates
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
+
+                        <!-- 11. Workflows (+ Scheduled Tasks) -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'form_templates') !== false ? 'active' : ''; ?>" href="form_templates_list.php">
-                                <i class="fas fa-file-lines me-2"></i> Form Templates
-                            </a>
+                            <div class="nav-item-parent">
+                                <a class="nav-link <?php echo $workflowsOpen ? 'active' : ''; ?>" href="workflows_list.php">
+                                    <i class="fas fa-diagram-project me-2"></i> Workflows
+                                </a>
+                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#workflowsSubmenu" aria-expanded="<?php echo $workflowsOpen ? 'true' : 'false'; ?>" aria-controls="workflowsSubmenu">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="collapse <?php echo $workflowsOpen ? 'show' : ''; ?>" id="workflowsSubmenu">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isScheduled ? 'active' : ''; ?>" href="scheduled_tasks_list.php">
+                                            <i class="fas fa-clock me-2"></i> Scheduled Tasks
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
+
+                        <!-- Divider before Settings -->
+                        <li><hr class="sidebar-divider"></li>
+
+                        <!-- 12. Settings (+ Change Password, View Website, Logout) -->
                         <li class="nav-item">
-                            <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], 'email_templates') !== false && basename($_SERVER['PHP_SELF']) !== 'email_template_defaults.php') ? 'active' : ''; ?>" href="email_templates_list.php">
-                                <i class="fas fa-envelope me-2"></i> Email Templates
-                            </a>
+                            <div class="nav-item-parent">
+                                <a class="nav-link <?php echo $settingsOpen ? 'active' : ''; ?>" href="settings.php">
+                                    <i class="fas fa-gear me-2"></i> Settings
+                                </a>
+                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#settingsSubmenu" aria-expanded="<?php echo $settingsOpen ? 'true' : 'false'; ?>" aria-controls="settingsSubmenu">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="collapse <?php echo $settingsOpen ? 'show' : ''; ?>" id="settingsSubmenu">
+                                <ul class="nav flex-column submenu">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isChangePwd ? 'active' : ''; ?>" href="change_password.php">
+                                            <i class="fas fa-key me-2"></i> Change Password
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="../../index.html" target="_blank">
+                                            <i class="fas fa-house me-2"></i> View Website
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="logout.php">
+                                            <i class="fas fa-arrow-right-from-bracket me-2"></i> Logout
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'email_template_defaults.php' ? 'active' : ''; ?>" href="email_template_defaults.php">
-                                <i class="fas fa-envelope-open-text me-2"></i> Template Defaults
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'email_signatures') !== false ? 'active' : ''; ?>" href="email_signatures_list.php">
-                                <i class="fas fa-signature me-2"></i> Email Signatures
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'unmatched_emails') !== false ? 'active' : ''; ?>" href="unmatched_emails_list.php">
-                                <i class="fas fa-envelope-open-text me-2"></i> Unmatched Emails
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'form_submissions') !== false ? 'active' : ''; ?>" href="form_submissions_list.php">
-                                <i class="fas fa-file-circle-check me-2"></i> Form Submissions
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'workflows') !== false ? 'active' : ''; ?>" href="workflows_list.php">
-                                <i class="fas fa-diagram-project me-2"></i> Workflows
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'scheduled_tasks') !== false ? 'active' : ''; ?>" href="scheduled_tasks_list.php">
-                                <i class="fas fa-clock me-2"></i> Scheduled Tasks
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>" href="settings.php">
-                                <i class="fas fa-gear me-2"></i> Settings
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'change_password.php' ? 'active' : ''; ?>" href="change_password.php">
-                                <i class="fas fa-key me-2"></i> Change Password
-                            </a>
-                        </li>
-                        <li class="nav-item mt-3">
-                            <a class="nav-link" href="../../index.html" target="_blank">
-                                <i class="fas fa-house me-2"></i> View Website
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="logout.php">
-                                <i class="fas fa-arrow-right-from-bracket me-2"></i> Logout
-                            </a>
-                        </li>
+
                     </ul>
                 </div>
             </nav>
