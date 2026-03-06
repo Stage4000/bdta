@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $conn->prepare("DELETE FROM quote_items WHERE quote_id = ?")->execute([$quote_id]);
             } else {
                 // Generate quote number
-                $stmt = $conn->query("SELECT MAX(CAST(SUBSTR(quote_number, 5) AS INTEGER)) FROM quotes WHERE quote_number LIKE 'QT-%'");
+                $stmt = $conn->query("SELECT MAX(CAST(SUBSTR(quote_number, 4) AS INTEGER)) FROM quotes WHERE quote_number LIKE 'QT-%'");
                 $last_num = $stmt->fetchColumn();
                 $next_num = ($last_num ? $last_num + 1 : 1001);
                 $quote_number = 'QT-' . $next_num;
