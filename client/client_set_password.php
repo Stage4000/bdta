@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$password_hash, $client_id]);
         
         setFlashMessage('Password set successfully for ' . escape($client['name']) . '!', 'success');
-        redirect('clients_edit.php?id=' . $client_id);
+        redirect('clients_view.php?id=' . $client_id);
     }
 }
 
@@ -60,7 +60,7 @@ include '../backend/includes/header.php';
         <div class="col-md-6 offset-md-3">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2><i class="fas fa-key me-2"></i>Set Client Password</h2>
-                <a href="clients_edit.php?id=<?= $client_id ?>" class="btn btn-secondary">
+                <a href="clients_view.php?id=<?= $client_id ?>" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Back to Client
                 </a>
             </div>

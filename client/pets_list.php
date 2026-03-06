@@ -70,7 +70,7 @@ include '../backend/includes/header.php';
             <h2><i class="fa-solid fa-dog me-2"></i><?= htmlspecialchars($page_title) ?></h2>
             <?php if ($client): ?>
                 <p class="text-muted">
-                    <a href="clients_edit.php?id=<?= $client_id ?>">← Back to Client Profile</a>
+                    <a href="clients_view.php?id=<?= $client_id ?>">← Back to Client Profile</a>
                 </p>
             <?php endif; ?>
         </div>
@@ -141,7 +141,7 @@ include '../backend/includes/header.php';
                                     </td>
                                     <?php if (!$client_id): ?>
                                         <td>
-                                            <a href="clients_edit.php?id=<?= $pet['client_id'] ?>">
+                                            <a href="clients_view.php?id=<?= $pet['client_id'] ?>">
                                                 <?= htmlspecialchars($pet['client_name']) ?>
                                             </a>
                                         </td>

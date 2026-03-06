@@ -207,7 +207,7 @@ include '../backend/includes/header.php';
                     <div class="mb-3">
                         <label class="text-muted small">Client</label>
                         <div>
-                            <a href="clients_edit.php?id=<?= $submission['client_id'] ?>">
+                            <a href="clients_view.php?id=<?= $submission['client_id'] ?>">
                                 <?= htmlspecialchars($submission['client_name']) ?>
                             </a>
                         </div>
@@ -264,7 +264,7 @@ include '../backend/includes/header.php';
                         </form>
                     <?php endif; ?>
                     
-                    <a href="clients_edit.php?id=<?= $submission['client_id'] ?>" class="btn btn-outline-primary w-100">
+                    <a href="clients_view.php?id=<?= $submission['client_id'] ?>" class="btn btn-outline-primary w-100">
                         <i class="fas fa-user"></i> View Client
                     </a>
                 </div>
