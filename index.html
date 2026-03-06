@@ -192,212 +192,57 @@
         </div>
     </section>
 
-    <!-- Services Section -->
+    <!-- Packages Section (dynamic – loaded from backend) -->
     <section id="services" class="py-5">
         <div class="container py-5">
             <div class="text-center mb-5" data-aos="fade-up">
-                <h2 class="display-5 fw-bold mb-3">Our Training Services</h2>
-                <p class="lead text-muted">Private lessons, group workshops, and specialized programs for your dog</p>
+                <h2 class="display-5 fw-bold mb-3">Our Training Packages</h2>
+                <p class="lead text-muted">Bundled training programs designed to set your dog up for success</p>
             </div>
-            
-            <div class="row g-4">
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="100">
-                    <div class="service-card card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
-                                <i class="fas fa-house-heart text-primary fs-2"></i>
-                            </div>
-                            <h4 class="fw-bold mb-3">Pet Manners at Home I & II</h4>
-                            <p class="text-muted mb-4">Foundation cues and problem behaviors for puppies, adult dogs, and new owners. Learn sit, name game, leash manners, crate training, and address nipping, chewing, and resource guarding.</p>
-                            <ul class="list-unstyled mb-4">
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Foundation cues</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Problem behaviors</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>At your home</li>
-                            </ul>
-                            <a href="#contact" class="btn btn-outline-primary">Learn More</a>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="200">
-                    <div class="service-card card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
-                                <i class="fas fa-signs-post text-primary fs-2"></i>
-                            </div>
-                            <h4 class="fw-bold mb-3">Walking Etiquette</h4>
-                            <p class="text-muted mb-4">For dogs who are great at home but struggle on walks. Teaching proper leash handling, focus, and compliance in outdoor environments.</p>
-                            <ul class="list-unstyled mb-4">
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Leash handling</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Outdoor focus</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Better walks</li>
-                            </ul>
-                            <a href="#contact" class="btn btn-outline-primary">Learn More</a>
-                        </div>
+            <!-- Dynamic packages grid – populated by JS -->
+            <div id="packages-grid" class="row g-4">
+                <!-- Loading placeholder -->
+                <div id="packages-loading" class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading packages…</span>
                     </div>
+                    <p class="text-muted mt-3">Loading packages…</p>
                 </div>
+            </div>
 
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="300">
-                    <div class="service-card card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
-                                <i class="fas fa-users text-primary fs-2"></i>
-                            </div>
-                            <h4 class="fw-bold mb-3">Social Manners</h4>
-                            <p class="text-muted mb-4">Support for dogs with issues in new locations or who need help with distractions. Building confidence in various environments.</p>
-                            <ul class="list-unstyled mb-4">
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>New environments</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Distraction training</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Build confidence</li>
-                            </ul>
-                            <a href="#contact" class="btn btn-outline-primary">Learn More</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="100">
-                    <div class="service-card card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
-                                <i class="fas fa-heart-pulse text-primary fs-2"></i>
-                            </div>
-                            <h4 class="fw-bold mb-3">Pawtner Support</h4>
-                            <p class="text-muted mb-4">Specialized packages for dogs with fear, stress, or anxiety. Includes behavior assessments and monthly check-ins for ongoing support.</p>
-                            <ul class="list-unstyled mb-4">
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Fear & anxiety</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Behavior assessment</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Monthly check-ins</li>
-                            </ul>
-                            <a href="#contact" class="btn btn-outline-primary">Learn More</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="200">
-                    <div class="service-card card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
-                                <i class="fas fa-gear text-primary fs-2"></i>
-                            </div>
-                            <h4 class="fw-bold mb-3">Introducing Equipment</h4>
-                            <p class="text-muted mb-4">Help your dog become comfortable with new collars, harnesses, and training equipment. Patient, gradual introduction methods.</p>
-                            <ul class="list-unstyled mb-4">
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Gradual introduction</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Equipment comfort</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Positive association</li>
-                            </ul>
-                            <a href="#contact" class="btn btn-outline-primary">Learn More</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="300">
-                    <div class="service-card card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
-                                <i class="fas fa-moon text-primary fs-2"></i>
-                            </div>
-                            <h4 class="fw-bold mb-3">Pet Sitting Services</h4>
-                            <p class="text-muted mb-4">Drop-in visits and overnight stays available for Highlands County, FL. Your pet stays comfortable in their own home.</p>
-                            <ul class="list-unstyled mb-4">
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Drop-in visits</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Overnight stays</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Highlands County</li>
-                            </ul>
-                            <a href="#contact" class="btn btn-outline-primary">Learn More</a>
-                        </div>
-                    </div>
-                </div>
+            <!-- Shown when no packages are configured / active -->
+            <div id="packages-empty" class="text-center py-5 d-none">
+                <i class="fas fa-box-open display-4 text-muted mb-3"></i>
+                <p class="lead text-muted">No packages are currently available. Check back soon!</p>
+                <a href="#contact" class="btn btn-outline-primary">Contact Us</a>
             </div>
         </div>
     </section>
 
-    <!-- Events & Workshops Section -->
+    <!-- Events Section (dynamic – loaded from backend) -->
     <section id="events" class="py-5 bg-light">
         <div class="container py-5">
             <div class="text-center mb-5" data-aos="fade-up">
-                <h2 class="display-5 fw-bold mb-3">Group Events & Workshops</h2>
-                <p class="lead text-muted">Join our in-person workshops and community events</p>
+                <h2 class="display-5 fw-bold mb-3">Group Events &amp; Workshops</h2>
+                <p class="lead text-muted">Join our upcoming in-person workshops and community events</p>
             </div>
 
-            <div class="row g-4">
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="100">
-                    <div class="card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <i class="fas fa-calendar-days text-primary fs-1"></i>
-                            </div>
-                            <h5 class="fw-bold mb-3">Obedience Essentials</h5>
-                            <p class="text-muted mb-3">Group workshop covering fundamental obedience commands and techniques for everyday life.</p>
-                            <a href="#contact" class="btn btn-sm btn-outline-primary">Register</a>
-                        </div>
+            <!-- Dynamic events grid – populated by JS -->
+            <div id="events-grid" class="row g-4">
+                <!-- Loading placeholder -->
+                <div id="events-loading" class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading events…</span>
                     </div>
+                    <p class="text-muted mt-3">Loading events…</p>
                 </div>
+            </div>
 
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="200">
-                    <div class="card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <i class="fas fa-camera text-primary fs-1"></i>
-                            </div>
-                            <h5 class="fw-bold mb-3">Picture Perfect Pup</h5>
-                            <p class="text-muted mb-3">Teach your dog camera-friendly skills like posing and looking at the camera. Perfect for pet photography!</p>
-                            <a href="#contact" class="btn btn-sm btn-outline-primary">Register</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="300">
-                    <div class="card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <i class="fas fa-mug-hot text-primary fs-1"></i>
-                            </div>
-                            <h5 class="fw-bold mb-3">Coffee & Calm</h5>
-                            <p class="text-muted mb-3">Relaxation workshop for anxious dogs. Learn calming techniques while enjoying coffee with fellow dog owners.</p>
-                            <a href="#contact" class="btn btn-sm btn-outline-primary">Register</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="100">
-                    <div class="card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <i class="fas fa-sparkles text-primary fs-1"></i>
-                            </div>
-                            <h5 class="fw-bold mb-3">Firework Readiness</h5>
-                            <p class="text-muted mb-3">Prepare your dog for loud noises and fireworks. Build confidence and reduce anxiety.</p>
-                            <a href="#contact" class="btn btn-sm btn-outline-primary">Register</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="200">
-                    <div class="card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <i class="fas fa-comments text-primary fs-1"></i>
-                            </div>
-                            <h5 class="fw-bold mb-3">Dog Trainer Q&A</h5>
-                            <p class="text-muted mb-3">Ask Brook your burning dog training questions in a casual group setting.</p>
-                            <a href="#contact" class="btn btn-sm btn-outline-primary">Register</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="300">
-                    <div class="card h-100 border-0 shadow-sm hover-lift">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <i class="fas fa-person-walking text-primary fs-1"></i>
-                            </div>
-                            <h5 class="fw-bold mb-3">Community Dog Walk</h5>
-                            <p class="text-muted mb-3">Practice social manners and walking etiquette in a supportive group environment.</p>
-                            <a href="#contact" class="btn btn-sm btn-outline-primary">Register</a>
-                        </div>
-                    </div>
-                </div>
+            <!-- Shown when no events are scheduled -->
+            <div id="events-empty" class="text-center py-5 d-none">
+                <i class="fas fa-calendar-xmark display-4 text-muted mb-3"></i>
+                <p class="lead text-muted">No upcoming events are scheduled right now. Follow us on social media for announcements!</p>
             </div>
 
             <div class="text-center mt-5">
