@@ -1,0 +1,5 @@
+# Brook's Dog Training Academy — root .htaccess
+# Ensure index.php (dynamic DB-driven homepage) is served before index.html (static fallback).
+# index.php itself reads index.html as a fallback when no published homepage exists in the DB,
+# so both files can coexist safely.
+DirectoryIndex index.php index.html
