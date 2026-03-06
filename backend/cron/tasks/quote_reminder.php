@@ -174,7 +174,7 @@ HTML;
         $text_body .= "If you have any questions, please don't hesitate to reach out.\n\n";
         $text_body .= "Best regards,\nBrook Lefkowitz\nBrook's Dog Training Academy";
         
-        return $email_service->sendGenericEmail($quote['client_email'], $subject, $html_body, $text_body);
+        return $email_service->sendGenericEmail($quote['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_QUOTE_REMINDER);
     }
 }
 ?>

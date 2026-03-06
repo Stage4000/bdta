@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . "Brook's Dog Training Academy";
 
             $emailService = new EmailService();
-            $result = $emailService->sendGenericEmail($email, $subject, $html_body, $text_body);
+            $result = $emailService->sendGenericEmail($email, $subject, $html_body, $text_body, EmailService::MAIL_TYPE_PASSWORD_RESET);
             if (!$result['success']) {
                 error_log("Portal password reset email failed: " . $result['message']);
             }

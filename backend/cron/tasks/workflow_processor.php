@@ -101,7 +101,7 @@ class WorkflowProcessorTask {
         $html_body = $this->addAttachmentLinks($html_body, $execution);
         $text_body = $this->addAttachmentLinks($text_body, $execution, false);
         
-        return $email_service->sendGenericEmail($execution['client_email'], $subject, $html_body, $text_body);
+        return $email_service->sendGenericEmail($execution['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_WORKFLOW);
     }
     
     /**

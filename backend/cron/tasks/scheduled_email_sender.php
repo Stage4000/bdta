@@ -43,7 +43,8 @@ class ScheduledEmailSenderTask {
                     $email['to_email'],
                     $email['subject'],
                     $email['body_html'],
-                    $email['body_text'] ?? ''
+                    $email['body_text'] ?? '',
+                    EmailService::MAIL_TYPE_COMPOSE
                 );
                 
                 if ($result['success']) {
