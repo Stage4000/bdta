@@ -217,13 +217,13 @@ require_once '../backend/includes/header.php';
                                         <input type="text" name="field_placeholder[]" class="form-control" 
                                                value="<?php echo htmlspecialchars($field['placeholder'] ?? ''); ?>">
                                     </div>
-                                    <div class="col-md-2 d-flex align-items-end">
+                                    <div class="col-md-2 d-flex flex-column align-items-start justify-content-end">
                                         <div class="form-check">
                                             <input type="checkbox" name="field_required[<?php echo $index; ?>]" 
                                                    class="form-check-input" <?php echo ($field['required'] ?? 0) ? 'checked' : ''; ?>>
                                             <label class="form-check-label">Required</label>
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-danger ms-2" onclick="removeField(this)">
+                                        <button type="button" class="btn btn-sm btn-danger mt-1" onclick="removeField(this)">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -349,12 +349,12 @@ function addField() {
                     <label class="form-label">Placeholder</label>
                     <input type="text" name="field_placeholder[]" class="form-control">
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
+                <div class="col-md-2 d-flex flex-column align-items-start justify-content-end">
                     <div class="form-check">
                         <input type="checkbox" name="field_required[${fieldIndex}]" class="form-check-input">
                         <label class="form-check-label">Required</label>
                     </div>
-                    <button type="button" class="btn btn-sm btn-danger ms-2" onclick="removeField(this)">
+                    <button type="button" class="btn btn-sm btn-danger mt-1" onclick="removeField(this)">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
