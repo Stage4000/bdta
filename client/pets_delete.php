@@ -44,7 +44,7 @@ try {
 
 // Redirect back
 if ($client_id) {
-    header("Location: clients_edit.php?id=$client_id");
+    header("Location: clients_view.php?id=$client_id");
 } else {
     header("Location: pets_list.php");
 }

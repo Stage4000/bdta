@@ -347,7 +347,7 @@ require_once '../backend/includes/header.php';
                     <h2><i class="fas fa-wallet me-2"></i>Credit &amp; Package Management</h2>
                     <p class="text-muted">
                         Client: <strong><?php echo htmlspecialchars($client['name']); ?></strong>
-                        <a href="clients_edit.php?id=<?php echo $client_id; ?>" class="btn btn-sm btn-outline-secondary ms-2">
+                        <a href="clients_view.php?id=<?php echo $client_id; ?>" class="btn btn-sm btn-outline-secondary ms-2">
                             <i class="fas fa-arrow-left"></i> Back to Client
                         </a>
                     </p>

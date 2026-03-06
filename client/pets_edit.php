@@ -142,7 +142,7 @@ include '../backend/includes/header.php';
             <h2><i class="fa-solid fa-dog me-2"></i><?= htmlspecialchars($page_title) ?></h2>
             <p class="text-muted">
                 <?php if ($client_id): ?>
-                    <a href="clients_edit.php?id=<?= $client_id ?>">← Back to Client Profile</a>
+                    <a href="clients_view.php?id=<?= $client_id ?>">← Back to Client Profile</a>
                 <?php else: ?>
                     <a href="pets_list.php">← Back to Pets List</a>
                 <?php endif; ?>
@@ -347,7 +347,7 @@ include '../backend/includes/header.php';
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-check-circle"></i> <?= $pet_id ? 'Update' : 'Add' ?> Pet
                     </button>
-                    <a href="<?= $client_id ? 'clients_edit.php?id=' . $client_id : 'pets_list.php' ?>" class="btn btn-secondary">
+                    <a href="<?= $client_id ? 'clients_view.php?id=' . $client_id : 'pets_list.php' ?>" class="btn btn-secondary">
                         Cancel
                     </a>
                 </div>

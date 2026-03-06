@@ -166,7 +166,7 @@ include '../backend/includes/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a href="clients_edit.php?id=<?= $sub['client_id'] ?>">
+                                    <a href="clients_view.php?id=<?= $sub['client_id'] ?>">
                                         <?= htmlspecialchars($sub['client_name']) ?>
                                     </a>
                                 </td>

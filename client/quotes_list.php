@@ -131,7 +131,7 @@ include '../backend/includes/header.php';
                             <tr>
                                 <td><strong><?= htmlspecialchars($quote['quote_number']) ?></strong></td>
                                 <td>
-                                    <a href="clients_edit.php?id=<?= $quote['client_id'] ?>">
+                                    <a href="clients_view.php?id=<?= $quote['client_id'] ?>">
                                         <?= htmlspecialchars($quote['client_name']) ?>
                                     </a>
                                 </td>
