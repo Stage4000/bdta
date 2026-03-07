@@ -81,6 +81,7 @@
                     <li class="nav-item ms-lg-2">
                         <button id="darkModeToggle" class="btn btn-outline-secondary" title="Toggle dark mode" aria-label="Toggle dark mode">
                             <i class="fas fa-moon" id="darkModeIcon"></i>
+                            <span id="darkModeLabel" class="ms-1">Dark Mode</span>
                         </button>
                     </li>
                 </ul>
@@ -530,29 +531,5 @@
     
     <!-- Custom JS -->
     <script src="js/script.js"></script>
-    <!-- Dark mode toggle -->
-    <script>
-        (function () {
-            'use strict';
-            function updateIcon() {
-                var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-                var icon = document.getElementById('darkModeIcon');
-                if (icon) {
-                    icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
-                }
-            }
-            updateIcon();
-            var btn = document.getElementById('darkModeToggle');
-            if (btn) {
-                btn.addEventListener('click', function () {
-                    var current = document.documentElement.getAttribute('data-bs-theme');
-                    var next = current === 'dark' ? 'light' : 'dark';
-                    document.documentElement.setAttribute('data-bs-theme', next);
-                    localStorage.setItem('bdta-theme', next);
-                    updateIcon();
-                });
-            }
-        }());
-    </script>
 </body>
 </html>
