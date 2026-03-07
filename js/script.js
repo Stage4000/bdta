@@ -19,9 +19,33 @@ document.addEventListener('DOMContentLoaded', function() {
     initBackToTop();
     initContactForm();
     initSmoothScroll();
+    initDarkModeToggle();
     loadPackages();
     loadEvents();
 });
+
+// ==========================================
+// Dark Mode Toggle
+// ==========================================
+function initDarkModeToggle() {
+    function updateDarkModeToggle() {
+        const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        const icon = document.getElementById('darkModeIcon');
+        const label = document.getElementById('darkModeLabel');
+        if (icon)  icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        if (label) label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+    }
+    updateDarkModeToggle();
+    const btn = document.getElementById('darkModeToggle');
+    if (btn) {
+        btn.addEventListener('click', function () {
+            const next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-bs-theme', next);
+            localStorage.setItem('bdta-theme', next);
+            updateDarkModeToggle();
+        });
+    }
+}
 
 // ==========================================
 // Navigation Functions
