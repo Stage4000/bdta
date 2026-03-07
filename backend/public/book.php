@@ -691,14 +691,19 @@ if (isset($error_mode) && $error_mode) {
                                         <?= htmlspecialchars($field['label']) ?>
                                         <?php if ($is_req): ?><span class="text-danger">*</span><?php endif; ?>
                                     </label>
-                                    <?php switch ($field['type']):
+                                    <?php if (!empty($field['description'])): ?>
+                                    <div class="form-text text-muted mb-1" id="field-desc-<?= $form['id'] ?>-<?= $fi ?>"><?= htmlspecialchars($field['description']) ?></div>
+                                    <?php endif; ?>
+                                    <?php
+                                    $aria = !empty($field['description']) ? 'aria-describedby="field-desc-' . $form['id'] . '-' . $fi . '"' : '';
+                                    switch ($field['type']):
                                         case 'textarea': ?>
                                         <textarea class="form-control" data-form-field="<?= $fi ?>"
                                                   placeholder="<?= $ph ?>"
+                                                  <?= $aria ?>
                                                   <?= $is_req ? 'required' : '' ?>></textarea>
                                         <?php break; case 'select': ?>
-                                        <select class="form-select" data-form-field="<?= $fi ?>"
-                                                <?= $is_req ? 'required' : '' ?>>
+                                        <select class="form-select" data-form-field="<?= $fi ?>" <?= $aria ?> <?= $is_req ? 'required' : '' ?>>
                                             <option value="">— Select —</option>
                                             <?php foreach ($field['options'] ?? [] as $opt): ?>
                                                 <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
@@ -712,6 +717,7 @@ if (isset($error_mode) && $error_mode) {
                                                    name="<?= $fn ?>"
                                                    id="<?= $fn ?>_<?= $oi ?>"
                                                    value="<?= htmlspecialchars($opt) ?>"
+                                                   <?= $aria ?>
                                                    <?= ($is_req && $oi === 0) ? 'required' : '' ?>>
                                             <label class="form-check-label" for="<?= $fn ?>_<?= $oi ?>"><?= htmlspecialchars($opt) ?></label>
                                         </div>
@@ -722,7 +728,8 @@ if (isset($error_mode) && $error_mode) {
                                             <input class="form-check-input" type="checkbox"
                                                    data-form-field="<?= $fi ?>"
                                                    id="<?= $fn ?>_<?= $oi ?>"
-                                                   value="<?= htmlspecialchars($opt) ?>">
+                                                   value="<?= htmlspecialchars($opt) ?>"
+                                                   <?= $aria ?>>
                                             <label class="form-check-label" for="<?= $fn ?>_<?= $oi ?>"><?= htmlspecialchars($opt) ?></label>
                                         </div>
                                         <?php endforeach;
@@ -730,6 +737,7 @@ if (isset($error_mode) && $error_mode) {
                                         <input type="<?= htmlspecialchars($field['type']) ?>"
                                                class="form-control" data-form-field="<?= $fi ?>"
                                                placeholder="<?= $ph ?>"
+                                               <?= $aria ?>
                                                <?= $is_req ? 'required' : '' ?>>
                                         <?php break; endswitch; ?>
                                 </div>
