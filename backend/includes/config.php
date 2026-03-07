@@ -21,6 +21,12 @@ define('PORTAL_URL', '/portal/');
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/settings.php';
 
+// Override timezone with user-configured value (falls back to America/New_York if not set)
+$_configured_tz = Settings::get('timezone', 'America/New_York');
+if ($_configured_tz && @timezone_open($_configured_tz)) {
+    date_default_timezone_set($_configured_tz);
+}
+
 // Helper functions
 function redirect($url) {
     header("Location: $url");
