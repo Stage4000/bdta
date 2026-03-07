@@ -650,7 +650,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                        <div class="form-text"><i class="fas fa-info-circle"></i> Per-day times override the global start/end times below for each specific day.</div>
+                        <div class="form-text"><i class="fas fa-info-circle"></i> Per-day times define the available window for each day, replacing the global time settings.</div>
                     </div>
                 </div>
 
@@ -683,26 +683,35 @@ include __DIR__ . '/../backend/includes/header.php';
                 </div>
 
                 <div class="row g-3 mb-4 mt-3">
-                    <div class="col-md-4">
-                        <label for="available_start_time" class="form-label">Available Start Time</label>
-                        <input type="time" class="form-control" id="available_start_time" name="available_start_time" 
-                               value="<?= $type['available_start_time'] ?? '09:00' ?>" required>
-                        <div class="form-text">Earliest time for appointments</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="available_end_time" class="form-label">Available End Time</label>
-                        <input type="time" class="form-control" id="available_end_time" name="available_end_time" 
-                               value="<?= $type['available_end_time'] ?? '17:00' ?>" required>
-                        <div class="form-text">Latest time for appointments</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="time_slot_interval" class="form-label">Time Slot Interval (minutes)</label>
-                        <select class="form-select" id="time_slot_interval" name="time_slot_interval" required>
-                            <option value="15" <?= ($type['time_slot_interval'] ?? 30) == 15 ? 'selected' : '' ?>>15 minutes</option>
-                            <option value="30" <?= ($type['time_slot_interval'] ?? 30) == 30 ? 'selected' : '' ?>>30 minutes</option>
-                            <option value="60" <?= ($type['time_slot_interval'] ?? 30) == 60 ? 'selected' : '' ?>>60 minutes</option>
-                        </select>
-                        <div class="form-text">Interval between available time slots</div>
+                    <?php
+                    $display_schedule_type = $type['schedule_type'] ?? 'recurring';
+                    $show_global_times = ($display_schedule_type !== 'specific_date') && !$has_per_day;
+                    ?>
+                    <div class="col-12" id="global_availability_times"
+                         style="display: <?= $show_global_times ? 'block' : 'none' ?>;">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="available_start_time" class="form-label">Available Start Time</label>
+                                <input type="time" class="form-control" id="available_start_time" name="available_start_time"
+                                       value="<?= $type['available_start_time'] ?? '09:00' ?>">
+                                <div class="form-text">Earliest time for appointments</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="available_end_time" class="form-label">Available End Time</label>
+                                <input type="time" class="form-control" id="available_end_time" name="available_end_time"
+                                       value="<?= $type['available_end_time'] ?? '17:00' ?>">
+                                <div class="form-text">Latest time for appointments</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="time_slot_interval" class="form-label">Time Slot Interval (minutes)</label>
+                                <select class="form-select" id="time_slot_interval" name="time_slot_interval">
+                                    <option value="15" <?= ($type['time_slot_interval'] ?? 30) == 15 ? 'selected' : '' ?>>15 minutes</option>
+                                    <option value="30" <?= ($type['time_slot_interval'] ?? 30) == 30 ? 'selected' : '' ?>>30 minutes</option>
+                                    <option value="60" <?= ($type['time_slot_interval'] ?? 30) == 60 ? 'selected' : '' ?>>60 minutes</option>
+                                </select>
+                                <div class="form-text">Interval between available time slots</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12">
                         <div class="alert alert-info">
@@ -897,7 +906,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
                 
-                <div id="mini_session_fields" style="display: none;">
+                <div id="mini_session_fields" style="display: <?= !empty($type['is_mini_session']) ? 'block' : 'none' ?>;">
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">
                             <label for="mini_session_location" class="form-label">Event Location <span class="text-danger">*</span></label>
@@ -1248,13 +1257,13 @@ function buildTimeslotRow(slotIdx, slot) {
     </select>
     <div class="timeslot-point-inputs d-flex align-items-center gap-1"${type==='range'?' style="display:none!important"':''}>
         <span class="text-muted small">at</span>
-        <input type="time" class="form-control form-control-sm timeslot-point-time" style="width:auto;" value="${pointVal}">
+        <input type="time" class="form-control form-control-sm timeslot-point-time" style="width:auto;" value="${pointVal}" onchange="serializeSpecificDates()">
     </div>
     <div class="timeslot-range-inputs d-flex align-items-center gap-1"${type==='point'?' style="display:none!important"':''}>
         <span class="text-muted small">from</span>
-        <input type="time" class="form-control form-control-sm timeslot-range-start" style="width:auto;" value="${rangeStart}">
+        <input type="time" class="form-control form-control-sm timeslot-range-start" style="width:auto;" value="${rangeStart}" onchange="serializeSpecificDates()">
         <span class="text-muted small">to</span>
-        <input type="time" class="form-control form-control-sm timeslot-range-end" style="width:auto;" value="${rangeEnd}">
+        <input type="time" class="form-control form-control-sm timeslot-range-end" style="width:auto;" value="${rangeEnd}" onchange="serializeSpecificDates()">
     </div>
     <button type="button" class="btn btn-outline-danger btn-sm ms-auto" onclick="removeTimeslotRow(this)" title="Remove timeslot">
         <i class="fas fa-times"></i>
@@ -1280,7 +1289,7 @@ function buildDateCard(dateIdx, entry) {
     <div class="card-body pb-2">
         <p class="form-text mb-2">
             <i class="fas fa-info-circle me-1"></i>
-            Leave timeslots empty to use the global time range, or add custom timeslots below.
+            Leave timeslots empty to automatically generate slots using this appointment type's Duration (slot length) and Buffer Time (gap between slots), or add custom timeslots below.
         </p>
         <div class="timeslots-list">
             ${slotsHtml}
@@ -1382,6 +1391,16 @@ function serializeSpecificDates() {
 
 // ─── Schedule type toggle ────────────────────────────────────────────────────
 
+// Show/hide global availability time fields based on schedule type and per-day setting
+function updateGlobalTimesVisibility() {
+    const isSpecificDate = document.getElementById('schedule_type_specific').checked;
+    const usePerDay = document.getElementById('use_per_day_schedule').checked;
+    const section = document.getElementById('global_availability_times');
+    if (section) {
+        section.style.display = (!isSpecificDate && !usePerDay) ? 'block' : 'none';
+    }
+}
+
 // Toggle between schedule types
 function toggleScheduleType() {
     const recurringRadio = document.getElementById('schedule_type_recurring');
@@ -1398,6 +1417,7 @@ function toggleScheduleType() {
         renderSpecificDates();
     }
     
+    updateGlobalTimesVisibility();
     updateAvailabilityPreview();
 }
 
@@ -1472,6 +1492,7 @@ function togglePerDaySchedule() {
     const checkbox = document.getElementById('use_per_day_schedule');
     const section = document.getElementById('per_day_schedule_section');
     section.style.display = checkbox.checked ? 'block' : 'none';
+    updateGlobalTimesVisibility();
     updateAvailabilityPreview();
 }
 
@@ -1504,6 +1525,7 @@ function copyBookingLink(event) {
 document.addEventListener('DOMContentLoaded', function() {
     toggleTravelTime();
     toggleScheduleType();
+    toggleMiniSessionFields();
     // If specific date is already selected, render the date cards immediately
     const recurringRadio = document.getElementById('schedule_type_recurring');
     if (!recurringRadio.checked) {
