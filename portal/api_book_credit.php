@@ -89,6 +89,7 @@ $stmt = $conn->prepare("
     SELECT id, name, duration_minutes, contract_template_id,
            is_mini_session, mini_session_location,
            is_field_rental, field_rental_location,
+           is_group_class, group_class_location,
            location_types
     FROM appointment_types
     WHERE id = ? AND is_active = 1
@@ -191,6 +192,9 @@ if (!empty($apt_type['is_mini_session'])) {
 } elseif (!empty($apt_type['is_field_rental'])) {
     $location_type = 'fixed';
     $location      = $apt_type['field_rental_location'];
+} elseif (!empty($apt_type['is_group_class'])) {
+    $location_type = 'fixed';
+    $location      = $apt_type['group_class_location'];
 } else {
     // Restrict to configured types for this appointment type
     if (!empty($apt_type['location_types'])) {

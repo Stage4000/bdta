@@ -376,7 +376,16 @@ include '../backend/includes/header.php';
                                                 data-credit-count="<?php echo $type['credit_count']; ?>"
                                                 data-is-mini="<?php echo !empty($type['is_mini_session']) ? '1' : '0'; ?>"
                                                 data-is-field="<?php echo !empty($type['is_field_rental']) ? '1' : '0'; ?>"
-                                                data-fixed-location="<?php echo htmlspecialchars(!empty($type['is_mini_session']) ? ($type['mini_session_location'] ?? '') : (!empty($type['is_field_rental']) ? ($type['field_rental_location'] ?? '') : '')); ?>"
+                                                data-is-group="<?php echo !empty($type['is_group_class']) ? '1' : '0'; ?>"
+                                                data-fixed-location="<?php
+                                                    if (!empty($type['is_mini_session'])) {
+                                                        echo htmlspecialchars($type['mini_session_location'] ?? '');
+                                                    } elseif (!empty($type['is_field_rental'])) {
+                                                        echo htmlspecialchars($type['field_rental_location'] ?? '');
+                                                    } elseif (!empty($type['is_group_class'])) {
+                                                        echo htmlspecialchars($type['group_class_location'] ?? '');
+                                                    }
+                                                ?>"
                                                 data-location-types="<?php echo htmlspecialchars($type['location_types'] ?? ''); ?>">
                                             <?php echo htmlspecialchars($type['name']); ?> (<?php echo $type['duration_minutes']; ?> min)
                                         </option>
@@ -524,9 +533,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const isMini = option.dataset.isMini === '1';
         const isField = option.dataset.isField === '1';
+        const isGroup = option.dataset.isGroup === '1';
         const fixedLoc = option.dataset.fixedLocation || '';
 
-        if (isMini || isField) {
+        if (isMini || isField || isGroup) {
             // Fixed location: display it prominently
             locationSection.style.display = 'block';
             locationCardBody.innerHTML = `
