@@ -137,11 +137,12 @@ class CronRunner {
      * Log task execution to database
      */
     private function logTaskExecution($task_id, $task_name, $status, $message, $items_processed, $execution_time) {
+        $executed_at = gmdate('Y-m-d H:i:s');
         $stmt = $this->conn->prepare("
-            INSERT INTO task_logs (task_id, task_name, status, message, items_processed, execution_time)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO task_logs (task_id, task_name, status, message, items_processed, execution_time, executed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$task_id, $task_name, $status, $message, $items_processed, $execution_time]);
+        $stmt->execute([$task_id, $task_name, $status, $message, $items_processed, $execution_time, $executed_at]);
     }
     
     /**

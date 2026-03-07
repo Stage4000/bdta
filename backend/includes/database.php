@@ -65,6 +65,10 @@ class Database {
                     $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     // Set MySQL specific settings
                     $this->conn->exec("SET NAMES utf8mb4");
+                    // Ensure CURRENT_TIMESTAMP and NOW() always return UTC so all stored
+                    // timestamps are consistent with SQLite (which always uses UTC) and with
+                    // PHP's gmdate() calls used to write last_run / next_run.
+                    $this->conn->exec("SET time_zone = '+00:00'");
                     // Use modern SQL mode for MySQL 5.7+
                     $this->conn->exec("SET sql_mode='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
                 } catch(PDOException $e) {
