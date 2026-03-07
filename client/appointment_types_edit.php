@@ -75,10 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_field_rental = isset($_POST['is_field_rental']) ? 1 : 0;
     $field_rental_location = $is_field_rental ? ($_POST['field_rental_location'] ?? '') : null;
 
+    // Handle Group Class location
+    $group_class_location = $is_group_class ? ($_POST['group_class_location'] ?? '') : null;
+
     // Handle allowed location types configuration
-    // Fixed types (mini_session/field_rental) don't need this — location is always 'fixed'
+    // Fixed types (mini_session/field_rental/group_class) don't need this — location is always 'fixed'
     $allowed_loc_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall'];
-    if ($is_mini_session || $is_field_rental) {
+    if ($is_mini_session || $is_field_rental || $is_group_class) {
         $location_types_json = null; // Fixed location — no selection needed
     } else {
         $selected_loc_types = isset($_POST['location_types']) && is_array($_POST['location_types'])
@@ -164,7 +167,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $per_day_schedule = json_encode($per_day);
         }
     }
-    
+
+    // Server-side validation
+    $errors = [];
+    if (empty(trim($name))) {
+        $errors[] = 'Appointment type name is required.';
+    }
+    if ($is_group_class && empty(trim($group_class_location ?? ''))) {
+        $errors[] = 'Class Location is required for group class appointment types.';
+    }
+    if (!empty($errors)) {
+        $error = implode(' ', $errors);
+    } else {
+
     try {
         if ($is_edit) {
             $stmt = $conn->prepare("
@@ -201,6 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     mini_session_topic = ?,
                     is_field_rental = ?,
                     field_rental_location = ?,
+                    group_class_location = ?,
                     per_day_schedule = ?,
                     default_amount = ?,
                     location_types = ?,
@@ -224,6 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
                 $is_field_rental, $field_rental_location,
+                $group_class_location,
                 $per_day_schedule,
                 $default_amount,
                 $location_types_json,
@@ -258,13 +275,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     available_days, available_start_time, available_end_time, time_slot_interval,
                     is_mini_session, mini_session_location, mini_session_topic,
                     is_field_rental, field_rental_location,
+                    group_class_location,
                     per_day_schedule,
                     default_amount,
                     location_types,
                     confirmation_template_id,
                     reminder_template_id,
                     cancellation_template_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -281,6 +299,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
                 $is_field_rental, $field_rental_location,
+                $group_class_location,
                 $per_day_schedule,
                 $default_amount,
                 $location_types_json,
@@ -306,6 +325,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (PDOException $e) {
         $error = "Error saving appointment type: " . $e->getMessage();
     }
+    } // end else (no validation errors)
 }
 
 // Handle reminder rule sub-actions (add/delete/toggle) — must be editing an existing type
@@ -826,7 +846,8 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="is_group_class" name="is_group_class"
-                                   <?= !empty($type['is_group_class']) ? 'checked' : '' ?>>
+                                   <?= !empty($type['is_group_class']) ? 'checked' : '' ?>
+                                   onchange="toggleGroupClassFields()">
                             <label class="form-check-label" for="is_group_class">
                                 Is Group Class
                             </label>
@@ -838,6 +859,26 @@ include __DIR__ . '/../backend/includes/header.php';
                         <input type="number" class="form-control" id="max_participants" name="max_participants" 
                                value="<?= $type['max_participants'] ?? 1 ?>" min="1">
                         <div class="form-text">Maximum number of clients for group classes</div>
+                    </div>
+                </div>
+
+                <div id="group_class_fields" style="display: <?= !empty($type['is_group_class']) ? 'block' : 'none' ?>;">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <label for="group_class_location" class="form-label">Class Location <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="group_class_location" name="group_class_location"
+                                   value="<?= htmlspecialchars($type['group_class_location'] ?? '') ?>"
+                                   placeholder="e.g., Brooks Training Center - 123 Main St, City, State ZIP">
+                            <div class="form-text">Address or venue where the group class will be held. This location will be shown to clients when booking.</div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> <strong>Group Class Setup:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Set the maximum number of participants above</li>
+                            <li>Clients will see the class location when booking</li>
+                            <li>Use the availability configuration above to define class schedule</li>
+                        </ul>
                     </div>
                 </div>
 
@@ -928,7 +969,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     $decoded = json_decode($type['location_types'], true);
                     if (is_array($decoded)) $current_location_types = $decoded;
                 }
-                $is_fixed_type = !empty($type['is_mini_session']) || !empty($type['is_field_rental']);
+                $is_fixed_type = !empty($type['is_mini_session']) || !empty($type['is_field_rental']) || !empty($type['is_group_class']);
                 ?>
 
                 <div id="locationTypesSection" style="display: <?= $is_fixed_type ? 'none' : 'block' ?>;">
@@ -1399,13 +1440,30 @@ function toggleFieldRentalFields() {
     updateLocationTypesVisibility();
 }
 
+// Toggle Group Class fields
+function toggleGroupClassFields() {
+    const checkbox = document.getElementById('is_group_class');
+    const fieldsSection = document.getElementById('group_class_fields');
+    const locationInput = document.getElementById('group_class_location');
+
+    if (checkbox.checked) {
+        fieldsSection.style.display = 'block';
+        locationInput.setAttribute('required', 'required');
+    } else {
+        fieldsSection.style.display = 'none';
+        locationInput.removeAttribute('required');
+    }
+    updateLocationTypesVisibility();
+}
+
 // Show/hide the location options section based on whether this is a fixed-location type
 function updateLocationTypesVisibility() {
     const isMini = document.getElementById('is_mini_session').checked;
     const isField = document.getElementById('is_field_rental').checked;
+    const isGroup = document.getElementById('is_group_class').checked;
     const section = document.getElementById('locationTypesSection');
     if (section) {
-        section.style.display = (isMini || isField) ? 'none' : 'block';
+        section.style.display = (isMini || isField || isGroup) ? 'none' : 'block';
     }
 }
 
@@ -1453,6 +1511,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     updateAvailabilityPreview();
     toggleFieldRentalFields();
+    toggleGroupClassFields();
     togglePerDaySchedule();
     
     // Add event listeners for availability fields

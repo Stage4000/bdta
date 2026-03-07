@@ -450,7 +450,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
 
         if (!empty($data['appointment_type_id'])) {
-            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, location_types, contract_template_id FROM appointment_types WHERE id = ?");
+            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id FROM appointment_types WHERE id = ?");
             $stmt->execute([$data['appointment_type_id']]);
             $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($apt_type && !empty($apt_type['is_mini_session'])) {
@@ -460,6 +460,9 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             } elseif ($apt_type && !empty($apt_type['is_field_rental'])) {
                 $location_type = 'fixed';
                 $location = $apt_type['field_rental_location'];
+            } elseif ($apt_type && !empty($apt_type['is_group_class'])) {
+                $location_type = 'fixed';
+                $location = $apt_type['group_class_location'];
             } elseif ($apt_type && !empty($apt_type['location_types'])) {
                 // Restrict to appointment type's configured location types
                 $configured = json_decode($apt_type['location_types'], true);

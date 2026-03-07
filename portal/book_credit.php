@@ -157,7 +157,7 @@ foreach ($all_required_forms as $form) {
 }
 
 // ── Location types config (same logic as book.php) ───────────────────────────
-$is_fixed_type = !empty($selected_type['is_mini_session']) || !empty($selected_type['is_field_rental']);
+$is_fixed_type = !empty($selected_type['is_mini_session']) || !empty($selected_type['is_field_rental']) || !empty($selected_type['is_group_class']);
 $loc_types_all = [
     'client_address' => ['label' => 'My registered address',                'needsValue' => false],
     'custom_address' => ['label' => 'A different address',                  'needsValue' => true,  'placeholder' => 'Enter full address',         'valueLabel' => 'Address *',        'type' => 'text'],
@@ -380,9 +380,13 @@ include '../portal/includes/header.php';
                         </div>
                         <div class="card-body">
                         <?php if ($is_fixed_type):
-                            $fixed_loc = !empty($selected_type['is_mini_session'])
-                                ? ($selected_type['mini_session_location'] ?? '')
-                                : ($selected_type['field_rental_location'] ?? '');
+                            if (!empty($selected_type['is_mini_session'])) {
+                                $fixed_loc = $selected_type['mini_session_location'] ?? '';
+                            } elseif (!empty($selected_type['is_field_rental'])) {
+                                $fixed_loc = $selected_type['field_rental_location'] ?? '';
+                            } else {
+                                $fixed_loc = $selected_type['group_class_location'] ?? '';
+                            }
                         ?>
                             <p class="mb-1 text-muted small">This appointment has a fixed location:</p>
                             <p class="mb-0 fw-bold"><i class="fas fa-location-dot me-2"></i><?= escape($fixed_loc) ?></p>

@@ -366,6 +366,23 @@ if (isset($error_mode) && $error_mode) {
                         </div>
                     </div>
                 <?php endif; ?>
+                <?php if (!empty($selected_type['is_group_class'])): ?>
+                    <div class="alert alert-primary mt-3 mb-0">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-users me-3 mt-1" style="font-size: 1.5rem;"></i>
+                            <div>
+                                <h5 class="mb-2"><strong>Group Class</strong></h5>
+                                <p class="mb-0">
+                                    <i class="fas fa-map-marker-alt me-2"></i>
+                                    <strong>Location:</strong> <?= escape($selected_type['group_class_location']) ?>
+                                </p>
+                                <small class="text-muted d-block mt-2">
+                                    This class takes place at a fixed venue. Book your spot below.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
                 <?php if (!empty($selected_type['is_field_rental'])): ?>
                     <div class="alert alert-success mt-3 mb-0">
                         <div class="d-flex align-items-start">
@@ -579,7 +596,7 @@ if (isset($error_mode) && $error_mode) {
 
                         <!-- Location -->
                         <?php
-                        $is_fixed_type = !empty($selected_type['is_mini_session']) || !empty($selected_type['is_field_rental']);
+                        $is_fixed_type = !empty($selected_type['is_mini_session']) || !empty($selected_type['is_field_rental']) || !empty($selected_type['is_group_class']);
                         $pub_loc_types_all = [
                             'client_address' => ['label' => 'My registered address',                'needsValue' => false],
                             'custom_address' => ['label' => 'A different address',                  'needsValue' => true,  'placeholder' => 'Enter full address',         'valueLabel' => 'Address *',   'type' => 'text'],
@@ -606,7 +623,15 @@ if (isset($error_mode) && $error_mode) {
                                 </div>
                                 <div class="card-body">
                                 <?php if ($is_fixed_type): ?>
-                                    <?php $fixed_loc = !empty($selected_type['is_mini_session']) ? ($selected_type['mini_session_location'] ?? '') : ($selected_type['field_rental_location'] ?? ''); ?>
+                                    <?php
+                                    if (!empty($selected_type['is_mini_session'])) {
+                                        $fixed_loc = $selected_type['mini_session_location'] ?? '';
+                                    } elseif (!empty($selected_type['is_field_rental'])) {
+                                        $fixed_loc = $selected_type['field_rental_location'] ?? '';
+                                    } else {
+                                        $fixed_loc = $selected_type['group_class_location'] ?? '';
+                                    }
+                                    ?>
                                     <p class="mb-1 text-muted small">This appointment has a fixed location:</p>
                                     <p class="mb-0 fw-bold"><i class="fas fa-location-dot me-2" aria-hidden="true"></i><?= escape($fixed_loc) ?></p>
                                     <input type="hidden" name="location_type" value="fixed">

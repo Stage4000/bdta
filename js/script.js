@@ -443,8 +443,8 @@ function loadEvents() {
                     ? '<span class="badge bg-primary mb-3">Group Class</span>'
                     : '<span class="badge bg-info text-dark mb-3">Mini Sessions</span>';
 
-                // Location (mini sessions only)
-                var locationHtml = (isMiniSession && evt.location)
+                // Location (mini sessions and group classes)
+                var locationHtml = ((isMiniSession && evt.location) || (isGroupClass && evt.location))
                     ? '<p class="mb-1 small"><i class="fas fa-location-dot text-primary me-1"></i>' + escapeHtml(evt.location) + '</p>'
                     : '';
 

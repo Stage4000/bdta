@@ -1658,6 +1658,12 @@ class Database {
             // Index might already exist, ignore
         }
 
+        // Add group class location support to appointment_types table
+        $apt_col_names_gc = $this->getTableColumns('appointment_types');
+        if (!in_array('group_class_location', $apt_col_names_gc)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN group_class_location TEXT");
+        }
+
         // Add appointment_type_id to booking_reminder_rules for per-appointment-type rules
         // Note: SQLite does not support adding foreign key constraints via ALTER TABLE;
         // the FK is enforced on fresh installs via the CREATE TABLE definition above.
