@@ -266,7 +266,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
 
     // Evaluate each candidate slot for conflicts / availability
     foreach ($candidate_minutes as $time_minutes) {
-        $hour = (int)floor($time_minutes / 60);
+        $hour = intdiv($time_minutes, 60);
         $minute = $time_minutes % 60;
         $time_slot = sprintf('%02d:%02d', $hour, $minute);
         $time_slot_end_minutes = $time_minutes + $slot_duration;

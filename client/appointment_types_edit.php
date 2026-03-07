@@ -1192,14 +1192,6 @@ try {
     if (raw) specificDatesData = JSON.parse(raw) || [];
 } catch(e) { specificDatesData = []; }
 
-/** Format HH:MM → h:MM AM/PM */
-function fmtTime(t) {
-    if (!t) return '';
-    const [hh, mm] = t.split(':').map(Number);
-    const ampm = hh >= 12 ? 'PM' : 'AM';
-    return (hh % 12 || 12) + ':' + String(mm).padStart(2,'0') + ' ' + ampm;
-}
-
 /** Render a single timeslot row inside a date card. */
 function buildTimeslotRow(slotIdx, slot) {
     const type = slot.type || 'point';
@@ -1290,8 +1282,8 @@ function addTimeslotRow(btn) {
     specificDatesData[dateIdx].timeslots.push({ type: 'point', time: '' });
     renderSpecificDates();
     // Scroll the newly added row into view
-    const lists = card.querySelectorAll('.timeslot-entry');
-    if (lists.length) lists[lists.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const timeslotRows = card.querySelectorAll('.timeslot-entry');
+    if (timeslotRows.length) timeslotRows[timeslotRows.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 /** Remove a timeslot row. */
@@ -1492,7 +1484,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Serialize specific dates before form submit
     const mainForm = document.querySelector('form[method="POST"]:not([action])');
     if (mainForm) {
-        mainForm.addEventListener('submit', function() {
+        mainForm.addEventListener('submit', function(event) {
             serializeSpecificDates();
             // Validate: at least one date required when specific_date mode
             if (!recurringRadio.checked) {

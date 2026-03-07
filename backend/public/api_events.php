@@ -157,8 +157,11 @@ try {
 
             // Determine display start/end times for this date
             if (!empty($custom_slots) && !empty($candidate_minutes)) {
-                $disp_start = sprintf('%02d:%02d', intdiv(min($candidate_minutes), 60), min($candidate_minutes) % 60);
-                $disp_end   = sprintf('%02d:%02d', intdiv(max($candidate_minutes) + $duration, 60), (max($candidate_minutes) + $duration) % 60);
+                $disp_start   = sprintf('%02d:%02d', intdiv(min($candidate_minutes), 60), min($candidate_minutes) % 60);
+                $end_minutes  = max($candidate_minutes) + $duration;
+                // Clamp to 23:59 in case the slot extends past midnight
+                $end_minutes  = min($end_minutes, 23 * 60 + 59);
+                $disp_end     = sprintf('%02d:%02d', intdiv($end_minutes, 60), $end_minutes % 60);
             } else {
                 $disp_start = $type['available_start_time'] ?? '09:00';
                 $disp_end   = $type['available_end_time']   ?? '17:00';
