@@ -1257,13 +1257,13 @@ function buildTimeslotRow(slotIdx, slot) {
     </select>
     <div class="timeslot-point-inputs d-flex align-items-center gap-1"${type==='range'?' style="display:none!important"':''}>
         <span class="text-muted small">at</span>
-        <input type="time" class="form-control form-control-sm timeslot-point-time" style="width:auto;" value="${pointVal}">
+        <input type="time" class="form-control form-control-sm timeslot-point-time" style="width:auto;" value="${pointVal}" onchange="serializeSpecificDates()">
     </div>
     <div class="timeslot-range-inputs d-flex align-items-center gap-1"${type==='point'?' style="display:none!important"':''}>
         <span class="text-muted small">from</span>
-        <input type="time" class="form-control form-control-sm timeslot-range-start" style="width:auto;" value="${rangeStart}">
+        <input type="time" class="form-control form-control-sm timeslot-range-start" style="width:auto;" value="${rangeStart}" onchange="serializeSpecificDates()">
         <span class="text-muted small">to</span>
-        <input type="time" class="form-control form-control-sm timeslot-range-end" style="width:auto;" value="${rangeEnd}">
+        <input type="time" class="form-control form-control-sm timeslot-range-end" style="width:auto;" value="${rangeEnd}" onchange="serializeSpecificDates()">
     </div>
     <button type="button" class="btn btn-outline-danger btn-sm ms-auto" onclick="removeTimeslotRow(this)" title="Remove timeslot">
         <i class="fas fa-times"></i>
