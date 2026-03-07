@@ -431,12 +431,43 @@ if (isset($error_mode) && $error_mode) {
                 <input type="hidden" name="appointment_type" value="<?= intval($selected_type['id']) ?>" id="standaloneType">
                 
                 <?php
-                // Determine whether this appointment type is locked to a single specific date
-                $is_specific_date_type = !empty($selected_type['schedule_type'])
-                    && $selected_type['schedule_type'] === 'specific_date'
-                    && !empty($selected_type['specific_date'])
-                    && (DateTime::createFromFormat('Y-m-d', $selected_type['specific_date']) !== false);
-                $specific_date_value = $is_specific_date_type ? $selected_type['specific_date'] : null;
+                // Determine whether this appointment type is locked to specific date(s)
+                $is_specific_date_type = false;
+                $specific_date_value   = null;   // single date (legacy or 1-entry multi)
+                $specific_dates_list   = [];     // all dates (multi-date)
+
+                if (!empty($selected_type['schedule_type'])
+                    && $selected_type['schedule_type'] === 'specific_date') {
+
+                    // Try new multi-date format first
+                    if (!empty($selected_type['specific_dates'])) {
+                        $parsed_sd = json_decode($selected_type['specific_dates'], true);
+                        if (is_array($parsed_sd) && !empty($parsed_sd)) {
+                            // Only keep dates that are today or in the future
+                            $today_str = date('Y-m-d');
+                            $specific_dates_list = array_values(
+                                array_filter($parsed_sd, fn($e) => !empty($e['date']) && $e['date'] >= $today_str)
+                            );
+                            usort($specific_dates_list, fn($a, $b) => $a['date'] <=> $b['date']);
+                            if (!empty($specific_dates_list)) {
+                                $is_specific_date_type = true;
+                                if (count($specific_dates_list) === 1) {
+                                    $specific_date_value = $specific_dates_list[0]['date'];
+                                }
+                            }
+                        }
+                    }
+
+                    // Fall back to legacy single-date
+                    if (!$is_specific_date_type
+                        && !empty($selected_type['specific_date'])
+                        && DateTime::createFromFormat('Y-m-d', $selected_type['specific_date']) !== false) {
+                        $is_specific_date_type = true;
+                        $specific_date_value   = $selected_type['specific_date'];
+                        $specific_dates_list   = [['date' => $specific_date_value, 'timeslots' => []]];
+                    }
+                }
+                $is_multi_specific_date = $is_specific_date_type && count($specific_dates_list) > 1;
                 ?>
                 
                 <!-- Step 1: Select Date -->
@@ -446,7 +477,20 @@ if (isset($error_mode) && $error_mode) {
                     <div class="row">
                         <div class="col-md-8 mx-auto mb-3">
                             <label class="form-label fw-bold">Select Date *</label>
-                            <?php if ($is_specific_date_type): ?>
+                            <?php if ($is_multi_specific_date): ?>
+                            <select class="form-select form-select-lg" id="appointmentDate" name="appointment_date" required>
+                                <option value="">— Select a date —</option>
+                                <?php foreach ($specific_dates_list as $sd_entry): ?>
+                                <option value="<?= htmlspecialchars($sd_entry['date']) ?>">
+                                    <?= date('l, F j, Y', strtotime($sd_entry['date'])) ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small class="text-muted mt-2 d-block">
+                                <i class="fas fa-calendar-check me-1"></i>
+                                This session is available on the dates listed above. Select one to continue.
+                            </small>
+                            <?php elseif ($is_specific_date_type && $specific_date_value): ?>
                             <input type="date" class="form-control form-control-lg" id="appointmentDate"
                                    name="appointment_date" required
                                    value="<?= htmlspecialchars($specific_date_value) ?>"
@@ -840,7 +884,8 @@ if (isset($error_mode) && $error_mode) {
     $js_type_duration = ($selected_type && isset($selected_type['duration_minutes']) && $selected_type['duration_minutes'] > 0) 
         ? intval($selected_type['duration_minutes']) 
         : 'null';
-    $js_specific_date = ($is_specific_date_type && $specific_date_value)
+    // For single specific date, pre-load it; for multi-date or free choice, start as null
+    $js_specific_date = ($is_specific_date_type && $specific_date_value && !$is_multi_specific_date)
         ? json_encode($specific_date_value)
         : 'null';
     ?>

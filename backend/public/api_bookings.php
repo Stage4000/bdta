@@ -80,7 +80,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     if ($appointment_type_id) {
         $stmt = $conn->prepare("
             SELECT available_days, available_start_time, available_end_time, time_slot_interval,
-                   schedule_type, specific_date, per_day_schedule,
+                   schedule_type, specific_date, specific_dates, per_day_schedule,
                    duration_minutes, is_group_class, max_participants,
                    buffer_before_minutes, buffer_after_minutes
             FROM appointment_types 
@@ -91,17 +91,53 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         
         if ($appointment_type) {
             $schedule_type = $appointment_type['schedule_type'] ?? 'recurring';
-            $specific_date = $appointment_type['specific_date'] ?? null;
             
-            // Check if this is a specific date appointment and the date matches
+            // Handle specific date scheduling (single or multi-date)
             if ($schedule_type === 'specific_date') {
-                if ($specific_date !== $date) {
-                    echo json_encode([
-                        'date' => $date,
-                        'available_slots' => [],
-                        'message' => 'This appointment is only available on: ' . date('F j, Y', strtotime($specific_date))
-                    ]);
-                    exit;
+                $custom_slot_configs = null; // null = use global times; array = per-timeslot config
+
+                // Try new multi-date format first
+                $raw_specific_dates = $appointment_type['specific_dates'] ?? null;
+                if (!empty($raw_specific_dates)) {
+                    $specific_dates_arr = json_decode($raw_specific_dates, true);
+                    if (is_array($specific_dates_arr) && !empty($specific_dates_arr)) {
+                        // Find the entry matching the requested date
+                        $matched_entry = null;
+                        foreach ($specific_dates_arr as $entry) {
+                            if (($entry['date'] ?? '') === $date) {
+                                $matched_entry = $entry;
+                                break;
+                            }
+                        }
+                        if ($matched_entry === null) {
+                            // Date not in the list
+                            $all_date_labels = array_map(
+                                fn($e) => date('F j, Y', strtotime($e['date'])),
+                                $specific_dates_arr
+                            );
+                            echo json_encode([
+                                'date' => $date,
+                                'available_slots' => [],
+                                'message' => 'This appointment is only available on: ' . implode(', ', $all_date_labels),
+                            ]);
+                            exit;
+                        }
+                        // If the matched entry has custom timeslots, record them
+                        if (!empty($matched_entry['timeslots'])) {
+                            $custom_slot_configs = $matched_entry['timeslots'];
+                        }
+                    }
+                } else {
+                    // Legacy single-date fallback
+                    $specific_date_legacy = $appointment_type['specific_date'] ?? null;
+                    if ($specific_date_legacy !== $date) {
+                        echo json_encode([
+                            'date' => $date,
+                            'available_slots' => [],
+                            'message' => 'This appointment is only available on: ' . date('F j, Y', strtotime($specific_date_legacy)),
+                        ]);
+                        exit;
+                    }
                 }
             }
             
@@ -182,29 +218,55 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     // Generate available slots based on appointment type configuration
     $available_slots = [];
     
-    // Parse start and end times with validation
-    $start_parts = explode(':', $available_start_time);
-    $end_parts = explode(':', $available_end_time);
-    
-    if (count($start_parts) !== 2 || count($end_parts) !== 2) {
-        // Invalid time format, use defaults
-        $start_hour = 9;
-        $start_minute = 0;
-        $end_hour = 17;
-        $end_minute = 0;
+    // Build the list of candidate time-slots (in minutes from midnight).
+    // When the appointment type defines custom timeslots for this specific date,
+    // expand them to individual minute-offsets; otherwise fall back to the
+    // global start→end sweep at the configured interval.
+    $candidate_minutes = []; // each value: minutes from midnight
+
+    if (!empty($custom_slot_configs)) {
+        // Custom timeslots defined for this specific date
+        foreach ($custom_slot_configs as $cfg) {
+            $slot_type = $cfg['type'] ?? 'point';
+            if ($slot_type === 'point' && !empty($cfg['time'])) {
+                $parts = explode(':', $cfg['time']);
+                if (count($parts) === 2) {
+                    $candidate_minutes[] = (int)$parts[0] * 60 + (int)$parts[1];
+                }
+            } elseif ($slot_type === 'range' && !empty($cfg['start']) && !empty($cfg['end'])) {
+                $s_parts = explode(':', $cfg['start']);
+                $e_parts = explode(':', $cfg['end']);
+                if (count($s_parts) === 2 && count($e_parts) === 2) {
+                    $range_start = (int)$s_parts[0] * 60 + (int)$s_parts[1];
+                    $range_end   = (int)$e_parts[0] * 60 + (int)$e_parts[1];
+                    for ($m = $range_start; $m < $range_end; $m += $time_slot_interval) {
+                        $candidate_minutes[] = $m;
+                    }
+                }
+            }
+        }
+        // Deduplicate and sort
+        $candidate_minutes = array_values(array_unique($candidate_minutes));
+        sort($candidate_minutes);
     } else {
-        $start_hour = (int)$start_parts[0];
-        $start_minute = (int)$start_parts[1];
-        $end_hour = (int)$end_parts[0];
-        $end_minute = (int)$end_parts[1];
+        // Default: sweep from global start to global end at interval
+        $start_parts = explode(':', $available_start_time);
+        $end_parts   = explode(':', $available_end_time);
+        if (count($start_parts) !== 2 || count($end_parts) !== 2) {
+            $start_time_minutes = 9 * 60;
+            $end_time_minutes   = 17 * 60;
+        } else {
+            $start_time_minutes = (int)$start_parts[0] * 60 + (int)$start_parts[1];
+            $end_time_minutes   = (int)$end_parts[0]   * 60 + (int)$end_parts[1];
+        }
+        for ($m = $start_time_minutes; $m < $end_time_minutes; $m += $time_slot_interval) {
+            $candidate_minutes[] = $m;
+        }
     }
-    
-    $start_time_minutes = $start_hour * 60 + $start_minute;
-    $end_time_minutes = $end_hour * 60 + $end_minute;
-    
-    // Generate slots at specified interval
-    for ($time_minutes = $start_time_minutes; $time_minutes < $end_time_minutes; $time_minutes += $time_slot_interval) {
-        $hour = floor($time_minutes / 60);
+
+    // Evaluate each candidate slot for conflicts / availability
+    foreach ($candidate_minutes as $time_minutes) {
+        $hour = (int)floor($time_minutes / 60);
         $minute = $time_minutes % 60;
         $time_slot = sprintf('%02d:%02d', $hour, $minute);
         $time_slot_end_minutes = $time_minutes + $slot_duration;
