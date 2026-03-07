@@ -63,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     'label' => trim($label),
                     'type' => $_POST['field_type'][$index] ?? 'text',
                     'placeholder' => trim($_POST['field_placeholder'][$index] ?? ''),
+                    'description' => trim($_POST['field_description'][$index] ?? ''),
                     'required' => isset($_POST['field_required'][$index]) ? 1 : 0
                 ];
                 
@@ -228,6 +229,12 @@ require_once '../backend/includes/header.php';
                                         </button>
                                     </div>
                                 </div>
+                                <div class="row mt-2">
+                                    <div class="col-12">
+                                        <label class="form-label">Description <small class="text-muted">(optional — shown to clients below the field)</small></label>
+                                        <textarea name="field_description[]" class="form-control" rows="2" placeholder="Add a brief description or instructions for this field..."><?php echo htmlspecialchars($field['description'] ?? ''); ?></textarea>
+                                    </div>
+                                </div>
                                 <?php if (in_array($field['type'], ['select', 'radio', 'checkbox'])): ?>
                                 <div class="row mt-2 field-options-container">
                                     <div class="col-12">
@@ -357,6 +364,12 @@ function addField() {
                     <button type="button" class="btn btn-sm btn-danger mt-1" onclick="removeField(this)">
                         <i class="fas fa-trash"></i>
                     </button>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12">
+                    <label class="form-label">Description <small class="text-muted">(optional — shown to clients below the field)</small></label>
+                    <textarea name="field_description[]" class="form-control" rows="2" placeholder="Add a brief description or instructions for this field..."></textarea>
                 </div>
             </div>
             <textarea name="field_options[]" class="d-none"></textarea>
