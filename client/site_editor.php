@@ -277,6 +277,11 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
         height: '100%',
         width: 'auto',
         storageManager: false,   // we handle saving manually
+        // allowScripts is required so that the bdta-packages and bdta-events dynamic blocks
+        // can execute their inline fetch scripts inside the editor canvas preview.
+        // This editor is protected by requireLogin() and is only accessible to authenticated
+        // admins, so the XSS risk is limited to privileged users who already have full access.
+        allowScripts: 1,
         plugins: ['gjs-blocks-basic', 'gjs-preset-webpage'],
         pluginsOpts: {
             'gjs-blocks-basic': { flexGrid: true },
@@ -439,6 +444,187 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
   <a href="https://www.facebook.com/BrooksDogTrainingAcademy" style="color: #9a0073;">Facebook</a> |
   <a href="https://www.instagram.com/brooksdogtrainingacademy" style="color: #9a0073;">Instagram</a>
 </div>`
+    });
+
+    bm.add('bdta-packages', {
+        label: 'Training Packages',
+        category: 'BDTA',
+        content: `
+<section class="bdta-packages-module py-5">
+  <div class="container py-5">
+    <div class="text-center mb-5">
+      <h2 class="display-5 fw-bold mb-3">Our Training Packages</h2>
+      <p class="lead text-muted">Bundled training programs designed to set your dog up for success</p>
+    </div>
+    <div class="bdta-packages-grid row g-4">
+      <div class="bdta-packages-loading col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading packages…</span>
+        </div>
+        <p class="text-muted mt-3">Loading packages…</p>
+      </div>
+    </div>
+    <div class="bdta-packages-empty text-center py-5 d-none">
+      <i class="fas fa-box-open display-4 text-muted mb-3"></i>
+      <p class="lead text-muted">No packages are currently available. Check back soon!</p>
+      <a href="#contact" class="btn btn-outline-primary">Contact Us</a>
+    </div>
+  </div>
+  <script>
+  (function () {
+    function escH(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    document.querySelectorAll('.bdta-packages-module:not([data-bdta-loaded])').forEach(function (sec) {
+      sec.setAttribute('data-bdta-loaded', '1');
+      var grid    = sec.querySelector('.bdta-packages-grid');
+      var loading = sec.querySelector('.bdta-packages-loading');
+      var empty   = sec.querySelector('.bdta-packages-empty');
+      if (!grid) return;
+      fetch('/backend/public/api_packages.php')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (loading) loading.remove();
+          var pkgs = (data && Array.isArray(data.packages)) ? data.packages : [];
+          if (pkgs.length === 0) { if (empty) empty.classList.remove('d-none'); return; }
+          pkgs.forEach(function (pkg, i) {
+            var priceText = pkg.price > 0 ? '$' + Number(pkg.price).toFixed(2) : 'Contact Us';
+            var itemsHtml = '';
+            if (pkg.items && pkg.items.length > 0) {
+              itemsHtml = '<ul class="list-unstyled mb-4">';
+              pkg.items.forEach(function (item) {
+                itemsHtml += '<li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>' + escH(item.quantity + '\u00d7 ' + item.apt_type_name) + '</li>';
+              });
+              itemsHtml += '</ul>';
+            }
+            var expiryHtml = pkg.expiration_days ? '<small class="text-muted d-block mb-3">Credits valid for ' + pkg.expiration_days + ' days</small>' : '';
+            var ctaHtml = pkg.purchase_url
+              ? '<a href="' + escH(pkg.purchase_url) + '" class="btn btn-primary mt-auto" target="_blank" rel="noopener"><i class="fas fa-shopping-cart me-2"></i>Purchase Package</a>'
+              : '<a href="#contact" class="btn btn-outline-primary mt-auto">Contact Us</a>';
+            var col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-4';
+            col.innerHTML = '<div class="service-card card h-100 border-0 shadow-sm">'
+              + '<div class="card-body p-4 d-flex flex-column">'
+              + '<div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width:80px;height:80px;">'
+              + '<i class="fas fa-box-open text-primary fs-2"></i></div>'
+              + '<h4 class="fw-bold mb-2">' + escH(pkg.name) + '</h4>'
+              + '<p class="text-primary fw-bold fs-5 mb-2">' + escH(priceText) + '</p>'
+              + (pkg.description ? '<p class="text-muted mb-3">' + escH(pkg.description) + '</p>' : '')
+              + itemsHtml + expiryHtml + ctaHtml
+              + '</div></div>';
+            grid.appendChild(col);
+          });
+        })
+        .catch(function () {
+          if (loading) loading.remove();
+          if (empty) empty.classList.remove('d-none');
+        });
+    });
+  })();
+  </script>
+</section>`
+    });
+
+    bm.add('bdta-events', {
+        label: 'Group Events & Workshops',
+        category: 'BDTA',
+        content: `
+<section class="bdta-events-module py-5 bg-light">
+  <div class="container py-5">
+    <div class="text-center mb-5">
+      <h2 class="display-5 fw-bold mb-3">Group Events &amp; Workshops</h2>
+      <p class="lead text-muted">Join our upcoming in-person workshops and community events</p>
+    </div>
+    <div class="bdta-events-grid row g-4">
+      <div class="bdta-events-loading col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading events…</span>
+        </div>
+        <p class="text-muted mt-3">Loading events…</p>
+      </div>
+    </div>
+    <div class="bdta-events-empty text-center py-5 d-none">
+      <i class="fas fa-calendar-xmark display-4 text-muted mb-3"></i>
+      <p class="lead text-muted">No upcoming events are scheduled right now. Follow us on social media for announcements!</p>
+    </div>
+  </div>
+  <script>
+  (function () {
+    function escH(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function fmtTime(t) {
+      if (!t) return '';
+      var p = t.split(':');
+      if (p.length < 2) return t;
+      var h = parseInt(p[0], 10), m = parseInt(p[1], 10);
+      if (isNaN(h) || isNaN(m)) return t;
+      var ap = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return h + ':' + (m < 10 ? '0' + m : m) + ' ' + ap;
+    }
+    document.querySelectorAll('.bdta-events-module:not([data-bdta-loaded])').forEach(function (sec) {
+      sec.setAttribute('data-bdta-loaded', '1');
+      var grid    = sec.querySelector('.bdta-events-grid');
+      var loading = sec.querySelector('.bdta-events-loading');
+      var empty   = sec.querySelector('.bdta-events-empty');
+      if (!grid) return;
+      fetch('/backend/public/api_events.php')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (loading) loading.remove();
+          var evts = (data && Array.isArray(data.events)) ? data.events : [];
+          if (evts.length === 0) { if (empty) empty.classList.remove('d-none'); return; }
+          evts.forEach(function (evt) {
+            var isGroup  = evt.type === 'group_class';
+            var isMini   = evt.type === 'mini_session';
+            var booked   = !!evt.fully_booked;
+            var dateObj  = evt.date ? new Date(evt.date + 'T00:00:00') : null;
+            var dateStr  = dateObj ? dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '';
+            var timeStr  = fmtTime(evt.start_time);
+            if (isGroup) { timeStr += ' (' + evt.duration_minutes + ' min)'; }
+            else if (isMini) { timeStr = fmtTime(evt.start_time) + ' \u2013 ' + fmtTime(evt.end_time); }
+            var priceText  = evt.price > 0 ? '$' + Number(evt.price).toFixed(2) : 'Contact Us';
+            var typeBadge  = isGroup ? '<span class="badge bg-primary mb-3">Group Class</span>' : '<span class="badge bg-info text-dark mb-3">Mini Sessions</span>';
+            var locHtml    = ((isMini && evt.location) || (isGroup && evt.location)) ? '<p class="mb-1 small"><i class="fas fa-location-dot text-primary me-1"></i>' + escH(evt.location) + '</p>' : '';
+            var topicHtml  = (isMini && evt.topic) ? '<p class="mb-2 small"><i class="fas fa-tag text-secondary me-1"></i>' + escH(evt.topic) + '</p>' : '';
+            var ctaHtml;
+            if (booked) {
+              ctaHtml = '<span class="badge bg-danger py-2 px-3 mt-auto">Fully Booked</span>';
+            } else if (evt.booking_url) {
+              ctaHtml = '<a href="' + escH(evt.booking_url) + '" class="btn btn-sm btn-primary mt-auto" target="_blank" rel="noopener"><i class="fas fa-calendar-check me-1"></i>Book Now</a>';
+            } else {
+              ctaHtml = '<a href="#contact" class="btn btn-sm btn-outline-primary mt-auto">Register</a>';
+            }
+            var col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-4';
+            col.innerHTML = '<div class="card h-100 border-0 shadow-sm' + (booked ? ' opacity-75' : '') + '">'
+              + '<div class="card-body p-4 d-flex flex-column">'
+              + '<div class="mb-2"><i class="fas fa-calendar-days text-primary fs-1"></i></div>'
+              + typeBadge
+              + '<h5 class="fw-bold mb-2">' + escH(evt.name) + '</h5>'
+              + (evt.description ? '<p class="text-muted mb-2 small">' + escH(evt.description) + '</p>' : '')
+              + '<div class="mb-2">'
+              + (dateStr ? '<p class="mb-1 small"><i class="fas fa-calendar text-primary me-1"></i>' + escH(dateStr) + '</p>' : '')
+              + '<p class="mb-1 small"><i class="fas fa-clock text-primary me-1"></i>' + escH(timeStr) + '</p>'
+              + locHtml + topicHtml
+              + '<p class="mb-0 small fw-bold"><i class="fas fa-tag text-primary me-1"></i>' + escH(priceText) + '</p>'
+              + '</div>'
+              + ctaHtml
+              + '</div></div>';
+            grid.appendChild(col);
+          });
+        })
+        .catch(function () {
+          if (loading) loading.remove();
+          if (empty) empty.classList.remove('d-none');
+        });
+    });
+  })();
+  </script>
+</section>`
     });
 
     // ------------------------------------------------------------------
