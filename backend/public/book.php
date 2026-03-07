@@ -748,7 +748,7 @@ if (isset($error_mode) && $error_mode) {
                             <h6 class="mb-0"><?= htmlspecialchars($required_contract['name']) ?></h6>
                         </div>
                         <div class="card-body">
-                            <div class="border rounded p-3 mb-4 bg-white" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem;"><?= htmlspecialchars($required_contract['template_text']) ?></div>
+                            <div class="border rounded p-3 mb-4 bg-white" style="max-height: 300px; overflow-y: auto; font-size: 0.9rem;"><?= $required_contract['template_text'] ?></div>
 
                             <!-- Typed Name -->
                             <div class="mb-4">
