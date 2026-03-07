@@ -1,5 +1,5 @@
 <?php
-require_once '../portal/includes/config.php';
+require_once '../backend/includes/config.php';
 
 // Only admins who are impersonating can stop impersonation
 if (empty($_SESSION['portal_impersonating_admin_id'])) {

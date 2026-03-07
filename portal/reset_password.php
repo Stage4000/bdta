@@ -1,5 +1,5 @@
 <?php
-require_once '../portal/includes/config.php';
+require_once '../backend/includes/config.php';
 
 $error       = '';
 $success     = '';
