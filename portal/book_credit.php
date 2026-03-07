@@ -511,7 +511,7 @@ include '../portal/includes/header.php';
                     </div>
                     <div class="card-body">
                         <div class="border rounded p-3 mb-4 bg-white"
-                             style="max-height:300px;overflow-y:auto;white-space:pre-wrap;font-size:0.9rem;"><?= htmlspecialchars($required_contract['template_text']) ?></div>
+                             style="max-height:300px;overflow-y:auto;font-size:0.9rem;"><?= $required_contract['template_text'] ?></div>
                         <!-- Typed name -->
                         <div class="mb-4">
                             <label for="contractTypedName" class="form-label fw-semibold">
