@@ -4,7 +4,7 @@
  * Handles authenticated booking submissions from the client portal.
  * Supports both booking creation and inline pet addition.
  */
-require_once '../portal/includes/config.php';
+require_once '../backend/includes/config.php';
 header('Content-Type: application/json');
 
 // Must be a logged-in portal client

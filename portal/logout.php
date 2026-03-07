@@ -1,5 +1,5 @@
 <?php
-require_once '../portal/includes/config.php';
+require_once '../backend/includes/config.php';
 
 // If an admin is impersonating a client, stop impersonation instead of logging out
 if (!empty($_SESSION['portal_impersonating_admin_id'])) {

@@ -2,7 +2,6 @@
 require_once '../backend/includes/config.php';
 requireLogin();
 
-require_once '../portal/includes/config.php';
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
