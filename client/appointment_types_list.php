@@ -101,12 +101,23 @@ include __DIR__ . '/../backend/includes/header.php';
                                     <td>
                                         <?php 
                                         $schedule_type = $type['schedule_type'] ?? 'recurring';
-                                        if ($schedule_type === 'specific_date' && !empty($type['specific_date'])): 
+                                        if ($schedule_type === 'specific_date'):
+                                            // Check for multi-date format first
+                                            $list_specific_dates = [];
+                                            if (!empty($type['specific_dates'])) {
+                                                $parsed_list = json_decode($type['specific_dates'], true);
+                                                if (is_array($parsed_list)) $list_specific_dates = $parsed_list;
+                                            }
+                                            if (empty($list_specific_dates) && !empty($type['specific_date'])) {
+                                                $list_specific_dates = [['date' => $type['specific_date']]];
+                                            }
                                         ?>
                                             <span class="badge bg-warning text-dark">
-                                                <i class="fas fa-calendar-day"></i> Specific Date
+                                                <i class="fas fa-calendar-day"></i> Specific Date<?= count($list_specific_dates) > 1 ? 's' : '' ?>
                                             </span><br>
-                                            <small><?= date('M j, Y', strtotime($type['specific_date'])) ?></small>
+                                            <?php foreach ($list_specific_dates as $sd_entry): ?>
+                                            <small><?= date('M j, Y', strtotime($sd_entry['date'])) ?></small><br>
+                                            <?php endforeach; ?>
                                         <?php else: ?>
                                             <span class="badge bg-info text-dark">
                                                 <i class="fas fa-calendar-week"></i> Recurring

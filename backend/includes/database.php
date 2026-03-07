@@ -1383,6 +1383,11 @@ class Database {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN per_day_schedule TEXT");
         }
 
+        // Add specific_dates column for multi-date scheduling (JSON array of date+timeslot configs)
+        if (!in_array('specific_dates', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN specific_dates TEXT");
+        }
+
         // Add default_amount column to appointment_types table
         if (!in_array('default_amount', $apt_column_names)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN default_amount REAL DEFAULT 0");

@@ -87,11 +87,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $location_types_json = !empty($selected_loc_types) ? json_encode($selected_loc_types) : null;
     }
     
-    // Handle schedule type and specific date
+    // Handle schedule type and specific date(s)
     $schedule_type = $_POST['schedule_type'] ?? 'recurring';
-    $specific_date = null;
-    if ($schedule_type === 'specific_date' && !empty($_POST['specific_date'])) {
-        $specific_date = $_POST['specific_date'];
+    $specific_date  = null;
+    $specific_dates = null;
+
+    if ($schedule_type === 'specific_date') {
+        // Parse the new multi-date JSON submitted from the builder UI
+        $raw_specific_dates = $_POST['specific_dates'] ?? '';
+        if (!empty($raw_specific_dates)) {
+            $parsed_dates = json_decode($raw_specific_dates, true);
+            if (is_array($parsed_dates) && !empty($parsed_dates)) {
+                $clean_dates = [];
+                foreach ($parsed_dates as $entry) {
+                    $entry_date = trim($entry['date'] ?? '');
+                    if (empty($entry_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $entry_date)) {
+                        continue;
+                    }
+                    $clean_timeslots = [];
+                    foreach ($entry['timeslots'] ?? [] as $slot) {
+                        $slot_type = $slot['type'] ?? '';
+                        if ($slot_type === 'point' && !empty($slot['time'])
+                            && preg_match('/^\d{2}:\d{2}$/', $slot['time'])) {
+                            $clean_timeslots[] = ['type' => 'point', 'time' => $slot['time']];
+                        } elseif ($slot_type === 'range'
+                            && !empty($slot['start']) && !empty($slot['end'])
+                            && preg_match('/^\d{2}:\d{2}$/', $slot['start'])
+                            && preg_match('/^\d{2}:\d{2}$/', $slot['end'])
+                            && $slot['start'] < $slot['end']) {
+                            $clean_timeslots[] = [
+                                'type'  => 'range',
+                                'start' => $slot['start'],
+                                'end'   => $slot['end'],
+                            ];
+                        }
+                    }
+                    $clean_dates[] = ['date' => $entry_date, 'timeslots' => $clean_timeslots];
+                }
+                if (!empty($clean_dates)) {
+                    $specific_dates = json_encode($clean_dates);
+                    // Keep legacy specific_date as the first/earliest date for backward compat
+                    usort($clean_dates, fn($a, $b) => $a['date'] <=> $b['date']);
+                    $specific_date = $clean_dates[0]['date'];
+                }
+            }
+        }
+        // Fallback to legacy single-date field if no multi-date data was submitted
+        if (empty($specific_dates) && !empty($_POST['specific_date'])) {
+            $specific_date = $_POST['specific_date'];
+        }
     }
     
     // Handle availability configuration
@@ -147,6 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     portal_available = ?,
                     schedule_type = ?,
                     specific_date = ?,
+                    specific_dates = ?,
                     available_days = ?,
                     available_start_time = ?,
                     available_end_time = ?,
@@ -175,7 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
                 $is_active, $portal_available,
-                $schedule_type, $specific_date,
+                $schedule_type, $specific_date, $specific_dates,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
                 $is_field_rental, $field_rental_location,
@@ -209,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_group_class, max_participants,
                     is_active, unique_link,
                     portal_available,
-                    schedule_type, specific_date,
+                    schedule_type, specific_date, specific_dates,
                     available_days, available_start_time, available_end_time, time_slot_interval,
                     is_mini_session, mini_session_location, mini_session_topic,
                     is_field_rental, field_rental_location,
@@ -219,7 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     confirmation_template_id,
                     reminder_template_id,
                     cancellation_template_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -232,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_group_class, $max_participants,
                 $is_active, $unique_link,
                 $portal_available,
-                $schedule_type, $specific_date,
+                $schedule_type, $specific_date, $specific_dates,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
                 $is_field_rental, $field_rental_location,
@@ -304,6 +349,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sub_action']) && $is_
 
 // Load all active form templates for the selection UI
 $all_forms = $conn->query("SELECT id, name FROM form_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+
+// Prepare existing specific_dates data for the multi-date builder
+$existing_specific_dates = [];
+if ($is_edit && !empty($type['specific_dates'])) {
+    $decoded_sd = json_decode($type['specific_dates'], true);
+    if (is_array($decoded_sd)) {
+        $existing_specific_dates = $decoded_sd;
+    }
+}
+// Migrate legacy single specific_date into the new format for display
+if ($is_edit && empty($existing_specific_dates) && !empty($type['specific_date'])) {
+    $existing_specific_dates = [['date' => $type['specific_date'], 'timeslots' => []]];
+}
+$existing_specific_dates_json = htmlspecialchars(json_encode($existing_specific_dates), ENT_QUOTES, 'UTF-8');
 
 // Load all active contract templates for the dropdown
 $all_contract_templates = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
@@ -577,10 +636,29 @@ include __DIR__ . '/../backend/includes/header.php';
 
                 <div id="specific_date_section" style="display: none;">
                     <div class="col-12 mb-3">
-                        <label for="specific_date" class="form-label">Specific Date <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control" id="specific_date" name="specific_date" 
-                               value="<?= htmlspecialchars($type['specific_date'] ?? '') ?>">
-                        <div class="form-text">Select the exact date this appointment will be available</div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">
+                                <i class="fas fa-calendar-day me-1"></i>
+                                Specific Dates <span class="text-danger">*</span>
+                            </label>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addSpecificDateEntry()">
+                                <i class="fas fa-plus me-1"></i>Add Date
+                            </button>
+                        </div>
+                        <div class="form-text mb-3">
+                            Add one or more specific dates. For each date you can leave timeslots empty to use the global
+                            time range below, or add individual timeslots (specific times or time ranges).
+                        </div>
+                        <div id="specific_dates_container">
+                            <!-- Date entries are rendered by JS on page load -->
+                        </div>
+                        <div id="no_dates_hint" class="alert alert-warning d-none">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            Please add at least one specific date.
+                        </div>
+                        <!-- Hidden field carrying the serialised JSON to the server -->
+                        <input type="hidden" name="specific_dates" id="specific_dates_json"
+                               value="<?= $existing_specific_dates_json ?>">
                     </div>
                 </div>
 
@@ -612,8 +690,9 @@ include __DIR__ . '/../backend/includes/header.php';
                             <strong>Preview:</strong> <span id="preview_text">
                             <?php
                             $schedule_type = $type['schedule_type'] ?? 'recurring';
-                            if ($schedule_type === 'specific_date' && !empty($type['specific_date'])) {
-                                echo 'This appointment will be available only on <strong>' . date('F j, Y', strtotime($type['specific_date'])) . '</strong>';
+                            if ($schedule_type === 'specific_date' && !empty($existing_specific_dates)) {
+                                $date_labels = array_map(fn($e) => date('F j, Y', strtotime($e['date'])), $existing_specific_dates);
+                                echo 'This appointment will be available on <strong>' . implode(', ', $date_labels) . '</strong>';
                             } else {
                                 echo 'Based on your settings, appointment slots will be available ';
                             }
@@ -1103,21 +1182,179 @@ include __DIR__ . '/../backend/includes/header.php';
 </div>
 
 <script>
+// ─── Specific Dates multi-date builder ──────────────────────────────────────
+
+/** In-memory representation of the configured specific dates. */
+let specificDatesData = [];
+
+try {
+    const raw = document.getElementById('specific_dates_json').value;
+    if (raw) specificDatesData = JSON.parse(raw) || [];
+} catch(e) { specificDatesData = []; }
+
+/** Render a single timeslot row inside a date card. */
+function buildTimeslotRow(slotIdx, slot) {
+    const type = slot.type || 'point';
+    const pointVal = (type === 'point') ? (slot.time || '') : '';
+    const rangeStart = (type === 'range') ? (slot.start || '') : '';
+    const rangeEnd   = (type === 'range') ? (slot.end   || '') : '';
+
+    return `
+<div class="timeslot-entry d-flex flex-wrap align-items-center gap-2 mb-2 p-2 border rounded bg-light">
+    <select class="form-select form-select-sm timeslot-type" style="width:auto;" onchange="onTimeslotTypeChange(this)" data-slot-idx="${slotIdx}">
+        <option value="point"${type==='point'?' selected':''}>Specific time</option>
+        <option value="range"${type==='range'?' selected':''}>Time range</option>
+    </select>
+    <div class="timeslot-point-inputs d-flex align-items-center gap-1"${type==='range'?' style="display:none!important"':''}>
+        <span class="text-muted small">at</span>
+        <input type="time" class="form-control form-control-sm timeslot-point-time" style="width:auto;" value="${pointVal}">
+    </div>
+    <div class="timeslot-range-inputs d-flex align-items-center gap-1"${type==='point'?' style="display:none!important"':''}>
+        <span class="text-muted small">from</span>
+        <input type="time" class="form-control form-control-sm timeslot-range-start" style="width:auto;" value="${rangeStart}">
+        <span class="text-muted small">to</span>
+        <input type="time" class="form-control form-control-sm timeslot-range-end" style="width:auto;" value="${rangeEnd}">
+    </div>
+    <button type="button" class="btn btn-outline-danger btn-sm ms-auto" onclick="removeTimeslotRow(this)" title="Remove timeslot">
+        <i class="fas fa-times"></i>
+    </button>
+</div>`;
+}
+
+/** Render one date card with its timeslot rows. */
+function buildDateCard(dateIdx, entry) {
+    const dateVal = entry.date || '';
+    const timeslots = entry.timeslots || [];
+    let slotsHtml = timeslots.map((s, si) => buildTimeslotRow(si, s)).join('');
+
+    return `
+<div class="specific-date-entry card mb-3 border-secondary" data-date-idx="${dateIdx}">
+    <div class="card-header d-flex align-items-center gap-2 py-2">
+        <i class="fas fa-calendar-day text-secondary"></i>
+        <input type="date" class="form-control form-control-sm sd-date-input" style="width:auto;" value="${dateVal}" onchange="serializeSpecificDates()">
+        <button type="button" class="btn btn-outline-danger btn-sm ms-auto" onclick="removeDateCard(this)" title="Remove this date">
+            <i class="fas fa-trash me-1"></i>Remove Date
+        </button>
+    </div>
+    <div class="card-body pb-2">
+        <p class="form-text mb-2">
+            <i class="fas fa-info-circle me-1"></i>
+            Leave timeslots empty to use the global time range, or add custom timeslots below.
+        </p>
+        <div class="timeslots-list">
+            ${slotsHtml}
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm mt-1" onclick="addTimeslotRow(this)">
+            <i class="fas fa-plus me-1"></i>Add Timeslot
+        </button>
+    </div>
+</div>`;
+}
+
+/** Re-render all date cards from specificDatesData. */
+function renderSpecificDates() {
+    const container = document.getElementById('specific_dates_container');
+    container.innerHTML = specificDatesData.map((e, i) => buildDateCard(i, e)).join('');
+    const hint = document.getElementById('no_dates_hint');
+    if (hint) hint.classList.toggle('d-none', specificDatesData.length > 0);
+    serializeSpecificDates();
+    updateAvailabilityPreview();
+}
+
+/** Add a new empty date entry. */
+function addSpecificDateEntry() {
+    specificDatesData.push({ date: '', timeslots: [] });
+    renderSpecificDates();
+}
+
+/** Remove the date card that contains the clicked button. */
+function removeDateCard(btn) {
+    const card = btn.closest('.specific-date-entry');
+    const idx = parseInt(card.dataset.dateIdx);
+    specificDatesData.splice(idx, 1);
+    renderSpecificDates();
+}
+
+/** Add a new timeslot row inside a date card. */
+function addTimeslotRow(btn) {
+    const card = btn.closest('.specific-date-entry');
+    const dateIdx = parseInt(card.dataset.dateIdx);
+    specificDatesData[dateIdx].timeslots.push({ type: 'point', time: '' });
+    renderSpecificDates();
+    // Scroll the newly added row into view
+    const timeslotRows = card.querySelectorAll('.timeslot-entry');
+    if (timeslotRows.length) timeslotRows[timeslotRows.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/** Remove a timeslot row. */
+function removeTimeslotRow(btn) {
+    const entry  = btn.closest('.timeslot-entry');
+    const card   = btn.closest('.specific-date-entry');
+    const dateIdx = parseInt(card.dataset.dateIdx);
+    const list    = card.querySelector('.timeslots-list');
+    const rows    = Array.from(list.querySelectorAll('.timeslot-entry'));
+    const slotIdx = rows.indexOf(entry);
+    if (slotIdx >= 0) specificDatesData[dateIdx].timeslots.splice(slotIdx, 1);
+    renderSpecificDates();
+}
+
+/** Toggle point/range inputs when the type <select> changes. */
+function onTimeslotTypeChange(sel) {
+    const entry      = sel.closest('.timeslot-entry');
+    const pointDiv   = entry.querySelector('.timeslot-point-inputs');
+    const rangeDiv   = entry.querySelector('.timeslot-range-inputs');
+    if (sel.value === 'range') {
+        pointDiv.style.setProperty('display', 'none', 'important');
+        rangeDiv.style.removeProperty('display');
+    } else {
+        rangeDiv.style.setProperty('display', 'none', 'important');
+        pointDiv.style.removeProperty('display');
+    }
+    serializeSpecificDates();
+}
+
+/** Read the current DOM state into specificDatesData then write JSON to the hidden field. */
+function serializeSpecificDates() {
+    const container = document.getElementById('specific_dates_container');
+    const cards = container.querySelectorAll('.specific-date-entry');
+    specificDatesData = Array.from(cards).map(function(card) {
+        const dateInput = card.querySelector('.sd-date-input');
+        const dateVal = dateInput ? dateInput.value : '';
+        const slotRows = card.querySelectorAll('.timeslot-entry');
+        const timeslots = Array.from(slotRows).map(function(row) {
+            const typeSel = row.querySelector('.timeslot-type');
+            const slotType = typeSel ? typeSel.value : 'point';
+            if (slotType === 'range') {
+                const start = (row.querySelector('.timeslot-range-start') || {}).value || '';
+                const end   = (row.querySelector('.timeslot-range-end')   || {}).value || '';
+                return { type: 'range', start, end };
+            } else {
+                const time = (row.querySelector('.timeslot-point-time') || {}).value || '';
+                return { type: 'point', time };
+            }
+        });
+        return { date: dateVal, timeslots };
+    });
+    document.getElementById('specific_dates_json').value = JSON.stringify(specificDatesData);
+    updateAvailabilityPreview();
+}
+
+// ─── Schedule type toggle ────────────────────────────────────────────────────
+
 // Toggle between schedule types
 function toggleScheduleType() {
     const recurringRadio = document.getElementById('schedule_type_recurring');
     const recurringSection = document.getElementById('recurring_schedule_section');
     const specificDateSection = document.getElementById('specific_date_section');
-    const specificDateInput = document.getElementById('specific_date');
     
     if (recurringRadio.checked) {
         recurringSection.style.display = 'block';
         specificDateSection.style.display = 'none';
-        specificDateInput.removeAttribute('required');
     } else {
         recurringSection.style.display = 'none';
         specificDateSection.style.display = 'block';
-        specificDateInput.setAttribute('required', 'required');
+        // Render date cards when section becomes visible
+        renderSpecificDates();
     }
     
     updateAvailabilityPreview();
@@ -1209,6 +1446,11 @@ function copyBookingLink(event) {
 document.addEventListener('DOMContentLoaded', function() {
     toggleTravelTime();
     toggleScheduleType();
+    // If specific date is already selected, render the date cards immediately
+    const recurringRadio = document.getElementById('schedule_type_recurring');
+    if (!recurringRadio.checked) {
+        renderSpecificDates();
+    }
     updateAvailabilityPreview();
     toggleFieldRentalFields();
     togglePerDaySchedule();
@@ -1221,7 +1463,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners for schedule type
     document.getElementById('schedule_type_recurring').addEventListener('change', toggleScheduleType);
     document.getElementById('schedule_type_specific').addEventListener('change', toggleScheduleType);
-    document.getElementById('specific_date').addEventListener('change', updateAvailabilityPreview);
     
     // Add event listeners for day checkboxes
     document.querySelectorAll('input[name="available_days[]"]').forEach(function(checkbox) {
@@ -1239,6 +1480,25 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('input[name^="day_start_time"], input[name^="day_end_time"]').forEach(function(input) {
         input.addEventListener('change', updateAvailabilityPreview);
     });
+
+    // Serialize specific dates before form submit
+    const mainForm = document.querySelector('form[method="POST"]:not([action])');
+    if (mainForm) {
+        mainForm.addEventListener('submit', function(event) {
+            serializeSpecificDates();
+            // Validate: at least one date required when specific_date mode
+            if (!recurringRadio.checked) {
+                const hasDates = specificDatesData.some(function(e) { return e.date; });
+                if (!hasDates) {
+                    event.preventDefault();
+                    const hint = document.getElementById('no_dates_hint');
+                    if (hint) hint.classList.remove('d-none');
+                    document.getElementById('specific_dates_container').scrollIntoView({ behavior: 'smooth' });
+                    return false;
+                }
+            }
+        });
+    }
 });
 
 // Update the availability preview based on form inputs
@@ -1300,27 +1560,20 @@ function updateAvailabilityPreview() {
         // Update preview text
         document.getElementById('preview_interval').textContent = interval;
     } else {
-        // Show specific date preview
+        // Show specific dates preview
         previewRecurring.style.display = 'none';
-        const specificDate = document.getElementById('specific_date').value;
-        if (specificDate) {
-            // Parse date components to avoid timezone issues
-            const [year, month, day] = specificDate.split('-').map(Number);
-            const date = new Date(year, month - 1, day);
-            const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-            previewText.innerHTML = 'This appointment will be available only on <strong>' + formattedDate + '</strong>';
+        const datesWithValues = specificDatesData.filter(function(e) { return e.date; });
+        if (datesWithValues.length > 0) {
+            const labels = datesWithValues.map(function(e) {
+                const [y, mo, d] = e.date.split('-').map(Number);
+                return new Date(y, mo - 1, d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            });
+            previewText.innerHTML = 'This appointment will be available on <strong>' + labels.join(', ') + '</strong>';
         } else {
-            previewText.textContent = 'Please select a specific date';
+            previewText.textContent = 'Please add at least one specific date';
         }
     }
 }
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    toggleScheduleType();
-    toggleTravelTime();
-    toggleMiniSessionFields();
-});
 </script>
 
 <?php include __DIR__ . '/../backend/includes/footer.php'; ?>
