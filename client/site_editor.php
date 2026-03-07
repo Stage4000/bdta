@@ -291,7 +291,8 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
                 '/backend/public/theme.css.php'
             ],
             scripts: [
-                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js'
+                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js',
+                '/js/bdta-modules.js'
             ]
         },
         // Custom panels
@@ -439,6 +440,59 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
   <a href="https://www.facebook.com/BrooksDogTrainingAcademy" style="color: #9a0073;">Facebook</a> |
   <a href="https://www.instagram.com/brooksdogtrainingacademy" style="color: #9a0073;">Instagram</a>
 </div>`
+    });
+
+    bm.add('bdta-packages', {
+        label: 'Training Packages',
+        category: 'BDTA',
+        content: `
+<section class="bdta-packages-module py-5">
+  <div class="container py-5">
+    <div class="text-center mb-5">
+      <h2 class="display-5 fw-bold mb-3">Our Training Packages</h2>
+      <p class="lead text-muted">Bundled training programs designed to set your dog up for success</p>
+    </div>
+    <div class="bdta-packages-grid row g-4">
+      <div class="bdta-packages-loading col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading packages…</span>
+        </div>
+        <p class="text-muted mt-3">Loading packages…</p>
+      </div>
+    </div>
+    <div class="bdta-packages-empty text-center py-5 d-none">
+      <i class="fas fa-box-open display-4 text-muted mb-3"></i>
+      <p class="lead text-muted">No packages are currently available. Check back soon!</p>
+      <a href="#contact" class="btn btn-outline-primary">Contact Us</a>
+    </div>
+  </div>
+</section>`
+    });
+
+    bm.add('bdta-events', {
+        label: 'Group Events & Workshops',
+        category: 'BDTA',
+        content: `
+<section class="bdta-events-module py-5 bg-light">
+  <div class="container py-5">
+    <div class="text-center mb-5">
+      <h2 class="display-5 fw-bold mb-3">Group Events &amp; Workshops</h2>
+      <p class="lead text-muted">Join our upcoming in-person workshops and community events</p>
+    </div>
+    <div class="bdta-events-grid row g-4">
+      <div class="bdta-events-loading col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading events…</span>
+        </div>
+        <p class="text-muted mt-3">Loading events…</p>
+      </div>
+    </div>
+    <div class="bdta-events-empty text-center py-5 d-none">
+      <i class="fas fa-calendar-xmark display-4 text-muted mb-3"></i>
+      <p class="lead text-muted">No upcoming events are scheduled right now. Follow us on social media for announcements!</p>
+    </div>
+  </div>
+</section>`
     });
 
     // ------------------------------------------------------------------
