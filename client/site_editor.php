@@ -84,6 +84,68 @@ if ($page['is_homepage'] && trim($page['html_content']) === '') {
     }
 }
 
+// If this is a new non-homepage page with no content, seed with the standard
+// site shell (navbar + placeholder content + footer) extracted from index.html.
+// Assumes index.html contains exactly one top-level <nav> and one <footer>
+// with no nested elements of the same type (matching the current site structure).
+if (!$page['is_homepage'] && trim($page['html_content']) === '') {
+    $index_file = dirname(__DIR__) . '/index.html';
+    if (file_exists($index_file)) {
+        $raw_html = file_get_contents($index_file);
+
+        // Extract <style> blocks from <head> as seed CSS
+        $seed_css = '';
+        if (preg_match_all('/<style[^>]*>(.*?)<\/style>/si', $raw_html, $styles)) {
+            $seed_css = implode("\n", $styles[1]);
+        }
+
+        $seed_html = '';
+        if (preg_match('/<body[^>]*>(.*?)<\/body>/si', $raw_html, $m)) {
+            $body_html = $m[1];
+
+            // Extract the main navbar (no nested <nav> in index.html)
+            $navbar = '';
+            if (preg_match('/<nav\b[^>]*>.*?<\/nav>/si', $body_html, $nav_m)) {
+                $navbar = $nav_m[0];
+            }
+
+            // Extract the footer (no nested <footer> in index.html)
+            $footer = '';
+            if (preg_match('/<footer\b[^>]*>.*?<\/footer>/si', $body_html, $footer_m)) {
+                $footer = $footer_m[0];
+            }
+
+            // Only seed when both structural elements are successfully extracted;
+            // otherwise the editor opens with blank content for the user to build from scratch.
+            if ($navbar && $footer) {
+                $page_heading = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
+                $seed_html = $navbar . "\n"
+                    . '<main style="padding-top: 80px; min-height: 60vh;">' . "\n"
+                    . '<section class="py-5">' . "\n"
+                    . '<div class="container">' . "\n"
+                    . '<h1 class="display-5 fw-bold mb-4">' . $page_heading . '</h1>' . "\n"
+                    . '<p class="lead text-muted">Add your content here.</p>' . "\n"
+                    . '</div>' . "\n"
+                    . '</section>' . "\n"
+                    . '</main>' . "\n"
+                    . $footer;
+            }
+        }
+
+        if ($seed_html) {
+            $seed_html = makeHtmlPathsAbsolute($seed_html);
+            $seed_css  = makeHtmlPathsAbsolute($seed_css);
+
+            $upd = $conn->prepare(
+                "UPDATE site_pages SET html_content=?, css_content=? WHERE id=?"
+            );
+            $upd->execute([$seed_html, $seed_css, $page_id]);
+            $page['html_content'] = $seed_html;
+            $page['css_content']  = $seed_css;
+        }
+    }
+}
+
 // Also fix any previously saved content that still has relative paths
 // (e.g. seeded before this fix was applied).  This is idempotent.
 $page['html_content'] = makeHtmlPathsAbsolute($page['html_content'] ?? '');

@@ -141,10 +141,9 @@ require_once '../backend/includes/header.php';
 (function () {
     'use strict';
 
-    const newPageModal = new bootstrap.Modal(document.getElementById('newPageModal'));
-
-    // Open modal
+    // Open modal — initialise lazily so Bootstrap JS (loaded in footer) is available
     document.getElementById('btnNewPage').addEventListener('click', function () {
+        const newPageModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('newPageModal'));
         document.getElementById('newPageTitle').value = '';
         document.getElementById('newPageSlug').value  = '';
         document.getElementById('newPageError').classList.add('d-none');
