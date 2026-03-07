@@ -37,7 +37,7 @@ try {
                duration_minutes, time_slot_interval,
                schedule_type, specific_date, specific_dates,
                available_start_time, available_end_time,
-               is_group_class, max_participants,
+               is_group_class, max_participants, group_class_location,
                is_mini_session, mini_session_location, mini_session_topic,
                unique_link
         FROM appointment_types
@@ -183,6 +183,7 @@ try {
             if ($is_group) {
                 $event['type']             = 'group_class';
                 $event['max_participants'] = $max_part;
+                $event['location']         = $type['group_class_location'];
             } else {
                 $event['type']     = 'mini_session';
                 $event['location'] = $type['mini_session_location'];
