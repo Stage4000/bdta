@@ -415,7 +415,7 @@ function toggleOptions(select) {
             }
             optionsContainer.remove();
         }
-        optionsTextarea.classList.remove('d-none');
+        optionsTextarea.classList.add('d-none');
     }
 }
 
