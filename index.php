@@ -73,5 +73,7 @@ $title     = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <!-- Custom JS (loads dynamic Package and Event modules, etc.) -->
     <script src="/js/script.js"></script>
+    <!-- BDTA dynamic modules (Packages & Events blocks added via the site editor) -->
+    <script src="/js/bdta-modules.js"></script>
 </body>
 </html>

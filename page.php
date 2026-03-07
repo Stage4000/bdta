@@ -94,5 +94,7 @@ $title     = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     <?php echo $page['html_content']; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- BDTA dynamic modules (Packages & Events blocks added via the site editor) -->
+    <script src="/js/bdta-modules.js"></script>
 </body>
 </html>
