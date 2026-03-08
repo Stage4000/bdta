@@ -205,6 +205,36 @@ include '../portal/includes/header.php';
     .sig-preview { font-size: 2.2rem; color: #1a1a2e; min-height: 3.5rem; border-bottom: 2px solid #495057; padding-bottom: 0.25rem; line-height: 1.2; }
     .font-option-btn { cursor: pointer; border: 2px solid #dee2e6; border-radius: 8px; padding: 0.5rem 1rem; font-size: 1.5rem; background: white; transition: border-color .2s; }
     .font-option-btn.selected, .font-option-btn:hover { border-color: #9a0073; background: #fdf0f9; }
+    /* ── Custom date-picker calendar ── */
+    .bdta-calendar { display: inline-block; width: 100%; max-width: 360px; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); user-select: none; }
+    .bdta-cal-header { display: flex; align-items: center; justify-content: space-between; background: #9a0073; color: #fff; padding: .6rem 1rem; }
+    .bdta-cal-nav { background: none; border: none; color: #fff; font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0 .4rem; border-radius: 4px; transition: background .15s; }
+    .bdta-cal-nav:hover { background: rgba(255,255,255,.2); }
+    .bdta-cal-nav:disabled { opacity: .35; cursor: default; }
+    .bdta-cal-month-label { font-weight: 600; font-size: .95rem; }
+    .bdta-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); background: #fff; }
+    .bdta-cal-dow { text-align: center; font-size: .72rem; font-weight: 600; color: #6b7280; padding: .45rem 0; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+    .bdta-cal-day { text-align: center; padding: .55rem 0; font-size: .88rem; border-radius: 50%; margin: 3px auto; width: 36px; height: 36px; line-height: 26px; display: flex; align-items: center; justify-content: center; }
+    .bdta-cal-day.empty { visibility: hidden; }
+    .bdta-cal-day.unavailable { color: #c0c4cc; cursor: not-allowed; background: transparent; }
+    .bdta-cal-day.available { color: #111827; cursor: pointer; font-weight: 600; background: #f0fdf4; border: 1.5px solid #86efac; transition: background .15s, border-color .15s; }
+    .bdta-cal-day.available:hover { background: #9a0073; border-color: #9a0073; color: #fff; }
+    .bdta-cal-day.selected { background: #9a0073 !important; border-color: #9a0073 !important; color: #fff !important; font-weight: 700; }
+    .bdta-cal-day.today-marker::after { content: ''; display: block; width: 4px; height: 4px; border-radius: 50%; background: #9a0073; margin: 0 auto; margin-top: -4px; }
+    .bdta-cal-day.selected.today-marker::after { background: #fff; }
+    .bdta-cal-footer { background: #f9fafb; border-top: 1px solid #e5e7eb; padding: .5rem .8rem; font-size: .8rem; display: flex; gap: 1rem; align-items: center; }
+    .bdta-cal-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+    .bdta-cal-legend-dot.avail  { background: #86efac; border: 1px solid #86efac; }
+    .bdta-cal-legend-dot.unavail { background: #e5e7eb; border: 1px solid #e5e7eb; }
+    .bdta-cal-selected-label { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: .45rem .8rem; font-size: .88rem; color: #166534; margin-top: .6rem; display: none; }
+    [data-bs-theme="dark"] .bdta-calendar { border-color: #374151; box-shadow: none; }
+    [data-bs-theme="dark"] .bdta-cal-grid { background: #1f2937; }
+    [data-bs-theme="dark"] .bdta-cal-dow  { background: #111827; color: #9ca3af; border-bottom-color: #374151; }
+    [data-bs-theme="dark"] .bdta-cal-day.available { background: #052e16; border-color: #16a34a; color: #d1fae5; }
+    [data-bs-theme="dark"] .bdta-cal-day.available:hover { background: #9a0073; border-color: #9a0073; color: #fff; }
+    [data-bs-theme="dark"] .bdta-cal-day.unavailable { color: #4b5563; }
+    [data-bs-theme="dark"] .bdta-cal-footer { background: #111827; border-top-color: #374151; color: #9ca3af; }
+    [data-bs-theme="dark"] .bdta-cal-selected-label { background: #052e16; border-color: #16a34a; color: #d1fae5; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Pacifico&family=Satisfy&family=Great+Vibes&family=Allura&display=swap" rel="stylesheet">
 
@@ -241,12 +271,12 @@ include '../portal/includes/header.php';
                             <div class="spinner-border spinner-border-sm me-2" role="status"></div>
                             Loading available dates&hellip;
                         </div>
-                        <select class="form-select form-select-lg" id="appointmentDate" required style="display:none;">
-                            <option value="">— Select a date —</option>
-                        </select>
-                        <small id="dateHelperText" class="text-muted mt-1 d-block" style="display:none;">
-                            Only dates with available appointment times are shown.
-                        </small>
+                        <input type="hidden" id="appointmentDate">
+                        <div id="calendarWidget" style="display:none;"></div>
+                        <div id="calSelectedLabel" class="bdta-cal-selected-label">
+                            <i class="fas fa-calendar-check me-1"></i>
+                            <span id="calSelectedText"></span>
+                        </div>
                         <div id="noAvailableDatesMsg" class="alert alert-warning" style="display:none;">
                             <i class="fas fa-calendar-times me-2"></i>
                             There are currently no available dates. Please check back later or contact us for assistance.
@@ -681,16 +711,22 @@ include '../portal/includes/header.php';
         });
     }
 
+    /* ─── Calendar date picker ────────────────────────────────────── */
+    let calendarYear  = new Date().getFullYear();
+    let calendarMonth = new Date().getMonth();
+    let availableDatesSet = new Set();
+    const CAL_DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const CAL_MONTH_NAMES = ['January','February','March','April','May','June',
+                              'July','August','September','October','November','December'];
+
     /* ─── Load available dates ────────────────────────────────────── */
     function loadAvailableDates() {
         const loadingArea = document.getElementById('dateLoadingArea');
-        const dateSelect  = document.getElementById('appointmentDate');
+        const calWidget   = document.getElementById('calendarWidget');
         const noAvailMsg  = document.getElementById('noAvailableDatesMsg');
-        const helperText  = document.getElementById('dateHelperText');
-        if (!loadingArea || !dateSelect) return;
+        if (!loadingArea || !calWidget) return;
 
         const today   = new Date().toISOString().split('T')[0];
-        // Wide range so specific-date types with far-future dates are included
         const endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
         fetch(`/backend/public/api_bookings.php?action=available_dates&appointment_type_id=${apptTypeId}&from=${today}&to=${endDate}`)
@@ -698,33 +734,111 @@ include '../portal/includes/header.php';
             .then(data => {
                 loadingArea.style.display = 'none';
                 const dates = data.available_dates || [];
+                availableDatesSet = new Set(dates);
                 if (dates.length > 0) {
-                    dates.forEach(d => {
-                        const opt = document.createElement('option');
-                        opt.value = d;
-                        opt.textContent = formatDateLong(d);
-                        dateSelect.appendChild(opt);
-                    });
-                    dateSelect.style.display = '';
-                    if (helperText) helperText.style.removeProperty('display');
+                    const firstDate = new Date(dates[0] + 'T00:00');
+                    calendarYear  = firstDate.getFullYear();
+                    calendarMonth = firstDate.getMonth();
+                    renderCalendar();
+                    calWidget.style.display = '';
                 } else {
                     if (noAvailMsg) noAvailMsg.style.display = '';
                 }
             })
             .catch(() => {
-                // On network error, fall back to a plain date input
                 if (loadingArea) loadingArea.style.display = 'none';
-                if (dateSelect) {
+                const calWidget2 = document.getElementById('calendarWidget');
+                if (calWidget2) {
                     const input = document.createElement('input');
                     input.type  = 'date';
                     input.id    = 'appointmentDate';
                     input.className = 'form-control form-control-lg';
                     input.required  = true;
-                    input.min = today;
-                    dateSelect.replaceWith(input);
+                    input.min = new Date().toISOString().split('T')[0];
+                    calWidget2.replaceWith(input);
+                    const hiddenEl = document.getElementById('appointmentDate');
+                    if (hiddenEl && hiddenEl.type === 'hidden') hiddenEl.remove();
                 }
             });
     }
+
+    function renderCalendar() {
+        const calWidget = document.getElementById('calendarWidget');
+        if (!calWidget) return;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+
+        const firstDay    = new Date(calendarYear, calendarMonth, 1).getDay();
+        const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+        const nowYear     = today.getFullYear();
+        const nowMonth    = today.getMonth();
+        const isPrevDisabled = (calendarYear < nowYear) ||
+                               (calendarYear === nowYear && calendarMonth <= nowMonth);
+
+        let html = `<div class="bdta-calendar">
+  <div class="bdta-cal-header">
+    <button class="bdta-cal-nav" onclick="calPrevMonth()" ${isPrevDisabled ? 'disabled' : ''}>&lsaquo;</button>
+    <span class="bdta-cal-month-label">${CAL_MONTH_NAMES[calendarMonth]} ${calendarYear}</span>
+    <button class="bdta-cal-nav" onclick="calNextMonth()">&rsaquo;</button>
+  </div>
+  <div class="bdta-cal-grid">`;
+
+        CAL_DAY_NAMES.forEach(d => { html += `<div class="bdta-cal-dow">${d}</div>`; });
+
+        for (let i = 0; i < firstDay; i++) {
+            html += `<div class="bdta-cal-day empty"></div>`;
+        }
+        for (let day = 1; day <= daysInMonth; day++) {
+            const mm   = String(calendarMonth + 1).padStart(2, '0');
+            const dd   = String(day).padStart(2, '0');
+            const dStr = `${calendarYear}-${mm}-${dd}`;
+            const isAvail    = availableDatesSet.has(dStr);
+            const isSelected = (selectedDate === dStr);
+            const isToday    = (dStr === todayStr);
+            let cls = 'bdta-cal-day';
+            if      (isSelected) cls += ' available selected';
+            else if (isAvail)    cls += ' available';
+            else                 cls += ' unavailable';
+            if (isToday) cls += ' today-marker';
+            const onclick = isAvail ? `onclick="selectCalendarDate('${dStr}')"` : '';
+            html += `<div class="${cls}" ${onclick}>${day}</div>`;
+        }
+        html += `</div>
+  <div class="bdta-cal-footer">
+    <span><span class="bdta-cal-legend-dot avail"></span>Available</span>
+    <span><span class="bdta-cal-legend-dot unavail"></span>Unavailable</span>
+  </div>
+</div>`;
+        calWidget.innerHTML = html;
+    }
+
+    window.calPrevMonth = function () {
+        const now = new Date();
+        if (calendarYear === now.getFullYear() && calendarMonth <= now.getMonth()) return;
+        if (calendarMonth === 0) { calendarMonth = 11; calendarYear--; }
+        else { calendarMonth--; }
+        renderCalendar();
+    };
+
+    window.calNextMonth = function () {
+        if (calendarMonth === 11) { calendarMonth = 0; calendarYear++; }
+        else { calendarMonth++; }
+        renderCalendar();
+    };
+
+    window.selectCalendarDate = function (d) {
+        selectedDate = d;
+        const hiddenInput = document.getElementById('appointmentDate');
+        if (hiddenInput) hiddenInput.value = d;
+        const label    = document.getElementById('calSelectedLabel');
+        const labelTxt = document.getElementById('calSelectedText');
+        if (label && labelTxt) {
+            labelTxt.textContent = formatDateLong(d);
+            label.style.display = '';
+        }
+        renderCalendar();
+    };
 
     // Kick off date loading on page load
     document.addEventListener('DOMContentLoaded', loadAvailableDates);
