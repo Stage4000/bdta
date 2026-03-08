@@ -19,7 +19,7 @@ if ($is_edit) {
     $template = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$template) {
-        $_SESSION['error'] = "Template not found";
+        setFlashMessage("Template not found", 'error');
         header('Location: contract_templates_list.php');
         exit;
     }
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     if (empty($name) || empty($template_text)) {
-        $_SESSION['error'] = "Name and template text are required";
+        setFlashMessage("Name and template text are required", 'error');
     } else {
         try {
             if ($is_edit) {
@@ -47,14 +47,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE id = ?
                 ");
                 $stmt->execute([$name, $description, $template_text, $service_type, $renewal_period_months, $is_active, $template_id]);
-                $_SESSION['success'] = "Template updated successfully";
+                setFlashMessage("Template updated successfully", 'success');
             } else {
                 $stmt = $conn->prepare("
                     INSERT INTO contract_templates (name, description, template_text, service_type, renewal_period_months, is_active)
                     VALUES (?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([$name, $description, $template_text, $service_type, $renewal_period_months, $is_active]);
-                $_SESSION['success'] = "Template created successfully";
+                setFlashMessage("Template created successfully", 'success');
                 $template_id = $conn->lastInsertId();
             }
             
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
             
         } catch (Exception $e) {
-            $_SESSION['error'] = "Error saving template: " . $e->getMessage();
+            setFlashMessage("Error saving template: " . $e->getMessage(), 'error');
         }
     }
 }
@@ -83,7 +83,7 @@ include '../backend/includes/header.php';
         </div>
     </div>
 
-    <form method="POST">
+    <form method="POST" id="template-edit-form">
         <div class="row">
             <div class="col-lg-8">
                 <div class="card mb-4">
@@ -109,8 +109,11 @@ include '../backend/includes/header.php';
                             <p class="small text-muted">
                                 Available variables: {{client_name}}, {{client_email}}, {{date}}, {{service_type}}
                             </p>
+                            <div id="template-text-error" class="alert alert-danger d-none" role="alert">
+                                Contract text is required.
+                            </div>
                             <textarea name="template_text" id="template_text" class="form-control" rows="20" 
-                                      placeholder="Enter contract text here..." required><?= $template ? htmlspecialchars($template['template_text']) : '' ?></textarea>
+                                      placeholder="Enter contract text here..."><?= $template ? htmlspecialchars($template['template_text']) : '' ?></textarea>
                         </div>
                     </div>
                 </div>
@@ -226,6 +229,22 @@ ClassicEditor
         // Sync with textarea on change
         editor.model.document.on('change:data', () => {
             document.querySelector('#template_text').value = editor.getData();
+        });
+
+        // Ensure the textarea is always up-to-date before the form submits.
+        // Pasting text into CKEditor does not reliably trigger 'change:data'
+        // before the browser processes the submit, so we force a sync here.
+        document.getElementById('template-edit-form').addEventListener('submit', function (e) {
+            const data = editor.getData();
+            const errorEl = document.getElementById('template-text-error');
+            if (!data || !data.trim()) {
+                e.preventDefault();
+                errorEl.classList.remove('d-none');
+                errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            errorEl.classList.add('d-none');
+            document.querySelector('#template_text').value = data;
         });
     })
     .catch(error => {

@@ -134,10 +134,14 @@ class Database {
             $mysql_sql
         );
         
-        // Convert TEXT to VARCHAR or TEXT appropriately
-        // Keep TEXT for long content, convert to VARCHAR for shorter fields
+        // Convert TEXT to VARCHAR only when required by MySQL:
+        // - UNIQUE: MySQL cannot create an index on an unbounded TEXT column.
+        // - DEFAULT 'value': MySQL 5.7 and older do not support non-NULL defaults
+        //   on TEXT columns, so we use VARCHAR(255) for those short-value fields.
+        // TEXT NOT NULL is intentionally left as TEXT so that long-content columns
+        // (e.g. template_text, contract_text) are not capped at 255 characters.
         $mysql_sql = preg_replace(
-            '/(\w+)\s+TEXT\s+(UNIQUE|NOT NULL|DEFAULT)/i',
+            '/(\w+)\s+TEXT\s+(UNIQUE|DEFAULT)/i',
             '$1 VARCHAR(255) $2',
             $mysql_sql
         );
@@ -1767,6 +1771,19 @@ class Database {
                 $this->conn->exec("ALTER TABLE form_submissions MODIFY COLUMN responses MEDIUMTEXT NOT NULL");
             } catch (PDOException $e) {
                 error_log("Migration: could not modify form_submissions.responses - " . $e->getMessage());
+            }
+            // Widen contract_templates.template_text and contracts.contract_text on MySQL
+            // installations where the TEXT NOT NULL → VARCHAR(255) conversion was previously
+            // applied by convertSQL(), which capped long contract/template content at 255 chars.
+            try {
+                $this->conn->exec("ALTER TABLE contract_templates MODIFY COLUMN template_text MEDIUMTEXT NOT NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify contract_templates.template_text - " . $e->getMessage());
+            }
+            try {
+                $this->conn->exec("ALTER TABLE contracts MODIFY COLUMN contract_text MEDIUMTEXT NOT NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify contracts.contract_text - " . $e->getMessage());
             }
         }
     }
