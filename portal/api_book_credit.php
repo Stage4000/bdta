@@ -384,8 +384,6 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
                     $value = $dt->format('Y-m-d');
                 } elseif (in_array($attr, ['spayed_neutered', 'vaccines_current'], true)) {
                     $value = in_array(strtolower($value), ['1', 'yes', 'true', 'on'], true) ? 1 : 0;
-                } elseif (in_array($attr, ['age_years', 'age_months', 'ownership_length_years', 'ownership_length_months'], true)) {
-                    $value = max(0, (int)$value);
                 }
 
                 // Skip if existing value differs and user did not confirm overwrite

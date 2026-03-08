@@ -54,6 +54,8 @@ $stmt->execute([$client_id]);
 $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // ── Load active pets ─────────────────────────────────────────────────────────
+// Note: additional fields (date_of_birth, source, spayed_neutered, vaccines_current)
+// are loaded here for profile-mapping conflict detection in JavaScript.
 $stmt = $conn->prepare("
     SELECT id, name, species, breed, date_of_birth, source, spayed_neutered, vaccines_current
     FROM pets
