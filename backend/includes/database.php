@@ -598,7 +598,7 @@ class Database {
                     name TEXT NOT NULL,
                     description TEXT,
                     form_type TEXT NOT NULL DEFAULT 'client_form',
-                    fields TEXT NOT NULL,
+                    fields MEDIUMTEXT NOT NULL,
                     required_frequency TEXT,
                     appointment_type_id INTEGER,
                     is_internal INTEGER DEFAULT 0,
@@ -616,7 +616,7 @@ class Database {
                     client_id INTEGER NOT NULL,
                     template_id INTEGER NOT NULL,
                     booking_id INTEGER,
-                    responses TEXT NOT NULL,
+                    responses MEDIUMTEXT NOT NULL,
                     status TEXT DEFAULT 'submitted',
                     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     submitted_by INTEGER,
@@ -1752,6 +1752,22 @@ class Database {
         if ($sp_count == 0) {
             $this->execSQL("INSERT INTO site_pages (slug, title, html_content, css_content, is_homepage, is_published, sort_order)
                 VALUES ('home', 'Home', '', '', 1, 0, 0)");
+        }
+
+        // Widen the form_templates.fields and form_submissions.responses columns on
+        // MySQL installations where the TEXT → VARCHAR(255) conversion was previously
+        // applied, so that large JSON payloads are no longer truncated.
+        if ($this->db_type === 'mysql') {
+            try {
+                $this->conn->exec("ALTER TABLE form_templates MODIFY COLUMN fields MEDIUMTEXT NOT NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify form_templates.fields - " . $e->getMessage());
+            }
+            try {
+                $this->conn->exec("ALTER TABLE form_submissions MODIFY COLUMN responses MEDIUMTEXT NOT NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify form_submissions.responses - " . $e->getMessage());
+            }
         }
     }
     
