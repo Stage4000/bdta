@@ -59,12 +59,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['field_label']) && is_array($_POST['field_label'])) {
         foreach ($_POST['field_label'] as $index => $label) {
             if (!empty(trim($label))) {
+                $allowed_mappings = [
+                    '', 'client.name', 'client.email', 'client.phone', 'client.address',
+                    'pet_1.name', 'pet_1.species', 'pet_1.breed', 'pet_1.date_of_birth',
+                    'pet_1.source', 'pet_1.spayed_neutered', 'pet_1.vaccines_current',
+                    'pet_1.vaccine_notes', 'pet_1.behavior_notes', 'pet_1.medical_notes', 'pet_1.training_notes',
+                    'pet_2.name', 'pet_2.species', 'pet_2.breed', 'pet_2.date_of_birth',
+                    'pet_2.source', 'pet_2.spayed_neutered', 'pet_2.vaccines_current',
+                    'pet_2.vaccine_notes', 'pet_2.behavior_notes', 'pet_2.medical_notes', 'pet_2.training_notes',
+                    'pet_3.name', 'pet_3.species', 'pet_3.breed', 'pet_3.date_of_birth',
+                    'pet_3.source', 'pet_3.spayed_neutered', 'pet_3.vaccines_current',
+                    'pet_3.vaccine_notes', 'pet_3.behavior_notes', 'pet_3.medical_notes', 'pet_3.training_notes',
+                ];
+                $raw_mapping = $_POST['field_mapping'][$index] ?? '';
                 $field = [
                     'label' => trim($label),
                     'type' => $_POST['field_type'][$index] ?? 'text',
                     'placeholder' => trim($_POST['field_placeholder'][$index] ?? ''),
                     'description' => trim($_POST['field_description'][$index] ?? ''),
-                    'required' => isset($_POST['field_required'][$index]) ? 1 : 0
+                    'required' => isset($_POST['field_required'][$index]) ? 1 : 0,
+                    'profile_mapping' => in_array($raw_mapping, $allowed_mappings) ? $raw_mapping : '',
                 ];
                 
                 // Add options for select, radio, checkbox
@@ -230,9 +244,40 @@ require_once '../backend/includes/header.php';
                                     </div>
                                 </div>
                                 <div class="row mt-2">
-                                    <div class="col-12">
+                                    <div class="col-md-8">
                                         <label class="form-label">Description <small class="text-muted">(optional — shown to clients below the field)</small></label>
                                         <textarea name="field_description[]" class="form-control" rows="2" placeholder="Add a brief description or instructions for this field..."><?php echo htmlspecialchars($field['description'] ?? ''); ?></textarea>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">
+                                            Map to Profile
+                                            <small class="text-muted d-block">Auto-update profile on submit</small>
+                                        </label>
+                                        <?php $cur_mapping = $field['profile_mapping'] ?? ''; ?>
+                                        <select name="field_mapping[<?php echo $index; ?>]" class="form-select form-select-sm">
+                                            <option value="">— None —</option>
+                                            <optgroup label="Client Profile">
+                                                <option value="client.name" <?php echo $cur_mapping === 'client.name' ? 'selected' : ''; ?>>Client: Name</option>
+                                                <option value="client.email" <?php echo $cur_mapping === 'client.email' ? 'selected' : ''; ?>>Client: Email</option>
+                                                <option value="client.phone" <?php echo $cur_mapping === 'client.phone' ? 'selected' : ''; ?>>Client: Phone</option>
+                                                <option value="client.address" <?php echo $cur_mapping === 'client.address' ? 'selected' : ''; ?>>Client: Address</option>
+                                            </optgroup>
+                                            <?php for ($p = 1; $p <= 3; $p++): ?>
+                                            <optgroup label="Pet <?php echo $p; ?> Profile">
+                                                <option value="pet_<?php echo $p; ?>.name" <?php echo $cur_mapping === "pet_{$p}.name" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Name</option>
+                                                <option value="pet_<?php echo $p; ?>.species" <?php echo $cur_mapping === "pet_{$p}.species" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Species</option>
+                                                <option value="pet_<?php echo $p; ?>.breed" <?php echo $cur_mapping === "pet_{$p}.breed" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Breed</option>
+                                                <option value="pet_<?php echo $p; ?>.date_of_birth" <?php echo $cur_mapping === "pet_{$p}.date_of_birth" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Date of Birth</option>
+                                                <option value="pet_<?php echo $p; ?>.source" <?php echo $cur_mapping === "pet_{$p}.source" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Source</option>
+                                                <option value="pet_<?php echo $p; ?>.spayed_neutered" <?php echo $cur_mapping === "pet_{$p}.spayed_neutered" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Spayed/Neutered</option>
+                                                <option value="pet_<?php echo $p; ?>.vaccines_current" <?php echo $cur_mapping === "pet_{$p}.vaccines_current" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Vaccines Current</option>
+                                                <option value="pet_<?php echo $p; ?>.vaccine_notes" <?php echo $cur_mapping === "pet_{$p}.vaccine_notes" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Vaccine Notes</option>
+                                                <option value="pet_<?php echo $p; ?>.behavior_notes" <?php echo $cur_mapping === "pet_{$p}.behavior_notes" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Behavior Notes</option>
+                                                <option value="pet_<?php echo $p; ?>.medical_notes" <?php echo $cur_mapping === "pet_{$p}.medical_notes" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Medical Notes</option>
+                                                <option value="pet_<?php echo $p; ?>.training_notes" <?php echo $cur_mapping === "pet_{$p}.training_notes" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Training Notes</option>
+                                            </optgroup>
+                                            <?php endfor; ?>
+                                        </select>
                                     </div>
                                 </div>
                                 <?php if (in_array($field['type'], ['select', 'radio', 'checkbox'])): ?>
@@ -367,9 +412,63 @@ function addField() {
                 </div>
             </div>
             <div class="row mt-2">
-                <div class="col-12">
+                <div class="col-md-8">
                     <label class="form-label">Description <small class="text-muted">(optional — shown to clients below the field)</small></label>
                     <textarea name="field_description[]" class="form-control" rows="2" placeholder="Add a brief description or instructions for this field..."></textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">
+                        Map to Profile
+                        <small class="text-muted d-block">Auto-update profile on submit</small>
+                    </label>
+                    <select name="field_mapping[${fieldIndex}]" class="form-select form-select-sm">
+                        <option value="">— None —</option>
+                        <optgroup label="Client Profile">
+                            <option value="client.name">Client: Name</option>
+                            <option value="client.email">Client: Email</option>
+                            <option value="client.phone">Client: Phone</option>
+                            <option value="client.address">Client: Address</option>
+                        </optgroup>
+                        <optgroup label="Pet 1 Profile">
+                            <option value="pet_1.name">Pet 1: Name</option>
+                            <option value="pet_1.species">Pet 1: Species</option>
+                            <option value="pet_1.breed">Pet 1: Breed</option>
+                            <option value="pet_1.date_of_birth">Pet 1: Date of Birth</option>
+                            <option value="pet_1.source">Pet 1: Source</option>
+                            <option value="pet_1.spayed_neutered">Pet 1: Spayed/Neutered</option>
+                            <option value="pet_1.vaccines_current">Pet 1: Vaccines Current</option>
+                            <option value="pet_1.vaccine_notes">Pet 1: Vaccine Notes</option>
+                            <option value="pet_1.behavior_notes">Pet 1: Behavior Notes</option>
+                            <option value="pet_1.medical_notes">Pet 1: Medical Notes</option>
+                            <option value="pet_1.training_notes">Pet 1: Training Notes</option>
+                        </optgroup>
+                        <optgroup label="Pet 2 Profile">
+                            <option value="pet_2.name">Pet 2: Name</option>
+                            <option value="pet_2.species">Pet 2: Species</option>
+                            <option value="pet_2.breed">Pet 2: Breed</option>
+                            <option value="pet_2.date_of_birth">Pet 2: Date of Birth</option>
+                            <option value="pet_2.source">Pet 2: Source</option>
+                            <option value="pet_2.spayed_neutered">Pet 2: Spayed/Neutered</option>
+                            <option value="pet_2.vaccines_current">Pet 2: Vaccines Current</option>
+                            <option value="pet_2.vaccine_notes">Pet 2: Vaccine Notes</option>
+                            <option value="pet_2.behavior_notes">Pet 2: Behavior Notes</option>
+                            <option value="pet_2.medical_notes">Pet 2: Medical Notes</option>
+                            <option value="pet_2.training_notes">Pet 2: Training Notes</option>
+                        </optgroup>
+                        <optgroup label="Pet 3 Profile">
+                            <option value="pet_3.name">Pet 3: Name</option>
+                            <option value="pet_3.species">Pet 3: Species</option>
+                            <option value="pet_3.breed">Pet 3: Breed</option>
+                            <option value="pet_3.date_of_birth">Pet 3: Date of Birth</option>
+                            <option value="pet_3.source">Pet 3: Source</option>
+                            <option value="pet_3.spayed_neutered">Pet 3: Spayed/Neutered</option>
+                            <option value="pet_3.vaccines_current">Pet 3: Vaccines Current</option>
+                            <option value="pet_3.vaccine_notes">Pet 3: Vaccine Notes</option>
+                            <option value="pet_3.behavior_notes">Pet 3: Behavior Notes</option>
+                            <option value="pet_3.medical_notes">Pet 3: Medical Notes</option>
+                            <option value="pet_3.training_notes">Pet 3: Training Notes</option>
+                        </optgroup>
+                    </select>
                 </div>
             </div>
             <textarea name="field_options[]" class="d-none"></textarea>
@@ -399,7 +498,8 @@ function toggleOptions(select) {
                     </div>
                 </div>
             `;
-            fieldItem.querySelector('.row').insertAdjacentHTML('afterend', optionsHtml);
+            // Insert before the hidden textarea (always last child)
+            optionsTextarea.insertAdjacentHTML('beforebegin', optionsHtml);
             // Copy value from hidden textarea
             const newTextarea = fieldItem.querySelector('textarea[name="field_options_temp"]');
             newTextarea.value = optionsTextarea.value;

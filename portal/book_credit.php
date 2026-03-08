@@ -55,7 +55,7 @@ $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // ── Load active pets ─────────────────────────────────────────────────────────
 $stmt = $conn->prepare("
-    SELECT id, name, species, breed
+    SELECT id, name, species, breed, date_of_birth, source, spayed_neutered, vaccines_current
     FROM pets
     WHERE client_id = ? AND is_active = 1
     ORDER BY name
@@ -673,6 +673,30 @@ include '../portal/includes/header.php';
     </div>
 </div>
 
+<!-- Profile Overwrite Confirmation Modal -->
+<div class="modal fade" id="profileOverwriteModal" tabindex="-1" aria-labelledby="profileOverwriteModalLabel">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="profileOverwriteModalLabel">
+                    <i class="fas fa-user-pen me-2"></i>Update Your Profile?
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">The following form answers differ from what's currently saved in your profile. Would you like to update your profile with the new values?</p>
+                <div id="overwriteConflictList"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Existing</button>
+                <button type="button" class="btn btn-primary" id="confirmOverwriteBtn">
+                    <i class="fas fa-check me-1"></i>Yes, Update Profile
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     /* ─── State ─────────────────────────────────────────────────── */
@@ -688,6 +712,43 @@ include '../portal/includes/header.php';
     <?php foreach ($pets as $pet): ?>
     petNames[<?= intval($pet['id']) ?>] = <?= json_encode($pet['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     <?php endforeach; ?>
+
+    // Current client profile data for conflict detection
+    const currentClientProfile = <?= json_encode([
+        'name'    => $client['name']    ?? '',
+        'email'   => $client['email']   ?? '',
+        'phone'   => $client['phone']   ?? '',
+        'address' => $client['address'] ?? '',
+    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+    // Current pet profiles keyed by pet ID, ordered as selected
+    const currentPetProfiles = {};
+    <?php foreach ($pets as $pet): ?>
+    currentPetProfiles[<?= intval($pet['id']) ?>] = <?= json_encode([
+        'name'            => $pet['name']            ?? '',
+        'species'         => $pet['species']         ?? '',
+        'breed'           => $pet['breed']           ?? '',
+        'date_of_birth'   => $pet['date_of_birth']   ?? '',
+        'source'          => $pet['source']          ?? '',
+        'spayed_neutered' => $pet['spayed_neutered'] ? 'yes' : '',
+        'vaccines_current'=> $pet['vaccines_current'] ? 'yes' : '',
+    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    <?php endforeach; ?>
+
+    // Form profile mappings: formId -> fieldIndex -> mapping string
+    const formFieldMappings = <?= (function() use ($forms_needing_completion) {
+        $map = [];
+        foreach ($forms_needing_completion as $form) {
+            $fmap = [];
+            foreach ($form['fields'] as $fi => $field) {
+                if (!empty($field['profile_mapping'])) {
+                    $fmap[$fi] = $field['profile_mapping'];
+                }
+            }
+            if (!empty($fmap)) $map[$form['id']] = $fmap;
+        }
+        return json_encode($map, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    })() ?>;
 
     /* ─── Helpers ─────────────────────────────────────────────────── */
     function showAlert(msg, type) {
@@ -1116,44 +1177,65 @@ include '../portal/includes/header.php';
         return responses;
     }
 
-    /* ─── Submit booking ───────────────────────────────────────────── */
-    document.getElementById('bookingForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const btn     = document.getElementById('submitBtn');
-        const spinner = document.getElementById('submitSpinner');
-        btn.disabled = true;
-        spinner.classList.remove('d-none');
-
-        let location_type  = '';
-        let location_value = '';
-        const locEl = document.getElementById('locationType');
-        if (locEl && locEl.tagName === 'SELECT') {
-            location_type  = locEl.value;
-            location_value = document.getElementById('locationValue')?.value.trim() || '';
-        } else if (locEl) {
-            location_type  = locEl.value;
-            location_value = document.getElementById('locationValue')?.value.trim() || '';
+    /* ─── Profile-mapping conflict detection ───────────────────────── */
+    function getProfileConflicts(formResponses, petIds) {
+        const conflicts = [];
+        const profileLabels = {
+            'client.name':    'Your Name',
+            'client.email':   'Your Email',
+            'client.phone':   'Your Phone',
+            'client.address': 'Your Address',
+        };
+        for (let p = 1; p <= 3; p++) {
+            profileLabels[`pet_${p}.name`]             = `Pet ${p}: Name`;
+            profileLabels[`pet_${p}.species`]          = `Pet ${p}: Species`;
+            profileLabels[`pet_${p}.breed`]            = `Pet ${p}: Breed`;
+            profileLabels[`pet_${p}.date_of_birth`]    = `Pet ${p}: Date of Birth`;
+            profileLabels[`pet_${p}.source`]           = `Pet ${p}: Source`;
+            profileLabels[`pet_${p}.spayed_neutered`]  = `Pet ${p}: Spayed/Neutered`;
+            profileLabels[`pet_${p}.vaccines_current`] = `Pet ${p}: Vaccines Current`;
         }
 
-        const payload = {
-            action:               'book',
-            appointment_type_id:  apptTypeId,
-            appointment_date:     selectedDate,
-            appointment_time:     selectedTime,
-            client_name:          document.getElementById('clientName').value,
-            client_email:         document.getElementById('clientEmail').value,
-            client_phone:         document.getElementById('clientPhone').value,
-            pet_ids:              getSelectedPetIds(),
-            notes:                document.getElementById('notes').value,
-            location_type:        location_type,
-            location_value:       location_value,
-            form_responses:       collectFormResponses(),
-            // Contract fields (null when skipped)
-            contract_template_id: skipContract ? null : (document.getElementById('contractTemplateId') ? parseInt(document.getElementById('contractTemplateId').value) : null),
-            contract_typed_name:  skipContract ? null : (document.getElementById('contractTypedName')?.value.trim() || null),
-            contract_signature_font: skipContract ? null : (document.getElementById('contractSignatureFont')?.value || null),
-        };
+        for (const [formId, fieldMaps] of Object.entries(formFieldMappings)) {
+            const responses = formResponses[formId] || {};
+            for (const [fi, mapping] of Object.entries(fieldMaps)) {
+                const newVal = (responses[fi] !== undefined ? responses[fi] : '').toString().trim();
+                if (!newVal) continue;
 
+                let currentVal = '';
+                if (mapping.startsWith('client.')) {
+                    const attr = mapping.slice(7);
+                    currentVal = (currentClientProfile[attr] || '').toString().trim();
+                } else {
+                    const m = mapping.match(/^pet_([123])\.(.+)$/);
+                    if (m) {
+                        const petIndex = parseInt(m[1]) - 1;
+                        const attr     = m[2];
+                        const petId    = petIds[petIndex];
+                        if (petId && currentPetProfiles[petId]) {
+                            currentVal = (currentPetProfiles[petId][attr] || '').toString().trim();
+                        }
+                    }
+                }
+
+                if (currentVal && currentVal !== newVal) {
+                    conflicts.push({
+                        label:      profileLabels[mapping] || mapping,
+                        oldValue:   currentVal,
+                        newValue:   newVal,
+                    });
+                }
+            }
+        }
+        return conflicts;
+    }
+
+    // Pending submit payload (used after conflict confirmation)
+    let pendingPayload = null;
+
+    function doSubmit(payload) {
+        const btn     = document.getElementById('submitBtn');
+        const spinner = document.getElementById('submitSpinner');
         fetch('/portal/api_book_credit.php', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1174,6 +1256,99 @@ include '../portal/includes/header.php';
             btn.disabled = false;
             spinner.classList.add('d-none');
         });
+    }
+
+    // Confirm overwrite button — clear pendingPayload BEFORE hiding modal to prevent double-fire
+    document.getElementById('confirmOverwriteBtn')?.addEventListener('click', function () {
+        if (pendingPayload) {
+            const submitPayload = Object.assign({}, pendingPayload, { overwrite_profile: true });
+            pendingPayload = null;  // clear before hide() fires hide.bs.modal
+            bootstrap.Modal.getInstance(document.getElementById('profileOverwriteModal'))?.hide();
+            const btn     = document.getElementById('submitBtn');
+            const spinner = document.getElementById('submitSpinner');
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            doSubmit(submitPayload);
+        }
+    });
+
+    // "Keep Existing" or dismiss — submit without overwriting conflicting profile fields
+    document.getElementById('profileOverwriteModal')?.addEventListener('hide.bs.modal', function () {
+        if (pendingPayload) {
+            const submitPayload = Object.assign({}, pendingPayload, { overwrite_profile: false });
+            pendingPayload = null;
+            const btn     = document.getElementById('submitBtn');
+            const spinner = document.getElementById('submitSpinner');
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            doSubmit(submitPayload);
+        }
+    });
+
+    /* ─── Submit booking ───────────────────────────────────────────── */
+    document.getElementById('bookingForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const btn     = document.getElementById('submitBtn');
+        const spinner = document.getElementById('submitSpinner');
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+
+        let location_type  = '';
+        let location_value = '';
+        const locEl = document.getElementById('locationType');
+        if (locEl && locEl.tagName === 'SELECT') {
+            location_type  = locEl.value;
+            location_value = document.getElementById('locationValue')?.value.trim() || '';
+        } else if (locEl) {
+            location_type  = locEl.value;
+            location_value = document.getElementById('locationValue')?.value.trim() || '';
+        }
+
+        const petIds = getSelectedPetIds();
+        const formResponses = collectFormResponses();
+
+        const payload = {
+            action:               'book',
+            appointment_type_id:  apptTypeId,
+            appointment_date:     selectedDate,
+            appointment_time:     selectedTime,
+            client_name:          document.getElementById('clientName').value,
+            client_email:         document.getElementById('clientEmail').value,
+            client_phone:         document.getElementById('clientPhone').value,
+            pet_ids:              petIds,
+            notes:                document.getElementById('notes').value,
+            location_type:        location_type,
+            location_value:       location_value,
+            form_responses:       formResponses,
+            // Contract fields (null when skipped)
+            contract_template_id: skipContract ? null : (document.getElementById('contractTemplateId') ? parseInt(document.getElementById('contractTemplateId').value) : null),
+            contract_typed_name:  skipContract ? null : (document.getElementById('contractTypedName')?.value.trim() || null),
+            contract_signature_font: skipContract ? null : (document.getElementById('contractSignatureFont')?.value || null),
+        };
+
+        // Check for profile conflicts before submitting
+        const conflicts = getProfileConflicts(formResponses, petIds);
+        if (conflicts.length > 0) {
+            // Build conflict list HTML
+            let listHtml = '<ul class="list-unstyled mb-0">';
+            conflicts.forEach(c => {
+                listHtml += `<li class="mb-2">
+                    <strong>${escapeHtml(c.label)}</strong><br>
+                    <span class="text-muted small">Current:</span> <span class="text-danger small">${escapeHtml(c.oldValue)}</span>
+                    <span class="text-muted small ms-2">→ New:</span> <span class="text-success small">${escapeHtml(c.newValue)}</span>
+                </li>`;
+            });
+            listHtml += '</ul>';
+            document.getElementById('overwriteConflictList').innerHTML = listHtml;
+
+            pendingPayload = payload;
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+            new bootstrap.Modal(document.getElementById('profileOverwriteModal')).show();
+            return;
+        }
+
+        doSubmit(payload);
     });
 
     /* ─── Contract signature UI ────────────────────────────────────── */
