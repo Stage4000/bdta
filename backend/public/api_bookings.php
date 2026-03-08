@@ -53,6 +53,336 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     echo json_encode(['credits' => $credits]);
     exit;
 
+} elseif ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'available_dates') {
+
+    /**
+     * Helper: returns true if the given slot does NOT conflict with any GCal busy period.
+     *
+     * @param string $date          YYYY-MM-DD
+     * @param string $slot_str      HH:MM
+     * @param int    $duration_min  appointment duration in minutes
+     * @param int    $buf_before    buffer before in minutes
+     * @param int    $buf_after     buffer after in minutes
+     * @param array  $busy_periods  flat array of ['start'=>RFC3339, 'end'=>RFC3339]
+     */
+    function ad_slot_passes_gcal(string $date, string $slot_str, int $duration_min, int $buf_before, int $buf_after, array $busy_periods): bool {
+        $slot_ts    = strtotime($date . 'T' . $slot_str . ':00');
+        $buf_s_ts   = $slot_ts - $buf_before * 60;
+        $buf_e_ts   = $slot_ts + ($duration_min + $buf_after) * 60;
+        foreach ($busy_periods as $busy) {
+            if (empty($busy['start']) || empty($busy['end'])) continue;
+            $bs = strtotime($busy['start']);
+            $be = strtotime($busy['end']);
+            if ($bs === false || $be === false) continue;
+            if ($buf_s_ts < $be && $bs < $buf_e_ts) {
+                return false; // conflict
+            }
+        }
+        return true;
+    }
+
+    // Return a list of dates (within a given range) that have at least one available slot.
+    // Used by the booking UI to hide dates with no availability from the date selector.
+    $appointment_type_id = isset($_GET['appointment_type_id']) ? (int)$_GET['appointment_type_id'] : 0;
+    $from_date = $_GET['from'] ?? date('Y-m-d');
+    $to_date   = $_GET['to']   ?? date('Y-m-d', strtotime('+60 days'));
+
+    // Sanitize date params
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from_date)) {
+        $from_date = date('Y-m-d');
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to_date)) {
+        $to_date = date('Y-m-d', strtotime('+60 days'));
+    }
+    // Enforce minimum of today and cap range at 365 days
+    $today_str = date('Y-m-d');
+    if ($from_date < $today_str) {
+        $from_date = $today_str;
+    }
+    $max_to = date('Y-m-d', strtotime($from_date . ' +365 days'));
+    if ($to_date > $max_to) {
+        $to_date = $max_to;
+    }
+    if ($to_date < $from_date) {
+        $to_date = $from_date;
+    }
+
+    if (!$appointment_type_id) {
+        echo json_encode(['available_dates' => [], 'schedule_type' => 'recurring']);
+        exit;
+    }
+
+    $db = new Database();
+    $conn = $db->getConnection();
+
+    $stmt = $conn->prepare("
+        SELECT available_days, available_start_time, available_end_time, time_slot_interval,
+               schedule_type, specific_date, specific_dates, per_day_schedule,
+               duration_minutes, is_group_class, max_participants,
+               buffer_before_minutes, buffer_after_minutes,
+               advance_booking_min_days, advance_booking_max_days
+        FROM appointment_types
+        WHERE id = ? AND is_active = 1
+    ");
+    $stmt->execute([$appointment_type_id]);
+    $appt_type = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$appt_type) {
+        echo json_encode(['available_dates' => [], 'schedule_type' => 'recurring']);
+        exit;
+    }
+
+    $ad_schedule_type   = $appt_type['schedule_type'] ?? 'recurring';
+    $ad_available_days  = json_decode($appt_type['available_days'] ?? '[0,1,2,3,4,5,6]', true);
+    if (!is_array($ad_available_days)) {
+        $ad_available_days = [0, 1, 2, 3, 4, 5, 6];
+    }
+    $ad_start_time     = $appt_type['available_start_time'] ?? '09:00';
+    $ad_end_time       = $appt_type['available_end_time']   ?? '17:00';
+    $ad_interval       = max(1, (int)($appt_type['time_slot_interval'] ?? 30)); // guard against 0
+    $ad_duration       = (int)($appt_type['duration_minutes']   ?? 60);
+    $ad_is_group       = !empty($appt_type['is_group_class']);
+    $ad_max_part       = max(1, (int)($appt_type['max_participants'] ?? 1));
+    $ad_buf_before     = max(0, (int)($appt_type['buffer_before_minutes'] ?? 0));
+    $ad_buf_after      = max(0, (int)($appt_type['buffer_after_minutes']  ?? 0));
+    $ad_per_day        = !empty($appt_type['per_day_schedule'])
+                         ? json_decode($appt_type['per_day_schedule'], true)
+                         : null;
+    // Advance-booking window: honour the appointment type's min/max booking lead time
+    $ad_min_days       = max(0, (int)($appt_type['advance_booking_min_days'] ?? 0));
+    $ad_max_days       = max(1, (int)($appt_type['advance_booking_max_days'] ?? 365));
+
+    // Tighten from_date by the minimum advance notice (e.g. min_days=1 → earliest is tomorrow)
+    $advance_min_from = date('Y-m-d', strtotime($today_str . ' +' . $ad_min_days . ' days'));
+    if ($from_date < $advance_min_from) {
+        $from_date = $advance_min_from;
+    }
+    // Cap to_date by the maximum booking window
+    $advance_max_to = date('Y-m-d', strtotime($today_str . ' +' . $ad_max_days . ' days'));
+    if ($to_date > $advance_max_to) {
+        $to_date = $advance_max_to;
+    }
+    if ($to_date < $from_date) {
+        echo json_encode(['available_dates' => [], 'schedule_type' => $ad_schedule_type]);
+        exit;
+    }
+
+    // Build the list of candidate dates to evaluate
+    $candidate_dates = [];
+    if ($ad_schedule_type === 'specific_date') {
+        // Only check the configured specific dates that fall in the requested range
+        $raw_sd = $appt_type['specific_dates'] ?? null;
+        if (!empty($raw_sd)) {
+            $sd_arr = json_decode($raw_sd, true);
+            if (is_array($sd_arr)) {
+                foreach ($sd_arr as $sd_entry) {
+                    $d = $sd_entry['date'] ?? '';
+                    if ($d >= $from_date && $d <= $to_date) {
+                        $candidate_dates[] = $d;
+                    }
+                }
+            }
+        } elseif (!empty($appt_type['specific_date'])) {
+            $d = $appt_type['specific_date'];
+            if ($d >= $from_date && $d <= $to_date) {
+                $candidate_dates[] = $d;
+            }
+        }
+        sort($candidate_dates);
+    } else {
+        // Recurring: check every date in the range that falls on an allowed day of week
+        $cur = new DateTime($from_date);
+        $end = new DateTime($to_date);
+        while ($cur <= $end) {
+            if (in_array((int)$cur->format('w'), $ad_available_days)) {
+                $candidate_dates[] = $cur->format('Y-m-d');
+            }
+            $cur->modify('+1 day');
+        }
+    }
+
+    // Pre-fetch all bookings for the entire range in one query for efficiency
+    $stmt = $conn->prepare("
+        SELECT b.appointment_date, b.appointment_time, b.duration_minutes, b.appointment_type_id,
+               COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
+               COALESCE(at.buffer_after_minutes,  0) AS b_buffer_after
+        FROM bookings b
+        LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+        WHERE b.appointment_date BETWEEN ? AND ? AND b.status != 'cancelled'
+    ");
+    $stmt->execute([$from_date, $to_date]);
+    $all_bookings_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Group bookings by date
+    $bookings_by_date = [];
+    foreach ($all_bookings_rows as $row) {
+        $bookings_by_date[$row['appointment_date']][] = $row;
+    }
+
+    // Build specific_dates config map (for specific_date type custom timeslots)
+    $specific_dates_config = [];
+    if ($ad_schedule_type === 'specific_date' && !empty($appt_type['specific_dates'])) {
+        $sd_arr = json_decode($appt_type['specific_dates'], true);
+        if (is_array($sd_arr)) {
+            foreach ($sd_arr as $sd_entry) {
+                if (!empty($sd_entry['date'])) {
+                    $specific_dates_config[$sd_entry['date']] = $sd_entry['timeslots'] ?? null;
+                }
+            }
+        }
+    }
+
+    // Pre-fetch Google Calendar busy periods for the entire range in ONE API call.
+    // Mirrors the per-slot GCal check already done in the single-date slot endpoint,
+    // so that dates blocked only by GCal events are correctly marked unavailable here too.
+    $gcal_busy_periods = [];
+    if (GoogleCalendarIntegration::isOAuthConfigured()) {
+        try {
+            $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id LIMIT 1");
+            if ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
+                $gcal_busy_periods = GoogleCalendarIntegration::getFreeBusyRange(
+                    $from_date, $to_date, (int)$admin_row['admin_user_id']
+                );
+            }
+        } catch (Exception $e) {
+            error_log('api_bookings available_dates: GCal free/busy range check failed: ' . $e->getMessage());
+        }
+    }
+
+    // Evaluate each candidate date: does it have at least one available slot?
+    $available_dates = [];
+    foreach ($candidate_dates as $check_date) {
+        $existing_bookings = $bookings_by_date[$check_date] ?? [];
+
+        // Pre-compute booking counts per slot for group classes to avoid O(n²) in the slot loop
+        $group_slot_counts = [];
+        if ($ad_is_group) {
+            foreach ($existing_bookings as $bk) {
+                $bt = substr($bk['appointment_time'], 0, 5);
+                if ((int)$bk['appointment_type_id'] === $appointment_type_id) {
+                    $group_slot_counts[$bt] = ($group_slot_counts[$bt] ?? 0) + 1;
+                }
+            }
+        }
+
+        // Determine timeslot config for this date
+        $custom_slots = null;
+        if ($ad_schedule_type === 'specific_date') {
+            $custom_slots = $specific_dates_config[$check_date] ?? null;
+        }
+
+        // Determine start/end times (with per-day override for recurring)
+        $day_start = $ad_start_time;
+        $day_end   = $ad_end_time;
+        if ($ad_schedule_type !== 'specific_date' && is_array($ad_per_day)) {
+            $dow = (int)(new DateTime($check_date))->format('w');
+            if (isset($ad_per_day[$dow])) {
+                $ds = $ad_per_day[$dow]['start'] ?? '';
+                $de = $ad_per_day[$dow]['end']   ?? '';
+                if (!empty($ds) && !empty($de) && $ds < $de) {
+                    $day_start = $ds;
+                    $day_end   = $de;
+                }
+            }
+        }
+
+        // Build candidate slot minutes for this date
+        $cand_mins = [];
+        if (!empty($custom_slots)) {
+            foreach ($custom_slots as $cfg) {
+                $slot_type = $cfg['type'] ?? 'point';
+                if ($slot_type === 'point' && !empty($cfg['time'])) {
+                    $p = explode(':', $cfg['time']);
+                    if (count($p) === 2) {
+                        $cand_mins[] = (int)$p[0] * 60 + (int)$p[1];
+                    }
+                } elseif ($slot_type === 'range' && !empty($cfg['start']) && !empty($cfg['end'])) {
+                    $sp = explode(':', $cfg['start']);
+                    $ep = explode(':', $cfg['end']);
+                    if (count($sp) === 2 && count($ep) === 2) {
+                        $rs = (int)$sp[0] * 60 + (int)$sp[1];
+                        $re = (int)$ep[0] * 60 + (int)$ep[1];
+                        for ($m = $rs; $m < $re; $m += $ad_interval) {
+                            $cand_mins[] = $m;
+                        }
+                    }
+                }
+            }
+            $cand_mins = array_values(array_unique($cand_mins));
+            sort($cand_mins);
+        } else {
+            $sp = explode(':', $day_start);
+            $ep = explode(':', $day_end);
+            $sm = (int)$sp[0] * 60 + (int)$sp[1];
+            $em = (int)$ep[0] * 60 + (int)$ep[1];
+            for ($m = $sm; $m < $em; $m += $ad_interval) {
+                $cand_mins[] = $m;
+            }
+        }
+
+        // Check if any candidate slot is free
+        $has_available = false;
+        foreach ($cand_mins as $tm) {
+            $hour         = intdiv($tm, 60);
+            $min          = $tm % 60;
+            $slot_str     = sprintf('%02d:%02d', $hour, $min);
+            $slot_end     = $tm + $ad_duration;
+            $slot_buf_s   = $tm       - $ad_buf_before;
+            $slot_buf_e   = $slot_end + $ad_buf_after;
+
+            if ($ad_is_group) {
+                $count = $group_slot_counts[$slot_str] ?? 0;
+                if ($count < $ad_max_part) {
+                    // Also check Google Calendar
+                    if (!empty($gcal_busy_periods) && !ad_slot_passes_gcal($check_date, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, $gcal_busy_periods)) {
+                        continue; // GCal blocks this slot
+                    }
+                    $has_available = true;
+                    break;
+                }
+            } else {
+                $slot_free    = true;
+                $seen_windows = [];
+                foreach ($existing_bookings as $bk) {
+                    $bt = substr($bk['appointment_time'], 0, 5);
+                    $bp = explode(':', $bt);
+                    if (count($bp) !== 2) continue;
+                    $b_s   = (int)$bp[0] * 60 + (int)$bp[1];
+                    $b_dur = max(1, (int)($bk['duration_minutes'] ?? 60));
+                    $b_bb  = max(0, (int)($bk['b_buffer_before'] ?? 0));
+                    $b_ba  = max(0, (int)($bk['b_buffer_after']  ?? 0));
+                    $b_bs  = $b_s - $b_bb;
+                    $b_be  = $b_s + $b_dur + $b_ba;
+                    $wkey  = $b_bs . '-' . $b_be;
+                    if (isset($seen_windows[$wkey])) continue;
+                    $seen_windows[$wkey] = true;
+                    if ($slot_buf_s < $b_be && $b_bs < $slot_buf_e) {
+                        $slot_free = false;
+                        break;
+                    }
+                }
+                // Also check Google Calendar
+                if ($slot_free && !empty($gcal_busy_periods)) {
+                    $slot_free = ad_slot_passes_gcal($check_date, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, $gcal_busy_periods);
+                }
+                if ($slot_free) {
+                    $has_available = true;
+                    break;
+                }
+            }
+        }
+
+        if ($has_available) {
+            $available_dates[] = $check_date;
+        }
+    }
+
+    echo json_encode([
+        'available_dates' => $available_dates,
+        'schedule_type'   => $ad_schedule_type,
+    ]);
+    exit;
+
 } elseif ($method === 'GET') {
     // Check availability
     $date = $_GET['date'] ?? '';
