@@ -483,6 +483,64 @@ class GoogleCalendarIntegration {
     }
 
     /**
+     * Query Google Calendar free/busy for a DATE RANGE in a single API call.
+     *
+     * Returns all busy windows across the range as a flat array:
+     *   [['start' => '<RFC3339>', 'end' => '<RFC3339>'], ...]
+     *
+     * This avoids making one API call per day when checking many dates (e.g., the
+     * available_dates endpoint scans 60+ days at once).
+     *
+     * @param  string $start_date     First date of the range (Y-m-d).
+     * @param  string $end_date       Last date of the range  (Y-m-d, inclusive).
+     * @param  int    $admin_user_id  The admin whose connected calendar is queried.
+     * @return array<int, array{start: string, end: string}>
+     */
+    public static function getFreeBusyRange(string $start_date, string $end_date, int $admin_user_id): array {
+        $access_token = self::getValidAccessToken($admin_user_id);
+        if (!$access_token) {
+            return [];
+        }
+
+        $token_row   = self::getOAuthToken($admin_user_id);
+        $calendar_id = $token_row['calendar_id'] ?? 'primary';
+        $timezone    = 'America/New_York';
+
+        try {
+            $tz_obj      = new DateTimeZone($timezone);
+            $range_start = new DateTime($start_date . 'T00:00:00', $tz_obj);
+            $range_end   = new DateTime($end_date   . 'T23:59:59', $tz_obj);
+        } catch (Exception $e) {
+            error_log('GoogleCalendarIntegration: getFreeBusyRange – invalid dates "' . $start_date . '"/"' . $end_date . '": ' . $e->getMessage());
+            return [];
+        }
+
+        $request_body = [
+            'timeMin'  => $range_start->format(DateTime::RFC3339),
+            'timeMax'  => $range_end->format(DateTime::RFC3339),
+            'timeZone' => $timezone,
+            'items'    => [['id' => $calendar_id]],
+        ];
+
+        $response = self::httpPost(
+            'https://www.googleapis.com/calendar/v3/freeBusy',
+            $request_body,
+            [
+                'Authorization: Bearer ' . $access_token,
+                'Content-Type: application/json',
+            ],
+            true
+        );
+
+        if (!empty($response['error'])) {
+            error_log('GoogleCalendarIntegration: getFreeBusyRange error for admin_user_id=' . $admin_user_id . ': ' . json_encode($response['error']));
+            return [];
+        }
+
+        return $response['calendars'][$calendar_id]['busy'] ?? [];
+    }
+
+    /**
      * List available calendars for the given admin user.
      * Returns array of ['id' => ..., 'summary' => ...] or empty array on failure.
      */

@@ -54,6 +54,33 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     exit;
 
 } elseif ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'available_dates') {
+
+    /**
+     * Helper: returns true if the given slot does NOT conflict with any GCal busy period.
+     *
+     * @param string $date          YYYY-MM-DD
+     * @param string $slot_str      HH:MM
+     * @param int    $duration_min  appointment duration in minutes
+     * @param int    $buf_before    buffer before in minutes
+     * @param int    $buf_after     buffer after in minutes
+     * @param array  $busy_periods  flat array of ['start'=>RFC3339, 'end'=>RFC3339]
+     */
+    function ad_slot_passes_gcal(string $date, string $slot_str, int $duration_min, int $buf_before, int $buf_after, array $busy_periods): bool {
+        $slot_ts    = strtotime($date . 'T' . $slot_str . ':00');
+        $buf_s_ts   = $slot_ts - $buf_before * 60;
+        $buf_e_ts   = $slot_ts + ($duration_min + $buf_after) * 60;
+        foreach ($busy_periods as $busy) {
+            if (empty($busy['start']) || empty($busy['end'])) continue;
+            $bs = strtotime($busy['start']);
+            $be = strtotime($busy['end']);
+            if ($bs === false || $be === false) continue;
+            if ($buf_s_ts < $be && $bs < $buf_e_ts) {
+                return false; // conflict
+            }
+        }
+        return true;
+    }
+
     // Return a list of dates (within a given range) that have at least one available slot.
     // Used by the booking UI to hide dates with no availability from the date selector.
     $appointment_type_id = isset($_GET['appointment_type_id']) ? (int)$_GET['appointment_type_id'] : 0;
@@ -92,7 +119,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         SELECT available_days, available_start_time, available_end_time, time_slot_interval,
                schedule_type, specific_date, specific_dates, per_day_schedule,
                duration_minutes, is_group_class, max_participants,
-               buffer_before_minutes, buffer_after_minutes
+               buffer_before_minutes, buffer_after_minutes,
+               advance_booking_min_days, advance_booking_max_days
         FROM appointment_types
         WHERE id = ? AND is_active = 1
     ");
@@ -111,7 +139,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     }
     $ad_start_time     = $appt_type['available_start_time'] ?? '09:00';
     $ad_end_time       = $appt_type['available_end_time']   ?? '17:00';
-    $ad_interval       = (int)($appt_type['time_slot_interval'] ?? 30);
+    $ad_interval       = max(1, (int)($appt_type['time_slot_interval'] ?? 30)); // guard against 0
     $ad_duration       = (int)($appt_type['duration_minutes']   ?? 60);
     $ad_is_group       = !empty($appt_type['is_group_class']);
     $ad_max_part       = max(1, (int)($appt_type['max_participants'] ?? 1));
@@ -120,6 +148,24 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $ad_per_day        = !empty($appt_type['per_day_schedule'])
                          ? json_decode($appt_type['per_day_schedule'], true)
                          : null;
+    // Advance-booking window: honour the appointment type's min/max booking lead time
+    $ad_min_days       = max(0, (int)($appt_type['advance_booking_min_days'] ?? 0));
+    $ad_max_days       = max(1, (int)($appt_type['advance_booking_max_days'] ?? 365));
+
+    // Tighten from_date by the minimum advance notice (e.g. min_days=1 → earliest is tomorrow)
+    $advance_min_from = date('Y-m-d', strtotime($today_str . ' +' . $ad_min_days . ' days'));
+    if ($from_date < $advance_min_from) {
+        $from_date = $advance_min_from;
+    }
+    // Cap to_date by the maximum booking window
+    $advance_max_to = date('Y-m-d', strtotime($today_str . ' +' . $ad_max_days . ' days'));
+    if ($to_date > $advance_max_to) {
+        $to_date = $advance_max_to;
+    }
+    if ($to_date < $from_date) {
+        echo json_encode(['available_dates' => [], 'schedule_type' => $ad_schedule_type]);
+        exit;
+    }
 
     // Build the list of candidate dates to evaluate
     $candidate_dates = [];
@@ -183,6 +229,23 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                     $specific_dates_config[$sd_entry['date']] = $sd_entry['timeslots'] ?? null;
                 }
             }
+        }
+    }
+
+    // Pre-fetch Google Calendar busy periods for the entire range in ONE API call.
+    // Mirrors the per-slot GCal check already done in the single-date slot endpoint,
+    // so that dates blocked only by GCal events are correctly marked unavailable here too.
+    $gcal_busy_periods = [];
+    if (GoogleCalendarIntegration::isOAuthConfigured()) {
+        try {
+            $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id LIMIT 1");
+            if ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
+                $gcal_busy_periods = GoogleCalendarIntegration::getFreeBusyRange(
+                    $from_date, $to_date, (int)$admin_row['admin_user_id']
+                );
+            }
+        } catch (Exception $e) {
+            error_log('api_bookings available_dates: GCal free/busy range check failed: ' . $e->getMessage());
         }
     }
 
@@ -270,6 +333,10 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             if ($ad_is_group) {
                 $count = $group_slot_counts[$slot_str] ?? 0;
                 if ($count < $ad_max_part) {
+                    // Also check Google Calendar
+                    if (!empty($gcal_busy_periods) && !ad_slot_passes_gcal($check_date, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, $gcal_busy_periods)) {
+                        continue; // GCal blocks this slot
+                    }
                     $has_available = true;
                     break;
                 }
@@ -293,6 +360,10 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                         $slot_free = false;
                         break;
                     }
+                }
+                // Also check Google Calendar
+                if ($slot_free && !empty($gcal_busy_periods)) {
+                    $slot_free = ad_slot_passes_gcal($check_date, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, $gcal_busy_periods);
                 }
                 if ($slot_free) {
                     $has_available = true;
