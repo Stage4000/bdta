@@ -19,7 +19,7 @@ if ($is_edit) {
     $template = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$template) {
-        $_SESSION['error'] = "Template not found";
+        setFlashMessage("Template not found", 'error');
         header('Location: contract_templates_list.php');
         exit;
     }
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     if (empty($name) || empty($template_text)) {
-        $_SESSION['error'] = "Name and template text are required";
+        setFlashMessage("Name and template text are required", 'error');
     } else {
         try {
             if ($is_edit) {
@@ -47,14 +47,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE id = ?
                 ");
                 $stmt->execute([$name, $description, $template_text, $service_type, $renewal_period_months, $is_active, $template_id]);
-                $_SESSION['success'] = "Template updated successfully";
+                setFlashMessage("Template updated successfully", 'success');
             } else {
                 $stmt = $conn->prepare("
                     INSERT INTO contract_templates (name, description, template_text, service_type, renewal_period_months, is_active)
                     VALUES (?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([$name, $description, $template_text, $service_type, $renewal_period_months, $is_active]);
-                $_SESSION['success'] = "Template created successfully";
+                setFlashMessage("Template created successfully", 'success');
                 $template_id = $conn->lastInsertId();
             }
             
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
             
         } catch (Exception $e) {
-            $_SESSION['error'] = "Error saving template: " . $e->getMessage();
+            setFlashMessage("Error saving template: " . $e->getMessage(), 'error');
         }
     }
 }
