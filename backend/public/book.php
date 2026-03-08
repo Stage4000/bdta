@@ -494,20 +494,7 @@ if (isset($error_mode) && $error_mode) {
                     <div class="row">
                         <div class="col-md-8 mx-auto mb-3">
                             <label class="form-label fw-bold">Select Date *</label>
-                            <?php if ($is_multi_specific_date): ?>
-                            <select class="form-select form-select-lg" id="appointmentDate" name="appointment_date" required>
-                                <option value="">— Select a date —</option>
-                                <?php foreach ($specific_dates_list as $sd_entry): ?>
-                                <option value="<?= htmlspecialchars($sd_entry['date']) ?>">
-                                    <?= date('l, F j, Y', strtotime($sd_entry['date'])) ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <small class="text-muted mt-2 d-block">
-                                <i class="fas fa-calendar-check me-1"></i>
-                                This session is available on the dates listed above. Select one to continue.
-                            </small>
-                            <?php elseif ($is_specific_date_type && $specific_date_value): ?>
+                            <?php if ($is_specific_date_type && !$is_multi_specific_date): ?>
                             <input type="date" class="form-control form-control-lg" id="appointmentDate"
                                    name="appointment_date" required
                                    value="<?= htmlspecialchars($specific_date_value) ?>"
@@ -519,9 +506,27 @@ if (isset($error_mode) && $error_mode) {
                                 This session is only available on <strong><?= date('F j, Y', strtotime($specific_date_value)) ?></strong>.
                             </small>
                             <?php else: ?>
-                            <input type="date" class="form-control form-control-lg" id="appointmentDate" 
-                                   name="appointment_date" required min="<?= date('Y-m-d') ?>">
-                            <small class="text-muted mt-2 d-block">Choose a date for your appointment. You'll select a time in the next step.</small>
+                            <!-- Dates loaded dynamically; only dates with open slots are shown -->
+                            <div id="dateLoadingArea" class="alert alert-info py-2">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                Loading available dates&hellip;
+                            </div>
+                            <select class="form-select form-select-lg" id="appointmentDate"
+                                    name="appointment_date" required style="display:none;">
+                                <option value="">— Select a date —</option>
+                            </select>
+                            <small id="dateHelperText" class="text-muted mt-2 d-block" style="display:none;">
+                                <?php if ($is_multi_specific_date): ?>
+                                <i class="fas fa-calendar-check me-1"></i>
+                                This session is available on the dates listed. Select one to continue.
+                                <?php else: ?>
+                                Only dates with available appointment times are shown.
+                                <?php endif; ?>
+                            </small>
+                            <div id="noAvailableDatesMsg" class="alert alert-warning" style="display:none;">
+                                <i class="fas fa-calendar-times me-2"></i>
+                                There are currently no available dates. Please check back later or <a href="/">contact us</a> for assistance.
+                            </div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -921,6 +926,10 @@ if (isset($error_mode) && $error_mode) {
     $js_specific_date = ($is_specific_date_type && $specific_date_value && !$is_multi_specific_date)
         ? json_encode($specific_date_value)
         : 'null';
+    // Whether the date selector needs to be populated dynamically
+    $js_needs_dynamic_dates = (!isset($error_mode) || !$error_mode) && !($is_specific_date_type && !$is_multi_specific_date);
+    // Range for available_dates API: use wider window for specific_date types so all configured dates are included
+    $js_date_range_days = $is_multi_specific_date ? 365 : 60;
     ?>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -947,6 +956,11 @@ if (isset($error_mode) && $error_mode) {
                     // Enable the continue button on step 2
                     document.getElementById('step2Next').disabled = false;
                 });
+            }
+
+            // Dynamically load available dates when the selector is present
+            if (<?= $js_needs_dynamic_dates ? 'true' : 'false' ?>) {
+                loadAvailableDates();
             }
 
             if (publicLocationType) {
@@ -1079,6 +1093,60 @@ if (isset($error_mode) && $error_mode) {
             
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function loadAvailableDates() {
+            const loadingArea = document.getElementById('dateLoadingArea');
+            const dateSelect  = document.getElementById('appointmentDate');
+            const noAvailMsg  = document.getElementById('noAvailableDatesMsg');
+            const helperText  = document.getElementById('dateHelperText');
+            if (!loadingArea || !dateSelect || !selectedType) return;
+
+            const today   = new Date().toISOString().split('T')[0];
+            const rangeDays = <?= intval($js_date_range_days) ?>;
+            const endDate = new Date(Date.now() + rangeDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+            fetch(`api_bookings.php?action=available_dates&appointment_type_id=${selectedType}&from=${today}&to=${endDate}`)
+                .then(r => r.json())
+                .then(data => {
+                    loadingArea.style.display = 'none';
+                    const dates = data.available_dates || [];
+                    if (dates.length > 0) {
+                        dates.forEach(d => {
+                            const opt = document.createElement('option');
+                            opt.value = d;
+                            const dateObj = new Date(d + 'T00:00');
+                            opt.textContent = dateObj.toLocaleDateString('en-US', {
+                                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                            });
+                            dateSelect.appendChild(opt);
+                        });
+                        dateSelect.style.display = '';
+                        if (helperText) helperText.style.removeProperty('display');
+                    } else {
+                        if (noAvailMsg) noAvailMsg.style.display = '';
+                    }
+                })
+                .catch(() => {
+                    // On network error, fall back to a plain date input so the user
+                    // can still attempt to book.
+                    if (loadingArea) loadingArea.style.display = 'none';
+                    if (dateSelect) {
+                        // Replace select with a plain date input
+                        const input = document.createElement('input');
+                        input.type  = 'date';
+                        input.id    = 'appointmentDate';
+                        input.name  = 'appointment_date';
+                        input.className = 'form-control form-control-lg';
+                        input.required  = true;
+                        input.min = today;
+                        input.addEventListener('change', function() {
+                            selectedDate = this.value;
+                            document.getElementById('step2Next').disabled = false;
+                        });
+                        dateSelect.replaceWith(input);
+                    }
+                });
         }
         
         function loadAvailableSlots() {

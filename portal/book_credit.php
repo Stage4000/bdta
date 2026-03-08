@@ -236,9 +236,21 @@ include '../portal/includes/header.php';
                 <div class="row">
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Date *</label>
-                        <input type="date" class="form-control form-control-lg" id="appointmentDate"
-                               min="<?= date('Y-m-d') ?>" required>
-                        <small class="text-muted mt-1 d-block">Select a date; available times load in the next step.</small>
+                        <!-- Dates loaded dynamically; only dates with open slots are shown -->
+                        <div id="dateLoadingArea" class="alert alert-info py-2">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            Loading available dates&hellip;
+                        </div>
+                        <select class="form-select form-select-lg" id="appointmentDate" required style="display:none;">
+                            <option value="">— Select a date —</option>
+                        </select>
+                        <small id="dateHelperText" class="text-muted mt-1 d-block" style="display:none;">
+                            Only dates with available appointment times are shown.
+                        </small>
+                        <div id="noAvailableDatesMsg" class="alert alert-warning" style="display:none;">
+                            <i class="fas fa-calendar-times me-2"></i>
+                            There are currently no available dates. Please check back later or contact us for assistance.
+                        </div>
                     </div>
                 </div>
                 <div class="d-flex justify-content-end mt-4">
@@ -668,6 +680,54 @@ include '../portal/includes/header.php';
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
     }
+
+    /* ─── Load available dates ────────────────────────────────────── */
+    function loadAvailableDates() {
+        const loadingArea = document.getElementById('dateLoadingArea');
+        const dateSelect  = document.getElementById('appointmentDate');
+        const noAvailMsg  = document.getElementById('noAvailableDatesMsg');
+        const helperText  = document.getElementById('dateHelperText');
+        if (!loadingArea || !dateSelect) return;
+
+        const today   = new Date().toISOString().split('T')[0];
+        // Wide range so specific-date types with far-future dates are included
+        const endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        fetch(`/backend/public/api_bookings.php?action=available_dates&appointment_type_id=${apptTypeId}&from=${today}&to=${endDate}`)
+            .then(r => r.json())
+            .then(data => {
+                loadingArea.style.display = 'none';
+                const dates = data.available_dates || [];
+                if (dates.length > 0) {
+                    dates.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d;
+                        opt.textContent = formatDateLong(d);
+                        dateSelect.appendChild(opt);
+                    });
+                    dateSelect.style.display = '';
+                    if (helperText) helperText.style.removeProperty('display');
+                } else {
+                    if (noAvailMsg) noAvailMsg.style.display = '';
+                }
+            })
+            .catch(() => {
+                // On network error, fall back to a plain date input
+                if (loadingArea) loadingArea.style.display = 'none';
+                if (dateSelect) {
+                    const input = document.createElement('input');
+                    input.type  = 'date';
+                    input.id    = 'appointmentDate';
+                    input.className = 'form-control form-control-lg';
+                    input.required  = true;
+                    input.min = today;
+                    dateSelect.replaceWith(input);
+                }
+            });
+    }
+
+    // Kick off date loading on page load
+    document.addEventListener('DOMContentLoaded', loadAvailableDates);
 
     /* ─── Step navigation ─────────────────────────────────────────── */
     window.prevStep = function () {
