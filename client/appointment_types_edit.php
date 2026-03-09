@@ -47,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $travel_time_minutes = (int)($_POST['travel_time_minutes'] ?? 0);
     $advance_booking_min_days = (int)($_POST['advance_booking_min_days'] ?? 1);
     $advance_booking_max_days = (int)($_POST['advance_booking_max_days'] ?? 90);
+    $cancellation_notice_hours = (int)($_POST['cancellation_notice_hours'] ?? 0);
     $selected_form_ids = isset($_POST['form_ids']) && is_array($_POST['form_ids'])
         ? array_map('intval', $_POST['form_ids'])
         : [];
@@ -193,6 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     travel_time_minutes = ?,
                     advance_booking_min_days = ?,
                     advance_booking_max_days = ?,
+                    cancellation_notice_hours = ?,
                     requires_forms = ?,
                     requires_contract = ?,
                     contract_template_id = ?,
@@ -231,6 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $buffer_before_minutes, $buffer_after_minutes,
                 $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
+                $cancellation_notice_hours,
                 $requires_forms, $requires_contract, $contract_template_id,
                 $auto_invoice, $invoice_due_days,
                 $consumes_credits, $credit_count,
@@ -265,6 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     buffer_before_minutes, buffer_after_minutes,
                     use_travel_time_buffer, travel_time_minutes,
                     advance_booking_min_days, advance_booking_max_days,
+                    cancellation_notice_hours,
                     requires_forms, requires_contract, contract_template_id,
                     auto_invoice, invoice_due_days,
                     consumes_credits, credit_count,
@@ -282,13 +286,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     confirmation_template_id,
                     reminder_template_id,
                     cancellation_template_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
                 $buffer_before_minutes, $buffer_after_minutes,
                 $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
+                $cancellation_notice_hours,
                 $requires_forms, $requires_contract, $contract_template_id,
                 $auto_invoice, $invoice_due_days,
                 $consumes_credits, $credit_count,
@@ -539,6 +544,15 @@ include __DIR__ . '/../backend/includes/header.php';
                         <input type="number" class="form-control" id="advance_booking_max_days" name="advance_booking_max_days" 
                                value="<?= $type['advance_booking_max_days'] ?? 90 ?>" min="1">
                         <div class="form-text">Clients can book up to this many days in advance</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="cancellation_notice_hours" class="form-label">Minimum Notice for Changes (hours)</label>
+                        <input type="number" class="form-control" id="cancellation_notice_hours" name="cancellation_notice_hours"
+                               value="<?= intval($type['cancellation_notice_hours'] ?? 0) ?>" min="0">
+                        <div class="form-text">Clients can only cancel or reschedule if the appointment is at least this many hours away. Set to 0 to allow changes at any time.</div>
                     </div>
                 </div>
 

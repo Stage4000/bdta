@@ -433,7 +433,139 @@ class EmailService {
     }
 
     /**
-     * Send a payment receipt email for a fully-paid invoice or a single installment.
+     * Send a booking reschedule confirmation email to the client.
+     *
+     * @param array  $booking     Row from bookings with new date/time already set
+     * @param string $old_date    Previous appointment date (Y-m-d)
+     * @param string $old_time    Previous appointment time (H:i or H:i:s)
+     * @param string $reason      Optional reason provided by the client
+     * @return array{success: bool, message: string}
+     */
+    public function sendBookingReschedule($booking, $old_date, $old_time, $reason = '') {
+        $to = $booking['client_email'] ?? '';
+        if (empty($to)) {
+            return ['success' => false, 'message' => 'No client email address on file'];
+        }
+
+        $new_date = date('l, F j, Y', strtotime($booking['appointment_date']));
+        $new_time = date('g:i A', strtotime($booking['appointment_time']));
+        $old_date_fmt = date('l, F j, Y', strtotime($old_date));
+        $old_time_fmt = date('g:i A', strtotime($old_time));
+
+        $business_name  = Settings::get('site_name', "Brook's Dog Training Academy");
+        $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
+        $client_name    = $booking['client_name'] ?? 'Valued Client';
+        $service        = $booking['service_type'] ?? '';
+
+        $subject = "Appointment Rescheduled - {$business_name}";
+
+        $html_body = "
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+            <h2 style='color: #9a0073;'>Appointment Rescheduled</h2>
+            <p>Hi {$client_name},</p>
+            <p>Your appointment has been successfully rescheduled. Here are the updated details:</p>
+            <table style='width:100%; border-collapse:collapse;'>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Service</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>" . htmlspecialchars($service) . "</td></tr>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>New Date</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$new_date}</td></tr>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>New Time</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$new_time}</td></tr>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Previous Date</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$old_date_fmt}</td></tr>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Previous Time</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$old_time_fmt}</td></tr>
+            </table>" .
+            (!empty($reason) ? "<p><strong>Reason:</strong> " . htmlspecialchars($reason) . "</p>" : "") .
+            "<p>If you need to make any further changes or have questions, please contact us at
+            <a href='mailto:{$business_email}'>{$business_email}</a>.</p>
+            <p>Best regards,<br>{$business_name}</p>
+        </div>";
+
+        $text_body = "Appointment Rescheduled\n\nHi {$client_name},\n\n"
+            . "Your appointment has been rescheduled.\n\n"
+            . "Service: {$service}\nNew Date: {$new_date}\nNew Time: {$new_time}\n"
+            . "Previous Date: {$old_date_fmt}\nPrevious Time: {$old_time_fmt}\n"
+            . (!empty($reason) ? "Reason: {$reason}\n" : '')
+            . "\nQuestions? Contact us at {$business_email}.\n\nBest regards,\n{$business_name}";
+
+        return $this->routeMail(self::MAIL_TYPE_BOOKING_CONFIRMATION, $to, $subject, $html_body, $text_body, [
+            'client_id' => $booking['client_id'] ?? null,
+        ]);
+    }
+
+    /**
+     * Notify the admin when a client cancels or reschedules an appointment.
+     *
+     * @param array  $booking     Booking row (with old data for reschedules)
+     * @param string $change_type 'cancellation' or 'reschedule'
+     * @param string $reason      Optional client-provided reason
+     * @param string $old_date    Previous date (for reschedules, Y-m-d)
+     * @param string $old_time    Previous time (for reschedules, H:i or H:i:s)
+     * @return array{success: bool, message: string}
+     */
+    public function sendAdminBookingChangeNotification($booking, $change_type, $reason = '', $old_date = '', $old_time = '') {
+        $admin_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
+        if (empty($admin_email)) {
+            return ['success' => false, 'message' => 'No admin email configured'];
+        }
+
+        $business_name = Settings::get('site_name', "Brook's Dog Training Academy");
+        $client_name   = $booking['client_name'] ?? 'A client';
+        $service       = $booking['service_type'] ?? '';
+
+        if ($change_type === 'cancellation') {
+            $subject = "Client Cancellation: {$client_name} - {$business_name}";
+            $date_fmt = date('l, F j, Y', strtotime($booking['appointment_date']));
+            $time_fmt = date('g:i A', strtotime($booking['appointment_time']));
+            $detail_rows = "
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Date</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$date_fmt}</td></tr>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Time</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$time_fmt}</td></tr>";
+            $action_label = 'cancelled';
+        } else {
+            $subject = "Client Reschedule: {$client_name} - {$business_name}";
+            $new_date_fmt = date('l, F j, Y', strtotime($booking['appointment_date']));
+            $new_time_fmt = date('g:i A', strtotime($booking['appointment_time']));
+            $old_date_fmt = date('l, F j, Y', strtotime($old_date));
+            $old_time_fmt = date('g:i A', strtotime($old_time));
+            $detail_rows = "
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>New Date</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$new_date_fmt}</td></tr>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>New Time</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$new_time_fmt}</td></tr>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Previous Date</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$old_date_fmt}</td></tr>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Previous Time</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>{$old_time_fmt}</td></tr>";
+            $action_label = 'rescheduled';
+        }
+
+        $html_body = "
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+            <h2 style='color: #9a0073;'>Appointment {$action_label} by Client</h2>
+            <p><strong>{$client_name}</strong> has {$action_label} their appointment.</p>
+            <table style='width:100%; border-collapse:collapse;'>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Client</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>" . htmlspecialchars($client_name) . "</td></tr>
+                <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Service</strong></td>
+                    <td style='padding:8px; border:1px solid #ddd;'>" . htmlspecialchars($service) . "</td></tr>
+                {$detail_rows}
+            </table>" .
+            (!empty($reason) ? "<p><strong>Client reason:</strong> " . htmlspecialchars($reason) . "</p>" : "") .
+            "<p>Booking ID: #{$booking['id']}</p>
+        </div>";
+
+        $text_body = "Appointment {$action_label} by client\n\n"
+            . "Client: {$client_name}\nService: {$service}\n"
+            . (!empty($reason) ? "Reason: {$reason}\n" : '')
+            . "Booking ID: #{$booking['id']}\n";
+
+        return $this->routeMail(self::MAIL_TYPE_GENERIC, $admin_email, $subject, $html_body, $text_body);
+    }
+
+    /**
      *
      * @param array      $invoice     Row from invoices (joined with client name/email)
      * @param array|null $installment Row from invoice_installments, or null for full invoice

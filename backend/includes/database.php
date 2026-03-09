@@ -1692,6 +1692,34 @@ class Database {
         // Add booking form customization setting
         $this->addBookingFormSetting();
 
+        // Add cancellation/reschedule advance notice period to appointment_types
+        $apt_col_names_notice = $this->getTableColumns('appointment_types');
+        if (!in_array('cancellation_notice_hours', $apt_col_names_notice)) {
+            // Minimum hours before appointment that clients can cancel or reschedule (0 = no restriction)
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN cancellation_notice_hours INTEGER DEFAULT 0");
+            $this->execSQL("UPDATE appointment_types SET cancellation_notice_hours = 0 WHERE cancellation_notice_hours IS NULL");
+        }
+
+        // Create booking_change_log table for auditing client-initiated cancellations and reschedules
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS booking_change_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                booking_id INTEGER NOT NULL,
+                client_id INTEGER,
+                change_type TEXT NOT NULL,
+                reason TEXT,
+                old_date DATE,
+                old_time TIME,
+                new_date DATE,
+                new_time TIME,
+                initiated_by TEXT NOT NULL DEFAULT 'client',
+                ip_address TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
+            )
+        ");
+
         // Create Google OAuth tokens table for per-user OAuth calendar integration
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS google_oauth_tokens (
