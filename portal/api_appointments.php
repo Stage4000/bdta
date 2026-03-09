@@ -234,8 +234,11 @@ if ($action === 'reschedule') {
     // Use PHP-computed end time so query works on both MySQL and SQLite.
     if ($apt_type_id > 0) {
         $duration = intval($booking['apt_duration_minutes'] ?? $booking['duration_minutes'] ?? 60);
-        $new_end_time = date('H:i:s', strtotime($new_time_hhmm . ':00') + $duration * 60);
-        // Fetch all overlapping bookings in PHP to avoid ADDTIME / SEC_TO_TIME (MySQL-only)
+        // Use DateTime for safe end-time arithmetic (avoids integer overflow with strtotime)
+        $new_end_dt = new DateTime($new_date . ' ' . $new_time_hhmm . ':00');
+        $new_end_dt->modify("+{$duration} minutes");
+        $new_end_time = $new_end_dt->format('H:i:s');
+        // Fetch all bookings that start before our new appointment ends on the same date
         $stmt = $conn->prepare("
             SELECT appointment_time, duration_minutes FROM bookings
             WHERE appointment_type_id = ?
@@ -246,9 +249,15 @@ if ($action === 'reschedule') {
         ");
         $stmt->execute([$apt_type_id, $new_date, $booking_id, $new_end_time]);
         $conflict = false;
+        $new_start_ts = strtotime($new_date . ' ' . $new_time_hhmm . ':00');
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $existing_end = date('H:i:s', strtotime($row['appointment_time']) + intval($row['duration_minutes'] ?? 60) * 60);
-            if ($existing_end > $new_time_hhmm . ':00') {
+            // Compute existing booking's end time using DateTime for consistency
+            $existing_start = new DateTime($new_date . ' ' . substr($row['appointment_time'], 0, 8));
+            $existing_dur   = intval($row['duration_minutes'] ?? 60);
+            $existing_end   = clone $existing_start;
+            $existing_end->modify("+{$existing_dur} minutes");
+            // Overlap if existing_end > new_start (we already know existing_start < new_end from query)
+            if ($existing_end->getTimestamp() > $new_start_ts) {
                 $conflict = true;
                 break;
             }

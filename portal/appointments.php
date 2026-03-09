@@ -21,7 +21,7 @@ $now_time = date('H:i:s');
 // Upcoming appointments (joined with appointment_types for notice period)
 $stmt = $conn->prepare("
     SELECT b.*, at.cancellation_notice_hours, at.name AS apt_type_display_name,
-           at.portal_available
+           at.portal_available, at.advance_booking_min_days
     FROM bookings b
     LEFT JOIN appointment_types at ON b.appointment_type_id = at.id
     WHERE b.client_email = ?
@@ -83,8 +83,8 @@ foreach ($upcoming as &$b) {
     $b['_notice_hours']    = $notice_hours;
     // can_change: appointment is in the future AND within the allowed notice window (or no window set)
     $b['_can_change']      = ($hours_until > 0) && ($notice_hours === 0 || $hours_until >= $notice_hours);
-    // can_reschedule: change allowed AND appointment type supports portal booking
-    $b['_can_reschedule']  = $b['_can_change'] && !empty($b['appointment_type_id']);
+    // can_reschedule: change allowed AND appointment type is bookable via portal
+    $b['_can_reschedule']  = $b['_can_change'] && !empty($b['appointment_type_id']) && !empty($b['portal_available']);
 }
 unset($b);
 
@@ -184,7 +184,7 @@ include '../portal/includes/header.php';
                                 </button>
                                 <?php if ($b['_can_reschedule']): ?>
                                 <button class="btn btn-sm btn-outline-primary"
-                                        onclick="showRescheduleModal(<?php echo intval($b['id']); ?>, <?php echo intval($b['appointment_type_id']); ?>, <?php echo json_encode($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?>)">
+                                        onclick="showRescheduleModal(<?php echo intval($b['id']); ?>, <?php echo intval($b['appointment_type_id']); ?>, <?php echo json_encode($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?>, <?php echo intval($b['advance_booking_min_days'] ?? 1); ?>)">
                                     <i class="fas fa-calendar-alt me-1"></i>Reschedule
                                 </button>
                                 <?php endif; ?>
@@ -291,7 +291,6 @@ include '../portal/includes/header.php';
                 <div class="mb-3">
                     <label for="rescheduleDate" class="form-label">New Date</label>
                     <input type="date" class="form-control" id="rescheduleDate"
-                           min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>"
                            onchange="loadRescheduleSlots()">
                 </div>
 
@@ -385,11 +384,16 @@ function submitCancel() {
 }
 
 // ── Reschedule ────────────────────────────────────────────────────────
-function showRescheduleModal(bookingId, typeId, typeName) {
+function showRescheduleModal(bookingId, typeId, typeName, minDays) {
     _activeRescheduleId = bookingId;
     _activeTypeId       = typeId;
     _selectedTime       = null;
     document.getElementById('rescheduleApptName').textContent = typeName;
+    // Compute minimum date from advance_booking_min_days
+    var minDate = new Date();
+    minDate.setDate(minDate.getDate() + (minDays > 0 ? minDays : 1));
+    var minDateStr = minDate.toISOString().split('T')[0];
+    document.getElementById('rescheduleDate').min   = minDateStr;
     document.getElementById('rescheduleDate').value = '';
     document.getElementById('rescheduleTimesSection').style.display = 'none';
     document.getElementById('rescheduleTimesGrid').innerHTML = '';
