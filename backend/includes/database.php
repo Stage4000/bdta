@@ -250,7 +250,7 @@ class Database {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT NOT NULL,
                     slug TEXT UNIQUE NOT NULL,
-                    content TEXT NOT NULL,
+                    content MEDIUMTEXT NOT NULL,
                     excerpt TEXT,
                     author TEXT NOT NULL,
                     published INTEGER DEFAULT 0,
@@ -1849,6 +1849,13 @@ class Database {
                 $this->conn->exec("ALTER TABLE email_signature_templates MODIFY COLUMN html_content MEDIUMTEXT NOT NULL");
             } catch (PDOException $e) {
                 error_log("Migration: could not modify email_signature_templates.html_content - " . $e->getMessage());
+            }
+            // Widen blog_posts.content on MySQL installations where TEXT (~64 KB)
+            // is too small for large rich-text blog post content.
+            try {
+                $this->conn->exec("ALTER TABLE blog_posts MODIFY COLUMN content MEDIUMTEXT NOT NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify blog_posts.content - " . $e->getMessage());
             }
         }
     }
