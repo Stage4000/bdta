@@ -677,8 +677,8 @@ class Database {
                     name TEXT NOT NULL,
                     template_type TEXT NOT NULL,
                     subject TEXT NOT NULL,
-                    body_html TEXT NOT NULL,
-                    body_text TEXT,
+                    body_html MEDIUMTEXT NOT NULL,
+                    body_text MEDIUMTEXT,
                     variables TEXT,
                     is_active INTEGER DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1802,6 +1802,18 @@ class Database {
                 $this->conn->exec("ALTER TABLE contracts MODIFY COLUMN contract_text MEDIUMTEXT NOT NULL");
             } catch (PDOException $e) {
                 error_log("Migration: could not modify contracts.contract_text - " . $e->getMessage());
+            }
+            // Widen email_templates.body_html and body_text on MySQL installations
+            // where TEXT (~64 KB) is too small for large HTML email templates.
+            try {
+                $this->conn->exec("ALTER TABLE email_templates MODIFY COLUMN body_html MEDIUMTEXT NOT NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify email_templates.body_html - " . $e->getMessage());
+            }
+            try {
+                $this->conn->exec("ALTER TABLE email_templates MODIFY COLUMN body_text MEDIUMTEXT");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify email_templates.body_text - " . $e->getMessage());
             }
         }
     }
