@@ -83,8 +83,8 @@ foreach ($upcoming as &$b) {
     $b['_notice_hours']    = $notice_hours;
     // can_change: appointment is in the future AND within the allowed notice window (or no window set)
     $b['_can_change']      = ($hours_until > 0) && ($notice_hours === 0 || $hours_until >= $notice_hours);
-    // can_reschedule: change allowed AND appointment type is bookable via portal
-    $b['_can_reschedule']  = $b['_can_change'] && !empty($b['appointment_type_id']) && !empty($b['portal_available']);
+    // can_reschedule: change allowed AND appointment type ID is known (portal_available not required)
+    $b['_can_reschedule']  = $b['_can_change'] && !empty($b['appointment_type_id']);
 }
 unset($b);
 
@@ -179,12 +179,19 @@ include '../portal/includes/header.php';
                         <td>
                             <?php if ($b['_can_change']): ?>
                                 <button class="btn btn-sm btn-outline-danger me-1"
-                                        onclick="showCancelModal(<?php echo intval($b['id']); ?>, <?php echo json_encode($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?>, <?php echo json_encode(date('M j, Y', strtotime($b['appointment_date'])) . ' at ' . date('g:i A', strtotime($b['appointment_time']))); ?>)">
+                                        data-booking-id="<?php echo intval($b['id']); ?>"
+                                        data-type-name="<?php echo escape($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?>"
+                                        data-datetime="<?php echo escape(date('M j, Y', strtotime($b['appointment_date'])) . ' at ' . date('g:i A', strtotime($b['appointment_time']))); ?>"
+                                        onclick="showCancelModal(this)">
                                     <i class="fas fa-times-circle me-1"></i>Cancel
                                 </button>
                                 <?php if ($b['_can_reschedule']): ?>
                                 <button class="btn btn-sm btn-outline-primary"
-                                        onclick="showRescheduleModal(<?php echo intval($b['id']); ?>, <?php echo intval($b['appointment_type_id']); ?>, <?php echo json_encode($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?>, <?php echo intval($b['advance_booking_min_days'] ?? 1); ?>)">
+                                        data-booking-id="<?php echo intval($b['id']); ?>"
+                                        data-type-id="<?php echo intval($b['appointment_type_id']); ?>"
+                                        data-type-name="<?php echo escape($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?>"
+                                        data-min-days="<?php echo intval($b['advance_booking_min_days'] ?? 1); ?>"
+                                        onclick="showRescheduleModal(this)">
                                     <i class="fas fa-calendar-alt me-1"></i>Reschedule
                                 </button>
                                 <?php endif; ?>
@@ -335,12 +342,12 @@ var _activeTypeId       = null;
 var _selectedTime       = null;
 
 // ── Cancel ────────────────────────────────────────────────────────────
-function showCancelModal(bookingId, typeName, dateTimeStr) {
-    _activeCancelId = bookingId;
-    document.getElementById('cancelApptDetails').textContent = typeName + ' on ' + dateTimeStr;
+function showCancelModal(btn) {
+    _activeCancelId = parseInt(btn.dataset.bookingId, 10);
+    document.getElementById('cancelApptDetails').textContent = btn.dataset.typeName + ' on ' + btn.dataset.datetime;
     document.getElementById('cancelReason').value = '';
     document.getElementById('cancelError').classList.add('d-none');
-    new bootstrap.Modal(document.getElementById('cancelModal')).show();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('cancelModal')).show();
 }
 
 function submitCancel() {
@@ -384,11 +391,12 @@ function submitCancel() {
 }
 
 // ── Reschedule ────────────────────────────────────────────────────────
-function showRescheduleModal(bookingId, typeId, typeName, minDays) {
-    _activeRescheduleId = bookingId;
-    _activeTypeId       = typeId;
+function showRescheduleModal(btn) {
+    _activeRescheduleId = parseInt(btn.dataset.bookingId, 10);
+    _activeTypeId       = parseInt(btn.dataset.typeId, 10);
+    var minDays         = parseInt(btn.dataset.minDays, 10) || 1;
     _selectedTime       = null;
-    document.getElementById('rescheduleApptName').textContent = typeName;
+    document.getElementById('rescheduleApptName').textContent = btn.dataset.typeName;
     // Compute minimum date from advance_booking_min_days
     var minDate = new Date();
     minDate.setDate(minDate.getDate() + (minDays > 0 ? minDays : 1));
@@ -401,7 +409,7 @@ function showRescheduleModal(bookingId, typeId, typeName, minDays) {
     document.getElementById('rescheduleReason').value = '';
     document.getElementById('rescheduleError').classList.add('d-none');
     document.getElementById('confirmRescheduleBtn').disabled = true;
-    new bootstrap.Modal(document.getElementById('rescheduleModal')).show();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('rescheduleModal')).show();
 }
 
 function loadRescheduleSlots() {
