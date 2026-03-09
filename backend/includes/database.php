@@ -1761,6 +1761,21 @@ class Database {
                 VALUES ('home', 'Home', '', '', 1, 0, 0)");
         }
 
+        // Add SEO columns to site_pages if they don't exist yet
+        $sp_column_names = $this->getTableColumns('site_pages');
+        if (!in_array('meta_keywords', $sp_column_names)) {
+            $this->execSQL("ALTER TABLE site_pages ADD COLUMN meta_keywords TEXT");
+        }
+        if (!in_array('og_title', $sp_column_names)) {
+            $this->execSQL("ALTER TABLE site_pages ADD COLUMN og_title TEXT");
+        }
+        if (!in_array('og_description', $sp_column_names)) {
+            $this->execSQL("ALTER TABLE site_pages ADD COLUMN og_description TEXT");
+        }
+        if (!in_array('og_image', $sp_column_names)) {
+            $this->execSQL("ALTER TABLE site_pages ADD COLUMN og_image TEXT");
+        }
+
         // Widen the form_templates.fields and form_submissions.responses columns on
         // MySQL installations where the TEXT → VARCHAR(255) conversion was previously
         // applied, so that large JSON payloads are no longer truncated.

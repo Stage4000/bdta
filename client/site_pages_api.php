@@ -90,6 +90,105 @@ switch ($action) {
         echo json_encode(['success' => true]);
         break;
 
+    // ------------------------------------------------------------------ SAVE SEO
+    case 'save_seo':
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $id              = intval($data['id'] ?? 0);
+        $meta_desc       = trim($data['meta_description'] ?? '');
+        $meta_keywords   = trim($data['meta_keywords']    ?? '');
+        $og_title        = trim($data['og_title']         ?? '');
+        $og_description  = trim($data['og_description']   ?? '');
+        $og_image        = trim($data['og_image']         ?? '');
+
+        if (!$id) { echo json_encode(['success' => false, 'error' => 'Missing id']); break; }
+
+        // Validate lengths
+        if (mb_strlen($meta_desc) > 320) {
+            echo json_encode(['success' => false, 'error' => 'Meta description is too long (max 320 characters)']);
+            break;
+        }
+        if (mb_strlen($og_title) > 255) {
+            echo json_encode(['success' => false, 'error' => 'OG title is too long (max 255 characters)']);
+            break;
+        }
+        if ($og_image !== '' && !filter_var($og_image, FILTER_VALIDATE_URL)) {
+            // Must be an absolute path starting with / and must not contain path traversal sequences
+            if (strpos($og_image, '/') !== 0 || strpos($og_image, '..') !== false) {
+                echo json_encode(['success' => false, 'error' => 'OG image must be a valid URL or an absolute path starting with /']);
+                break;
+            }
+        }
+
+        $stmt = $conn->prepare(
+            "UPDATE site_pages SET meta_description=?, meta_keywords=?, og_title=?, og_description=?, og_image=?,
+             updated_at=CURRENT_TIMESTAMP, updated_by=? WHERE id=?"
+        );
+        $stmt->execute([$meta_desc, $meta_keywords, $og_title, $og_description, $og_image, $_SESSION['admin_id'], $id]);
+        echo json_encode(['success' => true]);
+        break;
+
+    // ------------------------------------------------------------------ UPLOAD OG IMAGE
+    case 'upload_og_image':
+        $page_id = intval($_POST['page_id'] ?? 0);
+        if (!$page_id) { echo json_encode(['success' => false, 'error' => 'Missing page_id']); break; }
+        if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+            $upload_err = $_FILES['image']['error'] ?? UPLOAD_ERR_NO_FILE;
+            $err_messages = [
+                UPLOAD_ERR_INI_SIZE   => 'File exceeds server upload size limit.',
+                UPLOAD_ERR_FORM_SIZE  => 'File exceeds form upload size limit.',
+                UPLOAD_ERR_PARTIAL    => 'File was only partially uploaded.',
+                UPLOAD_ERR_NO_FILE    => 'No file was uploaded.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder.',
+                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
+                UPLOAD_ERR_EXTENSION  => 'Upload blocked by server extension.',
+            ];
+            echo json_encode(['success' => false, 'error' => $err_messages[$upload_err] ?? 'Upload error.']);
+            break;
+        }
+
+        $allowed_mime  = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        $allowed_exts  = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        $max_size      = 5 * 1024 * 1024; // 5 MB
+
+        $tmp_path  = $_FILES['image']['tmp_name'];
+        $orig_name = $_FILES['image']['name'];
+        $file_size = $_FILES['image']['size'];
+
+        if ($file_size > $max_size) { echo json_encode(['success' => false, 'error' => 'Image must be smaller than 5 MB.']); break; }
+
+        // Validate MIME type via finfo (not trusting client-reported type)
+        $finfo     = finfo_open(FILEINFO_MIME_TYPE);
+        $mime_type = finfo_file($finfo, $tmp_path);
+        finfo_close($finfo);
+        if (!in_array($mime_type, $allowed_mime)) {
+            echo json_encode(['success' => false, 'error' => 'Only JPG, PNG, WebP, or GIF images are allowed.']);
+            break;
+        }
+
+        $ext = strtolower(pathinfo($orig_name, PATHINFO_EXTENSION));
+        $mime_to_ext = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'image/gif'  => 'gif',
+        ];
+        if (!in_array($ext, $allowed_exts)) { $ext = $mime_to_ext[$mime_type] ?? 'jpg'; }
+
+        $upload_dir = __DIR__ . '/../backend/uploads/seo/';
+        if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
+
+        $filename   = 'og_' . $page_id . '_' . uniqid() . '.' . $ext;
+        $dest_path  = $upload_dir . $filename;
+
+        if (!move_uploaded_file($tmp_path, $dest_path)) {
+            echo json_encode(['success' => false, 'error' => 'Failed to save uploaded file.']);
+            break;
+        }
+
+        $url = '/backend/uploads/seo/' . $filename;
+        echo json_encode(['success' => true, 'url' => $url]);
+        break;
+
     // ------------------------------------------------------------------ RENAME
     case 'rename':
         $data  = json_decode(file_get_contents('php://input'), true) ?? [];
