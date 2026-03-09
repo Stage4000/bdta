@@ -175,6 +175,12 @@ include '../backend/includes/header.php';
                                 <li><code>{{quote_link}}</code></li>
                                 <li><code>{{form_link}}</code></li>
                             </ul>
+
+                            <h6 class="small mb-2">Calendar Variables <span class="text-muted">(booking emails only)</span>:</h6>
+                            <ul class="small">
+                                <li><code>{{google_calendar_link}}</code> — URL to add the appointment to Google Calendar</li>
+                                <li><code>{{ical_link}}</code> — URL to download an iCal (.ics) file (works with Apple Calendar, Outlook, etc.)</li>
+                            </ul>
                             
                             <h6 class="small mb-2">Business Variables:</h6>
                             <ul class="small">
@@ -211,6 +217,11 @@ Time: {{appointment_time}}&lt;br&gt;
 Type: {{appointment_type}}&lt;br&gt;
 Location: {{appointment_location}}&lt;br&gt;
 Duration: {{duration}} minutes&lt;/p&gt;
+
+&lt;p&gt;
+  &lt;a href="{{google_calendar_link}}"&gt;&#128197; Add to Google Calendar&lt;/a&gt;&lt;br&gt;
+  &lt;a href="{{ical_link}}"&gt;&#128242; Download iCal File&lt;/a&gt;
+&lt;/p&gt;
 
 &lt;p&gt;&lt;a href="{{booking_link}}"&gt;View Booking&lt;/a&gt;&lt;/p&gt;
 

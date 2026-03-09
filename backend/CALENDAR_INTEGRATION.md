@@ -22,6 +22,29 @@ The system automatically sends confirmation emails with calendar links when a bo
 - "Download iCal" button (downloads .ics file)
 - Works with: Google Calendar, Apple Calendar, Outlook, Yahoo Calendar, etc.
 
+### Calendar Links in Custom Email Templates
+
+When using a custom booking confirmation or reminder template (configured in **Admin → Email Templates**), you can include calendar invite links using these template variables:
+
+| Variable | Description |
+|---|---|
+| `{{google_calendar_link}}` | URL that opens Google Calendar to add the appointment |
+| `{{ical_link}}` | URL to download an iCal (.ics) file (Apple Calendar, Outlook, etc.) |
+
+**Example HTML to add to your custom template:**
+
+```html
+<p>Add this appointment to your calendar:</p>
+<p>
+  <a href="{{google_calendar_link}}">📅 Add to Google Calendar</a><br>
+  <a href="{{ical_link}}">📲 Download iCal File</a>
+</p>
+```
+
+These variables are available in:
+- Booking confirmation templates (`booking_confirmation` task type)
+- Booking reminder templates (`booking_reminder` task type)
+
 ### iCalendar (.ics) File Download
 
 **Already configured!** When users book an appointment, they receive:
