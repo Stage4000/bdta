@@ -218,7 +218,7 @@ require_once '../backend/includes/header.php';
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Type *</label>
-                                        <select name="field_type[]" class="form-select field-type-select">
+                                        <select name="field_type[]" class="form-select field-type-select" onchange="toggleOptions(this)">
                                             <option value="text" <?php echo $field['type'] == 'text' ? 'selected' : ''; ?>>Text</option>
                                             <option value="textarea" <?php echo $field['type'] == 'textarea' ? 'selected' : ''; ?>>Textarea</option>
                                             <option value="select" <?php echo $field['type'] == 'select' ? 'selected' : ''; ?>>Select</option>
@@ -513,8 +513,8 @@ function toggleOptions(select) {
             const newTextarea = fieldItem.querySelector('textarea[name="field_options_temp"]');
             newTextarea.value = optionsTextarea.value;
             newTextarea.name = 'field_options[]';
+            optionsTextarea.classList.add('d-none');
         }
-        optionsTextarea.classList.add('d-none');
     } else {
         if (optionsContainer) {
             // Save value before removing
