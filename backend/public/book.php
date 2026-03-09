@@ -1219,7 +1219,14 @@ if (isset($error_mode) && $error_mode) {
          */
         function getBookingIntakeValues() {
             if (!bookingIntakeFields) return null;
-            const result = { client_name: '', client_email: '', client_phone: '', dog_names: '', notes: '', intake_field_values: {} };
+            const result = {
+                client_name: '',
+                client_email: '',
+                client_phone: '',
+                dog_names: '',
+                notes: '',
+                intake_field_values: {}
+            };
             bookingIntakeFields.forEach(function(field, fi) {
                 let val = '';
                 if (field.type === 'checkbox') {

@@ -781,7 +781,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 if ($mapping === 'client.email' && $val !== '') $data['client_email'] = $val;
                 if ($mapping === 'client.phone' && $val !== '') $data['client_phone'] = $val;
                 if ($mapping === 'pet_1.name'   && $val !== '') $data['dog_names']    = $val;
-                if ($mapping === 'booking.notes'&& $val !== '') $data['notes']        = $val;
+                if ($mapping === 'booking.notes' && $val !== '') $data['notes']        = $val;
             }
         }
     }

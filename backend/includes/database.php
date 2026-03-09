@@ -1913,6 +1913,12 @@ class Database {
             }
         }
     }
+    /**
+     * Add the default_booking_form_id setting to the booking category.
+     * Allows admins to configure a custom Booking Intake Form template that replaces
+     * the hardcoded fields on the public booking page. Idempotent: skipped if the
+     * setting already exists. Called from runMigrations().
+     */
     private function addBookingFormSetting() {
         $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
         $check->execute(['default_booking_form_id']);
