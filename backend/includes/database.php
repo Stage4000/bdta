@@ -1689,6 +1689,9 @@ class Database {
         // Add database settings for existing installations
         $this->addDatabaseSettings();
 
+        // Add booking form customization setting
+        $this->addBookingFormSetting();
+
         // Create Google OAuth tokens table for per-user OAuth calendar integration
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS google_oauth_tokens (
@@ -1907,6 +1910,34 @@ class Database {
                 } catch (PDOException $e) {
                     // Already exists, ignore
                 }
+            }
+        }
+    }
+    /**
+     * Add the default_booking_form_id setting to the booking category.
+     * Allows admins to configure a custom Booking Intake Form template that replaces
+     * the hardcoded fields on the public booking page. Idempotent: skipped if the
+     * setting already exists. Called from runMigrations().
+     */
+    private function addBookingFormSetting() {
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $check->execute(['default_booking_form_id']);
+        if ($check->fetchColumn() == 0) {
+            try {
+                $this->conn->prepare("
+                    INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ")->execute([
+                    'default_booking_form_id',
+                    '0',
+                    'number',
+                    'booking',
+                    'Custom Booking Intake Form',
+                    'Select a Booking Intake Form template to replace the default fields (Name, Email, Phone, Pet Name, Notes) on the public booking page. Leave at 0 to use the built-in fields.',
+                    0
+                ]);
+            } catch (PDOException $e) {
+                // Already exists, ignore
             }
         }
     }

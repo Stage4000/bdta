@@ -214,6 +214,16 @@ function updateEnvFile($updates) {
 // Get settings for current category
 $settings = Settings::getCategory($current_category);
 
+// For booking category: load available booking intake form templates for the dropdown
+$booking_form_templates = [];
+if ($current_category === 'booking') {
+    $db_settings = new Database();
+    $conn_settings = $db_settings->getConnection();
+    $stmt_bft = $conn_settings->prepare("SELECT id, name FROM form_templates WHERE form_type = 'booking_form' AND is_active = 1 ORDER BY name");
+    $stmt_bft->execute();
+    $booking_form_templates = $stmt_bft->fetchAll(PDO::FETCH_ASSOC);
+}
+
 // For calendar category: load OAuth connection status and generate CSRF token
 $oauth_token_row  = null;
 $oauth_configured = false;
@@ -340,7 +350,25 @@ $st_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_prima
                                     <?php endif; ?>
                                 </label>
                                 
-                                <?php if ($setting['type'] === 'textarea'): ?>
+                                <?php if ($setting['key'] === 'default_booking_form_id'): ?>
+                                    <select class="form-select" id="default_booking_form_id" name="default_booking_form_id">
+                                        <option value="0" <?= intval($setting['actual_value']) === 0 ? 'selected' : '' ?>>— Use default fields (Name, Email, Phone, Pet Name, Notes) —</option>
+                                        <?php foreach ($booking_form_templates as $bft): ?>
+                                            <option value="<?= (int)$bft['id'] ?>" <?= intval($setting['actual_value']) === (int)$bft['id'] ? 'selected' : '' ?>>
+                                                <?= escape($bft['name']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?php if (empty($booking_form_templates)): ?>
+                                    <div class="form-text text-muted">
+                                        No Booking Intake Form templates exist yet.
+                                        <a href="form_templates_edit.php">Create one</a> with Form Type set to <strong>Booking Intake Form</strong>.
+                                    </div>
+                                    <?php else: ?>
+                                    <div class="form-text"><?= escape($setting['description']) ?> <a href="form_templates_list.php">Manage form templates</a>.</div>
+                                    <?php endif; ?>
+
+                                <?php elseif ($setting['type'] === 'textarea'): ?>
                                     <textarea 
                                         class="form-control" 
                                         id="<?= escape($setting['key']) ?>" 
@@ -403,7 +431,7 @@ $st_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_prima
                                         value="<?= escape($setting['actual_value']) ?>">
                                 <?php endif; ?>
                                 
-                                <?php if ($setting['description']): ?>
+                                <?php if ($setting['description'] && $setting['key'] !== 'default_booking_form_id'): ?>
                                     <div class="form-text"><?= escape($setting['description']) ?></div>
                                 <?php endif; ?>
                             </div>

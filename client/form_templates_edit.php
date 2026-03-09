@@ -70,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     'pet_3.name', 'pet_3.species', 'pet_3.breed', 'pet_3.date_of_birth',
                     'pet_3.source', 'pet_3.spayed_neutered', 'pet_3.vaccines_current',
                     'pet_3.vaccine_notes', 'pet_3.behavior_notes', 'pet_3.medical_notes', 'pet_3.training_notes',
+                    'booking.notes',
                 ];
                 $raw_mapping = $_POST['field_mapping'][$index] ?? '';
                 $field = [
@@ -182,11 +183,13 @@ require_once '../backend/includes/header.php';
                         <div class="mb-3">
                             <label class="form-label">Form Type *</label>
                             <select name="form_type" class="form-select" required>
+                                <option value="booking_form" <?php echo $form_type == 'booking_form' ? 'selected' : ''; ?>>Booking Intake Form</option>
                                 <option value="client_form" <?php echo $form_type == 'client_form' ? 'selected' : ''; ?>>Client Form</option>
                                 <option value="session_note" <?php echo $form_type == 'session_note' ? 'selected' : ''; ?>>Session Note</option>
                                 <option value="behavior_assessment" <?php echo $form_type == 'behavior_assessment' ? 'selected' : ''; ?>>Behavior Assessment</option>
                                 <option value="training_plan" <?php echo $form_type == 'training_plan' ? 'selected' : ''; ?>>Training Plan</option>
                             </select>
+                            <div class="form-text">Use <strong>Booking Intake Form</strong> to customize the public booking page fields (name, email, phone, pet name, notes). Configure the active form under Settings → Booking.</div>
                         </div>
                     </div>
                 </div>
@@ -277,6 +280,9 @@ require_once '../backend/includes/header.php';
                                                 <option value="pet_<?php echo $p; ?>.training_notes" <?php echo $cur_mapping === "pet_{$p}.training_notes" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Training Notes</option>
                                             </optgroup>
                                             <?php endfor; ?>
+                                            <optgroup label="Booking">
+                                                <option value="booking.notes" <?php echo $cur_mapping === 'booking.notes' ? 'selected' : ''; ?>>Booking: Notes</option>
+                                            </optgroup>
                                         </select>
                                     </div>
                                 </div>
@@ -467,6 +473,9 @@ function addField() {
                             <option value="pet_3.behavior_notes">Pet 3: Behavior Notes</option>
                             <option value="pet_3.medical_notes">Pet 3: Medical Notes</option>
                             <option value="pet_3.training_notes">Pet 3: Training Notes</option>
+                        </optgroup>
+                        <optgroup label="Booking">
+                            <option value="booking.notes">Booking: Notes</option>
                         </optgroup>
                     </select>
                 </div>

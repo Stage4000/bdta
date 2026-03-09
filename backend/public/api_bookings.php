@@ -757,7 +757,35 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
 } elseif ($method === 'POST') {
     // Create booking
     $data = json_decode(file_get_contents('php://input'), true);
-    
+
+    $db = new Database();
+    $conn = $db->getConnection();
+
+    // If a custom booking intake form was used, extract profile-mapped field values
+    // and validate required fields before the standard required_fields check.
+    if (!empty($data['booking_form_id']) && isset($data['booking_intake_fields']) && is_array($data['booking_intake_fields'])) {
+        $bfid = (int)$data['booking_form_id'];
+        $stmt_bf = $conn->prepare("SELECT fields FROM form_templates WHERE id = ? AND form_type = 'booking_form' AND is_active = 1");
+        $stmt_bf->execute([$bfid]);
+        $bf_row = $stmt_bf->fetch(PDO::FETCH_ASSOC);
+        if ($bf_row) {
+            $bf_fields = json_decode($bf_row['fields'], true) ?: [];
+            foreach ($bf_fields as $fi => $field) {
+                $val = trim($data['booking_intake_fields'][$fi] ?? '');
+                if (!empty($field['required']) && $val === '') {
+                    echo json_encode(['error' => 'Required field is missing: ' . $field['label']]);
+                    exit;
+                }
+                $mapping = $field['profile_mapping'] ?? '';
+                if ($mapping === 'client.name'  && $val !== '') $data['client_name']  = $val;
+                if ($mapping === 'client.email' && $val !== '') $data['client_email'] = $val;
+                if ($mapping === 'client.phone' && $val !== '') $data['client_phone'] = $val;
+                if ($mapping === 'pet_1.name'   && $val !== '') $data['dog_names']    = $val;
+                if ($mapping === 'booking.notes' && $val !== '') $data['notes']        = $val;
+            }
+        }
+    }
+
     $required_fields = ['client_name', 'client_email', 'service_type', 'appointment_date', 'appointment_time'];
     foreach ($required_fields as $field) {
         if (!isset($data[$field]) || empty($data[$field])) {
@@ -765,9 +793,6 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             exit;
         }
     }
-    
-    $db = new Database();
-    $conn = $db->getConnection();
     
     try {
         // Validate email format
