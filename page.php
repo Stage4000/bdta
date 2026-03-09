@@ -51,8 +51,12 @@ if (!$page) {
     exit;
 }
 
-$meta_desc = htmlspecialchars($page['meta_description'] ?? '', ENT_QUOTES, 'UTF-8');
-$title     = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
+$meta_desc    = htmlspecialchars($page['meta_description'] ?? '', ENT_QUOTES, 'UTF-8');
+$meta_keywords = htmlspecialchars($page['meta_keywords']    ?? '', ENT_QUOTES, 'UTF-8');
+$seo_title    = htmlspecialchars(!empty($page['og_title'])  ? $page['og_title']  : $page['title'], ENT_QUOTES, 'UTF-8');
+$og_desc      = htmlspecialchars(!empty($page['og_description']) ? $page['og_description'] : ($page['meta_description'] ?? ''), ENT_QUOTES, 'UTF-8');
+$og_image     = htmlspecialchars($page['og_image'] ?? '', ENT_QUOTES, 'UTF-8');
+$title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -62,8 +66,29 @@ $title     = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     <?php if ($meta_desc): ?>
     <meta name="description" content="<?php echo $meta_desc; ?>">
     <?php endif; ?>
+    <?php if ($meta_keywords): ?>
+    <meta name="keywords" content="<?php echo $meta_keywords; ?>">
+    <?php endif; ?>
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="<?php echo $seo_title; ?>">
+    <?php if ($og_desc): ?>
+    <meta property="og:description" content="<?php echo $og_desc; ?>">
+    <?php endif; ?>
+    <?php if ($og_image): ?>
+    <meta property="og:image" content="<?php echo $og_image; ?>">
+    <?php endif; ?>
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="<?php echo $og_image ? 'summary_large_image' : 'summary'; ?>">
+    <meta name="twitter:title" content="<?php echo $seo_title; ?>">
+    <?php if ($og_desc): ?>
+    <meta name="twitter:description" content="<?php echo $og_desc; ?>">
+    <?php endif; ?>
+    <?php if ($og_image): ?>
+    <meta name="twitter:image" content="<?php echo $og_image; ?>">
+    <?php endif; ?>
     <meta name="color-scheme" content="light dark">
-    <title><?php echo $title; ?> — Brook's Dog Training Academy</title>
+    <title><?php echo $seo_title; ?> — Brook's Dog Training Academy</title>
 
     <!-- Dark mode: respect saved user preference -->
     <script>
