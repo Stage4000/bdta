@@ -893,19 +893,21 @@ HTML;
      * Build variable map for booking-related email templates.
      */
     private function buildBookingVariables($booking, $date, $time, $google_link, $ical_link) {
+        $formatted_location = $this->formatLocationForEmail($booking);
         return [
-            'client_name'      => $booking['client_name'] ?? '',
-            'client_email'     => $booking['client_email'] ?? '',
-            'appointment_date' => $date,
-            'appointment_time' => $time,
-            'appointment_type' => $booking['service_type'] ?? '',
-            'duration'         => $booking['duration_minutes'] ?? '',
-            'location'         => $this->formatLocationForEmail($booking),
+            'client_name'          => $booking['client_name'] ?? '',
+            'client_email'         => $booking['client_email'] ?? '',
+            'appointment_date'     => $date,
+            'appointment_time'     => $time,
+            'appointment_type'     => $booking['service_type'] ?? '',
+            'duration'             => $booking['duration_minutes'] ?? '',
+            'location'             => $formatted_location,
+            'appointment_location' => $formatted_location,
             'google_calendar_link' => $google_link,
-            'ical_link'        => $ical_link,
-            'business_name'    => Settings::get('site_name', "Brook's Dog Training Academy"),
-            'business_email'   => Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com'),
-            'business_phone'   => Settings::get('business_phone', ''),
+            'ical_link'            => $ical_link,
+            'business_name'        => Settings::get('site_name', "Brook's Dog Training Academy"),
+            'business_email'       => Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com'),
+            'business_phone'       => Settings::get('business_phone', ''),
         ];
     }
 
@@ -1167,9 +1169,10 @@ TEXT;
     }
 
     /**
-     * Format the location for display in emails based on location_type
+     * Format the location for display in emails based on location_type.
+     * Public to allow external callers (e.g. cron tasks) to reuse the same logic.
      */
-    private function formatLocationForEmail($booking) {
+    public function formatLocationForEmail($booking) {
         $type = $booking['location_type'] ?? '';
         $value = $booking['location'] ?? '';
 

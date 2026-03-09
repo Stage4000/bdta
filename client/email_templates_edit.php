@@ -164,6 +164,7 @@ include '../backend/includes/header.php';
                                 <li><code>{{appointment_time}}</code></li>
                                 <li><code>{{appointment_type}}</code></li>
                                 <li><code>{{duration}}</code></li>
+                                <li><code>{{appointment_location}}</code> — resolves to the appointment address, or <code>Video call: &lt;url&gt;</code>, <code>Phone call — you will call us</code>, <code>Phone call — we will call you</code>, etc.</li>
                             </ul>
                             
                             <h6 class="small mb-2">Link Variables:</h6>
@@ -208,6 +209,7 @@ include '../backend/includes/header.php';
 Date: {{appointment_date}}&lt;br&gt;
 Time: {{appointment_time}}&lt;br&gt;
 Type: {{appointment_type}}&lt;br&gt;
+Location: {{appointment_location}}&lt;br&gt;
 Duration: {{duration}} minutes&lt;/p&gt;
 
 &lt;p&gt;&lt;a href="{{booking_link}}"&gt;View Booking&lt;/a&gt;&lt;/p&gt;
