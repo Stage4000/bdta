@@ -316,7 +316,11 @@ $pet_col_map = [
     'medical_notes'            => 'medical_notes',
     'training_notes'           => 'training_notes',
 ];
-$overwrite_profile = !empty($data['overwrite_profile']);
+// Distinguish between three cases sent by the client:
+//   • overwrite_profile key absent  → modal was never shown (no detected conflict); always apply mapping
+//   • overwrite_profile: true       → user confirmed the overwrite prompt; always apply mapping
+//   • overwrite_profile: false      → user explicitly chose "Keep Existing"; skip conflicting fields
+$overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
 
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
     // Ordered list of pet IDs selected for this booking (0-based)
@@ -351,9 +355,9 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
                 if (!isset($client_col_map[$attr])) continue;
                 if ($attr === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) continue;
 
-                // Skip if existing value differs and user did not confirm overwrite
+                // Only skip when the user explicitly declined the overwrite prompt
                 $existing = (string)($cur_client[$attr] ?? '');
-                if ($existing !== '' && $existing !== $value && !$overwrite_profile) continue;
+                if ($overwrite_declined && $existing !== '' && $existing !== $value) continue;
 
                 $safe_col = $client_col_map[$attr];
                 $conn->prepare("UPDATE clients SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
@@ -386,9 +390,9 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
                     $value = in_array(strtolower($value), ['1', 'yes', 'true', 'on'], true) ? 1 : 0;
                 }
 
-                // Skip if existing value differs and user did not confirm overwrite
+                // Only skip when the user explicitly declined the overwrite prompt
                 $existing_pet_val = (string)($cur_pet[$attr] ?? '');
-                if ($existing_pet_val !== '' && (string)$existing_pet_val !== (string)$value && !$overwrite_profile) continue;
+                if ($overwrite_declined && $existing_pet_val !== '' && (string)$existing_pet_val !== (string)$value) continue;
 
                 $safe_col = $pet_col_map[$attr];
                 $conn->prepare("UPDATE pets SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
