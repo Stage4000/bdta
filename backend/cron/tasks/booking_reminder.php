@@ -231,6 +231,7 @@ class BookingReminderTask {
                 'appointment_type'     => $booking['service_type']      ?? '',
                 'duration'             => $booking['duration_minutes']  ?? '',
                 'appointment_location' => $email_service->formatLocationForEmail($booking),
+                'booking_link'         => getDynamicBaseUrl() . '/portal/appointments.php',
                 'google_calendar_link' => $google_link,
                 'ical_link'            => $ical_link,
                 'business_name'        => Settings::get('site_name',      "Brook's Dog Training Academy"),

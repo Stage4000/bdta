@@ -894,6 +894,7 @@ HTML;
      */
     private function buildBookingVariables($booking, $date, $time, $google_link, $ical_link) {
         $formatted_location = $this->formatLocationForEmail($booking);
+        $booking_link       = $this->base_url . '/portal/appointments.php';
         return [
             'client_name'          => $booking['client_name'] ?? '',
             'client_email'         => $booking['client_email'] ?? '',
@@ -903,6 +904,7 @@ HTML;
             'duration'             => $booking['duration_minutes'] ?? '',
             'location'             => $formatted_location,
             'appointment_location' => $formatted_location,
+            'booking_link'         => $booking_link,
             'google_calendar_link' => $google_link,
             'ical_link'            => $ical_link,
             'business_name'        => Settings::get('site_name', "Brook's Dog Training Academy"),
