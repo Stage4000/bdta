@@ -329,6 +329,10 @@ class EmailService {
     /**
      * Render an email template row by replacing {{variable}} placeholders.
      *
+     * After substitution the HTML body is automatically wrapped in the
+     * standard styled email container (see wrapEmailHtml()) unless the
+     * template already supplies a full HTML document.
+     *
      * @param array $template  Row from email_templates (keys: subject, body_html, body_text)
      * @param array $variables Map of variable name => value
      * @return array  ['subject' => …, 'body_html' => …, 'body_text' => …]
@@ -345,11 +349,76 @@ class EmailService {
             $body_text = str_replace($placeholder, $value, $body_text);
         }
 
+        // Apply the standard email wrapper so custom templates get the same
+        // visual styling as system-generated emails.
+        $body_html = self::wrapEmailHtml($body_html);
+
         return [
             'subject'   => $subject,
             'body_html' => $body_html,
             'body_text' => $body_text,
         ];
+    }
+
+    /**
+     * Wrap a partial HTML email body in the standard styled email container.
+     *
+     * All system-generated emails share a consistent visual style (white
+     * content card on a light-grey background, branded footer, etc.).
+     * This method applies that same wrapper to custom templates so that
+     * every outgoing email looks equally polished.
+     *
+     * If the supplied content already contains a complete HTML document
+     * (i.e. it starts with <!DOCTYPE or <html>) it is returned unchanged,
+     * allowing templates that supply their own full layout to opt out.
+     *
+     * @param string $content       HTML fragment or full document.
+     * @param string $business_name Business name shown in the footer.
+     *                              Defaults to the site_name setting when empty.
+     * @return string Full HTML email document.
+     */
+    public static function wrapEmailHtml(string $content, string $business_name = ''): string {
+        // Do not re-wrap templates that already supply a full HTML document.
+        $trimmed = ltrim($content);
+        if (stripos($trimmed, '<!doctype') === 0 || stripos($trimmed, '<html') === 0) {
+            return $content;
+        }
+
+        if ($business_name === '') {
+            $business_name = Settings::get('site_name', "Brook's Dog Training Academy");
+        }
+        $year         = date('Y');
+        $business_esc = htmlspecialchars($business_name);
+
+        return <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .content { background: #f8f9fa; padding: 30px; border-radius: 8px; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+        .button { display: inline-block; padding: 12px 24px; margin: 10px 5px; background: #2563eb; color: white !important; text-decoration: none; border-radius: 6px; font-weight: bold; }
+        .button-secondary { background: #10b981; }
+        a { color: #2563eb; }
+        h1, h2, h3 { color: #1e293b; }
+        .details-box { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #10b981; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+            {$content}
+        </div>
+        <div class="footer">
+            <p>&copy; {$year} {$business_esc}</p>
+        </div>
+    </div>
+</body>
+</html>
+HTML;
     }
     
     /**

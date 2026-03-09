@@ -56,9 +56,14 @@ include '../backend/includes/header.php';
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2 class="mb-0"><i class="fas fa-envelope me-2"></i><?php echo $id ? 'Edit' : 'Create'; ?> Email Template</h2>
-                <a href="email_templates_list.php" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Back to Templates
-                </a>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary" id="previewBtn">
+                        <i class="fas fa-eye"></i> Preview Email
+                    </button>
+                    <a href="email_templates_list.php" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Templates
+                    </a>
+                </div>
             </div>
 
             <?php if (isset($_SESSION['error'])): ?>
@@ -207,20 +212,30 @@ include '../backend/includes/header.php';
                             <h6 class="mb-0">Example Template</h6>
                         </div>
                         <div class="card-body">
+                            <p class="small text-muted mb-2">
+                                Your template body is automatically wrapped in a
+                                professional email container matching the system default
+                                emails — no extra HTML or CSS required.
+                            </p>
                             <pre class="small" style="font-size: 11px;"><code>&lt;p&gt;Hi {{client_name}},&lt;/p&gt;
 
 &lt;p&gt;Your appointment is confirmed!&lt;/p&gt;
 
-&lt;p&gt;&lt;strong&gt;Details:&lt;/strong&gt;&lt;br&gt;
-Date: {{appointment_date}}&lt;br&gt;
-Time: {{appointment_time}}&lt;br&gt;
-Type: {{appointment_type}}&lt;br&gt;
-Location: {{appointment_location}}&lt;br&gt;
-Duration: {{duration}} minutes&lt;/p&gt;
+&lt;div class="details-box"&gt;
+  &lt;p&gt;&lt;strong&gt;Service:&lt;/strong&gt; {{appointment_type}}&lt;/p&gt;
+  &lt;p&gt;&lt;strong&gt;Date:&lt;/strong&gt; {{appointment_date}}&lt;/p&gt;
+  &lt;p&gt;&lt;strong&gt;Time:&lt;/strong&gt; {{appointment_time}}&lt;/p&gt;
+  &lt;p&gt;&lt;strong&gt;Duration:&lt;/strong&gt; {{duration}} minutes&lt;/p&gt;
+  &lt;p&gt;&lt;strong&gt;Location:&lt;/strong&gt; {{appointment_location}}&lt;/p&gt;
+&lt;/div&gt;
 
 &lt;p&gt;
-  &lt;a href="{{google_calendar_link}}"&gt;&#128197; Add to Google Calendar&lt;/a&gt;&lt;br&gt;
-  &lt;a href="{{ical_link}}"&gt;&#128242; Download iCal File&lt;/a&gt;
+  &lt;a href="{{google_calendar_link}}" class="button"&gt;
+    &#128197; Add to Google Calendar
+  &lt;/a&gt;
+  &lt;a href="{{ical_link}}" class="button button-secondary"&gt;
+    &#128242; Download iCal File
+  &lt;/a&gt;
 &lt;/p&gt;
 
 &lt;p&gt;&lt;a href="{{booking_link}}"&gt;View Booking&lt;/a&gt;&lt;/p&gt;
@@ -229,9 +244,51 @@ Duration: {{duration}} minutes&lt;/p&gt;
 {{business_name}}&lt;/p&gt;
 
 {{signature}}</code></pre>
+                            <p class="small text-muted mt-2 mb-0">
+                                <i class="fas fa-circle-info"></i>
+                                Use <code>class="details-box"</code> on a <code>&lt;div&gt;</code>
+                                for a highlighted details panel, and
+                                <code>class="button"</code> / <code>class="button button-secondary"</code>
+                                on links for styled call-to-action buttons — these match
+                                the built-in email styles.
+                            </p>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalLabel">
+                    <i class="fas fa-eye me-2"></i>Email Preview
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="previewLoading" class="text-center py-5 d-none">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Rendering preview…</p>
+                </div>
+                <div id="previewError" class="alert alert-danger m-3 d-none"></div>
+                <iframe id="previewIframe"
+                        style="width:100%; height:600px; border:none;"
+                        title="Email preview"
+                        sandbox="allow-same-origin"></iframe>
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted me-auto">
+                    <i class="fas fa-circle-info"></i>
+                    This preview shows how the email will look when delivered to recipients,
+                    with the standard styling applied. Variable placeholders (e.g.
+                    <code>{{client_name}}</code>) are shown as-is until the email is sent.
+                </small>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -301,6 +358,47 @@ ClassicEditor
     .catch(error => {
         console.error('CKEditor initialization error:', error);
     });
+</script>
+
+<script>
+document.getElementById('previewBtn').addEventListener('click', async () => {
+    const html = window.emailEditor
+        ? window.emailEditor.getData()
+        : document.getElementById('body_html').value;
+
+    const loading  = document.getElementById('previewLoading');
+    const errorDiv = document.getElementById('previewError');
+    const iframe   = document.getElementById('previewIframe');
+
+    loading.classList.remove('d-none');
+    errorDiv.classList.add('d-none');
+    iframe.srcdoc = '';
+
+    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+
+    try {
+        const response = await fetch('email_templates_api.php?action=preview_styled', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ body_html: html })
+        });
+        const data = await response.json();
+
+        loading.classList.add('d-none');
+
+        if (data.success) {
+            iframe.srcdoc = data.html;
+        } else {
+            errorDiv.textContent = data.error || 'Failed to render preview.';
+            errorDiv.classList.remove('d-none');
+        }
+    } catch (err) {
+        loading.classList.add('d-none');
+        errorDiv.textContent = 'Network error: ' + err.message;
+        errorDiv.classList.remove('d-none');
+    }
+});
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
