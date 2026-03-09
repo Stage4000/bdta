@@ -204,12 +204,20 @@ require_once '../backend/includes/header.php';
                     <div class="card-body">
                         <div id="fieldsContainer">
                             <?php if (empty($fields)): ?>
-                            <div class="text-muted text-center py-3">
+                            <div class="text-muted text-center py-3 fields-empty-msg">
                                 No fields added yet. Click "Add Field" to start building your form.
                             </div>
                             <?php else: ?>
                             <?php foreach ($fields as $index => $field): ?>
                             <div class="field-item border rounded p-3 mb-3">
+                                <div class="field-item-header d-flex align-items-center pb-2 mb-3 border-bottom">
+                                    <i class="fas fa-grip-vertical drag-handle text-muted me-2 fs-5" style="cursor:grab" title="Drag to reorder"></i>
+                                    <span class="small text-muted">Field <?php echo $index + 1; ?></span>
+                                    <div class="ms-auto d-flex gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary move-up-btn" onclick="moveField(this, -1)" title="Move Up" aria-label="Move field up"><i class="fas fa-arrow-up"></i></button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary move-down-btn" onclick="moveField(this, 1)" title="Move Down" aria-label="Move field down"><i class="fas fa-arrow-down"></i></button>
+                                    </div>
+                                </div>
                                 <div class="row">
                                     <div class="col-md-4">
                                         <label class="form-label">Label *</label>
@@ -374,16 +382,25 @@ require_once '../backend/includes/header.php';
     </form>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
 <script>
 let fieldIndex = <?php echo count($fields); ?>;
 
 function addField() {
     const container = document.getElementById('fieldsContainer');
-    const firstMsg = container.querySelector('.text-muted');
+    const firstMsg = container.querySelector('.fields-empty-msg');
     if (firstMsg) firstMsg.remove();
-    
+
     const fieldHtml = `
         <div class="field-item border rounded p-3 mb-3">
+            <div class="field-item-header d-flex align-items-center pb-2 mb-3 border-bottom">
+                <i class="fas fa-grip-vertical drag-handle text-muted me-2 fs-5" style="cursor:grab" title="Drag to reorder"></i>
+                <span class="small text-muted">New Field</span>
+                <div class="ms-auto d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary move-up-btn" onclick="moveField(this, -1)" title="Move Up" aria-label="Move field up"><i class="fas fa-arrow-up"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary move-down-btn" onclick="moveField(this, 1)" title="Move Down" aria-label="Move field down"><i class="fas fa-arrow-down"></i></button>
+                </div>
+            </div>
             <div class="row">
                 <div class="col-md-4">
                     <label class="form-label">Label *</label>
@@ -483,20 +500,65 @@ function addField() {
             <textarea name="field_options[]" class="d-none"></textarea>
         </div>
     `;
-    
+
     container.insertAdjacentHTML('beforeend', fieldHtml);
     fieldIndex++;
+    updateMoveButtons();
 }
 
 function removeField(btn) {
     btn.closest('.field-item').remove();
+    updateMoveButtons();
+    const container = document.getElementById('fieldsContainer');
+    if (!container.querySelector('.field-item')) {
+        container.innerHTML = '<div class="text-muted text-center py-3 fields-empty-msg">No fields added yet. Click "Add Field" to start building your form.</div>';
+    }
+}
+
+function moveField(btn, direction) {
+    const field = btn.closest('.field-item');
+    const container = document.getElementById('fieldsContainer');
+    const fields = Array.from(container.querySelectorAll('.field-item'));
+    const index = fields.indexOf(field);
+
+    if (direction === -1 && index > 0) {
+        container.insertBefore(field, fields[index - 1]);
+    } else if (direction === 1 && index < fields.length - 1) {
+        container.insertBefore(fields[index + 1], field);
+    }
+    updateMoveButtons();
+}
+
+function updateMoveButtons() {
+    const fields = document.querySelectorAll('#fieldsContainer .field-item');
+    const total = fields.length;
+    fields.forEach(function(field, index) {
+        const upBtn = field.querySelector('.move-up-btn');
+        const downBtn = field.querySelector('.move-down-btn');
+        if (upBtn) upBtn.disabled = (total === 1 || index === 0);
+        if (downBtn) downBtn.disabled = (total === 1 || index === total - 1);
+    });
+}
+
+function reindexFields() {
+    const fields = document.querySelectorAll('#fieldsContainer .field-item');
+    fields.forEach(function(field, newIndex) {
+        const reqCheckbox = field.querySelector('input.form-check-input[name^="field_required"]');
+        if (reqCheckbox) {
+            reqCheckbox.name = 'field_required[' + newIndex + ']';
+        }
+        const mappingSelect = field.querySelector('select[name^="field_mapping"]');
+        if (mappingSelect) {
+            mappingSelect.name = 'field_mapping[' + newIndex + ']';
+        }
+    });
 }
 
 function toggleOptions(select) {
     const fieldItem = select.closest('.field-item');
     const optionsContainer = fieldItem.querySelector('.field-options-container');
     const optionsTextarea = fieldItem.querySelector('textarea[name="field_options[]"]');
-    
+
     if (['select', 'radio', 'checkbox'].includes(select.value)) {
         if (!optionsContainer) {
             const optionsHtml = `
@@ -528,12 +590,39 @@ function toggleOptions(select) {
     }
 }
 
-// Initialize options toggle on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize options visibility for existing fields
     document.querySelectorAll('.field-type-select').forEach(function(select) {
         toggleOptions(select);
     });
+
+    // Initialize move button states
+    updateMoveButtons();
+
+    // Initialize drag-and-drop reordering
+    Sortable.create(document.getElementById('fieldsContainer'), {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: function() {
+            updateMoveButtons();
+        }
+    });
+
+    // Renumber field_required and field_mapping names before submit
+    document.getElementById('templateForm').addEventListener('submit', function() {
+        reindexFields();
+    });
 });
 </script>
+
+<style>
+.sortable-ghost {
+    opacity: 0.4;
+}
+.drag-handle:active {
+    cursor: grabbing;
+}
+</style>
 
 <?php require_once '../backend/includes/footer.php'; ?>
