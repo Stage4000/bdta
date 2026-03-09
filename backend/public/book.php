@@ -43,6 +43,7 @@ if (!$selected_type) {
     $appointment_types = [];
     $required_forms = [];
     $required_contract = null;
+    $booking_intake_form = null;
 } else {
     // For standalone pages, only show the selected type
     $appointment_types = [$selected_type];
@@ -70,6 +71,22 @@ if (!$selected_type) {
         $stmt = $conn->prepare("SELECT id, name, template_text FROM contract_templates WHERE id = ? AND is_active = 1");
         $stmt->execute([$selected_type['contract_template_id']]);
         $required_contract = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    // Load configured booking intake form (replaces hardcoded fields if set)
+    $booking_intake_form = null;
+    $stmt_bfid = $conn->prepare("SELECT setting_value FROM settings WHERE setting_key = 'default_booking_form_id'");
+    $stmt_bfid->execute();
+    $bfid_row = $stmt_bfid->fetch(PDO::FETCH_ASSOC);
+    $bfid = intval($bfid_row['setting_value'] ?? 0);
+    if ($bfid > 0) {
+        $stmt_bf = $conn->prepare("SELECT * FROM form_templates WHERE id = ? AND form_type = 'booking_form' AND is_active = 1");
+        $stmt_bf->execute([$bfid]);
+        $bf_row = $stmt_bf->fetch(PDO::FETCH_ASSOC);
+        if ($bf_row) {
+            $bf_row['fields'] = json_decode($bf_row['fields'], true) ?: [];
+            $booking_intake_form = $bf_row;
+        }
     }
 }
 
@@ -711,6 +728,75 @@ if (isset($error_mode) && $error_mode) {
                     <h3 class="mb-4">Your Information</h3>
                     
                     <div class="row">
+                        <?php if ($booking_intake_form): ?>
+                        <?php foreach ($booking_intake_form['fields'] as $bifi => $bifield):
+                            $bi_req  = !empty($bifield['required']);
+                            $bi_ph   = htmlspecialchars($bifield['placeholder'] ?? '');
+                            $bi_type = $bifield['type'] ?? 'text';
+                            $bi_map  = $bifield['profile_mapping'] ?? '';
+                            $bi_fn   = 'booking_intake_' . $bifi;
+                        ?>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">
+                                <?= htmlspecialchars($bifield['label']) ?>
+                                <?php if ($bi_req): ?><span class="text-danger">*</span><?php endif; ?>
+                            </label>
+                            <?php if (!empty($bifield['description'])): ?>
+                            <div class="form-text text-muted mb-1"><?= htmlspecialchars($bifield['description']) ?></div>
+                            <?php endif; ?>
+                            <?php switch ($bi_type):
+                                case 'textarea': ?>
+                            <textarea class="form-control form-control-lg"
+                                      data-booking-intake-field="<?= $bifi ?>"
+                                      data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
+                                      placeholder="<?= $bi_ph ?>"
+                                      rows="3"
+                                      <?= $bi_req ? 'required' : '' ?>></textarea>
+                            <?php break; case 'select': ?>
+                            <select class="form-select form-select-lg"
+                                    data-booking-intake-field="<?= $bifi ?>"
+                                    data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
+                                    <?= $bi_req ? 'required' : '' ?>>
+                                <option value="">— Select —</option>
+                                <?php foreach ($bifield['options'] ?? [] as $bi_opt): ?>
+                                    <option value="<?= htmlspecialchars($bi_opt) ?>"><?= htmlspecialchars($bi_opt) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php break; case 'radio': ?>
+                            <?php foreach ($bifield['options'] ?? [] as $bi_oi => $bi_opt): ?>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       data-booking-intake-field="<?= $bifi ?>"
+                                       data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
+                                       name="<?= $bi_fn ?>"
+                                       id="<?= $bi_fn ?>_<?= $bi_oi ?>"
+                                       value="<?= htmlspecialchars($bi_opt) ?>"
+                                       <?= ($bi_req && $bi_oi === 0) ? 'required' : '' ?>>
+                                <label class="form-check-label" for="<?= $bi_fn ?>_<?= $bi_oi ?>"><?= htmlspecialchars($bi_opt) ?></label>
+                            </div>
+                            <?php endforeach;
+                            break; case 'checkbox': ?>
+                            <?php foreach ($bifield['options'] ?? [] as $bi_oi => $bi_opt): ?>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       data-booking-intake-field="<?= $bifi ?>"
+                                       data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
+                                       id="<?= $bi_fn ?>_<?= $bi_oi ?>"
+                                       value="<?= htmlspecialchars($bi_opt) ?>">
+                                <label class="form-check-label" for="<?= $bi_fn ?>_<?= $bi_oi ?>"><?= htmlspecialchars($bi_opt) ?></label>
+                            </div>
+                            <?php endforeach;
+                            break; default: ?>
+                            <input type="<?= htmlspecialchars(in_array($bi_type, ['phone']) ? 'tel' : $bi_type) ?>"
+                                   class="form-control form-control-lg"
+                                   data-booking-intake-field="<?= $bifi ?>"
+                                   data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
+                                   placeholder="<?= $bi_ph ?>"
+                                   <?= $bi_req ? 'required' : '' ?>>
+                            <?php break; endswitch; ?>
+                        </div>
+                        <?php endforeach; ?>
+                        <?php else: ?>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Your Name *</label>
                             <input type="text" class="form-control form-control-lg" name="client_name" 
@@ -737,6 +823,7 @@ if (isset($error_mode) && $error_mode) {
                             <textarea class="form-control" name="notes" id="notes" rows="3" 
                                       placeholder="Tell us about your dog's needs, behavior concerns, or any special requirements..."></textarea>
                         </div>
+                        <?php endif; ?>
 
                         <!-- Location -->
                         <?php
@@ -1120,6 +1207,42 @@ if (isset($error_mode) && $error_mode) {
             return json_encode($map, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         })() ?>;
 
+        // Booking intake form fields configuration (null = use built-in hardcoded fields)
+        const bookingIntakeFields = <?= ($booking_intake_form && !empty($booking_intake_form['fields']))
+            ? json_encode($booking_intake_form['fields'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
+            : 'null' ?>;
+        const bookingIntakeFormId = <?= ($booking_intake_form) ? intval($booking_intake_form['id']) : 'null' ?>;
+
+        /**
+         * Collect values from the dynamic booking intake form fields.
+         * Returns an object with extracted profile values and a raw field index map.
+         */
+        function getBookingIntakeValues() {
+            if (!bookingIntakeFields) return null;
+            const result = { client_name: '', client_email: '', client_phone: '', dog_names: '', notes: '', intake_field_values: {} };
+            bookingIntakeFields.forEach(function(field, fi) {
+                let val = '';
+                if (field.type === 'checkbox') {
+                    const checked = document.querySelectorAll('[data-booking-intake-field="' + fi + '"]:checked');
+                    val = Array.from(checked).map(function(c) { return c.value; }).join(', ');
+                } else if (field.type === 'radio') {
+                    const checked = document.querySelector('[data-booking-intake-field="' + fi + '"]:checked');
+                    val = checked ? checked.value : '';
+                } else {
+                    const el = document.querySelector('[data-booking-intake-field="' + fi + '"]');
+                    val = el ? el.value : '';
+                }
+                result.intake_field_values[fi] = val;
+                const mapping = field.profile_mapping || '';
+                if (mapping === 'client.name')  result.client_name  = val;
+                if (mapping === 'client.email') result.client_email = val;
+                if (mapping === 'client.phone') result.client_phone = val;
+                if (mapping === 'pet_1.name')   result.dog_names    = val;
+                if (mapping === 'booking.notes') result.notes       = val;
+            });
+            return result;
+        }
+
         // Loaded on confirm step from profile lookup API
         let currentClientProfile = {};
         let currentPetProfiles   = []; // ordered by dog_names
@@ -1188,11 +1311,46 @@ if (isset($error_mode) && $error_mode) {
                 }
             } else if (currentStep === 3) {
                 // Step 3 is info collection
-                const name = document.getElementById('clientName').value.trim();
-                const email = document.getElementById('clientEmail').value.trim();
-                if (!name || !email) {
-                    showAlert('Please fill in your name and email', 'warning');
-                    return;
+                if (bookingIntakeFields) {
+                    // Dynamic form: validate all required fields
+                    let validationPassed = true;
+                    let hasEmail = false;
+                    for (let fi = 0; fi < bookingIntakeFields.length; fi++) {
+                        const field = bookingIntakeFields[fi];
+                        const isReq = !!field.required;
+                        let val = '';
+                        if (field.type === 'checkbox') {
+                            const checked = document.querySelectorAll('[data-booking-intake-field="' + fi + '"]:checked');
+                            val = checked.length > 0 ? 'ok' : '';
+                        } else if (field.type === 'radio') {
+                            const checked = document.querySelector('[data-booking-intake-field="' + fi + '"]:checked');
+                            val = checked ? checked.value : '';
+                        } else {
+                            const el = document.querySelector('[data-booking-intake-field="' + fi + '"]');
+                            val = el ? el.value.trim() : '';
+                        }
+                        if (field.profile_mapping === 'client.email' && val) hasEmail = true;
+                        if (isReq && !val) {
+                            showAlert('Please fill in: ' + field.label, 'warning');
+                            const focusEl = document.querySelector('[data-booking-intake-field="' + fi + '"]');
+                            if (focusEl) focusEl.focus();
+                            validationPassed = false;
+                            break;
+                        }
+                    }
+                    if (!validationPassed) return;
+                    if (!hasEmail) {
+                        // No email-mapped field filled — booking cannot proceed
+                        showAlert('An email address is required to complete your booking. Please fill in your email.', 'warning');
+                        return;
+                    }
+                } else {
+                    const name = document.getElementById('clientName').value.trim();
+                    const email = document.getElementById('clientEmail').value.trim();
+                    if (!name || !email) {
+                        showAlert('Please fill in your name and email', 'warning');
+                        return;
+                    }
                 }
                 // Validate location (only if selector is visible — not for fixed/single types)
                 const locTypeEl = document.getElementById('publicLocationType');
@@ -1504,14 +1662,26 @@ if (isset($error_mode) && $error_mode) {
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
             });
             document.getElementById('confirmTime').textContent = formatTime(selectedTime);
-            document.getElementById('confirmName').textContent = document.getElementById('clientName').value;
-            document.getElementById('confirmEmail').textContent = document.getElementById('clientEmail').value;
-            document.getElementById('confirmPhone').textContent = document.getElementById('clientPhone').value || 'Not provided';
-            document.getElementById('confirmDogs').textContent = document.getElementById('dogNames').value || 'Not specified';
+
+            let email = '', dogNames = '';
+            if (bookingIntakeFields) {
+                const iv = getBookingIntakeValues();
+                document.getElementById('confirmName').textContent  = iv.client_name  || 'Not provided';
+                document.getElementById('confirmEmail').textContent = iv.client_email || 'Not provided';
+                document.getElementById('confirmPhone').textContent = iv.client_phone || 'Not provided';
+                document.getElementById('confirmDogs').textContent  = iv.dog_names    || 'Not specified';
+                email    = iv.client_email.trim();
+                dogNames = iv.dog_names.trim();
+            } else {
+                document.getElementById('confirmName').textContent  = document.getElementById('clientName').value;
+                document.getElementById('confirmEmail').textContent = document.getElementById('clientEmail').value;
+                document.getElementById('confirmPhone').textContent = document.getElementById('clientPhone').value || 'Not provided';
+                document.getElementById('confirmDogs').textContent  = document.getElementById('dogNames').value || 'Not specified';
+                email    = document.getElementById('clientEmail').value.trim();
+                dogNames = document.getElementById('dogNames').value.trim();
+            }
             document.getElementById('confirmLocation').textContent = getLocationSummary() || 'Not specified';
 
-            const email     = document.getElementById('clientEmail').value.trim();
-            const dogNames  = document.getElementById('dogNames').value.trim();
             const creditToggleArea    = document.getElementById('creditToggleArea');
             const creditRemainingNote = document.getElementById('creditRemainingNote');
 
@@ -1723,16 +1893,35 @@ if (isset($error_mode) && $error_mode) {
 
             const formResponses = collectFormResponses();
 
+            // Gather client info — from dynamic intake form or hardcoded fields
+            let client_name, client_email, client_phone, dog_names, notes;
+            let booking_intake_field_values = null;
+            if (bookingIntakeFields) {
+                const iv = getBookingIntakeValues();
+                client_name  = iv.client_name;
+                client_email = iv.client_email;
+                client_phone = iv.client_phone;
+                dog_names    = iv.dog_names;
+                notes        = iv.notes;
+                booking_intake_field_values = iv.intake_field_values;
+            } else {
+                client_name  = document.getElementById('clientName').value;
+                client_email = document.getElementById('clientEmail').value;
+                client_phone = document.getElementById('clientPhone').value;
+                dog_names    = document.getElementById('dogNames').value;
+                notes        = document.getElementById('notes').value;
+            }
+
             const bookingData = {
                 appointment_type_id: selectedType,
                 service_type: typeName,
                 appointment_date: selectedDate,
                 appointment_time: selectedTime,
-                client_name: document.getElementById('clientName').value,
-                client_email: document.getElementById('clientEmail').value,
-                client_phone: document.getElementById('clientPhone').value,
-                dog_names: document.getElementById('dogNames').value,
-                notes: document.getElementById('notes').value,
+                client_name: client_name,
+                client_email: client_email,
+                client_phone: client_phone,
+                dog_names: dog_names,
+                notes: notes,
                 // Default to 60 minutes if appointment type duration is not available
                 duration_minutes: selectedTypeDuration ?? 60,
                 location_type: location_type,
@@ -1743,6 +1932,12 @@ if (isset($error_mode) && $error_mode) {
                 contract_typed_name: document.getElementById('contractTypedName')?.value.trim() || null,
                 contract_signature_font: document.getElementById('contractSignatureFont')?.value || null
             };
+
+            // Include booking intake form data when using a custom form
+            if (bookingIntakeFormId && booking_intake_field_values !== null) {
+                bookingData.booking_form_id = bookingIntakeFormId;
+                bookingData.booking_intake_fields = booking_intake_field_values;
+            }
 
             // Check for profile conflicts before submitting
             const conflicts = getProfileConflicts(formResponses);
