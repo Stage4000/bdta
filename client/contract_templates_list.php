@@ -5,6 +5,9 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
 
+// Check if user is logged in
+requireLogin();
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -31,6 +34,14 @@ include '../backend/includes/header.php';
 ?>
 
 <div class="container-fluid py-4">
+
+    <?php $flash = getFlashMessage(); if ($flash): ?>
+    <div class="alert alert-<?= $flash['type'] ?> alert-dismissible fade show">
+        <?= escape($flash['message']) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php endif; ?>
+
     <div class="row mb-4">
         <div class="col">
             <h2><i class="fas fa-file-medical me-2"></i>Contract Templates</h2>
@@ -73,6 +84,10 @@ include '../backend/includes/header.php';
                             </a>
                             <a href="contracts_create.php?template_id=<?= $template['id'] ?>" class="btn btn-sm btn-success">
                                 <i class="fas fa-circle-plus me-1"></i>Use Template
+                            </a>
+                            <a href="contract_templates_delete.php?id=<?= $template['id'] ?>" class="btn btn-sm btn-outline-danger"
+                               onclick="return confirm('Are you sure you want to delete this contract template? This action cannot be undone.');">
+                                <i class="fas fa-trash me-1"></i>Delete
                             </a>
                         </div>
                     </div>
