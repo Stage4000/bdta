@@ -1038,6 +1038,30 @@ if (isset($error_mode) && $error_mode) {
         <?php endif; // End error_mode check ?>
     </div>
     
+    <!-- Profile Overwrite Confirmation Modal -->
+    <div class="modal fade" id="profileOverwriteModal" tabindex="-1" aria-labelledby="profileOverwriteModalLabel">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="profileOverwriteModalLabel">
+                        <i class="fas fa-user-pen me-2"></i>Update Your Profile?
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">The following form answers differ from what's currently saved in your profile. Would you like to update your profile with the new values?</p>
+                    <div id="bookOverwriteConflictList"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Existing</button>
+                    <button type="button" class="btn btn-primary" id="bookConfirmOverwriteBtn">
+                        <i class="fas fa-check me-1"></i>Yes, Update Profile
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Success Modal -->
     <div class="modal fade" id="successModal" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
@@ -1080,7 +1104,29 @@ if (isset($error_mode) && $error_mode) {
         let selectedDate = <?= $js_specific_date ?>;
         let selectedTime = null;
         const maxSteps = 4;
-        
+
+        // Form profile mappings: formId -> fieldIndex -> mapping string
+        const formFieldMappings = <?= (function() use ($required_forms) {
+            $map = [];
+            foreach ($required_forms as $form) {
+                $fmap = [];
+                foreach ($form['fields'] as $fi => $field) {
+                    if (!empty($field['profile_mapping'])) {
+                        $fmap[$fi] = $field['profile_mapping'];
+                    }
+                }
+                if (!empty($fmap)) $map[$form['id']] = $fmap;
+            }
+            return json_encode($map, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        })() ?>;
+
+        // Loaded on confirm step from profile lookup API
+        let currentClientProfile = {};
+        let currentPetProfiles   = []; // ordered by dog_names
+
+        // Pending booking payload waiting for overwrite confirmation
+        let pendingBookingPayload = null;
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             // Only initialize form elements if they exist (not on error page)
@@ -1464,16 +1510,17 @@ if (isset($error_mode) && $error_mode) {
             document.getElementById('confirmDogs').textContent = document.getElementById('dogNames').value || 'Not specified';
             document.getElementById('confirmLocation').textContent = getLocationSummary() || 'Not specified';
 
-            // Check for available credits
-            const email = document.getElementById('clientEmail').value.trim();
-            const creditToggleArea = document.getElementById('creditToggleArea');
+            const email     = document.getElementById('clientEmail').value.trim();
+            const dogNames  = document.getElementById('dogNames').value.trim();
+            const creditToggleArea    = document.getElementById('creditToggleArea');
             const creditRemainingNote = document.getElementById('creditRemainingNote');
+
+            // Load credits and current profile data in parallel
             if (email && selectedType) {
                 fetch(`api_bookings.php?action=credits&email=${encodeURIComponent(email)}&appointment_type_id=${selectedType}`)
                     .then(r => r.json())
                     .then(data => {
                         if (data.credits && data.credits.length > 0) {
-                            const best = data.credits[0];
                             const totalRemaining = data.credits.reduce((sum, c) => sum + parseInt(c.remaining), 0);
                             creditRemainingNote.textContent = `You have ${totalRemaining} credit(s) available for this appointment type.`;
                             creditToggleArea.classList.remove('d-none');
@@ -1482,14 +1529,137 @@ if (isset($error_mode) && $error_mode) {
                             document.getElementById('useCreditToggle').checked = false;
                         }
                     })
-                    .catch(() => {
-                        creditToggleArea.classList.add('d-none');
-                    });
+                    .catch(() => { creditToggleArea.classList.add('d-none'); });
+
+                // Load client+pet profiles for pre-submit conflict detection
+                if (Object.keys(formFieldMappings).length > 0) {
+                    fetch(`api_bookings.php?action=profile&email=${encodeURIComponent(email)}&dog_names=${encodeURIComponent(dogNames)}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            currentClientProfile = data.client || {};
+                            currentPetProfiles   = data.pets  || [];
+                        })
+                        .catch(() => {
+                            currentClientProfile = {};
+                            currentPetProfiles   = [];
+                        });
+                }
             } else {
                 creditToggleArea.classList.add('d-none');
+                currentClientProfile = {};
+                currentPetProfiles   = [];
             }
         }
-        
+
+        function getProfileConflicts(formResponses) {
+            const conflicts = [];
+            const profileLabels = {
+                'client.name':    'Your Name',
+                'client.email':   'Your Email',
+                'client.phone':   'Your Phone',
+                'client.address': 'Your Address',
+            };
+            for (let p = 1; p <= 3; p++) {
+                profileLabels[`pet_${p}.name`]             = `Pet ${p}: Name`;
+                profileLabels[`pet_${p}.species`]          = `Pet ${p}: Species`;
+                profileLabels[`pet_${p}.breed`]            = `Pet ${p}: Breed`;
+                profileLabels[`pet_${p}.date_of_birth`]    = `Pet ${p}: Date of Birth`;
+                profileLabels[`pet_${p}.source`]           = `Pet ${p}: Source`;
+                profileLabels[`pet_${p}.spayed_neutered`]  = `Pet ${p}: Spayed/Neutered`;
+                profileLabels[`pet_${p}.vaccines_current`] = `Pet ${p}: Vaccines Current`;
+            }
+            for (const [formId, fieldMaps] of Object.entries(formFieldMappings)) {
+                const responses = formResponses[formId] || {};
+                for (const [fi, mapping] of Object.entries(fieldMaps)) {
+                    const newVal = (responses[fi] !== undefined ? responses[fi] : '').toString().trim();
+                    if (!newVal) continue;
+                    let currentVal = '';
+                    if (mapping.startsWith('client.')) {
+                        const attr = mapping.slice(7);
+                        currentVal = (currentClientProfile[attr] || '').toString().trim();
+                    } else {
+                        const m = mapping.match(/^pet_([123])\.(.+)$/);
+                        if (m) {
+                            const petIndex = parseInt(m[1]) - 1;
+                            const attr     = m[2];
+                            const petData  = currentPetProfiles[petIndex];
+                            if (petData) currentVal = (petData[attr] || '').toString().trim();
+                        }
+                    }
+                    if (currentVal && currentVal !== newVal) {
+                        conflicts.push({
+                            label:    profileLabels[mapping] || mapping,
+                            oldValue: currentVal,
+                            newValue: newVal,
+                        });
+                    }
+                }
+            }
+            return conflicts;
+        }
+
+        function escapeHtml(s) {
+            const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+        }
+
+        function doSubmitBooking(payload) {
+            const submitBtn = document.getElementById('submitBtn');
+            const spinner   = submitBtn.querySelector('.loading-spinner');
+            fetch('api_bookings.php', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.credit_applied) {
+                        const modalBody = document.querySelector('#successModal .modal-body p.text-muted');
+                        if (modalBody) {
+                            modalBody.innerHTML = 'Your appointment has been successfully booked and a credit has been applied. Check your email for confirmation details and calendar links.';
+                        }
+                    }
+                    new bootstrap.Modal(document.getElementById('successModal')).show();
+                } else {
+                    showAlert(data.error || 'Booking failed. Please try again.', 'danger');
+                    submitBtn.disabled = false;
+                    spinner.classList.remove('active');
+                }
+            })
+            .catch(() => {
+                showAlert('Network error. Please check your connection and try again.', 'danger');
+                submitBtn.disabled = false;
+                spinner.classList.remove('active');
+            });
+        }
+
+        // Confirm overwrite: clear pending payload BEFORE hiding modal to prevent double-fire
+        document.getElementById('bookConfirmOverwriteBtn')?.addEventListener('click', function () {
+            if (pendingBookingPayload) {
+                const submitPayload = Object.assign({}, pendingBookingPayload, { overwrite_profile: true });
+                pendingBookingPayload = null;
+                bootstrap.Modal.getInstance(document.getElementById('profileOverwriteModal'))?.hide();
+                const submitBtn = document.getElementById('submitBtn');
+                const spinner   = submitBtn.querySelector('.loading-spinner');
+                submitBtn.disabled = true;
+                spinner.classList.add('active');
+                doSubmitBooking(submitPayload);
+            }
+        });
+
+        // "Keep Existing" or modal dismiss — submit without overwriting conflicting fields
+        document.getElementById('profileOverwriteModal')?.addEventListener('hide.bs.modal', function () {
+            if (pendingBookingPayload) {
+                const submitPayload = Object.assign({}, pendingBookingPayload, { overwrite_profile: false });
+                pendingBookingPayload = null;
+                const submitBtn = document.getElementById('submitBtn');
+                const spinner   = submitBtn.querySelector('.loading-spinner');
+                submitBtn.disabled = true;
+                spinner.classList.add('active');
+                doSubmitBooking(submitPayload);
+            }
+        });
+
         function collectFormResponses() {
             const responses = {};
             document.querySelectorAll('[data-form-id]').forEach(section => {
@@ -1551,6 +1721,8 @@ if (isset($error_mode) && $error_mode) {
                 location_value = hiddenVal ? hiddenVal.value : '';
             }
 
+            const formResponses = collectFormResponses();
+
             const bookingData = {
                 appointment_type_id: selectedType,
                 service_type: typeName,
@@ -1566,40 +1738,33 @@ if (isset($error_mode) && $error_mode) {
                 location_type: location_type,
                 location_value: location_value,
                 use_credit: !!document.getElementById('useCreditToggle')?.checked,
-                form_responses: collectFormResponses(),
+                form_responses: formResponses,
                 contract_template_id: document.querySelector('input[name="contract_template_id"]') ? parseInt(document.querySelector('input[name="contract_template_id"]').value) : null,
                 contract_typed_name: document.getElementById('contractTypedName')?.value.trim() || null,
                 contract_signature_font: document.getElementById('contractSignatureFont')?.value || null
             };
-            
-            fetch('api_bookings.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bookingData)
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    if (data.credit_applied) {
-                        // Store the credit applied message for the success modal
-                        const modalBody = document.querySelector('#successModal .modal-body p.text-muted');
-                        if (modalBody) {
-                            modalBody.innerHTML = 'Your appointment has been successfully booked and a credit has been applied. Check your email for confirmation details and calendar links.';
-                        }
-                    }
-                    const modal = new bootstrap.Modal(document.getElementById('successModal'));
-                    modal.show();
-                } else {
-                    showAlert(data.error || 'Booking failed. Please try again.', 'danger');
-                    submitBtn.disabled = false;
-                    spinner.classList.remove('active');
-                }
-            })
-            .catch(err => {
-                showAlert('Network error. Please check your connection and try again.', 'danger');
+
+            // Check for profile conflicts before submitting
+            const conflicts = getProfileConflicts(formResponses);
+            if (conflicts.length > 0) {
+                let listHtml = '<ul class="list-unstyled mb-0">';
+                conflicts.forEach(c => {
+                    listHtml += `<li class="mb-2">
+                        <strong>${escapeHtml(c.label)}</strong><br>
+                        <span class="text-muted small">Current:</span> <span class="text-danger small">${escapeHtml(c.oldValue)}</span>
+                        <span class="text-muted small ms-2">→ New:</span> <span class="text-success small">${escapeHtml(c.newValue)}</span>
+                    </li>`;
+                });
+                listHtml += '</ul>';
+                document.getElementById('bookOverwriteConflictList').innerHTML = listHtml;
+                pendingBookingPayload = bookingData;
                 submitBtn.disabled = false;
                 spinner.classList.remove('active');
-            });
+                new bootstrap.Modal(document.getElementById('profileOverwriteModal')).show();
+                return;
+            }
+
+            doSubmitBooking(bookingData);
         }
         
         function showAlert(message, type) {

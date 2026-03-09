@@ -118,6 +118,33 @@ include '../backend/includes/header.php';
                                     <?php if (!empty($field['required'])): ?>
                                         <span class="text-danger">*</span>
                                     <?php endif; ?>
+                                    <?php if (!empty($field['profile_mapping'])): ?>
+                                        <?php
+                                        $mapping_labels = [
+                                            'client.name'    => ['Client: Name',      'bg-info'],
+                                            'client.email'   => ['Client: Email',     'bg-info'],
+                                            'client.phone'   => ['Client: Phone',     'bg-info'],
+                                            'client.address' => ['Client: Address',   'bg-info'],
+                                        ];
+                                        for ($p = 1; $p <= 3; $p++) {
+                                            $mapping_labels["pet_{$p}.name"]             = ["Pet {$p}: Name",             'bg-success'];
+                                            $mapping_labels["pet_{$p}.species"]          = ["Pet {$p}: Species",          'bg-success'];
+                                            $mapping_labels["pet_{$p}.breed"]            = ["Pet {$p}: Breed",            'bg-success'];
+                                            $mapping_labels["pet_{$p}.date_of_birth"]    = ["Pet {$p}: Date of Birth",    'bg-success'];
+                                            $mapping_labels["pet_{$p}.source"]           = ["Pet {$p}: Source",           'bg-success'];
+                                            $mapping_labels["pet_{$p}.spayed_neutered"]  = ["Pet {$p}: Spayed/Neutered",  'bg-success'];
+                                            $mapping_labels["pet_{$p}.vaccines_current"] = ["Pet {$p}: Vaccines Current", 'bg-success'];
+                                            $mapping_labels["pet_{$p}.vaccine_notes"]    = ["Pet {$p}: Vaccine Notes",    'bg-success'];
+                                            $mapping_labels["pet_{$p}.behavior_notes"]   = ["Pet {$p}: Behavior Notes",   'bg-success'];
+                                            $mapping_labels["pet_{$p}.medical_notes"]    = ["Pet {$p}: Medical Notes",    'bg-success'];
+                                            $mapping_labels["pet_{$p}.training_notes"]   = ["Pet {$p}: Training Notes",   'bg-success'];
+                                        }
+                                        $ml = $mapping_labels[$field['profile_mapping']] ?? [$field['profile_mapping'], 'bg-secondary'];
+                                        ?>
+                                        <span class="badge <?= $ml[1] ?> ms-1" title="Maps to profile field">
+                                            <i class="fas fa-link me-1"></i><?= htmlspecialchars($ml[0]) ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </label>
                                 <div class="border-start border-3 border-primary ps-3">
                                     <?php
