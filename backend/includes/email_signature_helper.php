@@ -10,8 +10,18 @@ class EmailSignatureHelper {
      * Sanitize HTML content to prevent XSS attacks
      * @param string $html Raw HTML content
      * @return string Sanitized HTML
+     * @throws InvalidArgumentException When HTML content is invalid or cannot be processed
      */
     public static function sanitizeHTML($html) {
+        if (!is_string($html)) {
+            throw new InvalidArgumentException('Signature content must be a string.');
+        }
+
+        $html = trim($html);
+        if ($html === '') {
+            throw new InvalidArgumentException('Signature content cannot be empty.');
+        }
+
         // List of allowed HTML tags for email signatures
         $allowed_tags = [
             'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'img', 'span', 'div',
@@ -26,15 +36,24 @@ class EmailSignatureHelper {
             'target', 'rel'
         ];
         
+        if (!class_exists('DOMDocument')) {
+            throw new InvalidArgumentException('HTML sanitization is unavailable because the DOM extension is not installed.');
+        }
+
         // Use DOMDocument to parse and sanitize HTML
         $dom = new DOMDocument();
-        // Suppress warnings for malformed HTML
-        libxml_use_internal_errors(true);
+        $previous_libxml_setting = libxml_use_internal_errors(true);
         
         // Load HTML with UTF-8 encoding
         $html = mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
-        $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $loaded = $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $errors = libxml_get_errors();
         libxml_clear_errors();
+        libxml_use_internal_errors($previous_libxml_setting);
+
+        if (!$loaded || !$dom->documentElement) {
+            throw new InvalidArgumentException('Signature content could not be processed as valid HTML.');
+        }
         
         // Remove disallowed elements and attributes
         self::cleanNode($dom->documentElement, $allowed_tags, $allowed_attrs);
@@ -44,8 +63,19 @@ class EmailSignatureHelper {
         
         // Remove the XML encoding declaration that was added
         $sanitized = str_replace('<?xml encoding="UTF-8">', '', $sanitized);
+        $sanitized = trim($sanitized);
+
+        if ($sanitized === '') {
+            throw new InvalidArgumentException('Signature content is empty after sanitization.');
+        }
+
+        // If the parser produced fatal-seeming issues that resulted in no meaningful content,
+        // return a helpful validation error instead of failing later during save/send.
+        if (!empty($errors) && strip_tags($sanitized) === '' && strpos($sanitized, '<img') === false) {
+            throw new InvalidArgumentException('Signature content contains invalid HTML and could not be safely saved.');
+        }
         
-        return trim($sanitized);
+        return $sanitized;
     }
     
     /**

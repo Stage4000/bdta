@@ -7,7 +7,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $signature = null;
 
 if ($id) {
@@ -21,57 +21,96 @@ if ($id) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name']);
-    $description = trim($_POST['description']);
-    $html_content = trim($_POST['html_content']);
+    $name = trim($_POST['name'] ?? '');
+    $description = trim($_POST['description'] ?? '');
+    $raw_html_content = trim($_POST['html_content'] ?? '');
+    $html_content = $raw_html_content;
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     $is_default = isset($_POST['is_default']) ? 1 : 0;
-    $max_image_width = (int)($_POST['max_image_width'] ?? 600);
-    $max_image_height = (int)($_POST['max_image_height'] ?? 200);
-    
-    // Sanitize HTML content
-    require_once '../backend/includes/email_signature_helper.php';
-    $html_content = EmailSignatureHelper::sanitizeHTML($html_content);
-    
-    try {
-        // If setting as default, unset all others first
-        if ($is_default) {
-            $conn->exec("UPDATE email_signature_templates SET is_default = 0");
+    $max_image_width = (int) ($_POST['max_image_width'] ?? 600);
+    $max_image_height = (int) ($_POST['max_image_height'] ?? 200);
+
+    // Preserve submitted values so the form is repopulated on validation/save errors.
+    $signature = [
+        'id' => $id,
+        'name' => $name,
+        'description' => $description,
+        'html_content' => $raw_html_content,
+        'is_active' => $is_active,
+        'is_default' => $is_default,
+        'max_image_width' => $max_image_width,
+        'max_image_height' => $max_image_height,
+    ];
+
+    if ($name === '') {
+        $_SESSION['error'] = 'Signature name is required.';
+    } elseif ($raw_html_content === '') {
+        $_SESSION['error'] = 'Signature content is required.';
+    } else {
+        try {
+            require_once '../backend/includes/email_signature_helper.php';
+            $html_content = EmailSignatureHelper::sanitizeHTML($raw_html_content);
+
+            // Keep form values in sync with sanitized content after a successful validation pass.
+            $signature['html_content'] = $html_content;
+
+            if ($is_default) {
+                $conn->exec("UPDATE email_signature_templates SET is_default = 0");
+            }
+
+            if ($id) {
+                $stmt = $conn->prepare("
+                    UPDATE email_signature_templates 
+                    SET name = ?, description = ?, html_content = ?, is_active = ?, is_default = ?,
+                        max_image_width = ?, max_image_height = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = ?
+                ");
+                $stmt->execute([
+                    $name,
+                    $description,
+                    $html_content,
+                    $is_active,
+                    $is_default,
+                    $max_image_width,
+                    $max_image_height,
+                    $id
+                ]);
+                $_SESSION['success'] = "Signature updated successfully!";
+            } else {
+                $stmt = $conn->prepare("
+                    INSERT INTO email_signature_templates 
+                    (name, description, html_content, is_active, is_default, max_image_width, max_image_height, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $name,
+                    $description,
+                    $html_content,
+                    $is_active,
+                    $is_default,
+                    $max_image_width,
+                    $max_image_height,
+                    $_SESSION['user_id'] ?? null
+                ]);
+                $_SESSION['success'] = "Signature created successfully!";
+
+                // Get the new signature ID
+                $id = $conn->lastInsertId();
+            }
+
+            // Update settings if this is the default
+            if ($is_default) {
+                require_once '../backend/includes/settings.php';
+                Settings::set('default_email_signature_id', $id);
+            }
+
+            redirect(ADMIN_URL . 'email_signatures_list.php');
+        } catch (InvalidArgumentException $e) {
+            $_SESSION['error'] = 'Unable to save signature: ' . $e->getMessage();
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Error saving signature. Please try again or reduce the amount of content/images.';
+            error_log('Error saving email signature: ' . $e->getMessage());
         }
-        
-        if ($id) {
-            $stmt = $conn->prepare("
-                UPDATE email_signature_templates 
-                SET name = ?, description = ?, html_content = ?, is_active = ?, is_default = ?,
-                    max_image_width = ?, max_image_height = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            ");
-            $stmt->execute([$name, $description, $html_content, $is_active, $is_default, 
-                           $max_image_width, $max_image_height, $id]);
-            $_SESSION['success'] = "Signature updated successfully!";
-        } else {
-            $stmt = $conn->prepare("
-                INSERT INTO email_signature_templates 
-                (name, description, html_content, is_active, is_default, max_image_width, max_image_height, created_by) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([$name, $description, $html_content, $is_active, $is_default, 
-                           $max_image_width, $max_image_height, $_SESSION['user_id'] ?? null]);
-            $_SESSION['success'] = "Signature created successfully!";
-            
-            // Get the new signature ID
-            $id = $conn->lastInsertId();
-        }
-        
-        // Update settings if this is the default
-        if ($is_default) {
-            require_once '../backend/includes/settings.php';
-            Settings::set('default_email_signature_id', $id);
-        }
-        
-        redirect(ADMIN_URL . 'email_signatures_list.php');
-    } catch (Exception $e) {
-        $_SESSION['error'] = "Error saving signature: " . $e->getMessage();
     }
 }
 
