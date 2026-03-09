@@ -583,7 +583,7 @@ class Database {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     description TEXT,
-                    html_content TEXT NOT NULL,
+                    html_content MEDIUMTEXT NOT NULL,
                     is_default INTEGER DEFAULT 0,
                     is_active INTEGER DEFAULT 1,
                     max_image_width INTEGER DEFAULT 600,
@@ -1814,6 +1814,13 @@ class Database {
                 $this->conn->exec("ALTER TABLE email_templates MODIFY COLUMN body_text MEDIUMTEXT");
             } catch (PDOException $e) {
                 error_log("Migration: could not modify email_templates.body_text - " . $e->getMessage());
+            }
+            // Widen email_signature_templates.html_content on MySQL installations
+            // where TEXT (~64 KB) is too small for large HTML email signatures.
+            try {
+                $this->conn->exec("ALTER TABLE email_signature_templates MODIFY COLUMN html_content MEDIUMTEXT NOT NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify email_signature_templates.html_content - " . $e->getMessage());
             }
         }
     }

@@ -71,7 +71,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         redirect(ADMIN_URL . 'email_signatures_list.php');
     } catch (Exception $e) {
-        $_SESSION['error'] = "Error saving signature: " . $e->getMessage();
+        setFlashMessage("Error saving signature: " . $e->getMessage(), 'danger');
+        redirect(ADMIN_URL . 'email_signatures_edit.php' . ($id ? '?id=' . $id : ''));
     }
 }
 
