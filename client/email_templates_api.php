@@ -3,6 +3,7 @@
  * Email Templates API - Get templates for composing emails
  */
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/email_service.php';
 requireLogin();
 
 header('Content-Type: application/json');
@@ -110,6 +111,10 @@ if ($method === 'GET') {
                 $body_text = str_replace($var, $value, $body_text);
             }
         }
+
+        // Apply the standard styled wrapper so the preview matches what
+        // recipients actually see when the email is sent.
+        $body_html = EmailService::wrapEmailHtml($body_html);
         
         echo json_encode([
             'success' => true,
@@ -124,6 +129,23 @@ if ($method === 'GET') {
         echo json_encode(['error' => 'Invalid action']);
     }
     
+} elseif ($method === 'POST') {
+    $action = $_GET['action'] ?? '';
+
+    if ($action === 'preview_styled') {
+        // Return the supplied HTML fragment wrapped in the standard email
+        // container — used by the template editor for live preview.
+        $input     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $body_html = $input['body_html'] ?? '';
+
+        $wrapped = EmailService::wrapEmailHtml($body_html);
+
+        echo json_encode(['success' => true, 'html' => $wrapped]);
+    } else {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid action']);
+    }
+
 } else {
     http_response_code(405);
     echo json_encode(['error' => 'Method not allowed']);
