@@ -723,7 +723,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             // Create new client
             $stmt = $conn->prepare("
                 INSERT INTO clients (name, email, phone, notes, created_at, updated_at) 
-                VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ");
             $stmt->execute([
                 $data['client_name'],
@@ -764,7 +764,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                         // Create new pet
                         $stmt = $conn->prepare("
                             INSERT INTO pets (client_id, name, species, is_active, created_at, updated_at) 
-                            VALUES (?, ?, 'Dog', 1, datetime('now'), datetime('now'))
+                            VALUES (?, ?, 'Dog', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                         ");
                         $stmt->execute([$client_id, $dog_name]);
                         $pet_ids[] = $conn->lastInsertId();
@@ -902,7 +902,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             foreach ($pet_ids as $pet_id) {
                 $stmt = $conn->prepare("
                     INSERT INTO appointment_pets (booking_id, pet_id, created_at) 
-                    VALUES (?, ?, datetime('now'))
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
                 ");
                 $stmt->execute([$booking_id, $pet_id]);
             }
