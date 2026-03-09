@@ -53,6 +53,71 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     echo json_encode(['credits' => $credits]);
     exit;
 
+} elseif ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'profile') {
+    // Look up current client+pet profiles by email and dog names for pre-submit conflict detection.
+    // Only returns data that the user themselves would have on file; no auth required because
+    // the caller must supply the correct email to get any data back.
+    $email      = trim($_GET['email'] ?? '');
+    $dog_names_raw = trim($_GET['dog_names'] ?? '');
+
+    if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(['client' => null, 'pets' => []]);
+        exit;
+    }
+
+    $db   = new Database();
+    $conn = $db->getConnection();
+
+    $stmt = $conn->prepare("SELECT id, name, email, phone, address FROM clients WHERE email = ?");
+    $stmt->execute([$email]);
+    $client_row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$client_row) {
+        echo json_encode(['client' => null, 'pets' => []]);
+        exit;
+    }
+
+    $client_id = (int)$client_row['id'];
+
+    // Resolve ordered pet list from dog_names (same logic as POST handler)
+    $dog_name_list = array_values(array_filter(array_map('trim', explode(',', $dog_names_raw)), fn($n) => $n !== ''));
+    $ordered_pets  = [];
+
+    if (!empty($dog_name_list)) {
+        $placeholders = implode(',', array_fill(0, count($dog_name_list), '?'));
+        $stmt = $conn->prepare("
+            SELECT id, name, breed, date_of_birth, species, source, spayed_neutered, vaccines_current
+            FROM pets WHERE client_id = ? AND name IN ($placeholders) AND is_active = 1
+        ");
+        $stmt->execute(array_merge([$client_id], $dog_name_list));
+        $pet_map = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $p) {
+            $pet_map[$p['name']] = $p;
+        }
+        foreach ($dog_name_list as $dname) {
+            $ordered_pets[] = $pet_map[$dname] ?? null; // null = new pet (no existing profile)
+        }
+    }
+
+    echo json_encode([
+        'client' => [
+            'name'    => $client_row['name']    ?? '',
+            'email'   => $client_row['email']   ?? '',
+            'phone'   => $client_row['phone']   ?? '',
+            'address' => $client_row['address'] ?? '',
+        ],
+        'pets' => array_map(fn($p) => $p ? [
+            'name'             => $p['name']            ?? '',
+            'species'          => $p['species']          ?? '',
+            'breed'            => $p['breed']            ?? '',
+            'date_of_birth'    => $p['date_of_birth']    ?? '',
+            'source'           => $p['source']           ?? '',
+            'spayed_neutered'  => $p['spayed_neutered']  ? 'yes' : '',
+            'vaccines_current' => $p['vaccines_current'] ? 'yes' : '',
+        ] : null, $ordered_pets),
+    ]);
+    exit;
+
 } elseif ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'available_dates') {
 
     /**
@@ -916,12 +981,120 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 if (is_array($responses) && !empty($responses)) {
                     $ins->execute([$client_id, (int)$template_id, $booking_id, json_encode($responses)]);
                     $form_submission_id = $conn->lastInsertId();
-                    $workflow_helper->checkFormTriggers($form_submission_id);
+                    try {
+                        $workflow_helper->checkFormTriggers($form_submission_id);
+                    } catch (\Throwable $e) {
+                        error_log("Workflow trigger error for form submission #{$form_submission_id}: " . $e->getMessage());
+                    }
                 }
             }
         }
 
-        // Trigger auto-enrollment for matching appointment workflow triggers
+        // ── Apply profile mappings from form responses ────────────────────────────
+        // Explicit safe column name maps (not user-controlled — never interpolate raw input)
+        $client_col_map = [
+            'name'    => 'name',
+            'email'   => 'email',
+            'phone'   => 'phone',
+            'address' => 'address',
+        ];
+        $pet_col_map = [
+            'name'            => 'name',
+            'species'         => 'species',
+            'breed'           => 'breed',
+            'date_of_birth'   => 'date_of_birth',
+            'source'          => 'source',
+            'spayed_neutered' => 'spayed_neutered',
+            'vaccines_current'=> 'vaccines_current',
+            'vaccine_notes'   => 'vaccine_notes',
+            'behavior_notes'  => 'behavior_notes',
+            'medical_notes'   => 'medical_notes',
+            'training_notes'  => 'training_notes',
+        ];
+        $overwrite_profile = !empty($data['overwrite_profile']);
+
+        if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+            // $pet_ids is already ordered by dog_names input — use it for pet_1, pet_2, pet_3 mapping
+            $booking_pet_ids = array_values($pet_ids);
+
+            // Load current client record for conflict checking
+            $cur_client_stmt = $conn->prepare("SELECT name, email, phone, address FROM clients WHERE id = ?");
+            $cur_client_stmt->execute([$client_id]);
+            $cur_client = $cur_client_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            foreach ($data['form_responses'] as $tpl_id => $responses) {
+                if (!is_array($responses)) continue;
+
+                $tpl_stmt = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
+                $tpl_stmt->execute([(int)$tpl_id]);
+                $tpl_row = $tpl_stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$tpl_row) continue;
+
+                $tpl_fields = json_decode($tpl_row['fields'], true) ?: [];
+
+                foreach ($tpl_fields as $fi => $field) {
+                    $mapping = $field['profile_mapping'] ?? '';
+                    if (empty($mapping)) continue;
+
+                    $value = $responses[$fi] ?? null;
+                    if ($value === null || $value === '') continue;
+                    if (is_array($value)) $value = implode(', ', $value);
+                    $value = (string)$value;
+
+                    if (strpos($mapping, 'client.') === 0) {
+                        $attr = substr($mapping, 7);
+                        if (!isset($client_col_map[$attr])) continue;
+                        if ($attr === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) continue;
+
+                        // Skip if existing value differs and user did not confirm overwrite
+                        $existing = (string)($cur_client[$attr] ?? '');
+                        if ($existing !== '' && $existing !== $value && !$overwrite_profile) continue;
+
+                        $safe_col = $client_col_map[$attr];
+                        $conn->prepare("UPDATE clients SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                             ->execute([$value, $client_id]);
+                        logClientActivity($client_id, 'profile_update_from_form',
+                            "Profile field '{$attr}' updated via form submission (booking #{$booking_id})", $conn);
+
+                    } elseif (preg_match('/^pet_([123])\.(.+)$/', $mapping, $m)) {
+                        $pet_index = (int)$m[1] - 1;
+                        $attr      = $m[2];
+                        if (!isset($pet_col_map[$attr])) continue;
+
+                        $pet_id = $booking_pet_ids[$pet_index] ?? null;
+                        if (!$pet_id) continue;
+
+                        // Verify ownership
+                        $own = $conn->prepare("SELECT * FROM pets WHERE id = ? AND client_id = ?");
+                        $own->execute([$pet_id, $client_id]);
+                        $cur_pet = $own->fetch(PDO::FETCH_ASSOC);
+                        if (!$cur_pet) continue;
+
+                        // Type coercion / validation
+                        if ($attr === 'date_of_birth') {
+                            $dt = date_create_from_format('Y-m-d', $value)
+                               ?: date_create_from_format('m/d/Y', $value)
+                               ?: date_create_from_format('d/m/Y', $value);
+                            if (!$dt) continue;
+                            $value = $dt->format('Y-m-d');
+                        } elseif (in_array($attr, ['spayed_neutered', 'vaccines_current'], true)) {
+                            $value = in_array(strtolower($value), ['1', 'yes', 'true', 'on'], true) ? 1 : 0;
+                        }
+
+                        // Skip if existing value differs and user did not confirm overwrite
+                        $existing_pet_val = (string)($cur_pet[$attr] ?? '');
+                        if ($existing_pet_val !== '' && (string)$existing_pet_val !== (string)$value && !$overwrite_profile) continue;
+
+                        $safe_col = $pet_col_map[$attr];
+                        $conn->prepare("UPDATE pets SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                             ->execute([$value, $pet_id]);
+                        logClientActivity($client_id, 'pet_profile_update_from_form',
+                            "Pet #{$pet_id} field '{$attr}' updated via form submission (booking #{$booking_id})", $conn);
+                    }
+                }
+            }
+        }
+
         $workflow_helper->checkAppointmentTriggers($booking_id);
 
         // Deduct credit if one was selected

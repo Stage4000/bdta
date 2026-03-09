@@ -132,16 +132,18 @@ if ($required_contract) {
 $forms_needing_completion = [];
 foreach ($all_required_forms as $form) {
     $freq = trim($form['required_frequency'] ?? '');
-    if ($freq === 'per_booking' || $freq === '') {
+    // 'per_booking' and 'per_appointment' both mean "required every booking";
+    // empty string is also treated as always-show (optional / default)
+    if ($freq === 'per_booking' || $freq === 'per_appointment' || $freq === '') {
         $forms_needing_completion[] = $form;
         continue;
     }
     // Determine look-back window based on frequency keyword
     $cutoff = match ($freq) {
-        'annual'      => strtotime('-1 year'),
-        'semi_annual' => strtotime('-6 months'),
-        'monthly'     => strtotime('-1 month'),
-        default       => null, // 'once' or unknown — check any prior submission
+        'annual', 'yearly' => strtotime('-1 year'),
+        'semi_annual'      => strtotime('-6 months'),
+        'monthly'          => strtotime('-1 month'),
+        default            => null, // 'once' or unknown — check any prior submission
     };
     $stmt = $conn->prepare("
         SELECT submitted_at FROM form_submissions
