@@ -20,9 +20,6 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Set timezone
-date_default_timezone_set('America/New_York');
-
 // Determine the script's directory
 $script_dir = dirname(__FILE__);
 $backend_dir = dirname($script_dir);

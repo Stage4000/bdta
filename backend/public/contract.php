@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
     } else {
         $ip_address = getClientIp();
         $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $signed_at  = date('Y-m-d H:i:s'); // America/New_York already set in config
+        $signed_at  = date('Y-m-d H:i:s'); // Timezone already set in config
 
         // Update contract with signature (store typed name in signature_typed_name;
         // keep signature_data NULL for typed-only flow)

@@ -3,8 +3,22 @@
  * Brook's Dog Training Academy - Configuration
  */
 
-// Set timezone
-date_default_timezone_set('America/New_York');
+require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/settings.php';
+
+// Set timezone from admin settings with a safe fallback
+function getSystemTimezone(): string {
+    $fallback = 'America/New_York';
+    try {
+        $configured = Settings::get('timezone', $fallback);
+        $tz = new DateTimeZone($configured ?: $fallback);
+        return $tz->getName();
+    } catch (Exception $e) {
+        return $fallback;
+    }
+}
+
+date_default_timezone_set(getSystemTimezone());
 
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
@@ -21,10 +35,6 @@ define('BASE_URL', '/');
 define('ADMIN_URL', '/client/');
 define('DEFAULT_LOCALHOST_URL', 'http://localhost:8000');
 define('PORTAL_URL', '/portal/');
-
-// Database configuration
-require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/settings.php';
 
 // Helper functions
 function redirect($url) {
