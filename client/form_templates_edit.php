@@ -564,6 +564,7 @@ function toggleOptions(select) {
     const fieldItem = select.closest('.field-item');
     let optionsContainer = fieldItem.querySelector('.field-options-container');
     let optionsTextarea = fieldItem.querySelector('textarea[name="field_options[]"]');
+    const isOptionType = ['select', 'radio', 'checkbox'].includes(select.value);
 
     // Ensure we always have a single textarea to reuse when toggling
     if (!optionsTextarea) {
@@ -573,7 +574,7 @@ function toggleOptions(select) {
         fieldItem.appendChild(optionsTextarea);
     }
 
-    if (['select', 'radio', 'checkbox'].includes(select.value)) {
+    if (isOptionType) {
         if (!optionsContainer) {
             optionsContainer = document.createElement('div');
             optionsContainer.className = 'row mt-2 field-options-container';
@@ -592,19 +593,30 @@ function toggleOptions(select) {
             optionsContainer.appendChild(optionsCol);
             fieldItem.appendChild(optionsContainer);
         } else {
+            // Ensure the textarea lives inside the options container
+            let optionsCol = optionsContainer.querySelector('.col-12');
+            if (!optionsCol) {
+                optionsCol = document.createElement('div');
+                optionsCol.className = 'col-12';
+                optionsCol.innerHTML = '<label class="form-label">Options (one per line)</label>';
+                optionsContainer.appendChild(optionsCol);
+            }
+            if (!optionsCol.contains(optionsTextarea)) {
+                optionsCol.appendChild(optionsTextarea);
+            }
+            if (!optionsTextarea.hasAttribute('rows')) {
+                optionsTextarea.rows = 3;
+            }
+            optionsTextarea.classList.add('form-control');
             optionsTextarea.classList.remove('d-none');
             optionsContainer.classList.remove('d-none');
         }
-        } else {
-            if (optionsContainer) {
-                // Preserve the textarea for future toggles
-                if (optionsTextarea.parentElement === optionsContainer) {
-                    fieldItem.appendChild(optionsTextarea);
-                }
-                optionsContainer.remove();
-            }
-            optionsTextarea.classList.add('d-none');
+    } else {
+        if (optionsContainer) {
+            optionsContainer.classList.add('d-none');
         }
+        optionsTextarea.classList.add('d-none');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
