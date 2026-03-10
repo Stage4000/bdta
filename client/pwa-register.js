@@ -14,7 +14,7 @@
         navigator.serviceWorker.register('/client/sw.js', { scope: ADMIN_PATH }).catch(function (err) {
             console.error('Service worker registration failed:', err);
             const note = document.createElement('div');
-            note.textContent = 'Unable to initialize the application. Please refresh or contact support if this issue persists.';
+            note.textContent = 'Some enhanced features (such as PWA installability) may be unavailable. You can keep using the app; please refresh if this issue persists.';
             note.style.position = 'fixed';
             note.style.bottom = '1rem';
             note.style.right = '1rem';
