@@ -584,7 +584,9 @@ function toggleOptions(select) {
 
             optionsTextarea.classList.remove('d-none');
             optionsTextarea.classList.add('form-control');
-            optionsTextarea.rows = optionsTextarea.rows || 3;
+            if (!optionsTextarea.hasAttribute('rows')) {
+                optionsTextarea.rows = 3;
+            }
 
             optionsCol.appendChild(optionsTextarea);
             optionsContainer.appendChild(optionsCol);
@@ -593,14 +595,16 @@ function toggleOptions(select) {
             optionsTextarea.classList.remove('d-none');
             optionsContainer.classList.remove('d-none');
         }
-    } else {
-        if (optionsContainer) {
-            // Preserve the textarea for future toggles
-            optionsContainer.parentNode.insertBefore(optionsTextarea, optionsContainer.nextSibling);
-            optionsContainer.remove();
+        } else {
+            if (optionsContainer) {
+                // Preserve the textarea for future toggles
+                if (optionsTextarea.parentElement === optionsContainer) {
+                    fieldItem.appendChild(optionsTextarea);
+                }
+                optionsContainer.remove();
+            }
+            optionsTextarea.classList.add('d-none');
         }
-        optionsTextarea.classList.add('d-none');
-    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
