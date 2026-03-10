@@ -21,5 +21,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  event.respondWith(fetch(event.request, { cache: "no-store" }));
+  event.respondWith(
+    fetch(event.request, { cache: "no-store" }).catch(() => new Response('', { status: 503, statusText: 'Offline' }))
+  );
 });
