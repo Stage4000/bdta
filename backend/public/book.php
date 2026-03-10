@@ -1891,13 +1891,15 @@ if (isset($error_mode) && $error_mode) {
                 if (typeof field.checkValidity === 'function') {
                     isValid = field.checkValidity();
                 } else if ('value' in field) {
-                    isValid = !!String(field.value || '').trim();
-                }
-                if (isValid && 'value' in field) {
+                    // Fallback only when checkValidity is unavailable
                     const rawVal = String(field.value || '').trim();
-                    if (field.type === 'email') {
+                    isValid = !!rawVal;
+                    if (isValid && field.tagName && field.tagName.toUpperCase() === 'SELECT') {
+                        isValid = field.value.trim() !== '';
+                    }
+                    if (isValid && field.type === 'email') {
                         isValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(rawVal);
-                    } else if (field.type === 'number') {
+                    } else if (isValid && field.type === 'number') {
                         const numVal = Number(rawVal);
                         if (Number.isNaN(numVal)) isValid = false;
                         const minAttr = field.getAttribute('min');
@@ -1926,12 +1928,24 @@ if (isset($error_mode) && $error_mode) {
                     }
                 }
 
-                const labelText = getFieldLabelText(field);
+                const rawLabelText = getFieldLabelText(field);
+                const safeLabelText = (typeof escapeHtml === 'function')
+                    ? escapeHtml(rawLabelText)
+                    : String(rawLabelText).replace(/[&<>"']/g, function (ch) {
+                        switch (ch) {
+                            case '&': return '&amp;';
+                            case '<': return '&lt;';
+                            case '>': return '&gt;';
+                            case '"': return '&quot;';
+                            case "'": return '&#39;';
+                            default: return ch;
+                        }
+                    });
                 const isSelectField = field.tagName && field.tagName.toUpperCase() === 'SELECT';
                 const actionVerb = (field.type === 'checkbox' || field.type === 'radio' || isSelectField)
                     ? 'select'
                     : 'fill in';
-                showAlert(`Please ${actionVerb}: ${labelText}`, 'warning');
+                showAlert(`Please ${actionVerb}: ${safeLabelText}`, 'warning');
                 if (typeof field.focus === 'function') {
                     try {
                         field.focus();
