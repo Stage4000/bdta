@@ -10,7 +10,6 @@
     {
       "src": "/assets/favicon.svg",
       "type": "image/svg+xml",
-      "purpose": "any",
       "sizes": "any"
     }
   ]
