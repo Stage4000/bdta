@@ -11,6 +11,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Generate a per-session CSRF token (used by delete forms and other state-changing actions)
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // Base URL configuration
 define('BASE_URL', '/');
 define('ADMIN_URL', '/client/');

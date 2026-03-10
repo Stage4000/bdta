@@ -46,6 +46,11 @@ if ($is_edit) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        header('Location: form_templates_edit.php' . ($is_edit ? '?id=' . $template_id : ''));
+        exit;
+    }
     $name = trim($_POST['name']);
     $description = trim($_POST['description']);
     $form_type = $_POST['form_type'];
@@ -163,6 +168,7 @@ require_once '../backend/includes/header.php';
     <?php endif; ?>
 
     <form method="POST" id="templateForm">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
         <div class="row">
             <div class="col-md-8">
                 <div class="card mb-4">

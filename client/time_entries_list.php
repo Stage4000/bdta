@@ -8,12 +8,17 @@ $conn = $db->getConnection();
 $client_filter = isset($_GET['client_id']) ? intval($_GET['client_id']) : 0;
 
 // Handle time entry deletion
-if (isset($_GET['delete'])) {
-    $id = intval($_GET['delete']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        redirect($_SERVER['PHP_SELF'] . ($client_filter > 0 ? "?client_id=$client_filter" : ''));
+    }
+    $id = intval($_POST['delete_id']);
+    $post_client_filter = isset($_POST['client_id']) ? intval($_POST['client_id']) : 0;
     $stmt = $conn->prepare("DELETE FROM time_entries WHERE id = ?");
     $stmt->execute([$id]);
     setFlashMessage('Time entry deleted successfully!', 'success');
-    redirect($_SERVER['PHP_SELF'] . ($client_filter > 0 ? "?client_id=$client_filter" : ''));
+    redirect($_SERVER['PHP_SELF'] . ($post_client_filter > 0 ? "?client_id=$post_client_filter" : ''));
 }
 
 // Fetch clients for filter
@@ -193,11 +198,16 @@ include '../backend/includes/header.php';
                                         <a href="time_entries_edit.php?id=<?= $entry['id'] ?>" class="btn btn-sm btn-outline-primary">
                                             <i class="fas fa-pencil"></i>
                                         </a>
-                                        <a href="?delete=<?= $entry['id'] ?><?= $client_filter > 0 ? "&client_id=$client_filter" : '' ?>" 
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Delete this time entry?')">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                                        <form method="post" class="d-inline" onsubmit="return confirm('Delete this time entry?')">
+                                            <input type="hidden" name="delete_id" value="<?= $entry['id'] ?>">
+                                            <?php if ($client_filter > 0): ?>
+                                            <input type="hidden" name="client_id" value="<?= $client_filter ?>">
+                                            <?php endif; ?>
+                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

@@ -56,25 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
         $message = '<div class="alert alert-info">Quote declined. Thank you for your response.</div>';
     }
 }
+$page_title = 'Quote ' . $quote['quote_number'];
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <title>Quote <?= htmlspecialchars($quote['quote_number']) ?> - Brook's Dog Training Academy</title>
-    <!-- Dark mode: respect saved user preference, fall back to system preference -->
-    <script>
-        (function () {
-            'use strict';
-            var saved = localStorage.getItem('bdta-theme');
-            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        }());
-    </script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<?php require_once __DIR__ . '/includes/public_head.php'; ?>
     <?php
     $tc_primary   = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_color', '#9a0073')))   ? Settings::get('theme_primary_color', '#9a0073')   : '#9a0073';
     $tc_secondary = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_secondary_color', '#0a9a9c'))) ? Settings::get('theme_secondary_color', '#0a9a9c') : '#0a9a9c';
@@ -195,30 +179,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
             </div>
         </div>
     </div>
-    <!-- Dark mode toggle (floating) -->
-    <button id="darkModeToggle" class="btn btn-outline-secondary btn-sm position-fixed top-0 end-0 m-3" style="z-index:1100;" title="Toggle dark mode" aria-label="Toggle dark mode">
-        <i class="fas fa-moon" id="darkModeIcon"></i>
-    </button>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-    (function () {
-        'use strict';
-        function updateIcon() {
-            var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-            var icon = document.getElementById('darkModeIcon');
-            if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
-        }
-        updateIcon();
-        var btn = document.getElementById('darkModeToggle');
-        if (btn) {
-            btn.addEventListener('click', function () {
-                var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-bs-theme', next);
-                localStorage.setItem('bdta-theme', next);
-                updateIcon();
-            });
-        }
-    }());
-    </script>
-</body>
-</html>
+<?php require_once __DIR__ . '/includes/public_footer.php'; ?>

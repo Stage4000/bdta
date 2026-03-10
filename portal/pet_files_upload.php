@@ -68,7 +68,9 @@ $original_name = str_replace(['/', '\\', '..'], '', $original_name);
 
 $file_size     = $_FILES['file']['size'];
 $tmp_name      = $_FILES['file']['tmp_name'];
-$mime_type     = mime_content_type($tmp_name);
+$finfo = finfo_open(FILEINFO_MIME_TYPE);
+$mime_type = finfo_file($finfo, $tmp_name);
+finfo_close($finfo);
 $file_extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
 
 $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf'];

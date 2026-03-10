@@ -6,8 +6,12 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Handle deletion
-if (isset($_GET['delete'])) {
-    $id = intval($_GET['delete']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        redirect('expenses_list.php');
+    }
+    $id = intval($_POST['delete_id']);
     $stmt = $conn->prepare("DELETE FROM expenses WHERE id = ?");
     $stmt->execute([$id]);
     setFlashMessage('Expense deleted successfully!', 'success');
@@ -106,10 +110,13 @@ include '../backend/includes/header.php';
                                     <a href="expenses_edit.php?id=<?= $expense['id'] ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-pencil"></i>
                                     </a>
-                                    <a href="?delete=<?= $expense['id'] ?>" class="btn btn-sm btn-outline-danger"
-                                       onclick="return confirm('Delete this expense?')">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
+                                    <form method="post" class="d-inline" onsubmit="return confirm('Delete this expense?')">
+                                        <input type="hidden" name="delete_id" value="<?= $expense['id'] ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; endif; ?>
