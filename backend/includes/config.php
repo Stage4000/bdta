@@ -8,7 +8,7 @@ require_once __DIR__ . '/database.php';
 /**
  * Resolve the system timezone from admin settings with a safe fallback.
  * Cached per process/request; restart long-running workers after changing settings.
- * Falls back gracefully if the database/settings layer is unavailable during bootstrap.
+ * Requires database/settings availability; falls back to default when the configured value is empty or invalid.
  *
  * @return string Resolved timezone identifier suitable for date_default_timezone_set
  */

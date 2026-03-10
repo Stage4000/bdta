@@ -9,6 +9,8 @@ require_once __DIR__ . '/env_loader.php';
 EnvLoader::load();
 
 class Database {
+    private static $sharedConnection = null;
+    private static $sharedDbType = null;
     private $db_file;
     private $conn = null;
     private $db_type = 'sqlite'; // 'mysql' or 'sqlite'
@@ -19,10 +21,17 @@ class Database {
     private $db_password;
     
     public function __construct() {
+        if (self::$sharedConnection !== null) {
+            $this->conn = self::$sharedConnection;
+            $this->db_type = self::$sharedDbType;
+            return;
+        }
         // Load database configuration from environment
         $this->loadConfig();
         $this->connect();
         $this->initTables();
+        self::$sharedConnection = $this->conn;
+        self::$sharedDbType = $this->db_type;
     }
     
     private function loadConfig() {
