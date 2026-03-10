@@ -1,0 +1,17 @@
+{
+  "name": "BDTA Admin",
+  "short_name": "BDTA Admin",
+  "start_url": "/client/index.php",
+  "scope": "/client/",
+  "display": "standalone",
+  "theme_color": "#9a0073",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
