@@ -130,7 +130,7 @@
     <script>
         (function () {
             'use strict';
-            if ('serviceWorker' in navigator && window.location && window.location.pathname.indexOf('/client/') === 0) {
+            if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function () {
                     navigator.serviceWorker.register('/client/sw.js', { scope: '/client/' }).catch(function (err) {
                         console.error('Service worker registration failed:', err);
