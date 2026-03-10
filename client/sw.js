@@ -20,7 +20,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
-    event.respondWith(fetch(event.request));
+    event.respondWith(fetch(event.request.clone(), { cache: "no-store" }));
     return;
   }
 
