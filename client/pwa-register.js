@@ -12,7 +12,7 @@
         navigator.serviceWorker.register('/client/sw.js', { scope: '/client/' }).catch(function (err) {
             console.error('Service worker registration failed:', err);
             if (window.alert) {
-                alert('Unable to enable offline support. Please refresh or contact support if this continues.');
+                alert('Unable to register the app. Please refresh or contact support if this continues.');
             }
         });
     });
