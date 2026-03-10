@@ -3,9 +3,6 @@
  * Brook's Dog Training Academy - Configuration
  */
 
-require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/settings.php';
-
 /**
  * Resolve the system timezone from admin settings with a safe fallback.
  * Cached per process/request; restart long-running workers after changing settings.
@@ -14,6 +11,8 @@ require_once __DIR__ . '/settings.php';
  * @return string Resolved timezone identifier suitable for date_default_timezone_set
  */
 function getSystemTimezone(): string {
+    require_once __DIR__ . '/settings.php';
+
     static $resolved = null;
     if ($resolved !== null) {
         return $resolved;
@@ -41,6 +40,10 @@ function getSystemTimezone(): string {
 }
 
 date_default_timezone_set(getSystemTimezone());
+
+// Load core dependencies for the rest of the config helpers
+require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/settings.php';
 
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
