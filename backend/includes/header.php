@@ -17,6 +17,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/mobile.css">
+    <link rel="manifest" href="/client/manifest.webmanifest">
     <?php
     $theme = Settings::getThemeColors();
     $tc_primary       = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['primary']))        ? $theme['primary']        : '#9a0073';
@@ -25,6 +26,7 @@
     $tc_sidebar_start = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['sidebar_bg_start'])) ? $theme['sidebar_bg_start'] : '#9a0073';
     $tc_sidebar_end   = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['sidebar_bg_end']))   ? $theme['sidebar_bg_end']   : '#7a005a';
     ?>
+    <meta name="theme-color" content="<?= $tc_primary ?>">
     <style>
         :root {
             --theme-primary:       <?= $tc_primary ?>;
@@ -125,6 +127,7 @@
             }
         }
     </style>
+    <script src="/client/pwa-register.js" defer></script>
 </head>
 <body>
     <?php $flash = getFlashMessage(); ?>

@@ -69,6 +69,8 @@ $page_title = 'Login';
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="manifest" href="/client/manifest.webmanifest">
+    <meta name="theme-color" content="#9a0073">
     <style>
         body {
             background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%);
@@ -136,6 +138,7 @@ $page_title = 'Login';
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/client/pwa-register.js"></script>
     <script>
     (function () {
         'use strict';
