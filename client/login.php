@@ -138,18 +138,7 @@ $page_title = 'Login';
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-    (function () {
-        'use strict';
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function () {
-                navigator.serviceWorker.register('/client/sw.js', { scope: '/client/' }).catch(function (err) {
-                    console.error('Service worker registration failed:', err);
-                });
-            });
-        }
-    }());
-    </script>
+    <script src="/client/pwa-register.js"></script>
     <script>
     (function () {
         'use strict';
