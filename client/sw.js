@@ -21,10 +21,11 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const OFFLINE_MESSAGE = 'Unable to reach the server. Please check your connection and retry.';
   event.respondWith(
     fetch(event.request, { cache: "no-store" }).catch((err) => {
       console.error('Network request failed:', err);
-      return new Response('Unable to reach the server. Please check your connection and retry.', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+      return new Response(OFFLINE_MESSAGE, { status: 503, headers: { 'Content-Type': 'text/plain' } });
     })
   );
 });
