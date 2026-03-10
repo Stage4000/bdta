@@ -6,9 +6,10 @@
 self.addEventListener("install", (event) => {
   // Ensure any existing caches are cleared and activate immediately.
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
