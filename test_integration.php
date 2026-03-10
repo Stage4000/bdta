@@ -161,7 +161,7 @@ try {
     $queries = [
         'Total Clients' => "SELECT COUNT(*) as count FROM clients",
         'Pending Bookings' => "SELECT COUNT(*) as count FROM bookings WHERE status = 'pending'",
-        'Published Posts' => "SELECT COUNT(*) as count FROM blog_posts WHERE published = 1",
+        'Published Posts' => "SELECT COUNT(*) as count FROM blog_posts WHERE published = 1 AND publish_date <= CURRENT_TIMESTAMP",
         'Draft Posts' => "SELECT COUNT(*) as count FROM blog_posts WHERE published = 0"
     ];
     

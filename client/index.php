@@ -7,7 +7,7 @@ $conn = $db->getConnection();
 
 // Get statistics
 $total_posts = $conn->query("SELECT COUNT(*) FROM blog_posts")->fetchColumn();
-$published_posts = $conn->query("SELECT COUNT(*) FROM blog_posts WHERE published = 1")->fetchColumn();
+$published_posts = $conn->query("SELECT COUNT(*) FROM blog_posts WHERE published = 1 AND publish_date <= CURRENT_TIMESTAMP")->fetchColumn();
 $total_bookings = $conn->query("SELECT COUNT(*) FROM bookings")->fetchColumn();
 $pending_bookings = $conn->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending'")->fetchColumn();
 

@@ -5,7 +5,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$stmt = $conn->query("SELECT * FROM blog_posts ORDER BY created_at DESC");
+$stmt = $conn->query("SELECT * FROM blog_posts ORDER BY publish_date DESC");
 $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = 'Blog Posts';
@@ -29,7 +29,7 @@ require_once '../backend/includes/header.php';
                             <th>Title</th>
                             <th>Author</th>
                             <th>Status</th>
-                            <th>Created</th>
+                            <th>Publish Date</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -40,11 +40,17 @@ require_once '../backend/includes/header.php';
                                 <td><?php echo escape($post['title']); ?></td>
                                 <td><?php echo escape($post['author']); ?></td>
                                 <td>
-                                    <span class="badge bg-<?php echo $post['published'] ? 'success' : 'secondary'; ?>">
-                                        <?php echo $post['published'] ? 'Published' : 'Draft'; ?>
+                                    <?php
+                                        $effectiveDate = $post['publish_date'] ?? $post['created_at'];
+                                        $isScheduled = $post['published'] && strtotime($effectiveDate) > time();
+                                        $statusLabel = $post['published'] ? ($isScheduled ? 'Scheduled' : 'Published') : 'Draft';
+                                        $statusClass = $post['published'] ? ($isScheduled ? 'warning' : 'success') : 'secondary';
+                                    ?>
+                                    <span class="badge bg-<?php echo $statusClass; ?>">
+                                        <?php echo $statusLabel; ?>
                                     </span>
                                 </td>
-                                <td><?php echo date('Y-m-d', strtotime($post['created_at'])); ?></td>
+                                <td><?php echo date('Y-m-d', strtotime($effectiveDate)); ?></td>
                                 <td>
                                     <a href="blog_edit.php?id=<?php echo $post['id']; ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-pencil"></i>

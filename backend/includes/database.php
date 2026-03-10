@@ -263,6 +263,7 @@ class Database {
                     excerpt TEXT,
                     author TEXT NOT NULL,
                     published INTEGER DEFAULT 0,
+                    publish_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -1158,6 +1159,17 @@ class Database {
         }
         if (!in_array('reminder_sent', $column_names)) {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN reminder_sent INTEGER DEFAULT 0");
+        }
+
+        // Add publish_date support to blog_posts for backdating and scheduling
+        $blog_column_names = $this->getTableColumns('blog_posts');
+        if (!in_array('publish_date', $blog_column_names)) {
+            $this->execSQL("ALTER TABLE blog_posts ADD COLUMN publish_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+            try {
+                $this->execSQL("UPDATE blog_posts SET publish_date = created_at WHERE publish_date IS NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not backfill blog_posts.publish_date - " . $e->getMessage());
+            }
         }
         
         // Update contracts table to add reminder tracking
