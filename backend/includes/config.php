@@ -13,10 +13,6 @@ require_once __DIR__ . '/settings.php';
  * @return string Resolved timezone identifier suitable for date_default_timezone_set
  */
 function getSystemTimezone(): string {
-    if (!class_exists('Settings')) {
-        require_once __DIR__ . '/settings.php';
-    }
-
     static $resolved = null;
     if ($resolved !== null) {
         return $resolved;
@@ -31,14 +27,12 @@ function getSystemTimezone(): string {
         return $resolved;
     }
 
-    $is_empty = empty($configured);
-
     try {
-        $tz_input = $is_empty ? $fallback : $configured;
+        $tz_input = empty($configured) ? $fallback : $configured;
         $tz       = new DateTimeZone($tz_input);
         $resolved = $tz->getName();
     } catch (Exception $e) {
-        $log_value = $is_empty ? 'empty' : $configured;
+        $log_value = empty($configured) ? 'empty' : $configured;
         error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value "' . $log_value . '" was invalid: ' . $e->getMessage());
         $resolved = $fallback;
     }
