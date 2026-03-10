@@ -1,6 +1,9 @@
 <?php
 require_once '../backend/includes/config.php';
 requireLogin();
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -15,6 +18,11 @@ if ($post_id) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'error');
+        redirect('blog_list.php');
+    }
+
     $title = $_POST['title'] ?? '';
     $slug = $_POST['slug'] ?? '';
     $content = $_POST['content'] ?? '';
@@ -22,37 +30,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $published = isset($_POST['published']) ? 1 : 0;
     $publish_date_input = $_POST['publish_date'] ?? '';
     $publish_date = $post ? ($post['publish_date'] ?? $post['created_at']) : date('Y-m-d H:i:s');
+    $hasError = false;
 
     if ($publish_date_input) {
-        $dt = DateTime::createFromFormat('Y-m-d\\TH:i', $publish_date_input)
-            ?: DateTime::createFromFormat('Y-m-d', $publish_date_input);
+        $formats = ['Y-m-d\\TH:i', 'Y-m-d\\TH:i:s', 'Y-m-d'];
+        $dt = false;
+        foreach ($formats as $fmt) {
+            $candidate = DateTime::createFromFormat($fmt, $publish_date_input);
+            $errors = DateTime::getLastErrors();
+            if ($candidate !== false && ($errors['warning_count'] ?? 0) === 0 && ($errors['error_count'] ?? 0) === 0) {
+                $dt = $candidate;
+                break;
+            }
+        }
         if ($dt !== false) {
             $publish_date = $dt->format('Y-m-d H:i:s');
+        } else {
+            setFlashMessage('Invalid publish date format. Use the date/time picker.', 'error');
+            $hasError = true;
         }
     }
-
-    $author = $_SESSION['admin_username'];
-    
-    try {
-        if ($post_id) {
-            $stmt = $conn->prepare("
-                UPDATE blog_posts 
-                SET title = ?, slug = ?, content = ?, excerpt = ?, published = ?, publish_date = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            ");
-            $stmt->execute([$title, $slug, $content, $excerpt, $published, $publish_date, $post_id]);
-            setFlashMessage('Blog post updated successfully!', 'success');
-        } else {
-            $stmt = $conn->prepare("
-                INSERT INTO blog_posts (title, slug, content, excerpt, author, published, publish_date) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([$title, $slug, $content, $excerpt, $author, $published, $publish_date]);
-            setFlashMessage('Blog post created successfully!', 'success');
+    if (!$hasError) {
+        $author = $_SESSION['admin_username'];
+        
+        try {
+            if ($post_id) {
+                $stmt = $conn->prepare("
+                    UPDATE blog_posts 
+                    SET title = ?, slug = ?, content = ?, excerpt = ?, published = ?, publish_date = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = ?
+                ");
+                $stmt->execute([$title, $slug, $content, $excerpt, $published, $publish_date, $post_id]);
+                setFlashMessage('Blog post updated successfully!', 'success');
+            } else {
+                $stmt = $conn->prepare("
+                    INSERT INTO blog_posts (title, slug, content, excerpt, author, published, publish_date) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([$title, $slug, $content, $excerpt, $author, $published, $publish_date]);
+                setFlashMessage('Blog post created successfully!', 'success');
+            }
+            redirect('blog_list.php');
+        } catch (PDOException $e) {
+            setFlashMessage('Error: ' . $e->getMessage(), 'error');
         }
-        redirect('blog_list.php');
-    } catch (PDOException $e) {
-        setFlashMessage('Error: ' . $e->getMessage(), 'error');
     }
 }
 
@@ -68,6 +89,7 @@ require_once '../backend/includes/header.php';
     <div class="card">
         <div class="card-body">
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                 <div class="mb-3">
                     <label for="title" class="form-label">Title</label>
                     <input type="text" class="form-control" id="title" name="title" 

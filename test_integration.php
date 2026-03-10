@@ -159,16 +159,21 @@ try {
     echo "7. Testing List Operations (simulating admin dashboard)...\n";
     // Get counts like the dashboard does
     $queries = [
-        'Total Clients' => "SELECT COUNT(*) as count FROM clients",
-        'Pending Bookings' => "SELECT COUNT(*) as count FROM bookings WHERE status = 'pending'",
-        'Published Posts' => "SELECT COUNT(*) as count FROM blog_posts WHERE published = 1 AND publish_date <= CURRENT_TIMESTAMP",
-        'Draft Posts' => "SELECT COUNT(*) as count FROM blog_posts WHERE published = 0"
+        ['label' => 'Total Clients',      'sql' => "SELECT COUNT(*) as count FROM clients", 'params' => []],
+        ['label' => 'Pending Bookings',   'sql' => "SELECT COUNT(*) as count FROM bookings WHERE status = 'pending'", 'params' => []],
+        ['label' => 'Published Posts',    'sql' => "SELECT COUNT(*) as count FROM blog_posts WHERE published = 1 AND publish_date <= ?", 'params' => [date('Y-m-d H:i:s')]],
+        ['label' => 'Draft Posts',        'sql' => "SELECT COUNT(*) as count FROM blog_posts WHERE published = 0", 'params' => []],
     ];
     
-    foreach ($queries as $label => $query) {
-        $stmt = $conn->query($query);
+    foreach ($queries as $q) {
+        if (!empty($q['params'])) {
+            $stmt = $conn->prepare($q['sql']);
+            $stmt->execute($q['params']);
+        } else {
+            $stmt = $conn->query($q['sql']);
+        }
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        echo "   ✓ $label: {$result['count']}\n";
+        echo "   ✓ {$q['label']}: {$result['count']}\n";
     }
     echo "\n";
     

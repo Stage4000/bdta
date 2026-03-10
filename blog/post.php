@@ -11,11 +11,12 @@ if (!$slug) {
 $db = new Database();
 $conn = $db->getConnection();
 
+$now = (new DateTime())->format('Y-m-d H:i:s');
 $stmt = $conn->prepare("
     SELECT * FROM blog_posts 
-    WHERE slug = ? AND published = 1 AND publish_date <= CURRENT_TIMESTAMP
+    WHERE slug = ? AND published = 1 AND publish_date <= ?
 ");
-$stmt->execute([$slug]);
+$stmt->execute([$slug, $now]);
 $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$post) {

@@ -4,12 +4,14 @@ require_once '../backend/includes/config.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$stmt = $conn->query("
+$now = (new DateTime())->format('Y-m-d H:i:s');
+$stmt = $conn->prepare("
     SELECT id, title, slug, excerpt, author, publish_date, created_at 
     FROM blog_posts 
-    WHERE published = 1 AND publish_date <= CURRENT_TIMESTAMP 
+    WHERE published = 1 AND publish_date <= :now 
     ORDER BY publish_date DESC
 ");
+$stmt->execute([':now' => $now]);
 $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = 'Blog';

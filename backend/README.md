@@ -250,7 +250,7 @@ backend/
 - **New Post:** admin/blog_edit.php
 - **Edit Post:** admin/blog_edit.php?id=X
 - **Delete Post:** admin/blog_delete.php?id=X
-- **Publish Date:** Every post requires a publish date (defaults to today). You can backdate posts or schedule them for the future—scheduled posts stay hidden until their publish date when marked as published.
+- **Publish Date:** Every post requires a publish date and time (defaults to the current date/time). You can backdate posts or schedule them for the future—scheduled posts stay hidden until their publish date/time is reached and they are marked as published.
 
 ### Booking Management
 

@@ -7,6 +7,7 @@ $conn = $db->getConnection();
 
 $stmt = $conn->query("SELECT * FROM blog_posts ORDER BY publish_date DESC");
 $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$now = (new DateTime())->format('Y-m-d H:i:s');
 
 $page_title = 'Blog Posts';
 require_once '../backend/includes/header.php';
@@ -42,7 +43,7 @@ require_once '../backend/includes/header.php';
                                 <td>
                                     <?php
                                         $effectiveDate = $post['publish_date'] ?? $post['created_at'];
-                                        $isScheduled = $post['published'] && strtotime($effectiveDate) > time();
+                                        $isScheduled = $post['published'] && strtotime($effectiveDate) > strtotime($now);
                                         $statusLabel = $post['published'] ? ($isScheduled ? 'Scheduled' : 'Published') : 'Draft';
                                         $statusClass = $post['published'] ? ($isScheduled ? 'warning' : 'success') : 'secondary';
                                     ?>

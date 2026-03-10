@@ -1166,7 +1166,8 @@ class Database {
         if (!in_array('publish_date', $blog_column_names)) {
             $this->execSQL("ALTER TABLE blog_posts ADD COLUMN publish_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
             try {
-                $this->execSQL("UPDATE blog_posts SET publish_date = created_at WHERE publish_date IS NULL");
+                // Column is newly added, so backfill every existing row to creation timestamp
+                $this->execSQL("UPDATE blog_posts SET publish_date = created_at");
             } catch (PDOException $e) {
                 error_log("Migration: could not backfill blog_posts.publish_date - " . $e->getMessage());
             }
