@@ -3,6 +3,9 @@
  * Brook's Dog Training Academy - Configuration
  */
 
+require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/settings.php';
+
 /**
  * Resolve the system timezone from admin settings with a safe fallback.
  * Cached per process/request; restart long-running workers after changing settings.
@@ -11,8 +14,6 @@
  * @return string Resolved timezone identifier suitable for date_default_timezone_set
  */
 function getSystemTimezone(): string {
-    require_once __DIR__ . '/settings.php';
-
     static $resolved = null;
     if ($resolved !== null) {
         return $resolved;
@@ -28,11 +29,11 @@ function getSystemTimezone(): string {
     }
 
     try {
-        $tz_input = empty($configured) ? $fallback : $configured;
+        $tz_input = ($configured === null || $configured === '') ? $fallback : $configured;
         $tz       = new DateTimeZone($tz_input);
         $resolved = $tz->getName();
     } catch (Exception $e) {
-        $log_value = empty($configured) ? 'empty' : $configured;
+        $log_value = ($configured === null || $configured === '') ? 'empty' : $configured;
         error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value "' . $log_value . '" was invalid: ' . $e->getMessage());
         $resolved = $fallback;
     }
@@ -40,10 +41,6 @@ function getSystemTimezone(): string {
 }
 
 date_default_timezone_set(getSystemTimezone());
-
-// Load core dependencies for the rest of the config helpers
-require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/settings.php';
 
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
