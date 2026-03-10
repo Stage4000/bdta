@@ -13,6 +13,10 @@ require_once __DIR__ . '/settings.php';
  * @return string Resolved timezone identifier suitable for date_default_timezone_set
  */
 function getSystemTimezone(): string {
+    if (!class_exists('Settings')) {
+        require_once __DIR__ . '/settings.php';
+    }
+
     static $resolved = null;
     if ($resolved !== null) {
         return $resolved;
@@ -27,7 +31,7 @@ function getSystemTimezone(): string {
         return $resolved;
     }
 
-    $is_empty = ($configured === null || $configured === '');
+    $is_empty = empty($configured);
 
     try {
         $tz_input = $is_empty ? $fallback : $configured;
