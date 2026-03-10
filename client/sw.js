@@ -22,6 +22,6 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   event.respondWith(
-    fetch(event.request, { cache: "no-store" }).catch(() => new Response('', { status: 503, statusText: 'Offline' }))
+    fetch(event.request, { cache: "no-store" }).catch(() => new Response('Offline. Please reconnect to continue.', { status: 503, headers: { 'Content-Type': 'text/plain' } }))
   );
 });

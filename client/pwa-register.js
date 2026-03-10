@@ -11,6 +11,9 @@
     window.addEventListener('load', function () {
         navigator.serviceWorker.register('/client/sw.js', { scope: '/client/' }).catch(function (err) {
             console.error('Service worker registration failed:', err);
+            if (window.alert) {
+                alert('Unable to enable offline support. Please refresh or contact support if this continues.');
+            }
         });
     });
 }());
