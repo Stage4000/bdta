@@ -22,6 +22,7 @@ function getSystemTimezone(): string {
         $tz = new DateTimeZone($configured ?: $fallback);
         $resolved = $tz->getName();
     } catch (Exception $e) {
+        error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value was invalid: ' . $e->getMessage());
         $resolved = $fallback;
     }
     return $resolved;

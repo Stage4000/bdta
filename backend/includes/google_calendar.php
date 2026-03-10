@@ -8,7 +8,10 @@
  *
  * Configuration is managed through Admin Panel > Settings > Calendar.
  */
+// config.php also loads settings.php and database.php, keep these explicit for clarity
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/database.php';
 
 class GoogleCalendarIntegration {
     private $credentials_file;
