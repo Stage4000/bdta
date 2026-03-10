@@ -6,7 +6,7 @@
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/settings.php';
 
-// Set timezone from admin settings with a safe fallback
+// Set timezone from admin settings with a safe fallback (cached per process; restart long-running workers after changing)
 function getSystemTimezone(): string {
     static $resolved = null;
     if ($resolved !== null) {
@@ -22,7 +22,8 @@ function getSystemTimezone(): string {
     }
 
     try {
-        $tz       = new DateTimeZone($configured ?: $fallback);
+        $tz_value = ($configured !== null && $configured !== '') ? $configured : $fallback;
+        $tz       = new DateTimeZone($tz_value);
         $resolved = $tz->getName();
     } catch (Exception $e) {
         error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value was invalid: ' . $e->getMessage());
