@@ -9,6 +9,7 @@ require_once __DIR__ . '/settings.php';
 /**
  * Resolve the system timezone from admin settings with a safe fallback.
  * Cached per process/request; restart long-running workers after changing settings.
+ * Falls back gracefully if the database/settings layer is unavailable during bootstrap.
  *
  * @return string Resolved timezone identifier suitable for date_default_timezone_set
  */
