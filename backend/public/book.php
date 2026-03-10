@@ -1169,6 +1169,7 @@ if (isset($error_mode) && $error_mode) {
         let selectedDate = <?= $js_specific_date ?>;
         let selectedTime = null;
         const maxSteps = 4;
+        const requiredFieldSelector = '.form-step input[required], .form-step select[required], .form-step textarea[required]';
 
         // Form profile mappings: formId -> fieldIndex -> mapping string
         const formFieldMappings = <?= (function() use ($required_forms) {
@@ -1273,6 +1274,8 @@ if (isset($error_mode) && $error_mode) {
             }
             
             if (bookingForm) {
+                // Disable native browser validation so hidden steps don't block submit silently
+                bookingForm.setAttribute('novalidate', 'novalidate');
                 // Form submission
                 bookingForm.addEventListener('submit', submitBooking);
             }
@@ -1849,8 +1852,120 @@ if (isset($error_mode) && $error_mode) {
             return responses;
         }
 
+        // Guard against hidden required fields preventing submission without feedback
+        function findLabelForField(field, selector) {
+            if (!field || !selector) return null;
+            const formEl = field.closest('form');
+            if (formEl) {
+                const match = formEl.querySelector(selector);
+                if (match) return match;
+            }
+            const formSection = field.closest('[data-form-id]');
+            if (formSection) {
+                const match = formSection.querySelector(selector);
+                if (match) return match;
+            }
+            return null;
+        }
+
+        function getFieldLabelText(field) {
+            if (!field) return 'this field';
+            let labelText = field.getAttribute('aria-label') || 'this field';
+            if (field.labels && field.labels.length > 0) {
+                return field.labels[0].textContent.trim() || labelText;
+            }
+            const labelSelector = field.id ? `label[for="${field.id}"]` : null;
+            let labelEl = findLabelForField(field, labelSelector) || field.closest('label');
+            if (labelEl) labelText = labelEl.textContent.trim() || labelText;
+            return labelText;
+        }
+
+        function ensureRequiredFieldsValid() {
+            const bookingForm = document.getElementById('bookingForm');
+            if (!bookingForm) return true;
+
+            const requiredFields = Array.from(bookingForm.querySelectorAll(requiredFieldSelector));
+
+            for (const field of requiredFields) {
+                let isValid = true;
+                if (typeof field.checkValidity === 'function') {
+                    isValid = field.checkValidity();
+                } else if ('value' in field) {
+                    // Fallback only when checkValidity is unavailable
+                    const rawVal = String(field.value || '').trim();
+                    isValid = !!rawVal;
+                    if (isValid && field.tagName && field.tagName.toUpperCase() === 'SELECT') {
+                        isValid = field.value.trim() !== '';
+                    }
+                    if (isValid && field.type === 'email') {
+                        isValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(rawVal);
+                    } else if (isValid && field.type === 'number') {
+                        const numVal = Number(rawVal);
+                        if (Number.isNaN(numVal)) isValid = false;
+                        const minAttr = field.getAttribute('min');
+                        const maxAttr = field.getAttribute('max');
+                        if (isValid && minAttr !== null) isValid = numVal >= Number(minAttr);
+                        if (isValid && maxAttr !== null) isValid = numVal <= Number(maxAttr);
+                    }
+                    const pattern = field.getAttribute('pattern');
+                    if (isValid && pattern) {
+                        try {
+                            const re = new RegExp(pattern);
+                            isValid = re.test(rawVal);
+                        } catch (err) {
+                            console.warn('Invalid pattern for field', pattern, err);
+                        }
+                    }
+                }
+                if (isValid) continue;
+
+                const stepEl = field.closest('.form-step');
+                if (stepEl && stepEl.dataset.step) {
+                    const stepNum = parseInt(stepEl.dataset.step, 10);
+                    if (!isNaN(stepNum)) {
+                        currentStep = stepNum;
+                        updateSteps();
+                    }
+                }
+
+                const rawLabelText = getFieldLabelText(field);
+                const safeLabelText = (typeof escapeHtml === 'function')
+                    ? escapeHtml(rawLabelText)
+                    : String(rawLabelText).replace(/[&<>"']/g, function (ch) {
+                        switch (ch) {
+                            case '&': return '&amp;';
+                            case '<': return '&lt;';
+                            case '>': return '&gt;';
+                            case '"': return '&quot;';
+                            case "'": return '&#39;';
+                            default: return ch;
+                        }
+                    });
+                const isSelectField = field.tagName && field.tagName.toUpperCase() === 'SELECT';
+                const actionVerb = (field.type === 'checkbox' || field.type === 'radio' || isSelectField)
+                    ? 'select'
+                    : 'fill in';
+                showAlert(`Please ${actionVerb}: ${safeLabelText}`, 'warning');
+                if (typeof field.focus === 'function') {
+                    try {
+                        field.focus();
+                    } catch (err) {
+                        console.warn('Unable to focus invalid field', err);
+                    }
+                }
+                return false;
+            }
+
+            return true;
+        }
+
         function submitBooking(e) {
             e.preventDefault();
+
+            // Ensure all required fields (even in previous steps) are filled
+            if (!ensureRequiredFieldsValid()) {
+                return;
+            }
             
             const submitBtn = document.getElementById('submitBtn');
             const spinner = submitBtn.querySelector('.loading-spinner');
