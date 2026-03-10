@@ -562,34 +562,41 @@ function reindexFields() {
 
 function toggleOptions(select) {
     const fieldItem = select.closest('.field-item');
-    const optionsContainer = fieldItem.querySelector('.field-options-container');
-    const optionsTextarea = fieldItem.querySelector('textarea[name="field_options[]"]');
+    let optionsContainer = fieldItem.querySelector('.field-options-container');
+    let optionsTextarea = fieldItem.querySelector('textarea[name="field_options[]"]');
+
+    // Ensure we always have a single textarea to reuse when toggling
+    if (!optionsTextarea) {
+        optionsTextarea = document.createElement('textarea');
+        optionsTextarea.name = 'field_options[]';
+        optionsTextarea.classList.add('d-none');
+        fieldItem.appendChild(optionsTextarea);
+    }
 
     if (['select', 'radio', 'checkbox'].includes(select.value)) {
         if (!optionsContainer) {
-            const optionsHtml = `
-                <div class="row mt-2 field-options-container">
-                    <div class="col-12">
-                        <label class="form-label">Options (one per line)</label>
-                        <textarea name="field_options_temp" class="form-control" rows="3"></textarea>
-                    </div>
-                </div>
-            `;
-            // Insert before the hidden textarea (always last child)
-            optionsTextarea.insertAdjacentHTML('beforebegin', optionsHtml);
-            // Copy value from hidden textarea
-            const newTextarea = fieldItem.querySelector('textarea[name="field_options_temp"]');
-            newTextarea.value = optionsTextarea.value;
-            newTextarea.name = 'field_options[]';
-            optionsTextarea.classList.add('d-none');
+            optionsContainer = document.createElement('div');
+            optionsContainer.className = 'row mt-2 field-options-container';
+
+            const optionsCol = document.createElement('div');
+            optionsCol.className = 'col-12';
+            optionsCol.innerHTML = '<label class="form-label">Options (one per line)</label>';
+
+            optionsTextarea.classList.remove('d-none');
+            optionsTextarea.classList.add('form-control');
+            optionsTextarea.rows = optionsTextarea.rows || 3;
+
+            optionsCol.appendChild(optionsTextarea);
+            optionsContainer.appendChild(optionsCol);
+            fieldItem.appendChild(optionsContainer);
+        } else {
+            optionsTextarea.classList.remove('d-none');
+            optionsContainer.classList.remove('d-none');
         }
     } else {
         if (optionsContainer) {
-            // Save value before removing
-            const visibleTextarea = optionsContainer.querySelector('textarea');
-            if (visibleTextarea) {
-                optionsTextarea.value = visibleTextarea.value;
-            }
+            // Preserve the textarea for future toggles
+            optionsContainer.parentNode.insertBefore(optionsTextarea, optionsContainer.nextSibling);
             optionsContainer.remove();
         }
         optionsTextarea.classList.add('d-none');
