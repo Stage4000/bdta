@@ -4,7 +4,6 @@
  */
 
 require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/settings.php';
 
 /**
  * Resolve the system timezone from admin settings with a safe fallback.
@@ -14,6 +13,8 @@ require_once __DIR__ . '/settings.php';
  * @return string Resolved timezone identifier suitable for date_default_timezone_set
  */
 function getSystemTimezone(): string {
+    require_once __DIR__ . '/settings.php';
+
     static $resolved = null;
     if ($resolved !== null) {
         return $resolved;

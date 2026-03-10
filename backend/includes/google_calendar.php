@@ -8,7 +8,7 @@
  *
  * Configuration is managed through Admin Panel > Settings > Calendar.
  */
-// Depends on config.php for Settings/database bootstrap and the shared getSystemTimezone() helper
+// Depends on config.php for settings/database bootstrap and the shared getSystemTimezone() helper
 require_once __DIR__ . '/config.php';
 
 class GoogleCalendarIntegration {
