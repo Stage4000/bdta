@@ -13,6 +13,7 @@ function getSystemTimezone(): string {
         return $resolved;
     }
     $fallback = 'America/New_York';
+    $configured = null;
     try {
         $configured = Settings::get('timezone', $fallback);
     } catch (Exception $e) {
@@ -22,11 +23,11 @@ function getSystemTimezone(): string {
     }
 
     try {
-        $tz_value = ($configured !== null && $configured !== '') ? $configured : $fallback;
-        $tz       = new DateTimeZone($tz_value);
+        $tz       = new DateTimeZone(($configured !== null && $configured !== '') ? $configured : $fallback);
         $resolved = $tz->getName();
     } catch (Exception $e) {
-        error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value was invalid: ' . $e->getMessage());
+        $log_value = ($configured === null || $configured === '') ? 'empty' : $configured;
+        error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value "' . $log_value . '" was invalid: ' . $e->getMessage());
         $resolved = $fallback;
     }
     return $resolved;
