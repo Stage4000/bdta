@@ -3,8 +3,45 @@
  * Brook's Dog Training Academy - Configuration
  */
 
-// Set timezone
-date_default_timezone_set('America/New_York');
+require_once __DIR__ . '/database.php';
+
+/**
+ * Resolve the system timezone from admin settings with a safe fallback.
+ * Cached per process/request; restart long-running workers after changing settings.
+ * Requires database/settings availability; falls back to default when the configured value is empty or invalid.
+ *
+ * @return string Resolved timezone identifier suitable for date_default_timezone_set
+ */
+function getSystemTimezone(): string {
+    require_once __DIR__ . '/settings.php';
+
+    static $resolved = null;
+    if ($resolved !== null) {
+        return $resolved;
+    }
+    $fallback = 'America/New_York';
+    $configured = null;
+    try {
+        $configured = Settings::get('timezone', $fallback);
+    } catch (Exception $e) {
+        error_log('config.php: unable to read timezone setting, using fallback "' . $fallback . '": ' . $e->getMessage());
+        $resolved = $fallback;
+        return $resolved;
+    }
+
+    try {
+        $tz_input = ($configured === null || $configured === '') ? $fallback : $configured;
+        $tz       = new DateTimeZone($tz_input);
+        $resolved = $tz->getName();
+    } catch (Exception $e) {
+        $log_value = ($configured === null || $configured === '') ? 'empty' : $configured;
+        error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value "' . $log_value . '" was invalid: ' . $e->getMessage());
+        $resolved = $fallback;
+    }
+    return $resolved;
+}
+
+date_default_timezone_set(getSystemTimezone());
 
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
@@ -21,10 +58,6 @@ define('BASE_URL', '/');
 define('ADMIN_URL', '/client/');
 define('DEFAULT_LOCALHOST_URL', 'http://localhost:8000');
 define('PORTAL_URL', '/portal/');
-
-// Database configuration
-require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/settings.php';
 
 // Helper functions
 function redirect($url) {

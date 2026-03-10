@@ -8,9 +8,8 @@
  *
  * Configuration is managed through Admin Panel > Settings > Calendar.
  */
-
-require_once __DIR__ . '/settings.php';
-require_once __DIR__ . '/database.php';
+// Depends on config.php for settings/database bootstrap and the shared getSystemTimezone() helper
+require_once __DIR__ . '/config.php';
 
 class GoogleCalendarIntegration {
     private $credentials_file;
@@ -30,7 +29,7 @@ class GoogleCalendarIntegration {
      * Build the Google Calendar event body array from a booking row.
      */
     private function buildEventBody(array $booking): array {
-        $timezone = 'America/New_York';
+        $timezone = getSystemTimezone();
         // Normalise to HH:MM – MySQL TIME columns return HH:MM:SS which would
         // produce an invalid RFC3339 string like "2026-03-02T14:30:00:00".
         $time_hhmm = substr($booking['appointment_time'], 0, 5);
@@ -446,7 +445,7 @@ class GoogleCalendarIntegration {
 
         $token_row   = self::getOAuthToken($admin_user_id);
         $calendar_id = $token_row['calendar_id'] ?? 'primary';
-        $timezone    = 'America/New_York';
+        $timezone    = getSystemTimezone();
 
         try {
             $tz_obj    = new DateTimeZone($timezone);
@@ -504,7 +503,7 @@ class GoogleCalendarIntegration {
 
         $token_row   = self::getOAuthToken($admin_user_id);
         $calendar_id = $token_row['calendar_id'] ?? 'primary';
-        $timezone    = 'America/New_York';
+        $timezone    = getSystemTimezone();
 
         try {
             $tz_obj      = new DateTimeZone($timezone);
