@@ -143,11 +143,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
 }
 
 // Handle deletion
-if (isset($_GET['delete'])) {
-    $booking_id = $_GET['delete'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        redirect('bookings_list.php');
+    }
+    $booking_id = intval($_POST['delete_id']);
     $stmt = $conn->prepare("DELETE FROM bookings WHERE id = ?");
     $stmt->execute([$booking_id]);
-    
+
     setFlashMessage('Booking deleted.', 'info');
     redirect('bookings_list.php');
 }
@@ -246,9 +250,13 @@ require_once '../backend/includes/header.php';
                                     </form>
                                 </td>
                                 <td>
-                                    <a href="?delete=<?php echo $booking['id']; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this booking?')">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
+                                    <form method="post" class="d-inline" onsubmit="return confirm('Delete this booking?')">
+                                        <input type="hidden" name="delete_id" value="<?php echo $booking['id']; ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

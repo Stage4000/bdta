@@ -26,8 +26,13 @@ $steps->execute([$workflow_id]);
 $workflow_steps = $steps->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle delete step
-if (isset($_GET['delete_step'])) {
-    $step_id = (int)$_GET['delete_step'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_step_id'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        $_SESSION['error'] = 'Invalid request.';
+        header('Location: workflows_steps.php?workflow_id=' . $workflow_id);
+        exit;
+    }
+    $step_id = (int)$_POST['delete_step_id'];
     $stmt = $conn->prepare("DELETE FROM workflow_steps WHERE id = ? AND workflow_id = ?");
     $stmt->execute([$step_id, $workflow_id]);
     $_SESSION['success'] = 'Step deleted successfully';
@@ -149,11 +154,13 @@ include '../backend/includes/header.php';
                                            class="btn btn-sm btn-outline-primary flex-fill">
                                             <i class="fas fa-pencil"></i> Edit
                                         </a>
-                                        <a href="?workflow_id=<?php echo $workflow_id; ?>&delete_step=<?php echo $step['id']; ?>" 
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Are you sure you want to delete this step?')">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                                        <form method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this step?')">
+                                            <input type="hidden" name="delete_step_id" value="<?php echo $step['id']; ?>">
+                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </div>

@@ -8,14 +8,18 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Handle delete action
-if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
-    $id = (int)$_GET['id'];
-    
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        $_SESSION['error'] = 'Invalid request.';
+        redirect(ADMIN_URL . 'email_signatures_list.php');
+    }
+    $id = (int)$_POST['delete_id'];
+
     // Check if this is the default signature
     $stmt = $conn->prepare("SELECT is_default FROM email_signature_templates WHERE id = ?");
     $stmt->execute([$id]);
     $signature = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if ($signature && $signature['is_default']) {
         $_SESSION['error'] = 'Cannot delete the default signature. Please set another signature as default first.';
     } else {
@@ -154,12 +158,13 @@ include '../backend/includes/header.php';
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                     <?php if (!$sig['is_default']): ?>
-                                                        <a href="?action=delete&id=<?= $sig['id'] ?>" 
-                                                           class="btn btn-outline-danger" 
-                                                           title="Delete"
-                                                           onclick="return confirm('Are you sure you want to delete this signature?')">
-                                                            <i class="fas fa-trash"></i>
-                                                        </a>
+                                                        <form method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this signature?')">
+                                                            <input type="hidden" name="delete_id" value="<?= $sig['id'] ?>">
+                                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                            <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
                                                     <?php endif; ?>
                                                 </div>
                                             </td>

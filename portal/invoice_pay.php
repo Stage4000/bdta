@@ -63,8 +63,8 @@ $page_title    = 'Invoice ' . escape($invoice['invoice_number']);
         document.documentElement.setAttribute('data-bs-theme', theme);
     }());
 </script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
 body { background: #f8f9fa; }
 .invoice-wrapper { max-width: 760px; margin: 40px auto; padding: 0 16px 60px; }
@@ -267,7 +267,7 @@ body { background: #f8f9fa; }
     <?php endif; ?>
 
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Dark mode toggle (floating) -->
 <button id="darkModeToggle" class="btn btn-outline-secondary btn-sm position-fixed top-0 end-0 m-3 no-print" style="z-index:1100;" title="Toggle dark mode" aria-label="Toggle dark mode">
     <i class="fas fa-moon" id="darkModeIcon"></i>

@@ -6,8 +6,12 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Handle client deletion
-if (isset($_GET['delete'])) {
-    $id = intval($_GET['delete']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        redirect('clients_list.php');
+    }
+    $id = intval($_POST['delete_id']);
     $stmt = $conn->prepare("DELETE FROM clients WHERE id = ?");
     $stmt->execute([$id]);
     setFlashMessage('Client deleted successfully!', 'success');
@@ -96,10 +100,13 @@ include '../backend/includes/header.php';
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             <?php endif; ?>
-                                            <a href="?delete=<?= $client['id'] ?>" class="btn btn-sm btn-outline-danger"
-                                               onclick="return confirm('Are you sure you want to delete this client? This cannot be undone.')" title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
+                                            <form method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this client? This cannot be undone.')">
+                                                <input type="hidden" name="delete_id" value="<?= $client['id'] ?>">
+                                                <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                         <!-- Mobile: compact dropdown menu -->
                                         <div class="d-md-none client-action-dropdown">
@@ -138,10 +145,13 @@ include '../backend/includes/header.php';
                                                     <?php endif; ?>
                                                     <li><hr class="dropdown-divider"></li>
                                                     <li>
-                                                        <a class="dropdown-item text-danger" href="?delete=<?= $client['id'] ?>"
-                                                           onclick="return confirm('Are you sure you want to delete this client? This cannot be undone.')">
-                                                            <i class="fas fa-trash me-2"></i>Delete
-                                                        </a>
+                                                        <form method="post" onsubmit="return confirm('Are you sure you want to delete this client? This cannot be undone.')">
+                                                            <input type="hidden" name="delete_id" value="<?= $client['id'] ?>">
+                                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                            <button type="submit" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent">
+                                                                <i class="fas fa-trash me-2"></i>Delete
+                                                            </button>
+                                                        </form>
                                                     </li>
                                                 </ul>
                                             </div>
