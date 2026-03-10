@@ -15,7 +15,13 @@ function getSystemTimezone(): string {
     $fallback = 'America/New_York';
     try {
         $configured = Settings::get('timezone', $fallback);
-        $tz = new DateTimeZone($configured ?: $fallback);
+    } catch (Exception $e) {
+        error_log('config.php: unable to read timezone setting, using fallback "' . $fallback . '": ' . $e->getMessage());
+        return $fallback;
+    }
+
+    try {
+        $tz       = new DateTimeZone($configured ?: $fallback);
         $resolved = $tz->getName();
     } catch (Exception $e) {
         error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value was invalid: ' . $e->getMessage());
