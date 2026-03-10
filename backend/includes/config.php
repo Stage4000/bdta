@@ -17,7 +17,8 @@ function getSystemTimezone(): string {
         $configured = Settings::get('timezone', $fallback);
     } catch (Exception $e) {
         error_log('config.php: unable to read timezone setting, using fallback "' . $fallback . '": ' . $e->getMessage());
-        return $fallback;
+        $resolved = $fallback;
+        return $resolved;
     }
 
     try {
