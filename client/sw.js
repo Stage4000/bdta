@@ -25,7 +25,10 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request, { cache: "no-store" }).catch((err) => {
       console.error('Network request failed:', err);
-      return new Response(OFFLINE_MESSAGE, { status: 503, headers: { 'Content-Type': 'text/plain' } });
+      if (event.request.mode === "navigate") {
+        return new Response(OFFLINE_MESSAGE, { status: 503, headers: { 'Content-Type': 'text/plain' } });
+      }
+      return Response.error();
     })
   );
 });

@@ -8,7 +8,7 @@
   "background_color": "#ffffff",
   "icons": [
     {
-      "src": "/assets/favicon.svg",
+      "src": "/client/pwa-icon.svg",
       "type": "image/svg+xml",
       "sizes": "any"
     }
