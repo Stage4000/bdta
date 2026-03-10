@@ -1273,6 +1273,8 @@ if (isset($error_mode) && $error_mode) {
             }
             
             if (bookingForm) {
+                // Disable native browser validation so hidden steps don't block submit silently
+                bookingForm.setAttribute('novalidate', 'novalidate');
                 // Form submission
                 bookingForm.addEventListener('submit', submitBooking);
             }
@@ -1849,8 +1851,49 @@ if (isset($error_mode) && $error_mode) {
             return responses;
         }
 
+        // Guard against hidden required fields preventing submission without feedback
+        function ensureRequiredFieldsValid() {
+            const bookingForm = document.getElementById('bookingForm');
+            if (!bookingForm) return true;
+
+            const requiredFields = bookingForm.querySelectorAll('input[required], select[required], textarea[required]');
+            for (const field of requiredFields) {
+                if (typeof field.checkValidity === 'function' && field.checkValidity()) continue;
+
+                const stepEl = field.closest('.form-step');
+                if (stepEl && stepEl.dataset.step) {
+                    const stepNum = parseInt(stepEl.dataset.step, 10);
+                    if (!isNaN(stepNum)) {
+                        currentStep = stepNum;
+                        updateSteps();
+                    }
+                }
+
+                let labelText = 'a required field';
+                if (field.labels && field.labels.length > 0) {
+                    labelText = field.labels[0].textContent.trim() || labelText;
+                } else {
+                    const labelEl = field.closest('.mb-3, .form-check')?.querySelector('label');
+                    if (labelEl) labelText = labelEl.textContent.trim() || labelText;
+                }
+
+                showAlert(`Please complete: ${labelText}`, 'warning');
+                if (typeof field.focus === 'function') {
+                    try { field.focus({ preventScroll: true }); } catch (err) { /* ignore */ }
+                }
+                return false;
+            }
+
+            return true;
+        }
+
         function submitBooking(e) {
             e.preventDefault();
+
+            // Ensure all required fields (even in previous steps) are filled
+            if (!ensureRequiredFieldsValid()) {
+                return;
+            }
             
             const submitBtn = document.getElementById('submitBtn');
             const spinner = submitBtn.querySelector('.loading-spinner');
