@@ -23,10 +23,12 @@ function getSystemTimezone(): string {
     }
 
     try {
-        $tz       = new DateTimeZone(($configured !== null && $configured !== '') ? $configured : $fallback);
+        $is_empty = ($configured === null || $configured === '');
+        $tz_input = $is_empty ? $fallback : $configured;
+        $tz       = new DateTimeZone($tz_input);
         $resolved = $tz->getName();
     } catch (Exception $e) {
-        $log_value = ($configured === null || $configured === '') ? 'empty' : $configured;
+        $log_value = $is_empty ? 'empty' : $configured;
         error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value "' . $log_value . '" was invalid: ' . $e->getMessage());
         $resolved = $fallback;
     }
