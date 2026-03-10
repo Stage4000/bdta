@@ -7,31 +7,6 @@ $conn = $db->getConnection();
 
 $id = intval($_GET['id'] ?? 0);
 
-// Handle delete action
-if (isset($_POST['delete_contract'])) {
-    if ($contract['status'] === 'draft') {
-        $stmt = $conn->prepare("DELETE FROM contracts WHERE id = ?");
-        $stmt->execute([$id]);
-        setFlashMessage('Contract deleted successfully!', 'success');
-        redirect('contracts_list.php');
-    } else {
-        setFlashMessage('Only draft contracts can be deleted!', 'danger');
-    }
-}
-
-// Handle status change
-if (isset($_POST['change_status'])) {
-    $new_status = $_POST['new_status'];
-    $allowed_statuses = ['draft', 'sent', 'signed', 'expired'];
-    if (in_array($new_status, $allowed_statuses)) {
-        $stmt = $conn->prepare("UPDATE contracts SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
-        $stmt->execute([$new_status, $id]);
-        setFlashMessage('Contract status updated successfully!', 'success');
-        header('Location: contracts_view.php?id=' . $id);
-        exit;
-    }
-}
-
 $stmt = $conn->prepare("
     SELECT co.*, c.name as client_name, c.email as client_email
     FROM contracts co
@@ -44,6 +19,41 @@ $contract = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$contract) {
     setFlashMessage('Contract not found!', 'danger');
     redirect('contracts_list.php');
+}
+
+// Handle delete action
+if (isset($_POST['delete_contract'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        header('Location: contracts_view.php?id=' . $id);
+        exit;
+    }
+    if ($contract['status'] === 'draft') {
+        $stmt = $conn->prepare("DELETE FROM contracts WHERE id = ?");
+        $stmt->execute([$id]);
+        setFlashMessage('Contract deleted successfully!', 'success');
+        redirect('contracts_list.php');
+    } else {
+        setFlashMessage('Only draft contracts can be deleted!', 'danger');
+    }
+}
+
+// Handle status change
+if (isset($_POST['change_status'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        header('Location: contracts_view.php?id=' . $id);
+        exit;
+    }
+    $new_status = $_POST['new_status'];
+    $allowed_statuses = ['draft', 'sent', 'signed', 'expired'];
+    if (in_array($new_status, $allowed_statuses)) {
+        $stmt = $conn->prepare("UPDATE contracts SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+        $stmt->execute([$new_status, $id]);
+        setFlashMessage('Contract status updated successfully!', 'success');
+        header('Location: contracts_view.php?id=' . $id);
+        exit;
+    }
 }
 
 // Generate public link dynamically from current request
@@ -101,6 +111,7 @@ include '../backend/includes/header.php';
                             <i class="fas fa-pencil"></i> Edit
                         </a>
                         <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this contract?')">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                             <button type="submit" name="delete_contract" class="btn btn-danger me-2">
                                 <i class="fas fa-trash"></i> Delete
                             </button>
@@ -175,6 +186,7 @@ include '../backend/includes/header.php';
                         </div>
                         <div class="card-body">
                             <form method="POST">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <div class="mb-3">
                                     <label class="form-label">Change Status</label>
                                     <select name="new_status" class="form-select">

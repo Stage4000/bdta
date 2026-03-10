@@ -16,6 +16,12 @@ if ($submission_id == 0) {
 
 // Handle review action
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        $_SESSION['flash_message'] = 'Invalid request.';
+        $_SESSION['flash_type'] = 'danger';
+        header('Location: form_submissions_view.php?id=' . $submission_id);
+        exit;
+    }
     if ($_POST['action'] == 'review') {
         $notes = trim($_POST['notes'] ?? '');
         
@@ -284,6 +290,7 @@ include '../backend/includes/header.php';
                         </button>
                     <?php else: ?>
                         <form method="POST" onsubmit="return confirm('Remove review status?');">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="action" value="unreview">
                             <button type="submit" class="btn btn-warning w-100 mb-2">
                                 <i class="fas fa-circle-xmark"></i> Remove Review
@@ -310,6 +317,7 @@ include '../backend/includes/header.php';
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="review">
                     <div class="mb-3">
                         <label for="notes" class="form-label">Admin Notes (Optional)</label>

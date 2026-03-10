@@ -97,6 +97,12 @@ function getOrCreateManualCreditRow(PDO $conn, int $client_id, int $appointment_
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        $_SESSION['flash_message'] = 'Invalid request.';
+        $_SESSION['flash_type'] = 'danger';
+        header('Location: credits_manage.php?client_id=' . $client_id);
+        exit;
+    }
     if (isset($_POST['action'])) {
         if ($_POST['action'] === 'assign_package') {
             $package_id = (int)$_POST['package_id'];
@@ -373,6 +379,7 @@ require_once '../backend/includes/header.php';
                 <div class="card-body">
                     <p class="text-muted small mb-3">Directly add or subtract credits for a specific appointment type without assigning a full package. All changes are audit-logged.</p>
                     <form method="POST" class="row g-3">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="adjust_credits">
 
                         <div class="col-md-3">
@@ -452,6 +459,7 @@ require_once '../backend/includes/header.php';
                         <p class="text-muted">No active packages available. <a href="packages_list.php">Create packages first.</a></p>
                     <?php else: ?>
                         <form method="POST" class="row g-3 align-items-end">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="action" value="assign_package">
 
                             <div class="col-md-5">
@@ -523,6 +531,7 @@ require_once '../backend/includes/header.php';
                                     <?php if ($cp['is_active'] && !$is_expired): ?>
                                         <form method="POST" class="d-inline"
                                               onsubmit="return confirm('Deactivate this package? Remaining credits will be forfeited.')">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="action" value="deactivate_package">
                                             <input type="hidden" name="client_package_id" value="<?= $cp['id'] ?>">
                                             <button type="submit" class="btn btn-sm btn-outline-danger">

@@ -9,6 +9,11 @@ $conn = $db->getConnection();
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isset($_POST['status'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        header('Location: bookings_list.php');
+        exit;
+    }
     $booking_id = (int)$_POST['booking_id'];
     $status = $_POST['status'];
 
@@ -240,6 +245,7 @@ require_once '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <form method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                         <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
                                         <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
                                             <option value="pending" <?php echo $booking['status'] === 'pending' ? 'selected' : ''; ?>>Pending</option>

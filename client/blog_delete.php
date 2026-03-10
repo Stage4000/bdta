@@ -2,9 +2,18 @@
 require_once '../backend/includes/config.php';
 requireLogin();
 
-$post_id = $_GET['id'] ?? null;
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    redirect('blog_list.php');
+}
 
-if ($post_id) {
+if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    setFlashMessage('Invalid request.', 'danger');
+    redirect('blog_list.php');
+}
+
+$post_id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+
+if ($post_id > 0) {
     $db = new Database();
     $conn = $db->getConnection();
     

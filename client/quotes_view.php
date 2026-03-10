@@ -14,6 +14,11 @@ $quote_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 // Handle resend action
 if (isset($_POST['resend_quote'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        header('Location: quotes_view.php?id=' . $quote_id);
+        exit;
+    }
     $stmt = $conn->prepare("UPDATE quotes SET status = 'sent', updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     $stmt->execute([$quote_id]);
     
@@ -47,6 +52,11 @@ if (isset($_POST['resend_quote'])) {
 
 // Handle status change
 if (isset($_POST['change_status'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'danger');
+        header('Location: quotes_view.php?id=' . $quote_id);
+        exit;
+    }
     $new_status = $_POST['new_status'];
     $allowed_statuses = ['draft', 'sent', 'viewed', 'accepted', 'declined', 'expired'];
     if (in_array($new_status, $allowed_statuses)) {
@@ -71,20 +81,6 @@ if (!$quote) {
     setFlashMessage('Quote not found', 'danger');
     redirect('quotes_list.php');
 }
-
-// Get line items
-$items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
-$items_stmt->execute([$quote_id]);
-$items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Check if expired
-$is_expired = $quote['expiration_date'] && strtotime($quote['expiration_date']) < time() && $quote['status'] == 'sent';
-$display_status = $is_expired ? 'expired' : $quote['status'];
-
-// Generate public link
-$settings_stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'base_url'");
-$base_url = $settings_stmt->fetchColumn();
-$public_link = $base_url . '/public/quote.php?id=' . $quote_id;
 
 // Get line items
 $items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
@@ -132,6 +128,7 @@ include '../backend/includes/header.php';
             <?php endif; ?>
             <?php if ($display_status != 'draft'): ?>
                 <form method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                     <button type="submit" name="resend_quote" class="btn btn-success me-2">
                         <i class="fas fa-paper-plane me-1"></i>Resend Quote
                     </button>
@@ -233,6 +230,7 @@ include '../backend/includes/header.php';
                     <div class="list-group-item">
                         <strong>Status:</strong><br>
                         <form method="POST" class="mt-2">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                             <div class="input-group input-group-sm">
                                 <select name="new_status" class="form-select form-select-sm">
                                     <option value="draft" <?= $quote['status'] == 'draft' ? 'selected' : '' ?>>Draft</option>
