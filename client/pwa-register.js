@@ -5,7 +5,7 @@
     }
     // Register only for admin pages under /client/ to keep scope intentional.
     var path = (window.location && window.location.pathname || '').toLowerCase();
-    if (path.indexOf('/client/') !== 0) {
+    if (!path.startsWith('/client/')) {
         return;
     }
     window.addEventListener('load', function () {
