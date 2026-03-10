@@ -1,5 +1,9 @@
 "use strict";
 
+"use strict";
+
+const OFFLINE_MESSAGE = 'Unable to reach the server. Please check your connection and retry.';
+
 // A minimal service worker for the admin backend that purposefully avoids caching.
 // All requests are fetched from the network with cache: 'no-store'.
 
@@ -21,7 +25,6 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  const OFFLINE_MESSAGE = 'Unable to reach the server. Please check your connection and retry.';
   event.respondWith(
     fetch(event.request, { cache: "no-store" }).catch((err) => {
       console.error('Network request failed:', err);
