@@ -118,7 +118,7 @@ $font_labels = [
     'font-great-vibes'=> 'Great Vibes',
     'font-allura'     => 'Allura',
 ];
-$page_title = 'Contract ' . htmlspecialchars($contract['contract_number'], ENT_QUOTES, 'UTF-8');
+$page_title = 'Contract ' . $contract['contract_number'];
 ?>
 <?php require_once __DIR__ . '/includes/public_head.php'; ?>
     <!-- Script-style fonts for signature display -->

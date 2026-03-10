@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
-    <title><?php echo isset($page_title) ? htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') : ''; ?> - Brook's Dog Training Academy</title>
+    <title><?php echo (isset($page_title) && $page_title !== '') ? htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') . ' - ' : ''; ?>Brook's Dog Training Academy</title>
     <!-- Dark mode: respect saved user preference, fall back to system preference -->
     <script>
         (function () {
