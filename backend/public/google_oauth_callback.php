@@ -76,14 +76,18 @@ if (!empty($user_info['email'])) {
     $google_email = $user_info['email'];
 }
 
-// Persist token
+// Persist token – preserve any previously-selected calendar_id so that
+// re-authentication does not silently revert to 'primary'.
 $admin_user_id = (int)$_SESSION['admin_id'];
+$existing_token = GoogleCalendarIntegration::getOAuthToken($admin_user_id);
+$calendar_id    = is_array($existing_token) ? ($existing_token['calendar_id'] ?? 'primary') : 'primary';
 GoogleCalendarIntegration::saveOAuthToken(
     $admin_user_id,
     $token_data['access_token'],
     $token_data['refresh_token'] ?? '',
     (int)($token_data['expires_in'] ?? 3600),
-    $google_email
+    $google_email,
+    $calendar_id
 );
 
 $account_label = $google_email ?: 'Google account';
