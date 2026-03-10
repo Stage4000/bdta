@@ -3,12 +3,8 @@
  * Brook's Dog Training Academy - Configuration
  */
 
-if (!class_exists('Database')) {
-    require_once __DIR__ . '/database.php';
-}
-if (!class_exists('Settings')) {
-    require_once __DIR__ . '/settings.php';
-}
+require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/settings.php';
 
 // Set timezone from admin settings with a safe fallback
 function getSystemTimezone(): string {
