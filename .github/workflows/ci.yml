@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          coverage: none
+          extensions: sqlite, mbstring
+
+      - name: Lint cron entrypoint
+        run: php -l backend/cron/cron.php
+
+      - name: Lint workflow helper
+        run: php -l backend/includes/workflow_helper.php
+
+      - name: Integration tests
+        run: php test_integration.php
