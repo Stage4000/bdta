@@ -7,7 +7,10 @@ $conn = $db->getConnection();
 
 // Get statistics
 $total_posts = $conn->query("SELECT COUNT(*) FROM blog_posts")->fetchColumn();
-$published_posts = $conn->query("SELECT COUNT(*) FROM blog_posts WHERE published = 1")->fetchColumn();
+$now = (new DateTime())->format('Y-m-d H:i:s');
+$stmt = $conn->prepare("SELECT COUNT(*) FROM blog_posts WHERE published = 1 AND publish_date <= :now");
+$stmt->execute([':now' => $now]);
+$published_posts = $stmt->fetchColumn();
 $total_bookings = $conn->query("SELECT COUNT(*) FROM bookings")->fetchColumn();
 $pending_bookings = $conn->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending'")->fetchColumn();
 

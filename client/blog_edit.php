@@ -1,6 +1,9 @@
 <?php
 require_once '../backend/includes/config.php';
 requireLogin();
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -15,37 +18,68 @@ if ($post_id) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        setFlashMessage('Invalid request.', 'error');
+        redirect('blog_list.php');
+    }
+
     $title = $_POST['title'] ?? '';
     $slug = $_POST['slug'] ?? '';
     $content = $_POST['content'] ?? '';
     $excerpt = $_POST['excerpt'] ?? '';
     $published = isset($_POST['published']) ? 1 : 0;
-    $author = $_SESSION['admin_username'];
-    
-    try {
-        if ($post_id) {
-            $stmt = $conn->prepare("
-                UPDATE blog_posts 
-                SET title = ?, slug = ?, content = ?, excerpt = ?, published = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            ");
-            $stmt->execute([$title, $slug, $content, $excerpt, $published, $post_id]);
-            setFlashMessage('Blog post updated successfully!', 'success');
-        } else {
-            $stmt = $conn->prepare("
-                INSERT INTO blog_posts (title, slug, content, excerpt, author, published) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([$title, $slug, $content, $excerpt, $author, $published]);
-            setFlashMessage('Blog post created successfully!', 'success');
+    $publish_date_input = $_POST['publish_date'] ?? '';
+    $publish_date = $post ? ($post['publish_date'] ?? $post['created_at']) : date('Y-m-d H:i:s');
+    $hasError = false;
+
+    if ($publish_date_input) {
+        $formats = ['Y-m-d\\TH:i', 'Y-m-d\\TH:i:s', 'Y-m-d'];
+        $dt = false;
+        foreach ($formats as $fmt) {
+            $candidate = DateTime::createFromFormat($fmt, $publish_date_input);
+            $errors = DateTime::getLastErrors();
+            if ($candidate !== false && ($errors['warning_count'] ?? 0) === 0 && ($errors['error_count'] ?? 0) === 0) {
+                $dt = $candidate;
+                break;
+            }
         }
-        redirect('blog_list.php');
-    } catch (PDOException $e) {
-        setFlashMessage('Error: ' . $e->getMessage(), 'error');
+        if ($dt !== false) {
+            $publish_date = $dt->format('Y-m-d H:i:s');
+        } else {
+            setFlashMessage('Invalid publish date format. Use the date/time picker.', 'error');
+            $hasError = true;
+        }
+    }
+    if (!$hasError) {
+        $author = $_SESSION['admin_username'];
+        
+        try {
+            if ($post_id) {
+                $stmt = $conn->prepare("
+                    UPDATE blog_posts 
+                    SET title = ?, slug = ?, content = ?, excerpt = ?, published = ?, publish_date = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = ?
+                ");
+                $stmt->execute([$title, $slug, $content, $excerpt, $published, $publish_date, $post_id]);
+                setFlashMessage('Blog post updated successfully!', 'success');
+            } else {
+                $stmt = $conn->prepare("
+                    INSERT INTO blog_posts (title, slug, content, excerpt, author, published, publish_date) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([$title, $slug, $content, $excerpt, $author, $published, $publish_date]);
+                setFlashMessage('Blog post created successfully!', 'success');
+            }
+            redirect('blog_list.php');
+        } catch (PDOException $e) {
+            setFlashMessage('Error: ' . $e->getMessage(), 'error');
+        }
     }
 }
 
 $page_title = $post ? 'Edit Post' : 'New Post';
+$publish_date_value = $post ? ($post['publish_date'] ?? $post['created_at']) : date('Y-m-d H:i:s');
+$publish_date_value = date('Y-m-d\\TH:i', strtotime($publish_date_value));
 require_once '../backend/includes/header.php';
 ?>
 
@@ -55,6 +89,7 @@ require_once '../backend/includes/header.php';
     <div class="card">
         <div class="card-body">
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                 <div class="mb-3">
                     <label for="title" class="form-label">Title</label>
                     <input type="text" class="form-control" id="title" name="title" 
@@ -82,8 +117,15 @@ require_once '../backend/includes/header.php';
                     <input class="form-check-input" type="checkbox" id="published" name="published" 
                            <?php echo ($post && $post['published']) ? 'checked' : ''; ?>>
                     <label class="form-check-label" for="published">
-                        Publish immediately
+                        Publish (will show when publish date is reached)
                     </label>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="publish_date" class="form-label">Publish Date</label>
+                    <input type="datetime-local" class="form-control" id="publish_date" name="publish_date"
+                           value="<?php echo escape($publish_date_value); ?>" required>
+                    <small class="text-muted">Set a past date to backdate or a future date to schedule publication.</small>
                 </div>
                 
                 <div>

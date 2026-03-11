@@ -4,7 +4,14 @@ require_once '../backend/includes/config.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$stmt = $conn->query("SELECT id, title, slug, excerpt, author, created_at FROM blog_posts WHERE published = 1 ORDER BY created_at DESC");
+$now = (new DateTime())->format('Y-m-d H:i:s');
+$stmt = $conn->prepare("
+    SELECT id, title, slug, excerpt, author, publish_date, created_at 
+    FROM blog_posts 
+    WHERE published = 1 AND publish_date <= :now 
+    ORDER BY publish_date DESC
+");
+$stmt->execute([':now' => $now]);
 $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = 'Blog';
@@ -22,7 +29,7 @@ require_once 'includes/header.php';
                                 <h5 class="card-title fw-bold"><?php echo escape($post['title']); ?></h5>
                                 <p class="text-muted small mb-2">
                                     <i class="fas fa-user me-1"></i> <?php echo escape($post['author']); ?> | 
-                                    <i class="fas fa-calendar me-1"></i> <?php echo formatDate($post['created_at']); ?>
+                                    <i class="fas fa-calendar me-1"></i> <?php echo formatDate($post['publish_date']); ?>
                                 </p>
                                 <?php if ($post['excerpt']): ?>
                                 <p class="card-text"><?php echo escape(substr($post['excerpt'], 0, 150)); ?>...</p>

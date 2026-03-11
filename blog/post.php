@@ -11,8 +11,12 @@ if (!$slug) {
 $db = new Database();
 $conn = $db->getConnection();
 
-$stmt = $conn->prepare("SELECT * FROM blog_posts WHERE slug = ? AND published = 1");
-$stmt->execute([$slug]);
+$now = (new DateTime())->format('Y-m-d H:i:s');
+$stmt = $conn->prepare("
+    SELECT * FROM blog_posts 
+    WHERE slug = ? AND published = 1 AND publish_date <= ?
+");
+$stmt->execute([$slug, $now]);
 $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$post) {
@@ -34,7 +38,7 @@ require_once 'includes/header.php';
                         <h1 class="display-5 fw-bold mb-3"><?php echo escape($post['title']); ?></h1>
                         <p class="text-muted mb-4">
                             <i class="fas fa-user me-1"></i> <?php echo escape($post['author']); ?> | 
-                            <i class="fas fa-calendar me-1"></i> <?php echo formatDate($post['created_at']); ?>
+                            <i class="fas fa-calendar me-1"></i> <?php echo formatDate($post['publish_date']); ?>
                         </p>
                         
                         <?php if ($post['excerpt']): ?>
