@@ -180,9 +180,9 @@ class WorkflowHelper {
             return intval($delay_value) * 60;
         }
         
-        // Fallback to strtotime for natural language (e.g., "tomorrow", "next week")
-        if (preg_match('/^[a-zA-Z][a-zA-Z\s-]*$/', $delay_value)) {
-            $expression = trim($delay_value);
+        // Fallback to strtotime for general natural language (e.g., "tomorrow", "2 hours", "next week")
+        $expression = trim($delay_value);
+        if ($expression !== '' && preg_match('/^[0-9a-zA-Z\s:+-]+$/', $expression)) {
             $probe = strtotime($expression, $reference_time);
             if ($probe !== false) {
                 if ($probe < $reference_time) {
