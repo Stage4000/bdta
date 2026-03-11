@@ -92,6 +92,9 @@ class CronRunner {
         $this->log("Executing task: {$task['task_name']} (Type: {$task['task_type']})");
         
         try {
+            // Normalize legacy/incorrect task types to actual handler filenames
+            $task = $this->normalizeTaskType($task);
+            
             // Load the task handler
             $handler_file = TASK_HANDLERS_DIR . '/' . $task['task_type'] . '.php';
             
@@ -131,6 +134,39 @@ class CronRunner {
             $this->logTaskExecution($task['id'], $task['task_name'], 'error', $error_message, 0, $execution_time);
             $this->log("✗ Task failed: {$error_message}");
         }
+    }
+    
+    /**
+     * Normalize legacy task_type values and persist fixes.
+     * Examples:
+     *   workflow  -> workflow_processor
+     *   reminder  -> booking_reminder
+     *   email     -> scheduled_email_sender
+     */
+    private function normalizeTaskType($task) {
+        $mapping = [
+            'workflow' => 'workflow_processor',
+            'reminder' => 'booking_reminder',
+            'email' => 'scheduled_email_sender',
+        ];
+        
+        $current_type = $task['task_type'] ?? '';
+        if (isset($mapping[$current_type])) {
+            $new_type = $mapping[$current_type];
+            $now = date('Y-m-d H:i:s');
+            
+            $stmt = $this->conn->prepare("
+                UPDATE scheduled_tasks 
+                SET task_type = ?, updated_at = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$new_type, $now, $task['id']]);
+            
+            $task['task_type'] = $new_type;
+            $this->log("Normalized task_type for '{$task['task_name']}' from '{$current_type}' to '{$new_type']'.");
+        }
+        
+        return $task;
     }
     
     /**

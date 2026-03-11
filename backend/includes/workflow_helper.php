@@ -64,6 +64,9 @@ class WorkflowHelper {
         $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         $enrollment_time = strtotime($enrollment['enrolled_at']);
+        if ($enrollment_time === false) {
+            $enrollment_time = time();
+        }
         $previous_step_time = null;
         
         foreach ($steps as $step) {
@@ -97,7 +100,7 @@ class WorkflowHelper {
     private function calculateScheduledTime($step, $enrollment_time, $previous_step_time = null) {
         switch ($step['delay_type']) {
             case 'immediate':
-                return time();
+                return $enrollment_time;
             
             case 'after_enrollment':
                 // Delay from enrollment time
