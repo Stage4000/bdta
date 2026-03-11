@@ -190,7 +190,7 @@ class WorkflowHelper {
                     $reference_readable = date('c', $reference_time);
                     $delay_encoded = json_encode($delay_value);
                     $log_msg = sprintf(
-                        "workflow_helper: delay_value %s resolved to past time (%s) relative to %s; skipping scheduling.",
+                        "workflow_helper: delay_value %s resolved to past time (%s) relative to %s; skipping additional delay and using reference time as base.",
                         $delay_encoded,
                         $probe_readable,
                         $reference_readable
@@ -203,9 +203,13 @@ class WorkflowHelper {
                 }
                 return $probe - $reference_time;
             }
+            
+            $delay_encoded = json_encode($delay_value);
+            error_log("workflow_helper: delay_value {$delay_encoded} could not be parsed by strtotime; skipping additional delay and using reference time as base.");
+            return null;
         }
         
-        return 0;
+        return null;
     }
     
     /**
