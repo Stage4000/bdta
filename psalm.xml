@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="1"
+    phpVersion="8.1"
+    resolveFromConfigFile="true"
+>
+    <projectFiles>
+        <directory name="backend/cron"/>
+        <file name="backend/includes/workflow_helper.php"/>
+    </projectFiles>
+
+    <plugins>
+    </plugins>
+</psalm>

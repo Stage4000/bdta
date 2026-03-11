@@ -26,12 +26,17 @@ jobs:
           curl -L https://github.com/phpstan/phpstan/releases/latest/download/phpstan.phar -o phpstan.phar
           chmod +x phpstan.phar
 
-      - name: PHPStan (level 0)
-        run: ./phpstan.phar analyse -c phpstan.neon.dist --level=0 --error-format=github --no-progress
+      - name: PHPStan (max level required)
+        run: ./phpstan.phar analyse -c phpstan.neon.dist --level=max --error-format=github --no-progress
 
-      - name: PHPStan (recommended, continue on error)
+      - name: Install Psalm
+        run: |
+          curl -L https://github.com/vimeo/psalm/releases/latest/download/psalm.phar -o psalm.phar
+          chmod +x psalm.phar
+
+      - name: Psalm (optional)
         continue-on-error: true
-        run: ./phpstan.phar analyse -c phpstan.neon.dist --level=5 --error-format=github --no-progress
+        run: ./psalm.phar --output-format=github --no-progress || echo "Psalm optional check failed (non-blocking; see logs if needed)"
 
       - name: Lint cron entrypoint
         run: php -l backend/cron/cron.php

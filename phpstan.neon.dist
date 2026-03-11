@@ -1,10 +1,10 @@
 parameters:
-  level: 0
+  level: max
   paths:
     - backend/cron
     - backend/includes/workflow_helper.php
   tmpDir: /tmp/phpstan
-  memoryLimit: 512M
   parallel:
     maximumNumberOfProcesses: 4
-
+includes:
+  - phpstan-baseline.neon

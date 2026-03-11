@@ -1,0 +1,2659 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 2
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Binary operation "\-" between float and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Binary operation "\." between ''next '' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Binary operation "\." between ''tomorrow '' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Binary operation "\." between literal\-string&non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Call to an undefined method object\:\:execute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Call to method getConnection\(\) on an unknown class Database\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot access offset ''items_processed'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot access offset ''schedule_type'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot access offset ''schedule_value'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot access offset ''task_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 6
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot access offset ''task_type'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 5
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Cannot use array destructuring on list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonArray
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Instantiated class Database not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:areAllWildcards\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:areAllWildcards\(\) has parameter \$parts with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:calculateNextRun\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:calculateNextRun\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:executeTask\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:executeTask\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:getDueTasks\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:isCronExpression\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:isCronExpression\(\) has parameter \$value with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:log\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:log\(\) has parameter \$message with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:logTaskExecution\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:logTaskExecution\(\) has parameter \$execution_time with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:logTaskExecution\(\) has parameter \$items_processed with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:logTaskExecution\(\) has parameter \$message with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:logTaskExecution\(\) has parameter \$status with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:logTaskExecution\(\) has parameter \$task_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:logTaskExecution\(\) has parameter \$task_name with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:normalizeTaskType\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:normalizeTaskType\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:parseCronExpression\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:parseCronExpression\(\) has parameter \$cron with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:run\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:updateTaskSchedule\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Method CronRunner\:\:updateTaskSchedule\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Parameter \#1 \$string of function trim expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Parameter \#1 \$string of function ucwords expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Parameter \#1 \$value of function count expects array\|Countable, list\<string\>\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Parameter \#1 \$value of function intval expects array\|bool\|float\|int\|resource\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Parameter \#2 \$baseTimestamp of function strtotime expects int\|null, int\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Parameter \#2 \$string of function explode expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Parameter \#2 \$timestamp of function date expects int\|null, int\|false given\.$#'
+			identifier: argument.type
+			count: 5
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Part \$items_processed \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Part \$message \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Part \$schedule_type \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Part \$schedule_value \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Part \$task\[''task_name''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 3
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Part \$task\[''task_type''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Property CronRunner\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Property CronRunner\:\:\$db has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Property CronRunner\:\:\$start_time has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/cron.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 2
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Binary operation "\." between literal\-string&non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Call to method getConnection\(\) on an unknown class Database\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Cannot access offset ''is_active'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Cannot access offset ''task_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 6
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Cannot access offset ''task_type'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Cannot call method query\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Instantiated class Database not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strtolower expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Parameter \#4 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Part \$old_type \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Part \$task\[''task_name''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 4
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Part \$task\[''task_type''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 1
+			path: backend/cron/fix_task_types.php
+
+		-
+			message: '#^Call to method getConnection\(\) on an unknown class Database\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/init_tasks.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/init_tasks.php
+
+		-
+			message: '#^Cannot call method fetchColumn\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/init_tasks.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/init_tasks.php
+
+		-
+			message: '#^Cannot call method query\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/init_tasks.php
+
+		-
+			message: '#^Instantiated class Database not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/init_tasks.php
+
+		-
+			message: '#^Access to constant MAIL_TYPE_BOOKING_REMINDER on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 4
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Binary operation "\+\=" between \(float\|int\) and mixed results in an error\.$#'
+			identifier: assignOp.invalid
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''/portal…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Call to method formatLocationForEmail\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Call to method getTemplateForTask\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Call to method renderTemplate\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Call to static method generateGoogleCalendarLink\(\) on an unknown class ICalendarGenerator\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Call to static method get\(\) on an unknown class Settings\.$#'
+			identifier: class.notFound
+			count: 3
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''appointment_type_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''body_html'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''body_text'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''duration_minutes'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 8
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''service_type'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''subject'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot call method query\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 4
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^File ends with a trailing whitespace\. This may cause problems when running the code in the web browser\. Remove the closing \?\> mark or remove the whitespace\.$#'
+			identifier: whitespace.fileEnd
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Function getDynamicBaseUrl not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Instantiated class EmailService not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:__construct\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:execute\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:executeLegacy\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailHTML\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailHTML\(\) has parameter \$booking with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailHTML\(\) has parameter \$date with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailHTML\(\) has parameter \$google_link with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailHTML\(\) has parameter \$ical_link with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailHTML\(\) has parameter \$time with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailText\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailText\(\) has parameter \$booking with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailText\(\) has parameter \$date with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailText\(\) has parameter \$google_link with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailText\(\) has parameter \$ical_link with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:getReminderEmailText\(\) has parameter \$time with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:processRule\(\) has parameter \$rule with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:processRule\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:sendReminderEmail\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:sendReminderEmail\(\) has parameter \$booking with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Method BookingReminderTask\:\:sendReminderEmail\(\) has parameter \$rule with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$array of function array_column expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$booking of method BookingReminderTask\:\:sendReminderEmail\(\) expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$datetime of function strtotime expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$rule of method BookingReminderTask\:\:processRule\(\) expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strip_tags expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#2 \$only_apt_types of method BookingReminderTask\:\:processRule\(\) expects array\<int\>\|null, array\<int, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#2 \$timestamp of function date expects int\|null, int\|false given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#2 \.\.\.\$arrays of function array_merge expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Parameter \#3 \$exclude_apt_types of method BookingReminderTask\:\:processRule\(\) expects array\<int\>, array\<int\<0, max\>, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Part \$booking\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 5
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Part \$client_name \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Part \$date \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Part \$duration \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Part \$google_link \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Part \$ical_link \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Part \$service_type \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Part \$time \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Property BookingReminderTask\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Property BookingReminderTask\:\:\$task has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Property BookingReminderTask\:\:\$task is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: backend/cron/tasks/booking_reminder.php
+
+		-
+			message: '#^Access to constant MAIL_TYPE_CONTRACT_REMINDER on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Function getDynamicBaseUrl not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Instantiated class EmailService not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Method ContractReminderTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Method ContractReminderTask\:\:__construct\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Method ContractReminderTask\:\:execute\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Method ContractReminderTask\:\:sendContractReminder\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Method ContractReminderTask\:\:sendContractReminder\(\) has parameter \$contract with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Part \$contract\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Part \$contract\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Property ContractReminderTask\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Property ContractReminderTask\:\:\$task has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Property ContractReminderTask\:\:\$task is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: backend/cron/tasks/contract_reminder.php
+
+		-
+			message: '#^Cannot access offset ''task_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/email.php
+
+		-
+			message: '#^Method EmailTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/email.php
+
+		-
+			message: '#^Method EmailTask\:\:__construct\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/email.php
+
+		-
+			message: '#^Method EmailTask\:\:execute\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/email.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strtolower expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/email.php
+
+		-
+			message: '#^Property EmailTask\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/email.php
+
+		-
+			message: '#^Property EmailTask\:\:\$task has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/email.php
+
+		-
+			message: '#^Binary operation "\.\=" between mixed and non\-falsy\-string results in an error\.$#'
+			identifier: assignOp.invalid
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Call to method fetchEmails\(\) on an unknown class ImapEmailReceiver\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Cannot access offset ''emails_processed'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Cannot access offset ''errors'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Instantiated class ImapEmailReceiver not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Method EmailReceiverTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Method EmailReceiverTask\:\:__construct\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Method EmailReceiverTask\:\:execute\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Property EmailReceiverTask\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Property EmailReceiverTask\:\:\$conn is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Property EmailReceiverTask\:\:\$task has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Property EmailReceiverTask\:\:\$task is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: backend/cron/tasks/email_receiver.php
+
+		-
+			message: '#^Access to constant MAIL_TYPE_FORM_REMINDER on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot access offset ''form_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Function getDynamicBaseUrl not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Instantiated class EmailService not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Method FormReminderTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Method FormReminderTask\:\:__construct\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Method FormReminderTask\:\:execute\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Method FormReminderTask\:\:sendFormReminder\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Method FormReminderTask\:\:sendFormReminder\(\) has parameter \$form with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Part \$form\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Part \$form\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Property FormReminderTask\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Property FormReminderTask\:\:\$task has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Property FormReminderTask\:\:\$task is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: backend/cron/tasks/form_reminder.php
+
+		-
+			message: '#^Access to constant MAIL_TYPE_INVOICE_REMINDER on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Binary operation "\-" between mixed and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''/client/invoices…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''due_date'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''invoice_number'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''paid'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''status'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot access offset ''total_amount'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot call method fetch\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Function getDynamicBaseUrl not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Instantiated class EmailService not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Method InvoiceReminderTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Method InvoiceReminderTask\:\:__construct\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Method InvoiceReminderTask\:\:execute\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Method InvoiceReminderTask\:\:sendInvoiceReminder\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Method InvoiceReminderTask\:\:sendInvoiceReminder\(\) has parameter \$invoice with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$datetime of function strtotime expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$num of function number_format expects float, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Part \$invoice\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Part \$invoice\[''due_date''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Part \$invoice\[''invoice_number''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Property InvoiceReminderTask\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Property InvoiceReminderTask\:\:\$task has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Property InvoiceReminderTask\:\:\$task is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: backend/cron/tasks/invoice_reminder.php
+
+		-
+			message: '#^Access to constant MAIL_TYPE_QUOTE_REMINDER on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot access offset ''amount'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot access offset ''expiration_date'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot access offset ''title'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Function getDynamicBaseUrl not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Instantiated class EmailService not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Method QuoteReminderTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Method QuoteReminderTask\:\:__construct\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Method QuoteReminderTask\:\:execute\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Method QuoteReminderTask\:\:sendQuoteReminder\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Method QuoteReminderTask\:\:sendQuoteReminder\(\) has parameter \$quote with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$datetime of function strtotime expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$num of function number_format expects float, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Part \$quote\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Part \$quote\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Property QuoteReminderTask\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Property QuoteReminderTask\:\:\$task has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Property QuoteReminderTask\:\:\$task is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: backend/cron/tasks/quote_reminder.php
+
+		-
+			message: '#^Access to constant MAIL_TYPE_COMPOSE on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot access offset ''body_html'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot access offset ''body_text'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 5
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot access offset ''subject'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot access offset ''to_email'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Instantiated class EmailService not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Method ScheduledEmailSenderTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Method ScheduledEmailSenderTask\:\:__construct\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Method ScheduledEmailSenderTask\:\:execute\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Part \$email\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Part \$email\[''to_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Property ScheduledEmailSenderTask\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Property ScheduledEmailSenderTask\:\:\$task has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Property ScheduledEmailSenderTask\:\:\$task is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: backend/cron/tasks/scheduled_email_sender.php
+
+		-
+			message: '#^Access to constant MAIL_TYPE_WORKFLOW on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 2
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''/client/contracts…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 5
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Binary operation "\.\=" between mixed and non\-falsy\-string results in an error\.$#'
+			identifier: assignOp.invalid
+			count: 2
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''appointment_type_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''attach_contract_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''attach_form_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''email_body_html'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''email_body_text'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''email_subject'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''enrollment_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''execution_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 6
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''include_appointment_link'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''pending_count'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''step_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''unique_link'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot access offset ''workflow_name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 6
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot call method fetch\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 6
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Function getDynamicBaseUrl not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Instantiated class EmailService not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:__construct\(\) has parameter \$task with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:addAttachmentLinks\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:addAttachmentLinks\(\) has parameter \$body with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:addAttachmentLinks\(\) has parameter \$execution with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:addAttachmentLinks\(\) has parameter \$html with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:checkEnrollmentCompletion\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:checkEnrollmentCompletion\(\) has parameter \$enrollment_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:execute\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:markExecutionComplete\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:markExecutionComplete\(\) has parameter \$execution_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:markExecutionFailed\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:markExecutionFailed\(\) has parameter \$error_message with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:markExecutionFailed\(\) has parameter \$execution_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:replacePlaceholders\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:replacePlaceholders\(\) has parameter \$content with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:replacePlaceholders\(\) has parameter \$execution with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:sendWorkflowEmail\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Method WorkflowProcessorTask\:\:sendWorkflowEmail\(\) has parameter \$execution with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Parameter \#1 \$haystack of function stripos expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 4
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strip_tags expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function str_ireplace expects array\<string\>\|string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Part \$execution\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Part \$execution\[''execution_id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 2
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Property WorkflowProcessorTask\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Property WorkflowProcessorTask\:\:\$task has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Property WorkflowProcessorTask\:\:\$task is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: backend/cron/tasks/workflow_processor.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 3
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Binary operation "\+" between mixed and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 2
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Binary operation "\-" between int and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Binary operation "\." between ''/\^\\\\s\*\(\\\\d\+\)\\\\s\*\('' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot access offset ''appointment_type_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot access offset ''delay_type'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot access offset ''delay_value'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot access offset ''enrolled_at'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot access offset ''scheduled_date'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot access offset ''template_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot access offset ''workflow_id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 11
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot call method fetch\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot call method lastInsertId\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 11
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:calculateScheduledTime\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:calculateScheduledTime\(\) has parameter \$enrollment_time with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:calculateScheduledTime\(\) has parameter \$previous_step_time with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:calculateScheduledTime\(\) has parameter \$step with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:cancelEnrollment\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:cancelEnrollment\(\) has parameter \$enrollment_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:checkAppointmentTriggers\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:checkAppointmentTriggers\(\) has parameter \$booking_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:checkFormTriggers\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:checkFormTriggers\(\) has parameter \$form_submission_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:enrollClient\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:enrollClient\(\) has parameter \$client_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:enrollClient\(\) has parameter \$enrolled_by with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:enrollClient\(\) has parameter \$workflow_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:parseDelayValue\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:parseDelayValue\(\) has parameter \$delay_value with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:parseDelayValue\(\) has parameter \$reference_time with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:scheduleWorkflowSteps\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Method WorkflowHelper\:\:scheduleWorkflowSteps\(\) has parameter \$enrollment_id with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Parameter \#1 \$datetime of function strtotime expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Parameter \#1 \$string of function trim expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Parameter \#2 \$baseTimestamp of function strtotime expects int\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Parameter \#2 \$subject of function preg_match expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Parameter \#2 \$timestamp of function date expects int\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: backend/includes/workflow_helper.php
+
+		-
+			message: '#^Property WorkflowHelper\:\:\$conn has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: backend/includes/workflow_helper.php
