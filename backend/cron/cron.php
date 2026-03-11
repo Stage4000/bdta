@@ -163,7 +163,12 @@ class CronRunner {
             $stmt->execute([$new_type, $now, $task['id']]);
             
             $task['task_type'] = $new_type;
-            $this->log("Normalized task_type for '{$task['task_name']}' from '{$current_type}' to '{$new_type']'.");
+            $this->log(sprintf(
+                "Normalized task_type for '%s' from '%s' to '%s'.",
+                $task['task_name'] ?? '',
+                $current_type,
+                $new_type
+            ));
         }
         
         return $task;
