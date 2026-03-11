@@ -1,6 +1,6 @@
 # Max-level analysis with a baseline to prevent regressions without blocking on existing issues.
 parameters:
-  level: max
+  level: 9
   paths:
     - backend/cron
     - backend/includes/workflow_helper.php

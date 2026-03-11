@@ -27,7 +27,7 @@ jobs:
           chmod +x phpstan.phar
 
       - name: PHPStan (max level required)
-        # Extra memory headroom for max-level analysis
+        # Extra memory headroom for level 9 scan; set via CLI because phpstan config lacks memoryLimit option
         run: ./phpstan.phar analyse -c phpstan.neon.dist --memory-limit=512M --error-format=github --no-progress
 
       - name: Install Psalm

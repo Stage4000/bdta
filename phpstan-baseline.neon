@@ -1,36 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 2
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Binary operation "\-" between float and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Binary operation "\." between ''next '' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Binary operation "\." between ''tomorrow '' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Binary operation "\." between literal\-string&non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/cron.php
-
-		-
 			message: '#^Call to an undefined method object\:\:execute\(\)\.$#'
 			identifier: method.notFound
 			count: 1
@@ -40,66 +10,6 @@ parameters:
 			message: '#^Call to method getConnection\(\) on an unknown class Database\.$#'
 			identifier: class.notFound
 			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot access offset ''id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot access offset ''items_processed'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot access offset ''message'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot access offset ''schedule_type'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot access offset ''schedule_value'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot access offset ''task_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 6
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot access offset ''task_type'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 5
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 4
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 4
 			path: backend/cron/cron.php
 
 		-
@@ -265,31 +175,7 @@ parameters:
 			path: backend/cron/cron.php
 
 		-
-			message: '#^Parameter \#1 \$string of function trim expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Parameter \#1 \$string of function ucwords expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/cron.php
-
-		-
 			message: '#^Parameter \#1 \$value of function count expects array\|Countable, list\<string\>\|false given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Parameter \#1 \$value of function intval expects array\|bool\|float\|int\|resource\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: backend/cron/cron.php
@@ -301,63 +187,9 @@ parameters:
 			path: backend/cron/cron.php
 
 		-
-			message: '#^Parameter \#2 \$string of function explode expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/cron.php
-
-		-
 			message: '#^Parameter \#2 \$timestamp of function date expects int\|null, int\|false given\.$#'
 			identifier: argument.type
 			count: 5
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Part \$items_processed \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Part \$message \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Part \$schedule_type \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Part \$schedule_value \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Part \$task\[''task_name''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 3
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Part \$task\[''task_type''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/cron.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 1
 			path: backend/cron/cron.php
 
 		-
@@ -379,68 +211,8 @@ parameters:
 			path: backend/cron/cron.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 2
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Binary operation "\." between literal\-string&non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
 			message: '#^Call to method getConnection\(\) on an unknown class Database\.$#'
 			identifier: class.notFound
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Cannot access offset ''id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Cannot access offset ''is_active'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Cannot access offset ''task_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 6
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Cannot access offset ''task_type'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Cannot call method query\(\) on mixed\.$#'
-			identifier: method.nonObject
 			count: 1
 			path: backend/cron/fix_task_types.php
 
@@ -451,80 +223,8 @@ parameters:
 			path: backend/cron/fix_task_types.php
 
 		-
-			message: '#^Parameter \#1 \$string of function strtolower expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Parameter \#4 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Part \$old_type \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Part \$task\[''task_name''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 4
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Part \$task\[''task_type''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 1
-			path: backend/cron/fix_task_types.php
-
-		-
 			message: '#^Call to method getConnection\(\) on an unknown class Database\.$#'
 			identifier: class.notFound
-			count: 1
-			path: backend/cron/init_tasks.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/init_tasks.php
-
-		-
-			message: '#^Cannot call method fetchColumn\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/init_tasks.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/init_tasks.php
-
-		-
-			message: '#^Cannot call method query\(\) on mixed\.$#'
-			identifier: method.nonObject
 			count: 1
 			path: backend/cron/init_tasks.php
 
@@ -537,36 +237,6 @@ parameters:
 		-
 			message: '#^Access to constant MAIL_TYPE_BOOKING_REMINDER on an unknown class EmailService\.$#'
 			identifier: class.notFound
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 4
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Binary operation "\+\=" between \(float\|int\) and mixed results in an error\.$#'
-			identifier: assignOp.invalid
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/portal…'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
 			count: 1
 			path: backend/cron/tasks/booking_reminder.php
 
@@ -604,102 +274,6 @@ parameters:
 			message: '#^Call to static method get\(\) on an unknown class Settings\.$#'
 			identifier: class.notFound
 			count: 3
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''appointment_type_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''body_html'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''body_text'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''duration_minutes'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 8
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''message'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''service_type'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''subject'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot access offset ''success'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 5
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 4
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 5
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot call method query\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
-			count: 4
 			path: backend/cron/tasks/booking_reminder.php
 
 		-
@@ -847,122 +421,8 @@ parameters:
 			path: backend/cron/tasks/booking_reminder.php
 
 		-
-			message: '#^Parameter \#1 \$array of function array_column expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$booking of method BookingReminderTask\:\:sendReminderEmail\(\) expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$datetime of function strtotime expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$rule of method BookingReminderTask\:\:processRule\(\) expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 3
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$string of function strip_tags expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Parameter \#2 \$only_apt_types of method BookingReminderTask\:\:processRule\(\) expects array\<int\>\|null, array\<int, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
 			message: '#^Parameter \#2 \$timestamp of function date expects int\|null, int\|false given\.$#'
 			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$arrays of function array_merge expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Parameter \#3 \$exclude_apt_types of method BookingReminderTask\:\:processRule\(\) expects array\<int\>, array\<int\<0, max\>, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Part \$booking\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 5
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Part \$client_name \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Part \$date \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Part \$duration \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Part \$google_link \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Part \$ical_link \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Part \$service_type \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/booking_reminder.php
-
-		-
-			message: '#^Part \$time \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
 			count: 2
 			path: backend/cron/tasks/booking_reminder.php
 
@@ -991,81 +451,9 @@ parameters:
 			path: backend/cron/tasks/contract_reminder.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
 			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
 			identifier: class.notFound
 			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot access offset ''id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot access offset ''message'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot access offset ''success'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
 			path: backend/cron/tasks/contract_reminder.php
 
 		-
@@ -1111,30 +499,6 @@ parameters:
 			path: backend/cron/tasks/contract_reminder.php
 
 		-
-			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Part \$contract\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Part \$contract\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/contract_reminder.php
-
-		-
 			message: '#^Property ContractReminderTask\:\:\$conn has no type specified\.$#'
 			identifier: missingType.property
 			count: 1
@@ -1151,12 +515,6 @@ parameters:
 			identifier: property.onlyWritten
 			count: 1
 			path: backend/cron/tasks/contract_reminder.php
-
-		-
-			message: '#^Cannot access offset ''task_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/email.php
 
 		-
 			message: '#^Method EmailTask\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
@@ -1177,12 +535,6 @@ parameters:
 			path: backend/cron/tasks/email.php
 
 		-
-			message: '#^Parameter \#1 \$string of function strtolower expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/email.php
-
-		-
 			message: '#^Property EmailTask\:\:\$conn has no type specified\.$#'
 			identifier: missingType.property
 			count: 1
@@ -1195,38 +547,8 @@ parameters:
 			path: backend/cron/tasks/email.php
 
 		-
-			message: '#^Binary operation "\.\=" between mixed and non\-falsy\-string results in an error\.$#'
-			identifier: assignOp.invalid
-			count: 1
-			path: backend/cron/tasks/email_receiver.php
-
-		-
 			message: '#^Call to method fetchEmails\(\) on an unknown class ImapEmailReceiver\.$#'
 			identifier: class.notFound
-			count: 1
-			path: backend/cron/tasks/email_receiver.php
-
-		-
-			message: '#^Cannot access offset ''emails_processed'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/email_receiver.php
-
-		-
-			message: '#^Cannot access offset ''errors'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/email_receiver.php
-
-		-
-			message: '#^Cannot access offset ''message'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/email_receiver.php
-
-		-
-			message: '#^Cannot access offset ''success'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: backend/cron/tasks/email_receiver.php
 
@@ -1251,12 +573,6 @@ parameters:
 		-
 			message: '#^Method EmailReceiverTask\:\:execute\(\) has no return type specified\.$#'
 			identifier: missingType.return
-			count: 1
-			path: backend/cron/tasks/email_receiver.php
-
-		-
-			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: backend/cron/tasks/email_receiver.php
 
@@ -1291,87 +607,9 @@ parameters:
 			path: backend/cron/tasks/form_reminder.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
 			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
 			identifier: class.notFound
 			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot access offset ''form_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot access offset ''id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot access offset ''message'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot access offset ''success'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
 			path: backend/cron/tasks/form_reminder.php
 
 		-
@@ -1417,30 +655,6 @@ parameters:
 			path: backend/cron/tasks/form_reminder.php
 
 		-
-			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Part \$form\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Part \$form\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/form_reminder.php
-
-		-
-			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/form_reminder.php
-
-		-
 			message: '#^Property FormReminderTask\:\:\$conn has no type specified\.$#'
 			identifier: missingType.property
 			count: 1
@@ -1465,123 +679,9 @@ parameters:
 			path: backend/cron/tasks/invoice_reminder.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Binary operation "\-" between mixed and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/client/invoices…'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
 			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
 			identifier: class.notFound
 			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''due_date'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''invoice_number'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''message'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''paid'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''status'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''success'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot access offset ''total_amount'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 3
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot call method fetch\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 3
 			path: backend/cron/tasks/invoice_reminder.php
 
 		-
@@ -1627,48 +727,6 @@ parameters:
 			path: backend/cron/tasks/invoice_reminder.php
 
 		-
-			message: '#^Parameter \#1 \$datetime of function strtotime expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$num of function number_format expects float, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Part \$invoice\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Part \$invoice\[''due_date''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Part \$invoice\[''invoice_number''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
-			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/invoice_reminder.php
-
-		-
 			message: '#^Property InvoiceReminderTask\:\:\$conn has no type specified\.$#'
 			identifier: missingType.property
 			count: 1
@@ -1693,99 +751,9 @@ parameters:
 			path: backend/cron/tasks/quote_reminder.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
 			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
 			identifier: class.notFound
 			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot access offset ''amount'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot access offset ''expiration_date'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot access offset ''id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot access offset ''message'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot access offset ''success'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot access offset ''title'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
 			path: backend/cron/tasks/quote_reminder.php
 
 		-
@@ -1831,42 +799,6 @@ parameters:
 			path: backend/cron/tasks/quote_reminder.php
 
 		-
-			message: '#^Parameter \#1 \$datetime of function strtotime expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$num of function number_format expects float, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Part \$quote\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Part \$quote\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
-			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/quote_reminder.php
-
-		-
 			message: '#^Property QuoteReminderTask\:\:\$conn has no type specified\.$#'
 			identifier: missingType.property
 			count: 1
@@ -1891,75 +823,9 @@ parameters:
 			path: backend/cron/tasks/scheduled_email_sender.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
 			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
 			identifier: class.notFound
 			count: 1
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot access offset ''body_html'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot access offset ''body_text'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot access offset ''id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 5
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot access offset ''message'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot access offset ''subject'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot access offset ''success'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot access offset ''to_email'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 4
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 4
 			path: backend/cron/tasks/scheduled_email_sender.php
 
 		-
@@ -1983,30 +849,6 @@ parameters:
 		-
 			message: '#^Method ScheduledEmailSenderTask\:\:execute\(\) has no return type specified\.$#'
 			identifier: missingType.return
-			count: 1
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Part \$email\[''id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Part \$email\[''to_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/scheduled_email_sender.php
-
-		-
-			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
 			count: 1
 			path: backend/cron/tasks/scheduled_email_sender.php
 
@@ -2035,171 +877,9 @@ parameters:
 			path: backend/cron/tasks/workflow_processor.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/backend/public…'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 2
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/client/contracts…'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 5
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Binary operation "\.\=" between mixed and non\-falsy\-string results in an error\.$#'
-			identifier: assignOp.invalid
-			count: 2
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
 			message: '#^Call to method sendGenericEmail\(\) on an unknown class EmailService\.$#'
 			identifier: class.notFound
 			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''appointment_type_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''attach_contract_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''attach_form_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''client_email'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''client_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''email_body_html'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''email_body_text'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''email_subject'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''enrollment_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''execution_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 6
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''include_appointment_link'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''message'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''pending_count'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''step_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''success'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''unique_link'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot access offset ''workflow_name'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 6
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot call method fetch\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 6
 			path: backend/cron/tasks/workflow_processor.php
 
 		-
@@ -2329,54 +1009,6 @@ parameters:
 			path: backend/cron/tasks/workflow_processor.php
 
 		-
-			message: '#^Parameter \#1 \$haystack of function stripos expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Parameter \#1 \$string of function htmlspecialchars expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 4
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Parameter \#1 \$string of function strip_tags expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Parameter \#3 \$subject of function str_ireplace expects array\<string\>\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Part \$execution\[''client_email''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Part \$execution\[''execution_id''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Part \$result\[''message''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: backend/cron/tasks/workflow_processor.php
-
-		-
 			message: '#^Property WorkflowProcessorTask\:\:\$conn has no type specified\.$#'
 			identifier: missingType.property
 			count: 1
@@ -2393,114 +1025,6 @@ parameters:
 			identifier: property.onlyWritten
 			count: 1
 			path: backend/cron/tasks/workflow_processor.php
-
-		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 3
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Binary operation "\+" between mixed and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 2
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Binary operation "\-" between int and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Binary operation "\." between ''/\^\\\\s\*\(\\\\d\+\)\\\\s\*\('' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot access offset ''appointment_type_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot access offset ''client_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot access offset ''delay_type'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot access offset ''delay_value'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot access offset ''enrolled_at'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot access offset ''id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot access offset ''scheduled_date'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot access offset ''template_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot access offset ''workflow_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot call method execute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 11
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot call method fetch\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 4
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 3
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot call method lastInsertId\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Cannot call method prepare\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 11
-			path: backend/includes/workflow_helper.php
 
 		-
 			message: '#^Method WorkflowHelper\:\:__construct\(\) has parameter \$conn with no type specified\.$#'
@@ -2620,36 +1144,6 @@ parameters:
 			message: '#^Method WorkflowHelper\:\:scheduleWorkflowSteps\(\) has parameter \$enrollment_id with no type specified\.$#'
 			identifier: missingType.parameter
 			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Parameter \#1 \$datetime of function strtotime expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Parameter \#1 \$string of function trim expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Parameter \#2 \$baseTimestamp of function strtotime expects int\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Parameter \#2 \$subject of function preg_match expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: backend/includes/workflow_helper.php
-
-		-
-			message: '#^Parameter \#2 \$timestamp of function date expects int\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
 			path: backend/includes/workflow_helper.php
 
 		-
