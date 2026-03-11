@@ -191,7 +191,7 @@ class WorkflowHelper {
                     $reference_readable = date('c', $reference_time);
                     $delay_encoded = json_encode($delay_value);
                     $log_msg = sprintf(
-                        "workflow_helper: delay_value %s resolved to past time (%s) relative to %s; skipping additional delay and using reference time as base.",
+                        "workflow_helper: delay_value %s resolved to past time (%s) relative to %s; skipping additional delay and caller will use reference time as base.",
                         $delay_encoded,
                         $probe_readable,
                         $reference_readable
