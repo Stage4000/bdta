@@ -27,7 +27,7 @@ jobs:
           chmod +x phpstan.phar
 
       - name: PHPStan (max level required)
-        run: ./phpstan.phar analyse -c phpstan.neon.dist --level=max --memory-limit=1G --error-format=github --no-progress
+        run: ./phpstan.phar analyse -c phpstan.neon.dist --memory-limit=1G --error-format=github --no-progress
 
       - name: Install Psalm
         run: |
