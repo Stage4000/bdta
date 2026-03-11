@@ -153,7 +153,7 @@ class WorkflowHelper {
         }
         
         // Shorthand units (e.g., 2h, 30m, 1d, 1w)
-        if (preg_match('/^\\s*(\\d+)\\s*(h|hr|hrs|m|min|mins|d|day|days|w|week|weeks)\\s*$/i', $delay_value, $m)) {
+        if (preg_match('/^\s*(\d+)\s*(h|hr|hrs|m|min|mins|d|day|days|w|week|weeks)\s*$/i', $delay_value, $m)) {
             $unit = strtolower($m[2]);
             $unit_map = [
                 'h' => 3600, 'hr' => 3600, 'hrs' => 3600,
@@ -170,16 +170,15 @@ class WorkflowHelper {
         }
         
         // Fallback to strtotime for natural language (e.g., "tomorrow", "next week")
-        if (!preg_match('/^[a-zA-Z\\s]+$/', $delay_value)) {
-            return 0;
-        }
-        $probe = strtotime('+' . $delay_value, $reference_time);
-        if ($probe !== false) {
-            if ($probe < $reference_time) {
-                error_log("workflow_helper: delay_value '{$delay_value}' resolved to past time; defaulting to 0.");
-                return 0;
+        if (preg_match('/^[a-zA-Z\s]+$/', $delay_value)) {
+            $probe = strtotime('+' . $delay_value, $reference_time);
+            if ($probe !== false) {
+                if ($probe < $reference_time) {
+                    error_log("workflow_helper: delay_value '{$delay_value}' resolved to past time; defaulting to 0.");
+                    return 0;
+                }
+                return $probe - $reference_time;
             }
-            return $probe - $reference_time;
         }
         
         return 0;
