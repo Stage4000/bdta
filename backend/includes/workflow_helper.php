@@ -160,9 +160,9 @@ class WorkflowHelper {
         }
         
         // Shorthand units (e.g., 2h, 30m, 1d, 1w)
-        if (preg_match('/^\s*(\d+)\s*([a-zA-Z]+)\s*$/', $delay_value, $m)) {
+        if (preg_match('/^\s*(\d+)\s*(h|hr|hrs|m|min|mins|d|day|days|w|week|weeks)\s*$/i', $delay_value, $m)) {
             $unit = strtolower($m[2]);
-            $unit_map = [
+            static $unit_map = [
                 'h' => 3600, 'hr' => 3600, 'hrs' => 3600,
                 'm' => 60, 'min' => 60, 'mins' => 60,
                 'd' => 86400, 'day' => 86400, 'days' => 86400,
