@@ -21,6 +21,18 @@ jobs:
           coverage: none
           extensions: sqlite, mbstring
 
+      - name: Install PHPStan
+        run: |
+          curl -L https://github.com/phpstan/phpstan/releases/latest/download/phpstan.phar -o phpstan.phar
+          chmod +x phpstan.phar
+
+      - name: PHPStan (level 0)
+        run: ./phpstan.phar analyse -c phpstan.neon.dist --level=0 --error-format=github --no-progress
+
+      - name: PHPStan (recommended, continue on error)
+        continue-on-error: true
+        run: ./phpstan.phar analyse -c phpstan.neon.dist --level=5 --error-format=github --no-progress
+
       - name: Lint cron entrypoint
         run: php -l backend/cron/cron.php
 
