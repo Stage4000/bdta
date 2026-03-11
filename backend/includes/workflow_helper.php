@@ -104,13 +104,13 @@ class WorkflowHelper {
             
             case 'after_enrollment':
                 // Delay from enrollment time
-                $delay_seconds = $this->parseDelayValue($step['delay_value']);
+                $delay_seconds = $this->parseDelayValue($step['delay_value'], $enrollment_time);
                 return $enrollment_time + $delay_seconds;
             
             case 'after_previous':
                 // Delay from previous step
-                $delay_seconds = $this->parseDelayValue($step['delay_value']);
                 $base_time = $previous_step_time ?? $enrollment_time;
+                $delay_seconds = $this->parseDelayValue($step['delay_value'], $base_time);
                 return $base_time + $delay_seconds;
             
             case 'specific_date':
@@ -128,10 +128,12 @@ class WorkflowHelper {
     /**
      * Parse delay value into seconds (supports common shorthand)
      */
-    private function parseDelayValue($delay_value) {
+    private function parseDelayValue($delay_value, $reference_time = null) {
         if (empty($delay_value)) {
             return 0;
         }
+        
+        $reference_time = $reference_time ?? time();
         
         // Parse format like "3 days", "2 hours", "30 minutes"
         if (preg_match('/(\d+)\s*(minute|hour|day|week)s?/i', $delay_value, $matches)) {
@@ -170,9 +172,9 @@ class WorkflowHelper {
         }
         
         // Fallback to strtotime for natural language (e.g., "tomorrow", "next week")
-        $probe = strtotime('+' . $delay_value);
+        $probe = strtotime('+' . $delay_value, $reference_time);
         if ($probe !== false) {
-            return max(0, $probe - time());
+            return max(0, $probe - $reference_time);
         }
         
         return 0;
