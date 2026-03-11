@@ -20,8 +20,14 @@ class WorkflowProcessorTask {
         
         // Get pending workflow step executions that are due
         $stmt = $this->conn->prepare("
-            SELECT wse.*, ws.*, we.client_id, w.name as workflow_name,
-                   c.email as client_email, c.name as client_name
+            SELECT 
+                wse.*,
+                wse.id AS execution_id,
+                ws.*,
+                we.client_id,
+                w.name as workflow_name,
+                c.email as client_email,
+                c.name as client_name
             FROM workflow_step_executions wse
             JOIN workflow_steps ws ON wse.step_id = ws.id
             JOIN workflow_enrollments we ON wse.enrollment_id = we.id
@@ -43,8 +49,8 @@ class WorkflowProcessorTask {
         foreach ($executions as $execution) {
             try {
                 if (empty($execution['client_email'])) {
-                    $this->markExecutionFailed($execution['id'], "No email found for client");
-                    $errors[] = "No email for workflow step #{$execution['id']}";
+                    $this->markExecutionFailed($execution['execution_id'], "No email found for client");
+                    $errors[] = "No email for workflow step #{$execution['execution_id']}";
                     continue;
                 }
                 
@@ -53,20 +59,20 @@ class WorkflowProcessorTask {
                 
                 if ($result['success']) {
                     // Mark as executed
-                    $this->markExecutionComplete($execution['id']);
+                    $this->markExecutionComplete($execution['execution_id']);
                     $sent_count++;
                     
                     // Check if this was the last step and mark enrollment as complete
                     $this->checkEnrollmentCompletion($execution['enrollment_id']);
                 } else {
-                    $this->markExecutionFailed($execution['id'], $result['message']);
+                    $this->markExecutionFailed($execution['execution_id'], $result['message']);
                     $errors[] = "Failed to send to {$execution['client_email']}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
                 $error_msg = $e->getMessage();
-                $this->markExecutionFailed($execution['id'], $error_msg);
-                $errors[] = "Error processing workflow step #{$execution['id']}: " . $error_msg;
+                $this->markExecutionFailed($execution['execution_id'], $error_msg);
+                $errors[] = "Error processing workflow step #{$execution['execution_id']}: " . $error_msg;
             }
         }
         
