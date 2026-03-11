@@ -160,7 +160,7 @@ class WorkflowHelper {
         }
         
         // Shorthand units (e.g., 2h, 30m, 1d, 1w)
-        if (preg_match('/^\s*(\d+)\s*([a-z]+)\s*$/i', $delay_value, $m)) {
+        if (preg_match('/^\s*(\d+)\s*([a-zA-Z]+)\s*$/', $delay_value, $m)) {
             $unit = strtolower($m[2]);
             $unit_map = [
                 'h' => 3600, 'hr' => 3600, 'hrs' => 3600,
@@ -181,7 +181,7 @@ class WorkflowHelper {
         }
         
         // Fallback to strtotime for natural language (e.g., "tomorrow", "next week")
-        if (preg_match('/^[a-zA-Z0-9][a-zA-Z0-9\s-]*$/', $delay_value)) {
+        if (preg_match('/^[a-zA-Z][a-zA-Z\s-]*$/', $delay_value)) {
             $expression = trim($delay_value);
             if ($expression === '') {
                 return 0;
@@ -192,7 +192,13 @@ class WorkflowHelper {
                     $probe_readable = date('c', $probe);
                     $reference_readable = date('c', $reference_time);
                     $delay_encoded = json_encode($delay_value);
-                    error_log("workflow_helper: delay_value {$delay_encoded} resolved to past time ({$probe_readable}) relative to {$reference_readable}; skipping scheduling.");
+                    $log_msg = sprintf(
+                        "workflow_helper: delay_value %s resolved to past time (%s) relative to %s; skipping scheduling.",
+                        $delay_encoded,
+                        $probe_readable,
+                        $reference_readable
+                    );
+                    error_log($log_msg);
                     return null;
                 }
                 return $probe - $reference_time;
