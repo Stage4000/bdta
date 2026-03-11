@@ -4,7 +4,6 @@ parameters:
   paths:
     - backend/cron
     - backend/includes/workflow_helper.php
-  tmpDir: tmp/phpstan
   parallel:
     maximumNumberOfProcesses: 4
 includes:
