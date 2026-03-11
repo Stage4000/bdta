@@ -139,6 +139,7 @@ class WorkflowHelper {
     
     /**
      * Parse delay value into seconds (supports common shorthand)
+     * Returns int seconds or null to signal an invalid/past/ambiguous delay; callers fall back to the base time.
      */
     private function parseDelayValue($delay_value, $reference_time = null) {
         if (empty($delay_value)) {
