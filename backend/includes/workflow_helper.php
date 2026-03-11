@@ -170,9 +170,12 @@ class WorkflowHelper {
         }
         
         // Fallback to strtotime for natural language (e.g., "tomorrow", "next week")
-        if (preg_match('/^[a-zA-Z\s-]+$/', $delay_value)) {
+        if (preg_match('/^[a-zA-Z][a-zA-Z\s-]*$/', $delay_value)) {
             $expression = trim($delay_value);
-            if (strlen($expression) > 0 && $expression[0] !== '+' && $expression[0] !== '-') {
+            if ($expression === '') {
+                return 0;
+            }
+            if ($expression[0] !== '+' && $expression[0] !== '-') {
                 $expression = '+' . $expression;
             }
             $probe = strtotime($expression, $reference_time);
@@ -180,7 +183,8 @@ class WorkflowHelper {
                 if ($probe < $reference_time) {
                     $probe_readable = date('c', $probe);
                     $reference_readable = date('c', $reference_time);
-                    error_log("workflow_helper: delay_value '{$delay_value}' resolved to past time ({$probe_readable}) relative to {$reference_readable}; defaulting to 0.");
+                    $delay_safe = json_encode($delay_value);
+                    error_log("workflow_helper: delay_value {$delay_safe} resolved to past time ({$probe_readable}) relative to {$reference_readable}; defaulting to 0.");
                     return 0;
                 }
                 return $probe - $reference_time;
