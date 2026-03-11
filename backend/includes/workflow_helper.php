@@ -166,13 +166,12 @@ class WorkflowHelper {
         }
         
         // Shorthand units (e.g., 2h, 30m, 1d, 1w)
-        $unit_pattern = implode('|', array_map('preg_quote', array_keys(self::DELAY_UNIT_MAP)));
+        static $unit_pattern = null;
+        if ($unit_pattern === null) {
+            $unit_pattern = implode('|', array_map('preg_quote', array_keys(self::DELAY_UNIT_MAP)));
+        }
         if (preg_match('/^\s*(\d+)\s*(' . $unit_pattern . ')\s*$/i', $delay_value, $m)) {
             $unit = strtolower($m[2]);
-            if (!isset(self::DELAY_UNIT_MAP[$unit])) {
-                error_log("workflow_helper: unrecognized delay unit '{$unit}' in '{$delay_value}'");
-                return null;
-            }
             return intval($m[1]) * self::DELAY_UNIT_MAP[$unit];
         }
         
@@ -198,6 +197,9 @@ class WorkflowHelper {
                     );
                     error_log($log_msg);
                     return null;
+                }
+                if ($probe === $reference_time) {
+                    return 0;
                 }
                 return $probe - $reference_time;
             }
