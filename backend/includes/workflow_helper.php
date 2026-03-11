@@ -6,6 +6,12 @@
 
 class WorkflowHelper {
     private $conn;
+    private const DELAY_UNIT_MAP = [
+        'h' => 3600, 'hr' => 3600, 'hrs' => 3600,
+        'm' => 60, 'min' => 60, 'mins' => 60,
+        'd' => 86400, 'day' => 86400, 'days' => 86400,
+        'w' => 604800, 'week' => 604800, 'weeks' => 604800,
+    ];
     
     public function __construct($conn) {
         $this->conn = $conn;
@@ -160,19 +166,14 @@ class WorkflowHelper {
         }
         
         // Shorthand units (e.g., 2h, 30m, 1d, 1w)
-        if (preg_match('/^\s*(\d+)\s*(h|hr|hrs|m|min|mins|d|day|days|w|week|weeks)\s*$/i', $delay_value, $m)) {
+        $unit_pattern = implode('|', array_map('preg_quote', array_keys(self::DELAY_UNIT_MAP)));
+        if (preg_match('/^\s*(\d+)\s*(' . $unit_pattern . ')\s*$/i', $delay_value, $m)) {
             $unit = strtolower($m[2]);
-            static $unit_map = [
-                'h' => 3600, 'hr' => 3600, 'hrs' => 3600,
-                'm' => 60, 'min' => 60, 'mins' => 60,
-                'd' => 86400, 'day' => 86400, 'days' => 86400,
-                'w' => 604800, 'week' => 604800, 'weeks' => 604800,
-            ];
-            if (!isset($unit_map[$unit])) {
+            if (!isset(self::DELAY_UNIT_MAP[$unit])) {
                 error_log("workflow_helper: unrecognized delay unit '{$unit}' in '{$delay_value}'");
                 return null;
             }
-            return intval($m[1]) * $unit_map[$unit];
+            return intval($m[1]) * self::DELAY_UNIT_MAP[$unit];
         }
         
         // If just a number, assume minutes
@@ -183,9 +184,6 @@ class WorkflowHelper {
         // Fallback to strtotime for natural language (e.g., "tomorrow", "next week")
         if (preg_match('/^[a-zA-Z][a-zA-Z\s-]*$/', $delay_value)) {
             $expression = trim($delay_value);
-            if ($expression === '') {
-                return 0;
-            }
             $probe = strtotime($expression, $reference_time);
             if ($probe !== false) {
                 if ($probe < $reference_time) {
