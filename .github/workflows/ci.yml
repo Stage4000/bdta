@@ -27,7 +27,7 @@ jobs:
           chmod +x phpstan.phar
 
       - name: PHPStan (max level required)
-        run: ./phpstan.phar analyse -c phpstan.neon.dist --level=max --error-format=github --no-progress
+        run: ./phpstan.phar analyse -c phpstan.neon.dist --level=max --memory-limit=1G --error-format=github --no-progress
 
       - name: Install Psalm
         run: |
@@ -36,7 +36,7 @@ jobs:
 
       - name: Psalm (optional)
         continue-on-error: true
-        run: ./psalm.phar --output-format=github --no-progress || echo "Psalm optional check failed (non-blocking; see logs if needed)"
+        run: ./psalm.phar --output-format=github --no-progress
 
       - name: Lint cron entrypoint
         run: php -l backend/cron/cron.php
