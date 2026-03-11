@@ -105,12 +105,18 @@ class WorkflowHelper {
             case 'after_enrollment':
                 // Delay from enrollment time
                 $delay_seconds = $this->parseDelayValue($step['delay_value'], $enrollment_time);
+                if ($delay_seconds === null) {
+                    return $enrollment_time;
+                }
                 return $enrollment_time + $delay_seconds;
             
             case 'after_previous':
                 // Delay from previous step
                 $base_time = $previous_step_time ?? $enrollment_time;
                 $delay_seconds = $this->parseDelayValue($step['delay_value'], $base_time);
+                if ($delay_seconds === null) {
+                    return $base_time;
+                }
                 return $base_time + $delay_seconds;
             
             case 'specific_date':
@@ -162,7 +168,11 @@ class WorkflowHelper {
                 'd' => 86400, 'day' => 86400, 'days' => 86400,
                 'w' => 604800, 'week' => 604800, 'weeks' => 604800,
             ];
-            return intval($m[1]) * ($unit_map[$unit] ?? 0);
+            if (!isset($unit_map[$unit])) {
+                error_log("workflow_helper: unrecognized delay unit '{$unit}' in '{$delay_value}'");
+                return null;
+            }
+            return intval($m[1]) * $unit_map[$unit];
         }
         
         // If just a number, assume minutes
@@ -182,8 +192,8 @@ class WorkflowHelper {
                     $probe_readable = date('c', $probe);
                     $reference_readable = date('c', $reference_time);
                     $delay_safe = json_encode($delay_value);
-                    error_log("workflow_helper: delay_value {$delay_safe} resolved to past time ({$probe_readable}) relative to {$reference_readable}; defaulting to 0.");
-                    return 0;
+                    error_log("workflow_helper: delay_value {$delay_safe} resolved to past time ({$probe_readable}) relative to {$reference_readable}; skipping scheduling.");
+                    return null;
                 }
                 return $probe - $reference_time;
             }
