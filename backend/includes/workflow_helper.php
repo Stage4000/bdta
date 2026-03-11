@@ -104,14 +104,14 @@ class WorkflowHelper {
             
             case 'after_enrollment':
                 // Delay from enrollment time
-                $delay_minutes = $this->parseDelayValue($step['delay_value']);
-                return $enrollment_time + ($delay_minutes * 60);
+                $delay_seconds = $this->parseDelayValue($step['delay_value']);
+                return $enrollment_time + $delay_seconds;
             
             case 'after_previous':
                 // Delay from previous step
-                $delay_minutes = $this->parseDelayValue($step['delay_value']);
+                $delay_seconds = $this->parseDelayValue($step['delay_value']);
                 $base_time = $previous_step_time ?? $enrollment_time;
-                return $base_time + ($delay_minutes * 60);
+                return $base_time + $delay_seconds;
             
             case 'specific_date':
                 // Specific date and time
@@ -126,7 +126,7 @@ class WorkflowHelper {
     }
     
     /**
-     * Parse delay value (e.g., "3 days", "2 hours", "30 minutes")
+     * Parse delay value into seconds (supports common shorthand)
      */
     private function parseDelayValue($delay_value) {
         if (empty($delay_value)) {
@@ -140,19 +140,39 @@ class WorkflowHelper {
             
             switch ($unit) {
                 case 'minute':
-                    return $amount;
-                case 'hour':
                     return $amount * 60;
+                case 'hour':
+                    return $amount * 60 * 60;
                 case 'day':
-                    return $amount * 60 * 24;
+                    return $amount * 60 * 60 * 24;
                 case 'week':
-                    return $amount * 60 * 24 * 7;
+                    return $amount * 60 * 60 * 24 * 7;
             }
+        }
+        
+        // Shorthand units (e.g., 2h, 30m, 1d, 1w)
+        if (preg_match('/^\\s*(\\d+)\\s*(h|hr|hrs)\\s*$/i', $delay_value, $m)) {
+            return intval($m[1]) * 60 * 60;
+        }
+        if (preg_match('/^\\s*(\\d+)\\s*(m|min|mins)\\s*$/i', $delay_value, $m)) {
+            return intval($m[1]) * 60;
+        }
+        if (preg_match('/^\\s*(\\d+)\\s*(d|day|days)\\s*$/i', $delay_value, $m)) {
+            return intval($m[1]) * 60 * 60 * 24;
+        }
+        if (preg_match('/^\\s*(\\d+)\\s*(w|week|weeks)\\s*$/i', $delay_value, $m)) {
+            return intval($m[1]) * 60 * 60 * 24 * 7;
         }
         
         // If just a number, assume minutes
         if (is_numeric($delay_value)) {
-            return intval($delay_value);
+            return intval($delay_value) * 60;
+        }
+        
+        // Fallback to strtotime for natural language (e.g., "tomorrow", "next week")
+        $probe = strtotime('+' . $delay_value);
+        if ($probe !== false) {
+            return max(0, $probe - time());
         }
         
         return 0;
