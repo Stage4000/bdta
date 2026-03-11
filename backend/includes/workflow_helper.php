@@ -139,7 +139,7 @@ class WorkflowHelper {
             return 0;
         }
         
-        // Use provided reference time to anchor relative calculations (defaults for backward compatibility)
+        // Use provided reference time to anchor relative calculations (defaults to current time when omitted)
         $reference_time = $reference_time ?? time();
         
         // Parse format like "3 days", "2 hours", "30 minutes"
@@ -160,7 +160,7 @@ class WorkflowHelper {
         }
         
         // Shorthand units (e.g., 2h, 30m, 1d, 1w)
-        if (preg_match('/^\s*(\d+)\s*(h|hr|hrs|m|min|mins|d|day|days|w|week|weeks)\s*$/i', $delay_value, $m)) {
+        if (preg_match('/^\s*(\d+)\s*([a-z]+)\s*$/i', $delay_value, $m)) {
             $unit = strtolower($m[2]);
             $unit_map = [
                 'h' => 3600, 'hr' => 3600, 'hrs' => 3600,
@@ -191,8 +191,8 @@ class WorkflowHelper {
                 if ($probe < $reference_time) {
                     $probe_readable = date('c', $probe);
                     $reference_readable = date('c', $reference_time);
-                    $delay_safe = json_encode($delay_value);
-                    error_log("workflow_helper: delay_value {$delay_safe} resolved to past time ({$probe_readable}) relative to {$reference_readable}; skipping scheduling.");
+                    $delay_encoded = json_encode($delay_value);
+                    error_log("workflow_helper: delay_value {$delay_encoded} resolved to past time ({$probe_readable}) relative to {$reference_readable}; skipping scheduling.");
                     return null;
                 }
                 return $probe - $reference_time;
