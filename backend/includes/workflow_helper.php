@@ -133,6 +133,7 @@ class WorkflowHelper {
             return 0;
         }
         
+        // Use provided reference time to anchor relative calculations (defaults for backward compatibility)
         $reference_time = $reference_time ?? time();
         
         // Parse format like "3 days", "2 hours", "30 minutes"
@@ -170,13 +171,10 @@ class WorkflowHelper {
         }
         
         // Fallback to strtotime for natural language (e.g., "tomorrow", "next week")
-        if (preg_match('/^[a-zA-Z][a-zA-Z\s-]*$/', $delay_value)) {
+        if (preg_match('/^[a-zA-Z0-9][a-zA-Z0-9\s-]*$/', $delay_value)) {
             $expression = trim($delay_value);
             if ($expression === '') {
                 return 0;
-            }
-            if ($expression[0] !== '+' && $expression[0] !== '-') {
-                $expression = '+' . $expression;
             }
             $probe = strtotime($expression, $reference_time);
             if ($probe !== false) {
