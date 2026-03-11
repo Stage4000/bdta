@@ -1,4 +1,4 @@
-# Max-level analysis with a baseline to prevent regressions without blocking on existing issues.
+# Running at level 9 (highest) with a baseline to prevent regressions while existing findings are grandfathered.
 parameters:
   level: 9
   paths:
