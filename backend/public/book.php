@@ -1144,7 +1144,10 @@ if (isset($error_mode) && $error_mode) {
     </div>
     
     <?php
-    // Prepare JavaScript variables for appointment type data
+    // These specific-date values are populated in the booking form block above
+    // when a selected appointment type has specific-date scheduling enabled.
+    // Default them here as well so the JS export remains defined when no type
+    // has been selected yet or the specific-date block did not run.
     $is_specific_date_type = $is_specific_date_type ?? false;
     $specific_date_value = $specific_date_value ?? null;
     $is_multi_specific_date = $is_multi_specific_date ?? false;
