@@ -4,8 +4,19 @@ includes:
 parameters:
   level: 10
   paths:
-    - .
+    - backend
+    - portal
+    - client
+    - blog
+    - index.php
+    - page.php
+    - test_integration.php
+    - test_crud.php
+    - test_database.php
+    - test_packages.php
+    - test_portal_credit_booking.php
+    - test_unified_credits.php
   excludePaths:
-    - backend/includes/phpmailer/*
-    - brooksdogtrainingacademy.com_project.sitebuilder/*
-    - backup.sitebuilder/*
+    - backend/includes/phpmailer
+    - brooksdogtrainingacademy.com_project.sitebuilder
+    - backup.sitebuilder
