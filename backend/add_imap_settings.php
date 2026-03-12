@@ -18,7 +18,13 @@ try {
     $stmt->execute();
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if ($result['count'] > 0) {
+    if ($result === false) {
+        throw new RuntimeException("Failed to read IMAP settings status");
+    }
+    
+    $existingCount = isset($result['count']) ? (int)$result['count'] : 0;
+    
+    if ($existingCount > 0) {
         echo "IMAP settings already exist in the database.\n";
         exit(0);
     }
