@@ -17,6 +17,7 @@ parameters:
     - test_portal_credit_booking.php
     - test_unified_credits.php
   excludePaths:
+    # Exclude vendored/archived assets not part of the core PHP analysis surface
     - backend/includes/phpmailer
-    - brooksdogtrainingacademy.com_project.sitebuilder
+    - brooksdogtrainingacademy.com_project.sitebuilder # static sitebuilder export
     - backup.sitebuilder
