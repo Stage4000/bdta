@@ -7789,6 +7789,144 @@ parameters:
 			path: backend/public/theme.css.php
 
 		-
+			message: '#^Binary operation "\." between mixed and '' \- '' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: blog/includes/header.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Cannot access offset ''author'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Cannot access offset ''excerpt'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Cannot access offset ''publish_date'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Cannot access offset ''slug'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Cannot access offset ''title'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Cannot call method fetchAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Parameter \#1 \$string of function substr expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: blog/index.php
+
+		-
+			message: '#^Parameter \#1 \(mixed\) of echo cannot be converted to string\.$#'
+			identifier: echo.nonString
+			count: 5
+			path: blog/index.php
+
+		-
+			message: '#^Cannot access offset ''author'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: blog/post.php
+
+		-
+			message: '#^Cannot access offset ''content'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: blog/post.php
+
+		-
+			message: '#^Cannot access offset ''excerpt'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: blog/post.php
+
+		-
+			message: '#^Cannot access offset ''publish_date'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: blog/post.php
+
+		-
+			message: '#^Cannot access offset ''title'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: blog/post.php
+
+		-
+			message: '#^Cannot call method execute\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: blog/post.php
+
+		-
+			message: '#^Cannot call method fetch\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: blog/post.php
+
+		-
+			message: '#^Cannot call method prepare\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: blog/post.php
+
+		-
+			message: '#^Parameter \#1 \$string of function nl2br expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: blog/post.php
+
+		-
+			message: '#^Parameter \#1 \(mixed\) of echo cannot be converted to string\.$#'
+			identifier: echo.nonString
+			count: 4
+			path: blog/post.php
+
+		-
 			message: '#^Cannot call method execute\(\) on mixed\.$#'
 			identifier: method.nonObject
 			count: 1
