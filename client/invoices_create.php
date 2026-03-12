@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $total_amount = $subtotal + $tax_amount;
 
     if ($client_id && !empty($items)) {
-        $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT);
 
         // Insert invoice
         $stmt = $conn->prepare("

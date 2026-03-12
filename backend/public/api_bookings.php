@@ -1044,7 +1044,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
 
         if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
             // $pet_ids is already ordered by dog_names input — use it for pet_1, pet_2, pet_3 mapping
-            $booking_pet_ids = array_values($pet_ids);
+            $booking_pet_ids = $pet_ids;
 
             // Load current client record for conflict checking
             $cur_client_stmt = $conn->prepare("SELECT name, email, phone, address FROM clients WHERE id = ?");

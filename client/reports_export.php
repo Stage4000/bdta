@@ -18,8 +18,8 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) || !preg_match('/^\d{4}-\d
 // Validate that dates are valid calendar dates
 $start_parts = explode('-', $start_date);
 $end_parts = explode('-', $end_date);
-if (!checkdate($start_parts[1], $start_parts[2], $start_parts[0]) || 
-    !checkdate($end_parts[1], $end_parts[2], $end_parts[0])) {
+if (!checkdate((int)$start_parts[1], (int)$start_parts[2], (int)$start_parts[0]) || 
+    !checkdate((int)$end_parts[1], (int)$end_parts[2], (int)$end_parts[0])) {
     die('Invalid date values');
 }
 

@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('contracts_view.php?id=' . $contract_id);
         } else {
             // Create new contract
-            $contract_number = 'CON-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $contract_number = 'CON-' . date('Ymd') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT);
             
             $stmt = $conn->prepare("
                 INSERT INTO contracts (contract_number, client_id, title, description, contract_text, created_date, effective_date, status) 

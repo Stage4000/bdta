@@ -240,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($apt_type['auto_invoice']) {
                 $default_amount = floatval($apt_type['default_amount'] ?? 0);
                 $invoice_due_days = (int)($apt_type['invoice_due_days'] ?? 7);
-                $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+                $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT);
                 $issue_date = date('Y-m-d');
                 $due_date = date('Y-m-d', strtotime("+{$invoice_due_days} days"));
                 $invoice_stmt = $conn->prepare("
