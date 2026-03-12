@@ -18,7 +18,7 @@ $offset = ($page - 1) * $per_page;
 
 // Get total count
 $count_stmt = $conn->query("SELECT COUNT(*) FROM contract_templates");
-$total = $count_stmt->fetchColumn();
+$total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get templates

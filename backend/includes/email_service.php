@@ -534,10 +534,10 @@ HTML;
             return ['success' => false, 'message' => 'No client email address on file'];
         }
 
-        $new_date = date('l, F j, Y', strtotime($booking['appointment_date']));
-        $new_time = date('g:i A', strtotime($booking['appointment_time']));
-        $old_date_fmt = date('l, F j, Y', strtotime($old_date));
-        $old_time_fmt = date('g:i A', strtotime($old_time));
+        $new_date = date('l, F j, Y', safe_timestamp(strtotime(scalar_string($booking['appointment_date']))));
+        $new_time = date('g:i A', safe_timestamp(strtotime(scalar_string($booking['appointment_time']))));
+        $old_date_fmt = date('l, F j, Y', safe_timestamp(strtotime($old_date)));
+        $old_time_fmt = date('g:i A', safe_timestamp(strtotime($old_time)));
 
         $business_name  = Settings::get('site_name', "Brook's Dog Training Academy");
         $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
@@ -617,10 +617,10 @@ HTML;
             $action_label = 'cancelled';
         } else {
             $subject = "Client Reschedule: {$client_name} - {$business_name}";
-            $new_date_fmt = date('l, F j, Y', strtotime($booking['appointment_date']));
-            $new_time_fmt = date('g:i A', strtotime($booking['appointment_time']));
-            $old_date_fmt = date('l, F j, Y', strtotime($old_date));
-            $old_time_fmt = date('g:i A', strtotime($old_time));
+            $new_date_fmt = date('l, F j, Y', safe_timestamp(strtotime(scalar_string($booking['appointment_date']))));
+            $new_time_fmt = date('g:i A', safe_timestamp(strtotime(scalar_string($booking['appointment_time']))));
+            $old_date_fmt = date('l, F j, Y', safe_timestamp(strtotime($old_date)));
+            $old_time_fmt = date('g:i A', safe_timestamp(strtotime($old_time)));
             $detail_rows = "
                 <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>New Date</strong></td>
                     <td style='padding:8px; border:1px solid #ddd;'>{$new_date_fmt}</td></tr>

@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ");
             for ($i = 1; $i <= $installment_count; $i++) {
                 $interval = (($i - 1) * $installment_interval_value) . ' ' . $installment_interval_type;
-                $inst_due = date('Y-m-d', strtotime($due_date . ' +' . $interval));
+                $inst_due = date('Y-m-d', safe_timestamp(strtotime($due_date . ' +' . $interval)));
                 $amt = ($i === $installment_count) ? $last_amount : $inst_amount;
                 $inst_stmt->execute([$invoice_id, $i, $amt, $inst_due]);
             }

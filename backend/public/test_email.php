@@ -161,12 +161,12 @@ $email_config = Settings::getEmailConfig();
                         <?php if ($result): ?>
                             <div class="alert alert-<?= $result['success'] ? 'success' : 'danger' ?>">
                                 <strong><?= $result['success'] ? '✅ Success!' : '❌ Error:' ?></strong>
-                                <?= htmlspecialchars($result['message']) ?>
+                                <?= htmlspecialchars(scalar_string($result['message'])) ?>
                                 
                                 <?php if ($result['success']): ?>
                                     <hr>
                                     <p class="mb-0">
-                                        <small>Check your inbox at <strong><?= htmlspecialchars($test_email) ?></strong></small><br>
+                                        <small>Check your inbox at <strong><?= htmlspecialchars(scalar_string($test_email)) ?></strong></small><br>
                                         <small>If you don't see the email, check your spam/junk folder.</small>
                                     </p>
                                 <?php endif; ?>
@@ -181,7 +181,7 @@ $email_config = Settings::getEmailConfig();
                                     class="form-control" 
                                     id="test_email" 
                                     name="test_email" 
-                                    value="<?= htmlspecialchars($test_email) ?>"
+                                    value="<?= htmlspecialchars(scalar_string($test_email)) ?>"
                                     placeholder="your-email@example.com"
                                     required
                                 >

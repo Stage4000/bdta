@@ -387,7 +387,7 @@ if ($is_edit && !empty($type['specific_dates'])) {
 if ($is_edit && empty($existing_specific_dates) && !empty($type['specific_date'])) {
     $existing_specific_dates = [['date' => $type['specific_date'], 'timeslots' => []]];
 }
-$existing_specific_dates_json = htmlspecialchars(json_encode($existing_specific_dates), ENT_QUOTES, 'UTF-8');
+$existing_specific_dates_json = htmlspecialchars(scalar_string(json_encode($existing_specific_dates)), ENT_QUOTES, 'UTF-8');
 
 // Load all active contract templates for the dropdown
 $all_contract_templates = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);

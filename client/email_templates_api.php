@@ -135,7 +135,7 @@ if ($method === 'GET') {
     if ($action === 'preview_styled') {
         // Return the supplied HTML fragment wrapped in the standard email
         // container — used by the template editor for live preview.
-        $input     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $input     = json_decode(scalar_string(file_get_contents('php://input')), true) ?? [];
         $body_html = $input['body_html'] ?? '';
 
         $wrapped = EmailService::wrapEmailHtml($body_html);

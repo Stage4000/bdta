@@ -207,7 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pkg_cred_col, $location_type, $location_value
             ]);
             
-            $booking_id = $conn->lastInsertId();
+            $booking_id = scalar_string($conn->lastInsertId());
             
             // Trigger auto-enrollment for matching workflow triggers
             $workflow_helper = new WorkflowHelper($conn);
@@ -242,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $invoice_due_days = (int)($apt_type['invoice_due_days'] ?? 7);
                 $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT);
                 $issue_date = date('Y-m-d');
-                $due_date = date('Y-m-d', strtotime("+{$invoice_due_days} days"));
+                $due_date = date('Y-m-d', safe_timestamp(strtotime("+{$invoice_due_days} days")));
                 $invoice_stmt = $conn->prepare("
                     INSERT INTO invoices (invoice_number, client_id, issue_date, due_date, subtotal, tax_rate, tax_amount, total_amount, notes, status)
                     VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, 'draft')

@@ -55,7 +55,7 @@ if ($method === 'GET') {
     
 } elseif ($method === 'POST') {
     // Create/send new email
-    $data = json_decode(file_get_contents('php://input'), true);
+    $data = json_decode(scalar_string(file_get_contents('php://input')), true);
     
     if (!isset($data['client_id']) || $data['client_id'] <= 0) {
         http_response_code(400);

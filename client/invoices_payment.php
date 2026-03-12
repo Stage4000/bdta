@@ -44,7 +44,7 @@ function sendFullInvoiceReceipt(PDO $conn, int $invoice_id): void {
 
     $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
     $items_stmt->execute([$invoice_id]);
-    $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
+    $items = array_values($items_stmt->fetchAll(PDO::FETCH_ASSOC));
 
     $email_service = new EmailService(null, $conn);
     $result = $email_service->sendPaymentReceipt($full_invoice, null, $items);
@@ -79,7 +79,7 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
         for ($q = 0; $q < $qty; $q++) {
             $expires_at = null;
             if ($package['expiration_days']) {
-                $expires_at = date('Y-m-d H:i:s', strtotime('+' . $package['expiration_days'] . ' days'));
+                $expires_at = date('Y-m-d H:i:s', safe_timestamp(strtotime('+' . $package['expiration_days'] . ' days')));
             }
 
             $stmt = $conn->prepare("

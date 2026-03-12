@@ -88,7 +88,7 @@ if ($method === 'GET') {
     
 } elseif ($method === 'POST') {
     // Assign email to a client or archive it
-    $data = json_decode(file_get_contents('php://input'), true);
+    $data = json_decode(scalar_string(file_get_contents('php://input')), true);
     $action = $data['action'] ?? 'assign';
 
     // Compose action does not require an existing email ID

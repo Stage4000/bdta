@@ -51,7 +51,7 @@ if (empty($mysql_host) || empty($mysql_db) || empty($mysql_user)) {
 try {
     // Step 1: Test MySQL connection
     $dsn = "mysql:host={$mysql_host};port={$mysql_port};charset=utf8mb4";
-    $mysql_conn = new PDO($dsn, $mysql_user, $mysql_pass);
+    $mysql_conn = new SafePDO($dsn, $mysql_user, $mysql_pass);
     $mysql_conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Step 2: Create database if it doesn't exist
@@ -69,7 +69,7 @@ try {
         exit;
     }
     
-    $sqlite_conn = new PDO('sqlite:' . $sqlite_file);
+    $sqlite_conn = new SafePDO('sqlite:' . $sqlite_file);
     $sqlite_conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Step 4: Get all tables from SQLite
@@ -98,7 +98,7 @@ try {
             
             if ($create_sql) {
                 // Convert SQLite syntax to MySQL
-                $mysql_sql = convertSQLiteToMySQL($create_sql);
+                $mysql_sql = convertSQLiteToMySQL(scalar_string($create_sql));
                 $mysql_conn->exec($mysql_sql);
             }
         } catch (Exception $e) {

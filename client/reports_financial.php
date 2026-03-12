@@ -38,8 +38,8 @@ switch ($range) {
         break;
     case 'this_quarter':
         $quarter = ceil(date('n') / 3);
-        $start_date = date('Y-m-01', strtotime(date('Y') . '-' . (($quarter - 1) * 3 + 1) . '-01'));
-        $end_date = date('Y-m-t', strtotime(date('Y') . '-' . ($quarter * 3) . '-01'));
+        $start_date = date('Y-m-01', safe_timestamp(strtotime(date('Y') . '-' . (($quarter - 1) * 3 + 1) . '-01')));
+        $end_date = date('Y-m-t', safe_timestamp(strtotime(date('Y') . '-' . ($quarter * 3) . '-01')));
         break;
     case 'this_year':
         $start_date = date('Y-01-01');
@@ -81,7 +81,7 @@ $total_income_stmt = $conn->prepare("
     AND payment_date BETWEEN ? AND ?
 ");
 $total_income_stmt->execute([$start_date, $end_date]);
-$total_income = $total_income_stmt->fetchColumn();
+$total_income = safe_float($total_income_stmt->fetchColumn());
 
 // Get expense data
 $expense_stmt = $conn->prepare("
@@ -103,7 +103,7 @@ $total_expense_stmt = $conn->prepare("
     WHERE expense_date BETWEEN ? AND ?
 ");
 $total_expense_stmt->execute([$start_date, $end_date]);
-$total_expenses = $total_expense_stmt->fetchColumn();
+$total_expenses = safe_float($total_expense_stmt->fetchColumn());
 
 // Calculate profit/loss
 $profit_loss = $total_income - $total_expenses;
@@ -125,7 +125,7 @@ $chart_expenses = [];
 $chart_profit = [];
 
 foreach ($all_dates as $date) {
-    $chart_labels[] = date('M j', strtotime($date));
+    $chart_labels[] = date('M j', safe_timestamp(strtotime((string) $date)));
     $income_val = isset($income_by_date[$date]) ? floatval($income_by_date[$date]) : 0;
     $expense_val = isset($expense_by_date[$date]) ? floatval($expense_by_date[$date]) : 0;
     

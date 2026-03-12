@@ -28,7 +28,7 @@ if ($client_id) {
     $stmt->bindValue(':client_id', $client_id, PDO::PARAM_INT);
 }
 $stmt->execute();
-$total_pets = $stmt->fetchColumn();
+$total_pets = safe_int($stmt->fetchColumn());
 $total_pages = ceil($total_pets / $per_page);
 
 // Get pets with file count

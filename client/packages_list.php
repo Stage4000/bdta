@@ -28,7 +28,7 @@ $stmt = $conn->prepare("
 $stmt->execute();
 $packages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$total = $conn->query("SELECT COUNT(*) FROM packages")->fetchColumn();
+$total = safe_int($conn->query("SELECT COUNT(*) FROM packages")->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Fetch items for each package (join appointment_types for name)
@@ -164,7 +164,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php if (!empty($pkg['share_token'])): ?>
                                         <button type="button" class="btn btn-sm btn-outline-success"
                                                 title="Copy shareable link"
-                                                onclick="copyLink(<?= htmlspecialchars(json_encode($share_url)) ?>, this)">
+                                                onclick="copyLink(<?= htmlspecialchars(scalar_string(json_encode($share_url))) ?>, this)">
                                             <i class="fas fa-share-nodes"></i>
                                         </button>
                                         <?php endif; ?>

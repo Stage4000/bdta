@@ -17,9 +17,9 @@ require_once dirname(dirname(__DIR__)) . '/includes/settings.php';
  * @phpstan-type TaskResult array{success: bool, items_processed: int, message: string, errors: list<string>}
  */
 class BookingReminderTask {
-    private PDO $conn;
+    private SafePDO $conn;
     
-    public function __construct(PDO $conn) {
+    public function __construct(SafePDO $conn) {
         $this->conn = $conn;
     }
     
@@ -42,7 +42,15 @@ class BookingReminderTask {
         }
 
         // Appointment types that have their own rules (global rules skip these bookings)
-        $types_with_rules = array_unique(array_column($per_type_rules, 'appointment_type_id'));
+        $types_with_rules = array_values(array_filter(
+            array_map(
+                static fn(mixed $appointmentTypeId): int|string|null => is_int($appointmentTypeId) || is_string($appointmentTypeId)
+                    ? $appointmentTypeId
+                    : null,
+                array_column($per_type_rules, 'appointment_type_id')
+            ),
+            static fn(int|string|null $appointmentTypeId): bool => $appointmentTypeId !== null
+        ));
 
         $total_sent = 0;
         $all_errors = [];
@@ -90,8 +98,8 @@ class BookingReminderTask {
      */
     private function processRule(array $rule, ?array $only_apt_types, array $exclude_apt_types): array {
         $hours_before = (int)$rule['hours_before'];
-        $start_time   = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours"));
-        $end_time     = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours + 2 hours"));
+        $start_time   = date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$hours_before} hours")));
+        $end_time     = date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$hours_before} hours + 2 hours")));
 
         // Build WHERE clause additions for appointment-type filtering
         $extra_where = '';

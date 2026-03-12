@@ -36,7 +36,7 @@ if (isset($_POST['resend_quote'])) {
         try {
             $email_items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
             $email_items_stmt->execute([$quote_id]);
-            $email_items = $email_items_stmt->fetchAll(PDO::FETCH_ASSOC);
+            $email_items = array_values($email_items_stmt->fetchAll(PDO::FETCH_ASSOC));
             
             $email_service = new EmailService(null, $conn);
             $email_service->sendQuoteEmail($resend_quote, $email_items);

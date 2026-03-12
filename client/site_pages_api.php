@@ -38,7 +38,7 @@ switch ($action) {
 
     // ------------------------------------------------------------------ CREATE
     case 'create':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = json_decode(scalar_string(file_get_contents('php://input')), true) ?? [];
         $title = trim($data['title'] ?? '');
         $slug  = trim($data['slug']  ?? '');
 
@@ -68,7 +68,7 @@ switch ($action) {
 
     // ------------------------------------------------------------------ SAVE (editor content)
     case 'save':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = json_decode(scalar_string(file_get_contents('php://input')), true) ?? [];
         $id           = intval($data['id'] ?? 0);
         $html_content = $data['html_content'] ?? '';
         $css_content  = $data['css_content']  ?? '';
@@ -92,7 +92,7 @@ switch ($action) {
 
     // ------------------------------------------------------------------ SAVE SEO
     case 'save_seo':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = json_decode(scalar_string(file_get_contents('php://input')), true) ?? [];
         $id              = intval($data['id'] ?? 0);
         $meta_desc       = trim($data['meta_description'] ?? '');
         $meta_keywords   = trim($data['meta_keywords']    ?? '');
@@ -157,7 +157,11 @@ switch ($action) {
         if ($file_size > $max_size) { echo json_encode(['success' => false, 'error' => 'Image must be smaller than 5 MB.']); break; }
 
         // Validate MIME type via finfo (not trusting client-reported type)
-        $finfo     = finfo_open(FILEINFO_MIME_TYPE);
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo === false) {
+            echo json_encode(['success' => false, 'error' => 'File type validation is unavailable.']);
+            break;
+        }
         $mime_type = finfo_file($finfo, $tmp_path);
         finfo_close($finfo);
         if (!in_array($mime_type, $allowed_mime)) {
@@ -191,7 +195,7 @@ switch ($action) {
 
     // ------------------------------------------------------------------ RENAME
     case 'rename':
-        $data  = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data  = json_decode(scalar_string(file_get_contents('php://input')), true) ?? [];
         $id    = intval($data['id'] ?? 0);
         $title = trim($data['title'] ?? '');
         if (!$id || $title === '') { echo json_encode(['success' => false, 'error' => 'Missing id or title']); break; }
@@ -202,7 +206,7 @@ switch ($action) {
 
     // ------------------------------------------------------------------ DELETE
     case 'delete':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = json_decode(scalar_string(file_get_contents('php://input')), true) ?? [];
         $id   = intval($data['id'] ?? 0);
         if (!$id) { echo json_encode(['success' => false, 'error' => 'Missing id']); break; }
         // Prevent deleting the homepage
@@ -218,7 +222,7 @@ switch ($action) {
 
     // ------------------------------------------------------------------ PUBLISH TOGGLE
     case 'toggle_publish':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = json_decode(scalar_string(file_get_contents('php://input')), true) ?? [];
         $id   = intval($data['id'] ?? 0);
         if (!$id) { echo json_encode(['success' => false, 'error' => 'Missing id']); break; }
         $stmt = $conn->prepare("UPDATE site_pages SET is_published = 1-is_published, updated_at=CURRENT_TIMESTAMP WHERE id=?");
@@ -231,7 +235,7 @@ switch ($action) {
 
     // ------------------------------------------------------------------ REORDER
     case 'reorder':
-        $data  = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data  = json_decode(scalar_string(file_get_contents('php://input')), true) ?? [];
         $order = $data['order'] ?? []; // array of page ids in new order
         $stmt  = $conn->prepare("UPDATE site_pages SET sort_order=? WHERE id=?");
         foreach ($order as $pos => $pid) {

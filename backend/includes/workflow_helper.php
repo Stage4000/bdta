@@ -5,9 +5,9 @@
  */
 
 class WorkflowHelper {
-    private PDO $conn;
+    private SafePDO $conn;
     
-    public function __construct(PDO $conn) {
+    public function __construct(SafePDO $conn) {
         $this->conn = $conn;
     }
     
@@ -33,7 +33,7 @@ class WorkflowHelper {
             VALUES (?, ?, ?, 'active')
         ");
         $stmt->execute([$workflow_id, $client_id, $enrolled_by]);
-        $enrollment_id = $this->conn->lastInsertId();
+        $enrollment_id = scalar_string($this->conn->lastInsertId());
         
         // Schedule all workflow steps
         $this->scheduleWorkflowSteps($enrollment_id);
@@ -117,7 +117,7 @@ class WorkflowHelper {
             case 'specific_date':
                 // Specific date and time
                 if ($step['scheduled_date']) {
-                    return strtotime($step['scheduled_date']);
+                    return safe_timestamp(strtotime(scalar_string($step['scheduled_date'])));
                 }
                 return $enrollment_time;
             
@@ -135,7 +135,7 @@ class WorkflowHelper {
         }
         
         // Parse format like "3 days", "2 hours", "30 minutes"
-        if (preg_match('/(\d+)\s*(minute|hour|day|week)s?/i', $delay_value, $matches)) {
+        if (preg_match('/(\d+)\s*(minute|hour|day|week)s?/i', scalar_string($delay_value), $matches)) {
             $amount = intval($matches[1]);
             $unit = strtolower($matches[2]);
             

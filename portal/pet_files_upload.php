@@ -69,6 +69,11 @@ $original_name = str_replace(['/', '\\', '..'], '', $original_name);
 $file_size     = $_FILES['file']['size'];
 $tmp_name      = $_FILES['file']['tmp_name'];
 $finfo = finfo_open(FILEINFO_MIME_TYPE);
+if ($finfo === false) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Unable to validate uploaded file type']);
+    exit;
+}
 $mime_type = finfo_file($finfo, $tmp_name);
 finfo_close($finfo);
 $file_extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));

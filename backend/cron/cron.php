@@ -34,7 +34,7 @@ define('TASK_HANDLERS_DIR', __DIR__ . '/tasks');
 
 class CronRunner {
     private Database $db;
-    private PDO $conn;
+    private SafePDO $conn;
     private float $start_time;
     
     public function __construct() {
@@ -84,7 +84,7 @@ class CronRunner {
         ");
         $stmt->execute([$current_time]);
         
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return array_values($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
     
     /**
@@ -116,6 +116,9 @@ class CronRunner {
             
             // Instantiate and run the handler
             $handler = new $class_name($this->conn, $task);
+            if (!method_exists($handler, 'execute')) {
+                throw new Exception("Task handler is missing execute(): {$class_name}");
+            }
             $result = $handler->execute();
             
             // Log success
@@ -187,7 +190,7 @@ class CronRunner {
                 if ($schedule_value && !$this->isCronExpression($schedule_value)) {
                     $time_parts = explode(':', $schedule_value);
                     $next = strtotime('tomorrow ' . $schedule_value);
-                    return date('Y-m-d H:i:s', $next);
+                return date('Y-m-d H:i:s', safe_timestamp($next));
                 }
                 return date('Y-m-d H:i:s', strtotime('+1 day'));
             
@@ -195,14 +198,14 @@ class CronRunner {
                 // Run on specific day of week at specific time (e.g., "monday 09:00")
                 if ($schedule_value) {
                     $next = strtotime('next ' . $schedule_value);
-                    return date('Y-m-d H:i:s', $next);
+                    return date('Y-m-d H:i:s', safe_timestamp($next));
                 }
                 return date('Y-m-d H:i:s', strtotime('+1 week'));
             
             case 'interval':
                 // Run every X minutes (e.g., "15" for every 15 minutes)
                 $minutes = intval($schedule_value) ?: 60;
-                return date('Y-m-d H:i:s', strtotime("+{$minutes} minutes"));
+                return date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$minutes} minutes")));
             
             case 'custom':
                 // Custom schedule using cron expression
@@ -230,7 +233,7 @@ class CronRunner {
         // Cron expressions have 5 parts: minute hour day month weekday
         // Pattern: each part can contain digits, *, commas, hyphens, or slashes
         $pattern = '/^(?:[\d*,\/-]+\s+){4}[\d*,\/-]+$/';
-        return preg_match($pattern, trim($value));
+        return preg_match($pattern, trim($value)) === 1;
     }
     
     /**
@@ -238,7 +241,7 @@ class CronRunner {
      * Supports basic patterns like every N minutes, hourly, daily, etc.
      */
     private function parseCronExpression(string $cron): ?string {
-        $parts = preg_split('/\s+/', trim($cron));
+        $parts = preg_split('/\s+/', trim($cron)) ?: [];
         if (count($parts) !== 5) {
             return null;
         }
@@ -248,7 +251,7 @@ class CronRunner {
         // Handle common interval patterns (e.g., */5 * * * * = every 5 minutes)
         if (preg_match('/^\*\/(\d+)$/', $minute, $matches) && $this->areAllWildcards([$hour, $day, $month, $weekday])) {
             $interval = intval($matches[1]);
-            return date('Y-m-d H:i:s', strtotime("+{$interval} minutes"));
+            return date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$interval} minutes")));
         }
         
         // Handle hourly at specific minute (e.g., 15 * * * * = every hour at minute 15)
@@ -263,7 +266,7 @@ class CronRunner {
                 // Next hour
                 $next = mktime(intval(date('H')) + 1, $target_minute, 0);
             }
-            return date('Y-m-d H:i:s', $next);
+            return date('Y-m-d H:i:s', safe_timestamp($next));
         }
         
         // Handle daily at specific time (e.g., 0 9 * * * = daily at 9:00 AM)
@@ -278,7 +281,7 @@ class CronRunner {
                 return date('Y-m-d H:i:s', $today_run);
             } else {
                 // Tomorrow at the same time
-                return date('Y-m-d H:i:s', strtotime('+1 day', $today_run));
+                return date('Y-m-d H:i:s', safe_timestamp(strtotime('+1 day', safe_timestamp($today_run))));
             }
         }
         

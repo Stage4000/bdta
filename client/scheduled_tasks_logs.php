@@ -40,7 +40,7 @@ if ($task_id) {
 }
 
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$total = $count_stmt->fetchColumn();
+$total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 include '../backend/includes/header.php';

@@ -125,7 +125,7 @@ if ($response === false) {
 $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-$session = json_decode($response, true);
+$session = json_decode(scalar_string($response), true);
 
 if ($http_code !== 200 || empty($session['url'])) {
     $error      = $session['error']['message'] ?? 'Unknown error';

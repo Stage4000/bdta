@@ -37,7 +37,7 @@ $where_sql = $where ? "WHERE " . implode(" AND ", $where) : "";
 $count_sql = "SELECT COUNT(*) FROM quotes q $where_sql";
 $count_stmt = $conn->prepare($count_sql);
 $count_stmt->execute($params);
-$total = $count_stmt->fetchColumn();
+$total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get quotes

@@ -28,7 +28,7 @@ function getCategoryIcon(string $category): string {
 
 // Helper function to get select options
 /**
- * @return array<string, string>
+ * @return array<int|string, string>
  */
 function getSelectOptions(string $key): array {
     $options_map = [
@@ -66,7 +66,12 @@ function getSelectOptions(string $key): array {
         ]
     ];
     
-    return $options_map[$key] ?? [];
+    $options = [];
+    foreach (($options_map[$key] ?? []) as $option_key => $label) {
+        $options[(string) $option_key] = $label;
+    }
+
+    return $options;
 }
 
 $page_title = 'Settings';
@@ -174,7 +179,7 @@ function updateEnvFile(array $updates): void {
     
     $lines = [];
     if (file_exists($env_file)) {
-        $lines = file($env_file, FILE_IGNORE_NEW_LINES);
+        $lines = file($env_file, FILE_IGNORE_NEW_LINES) ?: [];
     }
     
     $updated_keys = [];
@@ -206,7 +211,7 @@ function updateEnvFile(array $updates): void {
     foreach ($updates as $key => $value) {
         if (!in_array($key, $updated_keys)) {
             // Quote value if needed
-            if (preg_match('/[\s#]/', $value)) {
+            if (preg_match('/[\s#]/', $value) === 1) {
                 $value = '"' . addslashes($value) . '"';
             }
             $lines[] = "$key=$value";
@@ -401,7 +406,7 @@ $st_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_prima
                                         $options = getSelectOptions($setting['key']);
                                         foreach ($options as $value => $label): 
                                         ?>
-                                            <option value="<?= escape($value) ?>" <?= $setting['actual_value'] == $value ? 'selected' : '' ?>>
+                                            <option value="<?= escape(scalar_string($value)) ?>" <?= $setting['actual_value'] == $value ? 'selected' : '' ?>>
                                                 <?= escape($label) ?>
                                             </option>
                                         <?php endforeach; ?>

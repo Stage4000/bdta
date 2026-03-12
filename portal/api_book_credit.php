@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$data = json_decode(file_get_contents('php://input'), true);
+$data = json_decode(scalar_string(file_get_contents('php://input')), true);
 if (!is_array($data)) {
     echo json_encode(['error' => 'Invalid JSON payload.']);
     exit;

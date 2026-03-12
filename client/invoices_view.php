@@ -24,7 +24,7 @@ if (!$invoice) {
 // Fetch invoice items (used for the view and for sending receipts)
 $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
 $items_stmt->execute([$id]);
-$items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
+$items = array_values($items_stmt->fetchAll(PDO::FETCH_ASSOC));
 
 // Handle "Send Receipt" POST action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {

@@ -45,7 +45,7 @@ $download = isset($_GET['download']) && $_GET['download'] == '1';
 
 // Sanitize filename for Content-Disposition header
 // Remove any characters that could cause header injection
-$safe_filename = preg_replace('/[^\w\s\.-]/', '_', $file['original_name']);
+$safe_filename = scalar_string(preg_replace('/[^\w\s\.-]/', '_', $file['original_name']));
 $safe_filename = str_replace(["\r", "\n"], '', $safe_filename);
 
 // Set appropriate headers

@@ -50,7 +50,7 @@ if ($type_filter != 'all' && $type_filter != 'client' && $type_filter != 'intern
     $count_stmt->bindParam(':form_type', $type_filter);
 }
 $count_stmt->execute();
-$total_templates = $count_stmt->fetchColumn();
+$total_templates = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total_templates / $per_page);
 
 // Get templates

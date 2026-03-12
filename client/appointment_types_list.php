@@ -35,7 +35,7 @@ $stmt->execute();
 $types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get total count for pagination
-$total = $conn->query("SELECT COUNT(*) FROM appointment_types")->fetchColumn();
+$total = safe_int($conn->query("SELECT COUNT(*) FROM appointment_types")->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 $page_title = "Appointment Types";

@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enroll'])) {
         if ($result['success']) {
             $enrolled_count++;
         } else {
-            $errors[] = "Client ID {$client_id}: " . $result['message'];
+            $errors[] = "Client ID {$client_id}: " . ($result['message'] ?? 'Enrollment failed');
         }
     }
     

@@ -202,7 +202,7 @@ try {
 
     // ── Test 9: credits.php book URL uses portal route ────────────────────
     echo "\nTest 9: credits.php routes Book button to portal booking page\n";
-    $credits_php = file_get_contents(__DIR__ . '/portal/credits.php');
+    $credits_php = scalar_string(file_get_contents(__DIR__ . '/portal/credits.php'));
     if (strpos($credits_php, '/portal/book_credit.php') !== false
         && strpos($credits_php, '/backend/public/book.php') === false) {
         echo "  ✓ Book button correctly points to /portal/book_credit.php\n";

@@ -44,7 +44,7 @@ try {
                 throw new Exception('Client ID is required');
             }
             
-            $data = json_decode(file_get_contents('php://input'), true);
+            $data = json_decode(scalar_string(file_get_contents('php://input')), true);
             
             $name = trim($data['name'] ?? '');
             $email = trim($data['email'] ?? '');
@@ -102,7 +102,7 @@ try {
                 throw new Exception('Contact ID is required');
             }
             
-            $data = json_decode(file_get_contents('php://input'), true);
+            $data = json_decode(scalar_string(file_get_contents('php://input')), true);
             
             $name = trim($data['name'] ?? '');
             $email = trim($data['email'] ?? '');

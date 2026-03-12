@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Generate quote number
                 $stmt = $conn->query("SELECT MAX(CAST(SUBSTR(quote_number, 4) AS INTEGER)) FROM quotes WHERE quote_number LIKE 'QT-%'");
-                $last_num = $stmt->fetchColumn();
+                $last_num = safe_int($stmt->fetchColumn());
                 $next_num = ($last_num ? $last_num + 1 : 1001);
                 $quote_number = 'QT-' . $next_num;
                 
@@ -161,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($new_quote && !empty($new_quote['client_email'])) {
                         $email_items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
                         $email_items_stmt->execute([$saved_quote_id]);
-                        $email_items = $email_items_stmt->fetchAll(PDO::FETCH_ASSOC);
+                        $email_items = array_values($email_items_stmt->fetchAll(PDO::FETCH_ASSOC));
                         
                         $email_service = new EmailService(null, $conn);
                         $email_service->sendQuoteEmail($new_quote, $email_items);

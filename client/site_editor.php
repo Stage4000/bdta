@@ -60,7 +60,7 @@ function makeHtmlPathsAbsolute(string $html): string {
 if ($page['is_homepage'] && trim($page['html_content']) === '') {
     $index_file = dirname(__DIR__) . '/index.html';
     if (file_exists($index_file)) {
-        $raw_html = file_get_contents($index_file);
+        $raw_html = scalar_string(file_get_contents($index_file));
         // Extract <style> blocks from <head> as seed CSS (before we strip the head)
         $seed_css = '';
         if (preg_match_all('/<style[^>]*>(.*?)<\/style>/si', $raw_html, $styles)) {
@@ -91,7 +91,7 @@ if ($page['is_homepage'] && trim($page['html_content']) === '') {
 if (!$page['is_homepage'] && trim($page['html_content']) === '') {
     $index_file = dirname(__DIR__) . '/index.html';
     if (file_exists($index_file)) {
-        $raw_html = file_get_contents($index_file);
+        $raw_html = scalar_string(file_get_contents($index_file));
 
         // Extract <style> blocks from <head> as seed CSS
         $seed_css = '';

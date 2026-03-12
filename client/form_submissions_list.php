@@ -44,7 +44,7 @@ if (!empty($params)) {
 } else {
     $count_stmt->execute();
 }
-$total = $count_stmt->fetchColumn();
+$total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get submissions

@@ -56,7 +56,7 @@ $result   = curl_exec($ch);
 $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-$token_data = json_decode($result ?: '{}', true);
+$token_data = json_decode(scalar_string($result ?: '{}'), true);
 
 if (empty($token_data['access_token'])) {
     $error_desc = $token_data['error_description'] ?? ($token_data['error'] ?? 'Unknown error');
@@ -71,7 +71,7 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $token_data['access_token']]);
 $ui_result = curl_exec($ch);
 curl_close($ch);
-$user_info = json_decode($ui_result ?: '{}', true);
+$user_info = json_decode(scalar_string($ui_result ?: '{}'), true);
 if (!empty($user_info['email'])) {
     $google_email = $user_info['email'];
 }

@@ -104,8 +104,11 @@ echo "This will send to: {$sample_booking['client_email']}\n";
 echo "Enter a different email address or press Enter to skip: ";
 
 $handle = fopen("php://stdin", "r");
-$input = trim(fgets($handle));
-fclose($handle);
+$input = '';
+if ($handle !== false) {
+    $input = trim(scalar_string(fgets($handle)));
+    fclose($handle);
+}
 
 if (!empty($input)) {
     // Validate email

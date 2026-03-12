@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$data = json_decode(file_get_contents('php://input'), true);
+$data = json_decode(scalar_string(file_get_contents('php://input')), true);
 if (!is_array($data)) {
     echo json_encode(['error' => 'Invalid JSON payload.']);
     exit;
@@ -66,7 +66,7 @@ $client_email = $stmt->fetchColumn();
 
 $belongs = (
     (int)($booking['client_id'] ?? 0) === $client_id ||
-    (!empty($client_email) && strtolower($booking['client_email'] ?? '') === strtolower($client_email))
+    (!empty($client_email) && strtolower(scalar_string($booking['client_email'] ?? '')) === strtolower((string) $client_email))
 );
 if (!$belongs) {
     echo json_encode(['error' => 'Access denied.']);

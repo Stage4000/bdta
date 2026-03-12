@@ -8,11 +8,73 @@
 require_once __DIR__ . '/env_loader.php';
 EnvLoader::load();
 
+class SafePDO extends PDO {
+    /**
+     * @param array<mixed> $options
+     */
+    public function prepare(string $query, array $options = []): PDOStatement {
+        $statement = parent::prepare($query, $options);
+        if (!$statement instanceof PDOStatement) {
+            throw new RuntimeException('Failed to prepare SQL statement.');
+        }
+
+        return $statement;
+    }
+
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement {
+        if ($fetchMode === null) {
+            $statement = parent::query($query);
+        } else {
+            $statement = parent::query($query, $fetchMode, ...$fetchModeArgs);
+        }
+
+        if (!$statement instanceof PDOStatement) {
+            throw new RuntimeException('Failed to execute SQL query.');
+        }
+
+        return $statement;
+    }
+}
+
+function scalar_string(mixed $value): string {
+    if (is_string($value)) {
+        return $value;
+    }
+
+    if (is_int($value) || is_float($value) || is_bool($value)) {
+        return (string) $value;
+    }
+
+    if (is_array($value)) {
+        $firstKey = array_key_first($value);
+        if ($firstKey !== null) {
+            $first = $value[$firstKey];
+            if (is_string($first) || is_int($first) || is_float($first) || is_bool($first)) {
+                return (string) $first;
+            }
+        }
+    }
+
+    return '';
+}
+
+function safe_timestamp(int|false|null $timestamp): int {
+    return is_int($timestamp) ? $timestamp : 0;
+}
+
+function safe_int(mixed $value): int {
+    return is_numeric($value) ? (int) $value : 0;
+}
+
+function safe_float(mixed $value): float {
+    return is_numeric($value) ? (float) $value : 0.0;
+}
+
 class Database {
-    private static ?PDO $sharedConnection = null;
+    private static ?SafePDO $sharedConnection = null;
     private static ?string $sharedDbType = null;
     private string $db_file;
-    private PDO $conn;
+    private SafePDO $conn;
     private string $db_type = 'sqlite'; // 'mysql' or 'sqlite'
     private string $db_host;
     private string $db_port;
@@ -70,7 +132,7 @@ class Database {
                 // Try MySQL connection
                 $dsn = "mysql:host={$this->db_host};port={$this->db_port};dbname={$this->db_name};charset=utf8mb4";
                 try {
-                    $this->conn = new PDO($dsn, $this->db_user, $this->db_password);
+                    $this->conn = new SafePDO($dsn, $this->db_user, $this->db_password);
                     $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     // Set MySQL specific settings
                     $this->conn->exec("SET NAMES utf8mb4");
@@ -92,13 +154,13 @@ class Database {
     }
     
     private function connectSQLite(): void {
-        $this->conn = new PDO('sqlite:' . $this->db_file);
+        $this->conn = new SafePDO('sqlite:' . $this->db_file);
         $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         // Enable foreign keys for SQLite
         $this->execSQL('PRAGMA foreign_keys = ON');
     }
     
-    public function getConnection(): PDO {
+    public function getConnection(): SafePDO {
         return $this->conn;
     }
     
@@ -205,8 +267,7 @@ class Database {
         if ($this->db_type === 'sqlite') {
             $stmt = $this->conn->prepare("SELECT name FROM pragma_table_info(?)");
             $stmt->execute([$tableName]);
-            $result = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            return $result;
+            return array_values($stmt->fetchAll(PDO::FETCH_COLUMN));
         } else {
             // MySQL - use INFORMATION_SCHEMA for parameterized query
             $stmt = $this->conn->prepare("
@@ -216,7 +277,7 @@ class Database {
                 AND TABLE_NAME = ?
             ");
             $stmt->execute([$tableName]);
-            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+            return array_values($stmt->fetchAll(PDO::FETCH_COLUMN));
         }
     }
     

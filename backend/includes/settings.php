@@ -7,11 +7,11 @@
 require_once __DIR__ . '/database.php';
 
 class Settings {
-    private static ?PDO $db = null;
+    private static ?SafePDO $db = null;
     /** @var array<string, mixed> */
     private static array $cache = [];
     
-    private static function getDB(): PDO {
+    private static function getDB(): SafePDO {
         if (self::$db === null) {
             $db = new Database();
             self::$db = $db->getConnection();
@@ -67,7 +67,7 @@ class Settings {
         
         // Update cache with properly cast value
         if ($result) {
-            self::$cache[$key] = self::castValue($value, $type);
+            self::$cache[$key] = self::castValue($value, scalar_string($type));
         } else {
             // Clear cache on failure to ensure consistency
             unset(self::$cache[$key]);
@@ -195,7 +195,7 @@ class Settings {
     public static function getCategories(): array {
         $db = self::getDB();
         $stmt = $db->query("SELECT DISTINCT category FROM settings ORDER BY category");
-        $categories = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $categories = array_values($stmt->fetchAll(PDO::FETCH_COLUMN));
         
         // Always include database category (it's read from .env)
         if (!in_array('database', $categories)) {
@@ -203,6 +203,7 @@ class Settings {
             sort($categories);
         }
         
+        /** @var list<string> $categories */
         return $categories;
     }
     

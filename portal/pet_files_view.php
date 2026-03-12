@@ -36,7 +36,7 @@ if (!file_exists($file_path)) {
 }
 
 $download     = isset($_GET['download']) && $_GET['download'] == '1';
-$safe_filename = preg_replace('/[^\w\s\.-]/', '_', $file['original_name']);
+$safe_filename = scalar_string(preg_replace('/[^\w\s\.-]/', '_', $file['original_name']));
 $safe_filename = str_replace(["\r", "\n"], '', $safe_filename);
 
 header('Content-Type: ' . $file['mime_type']);

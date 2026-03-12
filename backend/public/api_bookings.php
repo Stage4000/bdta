@@ -164,7 +164,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     if ($from_date < $today_str) {
         $from_date = $today_str;
     }
-    $max_to = date('Y-m-d', strtotime($from_date . ' +365 days'));
+    $max_to = date('Y-m-d', safe_timestamp(strtotime($from_date . ' +365 days')));
     if ($to_date > $max_to) {
         $to_date = $max_to;
     }
@@ -218,12 +218,12 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $ad_max_days       = max(1, (int)($appt_type['advance_booking_max_days'] ?? 365));
 
     // Tighten from_date by the minimum advance notice (e.g. min_days=1 → earliest is tomorrow)
-    $advance_min_from = date('Y-m-d', strtotime($today_str . ' +' . $ad_min_days . ' days'));
+    $advance_min_from = date('Y-m-d', safe_timestamp(strtotime($today_str . ' +' . $ad_min_days . ' days')));
     if ($from_date < $advance_min_from) {
         $from_date = $advance_min_from;
     }
     // Cap to_date by the maximum booking window
-    $advance_max_to = date('Y-m-d', strtotime($today_str . ' +' . $ad_max_days . ' days'));
+    $advance_max_to = date('Y-m-d', safe_timestamp(strtotime($today_str . ' +' . $ad_max_days . ' days')));
     if ($to_date > $advance_max_to) {
         $to_date = $advance_max_to;
     }
@@ -756,7 +756,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     
 } elseif ($method === 'POST') {
     // Create booking
-    $data = json_decode(file_get_contents('php://input'), true);
+    $data = json_decode(scalar_string(file_get_contents('php://input')), true);
 
     $db = new Database();
     $conn = $db->getConnection();
@@ -1005,7 +1005,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             foreach ($data['form_responses'] as $template_id => $responses) {
                 if (is_array($responses) && !empty($responses)) {
                     $ins->execute([$client_id, (int)$template_id, $booking_id, json_encode($responses)]);
-                    $form_submission_id = $conn->lastInsertId();
+                    $form_submission_id = scalar_string($conn->lastInsertId());
                     try {
                         $workflow_helper->checkFormTriggers($form_submission_id);
                     } catch (\Throwable $e) {
@@ -1124,7 +1124,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             }
         }
 
-        $workflow_helper->checkAppointmentTriggers($booking_id);
+        $workflow_helper->checkAppointmentTriggers(scalar_string($booking_id));
 
         // Deduct credit if one was selected
         if ($pkg_credit_id_to_use) {

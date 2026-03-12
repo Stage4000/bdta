@@ -40,7 +40,7 @@ class EmailSignatureHelper {
         self::cleanNode($dom->documentElement, $allowed_tags, $allowed_attrs);
         
         // Get sanitized HTML
-        $sanitized = $dom->saveHTML();
+        $sanitized = scalar_string($dom->saveHTML());
         
         // Remove the XML encoding declaration that was added
         $sanitized = str_replace('<?xml encoding="UTF-8">', '', $sanitized);

@@ -67,7 +67,7 @@ try {
         
         if ($create_sql) {
             // Convert SQLite syntax to MySQL
-            $mysql_sql = convertSQLiteToMySQL($create_sql);
+        $mysql_sql = convertSQLiteToMySQL(scalar_string($create_sql));
             echo "$mysql_sql;\n\n";
         }
         

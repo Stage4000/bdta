@@ -104,7 +104,7 @@ if ($response === false) {
 $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-$session = json_decode($response, true);
+$session = json_decode(scalar_string($response), true);
 
 if ($http_code !== 200 || empty($session['id'])) {
     error_log("Stripe session retrieval failed for session $session_id (HTTP $http_code)");
@@ -143,7 +143,7 @@ $conn->prepare("
 require_once '../backend/includes/email_service.php';
 $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
 $items_stmt->execute([$id]);
-$items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
+$items = array_values($items_stmt->fetchAll(PDO::FETCH_ASSOC));
 
 $email_service = new EmailService(null, $conn);
 $result = $email_service->sendPaymentReceipt($invoice, null, $items);

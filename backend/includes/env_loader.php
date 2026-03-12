@@ -17,7 +17,7 @@ class EnvLoader {
         }
         
         // Read and parse .env file
-        $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
         foreach ($lines as $line) {
             // Skip comments
             if (strpos(trim($line), '#') === 0) {

@@ -83,6 +83,9 @@ $original_name = str_replace(['/', '\\', '..'], '', $original_name);
 $file_size = $_FILES['file']['size'];
 $tmp_name = $_FILES['file']['tmp_name'];
 $finfo = finfo_open(FILEINFO_MIME_TYPE);
+if ($finfo === false) {
+    die('Unable to validate uploaded file type.');
+}
 $mime_type = finfo_file($finfo, $tmp_name);
 finfo_close($finfo);
 

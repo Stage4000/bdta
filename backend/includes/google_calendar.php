@@ -349,7 +349,7 @@ class GoogleCalendarIntegration {
         if ($http_code === 204 || $http_code === 410) {
             return true;
         }
-        $body = json_decode($result ?: '{}', true);
+        $body = json_decode(scalar_string($result ?: '{}'), true);
         $error = $body['error']['message'] ?? ('HTTP ' . $http_code);
         error_log('GoogleCalendarIntegration: deleteEventOAuth failed for event_id=' . $event_id . ', admin_user_id=' . $admin_user_id . ', error=' . $error);
         return false;
@@ -420,7 +420,7 @@ class GoogleCalendarIntegration {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-        $body = json_encode($event_body);
+        $body = scalar_string(json_encode($event_body));
         curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Authorization: Bearer ' . $access_token,
@@ -437,7 +437,7 @@ class GoogleCalendarIntegration {
             return ['success' => false, 'message' => $curl_err];
         }
 
-        $response = json_decode($result ?: '{}', true) ?: [];
+        $response = json_decode(scalar_string($result ?: '{}'), true) ?: [];
 
         if (!empty($response['id'])) {
             return ['success' => true, 'event_id' => $response['id'], 'link' => $response['htmlLink'] ?? ''];
@@ -585,7 +585,13 @@ class GoogleCalendarIntegration {
             return [];
         }
 
-        return array_map(fn($c) => ['id' => $c['id'], 'summary' => $c['summary'] ?? $c['id']], $response['items']);
+        return array_values(array_map(
+            fn(array $calendar): array => [
+                'id' => scalar_string($calendar['id'] ?? ''),
+                'summary' => scalar_string($calendar['summary'] ?? ($calendar['id'] ?? '')),
+            ],
+            $response['items']
+        ));
     }
 
     // -------------------------------------------------------------------------
@@ -605,7 +611,7 @@ class GoogleCalendarIntegration {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         if ($json) {
-            $body = json_encode($data);
+            $body = scalar_string(json_encode($data));
             $headers[] = 'Content-Length: ' . strlen($body);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         } else {
@@ -621,7 +627,7 @@ class GoogleCalendarIntegration {
             error_log('GoogleCalendarIntegration cURL POST error: ' . $curl_err);
             return [];
         }
-        return json_decode($result ?: '{}', true) ?: [];
+        return json_decode(scalar_string($result ?: '{}'), true) ?: [];
     }
 
     /**
@@ -643,7 +649,7 @@ class GoogleCalendarIntegration {
             error_log('GoogleCalendarIntegration cURL GET error: ' . $curl_err);
             return [];
         }
-        return json_decode($result ?: '{}', true) ?: [];
+        return json_decode(scalar_string($result ?: '{}'), true) ?: [];
     }
 }
 ?>

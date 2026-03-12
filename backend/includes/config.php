@@ -99,7 +99,7 @@ function escape(string $string): string {
 }
 
 function formatDate(string $date): string {
-    return date('F j, Y', strtotime($date));
+    return date('F j, Y', safe_timestamp(strtotime($date)));
 }
 
 /**
