@@ -20,11 +20,16 @@
     <link rel="manifest" href="/client/manifest.webmanifest">
     <?php
     $theme = Settings::getThemeColors();
-    $tc_primary       = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['primary']))        ? $theme['primary']        : '#9a0073';
-    $tc_primary_dark  = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['primary_dark']))   ? $theme['primary_dark']   : '#7a005a';
-    $tc_secondary     = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['secondary']))      ? $theme['secondary']      : '#0a9a9c';
-    $tc_sidebar_start = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['sidebar_bg_start'])) ? $theme['sidebar_bg_start'] : '#9a0073';
-    $tc_sidebar_end   = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['sidebar_bg_end']))   ? $theme['sidebar_bg_end']   : '#7a005a';
+    $theme_primary = scalar_string($theme['primary'] ?? '');
+    $theme_primary_dark = scalar_string($theme['primary_dark'] ?? '');
+    $theme_secondary = scalar_string($theme['secondary'] ?? '');
+    $theme_sidebar_start = scalar_string($theme['sidebar_bg_start'] ?? '');
+    $theme_sidebar_end = scalar_string($theme['sidebar_bg_end'] ?? '');
+    $tc_primary       = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary) === 1 ? $theme_primary : '#9a0073';
+    $tc_primary_dark  = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 ? $theme_primary_dark : '#7a005a';
+    $tc_secondary     = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_secondary) === 1 ? $theme_secondary : '#0a9a9c';
+    $tc_sidebar_start = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_sidebar_start) === 1 ? $theme_sidebar_start : '#9a0073';
+    $tc_sidebar_end   = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_sidebar_end) === 1 ? $theme_sidebar_end : '#7a005a';
     ?>
     <meta name="theme-color" content="<?= $tc_primary ?>">
     <style>
@@ -159,8 +164,8 @@
                 <div class="position-sticky pt-3">
                     <h5 class="text-white px-3 mb-3 d-none d-md-block">BDTA Client Area</h5>
                     <?php
-                        $currentFile = basename($_SERVER['PHP_SELF']);
-                        $currentPath = $_SERVER['PHP_SELF'];
+                        $currentPath = scalar_string($_SERVER['PHP_SELF'] ?? '');
+                        $currentFile = basename($currentPath);
                         // Individual active states
                         $isClients        = strpos($currentPath, 'clients_') !== false;
                         $isPets           = strpos($currentPath, 'pets') !== false;

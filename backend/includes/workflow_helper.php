@@ -62,10 +62,14 @@ class WorkflowHelper {
             WHERE workflow_id = ? 
             ORDER BY step_order
         ");
-        $stmt->execute([$enrollment['workflow_id']]);
+        $workflow_id = $enrollment['workflow_id'] ?? null;
+        if (!is_int($workflow_id) && !is_string($workflow_id)) {
+            return false;
+        }
+        $stmt->execute([$workflow_id]);
         $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        $enrollment_time = strtotime($enrollment['enrolled_at']);
+        $enrollment_time = safe_timestamp(strtotime(scalar_string($enrollment['enrolled_at'] ?? '')));
         $previous_step_time = null;
         
         foreach ($steps as $step) {
@@ -83,7 +87,7 @@ class WorkflowHelper {
             ");
             $stmt->execute([
                 $enrollment_id,
-                $step['id'],
+                array_int_value($step, 'id'),
                 date('Y-m-d H:i:s', $scheduled_time)
             ]);
             
@@ -99,25 +103,27 @@ class WorkflowHelper {
      * @param array<string, mixed> $step
      */
     private function calculateScheduledTime(array $step, int $enrollment_time, ?int $previous_step_time = null): int {
-        switch ($step['delay_type']) {
+        $delay_type = scalar_string($step['delay_type'] ?? '');
+        switch ($delay_type) {
             case 'immediate':
                 return time();
             
             case 'after_enrollment':
                 // Delay from enrollment time
-                $delay_minutes = $this->parseDelayValue($step['delay_value']);
+                $delay_minutes = $this->parseDelayValue($step['delay_value'] ?? null);
                 return $enrollment_time + ($delay_minutes * 60);
             
             case 'after_previous':
                 // Delay from previous step
-                $delay_minutes = $this->parseDelayValue($step['delay_value']);
+                $delay_minutes = $this->parseDelayValue($step['delay_value'] ?? null);
                 $base_time = $previous_step_time ?? $enrollment_time;
                 return $base_time + ($delay_minutes * 60);
             
             case 'specific_date':
                 // Specific date and time
-                if ($step['scheduled_date']) {
-                    return safe_timestamp(strtotime(scalar_string($step['scheduled_date'])));
+                $scheduled_date = array_string_value($step, 'scheduled_date');
+                if ($scheduled_date !== '') {
+                    return safe_timestamp(strtotime($scheduled_date));
                 }
                 return $enrollment_time;
             
@@ -193,7 +199,9 @@ class WorkflowHelper {
         $stmt->execute([$booking_id]);
         $booking = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$booking || !$booking['client_id']) {
+        $client_id = $booking['client_id'] ?? null;
+        $appointment_type_id = $booking['appointment_type_id'] ?? null;
+        if (!$booking || (!is_int($client_id) && !is_string($client_id)) || (!is_int($appointment_type_id) && !is_string($appointment_type_id))) {
             return false;
         }
         
@@ -204,11 +212,14 @@ class WorkflowHelper {
             AND appointment_type_id = ?
             AND is_active = 1
         ");
-        $stmt->execute([$booking['appointment_type_id']]);
+        $stmt->execute([$appointment_type_id]);
         $triggers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($triggers as $trigger) {
-            $this->enrollClient($trigger['workflow_id'], $booking['client_id']);
+            $workflow_id = $trigger['workflow_id'] ?? null;
+            if (is_int($workflow_id) || is_string($workflow_id)) {
+                $this->enrollClient($workflow_id, $client_id);
+            }
         }
         
         return true;
@@ -225,7 +236,9 @@ class WorkflowHelper {
         $stmt->execute([$form_submission_id]);
         $submission = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$submission || !$submission['client_id']) {
+        $client_id = $submission['client_id'] ?? null;
+        $template_id = $submission['template_id'] ?? null;
+        if (!$submission || (!is_int($client_id) && !is_string($client_id)) || (!is_int($template_id) && !is_string($template_id))) {
             return false;
         }
         
@@ -236,11 +249,14 @@ class WorkflowHelper {
             AND form_template_id = ?
             AND is_active = 1
         ");
-        $stmt->execute([$submission['template_id']]);
+        $stmt->execute([$template_id]);
         $triggers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($triggers as $trigger) {
-            $this->enrollClient($trigger['workflow_id'], $submission['client_id']);
+            $workflow_id = $trigger['workflow_id'] ?? null;
+            if (is_int($workflow_id) || is_string($workflow_id)) {
+                $this->enrollClient($workflow_id, $client_id);
+            }
         }
         
         return true;

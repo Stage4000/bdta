@@ -91,9 +91,11 @@ class FormReminderTask {
     private function sendFormReminder(array $form): array {
         $email_service = new EmailService(null, $this->conn);
         
-        $client_name = htmlspecialchars($form['client_name']);
-        $form_name = htmlspecialchars($form['form_name'] ?: 'Client Form');
-        $form_link = getDynamicBaseUrl() . '/backend/public/form.php?id=' . $form['id'];
+        $client_name = htmlspecialchars(scalar_string($form['client_name'] ?? ''));
+        $form_name = htmlspecialchars(scalar_string($form['form_name'] ?? 'Client Form'));
+        $form_link = getDynamicBaseUrl() . '/backend/public/form.php?id=' . scalar_string($form['id'] ?? '');
+        $client_email = scalar_string($form['client_email'] ?? '');
+        $client_id = $form['client_id'] ?? null;
         
         $subject = "Reminder: Please Complete Your Form";
         
@@ -155,7 +157,7 @@ Brook Lefkowitz
 Brook's Dog Training Academy
 TEXT;
         
-        return $email_service->sendGenericEmail($form['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_FORM_REMINDER, $form['client_id'] ?? null);
+        return $email_service->sendGenericEmail($client_email, $subject, $html_body, $text_body, EmailService::MAIL_TYPE_FORM_REMINDER, is_int($client_id) || is_string($client_id) ? $client_id : null);
     }
 }
 ?>

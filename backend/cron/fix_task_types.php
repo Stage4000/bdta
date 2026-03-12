@@ -73,7 +73,7 @@ $fixed_count = 0;
 $skipped_count = 0;
 
 foreach ($needs_fixing as $task) {
-    $old_type = $task['task_type'];
+    $old_type = scalar_string($task['task_type'] ?? '');
     $new_type = null;
     
     // Check if we have a simple mapping fix for this task_type
@@ -82,7 +82,7 @@ foreach ($needs_fixing as $task) {
     }
     // Special handling for generic 'email' task_type - use task name to determine correct type
     elseif ($old_type === 'email') {
-        $task_name_lower = strtolower($task['task_name']);
+        $task_name_lower = strtolower(scalar_string($task['task_name'] ?? ''));
         if (strpos($task_name_lower, 'receive') !== false || strpos($task_name_lower, 'imap') !== false) {
             $new_type = 'email_receiver';
         } elseif (strpos($task_name_lower, 'send') !== false || strpos($task_name_lower, 'scheduled') !== false) {

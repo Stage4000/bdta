@@ -147,11 +147,11 @@ class EmailSignatureHelper {
         require_once __DIR__ . '/settings.php';
         
         $defaults = [
-            'name' => Settings::get('email_from_name', "Brook's Dog Training Academy"),
-            'email' => Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com'),
-            'phone' => Settings::get('business_phone', '(555) 123-4567'),
-            'business_name' => Settings::get('site_name', "Brook's Dog Training Academy"),
-            'business_address' => Settings::get('business_address', 'Sebring, Florida')
+            'name' => scalar_string(Settings::get('email_from_name', "Brook's Dog Training Academy")),
+            'email' => scalar_string(Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com')),
+            'phone' => scalar_string(Settings::get('business_phone', '(555) 123-4567')),
+            'business_name' => scalar_string(Settings::get('site_name', "Brook's Dog Training Academy")),
+            'business_address' => scalar_string(Settings::get('business_address', 'Sebring, Florida'))
         ];
         
         // Merge provided data with defaults
@@ -189,7 +189,8 @@ class EmailSignatureHelper {
         
         $stmt = $conn->prepare("SELECT * FROM email_signature_templates WHERE id = ? AND is_active = 1");
         $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        $signature = $stmt->fetch(PDO::FETCH_ASSOC);
+        return is_array($signature) ? $signature : null;
     }
     
     /**
@@ -206,7 +207,8 @@ class EmailSignatureHelper {
         $conn = $db->getConnection();
         
         $stmt = $conn->query("SELECT * FROM email_signature_templates WHERE is_default = 1 AND is_active = 1 LIMIT 1");
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        $signature = $stmt->fetch(PDO::FETCH_ASSOC);
+        return is_array($signature) ? $signature : null;
     }
     
     /**
@@ -231,7 +233,7 @@ class EmailSignatureHelper {
         }
         
         // Replace custom fields and return
-        return self::replaceCustomFields($signature['html_content'], $custom_data);
+        return self::replaceCustomFields(scalar_string($signature['html_content'] ?? ''), $custom_data);
     }
     
     /**
@@ -268,10 +270,10 @@ class EmailSignatureHelper {
 HTML;
         
         // Safely insert the signature name and content
-        $safe_name = htmlspecialchars($signature['name'], ENT_QUOTES, 'UTF-8');
+        $safe_name = htmlspecialchars(scalar_string($signature['name'] ?? ''), ENT_QUOTES, 'UTF-8');
         $html = str_replace('<title></title>', '<title>' . $safe_name . '</title>', $html);
         // Content is already sanitized when saved via EmailSignatureHelper::sanitizeHTML()
-        $html = str_replace('<div class="signature">', '<div class="signature">' . "\n        " . $signature['html_content'], $html);
+        $html = str_replace('<div class="signature">', '<div class="signature">' . "\n        " . scalar_string($signature['html_content'] ?? ''), $html);
         
         return $html;
     }

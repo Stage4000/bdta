@@ -10,7 +10,7 @@
  */
 
 // Only allow access from localhost for security
-if (!in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1', 'localhost'])) {
+if (!in_array(scalar_string($_SERVER['REMOTE_ADDR'] ?? ''), ['127.0.0.1', '::1', 'localhost'], true)) {
     die('Access denied. This test script can only be run from localhost.');
 }
 
@@ -23,12 +23,16 @@ $test_email = '';
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['test_email'])) {
-    $test_email = filter_var($_POST['test_email'], FILTER_VALIDATE_EMAIL);
+    $validated_email = filter_var(scalar_string($_POST['test_email'] ?? ''), FILTER_VALIDATE_EMAIL);
+    $test_email = is_string($validated_email) ? $validated_email : '';
     
     if ($test_email) {
         $emailService = new EmailService();
         
         $subject = "Test Email from BDTA - " . date('Y-m-d H:i:s');
+        $email_service = scalar_string(Settings::get('email_service', 'mail'));
+        $from_address = scalar_string(Settings::get('email_from_address', 'N/A'));
+        $from_name = scalar_string(Settings::get('email_from_name', 'N/A'));
         $html_body = "
             <html>
             <body style='font-family: Arial, sans-serif; padding: 20px;'>
@@ -37,9 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['test_email'])) {
                 <hr style='border: 1px solid #ddd; margin: 20px 0;'>
                 <h3>Configuration Details:</h3>
                 <ul>
-                    <li><strong>Email Service:</strong> " . Settings::get('email_service', 'mail') . "</li>
-                    <li><strong>From Address:</strong> " . Settings::get('email_from_address', 'N/A') . "</li>
-                    <li><strong>From Name:</strong> " . Settings::get('email_from_name', 'N/A') . "</li>
+                    <li><strong>Email Service:</strong> " . htmlspecialchars($email_service) . "</li>
+                    <li><strong>From Address:</strong> " . htmlspecialchars($from_address) . "</li>
+                    <li><strong>From Name:</strong> " . htmlspecialchars($from_name) . "</li>
                     <li><strong>Test Time:</strong> " . date('Y-m-d H:i:s') . "</li>
                 </ul>
                 <p style='color: #666; margin-top: 30px;'>
@@ -55,9 +59,9 @@ EMAIL CONFIGURATION TEST SUCCESSFUL!
 If you're reading this, your email configuration is working correctly.
 
 Configuration Details:
-- Email Service: " . Settings::get('email_service', 'mail') . "
-- From Address: " . Settings::get('email_from_address', 'N/A') . "
-- From Name: " . Settings::get('email_from_name', 'N/A') . "
+- Email Service: " . $email_service . "
+- From Address: " . $from_address . "
+- From Name: " . $from_name . "
 - Test Time: " . date('Y-m-d H:i:s') . "
 
 This is an automated test email from Brook's Dog Training Academy CRM.
@@ -129,28 +133,28 @@ $email_config = Settings::getEmailConfig();
                         <h5 class="mb-3">Current Email Configuration</h5>
                         <div class="config-item">
                             <strong>Email Service:</strong> 
-                            <span class="badge bg-primary"><?= htmlspecialchars($email_config['service']) ?></span>
+                            <span class="badge bg-primary"><?= htmlspecialchars(array_string_value($email_config, 'service')) ?></span>
                         </div>
                         <div class="config-item">
-                            <strong>From Address:</strong> <?= htmlspecialchars($email_config['from_address'] ?: 'Not configured') ?>
+                            <strong>From Address:</strong> <?= htmlspecialchars(array_string_value($email_config, 'from_address', 'Not configured')) ?>
                         </div>
                         <div class="config-item">
-                            <strong>From Name:</strong> <?= htmlspecialchars($email_config['from_name'] ?: 'Not configured') ?>
+                            <strong>From Name:</strong> <?= htmlspecialchars(array_string_value($email_config, 'from_name', 'Not configured')) ?>
                         </div>
                         
-                        <?php if ($email_config['service'] === 'smtp'): ?>
+                        <?php if (array_string_value($email_config, 'service') === 'smtp'): ?>
                             <div class="config-item">
-                                <strong>SMTP Host:</strong> <?= htmlspecialchars($email_config['smtp_host'] ?: 'Not configured') ?>
+                                <strong>SMTP Host:</strong> <?= htmlspecialchars(array_string_value($email_config, 'smtp_host', 'Not configured')) ?>
                             </div>
                             <div class="config-item">
-                                <strong>SMTP Port:</strong> <?= htmlspecialchars($email_config['smtp_port']) ?>
+                                <strong>SMTP Port:</strong> <?= htmlspecialchars(array_string_value($email_config, 'smtp_port', '587')) ?>
                             </div>
                             <div class="config-item">
-                                <strong>SMTP Username:</strong> <?= htmlspecialchars($email_config['smtp_username'] ?: 'Not configured') ?>
+                                <strong>SMTP Username:</strong> <?= htmlspecialchars(array_string_value($email_config, 'smtp_username', 'Not configured')) ?>
                             </div>
                             <div class="config-item">
                                 <strong>SMTP Password:</strong> 
-                                <span class="password-masked"><?= $email_config['smtp_password'] ? '••••••••' : 'Not configured' ?></span>
+                                <span class="password-masked"><?= array_string_value($email_config, 'smtp_password') !== '' ? '••••••••' : 'Not configured' ?></span>
                             </div>
                         <?php endif; ?>
                         
@@ -159,11 +163,11 @@ $email_config = Settings::getEmailConfig();
                         <h5 class="mb-3">Send Test Email</h5>
                         
                         <?php if ($result): ?>
-                            <div class="alert alert-<?= $result['success'] ? 'success' : 'danger' ?>">
-                                <strong><?= $result['success'] ? '✅ Success!' : '❌ Error:' ?></strong>
+                            <div class="alert alert-<?= !empty($result['success']) ? 'success' : 'danger' ?>">
+                                <strong><?= !empty($result['success']) ? '✅ Success!' : '❌ Error:' ?></strong>
                                 <?= htmlspecialchars(scalar_string($result['message'])) ?>
                                 
-                                <?php if ($result['success']): ?>
+                                <?php if (!empty($result['success'])): ?>
                                     <hr>
                                     <p class="mb-0">
                                         <small>Check your inbox at <strong><?= htmlspecialchars(scalar_string($test_email)) ?></strong></small><br>

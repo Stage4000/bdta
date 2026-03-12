@@ -8,8 +8,8 @@ require_once '../includes/database.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$quote_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-$action = isset($_POST['action']) ? $_POST['action'] : '';
+$quote_id = safe_int($_GET['id'] ?? 0);
+$action = scalar_string($_POST['action'] ?? '');
 
 // Get quote
 $stmt = $conn->prepare("
@@ -25,19 +25,27 @@ if (!$quote) {
     die("Quote not found");
 }
 
+$quote_status = array_string_value($quote, 'status');
+$quote_expiration_date = array_string_value($quote, 'expiration_date');
+$quote_quote_number = array_string_value($quote, 'quote_number');
+$quote_title = array_string_value($quote, 'title');
+$quote_description = array_string_value($quote, 'description');
+$quote_amount = safe_float($quote['amount'] ?? 0);
+
 // Get line items
 $items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
 $items_stmt->execute([$quote_id]);
 $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Check if expired
-$is_expired = $quote['expiration_date'] && strtotime($quote['expiration_date']) < time();
-$can_respond = $quote['status'] == 'sent' || $quote['status'] == 'viewed';
+$is_expired = $quote_expiration_date !== '' && strtotime($quote_expiration_date) < time();
+$can_respond = $quote_status === 'sent' || $quote_status === 'viewed';
 
 // Mark as viewed if first time
-if ($quote['status'] == 'sent') {
+if ($quote_status === 'sent') {
     $stmt = $conn->prepare("UPDATE quotes SET status = 'viewed', viewed_at = CURRENT_TIMESTAMP WHERE id = ?");
     $stmt->execute([$quote_id]);
+    $quote_status = 'viewed';
     $quote['status'] = 'viewed';
 }
 
@@ -47,21 +55,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
     if ($action == 'accept') {
         $stmt = $conn->prepare("UPDATE quotes SET status = 'accepted', accepted_at = CURRENT_TIMESTAMP WHERE id = ?");
         $stmt->execute([$quote_id]);
+        $quote_status = 'accepted';
         $quote['status'] = 'accepted';
         $message = '<div class="alert alert-success">Quote accepted! We will contact you shortly.</div>';
     } elseif ($action == 'decline') {
         $stmt = $conn->prepare("UPDATE quotes SET status = 'declined', declined_at = CURRENT_TIMESTAMP WHERE id = ?");
         $stmt->execute([$quote_id]);
+        $quote_status = 'declined';
         $quote['status'] = 'declined';
         $message = '<div class="alert alert-info">Quote declined. Thank you for your response.</div>';
     }
 }
-$page_title = 'Quote ' . $quote['quote_number'];
+$page_title = 'Quote ' . $quote_quote_number;
 ?>
 <?php require_once __DIR__ . '/includes/public_head.php'; ?>
     <?php
-    $tc_primary   = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_color', '#9a0073')))   ? Settings::get('theme_primary_color', '#9a0073')   : '#9a0073';
-    $tc_secondary = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_secondary_color', '#0a9a9c'))) ? Settings::get('theme_secondary_color', '#0a9a9c') : '#0a9a9c';
+    $theme_primary = scalar_string(Settings::get('theme_primary_color', '#9a0073'));
+    $theme_secondary = scalar_string(Settings::get('theme_secondary_color', '#0a9a9c'));
+    $tc_primary   = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary) ? $theme_primary : '#9a0073';
+    $tc_secondary = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_secondary) ? $theme_secondary : '#0a9a9c';
     ?>
     <style>
         .bg-primary {
@@ -89,7 +101,7 @@ $page_title = 'Quote ' . $quote['quote_number'];
                         <div class="d-flex justify-content-between align-items-center">
                             <h4 class="mb-0">
                                 <i class="fas fa-file-invoice me-2"></i>
-                                Quote <?= htmlspecialchars($quote['quote_number']) ?>
+                                Quote <?= htmlspecialchars($quote_quote_number) ?>
                             </h4>
                             <?php
                             $badge_classes = [
@@ -98,7 +110,7 @@ $page_title = 'Quote ' . $quote['quote_number'];
                                 'accepted' => 'bg-success',
                                 'declined' => 'bg-danger'
                             ];
-                            $display_status = $is_expired ? 'expired' : $quote['status'];
+                            $display_status = $is_expired ? 'expired' : $quote_status;
                             ?>
                             <span class="badge <?= $badge_classes[$display_status] ?? 'bg-secondary' ?> fs-6">
                                 <?= ucfirst($display_status) ?>
@@ -115,10 +127,10 @@ $page_title = 'Quote ' . $quote['quote_number'];
                             </div>
                         <?php endif; ?>
 
-                        <h3 class="mb-3"><?= htmlspecialchars($quote['title']) ?></h3>
+                        <h3 class="mb-3"><?= htmlspecialchars($quote_title) ?></h3>
                         
-                        <?php if ($quote['description']): ?>
-                            <p class="mb-4"><?= nl2br(htmlspecialchars($quote['description'])) ?></p>
+                        <?php if ($quote_description !== ''): ?>
+                            <p class="mb-4"><?= nl2br(htmlspecialchars($quote_description)) ?></p>
                         <?php endif; ?>
 
                         <!-- Line Items -->
@@ -133,27 +145,33 @@ $page_title = 'Quote ' . $quote['quote_number'];
                             </thead>
                             <tbody>
                                 <?php foreach ($items as $item): ?>
+                                    <?php
+                                    $item_description = array_string_value($item, 'description');
+                                    $item_quantity = array_int_value($item, 'quantity');
+                                    $item_unit_price = safe_float($item['unit_price'] ?? 0);
+                                    $item_amount = safe_float($item['amount'] ?? 0);
+                                    ?>
                                     <tr>
-                                        <td><?= htmlspecialchars($item['description']) ?></td>
-                                        <td class="text-center"><?= $item['quantity'] ?></td>
-                                        <td class="text-end">$<?= number_format($item['unit_price'], 2) ?></td>
-                                        <td class="text-end">$<?= number_format($item['amount'], 2) ?></td>
+                                        <td><?= htmlspecialchars($item_description) ?></td>
+                                        <td class="text-center"><?= $item_quantity ?></td>
+                                        <td class="text-end">$<?= number_format($item_unit_price, 2) ?></td>
+                                        <td class="text-end">$<?= number_format($item_amount, 2) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                             <tfoot>
                                 <tr class="table-light">
                                     <th colspan="3" class="text-end">Total:</th>
-                                    <th class="text-end">$<?= number_format($quote['amount'], 2) ?></th>
+                                    <th class="text-end">$<?= number_format($quote_amount, 2) ?></th>
                                 </tr>
                             </tfoot>
                         </table>
 
-                        <?php if ($quote['expiration_date']): ?>
+                        <?php if ($quote_expiration_date !== ''): ?>
                             <p class="text-muted mb-4">
                                 <small>
                                     <i class="fas fa-calendar-days me-1"></i>
-                                    Expires: <?= date('F j, Y', strtotime($quote['expiration_date'])) ?>
+                                    Expires: <?= date('F j, Y', strtotime($quote_expiration_date)) ?>
                                 </small>
                             </p>
                         <?php endif; ?>

@@ -84,7 +84,7 @@ class CronRunner {
         ");
         $stmt->execute([$current_time]);
         
-        return array_values($stmt->fetchAll(PDO::FETCH_ASSOC));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     /**
@@ -95,11 +95,14 @@ class CronRunner {
      */
     private function executeTask(array $task): void {
         $task_start_time = microtime(true);
-        $this->log("Executing task: {$task['task_name']} (Type: {$task['task_type']})");
+        $task_id = $task['id'] ?? null;
+        $task_name = scalar_string($task['task_name'] ?? '');
+        $task_type = scalar_string($task['task_type'] ?? '');
+        $this->log("Executing task: {$task_name} (Type: {$task_type})");
         
         try {
             // Load the task handler
-            $handler_file = TASK_HANDLERS_DIR . '/' . $task['task_type'] . '.php';
+            $handler_file = TASK_HANDLERS_DIR . '/' . $task_type . '.php';
             
             if (!file_exists($handler_file)) {
                 throw new Exception("Task handler not found: {$handler_file}");
@@ -108,7 +111,7 @@ class CronRunner {
             require_once $handler_file;
             
             // Get handler class name (convert snake_case to PascalCase)
-            $class_name = str_replace('_', '', ucwords($task['task_type'], '_')) . 'Task';
+            $class_name = str_replace('_', '', ucwords($task_type, '_')) . 'Task';
             
             if (!class_exists($class_name)) {
                 throw new Exception("Task class not found: {$class_name}");
@@ -126,7 +129,10 @@ class CronRunner {
             $items_processed = $result['items_processed'] ?? 0;
             $message = $result['message'] ?? 'Task completed successfully';
             
-            $this->logTaskExecution($task['id'], $task['task_name'], 'success', $message, $items_processed, $execution_time);
+            if (!is_int($task_id) && !is_string($task_id)) {
+                throw new RuntimeException('Task id missing.');
+            }
+            $this->logTaskExecution($task_id, $task_name, 'success', $message, $items_processed, $execution_time);
             $this->log("✓ Task completed: {$message} ({$items_processed} items, {$execution_time}s)");
             
             // Update task's last_run and next_run times
@@ -137,7 +143,9 @@ class CronRunner {
             $execution_time = round(microtime(true) - $task_start_time, 2);
             $error_message = $e->getMessage();
             
-            $this->logTaskExecution($task['id'], $task['task_name'], 'error', $error_message, 0, $execution_time);
+            if (is_int($task_id) || is_string($task_id)) {
+                $this->logTaskExecution($task_id, $task_name, 'error', $error_message, 0, $execution_time);
+            }
             $this->log("✗ Task failed: {$error_message}");
         }
     }
@@ -162,13 +170,14 @@ class CronRunner {
     private function updateTaskSchedule(array $task): void {
         $current_time = date('Y-m-d H:i:s');
         $next_run = $this->calculateNextRun($task);
+        $task_id = $task['id'] ?? null;
         
         $stmt = $this->conn->prepare("
             UPDATE scheduled_tasks 
             SET last_run = ?, next_run = ?, updated_at = ?
             WHERE id = ?
         ");
-        $stmt->execute([$current_time, $next_run, $current_time, $task['id']]);
+        $stmt->execute([$current_time, $next_run, $current_time, $task_id]);
     }
     
     /**
@@ -178,8 +187,9 @@ class CronRunner {
      * @param array<string, mixed> $task
      */
     private function calculateNextRun(array $task): string {
-        $schedule_type = $task['schedule_type'];
-        $schedule_value = $task['schedule_value'];
+        $schedule_type = scalar_string($task['schedule_type'] ?? '');
+        $schedule_value = scalar_string($task['schedule_value'] ?? '');
+        $task_name = scalar_string($task['task_name'] ?? '');
         
         switch ($schedule_type) {
             case 'hourly':
@@ -190,7 +200,7 @@ class CronRunner {
                 if ($schedule_value && !$this->isCronExpression($schedule_value)) {
                     $time_parts = explode(':', $schedule_value);
                     $next = strtotime('tomorrow ' . $schedule_value);
-                return date('Y-m-d H:i:s', safe_timestamp($next));
+                    return date('Y-m-d H:i:s', safe_timestamp($next));
                 }
                 return date('Y-m-d H:i:s', strtotime('+1 day'));
             
@@ -214,14 +224,14 @@ class CronRunner {
                     if ($next_run) {
                         return $next_run;
                     }
-                    $this->log("Warning: Unsupported cron expression '{$schedule_value}' for task '{$task['task_name']}'. Defaulting to +15 minutes.");
+                    $this->log("Warning: Unsupported cron expression '{$schedule_value}' for task '{$task_name}'. Defaulting to +15 minutes.");
                 }
                 // Fallback to 15 minutes for custom schedules
                 return date('Y-m-d H:i:s', strtotime('+15 minutes'));
             
             default:
                 // Default to daily
-                $this->log("Warning: Unknown schedule_type '{$schedule_type}' for task '{$task['task_name']}'. Defaulting to +1 day.");
+                $this->log("Warning: Unknown schedule_type '{$schedule_type}' for task '{$task_name}'. Defaulting to +1 day.");
                 return date('Y-m-d H:i:s', strtotime('+1 day'));
         }
     }

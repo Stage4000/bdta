@@ -30,11 +30,11 @@ function getSystemTimezone(): string {
     }
 
     try {
-        $tz_input = ($configured === null || $configured === '') ? $fallback : $configured;
+        $tz_input = ($configured === null || $configured === '') ? $fallback : scalar_string($configured);
         $tz       = new DateTimeZone($tz_input);
         $resolved = $tz->getName();
     } catch (Exception $e) {
-        $log_value = ($configured === null || $configured === '') ? 'empty' : $configured;
+        $log_value = ($configured === null || $configured === '') ? 'empty' : scalar_string($configured);
         error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value "' . $log_value . '" was invalid: ' . $e->getMessage());
         $resolved = $fallback;
     }
@@ -42,6 +42,14 @@ function getSystemTimezone(): string {
 }
 
 date_default_timezone_set(getSystemTimezone());
+
+/** @var array<string, string> $_GET */
+/** @var array<string, string> $_POST */
+/** @var array<string, string> $_REQUEST */
+/** @var array<string, string> $_COOKIE */
+/** @var array<string, string> $_SERVER */
+/** @var array<string, string> $_ENV */
+/** @var array<string, mixed> $_SESSION */
 
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
@@ -85,8 +93,8 @@ function setFlashMessage(string $message, string $type = 'info'): void {
  */
 function getFlashMessage(): ?array {
     if (isset($_SESSION['flash_message'])) {
-        $message = $_SESSION['flash_message'];
-        $type = $_SESSION['flash_type'] ?? 'info';
+        $message = scalar_string($_SESSION['flash_message']);
+        $type = scalar_string($_SESSION['flash_type'] ?? 'info');
         unset($_SESSION['flash_message']);
         unset($_SESSION['flash_type']);
         return ['message' => $message, 'type' => $type];
@@ -94,12 +102,51 @@ function getFlashMessage(): ?array {
     return null;
 }
 
-function escape(string $string): string {
-    return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
+function escape(mixed $string): string {
+    return htmlspecialchars(scalar_string($string), ENT_QUOTES, 'UTF-8');
 }
 
-function formatDate(string $date): string {
-    return date('F j, Y', safe_timestamp(strtotime($date)));
+/**
+ * @param array<string|int, mixed> $row
+ */
+function array_string_value(array $row, string|int $key, string $default = ''): string {
+    return scalar_string($row[$key] ?? $default);
+}
+
+/**
+ * @param array<string|int, mixed> $row
+ */
+function array_int_value(array $row, string|int $key, int $default = 0): int {
+    return safe_int($row[$key] ?? $default);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function decode_json_assoc(mixed $json): array {
+    if (!is_string($json) || $json === '') {
+        return [];
+    }
+    $decoded = json_decode($json, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function decode_json_assoc_list(mixed $json): array {
+    $decoded = decode_json_assoc($json);
+    $rows = [];
+    foreach ($decoded as $item) {
+        if (is_array($item)) {
+            $rows[] = $item;
+        }
+    }
+    return $rows;
+}
+
+function formatDate(mixed $date): string {
+    return date('F j, Y', safe_timestamp(strtotime(scalar_string($date))));
 }
 
 /**
@@ -134,16 +181,16 @@ function getDynamicBaseUrl(): string {
         
         // Get and sanitize the host
         // Use SERVER_NAME as fallback for better security
-        $host = $_SERVER['HTTP_HOST'];
+        $host = scalar_string($_SERVER['HTTP_HOST']);
         
         // Strict validation: proper hostname format with optional port
         // Pattern ensures no consecutive dots, no leading/trailing hyphens in domain parts
         // Note: Does not support IPv6 bracket notation
         if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*(:[0-9]+)?$/', $host)) {
             // If HTTP_HOST is suspicious, fall back to SERVER_NAME
-            $host = $_SERVER['SERVER_NAME'] ?? 'localhost';
+            $host = scalar_string($_SERVER['SERVER_NAME'] ?? 'localhost');
             if (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] != 80 && $_SERVER['SERVER_PORT'] != 443) {
-                $host .= ':' . $_SERVER['SERVER_PORT'];
+                $host .= ':' . scalar_string($_SERVER['SERVER_PORT']);
             }
         }
         
@@ -152,7 +199,7 @@ function getDynamicBaseUrl(): string {
     
     // Fallback to base_url setting (for CLI/cron contexts)
     $base_url = Settings::get('base_url', null);
-    if ($base_url) {
+    if (is_string($base_url) && $base_url !== '') {
         return rtrim($base_url, '/');
     }
     
@@ -178,10 +225,10 @@ function logClientActivity(int|string $client_id, string $action, string $descri
     }
     // Use X-Forwarded-For when behind a trusted proxy, validated to prevent spoofing
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $forwarded = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
-        $ip = filter_var($forwarded, FILTER_VALIDATE_IP) ? $forwarded : ($_SERVER['REMOTE_ADDR'] ?? '');
+        $forwarded = trim(explode(',', scalar_string($_SERVER['HTTP_X_FORWARDED_FOR']))[0]);
+        $ip = filter_var($forwarded, FILTER_VALIDATE_IP) ? $forwarded : scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
     } else {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $ip = scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
     }
     $stmt = $conn->prepare("INSERT INTO client_activity_log (client_id, action, description, ip_address) VALUES (?, ?, ?, ?)");
     $stmt->execute([$client_id, $action, $description, $ip]);

@@ -12,9 +12,17 @@ class ICalendarGenerator {
      * @param array<string, mixed> $booking
      */
     public static function generate(array $booking): string {
-        $start_datetime = new DateTime($booking['appointment_date'] . ' ' . $booking['appointment_time']);
+        $appointment_date = scalar_string($booking['appointment_date'] ?? '');
+        $appointment_time = scalar_string($booking['appointment_time'] ?? '');
+        $duration_minutes = scalar_string($booking['duration_minutes'] ?? '60');
+        $service_type = scalar_string($booking['service_type'] ?? 'Appointment');
+        $client_name = scalar_string($booking['client_name'] ?? '');
+        $notes = scalar_string($booking['notes'] ?? '');
+        $booking_id = scalar_string($booking['id'] ?? '');
+
+        $start_datetime = new DateTime($appointment_date . ' ' . $appointment_time);
         $end_datetime = clone $start_datetime;
-        $end_datetime->modify('+' . $booking['duration_minutes'] . ' minutes');
+        $end_datetime->modify('+' . $duration_minutes . ' minutes');
         
         $now = new DateTime();
         
@@ -24,18 +32,18 @@ class ICalendarGenerator {
         $stamp = $now->format('Ymd\THis');
         
         // Escape text for iCalendar format
-        $summary = self::escapeString($booking['service_type'] . ' - Brook\'s Dog Training Academy');
+        $summary = self::escapeString($service_type . ' - Brook\'s Dog Training Academy');
         $description = self::escapeString(
             "Dog Training Appointment\n\n" .
-            "Service: " . $booking['service_type'] . "\n" .
-            "Client: " . $booking['client_name'] . "\n" .
-            ($booking['notes'] ? "Notes: " . $booking['notes'] . "\n" : "") .
+            "Service: " . $service_type . "\n" .
+            "Client: " . $client_name . "\n" .
+            ($notes !== '' ? "Notes: " . $notes . "\n" : "") .
             "\nFor questions, contact: bookings@brooksdogtrainingacademy.com"
         );
         $location = self::escapeString('Highlands County, Florida');
         
         // Generate unique ID
-        $uid = 'booking-' . $booking['id'] . '@brooksdogtrainingacademy.com';
+        $uid = 'booking-' . $booking_id . '@brooksdogtrainingacademy.com';
         
         // Build iCalendar content
         $ics = "BEGIN:VCALENDAR\r\n";
@@ -81,17 +89,24 @@ class ICalendarGenerator {
      * @param array<string, mixed> $booking
      */
     public static function generateGoogleCalendarLink(array $booking): string {
-        $start_datetime = new DateTime($booking['appointment_date'] . ' ' . $booking['appointment_time']);
+        $appointment_date = scalar_string($booking['appointment_date'] ?? '');
+        $appointment_time = scalar_string($booking['appointment_time'] ?? '');
+        $duration_minutes = scalar_string($booking['duration_minutes'] ?? '60');
+        $service_type = scalar_string($booking['service_type'] ?? 'Appointment');
+        $client_name = scalar_string($booking['client_name'] ?? '');
+        $notes = scalar_string($booking['notes'] ?? '');
+
+        $start_datetime = new DateTime($appointment_date . ' ' . $appointment_time);
         $end_datetime = clone $start_datetime;
-        $end_datetime->modify('+' . $booking['duration_minutes'] . ' minutes');
+        $end_datetime->modify('+' . $duration_minutes . ' minutes');
         
         $params = [
             'action' => 'TEMPLATE',
-            'text' => $booking['service_type'] . ' - Brook\'s Dog Training Academy',
+            'text' => $service_type . ' - Brook\'s Dog Training Academy',
             'dates' => $start_datetime->format('Ymd\THis') . '/' . $end_datetime->format('Ymd\THis'),
-            'details' => "Dog Training Appointment\n\nService: " . $booking['service_type'] . 
-                        "\nClient: " . $booking['client_name'] .
-                        ($booking['notes'] ? "\nNotes: " . $booking['notes'] : "") .
+            'details' => "Dog Training Appointment\n\nService: " . $service_type .
+                        "\nClient: " . $client_name .
+                        ($notes !== '' ? "\nNotes: " . $notes : "") .
                         "\n\nFor questions, contact: bookings@brooksdogtrainingacademy.com",
             'location' => 'Highlands County, Florida',
             'trp' => 'false'
@@ -107,7 +122,7 @@ class ICalendarGenerator {
      */
     public static function saveToFile(array $booking, string $directory = '/tmp'): string {
         $ics_content = self::generate($booking);
-        $filename = 'booking-' . $booking['id'] . '.ics';
+        $filename = 'booking-' . scalar_string($booking['id'] ?? '') . '.ics';
         $filepath = $directory . '/' . $filename;
         
         file_put_contents($filepath, $ics_content);

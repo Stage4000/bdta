@@ -100,18 +100,20 @@ class WorkflowProcessorTask {
     private function sendWorkflowEmail(array $execution): array {
         $email_service = new EmailService(null, $this->conn);
         
-        $client_name = htmlspecialchars($execution['client_name']);
-        $subject = $this->replacePlaceholders($execution['email_subject'], $execution);
-        $html_body = $this->replacePlaceholders($execution['email_body_html'], $execution);
-        $text_body = $execution['email_body_text'] 
-            ? $this->replacePlaceholders($execution['email_body_text'], $execution)
+        $subject = $this->replacePlaceholders(scalar_string($execution['email_subject'] ?? ''), $execution);
+        $html_body = $this->replacePlaceholders(scalar_string($execution['email_body_html'] ?? ''), $execution);
+        $text_body_source = scalar_string($execution['email_body_text'] ?? '');
+        $text_body = $text_body_source !== ''
+            ? $this->replacePlaceholders($text_body_source, $execution)
             : strip_tags($html_body);
         
         // Add attachment links to email body
         $html_body = $this->addAttachmentLinks($html_body, $execution);
         $text_body = $this->addAttachmentLinks($text_body, $execution, false);
         
-        return $email_service->sendGenericEmail($execution['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_WORKFLOW, $execution['client_id'] ?? null);
+        $client_email = scalar_string($execution['client_email'] ?? '');
+        $client_id = $execution['client_id'] ?? null;
+        return $email_service->sendGenericEmail($client_email, $subject, $html_body, $text_body, EmailService::MAIL_TYPE_WORKFLOW, is_int($client_id) || is_string($client_id) ? $client_id : null);
     }
     
     /**
@@ -122,9 +124,9 @@ class WorkflowProcessorTask {
      */
     private function replacePlaceholders(string $content, array $execution): string {
         $replacements = [
-            '{client_name}' => htmlspecialchars($execution['client_name']),
-            '{workflow_name}' => htmlspecialchars($execution['workflow_name']),
-            '{step_name}' => htmlspecialchars($execution['step_name']),
+            '{client_name}' => htmlspecialchars(scalar_string($execution['client_name'] ?? '')),
+            '{workflow_name}' => htmlspecialchars(scalar_string($execution['workflow_name'] ?? '')),
+            '{step_name}' => htmlspecialchars(scalar_string($execution['step_name'] ?? '')),
         ];
         
         return str_replace(array_keys($replacements), array_values($replacements), $content);
@@ -141,9 +143,15 @@ class WorkflowProcessorTask {
         $links = [];
         
         // Contract link - use template to generate link to contract template
-        if ($execution['attach_contract_id']) {
+        $attach_contract_id = $execution['attach_contract_id'] ?? null;
+        $attach_form_id = $execution['attach_form_id'] ?? null;
+        $client_id = scalar_string($execution['client_id'] ?? '');
+        $appointment_type_id = $execution['appointment_type_id'] ?? null;
+        $include_appointment_link = !empty($execution['include_appointment_link']);
+
+        if (!empty($attach_contract_id)) {
             // Link to the contract template (admin can create contract from template for client)
-            $link = $base_url . '/client/contracts_create.php?template_id=' . $execution['attach_contract_id'] . '&client_id=' . $execution['client_id'];
+            $link = $base_url . '/client/contracts_create.php?template_id=' . scalar_string($attach_contract_id) . '&client_id=' . $client_id;
             if ($html) {
                 $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📄 View Contract</a></p>';
             } else {
@@ -152,8 +160,8 @@ class WorkflowProcessorTask {
         }
         
         // Form link
-        if ($execution['attach_form_id']) {
-            $link = $base_url . '/backend/public/form.php?template_id=' . $execution['attach_form_id'] . '&client_id=' . $execution['client_id'];
+        if (!empty($attach_form_id)) {
+            $link = $base_url . '/backend/public/form.php?template_id=' . scalar_string($attach_form_id) . '&client_id=' . $client_id;
             if ($html) {
                 $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #8b5cf6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📋 Complete Form</a></p>';
             } else {
@@ -162,14 +170,14 @@ class WorkflowProcessorTask {
         }
         
         // Appointment booking link
-        if ($execution['include_appointment_link'] && $execution['appointment_type_id']) {
+        if ($include_appointment_link && !empty($appointment_type_id)) {
             // Get appointment type unique link
             $stmt = $this->conn->prepare("SELECT unique_link FROM appointment_types WHERE id = ?");
-            $stmt->execute([$execution['appointment_type_id']]);
+            $stmt->execute([$appointment_type_id]);
             $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($apt_type && $apt_type['unique_link']) {
-                $link = $base_url . '/backend/public/book.php?type=' . $apt_type['unique_link'];
+            if (is_array($apt_type) && !empty($apt_type['unique_link'])) {
+                $link = $base_url . '/backend/public/book.php?type=' . scalar_string($apt_type['unique_link']);
                 if ($html) {
                     $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #f59e0b; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📅 Book Appointment</a></p>';
                 } else {
@@ -234,7 +242,7 @@ class WorkflowProcessorTask {
         $stmt->execute([$enrollment_id]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($result['pending_count'] == 0) {
+        if (is_array($result) && safe_int($result['pending_count'] ?? 0) === 0) {
             // All steps complete, mark enrollment as complete
             $update = $this->conn->prepare("
                 UPDATE workflow_enrollments 

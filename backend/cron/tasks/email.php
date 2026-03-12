@@ -36,7 +36,7 @@ class EmailTask {
      */
     public function execute(): array {
         // Determine which handler to use based on task name
-        $task_name_lower = strtolower($this->task['task_name'] ?? '');
+        $task_name_lower = strtolower(scalar_string($this->task['task_name'] ?? ''));
         
         // Check if this is an IMAP/receive emails task
         // Use word boundary matching to avoid false positives (e.g., "receipts" matching "receive")

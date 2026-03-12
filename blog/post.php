@@ -1,7 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 
-$slug = $_GET['slug'] ?? '';
+$slug = scalar_string($_GET['slug'] ?? '');
 
 if (!$slug) {
     header('Location: index.php');
@@ -24,7 +24,12 @@ if (!$post) {
     exit;
 }
 
-$page_title = $post['title'];
+$post_title = array_string_value($post, 'title');
+$post_author = array_string_value($post, 'author');
+$post_publish_date = array_string_value($post, 'publish_date');
+$post_excerpt = array_string_value($post, 'excerpt');
+$post_content = array_string_value($post, 'content');
+$page_title = $post_title;
 require_once 'includes/header.php';
 ?>
         <div class="container py-5">
@@ -35,20 +40,20 @@ require_once 'includes/header.php';
                     </a>
                     
                     <article>
-                        <h1 class="display-5 fw-bold mb-3"><?php echo escape($post['title']); ?></h1>
+                        <h1 class="display-5 fw-bold mb-3"><?php echo escape($post_title); ?></h1>
                         <p class="text-muted mb-4">
-                            <i class="fas fa-user me-1"></i> <?php echo escape($post['author']); ?> | 
-                            <i class="fas fa-calendar me-1"></i> <?php echo formatDate($post['publish_date']); ?>
+                            <i class="fas fa-user me-1"></i> <?php echo escape($post_author); ?> | 
+                            <i class="fas fa-calendar me-1"></i> <?php echo formatDate($post_publish_date); ?>
                         </p>
                         
-                        <?php if ($post['excerpt']): ?>
-                        <p class="lead"><?php echo escape($post['excerpt']); ?></p>
+                        <?php if ($post_excerpt !== ''): ?>
+                        <p class="lead"><?php echo escape($post_excerpt); ?></p>
                         <?php endif; ?>
                         
                         <hr class="my-4">
                         
                         <div class="blog-content">
-                            <?php echo nl2br(escape($post['content'])); ?>
+                            <?php echo nl2br(escape($post_content)); ?>
                         </div>
                     </article>
                 </div>

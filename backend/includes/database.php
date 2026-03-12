@@ -12,27 +12,67 @@ class SafePDO extends PDO {
     /**
      * @param array<mixed> $options
      */
-    public function prepare(string $query, array $options = []): PDOStatement {
+    public function prepare(string $query, array $options = []): SafePDOStatement {
         $statement = parent::prepare($query, $options);
-        if (!$statement instanceof PDOStatement) {
+        if (!$statement instanceof SafePDOStatement) {
             throw new RuntimeException('Failed to prepare SQL statement.');
         }
 
         return $statement;
     }
 
-    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement {
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): SafePDOStatement {
         if ($fetchMode === null) {
             $statement = parent::query($query);
         } else {
             $statement = parent::query($query, $fetchMode, ...$fetchModeArgs);
         }
 
-        if (!$statement instanceof PDOStatement) {
+        if (!$statement instanceof SafePDOStatement) {
             throw new RuntimeException('Failed to execute SQL query.');
         }
 
         return $statement;
+    }
+}
+
+class SafePDOStatement extends PDOStatement {
+    protected function __construct() {
+    }
+
+    /**
+     * @template TMode of int
+     * @param TMode $mode
+     * @return (TMode is PDO::FETCH_COLUMN ? string|false : array<string, string>|false)
+     */
+    public function fetch(int $mode = PDO::FETCH_DEFAULT, int $cursorOrientation = PDO::FETCH_ORI_NEXT, int $cursorOffset = 0): mixed {
+        $result = parent::fetch($mode, $cursorOrientation, $cursorOffset);
+        if ($result === false || is_array($result) || is_int($result) || is_float($result) || is_string($result) || $result === null) {
+            /** @var array<string, string>|string|false $result */
+            return $result;
+        }
+
+        return false;
+    }
+
+    /**
+     * @template TMode of int
+     * @param TMode $mode
+     * @return (TMode is PDO::FETCH_COLUMN ? list<string> : list<array<string, string>>)
+     */
+    public function fetchAll(int $mode = PDO::FETCH_DEFAULT, mixed ...$args): array {
+        $result = parent::fetchAll($mode, ...array_map('scalar_string', $args));
+        /** @var list<array<string, string>|string> $result */
+        return $result;
+    }
+
+    /**
+     * @return string|false
+     */
+    public function fetchColumn(int $column = 0): string|false {
+        /** @var string|false $result */
+        $result = parent::fetchColumn($column);
+        return $result;
     }
 }
 
@@ -134,6 +174,7 @@ class Database {
                 try {
                     $this->conn = new SafePDO($dsn, $this->db_user, $this->db_password);
                     $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    $this->conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
                     // Set MySQL specific settings
                     $this->conn->exec("SET NAMES utf8mb4");
                     // Use modern SQL mode for MySQL 5.7+
@@ -156,6 +197,7 @@ class Database {
     private function connectSQLite(): void {
         $this->conn = new SafePDO('sqlite:' . $this->db_file);
         $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
         // Enable foreign keys for SQLite
         $this->execSQL('PRAGMA foreign_keys = ON');
     }
@@ -267,7 +309,7 @@ class Database {
         if ($this->db_type === 'sqlite') {
             $stmt = $this->conn->prepare("SELECT name FROM pragma_table_info(?)");
             $stmt->execute([$tableName]);
-            return array_values($stmt->fetchAll(PDO::FETCH_COLUMN));
+            return array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
         } else {
             // MySQL - use INFORMATION_SCHEMA for parameterized query
             $stmt = $this->conn->prepare("
@@ -277,7 +319,7 @@ class Database {
                 AND TABLE_NAME = ?
             ");
             $stmt->execute([$tableName]);
-            return array_values($stmt->fetchAll(PDO::FETCH_COLUMN));
+            return array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
         }
     }
     

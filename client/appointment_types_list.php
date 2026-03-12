@@ -20,7 +20,7 @@ $conn = $db->getConnection();
 $base_url = getDynamicBaseUrl();
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = safe_int($_GET['page'] ?? 1);
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -36,7 +36,7 @@ $types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get total count for pagination
 $total = safe_int($conn->query("SELECT COUNT(*) FROM appointment_types")->fetchColumn());
-$total_pages = ceil($total / $per_page);
+$total_pages = (int) ceil($total / $per_page);
 
 $page_title = "Appointment Types";
 include __DIR__ . '/../backend/includes/header.php';
@@ -54,8 +54,9 @@ include __DIR__ . '/../backend/includes/header.php';
     </div>
 
     <?php if (isset($_SESSION['flash'])): ?>
-        <div class="alert alert-<?= $_SESSION['flash']['type'] ?> alert-dismissible fade show">
-            <?= htmlspecialchars($_SESSION['flash']['message']) ?>
+        <?php $flash = is_array($_SESSION['flash']) ? $_SESSION['flash'] : []; ?>
+        <div class="alert alert-<?= htmlspecialchars(array_string_value($flash, 'type', 'info')) ?> alert-dismissible fade show">
+            <?= htmlspecialchars(array_string_value($flash, 'message')) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['flash']); ?>
@@ -88,35 +89,58 @@ include __DIR__ . '/../backend/includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($types as $type): ?>
+                                <?php
+                                $type_name = array_string_value($type, 'name');
+                                $type_description = array_string_value($type, 'description');
+                                $type_duration = array_int_value($type, 'duration_minutes', 60);
+                                $schedule_type = array_string_value($type, 'schedule_type', 'recurring');
+                                $buffer_before = array_int_value($type, 'buffer_before_minutes');
+                                $buffer_after = array_int_value($type, 'buffer_after_minutes');
+                                $advance_min_days = array_int_value($type, 'advance_booking_min_days');
+                                $advance_max_days = array_int_value($type, 'advance_booking_max_days', 90);
+                                $requires_forms = array_int_value($type, 'requires_forms') === 1;
+                                $requires_contract = array_int_value($type, 'requires_contract') === 1;
+                                $auto_invoice = array_int_value($type, 'auto_invoice') === 1;
+                                $default_amount = safe_float($type['default_amount'] ?? 0);
+                                $consumes_credits = array_int_value($type, 'consumes_credits') === 1;
+                                $credit_count = array_int_value($type, 'credit_count', 1);
+                                $is_group_class = array_int_value($type, 'is_group_class') === 1;
+                                $max_participants = array_int_value($type, 'max_participants', 1);
+                                $is_mini_session = array_int_value($type, 'is_mini_session') === 1;
+                                $is_field_rental = array_int_value($type, 'is_field_rental') === 1;
+                                $is_active = array_int_value($type, 'is_active') === 1;
+                                $unique_link = array_string_value($type, 'unique_link');
+                                $type_id = array_int_value($type, 'id');
+                                ?>
                                 <tr>
                                     <td>
-                                        <strong><?= htmlspecialchars($type['name']) ?></strong>
-                                        <?php if ($type['description']): ?>
-                                            <br><small class="text-muted"><?= htmlspecialchars($type['description']) ?></small>
+                                        <strong><?= htmlspecialchars($type_name) ?></strong>
+                                        <?php if ($type_description !== ''): ?>
+                                            <br><small class="text-muted"><?= htmlspecialchars($type_description) ?></small>
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?= $type['duration_minutes'] ?> min
+                                        <?= $type_duration ?> min
                                     </td>
                                     <td>
                                         <?php 
-                                        $schedule_type = $type['schedule_type'] ?? 'recurring';
                                         if ($schedule_type === 'specific_date'):
                                             // Check for multi-date format first
                                             $list_specific_dates = [];
-                                            if (!empty($type['specific_dates'])) {
-                                                $parsed_list = json_decode($type['specific_dates'], true);
-                                                if (is_array($parsed_list)) $list_specific_dates = $parsed_list;
+                                            $specific_dates_json = array_string_value($type, 'specific_dates');
+                                            if ($specific_dates_json !== '') {
+                                                $list_specific_dates = decode_json_assoc_list($specific_dates_json);
                                             }
-                                            if (empty($list_specific_dates) && !empty($type['specific_date'])) {
-                                                $list_specific_dates = [['date' => $type['specific_date']]];
+                                            $specific_date = array_string_value($type, 'specific_date');
+                                            if ($list_specific_dates === [] && $specific_date !== '') {
+                                                $list_specific_dates = [['date' => $specific_date]];
                                             }
                                         ?>
                                             <span class="badge bg-warning text-dark">
                                                 <i class="fas fa-calendar-day"></i> Specific Date<?= count($list_specific_dates) > 1 ? 's' : '' ?>
                                             </span><br>
                                             <?php foreach ($list_specific_dates as $sd_entry): ?>
-                                            <small><?= date('M j, Y', strtotime($sd_entry['date'])) ?></small><br>
+                                            <small><?= date('M j, Y', strtotime(array_string_value($sd_entry, 'date'))) ?></small><br>
                                             <?php endforeach; ?>
                                         <?php else: ?>
                                             <span class="badge bg-info text-dark">
@@ -125,9 +149,13 @@ include __DIR__ . '/../backend/includes/header.php';
                                             <small>
                                                 <?php
                                                 $day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                                                $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [];
-                                                if (is_array($available_days) && !empty($available_days)) {
-                                                    $selected_day_names = array_map(function($d) use ($day_names) { return $day_names[$d]; }, $available_days);
+                                                $available_days = decode_json_assoc(array_string_value($type, 'available_days'));
+                                                if ($available_days !== []) {
+                                                    $selected_day_names = array_map(
+                                                        static fn($d): string => $day_names[safe_int($d)] ?? '',
+                                                        $available_days
+                                                    );
+                                                    $selected_day_names = array_values(array_filter($selected_day_names, static fn(string $day): bool => $day !== ''));
                                                     echo implode(', ', $selected_day_names);
                                                 } else {
                                                     echo 'All days';
@@ -138,44 +166,44 @@ include __DIR__ . '/../backend/includes/header.php';
                                     </td>
                                     <td>
                                         <small>
-                                            Before: <?= $type['buffer_before_minutes'] ?> min<br>
-                                            After: <?= $type['buffer_after_minutes'] ?> min
+                                            Before: <?= $buffer_before ?> min<br>
+                                            After: <?= $buffer_after ?> min
                                         </small>
                                     </td>
                                     <td>
                                         <small>
-                                            Min: <?= $type['advance_booking_min_days'] ?> days<br>
-                                            Max: <?= $type['advance_booking_max_days'] ?> days
+                                            Min: <?= $advance_min_days ?> days<br>
+                                            Max: <?= $advance_max_days ?> days
                                         </small>
                                     </td>
                                     <td>
-                                        <?php if ($type['requires_forms']): ?>
+                                        <?php if ($requires_forms): ?>
                                             <span class="badge bg-info text-dark">Forms Required</span><br>
                                         <?php endif; ?>
-                                        <?php if ($type['requires_contract']): ?>
+                                        <?php if ($requires_contract): ?>
                                             <span class="badge bg-warning text-dark">Contract Required</span>
                                         <?php endif; ?>
-                                        <?php if (!$type['requires_forms'] && !$type['requires_contract']): ?>
+                                        <?php if (!$requires_forms && !$requires_contract): ?>
                                             <span class="text-muted">None</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
                                         <small>
-                                            <?php if ($type['auto_invoice']): ?>
-                                                <span class="badge bg-success">Auto-Invoice<?= !empty($type['default_amount']) ? ' ($' . number_format((float)$type['default_amount'], 2) . ')' : '' ?></span><br>
+                                            <?php if ($auto_invoice): ?>
+                                                <span class="badge bg-success">Auto-Invoice<?= $default_amount > 0 ? ' ($' . number_format($default_amount, 2) . ')' : '' ?></span><br>
                                             <?php endif; ?>
-                                            <?php if ($type['consumes_credits']): ?>
-                                                <span class="badge bg-primary">Uses <?= $type['credit_count'] ?> Credit(s)</span><br>
+                                            <?php if ($consumes_credits): ?>
+                                                <span class="badge bg-primary">Uses <?= $credit_count ?> Credit(s)</span><br>
                                             <?php endif; ?>
-                                            <?php if ($type['is_group_class']): ?>
-                                                <span class="badge bg-secondary">Group Class (Max <?= $type['max_participants'] ?>)</span><br>
+                                            <?php if ($is_group_class): ?>
+                                                <span class="badge bg-secondary">Group Class (Max <?= $max_participants ?>)</span><br>
                                             <?php endif; ?>
-                                            <?php if (!empty($type['is_mini_session'])): ?>
+                                            <?php if ($is_mini_session): ?>
                                                 <span class="badge bg-info">
                                                     <i class="fas fa-location-dot"></i> Mini Sessions
                                                 </span>
                                             <?php endif; ?>
-                                            <?php if (!empty($type['is_field_rental'])): ?>
+                                            <?php if ($is_field_rental): ?>
                                                 <span class="badge bg-warning text-dark">
                                                     <i class="fas fa-tree"></i> Field Rental
                                                 </span>
@@ -183,16 +211,16 @@ include __DIR__ . '/../backend/includes/header.php';
                                         </small>
                                     </td>
                                     <td>
-                                        <?php if ($type['is_active']): ?>
+                                        <?php if ($is_active): ?>
                                             <span class="badge bg-success">Active</span>
                                         <?php else: ?>
                                             <span class="badge bg-secondary">Inactive</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if (!empty($type['unique_link'])): ?>
+                                        <?php if ($unique_link !== ''): ?>
                                             <button class="btn btn-sm btn-outline-primary" 
-                                                    onclick="copyLink('<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $type['unique_link']) ?>', this)"
+                                                    onclick="copyLink('<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $unique_link) ?>', this)"
                                                     title="Copy booking link">
                                                 <i class="fas fa-link"></i> Copy Link
                                             </button>
@@ -201,11 +229,11 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <a href="appointment_types_edit.php?id=<?= $type['id'] ?>" 
+                                        <a href="appointment_types_edit.php?id=<?= $type_id ?>" 
                                            class="btn btn-sm btn-outline-primary" title="Edit">
                                             <i class="fas fa-pencil"></i>
                                         </a>
-                                        <a href="appointment_types_delete.php?id=<?= $type['id'] ?>" 
+                                        <a href="appointment_types_delete.php?id=<?= $type_id ?>" 
                                            class="btn btn-sm btn-outline-danger" 
                                            onclick="return confirm('Are you sure you want to delete this appointment type?')"
                                            title="Delete">

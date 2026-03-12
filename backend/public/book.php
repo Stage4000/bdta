@@ -6,31 +6,90 @@
 require_once '../includes/config.php';
 require_once '../includes/database.php';
 
+/**
+ * @return array<string, mixed>
+ */
+function public_book_map(mixed $value): array {
+    return is_array($value) ? $value : [];
+}
+
+/**
+ * @param array<string, mixed>|null $row
+ */
+function public_book_string(?array $row, string|int $key, string $default = ''): string {
+    return is_array($row) ? array_string_value($row, $key, $default) : $default;
+}
+
+/**
+ * @param array<string, mixed>|null $row
+ */
+function public_book_int(?array $row, string|int $key, int $default = 0): int {
+    return is_array($row) ? safe_int($row[$key] ?? $default) : $default;
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function public_book_assoc_rows(mixed $value): array {
+    if (is_string($value)) {
+        return decode_json_assoc_list($value);
+    }
+    if (!is_array($value)) {
+        return [];
+    }
+
+    $rows = [];
+    foreach ($value as $item) {
+        if (is_array($item)) {
+            $rows[] = $item;
+        }
+    }
+    return $rows;
+}
+
+/**
+ * @return list<string>
+ */
+function public_book_string_list(mixed $value): array {
+    if (!is_array($value)) {
+        return [];
+    }
+
+    $strings = [];
+    foreach ($value as $item) {
+        if (is_scalar($item) || $item === null) {
+            $strings[] = scalar_string($item);
+        }
+    }
+    return $strings;
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
 // Get appointment type from URL - supports both numeric ID and unique link
 $appointment_type_id = 0;
+/** @var array<string, mixed>|null $selected_type */
 $selected_type = null;
 $is_standalone = false; // All appointment types are now standalone
 
 // Check for unique link parameter first
 if (isset($_GET['link']) && !empty($_GET['link'])) {
-    $unique_link = $_GET['link'];
+    $unique_link = scalar_string($_GET['link']);
     $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE unique_link = ? AND is_active = 1");
     $stmt->execute([$unique_link]);
-    $selected_type = $stmt->fetch(PDO::FETCH_ASSOC);
+    $selected_type = public_book_map($stmt->fetch(PDO::FETCH_ASSOC));
     if ($selected_type) {
-        $appointment_type_id = $selected_type['id'];
+        $appointment_type_id = public_book_int($selected_type, 'id');
         $is_standalone = true;
     }
 }
 // Also support numeric type ID as standalone
 elseif (isset($_GET['type']) && !empty($_GET['type'])) {
-    $appointment_type_id = intval($_GET['type']);
+    $appointment_type_id = safe_int($_GET['type']);
     $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE id = ? AND is_active = 1");
     $stmt->execute([$appointment_type_id]);
-    $selected_type = $stmt->fetch(PDO::FETCH_ASSOC);
+    $selected_type = public_book_map($stmt->fetch(PDO::FETCH_ASSOC));
     if ($selected_type) {
         $is_standalone = true;
     }
@@ -60,7 +119,7 @@ if (!$selected_type) {
     $stmt->execute([$appointment_type_id]);
     $req_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($req_rows as &$req_row) {
-        $req_row['fields'] = json_decode($req_row['fields'], true) ?: [];
+        $req_row['fields'] = public_book_assoc_rows($req_row['fields'] ?? []);
     }
     unset($req_row);
     $required_forms = $req_rows;
@@ -69,22 +128,23 @@ if (!$selected_type) {
     $required_contract = null;
     if (!empty($selected_type['contract_template_id'])) {
         $stmt = $conn->prepare("SELECT id, name, template_text FROM contract_templates WHERE id = ? AND is_active = 1");
-        $stmt->execute([$selected_type['contract_template_id']]);
-        $required_contract = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $stmt->execute([public_book_int($selected_type, 'contract_template_id')]);
+        $required_contract_row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $required_contract = is_array($required_contract_row) ? $required_contract_row : null;
     }
 
     // Load configured booking intake form (replaces hardcoded fields if set)
     $booking_intake_form = null;
     $stmt_bfid = $conn->prepare("SELECT setting_value FROM settings WHERE setting_key = 'default_booking_form_id'");
     $stmt_bfid->execute();
-    $bfid_row = $stmt_bfid->fetch(PDO::FETCH_ASSOC);
-    $bfid = intval($bfid_row['setting_value'] ?? 0);
+    $bfid_row = public_book_map($stmt_bfid->fetch(PDO::FETCH_ASSOC));
+    $bfid = public_book_int($bfid_row, 'setting_value');
     if ($bfid > 0) {
         $stmt_bf = $conn->prepare("SELECT * FROM form_templates WHERE id = ? AND form_type = 'booking_form' AND is_active = 1");
         $stmt_bf->execute([$bfid]);
-        $bf_row = $stmt_bf->fetch(PDO::FETCH_ASSOC);
+        $bf_row = public_book_map($stmt_bf->fetch(PDO::FETCH_ASSOC));
         if ($bf_row) {
-            $bf_row['fields'] = json_decode($bf_row['fields'], true) ?: [];
+            $bf_row['fields'] = public_book_assoc_rows($bf_row['fields'] ?? []);
             $booking_intake_form = $bf_row;
         }
     }
@@ -94,7 +154,7 @@ if (!$selected_type) {
 if (isset($error_mode) && $error_mode) {
     $page_title = "Invalid Booking Link";
 } elseif ($is_standalone && $selected_type) {
-    $page_title = "Book " . $selected_type['name'];
+    $page_title = "Book " . public_book_string($selected_type, 'name');
 } else {
     $page_title = "Book an Appointment";
 }
@@ -104,10 +164,14 @@ if (isset($error_mode) && $error_mode) {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Dancing+Script:wght@700&family=Pacifico&family=Satisfy&family=Great+Vibes&family=Allura&display=swap" rel="stylesheet">
     
     <?php
-    $tc_primary      = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_color', '#9a0073')))      ? Settings::get('theme_primary_color', '#9a0073')      : '#9a0073';
-    $tc_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_dark_color', '#7a005a'))) ? Settings::get('theme_primary_dark_color', '#7a005a') : '#7a005a';
-    $tc_secondary    = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_secondary_color', '#0a9a9c')))    ? Settings::get('theme_secondary_color', '#0a9a9c')    : '#0a9a9c';
-    $tc_accent       = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_accent_color', '#a39f89')))       ? Settings::get('theme_accent_color', '#a39f89')       : '#a39f89';
+    $theme_primary = scalar_string(Settings::get('theme_primary_color', '#9a0073'));
+    $theme_primary_dark = scalar_string(Settings::get('theme_primary_dark_color', '#7a005a'));
+    $theme_secondary = scalar_string(Settings::get('theme_secondary_color', '#0a9a9c'));
+    $theme_accent = scalar_string(Settings::get('theme_accent_color', '#a39f89'));
+    $tc_primary      = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary) ? $theme_primary : '#9a0073';
+    $tc_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) ? $theme_primary_dark : '#7a005a';
+    $tc_secondary    = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_secondary) ? $theme_secondary : '#0a9a9c';
+    $tc_accent       = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_accent) ? $theme_accent : '#a39f89';
     ?>
     <style>
         :root {
@@ -484,8 +548,8 @@ if (isset($error_mode) && $error_mode) {
                 <h1><i class="fas fa-exclamation-circle me-2"></i>Invalid Booking Link</h1>
                 <p class="text-muted mb-0">Please use a valid appointment type link to book</p>
             <?php elseif ($is_standalone && $selected_type): ?>
-                <h1><i class="fas fa-calendar-check me-2"></i>Book <?= escape($selected_type['name']) ?></h1>
-                <p class="text-muted mb-0"><?= escape($selected_type['description']) ?></p>
+                <h1><i class="fas fa-calendar-check me-2"></i>Book <?= escape(public_book_string($selected_type, 'name')) ?></h1>
+                <p class="text-muted mb-0"><?= escape(public_book_string($selected_type, 'description')) ?></p>
                 <?php if (!empty($selected_type['is_mini_session'])): ?>
                     <div class="alert alert-info mt-3 mb-0">
                         <div class="d-flex align-items-start">
@@ -493,11 +557,11 @@ if (isset($error_mode) && $error_mode) {
                             <div>
                                 <h5 class="mb-2"><strong>Mini Sessions Event</strong></h5>
                                 <?php if (!empty($selected_type['mini_session_topic'])): ?>
-                                    <p class="mb-2"><strong>Topic:</strong> <?= escape($selected_type['mini_session_topic']) ?></p>
+                                    <p class="mb-2"><strong>Topic:</strong> <?= escape(public_book_string($selected_type, 'mini_session_topic')) ?></p>
                                 <?php endif; ?>
                                 <p class="mb-0">
                                     <i class="fas fa-map-marker-alt me-2"></i>
-                                    <strong>Location:</strong> <?= escape($selected_type['mini_session_location']) ?>
+                                    <strong>Location:</strong> <?= escape(public_book_string($selected_type, 'mini_session_location')) ?>
                                 </p>
                                 <small class="text-muted d-block mt-2">
                                     This event takes place at a fixed venue. Book your preferred time slot below.
@@ -514,7 +578,7 @@ if (isset($error_mode) && $error_mode) {
                                 <h5 class="mb-2"><strong>Group Class</strong></h5>
                                 <p class="mb-0">
                                     <i class="fas fa-map-marker-alt me-2"></i>
-                                    <strong>Location:</strong> <?= escape($selected_type['group_class_location']) ?>
+                                    <strong>Location:</strong> <?= escape(public_book_string($selected_type, 'group_class_location')) ?>
                                 </p>
                                 <small class="text-muted d-block mt-2">
                                     This class takes place at a fixed venue. Book your spot below.
@@ -531,7 +595,7 @@ if (isset($error_mode) && $error_mode) {
                                 <h5 class="mb-2"><strong>Field Rental</strong></h5>
                                 <p class="mb-0">
                                     <i class="fas fa-map-marker-alt me-2"></i>
-                                    <strong>Location:</strong> <?= escape($selected_type['field_rental_location']) ?>
+                                    <strong>Location:</strong> <?= escape(public_book_string($selected_type, 'field_rental_location')) ?>
                                 </p>
                                 <small class="text-muted d-block mt-2">
                                     Reserve private time at this fenced training field. Book your preferred time slot below.
@@ -585,7 +649,7 @@ if (isset($error_mode) && $error_mode) {
             <!-- Booking Form -->
             <form id="bookingForm">
                 <!-- Hidden input to store the pre-selected appointment type (all pages are standalone now) -->
-                <input type="hidden" name="appointment_type" value="<?= intval($selected_type['id']) ?>" id="standaloneType">
+                <input type="hidden" name="appointment_type" value="<?= public_book_int($selected_type, 'id') ?>" id="standaloneType">
                 
                 <?php
                 // Determine whether this appointment type is locked to specific date(s)
@@ -598,18 +662,18 @@ if (isset($error_mode) && $error_mode) {
 
                     // Try new multi-date format first
                     if (!empty($selected_type['specific_dates'])) {
-                        $parsed_sd = json_decode($selected_type['specific_dates'], true);
-                        if (is_array($parsed_sd) && !empty($parsed_sd)) {
+                        $parsed_sd = public_book_assoc_rows($selected_type['specific_dates']);
+                        if (!empty($parsed_sd)) {
                             // Only keep dates that are today or in the future
                             $today_str = date('Y-m-d');
                             $specific_dates_list = array_values(
-                                array_filter($parsed_sd, fn($e) => !empty($e['date']) && $e['date'] >= $today_str)
+                                array_filter($parsed_sd, fn(array $e): bool => ($date_value = array_string_value($e, 'date')) !== '' && $date_value >= $today_str)
                             );
-                            usort($specific_dates_list, fn($a, $b) => $a['date'] <=> $b['date']);
+                            usort($specific_dates_list, fn(array $a, array $b): int => array_string_value($a, 'date') <=> array_string_value($b, 'date'));
                             if (!empty($specific_dates_list)) {
                                 $is_specific_date_type = true;
                                 if (count($specific_dates_list) === 1) {
-                                    $specific_date_value = $specific_dates_list[0]['date'];
+                                    $specific_date_value = array_string_value($specific_dates_list[0], 'date');
                                 }
                             }
                         }
@@ -618,9 +682,9 @@ if (isset($error_mode) && $error_mode) {
                     // Fall back to legacy single-date
                     if (!$is_specific_date_type
                         && !empty($selected_type['specific_date'])
-                        && DateTime::createFromFormat('Y-m-d', $selected_type['specific_date']) !== false) {
+                        && DateTime::createFromFormat('Y-m-d', public_book_string($selected_type, 'specific_date')) !== false) {
                         $is_specific_date_type = true;
-                        $specific_date_value   = $selected_type['specific_date'];
+                        $specific_date_value   = public_book_string($selected_type, 'specific_date');
                         $specific_dates_list   = [['date' => $specific_date_value, 'timeslots' => []]];
                     }
                 }
@@ -637,13 +701,13 @@ if (isset($error_mode) && $error_mode) {
                             <?php if ($is_specific_date_type && !$is_multi_specific_date): ?>
                             <input type="date" class="form-control form-control-lg" id="appointmentDate"
                                    name="appointment_date" required
-                                   value="<?= htmlspecialchars($specific_date_value) ?>"
-                                   min="<?= htmlspecialchars($specific_date_value) ?>"
-                                   max="<?= htmlspecialchars($specific_date_value) ?>"
+                                   value="<?= htmlspecialchars((string)$specific_date_value) ?>"
+                                   min="<?= htmlspecialchars((string)$specific_date_value) ?>"
+                                   max="<?= htmlspecialchars((string)$specific_date_value) ?>"
                                    readonly>
                             <small class="text-muted mt-2 d-block">
                                 <i class="fas fa-calendar-check me-1"></i>
-                                This session is only available on <strong><?= date('F j, Y', strtotime($specific_date_value)) ?></strong>.
+                                This session is only available on <strong><?= date('F j, Y', safe_timestamp(strtotime((string)$specific_date_value))) ?></strong>.
                             </small>
                             <?php else: ?>
                             <!-- Dates loaded dynamically; only dates with open slots are shown -->
@@ -707,20 +771,23 @@ if (isset($error_mode) && $error_mode) {
                     
                     <div class="row">
                         <?php if ($booking_intake_form): ?>
-                        <?php foreach ($booking_intake_form['fields'] as $bifi => $bifield):
+                        <?php foreach (public_book_assoc_rows($booking_intake_form['fields']) as $bifi => $bifield):
                             $bi_req  = !empty($bifield['required']);
-                            $bi_ph   = htmlspecialchars($bifield['placeholder'] ?? '');
-                            $bi_type = $bifield['type'] ?? 'text';
-                            $bi_map  = $bifield['profile_mapping'] ?? '';
+                            $bi_ph   = htmlspecialchars(array_string_value($bifield, 'placeholder'));
+                            $bi_type = array_string_value($bifield, 'type', 'text');
+                            $bi_map  = array_string_value($bifield, 'profile_mapping');
+                            $bi_label = array_string_value($bifield, 'label');
+                            $bi_description = array_string_value($bifield, 'description');
+                            $bi_options = public_book_string_list($bifield['options'] ?? []);
                             $bi_fn   = 'booking_intake_' . $bifi;
                         ?>
                         <div class="col-12 mb-3">
                             <label class="form-label">
-                                <?= htmlspecialchars($bifield['label']) ?>
+                                <?= htmlspecialchars($bi_label) ?>
                                 <?php if ($bi_req): ?><span class="text-danger">*</span><?php endif; ?>
                             </label>
-                            <?php if (!empty($bifield['description'])): ?>
-                            <div class="form-text text-muted mb-1"><?= htmlspecialchars($bifield['description']) ?></div>
+                            <?php if ($bi_description !== ''): ?>
+                            <div class="form-text text-muted mb-1"><?= htmlspecialchars($bi_description) ?></div>
                             <?php endif; ?>
                             <?php switch ($bi_type):
                                 case 'textarea': ?>
@@ -731,17 +798,17 @@ if (isset($error_mode) && $error_mode) {
                                       rows="3"
                                       <?= $bi_req ? 'required' : '' ?>></textarea>
                             <?php break; case 'select': ?>
-                            <select class="form-select form-select-lg"
+                                <select class="form-select form-select-lg"
                                     data-booking-intake-field="<?= $bifi ?>"
                                     data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
                                     <?= $bi_req ? 'required' : '' ?>>
                                 <option value="">— Select —</option>
-                                <?php foreach ($bifield['options'] ?? [] as $bi_opt): ?>
+                                <?php foreach ($bi_options as $bi_opt): ?>
                                     <option value="<?= htmlspecialchars($bi_opt) ?>"><?= htmlspecialchars($bi_opt) ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <?php break; case 'radio': ?>
-                            <?php foreach ($bifield['options'] ?? [] as $bi_oi => $bi_opt): ?>
+                            <?php foreach ($bi_options as $bi_oi => $bi_opt): ?>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio"
                                        data-booking-intake-field="<?= $bifi ?>"
@@ -754,7 +821,7 @@ if (isset($error_mode) && $error_mode) {
                             </div>
                             <?php endforeach;
                             break; case 'checkbox': ?>
-                            <?php foreach ($bifield['options'] ?? [] as $bi_oi => $bi_opt): ?>
+                            <?php foreach ($bi_options as $bi_oi => $bi_opt): ?>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox"
                                        data-booking-intake-field="<?= $bifi ?>"
@@ -816,8 +883,8 @@ if (isset($error_mode) && $error_mode) {
                         // Determine allowed types from appointment type config
                         $pub_allowed = [];
                         if (!$is_fixed_type && !empty($selected_type['location_types'])) {
-                            $pub_decoded = json_decode($selected_type['location_types'], true);
-                            if (is_array($pub_decoded) && !empty($pub_decoded)) {
+                            $pub_decoded = public_book_string_list(decode_json_assoc(public_book_string($selected_type, 'location_types')));
+                            if (!empty($pub_decoded)) {
                                 $pub_allowed = array_filter($pub_decoded, fn($t) => isset($pub_loc_types_all[$t]));
                             }
                         }
@@ -834,11 +901,11 @@ if (isset($error_mode) && $error_mode) {
                                 <?php if ($is_fixed_type): ?>
                                     <?php
                                     if (!empty($selected_type['is_mini_session'])) {
-                                        $fixed_loc = $selected_type['mini_session_location'] ?? '';
+                                        $fixed_loc = public_book_string($selected_type, 'mini_session_location');
                                     } elseif (!empty($selected_type['is_field_rental'])) {
-                                        $fixed_loc = $selected_type['field_rental_location'] ?? '';
+                                        $fixed_loc = public_book_string($selected_type, 'field_rental_location');
                                     } else {
-                                        $fixed_loc = $selected_type['group_class_location'] ?? '';
+                                        $fixed_loc = public_book_string($selected_type, 'group_class_location');
                                     }
                                     ?>
                                     <p class="mb-1 text-muted small">This appointment has a fixed location:</p>
@@ -882,30 +949,35 @@ if (isset($error_mode) && $error_mode) {
                     <h5 class="mb-1"><i class="fas fa-file-alt me-2"></i>Required Forms</h5>
                     <p class="text-muted mb-3">Please complete the following forms as part of your booking.</p>
                     <?php foreach ($required_forms as $form): ?>
-                        <div class="card mb-4" data-form-id="<?= $form['id'] ?>">
+                        <?php $form_id = public_book_int($form, 'id'); $form_fields = public_book_assoc_rows($form['fields'] ?? []); ?>
+                        <div class="card mb-4" data-form-id="<?= $form_id ?>">
                             <div class="card-header bg-light">
-                                <h6 class="mb-0"><?= htmlspecialchars($form['name']) ?></h6>
-                                <?php if (!empty($form['description'])): ?>
-                                    <small class="text-muted"><?= htmlspecialchars($form['description']) ?></small>
+                                <h6 class="mb-0"><?= htmlspecialchars(public_book_string($form, 'name')) ?></h6>
+                                <?php if (public_book_string($form, 'description') !== ''): ?>
+                                    <small class="text-muted"><?= htmlspecialchars(public_book_string($form, 'description')) ?></small>
                                 <?php endif; ?>
                             </div>
                             <div class="card-body">
-                                <?php foreach ($form['fields'] as $fi => $field):
-                                    $fn = 'form_resp_' . $form['id'] . '_' . $fi;
+                                <?php foreach ($form_fields as $fi => $field):
+                                    $fn = 'form_resp_' . $form_id . '_' . $fi;
                                     $is_req = !empty($field['required']);
-                                    $ph = htmlspecialchars($field['placeholder'] ?? '');
+                                    $ph = htmlspecialchars(array_string_value($field, 'placeholder'));
+                                    $field_label = array_string_value($field, 'label');
+                                    $field_description = array_string_value($field, 'description');
+                                    $field_type = array_string_value($field, 'type', 'text');
+                                    $field_options = public_book_string_list($field['options'] ?? []);
                                 ?>
                                 <div class="mb-3">
                                     <label class="form-label">
-                                        <?= htmlspecialchars($field['label']) ?>
+                                        <?= htmlspecialchars($field_label) ?>
                                         <?php if ($is_req): ?><span class="text-danger">*</span><?php endif; ?>
                                     </label>
-                                    <?php if (!empty($field['description'])): ?>
-                                    <div class="form-text text-muted mb-1" id="field-desc-<?= $form['id'] ?>-<?= $fi ?>"><?= htmlspecialchars($field['description']) ?></div>
+                                    <?php if ($field_description !== ''): ?>
+                                    <div class="form-text text-muted mb-1" id="field-desc-<?= $form_id ?>-<?= $fi ?>"><?= htmlspecialchars($field_description) ?></div>
                                     <?php endif; ?>
                                     <?php
-                                    $aria = !empty($field['description']) ? 'aria-describedby="field-desc-' . $form['id'] . '-' . $fi . '"' : '';
-                                    switch ($field['type']):
+                                    $aria = $field_description !== '' ? 'aria-describedby="field-desc-' . $form_id . '-' . $fi . '"' : '';
+                                    switch ($field_type):
                                         case 'textarea': ?>
                                         <textarea class="form-control" data-form-field="<?= $fi ?>"
                                                   placeholder="<?= $ph ?>"
@@ -914,12 +986,12 @@ if (isset($error_mode) && $error_mode) {
                                         <?php break; case 'select': ?>
                                         <select class="form-select" data-form-field="<?= $fi ?>" <?= $aria ?> <?= $is_req ? 'required' : '' ?>>
                                             <option value="">— Select —</option>
-                                            <?php foreach ($field['options'] ?? [] as $opt): ?>
+                                            <?php foreach ($field_options as $opt): ?>
                                                 <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                         <?php break; case 'radio': ?>
-                                        <?php foreach ($field['options'] ?? [] as $oi => $opt): ?>
+                                        <?php foreach ($field_options as $oi => $opt): ?>
                                         <div class="form-check">
                                             <input class="form-check-input" type="radio"
                                                    data-form-field="<?= $fi ?>"
@@ -932,7 +1004,7 @@ if (isset($error_mode) && $error_mode) {
                                         </div>
                                         <?php endforeach;
                                         break; case 'checkbox': ?>
-                                        <?php foreach ($field['options'] ?? [] as $oi => $opt): ?>
+                                        <?php foreach ($field_options as $oi => $opt): ?>
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox"
                                                    data-form-field="<?= $fi ?>"
@@ -943,7 +1015,7 @@ if (isset($error_mode) && $error_mode) {
                                         </div>
                                         <?php endforeach;
                                         break; default: ?>
-                                        <input type="<?= htmlspecialchars($field['type']) ?>"
+                                        <input type="<?= htmlspecialchars($field_type) ?>"
                                                class="form-control" data-form-field="<?= $fi ?>"
                                                placeholder="<?= $ph ?>"
                                                <?= $aria ?>
@@ -962,10 +1034,10 @@ if (isset($error_mode) && $error_mode) {
                     <p class="text-muted mb-3">Please review and sign the following contract to continue with your booking.</p>
                     <div class="card mb-3">
                         <div class="card-header bg-light">
-                            <h6 class="mb-0"><?= htmlspecialchars($required_contract['name']) ?></h6>
+                            <h6 class="mb-0"><?= htmlspecialchars(public_book_string($required_contract, 'name')) ?></h6>
                         </div>
                         <div class="card-body">
-                            <div class="border rounded p-3 mb-4 bg-white" style="max-height: 300px; overflow-y: auto; font-size: 0.9rem;"><?= $required_contract['template_text'] ?></div>
+                            <div class="border rounded p-3 mb-4 bg-white" style="max-height: 300px; overflow-y: auto; font-size: 0.9rem;"><?= public_book_string($required_contract, 'template_text') ?></div>
 
                             <!-- Typed Name -->
                             <div class="mb-4">
@@ -1020,7 +1092,7 @@ if (isset($error_mode) && $error_mode) {
                                 </label>
                             </div>
 
-                            <input type="hidden" name="contract_template_id" value="<?= intval($required_contract['id']) ?>">
+                            <input type="hidden" name="contract_template_id" value="<?= public_book_int($required_contract, 'id') ?>">
                             <input type="hidden" id="contractSignatureFont" name="contract_signature_font" value="font-dancing">
                         </div>
                     </div>
@@ -1151,10 +1223,11 @@ if (isset($error_mode) && $error_mode) {
     $is_specific_date_type = $is_specific_date_type ?? false;
     $specific_date_value = $specific_date_value ?? null;
     $is_multi_specific_date = $is_multi_specific_date ?? false;
-    $js_type_id = $selected_type ? intval($selected_type['id']) : 'null';
-    $js_type_name = $selected_type ? json_encode($selected_type['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null';
-    $js_type_duration = ($selected_type && isset($selected_type['duration_minutes']) && $selected_type['duration_minutes'] > 0) 
-        ? intval($selected_type['duration_minutes']) 
+    $js_type_id = $selected_type ? public_book_int($selected_type, 'id') : 'null';
+    $js_type_name = $selected_type ? json_encode(public_book_string($selected_type, 'name'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null';
+    $selected_type_duration = $selected_type ? public_book_int($selected_type, 'duration_minutes') : 0;
+    $js_type_duration = ($selected_type && $selected_type_duration > 0)
+        ? $selected_type_duration
         : 'null';
     // For single specific date, pre-load it; for multi-date or free choice, start as null
     $js_specific_date = ($is_specific_date_type && $specific_date_value && !$is_multi_specific_date)
@@ -1182,21 +1255,22 @@ if (isset($error_mode) && $error_mode) {
             $map = [];
             foreach ($required_forms as $form) {
                 $fmap = [];
-                foreach ($form['fields'] as $fi => $field) {
-                    if (!empty($field['profile_mapping'])) {
-                        $fmap[$fi] = $field['profile_mapping'];
+                foreach (public_book_assoc_rows($form['fields'] ?? []) as $fi => $field) {
+                    $profile_mapping = array_string_value($field, 'profile_mapping');
+                    if ($profile_mapping !== '') {
+                        $fmap[$fi] = $profile_mapping;
                     }
                 }
-                if (!empty($fmap)) $map[$form['id']] = $fmap;
+                if (!empty($fmap)) $map[public_book_int($form, 'id')] = $fmap;
             }
             return json_encode($map, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         })() ?>;
 
         // Booking intake form fields configuration (null = use built-in hardcoded fields)
         const bookingIntakeFields = <?= ($booking_intake_form && !empty($booking_intake_form['fields']))
-            ? json_encode($booking_intake_form['fields'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
+            ? json_encode(public_book_assoc_rows($booking_intake_form['fields']), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
             : 'null' ?>;
-        const bookingIntakeFormId = <?= ($booking_intake_form) ? intval($booking_intake_form['id']) : 'null' ?>;
+        const bookingIntakeFormId = <?= ($booking_intake_form) ? public_book_int($booking_intake_form, 'id') : 'null' ?>;
 
         /**
          * Collect values from the dynamic booking intake form fields.

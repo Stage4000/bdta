@@ -34,7 +34,7 @@ class Settings {
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($result) {
-            $value = self::castValue($result['setting_value'], $result['setting_type']);
+            $value = self::castValue($result['setting_value'], scalar_string($result['setting_type'] ?? ''));
             self::$cache[$key] = $value;
             return $value;
         }
@@ -195,7 +195,7 @@ class Settings {
     public static function getCategories(): array {
         $db = self::getDB();
         $stmt = $db->query("SELECT DISTINCT category FROM settings ORDER BY category");
-        $categories = array_values($stmt->fetchAll(PDO::FETCH_COLUMN));
+        $categories = $stmt->fetchAll(PDO::FETCH_COLUMN);
         
         // Always include database category (it's read from .env)
         if (!in_array('database', $categories)) {

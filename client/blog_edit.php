@@ -8,28 +8,28 @@ if (empty($_SESSION['csrf_token'])) {
 $db = new Database();
 $conn = $db->getConnection();
 
-$post_id = $_GET['id'] ?? null;
+$post_id = safe_int($_GET['id'] ?? 0);
 $post = null;
 
-if ($post_id) {
+if ($post_id > 0) {
     $stmt = $conn->prepare("SELECT * FROM blog_posts WHERE id = ?");
     $stmt->execute([$post_id]);
     $post = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token'] ?? ''))) {
         setFlashMessage('Invalid request.', 'error');
         redirect('blog_list.php');
     }
 
-    $title = $_POST['title'] ?? '';
-    $slug = $_POST['slug'] ?? '';
-    $content = $_POST['content'] ?? '';
-    $excerpt = $_POST['excerpt'] ?? '';
+    $title = scalar_string($_POST['title'] ?? '');
+    $slug = scalar_string($_POST['slug'] ?? '');
+    $content = scalar_string($_POST['content'] ?? '');
+    $excerpt = scalar_string($_POST['excerpt'] ?? '');
     $published = isset($_POST['published']) ? 1 : 0;
-    $publish_date_input = $_POST['publish_date'] ?? '';
-    $publish_date = $post ? ($post['publish_date'] ?? $post['created_at']) : date('Y-m-d H:i:s');
+    $publish_date_input = scalar_string($_POST['publish_date'] ?? '');
+    $publish_date = $post ? array_string_value($post, 'publish_date', array_string_value($post, 'created_at', date('Y-m-d H:i:s'))) : date('Y-m-d H:i:s');
     $hasError = false;
 
     if ($publish_date_input) {
@@ -38,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($formats as $fmt) {
             $candidate = DateTime::createFromFormat($fmt, $publish_date_input);
             $errors = DateTime::getLastErrors();
-            if ($candidate !== false && ($errors['warning_count'] ?? 0) === 0 && ($errors['error_count'] ?? 0) === 0) {
+            $warning_count = is_array($errors) ? safe_int($errors['warning_count'] ?? 0) : 0;
+            $error_count = is_array($errors) ? safe_int($errors['error_count'] ?? 0) : 0;
+            if ($candidate !== false && $warning_count === 0 && $error_count === 0) {
                 $dt = $candidate;
                 break;
             }
@@ -51,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if (!$hasError) {
-        $author = $_SESSION['admin_username'];
+        $author = scalar_string($_SESSION['admin_username'] ?? '');
         
         try {
             if ($post_id) {
@@ -78,7 +80,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $page_title = $post ? 'Edit Post' : 'New Post';
-$publish_date_value = $post ? ($post['publish_date'] ?? $post['created_at']) : date('Y-m-d H:i:s');
+$post_title = $post ? array_string_value($post, 'title') : '';
+$post_slug = $post ? array_string_value($post, 'slug') : '';
+$post_excerpt = $post ? array_string_value($post, 'excerpt') : '';
+$post_content = $post ? array_string_value($post, 'content') : '';
+$post_published = $post ? array_int_value($post, 'published') === 1 : false;
+$publish_date_value = $post ? array_string_value($post, 'publish_date', array_string_value($post, 'created_at', date('Y-m-d H:i:s'))) : date('Y-m-d H:i:s');
 $publish_date_value = date('Y-m-d\\TH:i', strtotime($publish_date_value));
 require_once '../backend/includes/header.php';
 ?>
@@ -89,33 +96,33 @@ require_once '../backend/includes/header.php';
     <div class="card">
         <div class="card-body">
             <form method="POST">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                 <div class="mb-3">
                     <label for="title" class="form-label">Title</label>
                     <input type="text" class="form-control" id="title" name="title" 
-                           value="<?php echo $post ? escape($post['title']) : ''; ?>" required>
+                           value="<?php echo escape($post_title); ?>" required>
                 </div>
                 
                 <div class="mb-3">
                     <label for="slug" class="form-label">Slug (URL-friendly)</label>
                     <input type="text" class="form-control" id="slug" name="slug" 
-                           value="<?php echo $post ? escape($post['slug']) : ''; ?>" required>
+                           value="<?php echo escape($post_slug); ?>" required>
                     <small class="text-muted">e.g., dog-training-tips</small>
                 </div>
                 
                 <div class="mb-3">
                     <label for="excerpt" class="form-label">Excerpt</label>
-                    <textarea class="form-control" id="excerpt" name="excerpt" rows="3"><?php echo $post ? escape($post['excerpt']) : ''; ?></textarea>
+                    <textarea class="form-control" id="excerpt" name="excerpt" rows="3"><?php echo escape($post_excerpt); ?></textarea>
                 </div>
                 
                 <div class="mb-3">
                     <label for="content" class="form-label">Content</label>
-                    <textarea class="form-control" id="content" name="content" rows="15" required><?php echo $post ? escape($post['content']) : ''; ?></textarea>
+                    <textarea class="form-control" id="content" name="content" rows="15" required><?php echo escape($post_content); ?></textarea>
                 </div>
                 
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" id="published" name="published" 
-                           <?php echo ($post && $post['published']) ? 'checked' : ''; ?>>
+                           <?php echo $post_published ? 'checked' : ''; ?>>
                     <label class="form-check-label" for="published">
                         Publish (will show when publish date is reached)
                     </label>

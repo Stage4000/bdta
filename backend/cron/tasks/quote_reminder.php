@@ -92,18 +92,21 @@ class QuoteReminderTask {
     private function sendQuoteReminder(array $quote): array {
         $email_service = new EmailService(null, $this->conn);
         
-        $client_name = htmlspecialchars($quote['client_name']);
-        $quote_title = htmlspecialchars($quote['title']);
-        $quote_amount = number_format($quote['amount'], 2);
-        $quote_link = getDynamicBaseUrl() . '/backend/public/quote.php?id=' . $quote['id'];
+        $client_name = htmlspecialchars(scalar_string($quote['client_name'] ?? ''));
+        $quote_title = htmlspecialchars(scalar_string($quote['title'] ?? ''));
+        $quote_amount = number_format(safe_float($quote['amount'] ?? 0), 2);
+        $quote_link = getDynamicBaseUrl() . '/backend/public/quote.php?id=' . scalar_string($quote['id'] ?? '');
+        $expiration_date = scalar_string($quote['expiration_date'] ?? '');
+        $client_email = scalar_string($quote['client_email'] ?? '');
+        $client_id = $quote['client_id'] ?? null;
         
         // Check if quote expires soon
         $expires_soon = false;
         $days_until_expiry = null;
-        if ($quote['expiration_date']) {
-            $expiry = strtotime($quote['expiration_date']);
+        if ($expiration_date !== '') {
+            $expiry = strtotime($expiration_date);
             $now = time();
-            $days_until_expiry = ceil(($expiry - $now) / 86400);
+            $days_until_expiry = (int) ceil((safe_timestamp($expiry) - $now) / 86400);
             $expires_soon = $days_until_expiry <= 7;
         }
         
@@ -184,7 +187,7 @@ HTML;
         $text_body .= "If you have any questions, please don't hesitate to reach out.\n\n";
         $text_body .= "Best regards,\nBrook Lefkowitz\nBrook's Dog Training Academy";
         
-        return $email_service->sendGenericEmail($quote['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_QUOTE_REMINDER, $quote['client_id'] ?? null);
+        return $email_service->sendGenericEmail($client_email, $subject, $html_body, $text_body, EmailService::MAIL_TYPE_QUOTE_REMINDER, is_int($client_id) || is_string($client_id) ? $client_id : null);
     }
 }
 ?>

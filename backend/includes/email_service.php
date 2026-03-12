@@ -87,13 +87,39 @@ class EmailService {
     private ?PDO $conn;
 
     public function __construct(?string $base_url = null, ?PDO $conn = null) {
-        $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
-        $this->from_name  = Settings::get('email_from_name',    "Brook's Dog Training Academy");
+        $this->from_email = self::settingString('email_from_address', 'bookings@brooksdogtrainingacademy.com');
+        $this->from_name  = self::settingString('email_from_name', "Brook's Dog Training Academy");
 
         // Use provided base_url, or get it dynamically.
         // getDynamicBaseUrl() handles both HTTP and CLI contexts internally.
         $this->base_url = $base_url ?? getDynamicBaseUrl();
         $this->conn     = $conn;
+    }
+
+    private static function settingString(string $key, string $default = ''): string {
+        return scalar_string(Settings::get($key, $default));
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function rowString(array $row, string $key, string $default = ''): string {
+        return scalar_string($row[$key] ?? $default);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function rowFloat(array $row, string $key, float $default = 0.0): float {
+        return safe_float($row[$key] ?? $default);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function rowId(array $row, string $key = 'client_id'): int|string|null {
+        $value = $row[$key] ?? null;
+        return is_int($value) || is_string($value) ? $value : null;
     }
 
     // =========================================================================
@@ -300,7 +326,8 @@ class EmailService {
             );
             $stmt->execute([$appointment_type_id]);
             $tmpl = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($tmpl) {
+            if (is_array($tmpl)) {
+                /** @var array<string, mixed> $tmpl */
                 return $tmpl;
             }
         }
@@ -312,7 +339,8 @@ class EmailService {
             );
             $stmt->execute([$rule_template_id]);
             $tmpl = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($tmpl) {
+            if (is_array($tmpl)) {
+                /** @var array<string, mixed> $tmpl */
                 return $tmpl;
             }
         }
@@ -320,14 +348,15 @@ class EmailService {
         // 3. Check system default setting
         if (isset($default_setting_map[$template_type])) {
             $setting_key = $default_setting_map[$template_type];
-            $default_id = (int) Settings::get($setting_key, 0);
+            $default_id = safe_int(Settings::get($setting_key, 0));
             if ($default_id > 0) {
                 $stmt = $this->conn->prepare(
                     "SELECT * FROM email_templates WHERE id = ? AND is_active = 1"
                 );
                 $stmt->execute([$default_id]);
                 $tmpl = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($tmpl) {
+                if (is_array($tmpl)) {
+                    /** @var array<string, mixed> $tmpl */
                     return $tmpl;
                 }
             }
@@ -348,15 +377,16 @@ class EmailService {
      * @return RenderedTemplate ['subject' => …, 'body_html' => …, 'body_text' => …]
      */
     public function renderTemplate(array $template, array $variables): array {
-        $subject   = $template['subject']   ?? '';
-        $body_html = $template['body_html'] ?? '';
-        $body_text = $template['body_text'] ?? '';
+        $subject   = self::rowString($template, 'subject');
+        $body_html = self::rowString($template, 'body_html');
+        $body_text = self::rowString($template, 'body_text');
 
         foreach ($variables as $key => $value) {
             $placeholder = '{{' . $key . '}}';
-            $subject   = str_replace($placeholder, $value, $subject);
-            $body_html = str_replace($placeholder, $value, $body_html);
-            $body_text = str_replace($placeholder, $value, $body_text);
+            $replacement = scalar_string($value);
+            $subject   = str_replace($placeholder, $replacement, $subject);
+            $body_html = str_replace($placeholder, $replacement, $body_html);
+            $body_text = str_replace($placeholder, $replacement, $body_text);
         }
 
         // Apply the standard email wrapper so custom templates get the same
@@ -395,7 +425,7 @@ class EmailService {
         }
 
         if ($business_name === '') {
-            $business_name = Settings::get('site_name', "Brook's Dog Training Academy");
+            $business_name = self::settingString('site_name', "Brook's Dog Training Academy");
         }
         $year         = date('Y');
         $business_esc = htmlspecialchars($business_name);
@@ -439,20 +469,23 @@ HTML;
      * @return MailResult
      */
     public function sendBookingConfirmation(array $booking): array {
-        $to = $booking['client_email'];
+        $to = self::rowString($booking, 'client_email');
+        $booking_id = self::rowString($booking, 'id');
+        $appointment_date = self::rowString($booking, 'appointment_date');
+        $appointment_time = self::rowString($booking, 'appointment_time');
+        $appointment_type_id = ($booking['appointment_type_id'] ?? null) !== null ? safe_int($booking['appointment_type_id']) : 0;
         
         // Generate calendar links
         require_once __DIR__ . '/icalendar.php';
         $google_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
-        $ical_link = $this->base_url . '/backend/public/download_ical.php?booking_id=' . $booking['id'];
+        $ical_link = $this->base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
         
         // Format date and time nicely
-        $date = date('l, F j, Y', strtotime($booking['appointment_date']));
-        $time = date('g:i A', strtotime($booking['appointment_time']));
+        $date = date('l, F j, Y', safe_timestamp(strtotime($appointment_date)));
+        $time = date('g:i A', safe_timestamp(strtotime($appointment_time)));
 
         // Try to use a custom DB template (appointment-type override or system default)
-        $appointment_type_id = !empty($booking['appointment_type_id']) ? (int)$booking['appointment_type_id'] : null;
-        $db_template = $this->getTemplateForTask('booking_confirmation', $appointment_type_id);
+        $db_template = $this->getTemplateForTask('booking_confirmation', $appointment_type_id > 0 ? $appointment_type_id : null);
 
         if ($db_template) {
             $variables = $this->buildBookingVariables($booking, $date, $time, $google_link, $ical_link);
@@ -469,7 +502,7 @@ HTML;
         
         // Route through central mail router
         return $this->routeMail(self::MAIL_TYPE_BOOKING_CONFIRMATION, $to, $subject, $html_body, $text_body, [
-            'client_id' => $booking['client_id'] ?? null,
+            'client_id' => self::rowId($booking),
         ]);
     }
 
@@ -485,18 +518,18 @@ HTML;
      * @return MailResult
      */
     public function sendBookingCancellation(array $booking, string $reason = ''): array {
-        $to = $booking['client_email'] ?? '';
+        $to = self::rowString($booking, 'client_email');
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
         }
 
         // Format date and time nicely
-        $date = date('l, F j, Y', strtotime($booking['appointment_date']));
-        $time = date('g:i A', strtotime($booking['appointment_time']));
+        $date = date('l, F j, Y', safe_timestamp(strtotime(self::rowString($booking, 'appointment_date'))));
+        $time = date('g:i A', safe_timestamp(strtotime(self::rowString($booking, 'appointment_time'))));
 
         // Try to use a custom DB template (appointment-type override or system default)
-        $appointment_type_id = !empty($booking['appointment_type_id']) ? (int)$booking['appointment_type_id'] : null;
-        $db_template = $this->getTemplateForTask('booking_cancellation', $appointment_type_id);
+        $appointment_type_id = safe_int($booking['appointment_type_id'] ?? 0);
+        $db_template = $this->getTemplateForTask('booking_cancellation', $appointment_type_id > 0 ? $appointment_type_id : null);
 
         if ($db_template) {
             $variables = array_merge(
@@ -515,7 +548,7 @@ HTML;
         }
 
         return $this->routeMail(self::MAIL_TYPE_BOOKING_CANCELLATION, $to, $subject, $html_body, $text_body, [
-            'client_id' => $booking['client_id'] ?? null,
+            'client_id' => self::rowId($booking),
         ]);
     }
 
@@ -533,7 +566,7 @@ HTML;
      * @return MailResult
      */
     public function sendBookingReschedule(array $booking, string $old_date, string $old_time, string $reason = ''): array {
-        $to = $booking['client_email'] ?? '';
+        $to = self::rowString($booking, 'client_email');
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
         }
@@ -543,10 +576,10 @@ HTML;
         $old_date_fmt = date('l, F j, Y', safe_timestamp(strtotime($old_date)));
         $old_time_fmt = date('g:i A', safe_timestamp(strtotime($old_time)));
 
-        $business_name  = Settings::get('site_name', "Brook's Dog Training Academy");
-        $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
-        $client_name    = $booking['client_name'] ?? 'Valued Client';
-        $service        = $booking['service_type'] ?? '';
+        $business_name  = self::settingString('site_name', "Brook's Dog Training Academy");
+        $business_email = self::settingString('business_email', 'bookings@brooksdogtrainingacademy.com');
+        $client_name    = self::rowString($booking, 'client_name', 'Valued Client');
+        $service        = self::rowString($booking, 'service_type');
 
         $subject = "Appointment Rescheduled - {$business_name}";
 
@@ -581,7 +614,7 @@ HTML;
             . "\nQuestions? Contact us at {$business_email}.\n\nBest regards,\n{$business_name}";
 
         return $this->routeMail(self::MAIL_TYPE_BOOKING_CONFIRMATION, $to, $subject, $html_body, $text_body, [
-            'client_id' => $booking['client_id'] ?? null,
+            'client_id' => self::rowId($booking),
         ]);
     }
 
@@ -600,19 +633,20 @@ HTML;
      * @return MailResult
      */
     public function sendAdminBookingChangeNotification(array $booking, string $change_type, string $reason = '', string $old_date = '', string $old_time = ''): array {
-        $admin_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
+        $admin_email = self::settingString('business_email', 'bookings@brooksdogtrainingacademy.com');
         if (empty($admin_email)) {
             return ['success' => false, 'message' => 'No admin email configured'];
         }
 
-        $business_name = Settings::get('site_name', "Brook's Dog Training Academy");
-        $client_name   = $booking['client_name'] ?? 'A client';
-        $service       = $booking['service_type'] ?? '';
+        $business_name = self::settingString('site_name', "Brook's Dog Training Academy");
+        $client_name   = self::rowString($booking, 'client_name', 'A client');
+        $service       = self::rowString($booking, 'service_type');
+        $booking_id = self::rowString($booking, 'id');
 
         if ($change_type === 'cancellation') {
             $subject = "Client Cancellation: {$client_name} - {$business_name}";
-            $date_fmt = date('l, F j, Y', strtotime($booking['appointment_date']));
-            $time_fmt = date('g:i A', strtotime($booking['appointment_time']));
+            $date_fmt = date('l, F j, Y', safe_timestamp(strtotime(self::rowString($booking, 'appointment_date'))));
+            $time_fmt = date('g:i A', safe_timestamp(strtotime(self::rowString($booking, 'appointment_time'))));
             $detail_rows = "
                 <tr><td style='padding:8px; border:1px solid #ddd; background:#f9f9f9;'><strong>Date</strong></td>
                     <td style='padding:8px; border:1px solid #ddd;'>{$date_fmt}</td></tr>
@@ -649,13 +683,13 @@ HTML;
                 {$detail_rows}
             </table>" .
             (!empty($reason) ? "<p><strong>Client reason:</strong> " . htmlspecialchars($reason) . "</p>" : "") .
-            "<p>Booking ID: #{$booking['id']}</p>
+            "<p>Booking ID: #{$booking_id}</p>
         </div>";
 
         $text_body = "Appointment {$action_label} by client\n\n"
             . "Client: {$client_name}\nService: {$service}\n"
             . (!empty($reason) ? "Reason: {$reason}\n" : '')
-            . "Booking ID: #{$booking['id']}\n";
+            . "Booking ID: #{$booking_id}\n";
 
         return $this->routeMail(self::MAIL_TYPE_GENERIC, $admin_email, $subject, $html_body, $text_body);
     }
@@ -668,27 +702,27 @@ HTML;
      * @return MailResult Result array with 'success' and 'message' keys
      */
     public function sendPaymentReceipt(array $invoice, ?array $installment = null, array $items = []): array {
-        $to = $invoice['client_email'] ?? '';
+        $to = self::rowString($invoice, 'client_email');
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
         }
 
-        $client_name    = $invoice['client_name'] ?? 'Valued Client';
-        $invoice_number = $invoice['invoice_number'] ?? '';
-        $business_name  = Settings::get('site_name', "Brook's Dog Training Academy");
-        $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
+        $client_name    = self::rowString($invoice, 'client_name', 'Valued Client');
+        $invoice_number = self::rowString($invoice, 'invoice_number');
+        $business_name  = self::settingString('site_name', "Brook's Dog Training Academy");
+        $business_email = self::settingString('business_email', 'bookings@brooksdogtrainingacademy.com');
 
         // CC the business on receipts for record-keeping
         $cc = array_filter([$business_email]);
 
         if ($installment) {
             // Installment receipt
-            $amount        = number_format($installment['amount'], 2);
+            $amount        = number_format(self::rowFloat($installment, 'amount'), 2);
             $payment_date  = !empty($installment['payment_date'])
-                ? date('F j, Y', strtotime($installment['payment_date']))
+                ? date('F j, Y', safe_timestamp(strtotime(self::rowString($installment, 'payment_date'))))
                 : date('F j, Y');
-            $payment_method = ucwords(str_replace('_', ' ', $installment['payment_method'] ?? ''));
-            $inst_number   = $installment['installment_number'];
+            $payment_method = ucwords(str_replace('_', ' ', self::rowString($installment, 'payment_method')));
+            $inst_number   = self::rowString($installment, 'installment_number');
 
             $subject = "Payment Receipt — {$business_name} (Invoice {$invoice_number}, Installment #{$inst_number})";
 
@@ -696,11 +730,11 @@ HTML;
             $items_text = '';
         } else {
             // Full invoice receipt
-            $amount        = number_format($invoice['total_amount'], 2);
+            $amount        = number_format(self::rowFloat($invoice, 'total_amount'), 2);
             $payment_date  = !empty($invoice['payment_date'])
-                ? date('F j, Y', strtotime($invoice['payment_date']))
+                ? date('F j, Y', safe_timestamp(strtotime(self::rowString($invoice, 'payment_date'))))
                 : date('F j, Y');
-            $payment_method = ucwords(str_replace('_', ' ', $invoice['payment_method'] ?? ''));
+            $payment_method = ucwords(str_replace('_', ' ', self::rowString($invoice, 'payment_method')));
             $inst_number   = null;
 
             $subject = "Payment Receipt — {$business_name} (Invoice {$invoice_number})";
@@ -709,10 +743,10 @@ HTML;
             $items_html = '';
             $items_text = '';
             foreach ($items as $item) {
-                $desc   = htmlspecialchars($item['description'] ?? '');
-                $qty    = number_format($item['quantity'], 2);
-                $rate   = number_format($item['rate'], 2);
-                $lamt   = number_format($item['amount'], 2);
+                $desc   = htmlspecialchars(self::rowString($item, 'description'));
+                $qty    = number_format(self::rowFloat($item, 'quantity'), 2);
+                $rate   = number_format(self::rowFloat($item, 'rate'), 2);
+                $lamt   = number_format(self::rowFloat($item, 'amount'), 2);
                 $items_html .= "<tr><td>{$desc}</td><td style='text-align:right'>{$qty}</td>"
                     . "<td style='text-align:right'>\${$rate}</td>"
                     . "<td style='text-align:right'>\${$lamt}</td></tr>";
@@ -810,7 +844,7 @@ HTML;
 
         return $this->routeMail(self::MAIL_TYPE_PAYMENT_RECEIPT, $to, $subject, $html_body, $text_body, [
             'cc'        => $cc,
-            'client_id' => $invoice['client_id'] ?? null,
+            'client_id' => self::rowId($invoice),
         ]);
     }
 
@@ -822,28 +856,28 @@ HTML;
      * @return MailResult Result array with 'success' and 'message' keys
      */
     public function sendInvoiceEmail(array $invoice, array $items = []): array {
-        $to = $invoice['client_email'] ?? '';
+        $to = self::rowString($invoice, 'client_email');
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
         }
 
-        $client_name    = $invoice['client_name'] ?? 'Valued Client';
-        $invoice_number = $invoice['invoice_number'] ?? '';
-        $invoice_id     = $invoice['id'] ?? 0;
-        $business_name  = Settings::get('site_name', "Brook's Dog Training Academy");
-        $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
-        $total_amount   = number_format($invoice['total_amount'], 2);
+        $client_name    = self::rowString($invoice, 'client_name', 'Valued Client');
+        $invoice_number = self::rowString($invoice, 'invoice_number');
+        $invoice_id     = self::rowString($invoice, 'id', '0');
+        $business_name  = self::settingString('site_name', "Brook's Dog Training Academy");
+        $business_email = self::settingString('business_email', 'bookings@brooksdogtrainingacademy.com');
+        $total_amount   = number_format(self::rowFloat($invoice, 'total_amount'), 2);
         $due_date       = !empty($invoice['due_date'])
-            ? date('F j, Y', strtotime($invoice['due_date']))
+            ? date('F j, Y', safe_timestamp(strtotime(self::rowString($invoice, 'due_date'))))
             : '';
         $issue_date     = !empty($invoice['issue_date'])
-            ? date('F j, Y', strtotime($invoice['issue_date']))
+            ? date('F j, Y', safe_timestamp(strtotime(self::rowString($invoice, 'issue_date'))))
             : '';
 
         $subject = "Invoice {$invoice_number} — {$business_name}";
 
         // Use the secure pay_token for the guest payment link if available
-        $pay_token    = $invoice['pay_token'] ?? '';
+        $pay_token    = self::rowString($invoice, 'pay_token');
         $guest_pay_url = !empty($pay_token)
             ? $this->base_url . '/portal/invoice_pay.php?token=' . urlencode($pay_token)
             : $this->base_url . '/portal/invoice_view.php?id=' . $invoice_id;
@@ -878,12 +912,12 @@ HTML;
 
         // Build line-item HTML and text
         $items_html = '';
-        $items_text = '';
-        foreach ($items as $item) {
-            $desc  = htmlspecialchars($item['description'] ?? '');
-            $qty   = number_format($item['quantity'], 2);
-            $rate  = number_format($item['rate'], 2);
-            $lamt  = number_format($item['amount'], 2);
+            $items_text = '';
+            foreach ($items as $item) {
+                $desc  = htmlspecialchars(self::rowString($item, 'description'));
+                $qty   = number_format(self::rowFloat($item, 'quantity'), 2);
+                $rate  = number_format(self::rowFloat($item, 'rate'), 2);
+                $lamt  = number_format(self::rowFloat($item, 'amount'), 2);
             $items_html .= "<tr><td>{$desc}</td><td style='text-align:right'>{$qty}</td>"
                 . "<td style='text-align:right'>\${$rate}</td>"
                 . "<td style='text-align:right'>\${$lamt}</td></tr>";
@@ -957,7 +991,7 @@ HTML;
             . "Thank you for choosing {$business_name}!";
 
         return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body, [
-            'client_id' => $invoice['client_id'] ?? null,
+            'client_id' => self::rowId($invoice),
         ]);
     }
 
@@ -969,23 +1003,23 @@ HTML;
      * @return MailResult
      */
     public function sendQuoteEmail(array $quote, array $items = []): array {
-        $to = $quote['client_email'] ?? '';
+        $to = self::rowString($quote, 'client_email');
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
         }
 
-        $client_name   = $quote['client_name'] ?? 'Valued Client';
-        $quote_title   = htmlspecialchars($quote['title'] ?? '');
-        $quote_number  = $quote['quote_number'] ?? '';
-        $quote_amount  = number_format($quote['amount'], 2);
-        $quote_link    = $this->base_url . '/backend/public/quote.php?id=' . ($quote['id'] ?? 0);
-        $business_name = Settings::get('site_name', "Brook's Dog Training Academy");
-        $business_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
+        $client_name   = self::rowString($quote, 'client_name', 'Valued Client');
+        $quote_title   = htmlspecialchars(self::rowString($quote, 'title'));
+        $quote_number  = self::rowString($quote, 'quote_number');
+        $quote_amount  = number_format(self::rowFloat($quote, 'amount'), 2);
+        $quote_link    = $this->base_url . '/backend/public/quote.php?id=' . self::rowString($quote, 'id', '0');
+        $business_name = self::settingString('site_name', "Brook's Dog Training Academy");
+        $business_email = self::settingString('business_email', 'bookings@brooksdogtrainingacademy.com');
 
         $expiration_html = '';
         $expiration_text = '';
         if (!empty($quote['expiration_date'])) {
-            $exp_formatted = date('F j, Y', strtotime($quote['expiration_date']));
+            $exp_formatted = date('F j, Y', safe_timestamp(strtotime(self::rowString($quote, 'expiration_date'))));
             $expiration_html = "<p><strong>Expiration Date:</strong> {$exp_formatted}</p>";
             $expiration_text = "Expiration Date: {$exp_formatted}\n";
         }
@@ -994,10 +1028,10 @@ HTML;
         $items_html = '';
         $items_text = '';
         foreach ($items as $item) {
-            $desc  = htmlspecialchars($item['description'] ?? '');
-            $qty   = (int)($item['quantity'] ?? 1);
-            $rate  = number_format($item['unit_price'] ?? 0, 2);
-            $lamt  = number_format($item['amount'] ?? 0, 2);
+            $desc  = htmlspecialchars(self::rowString($item, 'description'));
+            $qty   = safe_int($item['quantity'] ?? 1);
+            $rate  = number_format(self::rowFloat($item, 'unit_price'), 2);
+            $lamt  = number_format(self::rowFloat($item, 'amount'), 2);
             $items_html .= "<tr>"
                 . "<td style='padding:6px 8px'>{$desc}</td>"
                 . "<td style='text-align:center;padding:6px 8px'>{$qty}</td>"
@@ -1086,7 +1120,7 @@ HTML;
             . "Thank you for choosing {$business_name}!";
 
         return $this->routeMail(self::MAIL_TYPE_QUOTE, $to, $subject, $html_body, $text_body, [
-            'client_id' => $quote['client_id'] ?? null,
+            'client_id' => self::rowId($quote),
         ]);
     }
 
@@ -1126,20 +1160,20 @@ HTML;
         $formatted_location = $this->formatLocationForEmail($booking);
         $booking_link       = $this->base_url . '/portal/appointments.php';
         return [
-            'client_name'          => $booking['client_name'] ?? '',
-            'client_email'         => $booking['client_email'] ?? '',
+            'client_name'          => self::rowString($booking, 'client_name'),
+            'client_email'         => self::rowString($booking, 'client_email'),
             'appointment_date'     => $date,
             'appointment_time'     => $time,
-            'appointment_type'     => $booking['service_type'] ?? '',
-            'duration'             => $booking['duration_minutes'] ?? '',
+            'appointment_type'     => self::rowString($booking, 'service_type'),
+            'duration'             => self::rowString($booking, 'duration_minutes'),
             'location'             => $formatted_location,
             'appointment_location' => $formatted_location,
             'booking_link'         => $booking_link,
             'google_calendar_link' => $google_link,
             'ical_link'            => $ical_link,
-            'business_name'        => Settings::get('site_name', "Brook's Dog Training Academy"),
-            'business_email'       => Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com'),
-            'business_phone'       => Settings::get('business_phone', ''),
+            'business_name'        => self::settingString('site_name', "Brook's Dog Training Academy"),
+            'business_email'       => self::settingString('business_email', 'bookings@brooksdogtrainingacademy.com'),
+            'business_phone'       => self::settingString('business_phone', ''),
         ];
     }
 
@@ -1167,6 +1201,11 @@ HTML;
      * @param AssocRow $booking
      */
     private function getConfirmationEmailHTML(array $booking, string $date, string $time, string $google_link, string $ical_link): string {
+        $client_name = self::rowString($booking, 'client_name');
+        $service_type = self::rowString($booking, 'service_type');
+        $duration_minutes = self::rowString($booking, 'duration_minutes');
+        $location = $this->formatLocationForEmail($booking);
+
         return <<<HTML
 <!DOCTYPE html>
 <html>
@@ -1191,17 +1230,17 @@ HTML;
             <h1>🐕 Booking Confirmed!</h1>
         </div>
         <div class="content">
-            <p>Dear {$booking['client_name']},</p>
+            <p>Dear {$client_name},</p>
             
             <p>Your dog training appointment has been confirmed. We're excited to work with you and your furry friend!</p>
             
             <div class="booking-details">
                 <h2>Appointment Details</h2>
-                <p><strong>Service:</strong> {$booking['service_type']}</p>
+                <p><strong>Service:</strong> {$service_type}</p>
                 <p><strong>Date:</strong> {$date}</p>
                 <p><strong>Time:</strong> {$time}</p>
-                <p><strong>Duration:</strong> {$booking['duration_minutes']} minutes</p>
-                <p><strong>Location:</strong> {$this->formatLocationForEmail($booking)}</p>
+                <p><strong>Duration:</strong> {$duration_minutes} minutes</p>
+                <p><strong>Location:</strong> {$location}</p>
             </div>
             
             <h3>Add to Your Calendar</h3>
@@ -1248,20 +1287,25 @@ HTML;
      * @param AssocRow $booking
      */
     private function getConfirmationEmailText(array $booking, string $date, string $time, string $google_link, string $ical_link): string {
+        $client_name = self::rowString($booking, 'client_name');
+        $service_type = self::rowString($booking, 'service_type');
+        $duration_minutes = self::rowString($booking, 'duration_minutes');
+        $location = $this->formatLocationForEmail($booking);
+
         return <<<TEXT
 BOOKING CONFIRMED - Brook's Dog Training Academy
 
-Dear {$booking['client_name']},
+Dear {$client_name},
 
 Your dog training appointment has been confirmed. We're excited to work with you and your furry friend!
 
 APPOINTMENT DETAILS
 -------------------
-Service: {$booking['service_type']}
+Service: {$service_type}
 Date: {$date}
 Time: {$time}
-Duration: {$booking['duration_minutes']} minutes
-Location: {$this->formatLocationForEmail($booking)}
+Duration: {$duration_minutes} minutes
+Location: {$location}
 
 ADD TO YOUR CALENDAR
 --------------------
@@ -1298,9 +1342,9 @@ TEXT;
      * @param AssocRow $booking
      */
     private function getCancellationEmailHTML(array $booking, string $date, string $time, string $reason = ''): string {
-        $client_name  = htmlspecialchars($booking['client_name'] ?? '');
-        $service_type = htmlspecialchars($booking['service_type'] ?? '');
-        $duration     = htmlspecialchars((string)($booking['duration_minutes'] ?? ''));
+        $client_name  = htmlspecialchars(self::rowString($booking, 'client_name'));
+        $service_type = htmlspecialchars(self::rowString($booking, 'service_type'));
+        $duration     = htmlspecialchars(self::rowString($booking, 'duration_minutes'));
         $location     = htmlspecialchars($this->formatLocationForEmail($booking));
         $reason_block = '';
         if (!empty($reason)) {
@@ -1369,9 +1413,9 @@ HTML;
      * @param AssocRow $booking
      */
     private function getCancellationEmailText(array $booking, string $date, string $time, string $reason = ''): string {
-        $client_name  = $booking['client_name'] ?? '';
-        $service_type = $booking['service_type'] ?? '';
-        $duration     = $booking['duration_minutes'] ?? '';
+        $client_name  = self::rowString($booking, 'client_name');
+        $service_type = self::rowString($booking, 'service_type');
+        $duration     = self::rowString($booking, 'duration_minutes');
         $location     = $this->formatLocationForEmail($booking);
         $reason_line  = !empty($reason) ? "Reason: {$reason}\n" : '';
 
@@ -1415,8 +1459,8 @@ TEXT;
      * @param AssocRow $booking
      */
     public function formatLocationForEmail(array $booking): string {
-        $type = $booking['location_type'] ?? '';
-        $value = $booking['location'] ?? '';
+        $type = self::rowString($booking, 'location_type');
+        $value = self::rowString($booking, 'location');
 
         switch ($type) {
             case 'client_address':
@@ -1494,11 +1538,11 @@ TEXT;
             
             if ($email_service === 'smtp') {
                 // Get SMTP configuration
-                $smtp_host = Settings::get('smtp_host', '');
-                $smtp_username = Settings::get('smtp_username', '');
-                $smtp_password = Settings::get('smtp_password', '');
-                $smtp_port = Settings::get('smtp_port', 587);
-                $smtp_encryption = Settings::get('smtp_encryption', 'tls'); // 'tls', 'ssl', or 'none'
+                $smtp_host = self::settingString('smtp_host', '');
+                $smtp_username = self::settingString('smtp_username', '');
+                $smtp_password = self::settingString('smtp_password', '');
+                $smtp_port = safe_int(Settings::get('smtp_port', 587));
+                $smtp_encryption = self::settingString('smtp_encryption', 'tls'); // 'tls', 'ssl', or 'none'
                 
                 // Validate SMTP configuration
                 if (empty($smtp_host)) {

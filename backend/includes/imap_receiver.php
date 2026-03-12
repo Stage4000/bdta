@@ -10,7 +10,7 @@ require_once __DIR__ . '/database.php';
 class ImapEmailReceiver {
     private Database $db;
     private SafePDO $conn;
-    /** @var IMAP\Connection|null */
+    /** @var object|resource|null */
     private $imap_connection = null;
     
     public function __construct() {
@@ -28,12 +28,12 @@ class ImapEmailReceiver {
         }
         
         // Get IMAP settings
-        $host = Settings::get('imap_host');
-        $port = Settings::get('imap_port', 993);
-        $encryption = Settings::get('imap_encryption', 'ssl');
-        $username = Settings::get('imap_username');
-        $password = Settings::get('imap_password');
-        $folder = Settings::get('imap_folder', 'INBOX');
+        $host = scalar_string(Settings::get('imap_host', ''));
+        $port = safe_int(Settings::get('imap_port', 993));
+        $encryption = scalar_string(Settings::get('imap_encryption', 'ssl'));
+        $username = scalar_string(Settings::get('imap_username', ''));
+        $password = scalar_string(Settings::get('imap_password', ''));
+        $folder = scalar_string(Settings::get('imap_folder', 'INBOX'));
         
         if (empty($host) || empty($username) || empty($password)) {
             throw new Exception('IMAP settings are incomplete');
@@ -74,8 +74,11 @@ class ImapEmailReceiver {
         }
     }
 
-    private function getImapConnection(): IMAP\Connection {
-        if (!$this->imap_connection instanceof IMAP\Connection) {
+    /**
+     * @return object|resource
+     */
+    private function getImapConnection() {
+        if (!is_object($this->imap_connection) && !is_resource($this->imap_connection)) {
             throw new RuntimeException('IMAP connection is not available');
         }
 
@@ -100,7 +103,7 @@ class ImapEmailReceiver {
             }
             
             // Get sync days setting
-            $sync_days = Settings::get('imap_sync_days', 30);
+            $sync_days = safe_int(Settings::get('imap_sync_days', 30));
             $since_date = date('d-M-Y', safe_timestamp(strtotime("-{$sync_days} days")));
             
             // Search for emails since the sync date
@@ -212,7 +215,7 @@ class ImapEmailReceiver {
         $body_text = $this->getEmailBody($email_number, $structure, 'text');
         
         // Get to address
-        $to_email = Settings::get('imap_username', '');
+        $to_email = scalar_string(Settings::get('imap_username', ''));
         
         // Try to match email to a client
         $client_id = $this->findClientByEmail($from_email);
@@ -358,7 +361,11 @@ class ImapEmailReceiver {
         $stmt->execute([$email]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        return $result ? $result['id'] : null;
+        if (!is_array($result)) {
+            return null;
+        }
+        $client_id = $result['id'] ?? null;
+        return is_int($client_id) || is_string($client_id) ? $client_id : null;
     }
     
     /**

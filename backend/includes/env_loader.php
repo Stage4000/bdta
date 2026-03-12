@@ -45,6 +45,11 @@ class EnvLoader {
         }
     }
     
+    /**
+     * @template T
+     * @param T $default
+     * @return ($default is null ? string|null : string|T)
+     */
     public static function get(string $key, mixed $default = null): mixed {
         $value = getenv($key);
         return $value !== false ? $value : $default;

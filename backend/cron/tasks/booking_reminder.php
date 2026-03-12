@@ -57,7 +57,12 @@ class BookingReminderTask {
 
         // Process per-appointment-type rules — each rule only sends to its own appointment type
         foreach ($per_type_rules as $rule) {
-            $result = $this->processRule($rule, [$rule['appointment_type_id']], []);
+            $appointment_type_id = $rule['appointment_type_id'] ?? null;
+            $result = $this->processRule(
+                $rule,
+                (is_int($appointment_type_id) || is_string($appointment_type_id)) ? [$appointment_type_id] : null,
+                []
+            );
             $total_sent  += $result['sent'];
             $all_errors   = array_merge($all_errors, $result['errors']);
         }
@@ -97,7 +102,7 @@ class BookingReminderTask {
      * @return RuleResult
      */
     private function processRule(array $rule, ?array $only_apt_types, array $exclude_apt_types): array {
-        $hours_before = (int)$rule['hours_before'];
+        $hours_before = safe_int($rule['hours_before'] ?? 0);
         $start_time   = date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$hours_before} hours")));
         $end_time     = date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$hours_before} hours + 2 hours")));
 
@@ -236,18 +241,23 @@ class BookingReminderTask {
      */
     private function sendReminderEmail(array $booking, ?array $rule): array {
         $email_service = new EmailService(null, $this->conn);
+        $appointment_date = scalar_string($booking['appointment_date'] ?? '');
+        $appointment_time = scalar_string($booking['appointment_time'] ?? '');
+        $booking_id = scalar_string($booking['id'] ?? '');
+        $client_email = scalar_string($booking['client_email'] ?? '');
+        $client_id = $booking['client_id'] ?? null;
         
         // Format date and time
-        $date = date('l, F j, Y', strtotime($booking['appointment_date']));
-        $time = date('g:i A', strtotime($booking['appointment_time']));
+        $date = date('l, F j, Y', safe_timestamp(strtotime($appointment_date)));
+        $time = date('g:i A', safe_timestamp(strtotime($appointment_time)));
         
         // Get calendar links
         require_once dirname(dirname(__DIR__)) . '/includes/icalendar.php';
         $google_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
-        $ical_link   = getDynamicBaseUrl() . '/backend/public/download_ical.php?booking_id=' . $booking['id'];
+        $ical_link   = getDynamicBaseUrl() . '/backend/public/download_ical.php?booking_id=' . $booking_id;
 
-        $appointment_type_id = !empty($booking['appointment_type_id']) ? (int)$booking['appointment_type_id'] : null;
-        $rule_template_id    = !empty($rule['template_id'])            ? (int)$rule['template_id']            : null;
+        $appointment_type_id = !empty($booking['appointment_type_id']) ? safe_int($booking['appointment_type_id']) : null;
+        $rule_template_id    = !empty($rule['template_id']) ? safe_int($rule['template_id']) : null;
 
         // Priority: appt-type override → rule template → system default → hardcoded
         $db_template = $email_service->getTemplateForTask('booking_reminder', $appointment_type_id, $rule_template_id);
@@ -274,7 +284,7 @@ class BookingReminderTask {
             $text_body = $rendered['body_text'] ?: strip_tags($html_body);
         } else {
             // Fallback hardcoded template — derive subject from rule timing
-            $hours = $rule ? (int)$rule['hours_before'] : 24;
+            $hours = $rule ? safe_int($rule['hours_before'] ?? 24) : 24;
             if ($hours >= 48) {
                 $days    = (int)round($hours / 24);
                 $subject = "Reminder: Your appointment is in {$days} day" . ($days !== 1 ? 's' : '');
@@ -287,7 +297,7 @@ class BookingReminderTask {
             $text_body = $this->getReminderEmailText($booking, $date, $time, $google_link, $ical_link);
         }
         
-        return $email_service->sendGenericEmail($booking['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_BOOKING_REMINDER, $booking['client_id'] ?? null);
+        return $email_service->sendGenericEmail($client_email, $subject, $html_body, $text_body, EmailService::MAIL_TYPE_BOOKING_REMINDER, is_int($client_id) || is_string($client_id) ? $client_id : null);
     }
     
     /**
@@ -297,9 +307,9 @@ class BookingReminderTask {
      * @param BookingRow $booking
      */
     private function getReminderEmailHTML(array $booking, string $date, string $time, string $google_link, string $ical_link): string {
-        $client_name  = htmlspecialchars($booking['client_name']      ?? '');
-        $service_type = htmlspecialchars($booking['service_type']     ?? '');
-        $duration     = htmlspecialchars($booking['duration_minutes'] ?? '');
+        $client_name  = htmlspecialchars(scalar_string($booking['client_name'] ?? ''));
+        $service_type = htmlspecialchars(scalar_string($booking['service_type'] ?? ''));
+        $duration     = htmlspecialchars(scalar_string($booking['duration_minutes'] ?? ''));
         
         return <<<HTML
 <!DOCTYPE html>
@@ -368,9 +378,9 @@ HTML;
      * @param BookingRow $booking
      */
     private function getReminderEmailText(array $booking, string $date, string $time, string $google_link, string $ical_link): string {
-        $client_name  = $booking['client_name']      ?? '';
-        $service_type = $booking['service_type']     ?? '';
-        $duration     = $booking['duration_minutes'] ?? '';
+        $client_name  = scalar_string($booking['client_name'] ?? '');
+        $service_type = scalar_string($booking['service_type'] ?? '');
+        $duration     = scalar_string($booking['duration_minutes'] ?? '');
         
         return <<<TEXT
 APPOINTMENT REMINDER - Brook's Dog Training Academy

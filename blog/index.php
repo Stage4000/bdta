@@ -23,18 +23,25 @@ require_once 'includes/header.php';
             <div class="row g-4">
                 <?php if (count($posts) > 0): ?>
                     <?php foreach ($posts as $post): ?>
+                    <?php
+                    $post_title = array_string_value($post, 'title');
+                    $post_author = array_string_value($post, 'author');
+                    $post_publish_date = array_string_value($post, 'publish_date');
+                    $post_excerpt = array_string_value($post, 'excerpt');
+                    $post_slug = array_string_value($post, 'slug');
+                    ?>
                     <div class="col-md-6 col-lg-4">
                         <div class="card h-100 border-0 shadow-sm hover-lift">
                             <div class="card-body p-4">
-                                <h5 class="card-title fw-bold"><?php echo escape($post['title']); ?></h5>
+                                <h5 class="card-title fw-bold"><?php echo escape($post_title); ?></h5>
                                 <p class="text-muted small mb-2">
-                                    <i class="fas fa-user me-1"></i> <?php echo escape($post['author']); ?> | 
-                                    <i class="fas fa-calendar me-1"></i> <?php echo formatDate($post['publish_date']); ?>
+                                    <i class="fas fa-user me-1"></i> <?php echo escape($post_author); ?> | 
+                                    <i class="fas fa-calendar me-1"></i> <?php echo formatDate($post_publish_date); ?>
                                 </p>
-                                <?php if ($post['excerpt']): ?>
-                                <p class="card-text"><?php echo escape(substr($post['excerpt'], 0, 150)); ?>...</p>
+                                <?php if ($post_excerpt !== ''): ?>
+                                <p class="card-text"><?php echo escape(substr($post_excerpt, 0, 150)); ?>...</p>
                                 <?php endif; ?>
-                                <a href="post.php?slug=<?php echo escape($post['slug']); ?>" class="btn btn-primary btn-sm">Read More</a>
+                                <a href="post.php?slug=<?php echo escape($post_slug); ?>" class="btn btn-primary btn-sm">Read More</a>
                             </div>
                         </div>
                     </div>

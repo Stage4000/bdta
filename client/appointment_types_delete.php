@@ -12,7 +12,7 @@ if (!isLoggedIn()) {
     exit;
 }
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = safe_int($_GET['id'] ?? 0);
 
 if ($id > 0) {
     $db = new Database();

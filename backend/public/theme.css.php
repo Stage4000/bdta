@@ -23,12 +23,12 @@ function sanitizeColor(string $color, string $default): string {
     return $default;
 }
 
-$primary         = sanitizeColor($theme['primary'],        '#9a0073');
-$primary_dark    = sanitizeColor($theme['primary_dark'],   '#7a005a');
-$secondary       = sanitizeColor($theme['secondary'],      '#0a9a9c');
-$accent          = sanitizeColor($theme['accent'],         '#a39f89');
-$sidebar_start   = sanitizeColor($theme['sidebar_bg_start'], '#9a0073');
-$sidebar_end     = sanitizeColor($theme['sidebar_bg_end'],   '#7a005a');
+$primary         = sanitizeColor(array_string_value($theme, 'primary', '#9a0073'), '#9a0073');
+$primary_dark    = sanitizeColor(array_string_value($theme, 'primary_dark', '#7a005a'), '#7a005a');
+$secondary       = sanitizeColor(array_string_value($theme, 'secondary', '#0a9a9c'), '#0a9a9c');
+$accent          = sanitizeColor(array_string_value($theme, 'accent', '#a39f89'), '#a39f89');
+$sidebar_start   = sanitizeColor(array_string_value($theme, 'sidebar_bg_start', '#9a0073'), '#9a0073');
+$sidebar_end     = sanitizeColor(array_string_value($theme, 'sidebar_bg_end', '#7a005a'), '#7a005a');
 ?>
 :root {
     --theme-primary:        <?= $primary ?>;
