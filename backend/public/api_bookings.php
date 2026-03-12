@@ -128,7 +128,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
      * @param int    $duration_min  appointment duration in minutes
      * @param int    $buf_before    buffer before in minutes
      * @param int    $buf_after     buffer after in minutes
-     * @param array  $busy_periods  flat array of ['start'=>RFC3339, 'end'=>RFC3339]
+     * @param array<int, array{start: string, end: string}> $busy_periods flat array of ['start'=>RFC3339, 'end'=>RFC3339]
      */
     function ad_slot_passes_gcal(string $date, string $slot_str, int $duration_min, int $buf_before, int $buf_after, array $busy_periods): bool {
         $slot_ts    = strtotime($date . 'T' . $slot_str . ':00');

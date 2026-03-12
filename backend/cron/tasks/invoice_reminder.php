@@ -6,14 +6,22 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
+/**
+ * @phpstan-type InvoiceRow array<string, mixed>
+ * @phpstan-type MailResult array{success: bool, message: string}
+ * @phpstan-type TaskResult array{success: bool, items_processed: int, message: string, errors: list<string>}
+ */
 class InvoiceReminderTask {
-    private $conn;
+    private PDO $conn;
     
-    public function __construct($conn) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Get overdue invoices
         // Send reminders for invoices overdue by 1+ days
         $current_date = date('Y-m-d');
@@ -76,7 +84,11 @@ class InvoiceReminderTask {
     /**
      * Send invoice reminder email
      */
-    private function sendInvoiceReminder($invoice) {
+    /**
+     * @param InvoiceRow $invoice
+     * @return MailResult
+     */
+    private function sendInvoiceReminder(array $invoice): array {
         $email_service = new EmailService(null, $this->conn);
         
         $client_name = htmlspecialchars($invoice['client_name']);

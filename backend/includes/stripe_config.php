@@ -37,14 +37,17 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php') && !empty(STRIPE_SECRET_KEY
 /**
  * Check if Stripe is enabled and configured
  */
-function isStripeEnabled() {
+function isStripeEnabled(): bool {
     return Settings::get('stripe_enabled', false) && STRIPE_SECRET_KEY !== '';
 }
 
 /**
  * Create a Stripe payment intent
+ *
+ * @param array<string, scalar> $metadata
+ * @return array<string, scalar>
  */
-function createPaymentIntent($amount, $description, $metadata = []) {
+function createPaymentIntent(int|float $amount, string $description, array $metadata = []): array {
     if (!isStripeEnabled()) {
         return [
             'success' => false,
@@ -82,8 +85,10 @@ function createPaymentIntent($amount, $description, $metadata = []) {
 
 /**
  * Verify a payment intent
+ *
+ * @return array<string, scalar>
  */
-function verifyPaymentIntent($payment_intent_id) {
+function verifyPaymentIntent(string $payment_intent_id): array {
     if (!isStripeEnabled()) {
         return [
             'success' => false,

@@ -16,7 +16,7 @@ header('Cache-Control: public, max-age=60');
 $theme = Settings::getThemeColors();
 
 // Sanitize hex colors to prevent CSS injection (only allow valid hex color format)
-function sanitizeColor($color, $default) {
+function sanitizeColor(string $color, string $default): string {
     if (preg_match('/^#[0-9A-Fa-f]{6}$/', $color)) {
         return $color;
     }

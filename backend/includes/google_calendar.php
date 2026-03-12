@@ -11,9 +11,13 @@
 // Depends on config.php for settings/database bootstrap and the shared getSystemTimezone() helper
 require_once __DIR__ . '/config.php';
 
+/**
+ * @phpstan-type BookingRow array<string, mixed>
+ * @phpstan-type CalendarResult array<string, mixed>
+ */
 class GoogleCalendarIntegration {
-    private $credentials_file;
-    private $calendar_id;
+    private string $credentials_file;
+    private string $calendar_id;
 
     public function __construct() {
         $this->calendar_id       = Settings::get('google_calendar_id', 'primary');
@@ -27,6 +31,9 @@ class GoogleCalendarIntegration {
 
     /**
      * Build the Google Calendar event body array from a booking row.
+     *
+     * @param BookingRow $booking
+     * @return array<string, mixed>
      */
     private function buildEventBody(array $booking): array {
         $timezone = getSystemTimezone();
@@ -101,6 +108,9 @@ class GoogleCalendarIntegration {
     /**
      * Add an event using a Google service account.
      * Requires google/apiclient: composer require google/apiclient
+     *
+     * @param BookingRow $booking
+     * @return CalendarResult
      */
     public function addEvent(array $booking): array {
         if (!$this->isConfigured()) {
@@ -131,6 +141,9 @@ class GoogleCalendarIntegration {
     /**
      * Update an existing event using a Google service account.
      * $event_id is the Google event ID stored in bookings.google_event_id.
+     *
+     * @param BookingRow $booking
+     * @return CalendarResult
      */
     public function updateEvent(array $booking, string $event_id): array {
         if (!$this->isConfigured()) {
@@ -174,6 +187,8 @@ class GoogleCalendarIntegration {
     /**
      * Retrieve the stored OAuth token for a given admin user.
      * Returns the token row or null.
+     *
+     * @return array<string, mixed>|null
      */
     public static function getOAuthToken(int $admin_user_id): ?array {
         $db   = new Database();
@@ -342,6 +357,9 @@ class GoogleCalendarIntegration {
 
     /**
      * Add a booking event to the connected calendar for a given admin user using OAuth.
+     *
+     * @param BookingRow $booking
+     * @return CalendarResult
      */
     public static function addEventOAuth(array $booking, int $admin_user_id): array {
         $access_token = self::getValidAccessToken($admin_user_id);
@@ -377,6 +395,9 @@ class GoogleCalendarIntegration {
      * Update an existing Google Calendar event for the given admin user using OAuth.
      * $event_id is the Google event ID stored in bookings.google_event_id.
      * Uses a PUT (full update) request so all event fields – including location – are refreshed.
+     *
+     * @param BookingRow $booking
+     * @return CalendarResult
      */
     public static function updateEventOAuth(array $booking, string $event_id, int $admin_user_id): array {
         $access_token = self::getValidAccessToken($admin_user_id);
@@ -546,6 +567,8 @@ class GoogleCalendarIntegration {
     /**
      * List available calendars for the given admin user.
      * Returns array of ['id' => ..., 'summary' => ...] or empty array on failure.
+     *
+     * @return list<array{id: string, summary: string}>
      */
     public static function listCalendars(int $admin_user_id): array {
         $access_token = self::getValidAccessToken($admin_user_id);
@@ -571,8 +594,11 @@ class GoogleCalendarIntegration {
 
     /**
      * POST to a URL. Supports both form-encoded and JSON payloads.
-     * @param array $headers  Extra HTTP headers.
-     * @param bool         $json     Send body as JSON instead of form-encoded.
+     *
+     * @param array<string, mixed> $data
+     * @param list<string> $headers Extra HTTP headers.
+     * @param bool $json Send body as JSON instead of form-encoded.
+     * @return array<string, mixed>
      */
     private static function httpPost(string $url, array $data, array $headers = [], bool $json = false): array {
         $ch = curl_init($url);
@@ -600,6 +626,9 @@ class GoogleCalendarIntegration {
 
     /**
      * GET a URL with optional extra headers, returning decoded JSON.
+     *
+     * @param list<string> $headers
+     * @return array<string, mixed>
      */
     private static function httpGet(string $url, array $headers = []): array {
         $ch = curl_init($url);

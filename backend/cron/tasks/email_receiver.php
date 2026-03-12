@@ -10,7 +10,10 @@ class EmailReceiverTask {
     public function __construct() {
     }
     
-    public function execute() {
+    /**
+     * @return array{success: bool, message: string, items_processed: int, errors?: list<string>}
+     */
+    public function execute(): array {
         try {
             $receiver = new ImapEmailReceiver();
             $result = $receiver->fetchEmails();

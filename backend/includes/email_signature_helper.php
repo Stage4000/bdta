@@ -11,7 +11,7 @@ class EmailSignatureHelper {
      * @param string $html Raw HTML content
      * @return string Sanitized HTML
      */
-    public static function sanitizeHTML($html) {
+    public static function sanitizeHTML(string $html): string {
         // List of allowed HTML tags for email signatures
         $allowed_tags = [
             'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'img', 'span', 'div',
@@ -51,7 +51,12 @@ class EmailSignatureHelper {
     /**
      * Recursively clean DOM nodes
      */
-    private static function cleanNode($node, $allowed_tags, $allowed_attrs) {
+    /**
+     * @param DOMElement|null $node
+     * @param list<string> $allowed_tags
+     * @param list<string> $allowed_attrs
+     */
+    private static function cleanNode(?DOMElement $node, array $allowed_tags, array $allowed_attrs): void {
         if (!$node) return;
         
         // Process child nodes first (bottom-up approach)
@@ -62,6 +67,9 @@ class EmailSignatureHelper {
         
         foreach ($children as $child) {
             if ($child->nodeType === XML_ELEMENT_NODE) {
+                if (!$child instanceof DOMElement) {
+                    continue;
+                }
                 // Check if tag is allowed
                 if (!in_array(strtolower($child->nodeName), $allowed_tags)) {
                     // Remove disallowed tag but keep its content
@@ -131,7 +139,10 @@ class EmailSignatureHelper {
      * @param array $data Custom field data
      * @return string HTML with replaced values
      */
-    public static function replaceCustomFields($html, $data = []) {
+    /**
+     * @param array<string, string> $data
+     */
+    public static function replaceCustomFields(string $html, array $data = []): string {
         // Default values from settings if not provided
         require_once __DIR__ . '/settings.php';
         
@@ -167,7 +178,10 @@ class EmailSignatureHelper {
      * @param int $id Signature ID
      * @return array|null Signature data or null if not found
      */
-    public static function getSignature($id) {
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function getSignature(int $id): ?array {
         require_once __DIR__ . '/database.php';
         
         $db = new Database();
@@ -182,7 +196,10 @@ class EmailSignatureHelper {
      * Get default signature
      * @return array|null Default signature data or null if none set
      */
-    public static function getDefaultSignature() {
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function getDefaultSignature(): ?array {
         require_once __DIR__ . '/database.php';
         
         $db = new Database();
@@ -198,7 +215,10 @@ class EmailSignatureHelper {
      * @param array $custom_data Custom field data
      * @return string|null Rendered signature HTML or null if no signature
      */
-    public static function render($signature_id = null, $custom_data = []) {
+    /**
+     * @param array<string, string> $custom_data
+     */
+    public static function render(?int $signature_id = null, array $custom_data = []): ?string {
         // Get signature
         if ($signature_id) {
             $signature = self::getSignature($signature_id);
@@ -219,7 +239,7 @@ class EmailSignatureHelper {
      * @param int $signature_id Signature ID
      * @return string|null HTML content suitable for email client import, or null if the signature does not exist
      */
-    public static function exportAsHTML($signature_id) {
+    public static function exportAsHTML(int $signature_id): ?string {
         $signature = self::getSignature($signature_id);
         
         if (!$signature) {
@@ -263,7 +283,10 @@ HTML;
      * @param array $custom_data Custom field data for signature
      * @return string Email content with signature(s) replaced
      */
-    public static function replaceSignaturePlaceholder($email_content, $signature_id = null, $custom_data = []) {
+    /**
+     * @param array<string, string> $custom_data
+     */
+    public static function replaceSignaturePlaceholder(string $email_content, ?int $signature_id = null, array $custom_data = []): string {
         // Pattern to match {{signature}} or {{signature:123}}
         $pattern = '/\{\{signature(?::(\d+))?\}\}/';
         

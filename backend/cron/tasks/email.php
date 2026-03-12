@@ -14,16 +14,27 @@
 
 require_once __DIR__ . '/scheduled_email_sender.php';
 
+/**
+ * @phpstan-type TaskRow array<string, mixed>
+ * @phpstan-type TaskResult array{success: bool, message: string, items_processed: int, errors?: list<string>}
+ */
 class EmailTask {
-    private $conn;
-    private $task;
+    private PDO $conn;
+    /** @var TaskRow */
+    private array $task;
     
-    public function __construct($conn, $task) {
+    /**
+     * @param TaskRow $task
+     */
+    public function __construct(PDO $conn, array $task) {
         $this->conn = $conn;
         $this->task = $task;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Determine which handler to use based on task name
         $task_name_lower = strtolower($this->task['task_name'] ?? '');
         

@@ -6,14 +6,22 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
+/**
+ * @phpstan-type QuoteRow array<string, mixed>
+ * @phpstan-type MailResult array{success: bool, message: string}
+ * @phpstan-type TaskResult array{success: bool, items_processed: int, message: string, errors: list<string>}
+ */
 class QuoteReminderTask {
-    private $conn;
+    private PDO $conn;
     
-    public function __construct($conn) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Get quotes that have been sent but not approved for 3+ days
         $reminder_threshold = date('Y-m-d H:i:s', strtotime('-3 days'));
         
@@ -77,7 +85,11 @@ class QuoteReminderTask {
     /**
      * Send quote reminder email
      */
-    private function sendQuoteReminder($quote) {
+    /**
+     * @param QuoteRow $quote
+     * @return MailResult
+     */
+    private function sendQuoteReminder(array $quote): array {
         $email_service = new EmailService(null, $this->conn);
         
         $client_name = htmlspecialchars($quote['client_name']);

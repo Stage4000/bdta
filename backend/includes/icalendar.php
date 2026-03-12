@@ -8,8 +8,10 @@ class ICalendarGenerator {
     
     /**
      * Generate iCalendar (.ics) content for a booking
+     *
+     * @param array<string, mixed> $booking
      */
-    public static function generate($booking) {
+    public static function generate(array $booking): string {
         $start_datetime = new DateTime($booking['appointment_date'] . ' ' . $booking['appointment_time']);
         $end_datetime = clone $start_datetime;
         $end_datetime->modify('+' . $booking['duration_minutes'] . ' minutes');
@@ -65,7 +67,7 @@ class ICalendarGenerator {
     /**
      * Escape special characters for iCalendar format
      */
-    private static function escapeString($string) {
+    private static function escapeString(string $string): string {
         $string = str_replace('\\', '\\\\', $string);
         $string = str_replace(',', '\\,', $string);
         $string = str_replace(';', '\\;', $string);
@@ -75,8 +77,10 @@ class ICalendarGenerator {
     
     /**
      * Generate Google Calendar add link
+     *
+     * @param array<string, mixed> $booking
      */
-    public static function generateGoogleCalendarLink($booking) {
+    public static function generateGoogleCalendarLink(array $booking): string {
         $start_datetime = new DateTime($booking['appointment_date'] . ' ' . $booking['appointment_time']);
         $end_datetime = clone $start_datetime;
         $end_datetime->modify('+' . $booking['duration_minutes'] . ' minutes');
@@ -98,8 +102,10 @@ class ICalendarGenerator {
     
     /**
      * Save iCalendar file and return path
+     *
+     * @param array<string, mixed> $booking
      */
-    public static function saveToFile($booking, $directory = '/tmp') {
+    public static function saveToFile(array $booking, string $directory = '/tmp'): string {
         $ics_content = self::generate($booking);
         $filename = 'booking-' . $booking['id'] . '.ics';
         $filepath = $directory . '/' . $filename;

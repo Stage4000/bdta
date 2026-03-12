@@ -21,6 +21,9 @@ try {
     // ------------------------------------------------------------------
     // Setup: Create test appointment types
     // ------------------------------------------------------------------
+    /**
+     * @param array<string, mixed> $extra
+     */
     function makeAptType(PDO $conn, string $name, array $extra = []): int {
         $attempts = 0;
         do {

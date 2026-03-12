@@ -6,14 +6,22 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
+/**
+ * @phpstan-type WorkflowExecutionRow array<string, mixed>
+ * @phpstan-type MailResult array{success: bool, message: string}
+ * @phpstan-type TaskResult array{success: bool, items_processed: int, message: string, errors: list<string>}
+ */
 class WorkflowProcessorTask {
-    private $conn;
+    private PDO $conn;
     
-    public function __construct($conn) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         $current_time = date('Y-m-d H:i:s');
         
         // Get pending workflow step executions that are due
@@ -85,7 +93,11 @@ class WorkflowProcessorTask {
     /**
      * Send workflow email with attachments
      */
-    private function sendWorkflowEmail($execution) {
+    /**
+     * @param WorkflowExecutionRow $execution
+     * @return MailResult
+     */
+    private function sendWorkflowEmail(array $execution): array {
         $email_service = new EmailService(null, $this->conn);
         
         $client_name = htmlspecialchars($execution['client_name']);
@@ -105,7 +117,10 @@ class WorkflowProcessorTask {
     /**
      * Replace placeholders in email content
      */
-    private function replacePlaceholders($content, $execution) {
+    /**
+     * @param WorkflowExecutionRow $execution
+     */
+    private function replacePlaceholders(string $content, array $execution): string {
         $replacements = [
             '{client_name}' => htmlspecialchars($execution['client_name']),
             '{workflow_name}' => htmlspecialchars($execution['workflow_name']),
@@ -118,7 +133,10 @@ class WorkflowProcessorTask {
     /**
      * Add attachment links to email body
      */
-    private function addAttachmentLinks($body, $execution, $html = true) {
+    /**
+     * @param WorkflowExecutionRow $execution
+     */
+    private function addAttachmentLinks(string $body, array $execution, bool $html = true): string {
         $base_url = getDynamicBaseUrl();
         $links = [];
         
@@ -181,7 +199,7 @@ class WorkflowProcessorTask {
     /**
      * Mark execution as complete
      */
-    private function markExecutionComplete($execution_id) {
+    private function markExecutionComplete(int|string $execution_id): void {
         $stmt = $this->conn->prepare("
             UPDATE workflow_step_executions 
             SET status = 'completed', executed_at = ?
@@ -193,7 +211,7 @@ class WorkflowProcessorTask {
     /**
      * Mark execution as failed
      */
-    private function markExecutionFailed($execution_id, $error_message) {
+    private function markExecutionFailed(int|string $execution_id, string $error_message): void {
         $stmt = $this->conn->prepare("
             UPDATE workflow_step_executions 
             SET status = 'failed', error_message = ?, executed_at = ?
@@ -205,7 +223,7 @@ class WorkflowProcessorTask {
     /**
      * Check if all steps are complete and mark enrollment as complete
      */
-    private function checkEnrollmentCompletion($enrollment_id) {
+    private function checkEnrollmentCompletion(int|string $enrollment_id): void {
         // Check if there are any pending or failed steps
         $stmt = $this->conn->prepare("
             SELECT COUNT(*) as pending_count

@@ -109,7 +109,7 @@ try {
 /**
  * Convert SQLite CREATE TABLE syntax to MySQL
  */
-function convertSQLiteToMySQL($sql) {
+function convertSQLiteToMySQL(string $sql): string {
     // Replace INTEGER PRIMARY KEY AUTOINCREMENT with INT AUTO_INCREMENT PRIMARY KEY
     $sql = preg_replace(
         '/INTEGER PRIMARY KEY AUTOINCREMENT/i',

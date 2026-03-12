@@ -7,10 +7,11 @@
 require_once __DIR__ . '/database.php';
 
 class Settings {
-    private static $db = null;
-    private static $cache = [];
+    private static ?PDO $db = null;
+    /** @var array<string, mixed> */
+    private static array $cache = [];
     
-    private static function getDB() {
+    private static function getDB(): PDO {
         if (self::$db === null) {
             $db = new Database();
             self::$db = $db->getConnection();
@@ -21,7 +22,7 @@ class Settings {
     /**
      * Get a setting value by key
      */
-    public static function get($key, $default = null) {
+    public static function get(string $key, mixed $default = null): mixed {
         // Check cache first - use array_key_exists to handle falsy values
         if (array_key_exists($key, self::$cache)) {
             return self::$cache[$key];
@@ -44,7 +45,7 @@ class Settings {
     /**
      * Set a setting value
      */
-    public static function set($key, $value) {
+    public static function set(string $key, mixed $value): bool {
         $db = self::getDB();
         
         // Get the setting type for proper caching
@@ -77,8 +78,10 @@ class Settings {
     
     /**
      * Get all settings in a category
+     *
+     * @return list<array<string, mixed>>
      */
-    public static function getCategory($category) {
+    public static function getCategory(string $category): array {
         // Special handling for database category - read from .env
         if ($category === 'database') {
             return self::getDatabaseSettingsFromEnv();
@@ -111,8 +114,10 @@ class Settings {
     
     /**
      * Get database settings from .env file
+     *
+     * @return list<array<string, mixed>>
      */
-    private static function getDatabaseSettingsFromEnv() {
+    private static function getDatabaseSettingsFromEnv(): array {
         require_once __DIR__ . '/env_loader.php';
         
         return [
@@ -184,8 +189,10 @@ class Settings {
     
     /**
      * Get all categories
+     *
+     * @return list<string>
      */
-    public static function getCategories() {
+    public static function getCategories(): array {
         $db = self::getDB();
         $stmt = $db->query("SELECT DISTINCT category FROM settings ORDER BY category");
         $categories = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -202,7 +209,7 @@ class Settings {
     /**
      * Cast value to appropriate type
      */
-    private static function castValue($value, $type) {
+    private static function castValue(mixed $value, string $type): mixed {
         switch ($type) {
             case 'checkbox':
                 return (bool)$value;
@@ -215,8 +222,10 @@ class Settings {
     
     /**
      * Get Stripe configuration based on mode
+     *
+     * @return array<string, mixed>|null
      */
-    public static function getStripeConfig() {
+    public static function getStripeConfig(): ?array {
         $mode = self::get('stripe_mode', 'test');
         $enabled = self::get('stripe_enabled', false);
         
@@ -243,8 +252,10 @@ class Settings {
     
     /**
      * Get theme color settings with defaults
+     *
+     * @return array<string, mixed>
      */
-    public static function getThemeColors() {
+    public static function getThemeColors(): array {
         return [
             'primary'           => self::get('theme_primary_color', '#9a0073'),
             'primary_dark'      => self::get('theme_primary_dark_color', '#7a005a'),
@@ -257,8 +268,10 @@ class Settings {
 
     /**
      * Get default theme colors
+     *
+     * @return array<string, string>
      */
-    public static function getDefaultThemeColors() {
+    public static function getDefaultThemeColors(): array {
         return [
             'theme_primary_color'      => '#9a0073',
             'theme_primary_dark_color' => '#7a005a',
@@ -271,8 +284,10 @@ class Settings {
 
     /**
      * Get email configuration
+     *
+     * @return array<string, mixed>
      */
-    public static function getEmailConfig() {
+    public static function getEmailConfig(): array {
         return [
             'from_address' => self::get('email_from_address'),
             'from_name' => self::get('email_from_name'),

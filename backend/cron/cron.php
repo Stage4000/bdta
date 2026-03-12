@@ -33,9 +33,9 @@ require_once $backend_dir . '/includes/email_service.php';
 define('TASK_HANDLERS_DIR', __DIR__ . '/tasks');
 
 class CronRunner {
-    private $db;
-    private $conn;
-    private $start_time;
+    private Database $db;
+    private PDO $conn;
+    private float $start_time;
     
     public function __construct() {
         $this->db = new Database();
@@ -48,7 +48,7 @@ class CronRunner {
     /**
      * Main execution method
      */
-    public function run() {
+    public function run(): void {
         // Get all active scheduled tasks that are due to run
         $tasks = $this->getDueTasks();
         
@@ -70,7 +70,10 @@ class CronRunner {
     /**
      * Get tasks that are due to run
      */
-    private function getDueTasks() {
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function getDueTasks(): array {
         $current_time = date('Y-m-d H:i:s');
         
         $stmt = $this->conn->prepare("
@@ -87,7 +90,10 @@ class CronRunner {
     /**
      * Execute a single task
      */
-    private function executeTask($task) {
+    /**
+     * @param array<string, mixed> $task
+     */
+    private function executeTask(array $task): void {
         $task_start_time = microtime(true);
         $this->log("Executing task: {$task['task_name']} (Type: {$task['task_type']})");
         
@@ -136,7 +142,7 @@ class CronRunner {
     /**
      * Log task execution to database
      */
-    private function logTaskExecution($task_id, $task_name, $status, $message, $items_processed, $execution_time) {
+    private function logTaskExecution(int|string $task_id, string $task_name, string $status, string $message, int $items_processed, float $execution_time): void {
         $stmt = $this->conn->prepare("
             INSERT INTO task_logs (task_id, task_name, status, message, items_processed, execution_time)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -147,7 +153,10 @@ class CronRunner {
     /**
      * Update task's last_run and calculate next_run
      */
-    private function updateTaskSchedule($task) {
+    /**
+     * @param array<string, mixed> $task
+     */
+    private function updateTaskSchedule(array $task): void {
         $current_time = date('Y-m-d H:i:s');
         $next_run = $this->calculateNextRun($task);
         
@@ -162,7 +171,10 @@ class CronRunner {
     /**
      * Calculate next run time based on schedule
      */
-    private function calculateNextRun($task) {
+    /**
+     * @param array<string, mixed> $task
+     */
+    private function calculateNextRun(array $task): string {
         $schedule_type = $task['schedule_type'];
         $schedule_value = $task['schedule_value'];
         
@@ -214,7 +226,7 @@ class CronRunner {
     /**
      * Check if a string is a cron expression
      */
-    private function isCronExpression($value) {
+    private function isCronExpression(string $value): bool {
         // Cron expressions have 5 parts: minute hour day month weekday
         // Pattern: each part can contain digits, *, commas, hyphens, or slashes
         $pattern = '/^(?:[\d*,\/-]+\s+){4}[\d*,\/-]+$/';
@@ -225,7 +237,7 @@ class CronRunner {
      * Parse common cron expressions and calculate next run time
      * Supports basic patterns like every N minutes, hourly, daily, etc.
      */
-    private function parseCronExpression($cron) {
+    private function parseCronExpression(string $cron): ?string {
         $parts = preg_split('/\s+/', trim($cron));
         if (count($parts) !== 5) {
             return null;
@@ -277,7 +289,10 @@ class CronRunner {
     /**
      * Check if all provided cron parts are wildcards
      */
-    private function areAllWildcards($parts) {
+    /**
+     * @param list<string> $parts
+     */
+    private function areAllWildcards(array $parts): bool {
         foreach ($parts as $part) {
             if ($part !== '*') {
                 return false;
@@ -289,7 +304,7 @@ class CronRunner {
     /**
      * Log to console/file
      */
-    private function log($message) {
+    private function log(string $message): void {
         $timestamp = date('Y-m-d H:i:s');
         echo "[{$timestamp}] {$message}\n";
     }

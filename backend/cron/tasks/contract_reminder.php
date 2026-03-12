@@ -6,14 +6,22 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
+/**
+ * @phpstan-type ContractRow array<string, mixed>
+ * @phpstan-type MailResult array{success: bool, message: string}
+ * @phpstan-type TaskResult array{success: bool, items_processed: int, message: string, errors: list<string>}
+ */
 class ContractReminderTask {
-    private $conn;
+    private PDO $conn;
     
-    public function __construct($conn) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Get contracts that have been sent but not signed
         // Send reminders for contracts sent more than 3 days ago
         $reminder_threshold = date('Y-m-d H:i:s', strtotime('-3 days'));
@@ -75,7 +83,11 @@ class ContractReminderTask {
     /**
      * Send contract reminder email
      */
-    private function sendContractReminder($contract) {
+    /**
+     * @param ContractRow $contract
+     * @return MailResult
+     */
+    private function sendContractReminder(array $contract): array {
         $email_service = new EmailService(null, $this->conn);
         
         $client_name = htmlspecialchars($contract['client_name']);

@@ -11,7 +11,10 @@ requireLogin();
 header('Content-Type: application/json');
 
 // Helper function to load database settings
-function loadDatabaseSettings() {
+/**
+ * @return array<string, string>
+ */
+function loadDatabaseSettings(): array {
     // Load from .env file instead of database to avoid circular dependency
     require_once __DIR__ . '/../backend/includes/env_loader.php';
     EnvLoader::load();
@@ -154,7 +157,7 @@ try {
 /**
  * Convert SQLite CREATE TABLE syntax to MySQL
  */
-function convertSQLiteToMySQL($sql) {
+function convertSQLiteToMySQL(string $sql): string {
     // Replace INTEGER PRIMARY KEY AUTOINCREMENT with INT AUTO_INCREMENT PRIMARY KEY
     $sql = preg_replace(
         '/INTEGER PRIMARY KEY AUTOINCREMENT/i',

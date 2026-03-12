@@ -5,7 +5,7 @@
  */
 
 class EnvLoader {
-    public static function load($filePath = null) {
+    public static function load(?string $filePath = null): void {
         // Default to .env in the root directory
         if ($filePath === null) {
             $filePath = __DIR__ . '/../../.env';
@@ -45,7 +45,7 @@ class EnvLoader {
         }
     }
     
-    public static function get($key, $default = null) {
+    public static function get(string $key, mixed $default = null): mixed {
         $value = getenv($key);
         return $value !== false ? $value : $default;
     }

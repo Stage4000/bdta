@@ -9,14 +9,24 @@
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 require_once dirname(dirname(__DIR__)) . '/includes/settings.php';
 
+/**
+ * @phpstan-type BookingRow array<string, mixed>
+ * @phpstan-type ReminderRule array<string, mixed>
+ * @phpstan-type MailResult array{success: bool, message: string}
+ * @phpstan-type RuleResult array{sent: int, errors: list<string>}
+ * @phpstan-type TaskResult array{success: bool, items_processed: int, message: string, errors: list<string>}
+ */
 class BookingReminderTask {
-    private $conn;
+    private PDO $conn;
     
-    public function __construct($conn) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Load per-appointment-type rules (appointment_type_id IS NOT NULL)
         $per_type_rules = $this->conn->query(
             "SELECT * FROM booking_reminder_rules WHERE is_active = 1 AND appointment_type_id IS NOT NULL ORDER BY appointment_type_id, hours_before DESC"
@@ -71,6 +81,12 @@ class BookingReminderTask {
      * @param array      $rule              Reminder rule row
      * @param int[]|null $only_apt_types    Limit to these appointment_type_ids (null = no restriction)
      * @param int[]      $exclude_apt_types Skip bookings whose appointment_type_id is in this list
+     */
+    /**
+     * @param ReminderRule $rule
+     * @param list<int|string>|null $only_apt_types
+     * @param list<int|string> $exclude_apt_types
+     * @return RuleResult
      */
     private function processRule(array $rule, ?array $only_apt_types, array $exclude_apt_types): array {
         $hours_before = (int)$rule['hours_before'];
@@ -148,6 +164,9 @@ class BookingReminderTask {
     /**
      * Legacy fallback: send a single 24-hour reminder when no rules are configured.
      */
+    /**
+     * @return TaskResult
+     */
     private function executeLegacy(): array {
         $hours_before = 24;
         $start_time   = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours"));
@@ -202,7 +221,12 @@ class BookingReminderTask {
      * @param array      $booking  Booking row
      * @param array|null $rule     Reminder rule row (or null for legacy mode)
      */
-    private function sendReminderEmail($booking, $rule) {
+    /**
+     * @param BookingRow $booking
+     * @param ReminderRule|null $rule
+     * @return MailResult
+     */
+    private function sendReminderEmail(array $booking, ?array $rule): array {
         $email_service = new EmailService(null, $this->conn);
         
         // Format date and time
@@ -261,7 +285,10 @@ class BookingReminderTask {
     /**
      * Get HTML email template for reminder
      */
-    private function getReminderEmailHTML($booking, $date, $time, $google_link, $ical_link) {
+    /**
+     * @param BookingRow $booking
+     */
+    private function getReminderEmailHTML(array $booking, string $date, string $time, string $google_link, string $ical_link): string {
         $client_name  = htmlspecialchars($booking['client_name']      ?? '');
         $service_type = htmlspecialchars($booking['service_type']     ?? '');
         $duration     = htmlspecialchars($booking['duration_minutes'] ?? '');
@@ -329,7 +356,10 @@ HTML;
     /**
      * Get plain text email template for reminder
      */
-    private function getReminderEmailText($booking, $date, $time, $google_link, $ical_link) {
+    /**
+     * @param BookingRow $booking
+     */
+    private function getReminderEmailText(array $booking, string $date, string $time, string $google_link, string $ical_link): string {
         $client_name  = $booking['client_name']      ?? '';
         $service_type = $booking['service_type']     ?? '';
         $duration     = $booking['duration_minutes'] ?? '';

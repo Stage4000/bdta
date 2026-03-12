@@ -33,7 +33,7 @@ if ($installment_id) {
 /**
  * Send a payment receipt for a fully-paid invoice and record the audit timestamp.
  */
-function sendFullInvoiceReceipt($conn, $invoice_id) {
+function sendFullInvoiceReceipt(PDO $conn, int $invoice_id): void {
     $invoice_stmt = $conn->prepare(
         "SELECT i.*, c.name as client_name, c.email as client_email
          FROM invoices i JOIN clients c ON i.client_id = c.id WHERE i.id = ?"
@@ -56,7 +56,7 @@ function sendFullInvoiceReceipt($conn, $invoice_id) {
 /**
  * Apply package credits to a client for all package items on an invoice.
  */
-function applyPackageCredits($conn, $invoice_id, $client_id, $admin_id) {
+function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, int|string $admin_id): void {
     $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ? AND item_type = 'package' AND reference_id IS NOT NULL");
     $items_stmt->execute([$invoice_id]);
     $package_items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);

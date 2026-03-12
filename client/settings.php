@@ -9,7 +9,7 @@ require_once __DIR__ . '/../backend/includes/settings.php';
 requireLogin();
 
 // Helper function to get category icons
-function getCategoryIcon($category) {
+function getCategoryIcon(string $category): string {
     $icons = [
         'general' => 'circle-info',
         'email' => 'envelope',
@@ -27,7 +27,10 @@ function getCategoryIcon($category) {
 }
 
 // Helper function to get select options
-function getSelectOptions($key) {
+/**
+ * @return array<string, string>
+ */
+function getSelectOptions(string $key): array {
     $options_map = [
         'email_service' => [
             'mail' => 'PHP mail() function',
@@ -157,7 +160,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_theme'])) {
 /**
  * Update .env file with new values
  */
-function updateEnvFile($updates) {
+/**
+ * @param array<string, string> $updates
+ */
+function updateEnvFile(array $updates): void {
     $env_file = __DIR__ . '/../.env';
     $env_example = __DIR__ . '/../.env.example';
     

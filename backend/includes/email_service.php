@@ -24,6 +24,12 @@ require_once __DIR__ . '/phpmailer/src/SMTP.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
+/**
+ * @phpstan-type AssocRow array<string, mixed>
+ * @phpstan-type MailResult array{success: bool, message: string}
+ * @phpstan-type MailOptions array{cc?: list<string>, bcc?: list<string>, context?: array<string, mixed>, client_id?: int|string|null}
+ * @phpstan-type RenderedTemplate array{subject: string, body_html: string, body_text: string}
+ */
 class EmailService {
 
     // ─── Mail type constants ──────────────────────────────────────────────────
@@ -75,12 +81,12 @@ class EmailService {
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    private $from_email;
-    private $from_name;
-    private $base_url;
-    private $conn;
+    private string $from_email;
+    private string $from_name;
+    private string $base_url;
+    private ?PDO $conn;
 
-    public function __construct($base_url = null, $conn = null) {
+    public function __construct(?string $base_url = null, ?PDO $conn = null) {
         $this->from_email = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
         $this->from_name  = Settings::get('email_from_name',    "Brook's Dog Training Academy");
 
@@ -123,12 +129,12 @@ class EmailService {
      * @param string $subject    Email subject line.
      * @param string $html_body  HTML version of the message body.
      * @param string $text_body  Plain-text version. Auto-derived from HTML when empty.
-     * @param array  $options    Optional delivery overrides:
+     * @param MailOptions $options Optional delivery overrides:
      *                           - 'cc'      (array)  CC recipient addresses.
      *                           - 'bcc'     (array)  BCC recipient addresses.
      *                           - 'context' (array)  Extra key→value data appended
      *                                                to the log entry for tracing.
-     * @return array{success: bool, message: string}
+     * @return MailResult
      */
     public function routeMail(
         string $mail_type,
@@ -201,10 +207,10 @@ class EmailService {
      * @param string $subject    Email subject.
      * @param string $html_body  HTML body.
      * @param string $text_body  Plain-text body.
-     * @param array  $result     Return value of sendEmail() (has 'success' and 'message').
+     * @param MailResult $result Return value of sendEmail() (has 'success' and 'message').
      * @param string $mail_type  MAIL_TYPE_* constant for categorisation.
      */
-    private function logToClientEmails($client_id, $to, $subject, $html_body, $text_body, $result, $mail_type) {
+    private function logToClientEmails(int|string $client_id, string $to, string $subject, string $html_body, string $text_body, array $result, string $mail_type): void {
         try {
             $now    = date('Y-m-d H:i:s');
             $status = $result['success'] ? 'sent' : 'failed';
@@ -232,7 +238,7 @@ class EmailService {
                 $mail_type,
                 $result['success'] ? $now : null,
                 $result['success'] ? null : $now,
-                $result['success'] ? null : ($result['message'] ?? null),
+                $result['success'] ? null : $result['message'],
                 $now,
                 $now,
             ]);
@@ -252,9 +258,9 @@ class EmailService {
      * @param string   $template_type      One of: booking_confirmation, booking_reminder, payment_receipt, …
      * @param int|null $appointment_type_id  ID of the appointment type (for per-type overrides)
      * @param int|null $rule_template_id     Template ID from the specific reminder rule being processed
-     * @return array|null  Row from email_templates, or null
+     * @return AssocRow|null Row from email_templates, or null
      */
-    public function getTemplateForTask($template_type, $appointment_type_id = null, $rule_template_id = null) {
+    public function getTemplateForTask(string $template_type, ?int $appointment_type_id = null, ?int $rule_template_id = null): ?array {
         if (!$this->conn) {
             return null;
         }
@@ -333,11 +339,11 @@ class EmailService {
      * standard styled email container (see wrapEmailHtml()) unless the
      * template already supplies a full HTML document.
      *
-     * @param array $template  Row from email_templates (keys: subject, body_html, body_text)
-     * @param array $variables Map of variable name => value
-     * @return array  ['subject' => …, 'body_html' => …, 'body_text' => …]
+     * @param AssocRow $template  Row from email_templates (keys: subject, body_html, body_text)
+     * @param array<string, mixed> $variables Map of variable name => value
+     * @return RenderedTemplate ['subject' => …, 'body_html' => …, 'body_text' => …]
      */
-    public function renderTemplate($template, $variables) {
+    public function renderTemplate(array $template, array $variables): array {
         $subject   = $template['subject']   ?? '';
         $body_html = $template['body_html'] ?? '';
         $body_text = $template['body_text'] ?? '';
@@ -424,7 +430,11 @@ HTML;
     /**
      * Send booking confirmation email
      */
-    public function sendBookingConfirmation($booking) {
+    /**
+     * @param AssocRow $booking
+     * @return MailResult
+     */
+    public function sendBookingConfirmation(array $booking): array {
         $to = $booking['client_email'];
         
         // Generate calendar links
@@ -466,7 +476,11 @@ HTML;
      * @param string $reason   Optional reason for the cancellation
      * @return array{success: bool, message: string}
      */
-    public function sendBookingCancellation($booking, $reason = '') {
+    /**
+     * @param AssocRow $booking
+     * @return MailResult
+     */
+    public function sendBookingCancellation(array $booking, string $reason = ''): array {
         $to = $booking['client_email'] ?? '';
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
@@ -510,7 +524,11 @@ HTML;
      * @param string $reason      Optional reason provided by the client
      * @return array{success: bool, message: string}
      */
-    public function sendBookingReschedule($booking, $old_date, $old_time, $reason = '') {
+    /**
+     * @param AssocRow $booking
+     * @return MailResult
+     */
+    public function sendBookingReschedule(array $booking, string $old_date, string $old_time, string $reason = ''): array {
         $to = $booking['client_email'] ?? '';
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
@@ -573,7 +591,11 @@ HTML;
      * @param string $old_time    Previous time (for reschedules, H:i or H:i:s)
      * @return array{success: bool, message: string}
      */
-    public function sendAdminBookingChangeNotification($booking, $change_type, $reason = '', $old_date = '', $old_time = '') {
+    /**
+     * @param AssocRow $booking
+     * @return MailResult
+     */
+    public function sendAdminBookingChangeNotification(array $booking, string $change_type, string $reason = '', string $old_date = '', string $old_time = ''): array {
         $admin_email = Settings::get('business_email', 'bookings@brooksdogtrainingacademy.com');
         if (empty($admin_email)) {
             return ['success' => false, 'message' => 'No admin email configured'];
@@ -636,12 +658,12 @@ HTML;
 
     /**
      *
-     * @param array      $invoice     Row from invoices (joined with client name/email)
-     * @param array|null $installment Row from invoice_installments, or null for full invoice
-     * @param array      $items       Rows from invoice_items (used for full-invoice receipts)
-     * @return array Result array with 'success' and 'message' keys
+     * @param AssocRow $invoice Row from invoices (joined with client name/email)
+     * @param AssocRow|null $installment Row from invoice_installments, or null for full invoice
+     * @param list<AssocRow> $items Rows from invoice_items (used for full-invoice receipts)
+     * @return MailResult Result array with 'success' and 'message' keys
      */
-    public function sendPaymentReceipt($invoice, $installment = null, $items = []) {
+    public function sendPaymentReceipt(array $invoice, ?array $installment = null, array $items = []): array {
         $to = $invoice['client_email'] ?? '';
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
@@ -791,11 +813,11 @@ HTML;
     /**
      * Send an invoice email to the client (before payment).
      *
-     * @param array $invoice Row from invoices (joined with client name/email)
-     * @param array $items   Rows from invoice_items
-     * @return array Result array with 'success' and 'message' keys
+     * @param AssocRow $invoice Row from invoices (joined with client name/email)
+     * @param list<AssocRow> $items Rows from invoice_items
+     * @return MailResult Result array with 'success' and 'message' keys
      */
-    public function sendInvoiceEmail($invoice, $items = []) {
+    public function sendInvoiceEmail(array $invoice, array $items = []): array {
         $to = $invoice['client_email'] ?? '';
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
@@ -938,11 +960,11 @@ HTML;
     /**
      * Send a quote email to the client (initial send or resend).
      *
-     * @param array $quote Row from quotes joined with client name/email
-     * @param array $items Rows from quote_items
-     * @return array{success: bool, message: string}
+     * @param AssocRow $quote Row from quotes joined with client name/email
+     * @param list<AssocRow> $items Rows from quote_items
+     * @return MailResult
      */
-    public function sendQuoteEmail($quote, $items = []) {
+    public function sendQuoteEmail(array $quote, array $items = []): array {
         $to = $quote['client_email'] ?? '';
         if (empty($to)) {
             return ['success' => false, 'message' => 'No client email address on file'];
@@ -1082,9 +1104,9 @@ HTML;
      * @param string   $mail_type One of the EmailService::MAIL_TYPE_* constants.
      *                            Defaults to MAIL_TYPE_GENERIC for backward compatibility.
      * @param int|null $client_id Client ID for logging to client email history (optional).
-     * @return array{success: bool, message: string}
+     * @return MailResult
      */
-    public function sendGenericEmail($to, $subject, $html_body, $text_body = '', $mail_type = self::MAIL_TYPE_GENERIC, $client_id = null) {
+    public function sendGenericEmail(string $to, string $subject, string $html_body, string $text_body = '', string $mail_type = self::MAIL_TYPE_GENERIC, int|string|null $client_id = null): array {
         return $this->routeMail($mail_type, $to, $subject, $html_body, $text_body, [
             'client_id' => $client_id,
         ]);
@@ -1092,8 +1114,11 @@ HTML;
 
     /**
      * Build variable map for booking-related email templates.
+     *
+     * @param AssocRow $booking
+     * @return array<string, mixed>
      */
-    private function buildBookingVariables($booking, $date, $time, $google_link, $ical_link) {
+    private function buildBookingVariables(array $booking, string $date, string $time, string $google_link, string $ical_link): array {
         $formatted_location = $this->formatLocationForEmail($booking);
         $booking_link       = $this->base_url . '/portal/appointments.php';
         return [
@@ -1117,14 +1142,14 @@ HTML;
     /**
      * Send a composed email with optional CC and BCC recipients
      * @param string $to Primary recipient email address
-     * @param array $cc Array of CC email addresses
-     * @param array $bcc Array of BCC email addresses
+     * @param list<string> $cc Array of CC email addresses
+     * @param list<string> $bcc Array of BCC email addresses
      * @param string $subject Email subject
      * @param string $html_body HTML body content
      * @param string $text_body Plain text body content (optional)
-     * @return array Result array with 'success' and 'message' keys
+     * @return MailResult Result array with 'success' and 'message' keys
      */
-    public function sendComposeEmail($to, $cc, $bcc, $subject, $html_body, $text_body = '') {
+    public function sendComposeEmail(string $to, array $cc, array $bcc, string $subject, string $html_body, string $text_body = ''): array {
         if (empty($text_body)) {
             $text_body = strip_tags($html_body);
         }
@@ -1134,8 +1159,10 @@ HTML;
     
     /**
      * Get HTML email template
+     *
+     * @param AssocRow $booking
      */
-    private function getConfirmationEmailHTML($booking, $date, $time, $google_link, $ical_link) {
+    private function getConfirmationEmailHTML(array $booking, string $date, string $time, string $google_link, string $ical_link): string {
         return <<<HTML
 <!DOCTYPE html>
 <html>
@@ -1213,8 +1240,10 @@ HTML;
     
     /**
      * Get plain text email template
+     *
+     * @param AssocRow $booking
      */
-    private function getConfirmationEmailText($booking, $date, $time, $google_link, $ical_link) {
+    private function getConfirmationEmailText(array $booking, string $date, string $time, string $google_link, string $ical_link): string {
         return <<<TEXT
 BOOKING CONFIRMED - Brook's Dog Training Academy
 
@@ -1261,8 +1290,10 @@ TEXT;
 
     /**
      * Get HTML email template for cancellation notification
+     *
+     * @param AssocRow $booking
      */
-    private function getCancellationEmailHTML($booking, $date, $time, $reason = '') {
+    private function getCancellationEmailHTML(array $booking, string $date, string $time, string $reason = ''): string {
         $client_name  = htmlspecialchars($booking['client_name'] ?? '');
         $service_type = htmlspecialchars($booking['service_type'] ?? '');
         $duration     = htmlspecialchars((string)($booking['duration_minutes'] ?? ''));
@@ -1330,8 +1361,10 @@ HTML;
 
     /**
      * Get plain text email template for cancellation notification
+     *
+     * @param AssocRow $booking
      */
-    private function getCancellationEmailText($booking, $date, $time, $reason = '') {
+    private function getCancellationEmailText(array $booking, string $date, string $time, string $reason = ''): string {
         $client_name  = $booking['client_name'] ?? '';
         $service_type = $booking['service_type'] ?? '';
         $duration     = $booking['duration_minutes'] ?? '';
@@ -1374,8 +1407,10 @@ TEXT;
     /**
      * Format the location for display in emails based on location_type.
      * Public to allow external callers (e.g. cron tasks) to reuse the same logic.
+     *
+     * @param AssocRow $booking
      */
-    public function formatLocationForEmail($booking) {
+    public function formatLocationForEmail(array $booking): string {
         $type = $booking['location_type'] ?? '';
         $value = $booking['location'] ?? '';
 
@@ -1401,7 +1436,7 @@ TEXT;
      * @param bool $is_html Whether the body is HTML
      * @return string Body with signature appended
      */
-    private function addSignature($body, $is_html = true) {
+    private function addSignature(string $body, bool $is_html = true): string {
         require_once __DIR__ . '/email_signature_helper.php';
         
         // Get default signature
@@ -1425,8 +1460,12 @@ TEXT;
     
     /**
      * Send email using PHPMailer with SMTP support
+     *
+     * @param list<string> $cc
+     * @param list<string> $bcc
+     * @return MailResult
      */
-    private function sendEmail($to, $subject, $html_body, $text_body, $cc = [], $bcc = []) {
+    private function sendEmail(string $to, string $subject, string $html_body, string $text_body, array $cc = [], array $bcc = []): array {
         try {
             // Add email signature if enabled
             $enable_signatures = Settings::get('enable_email_signatures', true);

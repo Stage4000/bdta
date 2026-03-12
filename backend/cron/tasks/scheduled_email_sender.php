@@ -6,14 +6,21 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
+/**
+ * @phpstan-type ScheduledEmailRow array<string, mixed>
+ * @phpstan-type TaskResult array{success: bool, message: string, items_processed: int, errors: list<string>}
+ */
 class ScheduledEmailSenderTask {
-    private $conn;
+    private PDO $conn;
     
-    public function __construct($conn) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Get emails that are scheduled to be sent now or in the past
         $now = date('Y-m-d H:i:s');
         

@@ -5,16 +5,18 @@
  */
 
 class WorkflowHelper {
-    private $conn;
+    private PDO $conn;
     
-    public function __construct($conn) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
     }
     
     /**
      * Enroll a client in a workflow
+     *
+     * @return array{success: bool, message?: string, enrollment_id?: string}
      */
-    public function enrollClient($workflow_id, $client_id, $enrolled_by = null) {
+    public function enrollClient(int|string $workflow_id, int|string $client_id, int|string|null $enrolled_by = null): array {
         // Check if client is already enrolled and active
         $stmt = $this->conn->prepare("
             SELECT id FROM workflow_enrollments 
@@ -42,7 +44,7 @@ class WorkflowHelper {
     /**
      * Schedule workflow steps for an enrollment
      */
-    private function scheduleWorkflowSteps($enrollment_id) {
+    private function scheduleWorkflowSteps(int|string $enrollment_id): bool {
         // Get enrollment details
         $stmt = $this->conn->prepare("
             SELECT * FROM workflow_enrollments WHERE id = ?
@@ -93,8 +95,10 @@ class WorkflowHelper {
     
     /**
      * Calculate when a step should be scheduled
+     *
+     * @param array<string, mixed> $step
      */
-    private function calculateScheduledTime($step, $enrollment_time, $previous_step_time = null) {
+    private function calculateScheduledTime(array $step, int $enrollment_time, ?int $previous_step_time = null): int {
         switch ($step['delay_type']) {
             case 'immediate':
                 return time();
@@ -125,7 +129,7 @@ class WorkflowHelper {
     /**
      * Parse delay value (e.g., "3 days", "2 hours", "30 minutes")
      */
-    private function parseDelayValue($delay_value) {
+    private function parseDelayValue(string|int|float|null $delay_value): int {
         if (empty($delay_value)) {
             return 0;
         }
@@ -158,7 +162,7 @@ class WorkflowHelper {
     /**
      * Cancel an enrollment
      */
-    public function cancelEnrollment($enrollment_id) {
+    public function cancelEnrollment(int|string $enrollment_id): bool {
         // Update enrollment status
         $stmt = $this->conn->prepare("
             UPDATE workflow_enrollments 
@@ -181,7 +185,7 @@ class WorkflowHelper {
     /**
      * Check and trigger auto-enrollments for appointment bookings
      */
-    public function checkAppointmentTriggers($booking_id) {
+    public function checkAppointmentTriggers(int|string $booking_id): bool {
         // Get booking details
         $stmt = $this->conn->prepare("
             SELECT * FROM bookings WHERE id = ?
@@ -213,7 +217,7 @@ class WorkflowHelper {
     /**
      * Check and trigger auto-enrollments for form submissions
      */
-    public function checkFormTriggers($form_submission_id) {
+    public function checkFormTriggers(int|string $form_submission_id): bool {
         // Get form submission details
         $stmt = $this->conn->prepare("
             SELECT * FROM form_submissions WHERE id = ?

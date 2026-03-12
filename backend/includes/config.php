@@ -60,27 +60,30 @@ define('DEFAULT_LOCALHOST_URL', 'http://localhost:8000');
 define('PORTAL_URL', '/portal/');
 
 // Helper functions
-function redirect($url) {
+function redirect(string $url): void {
     header("Location: $url");
     exit();
 }
 
-function isLoggedIn() {
+function isLoggedIn(): bool {
     return isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id']);
 }
 
-function requireLogin() {
+function requireLogin(): void {
     if (!isLoggedIn()) {
         redirect(ADMIN_URL . 'login.php');
     }
 }
 
-function setFlashMessage($message, $type = 'info') {
+function setFlashMessage(string $message, string $type = 'info'): void {
     $_SESSION['flash_message'] = $message;
     $_SESSION['flash_type'] = $type;
 }
 
-function getFlashMessage() {
+/**
+ * @return array{message: string, type: string}|null
+ */
+function getFlashMessage(): ?array {
     if (isset($_SESSION['flash_message'])) {
         $message = $_SESSION['flash_message'];
         $type = $_SESSION['flash_type'] ?? 'info';
@@ -91,11 +94,11 @@ function getFlashMessage() {
     return null;
 }
 
-function escape($string) {
+function escape(string $string): string {
     return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
 }
 
-function formatDate($date) {
+function formatDate(string $date): string {
     return date('F j, Y', strtotime($date));
 }
 
@@ -106,7 +109,7 @@ function formatDate($date) {
  * Note: IPv6 addresses in bracket notation (e.g., [::1]:8000) are not supported
  * and will fall back to SERVER_NAME. Use base_url setting for IPv6 hosts.
  */
-function getDynamicBaseUrl() {
+function getDynamicBaseUrl(): string {
     // Try to build URL from current request
     if (isset($_SERVER['HTTP_HOST'])) {
         // Detect protocol with support for reverse proxies/load balancers
@@ -158,17 +161,17 @@ function getDynamicBaseUrl() {
 }
 
 // Portal helper functions
-function isPortalLoggedIn() {
+function isPortalLoggedIn(): bool {
     return isset($_SESSION['portal_client_id']) && !empty($_SESSION['portal_client_id']);
 }
 
-function requirePortalLogin() {
+function requirePortalLogin(): void {
     if (!isPortalLoggedIn()) {
         redirect(PORTAL_URL . 'login.php');
     }
 }
 
-function logClientActivity($client_id, $action, $description = '', $conn = null) {
+function logClientActivity(int|string $client_id, string $action, string $description = '', ?PDO $conn = null): void {
     if ($conn === null) {
         $db = new Database();
         $conn = $db->getConnection();

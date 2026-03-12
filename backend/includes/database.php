@@ -9,16 +9,16 @@ require_once __DIR__ . '/env_loader.php';
 EnvLoader::load();
 
 class Database {
-    private static $sharedConnection = null;
-    private static $sharedDbType = null;
-    private $db_file;
-    private $conn = null;
-    private $db_type = 'sqlite'; // 'mysql' or 'sqlite'
-    private $db_host;
-    private $db_port;
-    private $db_name;
-    private $db_user;
-    private $db_password;
+    private static ?PDO $sharedConnection = null;
+    private static ?string $sharedDbType = null;
+    private string $db_file;
+    private PDO $conn;
+    private string $db_type = 'sqlite'; // 'mysql' or 'sqlite'
+    private string $db_host;
+    private string $db_port;
+    private string $db_name;
+    private string $db_user;
+    private string $db_password;
     
     public function __construct() {
         if (self::$sharedConnection !== null) {
@@ -34,7 +34,7 @@ class Database {
         self::$sharedDbType = $this->db_type;
     }
     
-    private function loadConfig() {
+    private function loadConfig(): void {
         // Load database configuration from environment variables only
         // This avoids circular dependency of storing database config in the database
         $env_db_type = EnvLoader::get('DB_TYPE', 'sqlite');
@@ -59,12 +59,12 @@ class Database {
         }
     }
     
-    private function isMySQLConfigured() {
+    private function isMySQLConfigured(): bool {
         // Check if MySQL is minimally configured
         return !empty($this->db_host) && !empty($this->db_name);
     }
     
-    private function connect() {
+    private function connect(): void {
         try {
             if ($this->db_type === 'mysql') {
                 // Try MySQL connection
@@ -91,18 +91,18 @@ class Database {
         }
     }
     
-    private function connectSQLite() {
+    private function connectSQLite(): void {
         $this->conn = new PDO('sqlite:' . $this->db_file);
         $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         // Enable foreign keys for SQLite
         $this->execSQL('PRAGMA foreign_keys = ON');
     }
     
-    public function getConnection() {
+    public function getConnection(): PDO {
         return $this->conn;
     }
     
-    public function getDatabaseType() {
+    public function getDatabaseType(): string {
         return $this->db_type;
     }
     
@@ -114,7 +114,7 @@ class Database {
      * @param int $offset The number of rows to skip
      * @return string The LIMIT clause to append to SQL
      */
-    public function buildLimitClause($limit, $offset = 0) {
+    public function buildLimitClause(int $limit, int $offset = 0): string {
         $limit = (int)$limit;  // Ensure integer
         $offset = (int)$offset; // Ensure integer
         
@@ -128,7 +128,7 @@ class Database {
     /**
      * Convert SQL from SQLite syntax to MySQL syntax
      */
-    private function convertSQL($sql) {
+    private function convertSQL(string $sql): string {
         if ($this->db_type === 'sqlite') {
             return $sql; // No conversion needed
         }
@@ -185,7 +185,7 @@ class Database {
     /**
      * Execute SQL with automatic conversion
      */
-    private function execSQL($sql) {
+    private function execSQL(string $sql): int|false {
         $converted_sql = $this->convertSQL($sql);
         return $this->conn->exec($converted_sql);
     }
@@ -193,7 +193,10 @@ class Database {
     /**
      * Get column information in a database-agnostic way
      */
-    private function getTableColumns($tableName) {
+    /**
+     * @return list<string>
+     */
+    private function getTableColumns(string $tableName): array {
         // Validate table name to prevent SQL injection
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
             throw new InvalidArgumentException("Invalid table name: $tableName");
@@ -220,7 +223,7 @@ class Database {
     /**
      * Check if a table exists
      */
-    private function tableExists($tableName) {
+    private function tableExists(string $tableName): bool {
         // Validate table name to prevent SQL injection
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
             throw new InvalidArgumentException("Invalid table name: $tableName");
@@ -240,7 +243,7 @@ class Database {
         }
     }
     
-    private function initTables() {
+    private function initTables(): void {
         try {
             // Admin users table
             $this->execSQL("
@@ -929,7 +932,7 @@ class Database {
         }
     }
     
-    private function initDefaultSettings() {
+    private function initDefaultSettings(): void {
         $default_settings = [
             // General Settings
             ['site_name', "Brook's Dog Training Academy", 'text', 'general', 'Site Name', 'The name of your business', 0],
@@ -1040,7 +1043,7 @@ class Database {
         }
     }
     
-    private function initSampleAppointmentTypes() {
+    private function initSampleAppointmentTypes(): void {
         $sample_types = [
             [
                 'Consultation',
@@ -1134,7 +1137,7 @@ class Database {
         }
     }
     
-    private function runMigrations() {
+    private function runMigrations(): void {
         // Update bookings table to add new columns for enhanced booking
         // Check if columns exist before adding
         $column_names = $this->getTableColumns('bookings');
@@ -1882,7 +1885,7 @@ class Database {
         }
     }
     
-    private function addEmailTemplateDefaultSettings() {
+    private function addEmailTemplateDefaultSettings(): void {
         $template_settings = [
             'default_confirmation_template_id',
             'default_reminder_template_id',
@@ -1920,7 +1923,7 @@ class Database {
         }
     }
 
-    private function addDatabaseSettings() {
+    private function addDatabaseSettings(): void {
         // Check if database settings already exist
         $stmt = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE category = ?");
         $stmt->execute(['database']);
@@ -1952,7 +1955,7 @@ class Database {
             }
         }
     }
-    private function addGoogleOAuthSettings() {
+    private function addGoogleOAuthSettings(): void {
         $oauth_settings = [
             ['google_oauth_client_id', '', 'text', 'calendar', 'OAuth Client ID', 'Google OAuth 2.0 Client ID (from Google Cloud Console)', 0],
             ['google_oauth_client_secret', '', 'password', 'calendar', 'OAuth Client Secret', 'Google OAuth 2.0 Client Secret (from Google Cloud Console)', 1],
@@ -1977,7 +1980,7 @@ class Database {
         }
     }
 
-    private function addThemeSettings() {
+    private function addThemeSettings(): void {
         $theme_settings = [
             ['theme_primary_color', '#9a0073', 'color', 'theme', 'Primary Color', 'Main branding color used for buttons, links, and highlights', 0],
             ['theme_primary_dark_color', '#7a005a', 'color', 'theme', 'Primary Dark Color', 'Darker shade of primary color used for hover states', 0],
@@ -2010,7 +2013,7 @@ class Database {
      * the hardcoded fields on the public booking page. Idempotent: skipped if the
      * setting already exists. Called from runMigrations().
      */
-    private function addBookingFormSetting() {
+    private function addBookingFormSetting(): void {
         $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
         $check->execute(['default_booking_form_id']);
         if ($check->fetchColumn() == 0) {
