@@ -217,7 +217,7 @@ class EmailSignatureHelper {
     /**
      * Export signature as HTML file
      * @param int $signature_id Signature ID
-     * @return string HTML content suitable for email client import
+     * @return string|null HTML content suitable for email client import, or null if the signature does not exist
      */
     public static function exportAsHTML($signature_id) {
         $signature = self::getSignature($signature_id);
