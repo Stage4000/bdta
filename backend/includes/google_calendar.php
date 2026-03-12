@@ -571,7 +571,7 @@ class GoogleCalendarIntegration {
 
     /**
      * POST to a URL. Supports both form-encoded and JSON payloads.
-     * @param array|string $headers  Extra HTTP headers.
+     * @param array $headers  Extra HTTP headers.
      * @param bool         $json     Send body as JSON instead of form-encoded.
      */
     private static function httpPost(string $url, array $data, array $headers = [], bool $json = false): array {
