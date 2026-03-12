@@ -8,11 +8,10 @@ require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
 class WorkflowProcessorTask {
     private $conn;
-    private $task;
     
     public function __construct($conn, $task) {
         $this->conn = $conn;
-        $this->task = $task;
+        unset($task);
     }
     
     public function execute() {

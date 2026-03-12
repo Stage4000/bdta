@@ -10,8 +10,6 @@ $db = new Database();
 $conn = $db->getConnection();
 
 $error = '';
-$success = '';
-
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $current_password = $_POST['current_password'] ?? '';
@@ -88,13 +86,6 @@ include '../backend/includes/header.php';
             <?php if ($error): ?>
                 <div class="alert alert-danger alert-dismissible fade show">
                     <?= escape($error) ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($success): ?>
-                <div class="alert alert-success alert-dismissible fade show">
-                    <?= escape($success) ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>

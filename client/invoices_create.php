@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Insert installments if enabled
-        if ($use_installments && $installment_count >= 2) {
+        if ($use_installments) {
             $inst_amount = round($total_amount / $installment_count, 2);
             // Correct for rounding on last installment
             $last_amount = $total_amount - ($inst_amount * ($installment_count - 1));

@@ -11,11 +11,10 @@ require_once dirname(dirname(__DIR__)) . '/includes/settings.php';
 
 class BookingReminderTask {
     private $conn;
-    private $task;
     
     public function __construct($conn, $task) {
         $this->conn = $conn;
-        $this->task = $task;
+        unset($task);
     }
     
     public function execute() {

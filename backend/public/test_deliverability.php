@@ -172,8 +172,7 @@ This is an automated test email for deliverability testing.
     }
 }
 
-// HTML interface for browser access (only if not CLI)
-if (!$is_cli):
+// HTML interface for browser access
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -334,4 +333,3 @@ if (!$is_cli):
     </div>
 </body>
 </html>
-<?php endif; ?>

@@ -12,10 +12,9 @@ ob_start();
 
 require_once __DIR__ . '/../includes/config.php';
 
-// $api_result is set to a JSON string on the happy path.
-// The shutdown function falls back to an empty-events response if it is still null
-// (e.g. because die() was called during DB init before we could set it).
-$api_result = null;
+// Default to an empty-events response so shutdown still returns valid JSON
+// if die() is called during DB init before the happy-path assignment runs.
+$api_result = json_encode(['events' => []]);
 
 register_shutdown_function(function () use (&$api_result) {
     ob_end_clean(); // Discard any non-JSON output (DB init errors, PHP notices, etc.)
@@ -23,7 +22,7 @@ register_shutdown_function(function () use (&$api_result) {
         header('Content-Type: application/json');
         header('Cache-Control: public, max-age=60');
     }
-    echo $api_result !== null ? $api_result : json_encode(['events' => []]);
+    echo $api_result;
 });
 
 try {
@@ -201,4 +200,3 @@ try {
 } catch (Throwable $e) {
     $api_result = json_encode(['events' => []]);
 }
-

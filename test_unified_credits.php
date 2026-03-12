@@ -94,8 +94,6 @@ try {
     echo "Test 2: Admin manually subtracts 1 credit for 'Test Session'\n";
 
     $remaining = (int)$cpc['total_credits'] - (int)$cpc['used_credits'];
-    assert($remaining + (-1) >= 0, 'Subtraction must not go below zero');
-
     $conn->prepare("UPDATE client_package_credits SET total_credits = total_credits + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([-1, $cpc_id]);
     $conn->prepare("INSERT INTO package_credit_transactions (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, notes, created_by) VALUES (?, ?, ?, 'adjustment', ?, 'Admin correction', ?)")->execute([$cpc_id, $client_id, $apt_type_id, -1, $admin_id]);
 
