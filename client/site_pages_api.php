@@ -251,7 +251,7 @@ switch ($action) {
 // ------------------------------------------------------------------ helpers
 function slugify(string $text): string {
     $text = strtolower(trim($text));
-    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text) ?? $text;
     $text = trim($text, '-');
     return $text ?: 'page';
 }

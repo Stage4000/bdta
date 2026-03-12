@@ -212,6 +212,10 @@ class EmailService {
      */
     private function logToClientEmails(int|string $client_id, string $to, string $subject, string $html_body, string $text_body, array $result, string $mail_type): void {
         try {
+            if ($this->conn === null) {
+                return;
+            }
+
             $now    = date('Y-m-d H:i:s');
             $status = $result['success'] ? 'sent' : 'failed';
             $stmt   = $this->conn->prepare("

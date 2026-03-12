@@ -115,10 +115,10 @@ function convertSQLiteToMySQL(string $sql): string {
         '/INTEGER PRIMARY KEY AUTOINCREMENT/i',
         'INT AUTO_INCREMENT PRIMARY KEY',
         $sql
-    );
+    ) ?? $sql;
     
     // Replace INTEGER with INT
-    $sql = preg_replace('/\bINTEGER\b/i', 'INT', $sql);
+    $sql = preg_replace('/\bINTEGER\b/i', 'INT', $sql) ?? $sql;
     
     // Replace TEXT fields that should be VARCHAR
     // Keep TEXT for long content fields, convert to VARCHAR for shorter fields
@@ -126,10 +126,10 @@ function convertSQLiteToMySQL(string $sql): string {
         '/(\w+)\s+TEXT\s+(UNIQUE|NOT NULL|DEFAULT)/i',
         '$1 VARCHAR(255) $2',
         $sql
-    );
+    ) ?? $sql;
     
     // Add backticks around table and column names for MySQL
-    $sql = preg_replace('/CREATE TABLE (\w+)/i', 'CREATE TABLE IF NOT EXISTS `$1`', $sql);
+    $sql = preg_replace('/CREATE TABLE (\w+)/i', 'CREATE TABLE IF NOT EXISTS `$1`', $sql) ?? $sql;
     
     // Replace TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     $sql = str_replace('CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP', $sql);

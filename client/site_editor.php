@@ -40,19 +40,19 @@ function makeHtmlPathsAbsolute(string $html): string {
         '/\bsrc="(?!\/|https?:|data:|#)([^"]+)"/i',
         'src="/$1"',
         $html
-    );
+    ) ?? $html;
     // Fix href="<relative>" (skip anchors, mailto, external URLs)
     $html = preg_replace(
         '/\bhref="(?!\/|https?:|mailto:|tel:|data:|#)([^"]+)"/i',
         'href="/$1"',
         $html
-    );
+    ) ?? $html;
     // Fix CSS url(...) for inline background images using unquoted or quoted relative paths
     $html = preg_replace(
         '/url\((?![\'"]?(?:\/|https?:|data:))([\'"]?)([^\'"\)]+)\1\)/i',
         'url($1/$2$1)',
         $html
-    );
+    ) ?? $html;
     return $html;
 }
 

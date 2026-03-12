@@ -85,7 +85,7 @@ class Database {
     public function __construct() {
         if (self::$sharedConnection !== null) {
             $this->conn = self::$sharedConnection;
-            $this->db_type = self::$sharedDbType;
+            $this->db_type = self::$sharedDbType ?? 'sqlite';
             return;
         }
         // Load database configuration from environment
@@ -203,7 +203,7 @@ class Database {
             '/INTEGER PRIMARY KEY AUTOINCREMENT/i',
             'INT AUTO_INCREMENT PRIMARY KEY',
             $mysql_sql
-        );
+        ) ?? $mysql_sql;
         
         // Convert TEXT to VARCHAR only when required by MySQL:
         // - UNIQUE: MySQL cannot create an index on an unbounded TEXT column.
@@ -215,28 +215,28 @@ class Database {
             '/(\w+)\s+TEXT\s+(UNIQUE|DEFAULT)/i',
             '$1 VARCHAR(255) $2',
             $mysql_sql
-        );
+        ) ?? $mysql_sql;
         
         // Handle standalone TEXT columns (no constraints after)
         $mysql_sql = preg_replace(
             '/(\w+)\s+TEXT\s*,/i',
             '$1 TEXT,',
             $mysql_sql
-        );
+        ) ?? $mysql_sql;
         
         // Convert INTEGER to INT
         $mysql_sql = preg_replace(
             '/(\w+)\s+INTEGER\s+/i',
             '$1 INT ',
             $mysql_sql
-        );
+        ) ?? $mysql_sql;
         
         // Convert INTEGER, at end of line
         $mysql_sql = preg_replace(
             '/(\w+)\s+INTEGER\s*,/i',
             '$1 INT,',
             $mysql_sql
-        );
+        ) ?? $mysql_sql;
         
         // Handle TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         // MySQL uses CURRENT_TIMESTAMP, which is compatible

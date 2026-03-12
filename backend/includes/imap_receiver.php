@@ -73,6 +73,14 @@ class ImapEmailReceiver {
             $this->imap_connection = null;
         }
     }
+
+    private function getImapConnection(): IMAP\Connection {
+        if (!$this->imap_connection instanceof IMAP\Connection) {
+            throw new RuntimeException('IMAP connection is not available');
+        }
+
+        return $this->imap_connection;
+    }
     
     /**
      * Fetch and process new emails
@@ -96,7 +104,7 @@ class ImapEmailReceiver {
             $since_date = date('d-M-Y', safe_timestamp(strtotime("-{$sync_days} days")));
             
             // Search for emails since the sync date
-            $emails = imap_search($this->imap_connection, "SINCE \"{$since_date}\"");
+            $emails = imap_search($this->getImapConnection(), "SINCE \"{$since_date}\"");
             
             if (!$emails) {
                 $this->disconnect();
@@ -144,7 +152,7 @@ class ImapEmailReceiver {
      */
     private function processEmail(int $email_number): void {
         // Get email header
-        $header = imap_headerinfo($this->imap_connection, $email_number);
+        $header = imap_headerinfo($this->getImapConnection(), $email_number);
         
         if (!$header) {
             throw new Exception('Failed to get email header');
@@ -196,7 +204,7 @@ class ImapEmailReceiver {
         }
         
         // Get email body
-        $structure = imap_fetchstructure($this->imap_connection, $email_number);
+        $structure = imap_fetchstructure($this->getImapConnection(), $email_number);
         if ($structure === false) {
             throw new Exception('Failed to get email structure');
         }
@@ -258,7 +266,7 @@ class ImapEmailReceiver {
             }
         } else {
             // Single part message
-            $body = scalar_string(imap_body($this->imap_connection, $email_number));
+            $body = scalar_string(imap_body($this->getImapConnection(), $email_number));
             
             // Decode if needed
             if (isset($structure->encoding)) {
@@ -280,7 +288,7 @@ class ImapEmailReceiver {
         $is_text = isset($part->subtype) && strtolower($part->subtype) === 'plain';
         
         if (($type === 'html' && $is_html) || ($type === 'text' && $is_text)) {
-            $data = scalar_string(imap_fetchbody($this->imap_connection, $email_number, (string) $part_num));
+            $data = scalar_string(imap_fetchbody($this->getImapConnection(), $email_number, (string) $part_num));
             
             // Decode if needed
             if (isset($part->encoding)) {

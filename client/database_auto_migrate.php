@@ -163,20 +163,20 @@ function convertSQLiteToMySQL(string $sql): string {
         '/INTEGER PRIMARY KEY AUTOINCREMENT/i',
         'INT AUTO_INCREMENT PRIMARY KEY',
         $sql
-    );
+    ) ?? $sql;
     
     // Replace INTEGER with INT
-    $sql = preg_replace('/\bINTEGER\b/i', 'INT', $sql);
+    $sql = preg_replace('/\bINTEGER\b/i', 'INT', $sql) ?? $sql;
     
     // Replace TEXT fields that should be VARCHAR for indexes
     $sql = preg_replace(
         '/(\w+)\s+TEXT\s+(UNIQUE|NOT NULL)/i',
         '$1 VARCHAR(255) $2',
         $sql
-    );
+    ) ?? $sql;
     
     // Add backticks around table name for MySQL
-    $sql = preg_replace('/CREATE TABLE (\w+)/i', 'CREATE TABLE IF NOT EXISTS `$1`', $sql);
+    $sql = preg_replace('/CREATE TABLE (\w+)/i', 'CREATE TABLE IF NOT EXISTS `$1`', $sql) ?? $sql;
     
     // Add ENGINE=InnoDB at the end
     if (!preg_match('/ENGINE\s*=/i', $sql)) {

@@ -100,8 +100,8 @@ class EmailSignatureHelper {
                             if (strtolower($attr->name) === 'style') {
                                 $style = $attr->value;
                                 // Remove javascript: and expression()
-                                $style = preg_replace('/javascript:/i', '', $style);
-                                $style = preg_replace('/expression\s*\(/i', '', $style);
+                                $style = preg_replace('/javascript:/i', '', $style) ?? $style;
+                                $style = preg_replace('/expression\s*\(/i', '', $style) ?? $style;
                                 $child->setAttribute('style', $style);
                             }
                         }

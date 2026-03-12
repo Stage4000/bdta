@@ -77,7 +77,7 @@ if ($_FILES['file']['size'] > $max_file_size) {
 $original_name = basename($_FILES['file']['name']);
 
 // Additional sanitization: remove any path separators and allow only safe characters
-$original_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $original_name);
+$original_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $original_name) ?? $original_name;
 $original_name = str_replace(['/', '\\', '..'], '', $original_name);
 
 $file_size = $_FILES['file']['size'];
