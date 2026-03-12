@@ -29,7 +29,9 @@ if ($stripe_config) {
 // Initialize Stripe library if available and configured
 if (file_exists(__DIR__ . '/../vendor/autoload.php') && !empty(STRIPE_SECRET_KEY)) {
     require_once __DIR__ . '/../vendor/autoload.php';
-    \Stripe\Stripe::setApiKey(STRIPE_SECRET_KEY);
+    if (class_exists('\Stripe\Stripe')) {
+        \Stripe\Stripe::setApiKey(STRIPE_SECRET_KEY);
+    }
 }
 
 /**
@@ -47,6 +49,12 @@ function createPaymentIntent($amount, $description, $metadata = []) {
         return [
             'success' => false,
             'error' => 'Stripe is not enabled or configured'
+        ];
+    }
+    if (!class_exists('\Stripe\PaymentIntent')) {
+        return [
+            'success' => false,
+            'error' => 'Stripe PHP SDK is not installed'
         ];
     }
     
@@ -82,6 +90,12 @@ function verifyPaymentIntent($payment_intent_id) {
             'error' => 'Stripe is not enabled or configured'
         ];
     }
+    if (!class_exists('\Stripe\PaymentIntent')) {
+        return [
+            'success' => false,
+            'error' => 'Stripe PHP SDK is not installed'
+        ];
+    }
     
     try {
         $intent = \Stripe\PaymentIntent::retrieve($payment_intent_id);
@@ -97,4 +111,3 @@ function verifyPaymentIntent($payment_intent_id) {
         ];
     }
 }
-?>

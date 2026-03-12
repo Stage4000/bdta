@@ -526,4 +526,3 @@ function showToast(msg, type) {
 </script>
 
 <?php include '../portal/includes/footer.php'; ?>
-

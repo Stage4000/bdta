@@ -108,7 +108,9 @@ class GoogleCalendarIntegration {
         }
 
         try {
-            if (!class_exists('Google_Client')) {
+            if (!class_exists('Google_Client')
+                || !class_exists('Google_Service_Calendar')
+                || !class_exists('Google_Service_Calendar_Event')) {
                 return ['success' => false, 'message' => 'Google API client library not installed. Run: composer require google/apiclient'];
             }
 
@@ -136,7 +138,9 @@ class GoogleCalendarIntegration {
         }
 
         try {
-            if (!class_exists('Google_Client')) {
+            if (!class_exists('Google_Client')
+                || !class_exists('Google_Service_Calendar')
+                || !class_exists('Google_Service_Calendar_Event')) {
                 return ['success' => false, 'message' => 'Google API client library not installed. Run: composer require google/apiclient'];
             }
 

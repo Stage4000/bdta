@@ -274,4 +274,3 @@ document.getElementById('template_select')?.addEventListener('change', function(
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
-

@@ -1145,6 +1145,9 @@ if (isset($error_mode) && $error_mode) {
     
     <?php
     // Prepare JavaScript variables for appointment type data
+    $is_specific_date_type = $is_specific_date_type ?? false;
+    $specific_date_value = $specific_date_value ?? null;
+    $is_multi_specific_date = $is_multi_specific_date ?? false;
     $js_type_id = $selected_type ? intval($selected_type['id']) : 'null';
     $js_type_name = $selected_type ? json_encode($selected_type['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null';
     $js_type_duration = ($selected_type && isset($selected_type['duration_minutes']) && $selected_type['duration_minutes'] > 0) 

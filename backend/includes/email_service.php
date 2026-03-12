@@ -1546,7 +1546,7 @@ TEXT;
         } catch (Exception $e) {
             // Log detailed error information
             $error_message = "Email sending failed: " . $e->getMessage();
-            if (isset($mail) && !empty($mail->ErrorInfo)) {
+            if (!empty($mail->ErrorInfo)) {
                 $error_message .= " | PHPMailer Error: " . $mail->ErrorInfo;
             }
             error_log($error_message);
@@ -1558,4 +1558,3 @@ TEXT;
         }
     }
 }
-?>

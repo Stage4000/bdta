@@ -728,4 +728,3 @@ function escapeHtml(str) {
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
-

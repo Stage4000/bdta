@@ -460,4 +460,3 @@ require_once '../backend/includes/header.php';
 </script>
 
 <?php require_once '../backend/includes/footer.php'; ?>
-

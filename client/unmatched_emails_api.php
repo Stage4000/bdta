@@ -58,7 +58,7 @@ if ($method === 'GET') {
             $where_conditions[] = "ue.is_archived = 0";
         }
         
-        $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+        $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
         
         $stmt = $conn->prepare("
             SELECT 

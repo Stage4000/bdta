@@ -744,7 +744,7 @@ include __DIR__ . '/../backend/includes/header.php';
                             <span id="preview_recurring">
                             <span id="preview_days">
                                 <?php
-                                if (!isset($schedule_type) || $schedule_type === 'recurring') {
+                                if ($schedule_type === 'recurring') {
                                     $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
                                     $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [0,1,2,3,4,5,6];
                                     if (!is_array($available_days)) $available_days = [0,1,2,3,4,5,6];

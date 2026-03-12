@@ -366,5 +366,3 @@ Brook's Dog Training Academy
 TEXT;
     }
 }
-?>
-

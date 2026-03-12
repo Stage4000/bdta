@@ -283,4 +283,3 @@ document.getElementById('stripePaymentBtn').addEventListener('click', function()
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
-
