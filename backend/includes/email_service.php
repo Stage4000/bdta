@@ -207,7 +207,7 @@ class EmailService {
      * @param string $subject    Email subject.
      * @param string $html_body  HTML body.
      * @param string $text_body  Plain-text body.
-     * @param MailResult $result Return value of sendEmail() (has 'success' and 'message').
+     * @param array<string, mixed> $result Return value of sendEmail() (has 'success' and 'message').
      * @param string $mail_type  MAIL_TYPE_* constant for categorisation.
      */
     private function logToClientEmails(int|string $client_id, string $to, string $subject, string $html_body, string $text_body, array $result, string $mail_type): void {
@@ -238,7 +238,7 @@ class EmailService {
                 $mail_type,
                 $result['success'] ? $now : null,
                 $result['success'] ? null : $now,
-                $result['success'] ? null : $result['message'],
+                $result['success'] ? null : ($result['message'] ?? 'Unknown error'),
                 $now,
                 $now,
             ]);
