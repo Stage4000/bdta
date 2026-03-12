@@ -32,12 +32,12 @@ class EmailTask {
         if (preg_match('/\b(receive|imap|fetch)\b/', $task_name_lower)) {
             // Delegate to EmailReceiverTask
             require_once __DIR__ . '/email_receiver.php';
-            $handler = new EmailReceiverTask($this->conn, $this->task);
+            $handler = new EmailReceiverTask();
             return $handler->execute();
         }
         
         // Default: delegate to ScheduledEmailSenderTask
-        $sender = new ScheduledEmailSenderTask($this->conn, $this->task);
+        $sender = new ScheduledEmailSenderTask($this->conn);
         return $sender->execute();
     }
 }

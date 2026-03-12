@@ -7,8 +7,7 @@
 require_once dirname(dirname(__DIR__)) . '/includes/imap_receiver.php';
 
 class EmailReceiverTask {
-    public function __construct($conn, $task) {
-        unset($conn, $task);
+    public function __construct() {
     }
     
     public function execute() {
