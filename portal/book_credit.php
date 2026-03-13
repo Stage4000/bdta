@@ -171,7 +171,9 @@ $loc_types_all = [
 ];
 $allowed_loc = [];
 if (!$is_fixed_type && !empty($selected_type['location_types'])) {
-    $decoded = string_list(json_decode(array_string_value($selected_type, 'location_types'), true));
+    $location_types_json = array_string_value($selected_type, 'location_types');
+    $location_types_raw = json_decode($location_types_json, true);
+    $decoded = string_list($location_types_raw);
     if (!empty($decoded)) {
         $allowed_loc = array_values(array_filter($decoded, fn(string $t) => isset($loc_types_all[$t])));
     }

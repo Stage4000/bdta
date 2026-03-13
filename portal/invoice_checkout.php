@@ -128,7 +128,7 @@ curl_close($ch);
 $session = decode_json_assoc(scalar_string($response));
 
 if ($http_code !== 200 || empty($session['url'])) {
-    $session_error = decode_json_assoc($session['error'] ?? []);
+    $session_error = is_array($session['error'] ?? null) ? $session['error'] : [];
     $error      = array_string_value($session_error, 'message', 'Unknown error');
     $error_type = array_string_value($session_error, 'type', 'unknown');
     $error_code = array_string_value($session_error, 'code');

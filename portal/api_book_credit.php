@@ -198,7 +198,9 @@ if (!empty($apt_type['is_mini_session'])) {
 } else {
     // Restrict to configured types for this appointment type
     if (!empty($apt_type['location_types'])) {
-        $configured = string_list(json_decode(array_string_value($apt_type, 'location_types'), true));
+        $location_types_json = array_string_value($apt_type, 'location_types');
+        $location_types_raw = json_decode($location_types_json, true);
+        $configured = string_list($location_types_raw);
         if (!empty($configured)) {
             $allowed_location_types = array_merge($configured, ['fixed']);
         }
