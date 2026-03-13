@@ -15,7 +15,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Get client ID from URL
-$client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : 0;
+$client_id = safe_int($_GET['client_id'] ?? 0);
 
 if (!$client_id) {
     $_SESSION['flash_message'] = "Invalid client ID.";
@@ -61,7 +61,7 @@ function getOrCreateManualCreditRow(PDO $conn, int $client_id, int $appointment_
         ")->execute([MANUAL_CREDIT_PKG_NAME]);
         $manual_pkg_id = (int)$conn->lastInsertId();
     } else {
-        $manual_pkg_id = (int)$manual_pkg['id'];
+        $manual_pkg_id = is_array($manual_pkg) ? array_int_value($manual_pkg, 'id') : 0;
     }
 
     // Get or create the client_packages record for this client + manual package
@@ -76,7 +76,7 @@ function getOrCreateManualCreditRow(PDO $conn, int $client_id, int $appointment_
         ")->execute([$client_id, $manual_pkg_id, $admin_id]);
         $manual_cp_id = (int)$conn->lastInsertId();
     } else {
-        $manual_cp_id = (int)$manual_cp['id'];
+        $manual_cp_id = is_array($manual_cp) ? array_int_value($manual_cp, 'id') : 0;
     }
 
     // Get or create the client_package_credits row for this appointment type
@@ -92,21 +92,23 @@ function getOrCreateManualCreditRow(PDO $conn, int $client_id, int $appointment_
         return (int)$conn->lastInsertId();
     }
 
-    return (int)$cpc['id'];
+    return is_array($cpc) ? array_int_value($cpc, 'id') : 0;
 }
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+    if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
         $_SESSION['flash_message'] = 'Invalid request.';
         $_SESSION['flash_type'] = 'danger';
         header('Location: credits_manage.php?client_id=' . $client_id);
         exit;
     }
     if (isset($_POST['action'])) {
-        if ($_POST['action'] === 'assign_package') {
-            $package_id = (int)$_POST['package_id'];
-            $pkg_notes  = trim($_POST['pkg_assign_notes'] ?? '');
+        $action = scalar_string($_POST['action']);
+        if ($action === 'assign_package') {
+            $package_id = safe_int($_POST['package_id'] ?? 0);
+            $pkg_notes  = trim(scalar_string($_POST['pkg_assign_notes'] ?? ''));
 
             $stmt = $conn->prepare("SELECT * FROM packages WHERE id = ? AND is_active = 1");
             $stmt->execute([$package_id]);
@@ -128,8 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $conn->beginTransaction();
 
                         $expires_at = null;
-                        if ($package['expiration_days']) {
-                            $expires_at = date('Y-m-d H:i:s', safe_timestamp(strtotime('+' . $package['expiration_days'] . ' days')));
+                        if (array_int_value($package, 'expiration_days') > 0) {
+                            $expires_at = date('Y-m-d H:i:s', safe_timestamp(strtotime('+' . array_int_value($package, 'expiration_days') . ' days')));
                         }
 
                         $stmt = $conn->prepare("
@@ -137,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 (client_id, package_id, package_name, expires_at, is_active, notes, created_by)
                             VALUES (?, ?, ?, ?, 1, ?, ?)
                         ");
-                        $stmt->execute([$client_id, $package_id, $package['name'], $expires_at, $pkg_notes, $_SESSION['admin_id']]);
+                        $stmt->execute([$client_id, $package_id, array_string_value($package, 'name'), $expires_at, $pkg_notes, safe_int($_SESSION['admin_id'] ?? 0)]);
                         $cp_id = $conn->lastInsertId();
 
                         $credit_stmt = $conn->prepare("
@@ -160,13 +162,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $tx_stmt->execute([
                                 $cred['id'], $client_id, $cred['appointment_type_id'],
                                 $cred['total_credits'],
-                                "Package '{$package['name']}' purchased",
-                                $_SESSION['admin_id']
+                                "Package '" . array_string_value($package, 'name') . "' purchased",
+                                safe_int($_SESSION['admin_id'] ?? 0)
                             ]);
                         }
 
                         $conn->commit();
-                        $_SESSION['flash_message'] = "Package '{$package['name']}' assigned successfully!";
+                        $_SESSION['flash_message'] = "Package '" . array_string_value($package, 'name') . "' assigned successfully!";
                         $_SESSION['flash_type'] = "success";
                     } catch (PDOException $e) {
                         if ($conn->inTransaction()) $conn->rollBack();
@@ -179,19 +181,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: credits_manage.php?client_id=$client_id");
             exit;
         }
-        elseif ($_POST['action'] === 'deactivate_package') {
-            $cp_id = (int)$_POST['client_package_id'];
+        elseif ($action === 'deactivate_package') {
+            $cp_id = safe_int($_POST['client_package_id'] ?? 0);
             $conn->prepare("UPDATE client_packages SET is_active = 0 WHERE id = ? AND client_id = ?")->execute([$cp_id, $client_id]);
             $_SESSION['flash_message'] = "Package deactivated.";
             $_SESSION['flash_type'] = "success";
             header("Location: credits_manage.php?client_id=$client_id");
             exit;
         }
-        elseif ($_POST['action'] === 'adjust_credits') {
+        elseif ($action === 'adjust_credits') {
             // Manual per-appointment-type credit adjustment
-            $appointment_type_id = (int)($_POST['appointment_type_id'] ?? 0);
-            $amount = (int)$_POST['pkg_amount'];
-            $notes = trim($_POST['pkg_notes']);
+            $appointment_type_id = safe_int($_POST['appointment_type_id'] ?? 0);
+            $amount = safe_int($_POST['pkg_amount'] ?? 0);
+            $notes = trim(scalar_string($_POST['pkg_notes'] ?? ''));
 
             $stmt = $conn->prepare("SELECT id, name FROM appointment_types WHERE id = ? AND is_active = 1");
             $stmt->execute([$appointment_type_id]);
@@ -210,13 +212,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $conn->beginTransaction();
 
-                    $cpc_id = getOrCreateManualCreditRow($conn, $client_id, $appointment_type_id, $_SESSION['admin_id']);
+                    $cpc_id = getOrCreateManualCreditRow($conn, $client_id, $appointment_type_id, safe_int($_SESSION['admin_id'] ?? 0));
 
                     // Fetch current credit row
                     $stmt = $conn->prepare("SELECT total_credits, used_credits FROM client_package_credits WHERE id = ?");
                     $stmt->execute([$cpc_id]);
                     $cpc = $stmt->fetch(PDO::FETCH_ASSOC);
-                    $remaining = (int)$cpc['total_credits'] - (int)$cpc['used_credits'];
+                    $remaining = is_array($cpc)
+                        ? array_int_value($cpc, 'total_credits') - array_int_value($cpc, 'used_credits')
+                        : 0;
 
                     if ($amount < 0 && ($remaining + $amount) < 0) {
                         $conn->rollBack();
@@ -235,10 +239,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             INSERT INTO package_credit_transactions
                                 (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, notes, created_by)
                             VALUES (?, ?, ?, 'adjustment', ?, ?, ?)
-                        ")->execute([$cpc_id, $client_id, $appointment_type_id, $amount, $notes, $_SESSION['admin_id']]);
+                        ")->execute([$cpc_id, $client_id, $appointment_type_id, $amount, $notes, safe_int($_SESSION['admin_id'] ?? 0)]);
 
                         $conn->commit();
-                        $_SESSION['flash_message'] = "Credit adjustment applied for {$apt_type_row['name']}!";
+                        $_SESSION['flash_message'] = "Credit adjustment applied for " . array_string_value($apt_type_row, 'name') . "!";
                         $_SESSION['flash_type'] = "success";
                     }
                 } catch (PDOException $e) {
@@ -255,7 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get transaction history with pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = safe_int($_GET['page'] ?? 1);
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -363,7 +367,7 @@ require_once '../backend/includes/header.php';
             <?php if (isset($_SESSION['flash_message'])): ?>
                 <div class="alert alert-<?php echo $_SESSION['flash_type']; ?> alert-dismissible fade show">
                     <?php 
-                    echo htmlspecialchars($_SESSION['flash_message']);
+                    echo escape($_SESSION['flash_message']);
                     unset($_SESSION['flash_message']);
                     unset($_SESSION['flash_type']);
                     ?>
@@ -379,7 +383,7 @@ require_once '../backend/includes/header.php';
                 <div class="card-body">
                     <p class="text-muted small mb-3">Directly add or subtract credits for a specific appointment type without assigning a full package. All changes are audit-logged.</p>
                     <form method="POST" class="row g-3">
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                         <input type="hidden" name="action" value="adjust_credits">
 
                         <div class="col-md-3">
@@ -388,7 +392,7 @@ require_once '../backend/includes/header.php';
                                 <option value="">Select type…</option>
                                 <?php foreach ($all_appointment_types as $at): ?>
                                     <option value="<?= (int)$at['id'] ?>">
-                                        <?= htmlspecialchars($at['name']) ?>
+                                        <?= escape($at['name']) ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -424,20 +428,20 @@ require_once '../backend/includes/header.php';
                 <div class="card-body">
                     <div class="row">
                         <?php foreach ($pkg_credit_summary as $row): ?>
-                            <?php $apt_name = $apt_type_map[$row['appointment_type_id']] ?? ('Type #' . $row['appointment_type_id']); ?>
+                            <?php $apt_name = $apt_type_map[array_int_value($row, 'appointment_type_id')] ?? ('Type #' . array_int_value($row, 'appointment_type_id')); ?>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <div class="card text-center h-100 border-primary">
                                     <div class="card-body">
                                         <i class="fas fa-calendar-check fa-2x mb-2 text-muted"></i>
-                                        <h6><?= htmlspecialchars($apt_name) ?></h6>
-                                        <div class="display-6 fw-bold <?= $row['remaining'] > 0 ? 'text-success' : 'text-danger' ?>">
-                                            <?= $row['remaining'] ?>
+                                        <h6><?= escape($apt_name) ?></h6>
+                                        <div class="display-6 fw-bold <?= array_int_value($row, 'remaining') > 0 ? 'text-success' : 'text-danger' ?>">
+                                            <?= array_int_value($row, 'remaining') ?>
                                         </div>
-                                        <small class="text-muted">of <?= $row['total'] ?> total</small>
-                                        <?php if ($row['total'] > 0): ?>
+                                        <small class="text-muted">of <?= array_int_value($row, 'total') ?> total</small>
+                                        <?php if (array_int_value($row, 'total') > 0): ?>
                                             <div class="progress mt-2" style="height:6px;">
                                                 <div class="progress-bar bg-primary"
-                                                     style="width:<?= round(($row['used'] / $row['total']) * 100) ?>%"></div>
+                                                     style="width:<?= round((array_int_value($row, 'used') / array_int_value($row, 'total')) * 100) ?>%"></div>
                                             </div>
                                         <?php endif; ?>
                                     </div>
@@ -459,7 +463,7 @@ require_once '../backend/includes/header.php';
                         <p class="text-muted">No active packages available. <a href="packages_list.php">Create packages first.</a></p>
                     <?php else: ?>
                         <form method="POST" class="row g-3 align-items-end">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                             <input type="hidden" name="action" value="assign_package">
 
                             <div class="col-md-5">
@@ -470,8 +474,8 @@ require_once '../backend/includes/header.php';
                                         <option value="<?= $pkg['id'] ?>"
                                                 data-price="<?= $pkg['price'] ?>"
                                                 data-expiry="<?= $pkg['expiration_days'] ?? '' ?>">
-                                            <?= htmlspecialchars($pkg['name']) ?>
-                                            <?= $pkg['price'] > 0 ? ' – $' . number_format($pkg['price'], 2) : '' ?>
+                                            <?= escape($pkg['name']) ?>
+                                            <?= safe_float($pkg['price']) > 0 ? ' – $' . number_format(safe_float($pkg['price']), 2) : '' ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -522,16 +526,16 @@ require_once '../backend/includes/header.php';
                                         <strong><?= htmlspecialchars($cp['package_name']) ?></strong>
                                         <span class="badge bg-<?= $status_class ?> ms-2"><?= $status_label ?></span>
                                         <small class="text-muted ms-2">
-                                            Assigned: <?= date('M j, Y', strtotime($cp['purchased_at'])) ?>
+                                            Assigned: <?= date('M j, Y', safe_timestamp(strtotime(array_string_value($cp, 'purchased_at')))) ?>
                                             <?php if ($cp['expires_at']): ?>
-                                                | Expires: <?= date('M j, Y', strtotime($cp['expires_at'])) ?>
+                                                | Expires: <?= date('M j, Y', safe_timestamp(strtotime(array_string_value($cp, 'expires_at')))) ?>
                                             <?php endif; ?>
                                         </small>
                                     </div>
                                     <?php if ($cp['is_active'] && !$is_expired): ?>
                                         <form method="POST" class="d-inline"
                                               onsubmit="return confirm('Deactivate this package? Remaining credits will be forfeited.')">
-                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                                             <input type="hidden" name="action" value="deactivate_package">
                                             <input type="hidden" name="client_package_id" value="<?= $cp['id'] ?>">
                                             <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -544,17 +548,17 @@ require_once '../backend/includes/header.php';
                                     <div class="row g-2">
                                         <?php foreach ($pkg_credits_map[$cp['id']] ?? [] as $cred): ?>
                                             <?php
-                                            $remaining = $cred['total_credits'] - $cred['used_credits'];
-                                            $apt_name = $cred['apt_type_name'] ?? ('Type #' . $cred['appointment_type_id']);
-                                            $pct = $cred['total_credits'] > 0 ? round(($cred['used_credits'] / $cred['total_credits']) * 100) : 0;
+                                            $remaining = array_int_value($cred, 'total_credits') - array_int_value($cred, 'used_credits');
+                                            $apt_name = array_string_value($cred, 'apt_type_name', 'Type #' . array_int_value($cred, 'appointment_type_id'));
+                                            $pct = array_int_value($cred, 'total_credits') > 0 ? round((array_int_value($cred, 'used_credits') / array_int_value($cred, 'total_credits')) * 100) : 0;
                                             ?>
                                             <div class="col-md-3 col-sm-6">
                                                 <div class="border rounded p-2 text-center">
-                                                    <small class="text-muted d-block"><i class="fas fa-calendar-check me-1"></i><?= htmlspecialchars($apt_name) ?></small>
+                                                    <small class="text-muted d-block"><i class="fas fa-calendar-check me-1"></i><?= escape($apt_name) ?></small>
                                                     <span class="fs-5 fw-bold <?= $remaining > 0 ? 'text-success' : 'text-danger' ?>">
                                                         <?= $remaining ?>
                                                     </span>
-                                                    <small class="text-muted"> / <?= $cred['total_credits'] ?></small>
+                                                    <small class="text-muted"> / <?= array_int_value($cred, 'total_credits') ?></small>
                                                     <div class="progress mt-1" style="height:4px;">
                                                         <div class="progress-bar bg-primary" style="width:<?= $pct ?>%"></div>
                                                     </div>
@@ -563,7 +567,7 @@ require_once '../backend/includes/header.php';
                                         <?php endforeach; ?>
                                     </div>
                                     <?php if ($cp['notes']): ?>
-                                        <small class="text-muted mt-2 d-block">Note: <?= htmlspecialchars($cp['notes']) ?></small>
+                                         <small class="text-muted mt-2 d-block">Note: <?= escape($cp['notes']) ?></small>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -596,7 +600,7 @@ require_once '../backend/includes/header.php';
                                 <tbody>
                                     <?php foreach ($transactions as $transaction): ?>
                                         <tr>
-                                            <td><?php echo date('M j, Y g:i A', strtotime($transaction['created_at'])); ?></td>
+                                            <td><?php echo date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($transaction, 'created_at')))); ?></td>
                                             <td>
                                                 <?php
                                                 $type_badges = [
@@ -612,8 +616,8 @@ require_once '../backend/includes/header.php';
                                                 </span>
                                             </td>
                                             <td>
-                                                <?php $apt_name = $apt_type_map[$transaction['appointment_type_id']] ?? ('Type #' . $transaction['appointment_type_id']); ?>
-                                                <span class="badge bg-primary"><?= htmlspecialchars($apt_name) ?></span>
+                                                <?php $apt_name = $apt_type_map[array_int_value($transaction, 'appointment_type_id')] ?? ('Type #' . array_int_value($transaction, 'appointment_type_id')); ?>
+                                                <span class="badge bg-primary"><?= escape($apt_name) ?></span>
                                             </td>
                                             <td>
                                                 <span class="<?php echo $transaction['amount'] > 0 ? 'text-success' : 'text-danger'; ?>">
@@ -626,13 +630,13 @@ require_once '../backend/includes/header.php';
                                                         Booking #<?php echo $transaction['booking_id']; ?>
                                                     </a>
                                                 <?php elseif ($transaction['notes']): ?>
-                                                    <?php echo htmlspecialchars($transaction['notes']); ?>
+                                                    <?php echo escape($transaction['notes']); ?>
                                                 <?php else: ?>
                                                     <span class="text-muted">-</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td>
-                                                <?php echo $transaction['admin_username'] ? htmlspecialchars($transaction['admin_username']) : '-'; ?>
+                                                <?php echo array_string_value($transaction, 'admin_username') !== '' ? escape($transaction['admin_username']) : '-'; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

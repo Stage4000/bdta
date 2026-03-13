@@ -46,20 +46,23 @@ $appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $client_id = (int)$_POST['client_id'];
-    $appointment_type_id = (int)$_POST['appointment_type_id'];
+    $client_id = safe_int($_POST['client_id'] ?? 0);
+    $appointment_type_id = safe_int($_POST['appointment_type_id'] ?? 0);
     $booking_date = $_POST['booking_date'];
     $booking_time = $_POST['booking_time'];
     $pets = isset($_POST['pets']) ? $_POST['pets'] : [];
-    $notes = trim($_POST['notes'] ?? '');
+    $notes = trim(scalar_string($_POST['notes'] ?? ''));
     $override_forms = isset($_POST['override_forms']) ? 1 : 0;
     $override_contract = isset($_POST['override_contract']) ? 1 : 0;
     $override_credits = isset($_POST['override_credits']) ? 1 : 0;
     // Package credit row ID selected by admin
-    $package_credit_id = (int)($_POST['package_credit_id'] ?? 0);
+    $package_credit_id = safe_int($_POST['package_credit_id'] ?? 0);
     // Location fields
-    $location_type = trim($_POST['location_type'] ?? '');
-    $location_value = trim($_POST['location_value'] ?? '');
+    $location_type = trim(scalar_string($_POST['location_type'] ?? ''));
+    $location_value = trim(scalar_string($_POST['location_value'] ?? ''));
+    if (!is_array($pets)) {
+        $pets = [];
+    }
     
     try {
         // Get appointment type details
@@ -136,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (!$package_credit_row) {
                     $errors[] = "Selected package credit is not valid for this appointment type.";
-                } elseif (($package_credit_row['total_credits'] - $package_credit_row['used_credits']) < 1) {
+                } elseif ((safe_int($package_credit_row['total_credits']) - safe_int($package_credit_row['used_credits'])) < 1) {
                     $errors[] = "Selected package credit has no remaining balance.";
                 } else {
                     $use_package_credit = true;
@@ -189,7 +192,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
             // Create booking
             $pets_json = json_encode($pets);
-            $pkg_cred_col = $use_package_credit ? $package_credit_row['id'] : null;
+            $pkg_cred_col = $use_package_credit && is_array($package_credit_row)
+                ? array_int_value($package_credit_row, 'id')
+                : null;
             
             $stmt = $conn->prepare("
                 INSERT INTO bookings (
@@ -261,7 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($pets)) {
                 foreach ($pets as $pet_id) {
                     $stmt = $conn->prepare("INSERT INTO appointment_pets (booking_id, pet_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
-                    $stmt->execute([$booking_id, $pet_id]);
+                    $stmt->execute([$booking_id, safe_int($pet_id)]);
                 }
             }
 
@@ -316,7 +321,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get pets for selected client via AJAX
 if (isset($_GET['client_id']) && isset($_GET['ajax']) && $_GET['ajax'] === 'pets') {
-    $client_id = (int)$_GET['client_id'];
+    $client_id = safe_int($_GET['client_id']);
     $stmt = $conn->prepare("SELECT id, name, species, breed FROM pets WHERE client_id = ? AND is_active = 1");
     $stmt->execute([$client_id]);
     $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -340,7 +345,7 @@ include '../backend/includes/header.php';
 
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="alert alert-danger alert-dismissible fade show">
-                    <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+                    <?php echo escape($_SESSION['error']); unset($_SESSION['error']); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
@@ -356,7 +361,7 @@ include '../backend/includes/header.php';
                                     <option value="">Select client...</option>
                                     <?php foreach ($clients as $client): ?>
                                         <option value="<?php echo $client['id']; ?>">
-                                            <?php echo htmlspecialchars($client['name']); ?> (<?php echo htmlspecialchars($client['email']); ?>)
+                                            <?php echo escape($client['name']); ?> (<?php echo escape($client['email']); ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 </select>

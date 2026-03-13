@@ -10,11 +10,12 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$quote_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$quote_id = safe_int($_GET['id'] ?? 0);
 
 // Handle resend action
 if (isset($_POST['resend_quote'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+    if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
         setFlashMessage('Invalid request.', 'danger');
         header('Location: quotes_view.php?id=' . $quote_id);
         exit;
@@ -36,7 +37,7 @@ if (isset($_POST['resend_quote'])) {
         try {
             $email_items_stmt = $conn->prepare("SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id");
             $email_items_stmt->execute([$quote_id]);
-            $email_items = array_values($email_items_stmt->fetchAll(PDO::FETCH_ASSOC));
+            $email_items = $email_items_stmt->fetchAll(PDO::FETCH_ASSOC);
             
             $email_service = new EmailService(null, $conn);
             $email_service->sendQuoteEmail($resend_quote, $email_items);
@@ -52,14 +53,15 @@ if (isset($_POST['resend_quote'])) {
 
 // Handle status change
 if (isset($_POST['change_status'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+    if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
         setFlashMessage('Invalid request.', 'danger');
         header('Location: quotes_view.php?id=' . $quote_id);
         exit;
     }
-    $new_status = $_POST['new_status'];
+    $new_status = scalar_string($_POST['new_status'] ?? '');
     $allowed_statuses = ['draft', 'sent', 'viewed', 'accepted', 'declined', 'expired'];
-    if (in_array($new_status, $allowed_statuses)) {
+    if (in_array($new_status, $allowed_statuses, true)) {
         $stmt = $conn->prepare("UPDATE quotes SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
         $stmt->execute([$new_status, $quote_id]);
         setFlashMessage('Quote status updated successfully!', 'success');
@@ -77,9 +79,10 @@ $stmt = $conn->prepare("
 $stmt->execute([$quote_id]);
 $quote = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$quote) {
+if (!is_array($quote)) {
     setFlashMessage('Quote not found', 'danger');
     redirect('quotes_list.php');
+    exit;
 }
 
 // Get line items
@@ -88,7 +91,10 @@ $items_stmt->execute([$quote_id]);
 $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Check if expired
-$is_expired = $quote['expiration_date'] && strtotime($quote['expiration_date']) < time() && $quote['status'] == 'sent';
+$expiration_timestamp = safe_timestamp(strtotime(array_string_value($quote, 'expiration_date')));
+$is_expired = array_string_value($quote, 'expiration_date') !== ''
+    && $expiration_timestamp < time()
+    && array_string_value($quote, 'status') === 'sent';
 $display_status = $is_expired ? 'expired' : $quote['status'];
 
 // Generate public link dynamically from current request
@@ -128,7 +134,7 @@ include '../backend/includes/header.php';
             <?php endif; ?>
             <?php if ($display_status != 'draft'): ?>
                 <form method="POST" class="d-inline">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                     <button type="submit" name="resend_quote" class="btn btn-success me-2">
                         <i class="fas fa-paper-plane me-1"></i>Resend Quote
                     </button>
@@ -144,8 +150,8 @@ include '../backend/includes/header.php';
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-4">
                         <div>
-                            <h4><?= htmlspecialchars($quote['title']) ?></h4>
-                            <p class="text-muted mb-0">For: <strong><?= htmlspecialchars($quote['client_name']) ?></strong></p>
+                            <h4><?= escape($quote['title']) ?></h4>
+                            <p class="text-muted mb-0">For: <strong><?= escape($quote['client_name']) ?></strong></p>
                         </div>
                         <div class="text-end">
                             <?php
@@ -164,7 +170,7 @@ include '../backend/includes/header.php';
                     </div>
 
                     <?php if ($quote['description']): ?>
-                        <p class="mb-4"><?= nl2br(htmlspecialchars($quote['description'])) ?></p>
+                        <p class="mb-4"><?= nl2br(escape($quote['description'])) ?></p>
                     <?php endif; ?>
 
                     <!-- Line Items -->
@@ -180,17 +186,17 @@ include '../backend/includes/header.php';
                         <tbody>
                             <?php foreach ($items as $item): ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($item['description']) ?></td>
+                                    <td><?= escape($item['description']) ?></td>
                                     <td class="text-center"><?= $item['quantity'] ?></td>
-                                    <td class="text-end">$<?= number_format($item['unit_price'], 2) ?></td>
-                                    <td class="text-end">$<?= number_format($item['amount'], 2) ?></td>
+                                    <td class="text-end">$<?= number_format(safe_float($item['unit_price']), 2) ?></td>
+                                    <td class="text-end">$<?= number_format(safe_float($item['amount']), 2) ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                         <tfoot>
                             <tr>
                                 <th colspan="3" class="text-end">Total:</th>
-                                <th class="text-end">$<?= number_format($quote['amount'], 2) ?></th>
+                                <th class="text-end">$<?= number_format(safe_float($quote['amount']), 2) ?></th>
                             </tr>
                         </tfoot>
                     </table>
@@ -204,7 +210,7 @@ include '../backend/includes/header.php';
                         <h5 class="card-title mb-0">Internal Notes</h5>
                     </div>
                     <div class="card-body">
-                        <p class="mb-0"><?= nl2br(htmlspecialchars($quote['notes'])) ?></p>
+                        <p class="mb-0"><?= nl2br(escape($quote['notes'])) ?></p>
                     </div>
                 </div>
             <?php endif; ?>
@@ -230,7 +236,7 @@ include '../backend/includes/header.php';
                     <div class="list-group-item">
                         <strong>Status:</strong><br>
                         <form method="POST" class="mt-2">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                             <div class="input-group input-group-sm">
                                 <select name="new_status" class="form-select form-select-sm">
                                     <option value="draft" <?= $quote['status'] == 'draft' ? 'selected' : '' ?>>Draft</option>
@@ -246,12 +252,12 @@ include '../backend/includes/header.php';
                     </div>
                     <div class="list-group-item">
                         <strong>Created:</strong><br>
-                        <?= date('M j, Y g:i A', strtotime($quote['created_at'])) ?>
+                        <?= date('M j, Y g:i A', safe_timestamp(strtotime($quote['created_at']))) ?>
                     </div>
                     <?php if ($quote['expiration_date']): ?>
                         <div class="list-group-item">
                             <strong>Expiration:</strong><br>
-                            <?= date('M j, Y', strtotime($quote['expiration_date'])) ?>
+                            <?= date('M j, Y', safe_timestamp(strtotime($quote['expiration_date']))) ?>
                             <?php if ($is_expired): ?>
                                 <span class="badge bg-warning ms-2">Expired</span>
                             <?php endif; ?>
@@ -260,19 +266,19 @@ include '../backend/includes/header.php';
                     <?php if ($quote['viewed_at']): ?>
                         <div class="list-group-item">
                             <strong>Viewed:</strong><br>
-                            <?= date('M j, Y g:i A', strtotime($quote['viewed_at'])) ?>
+                            <?= date('M j, Y g:i A', safe_timestamp(strtotime($quote['viewed_at']))) ?>
                         </div>
                     <?php endif; ?>
                     <?php if ($quote['accepted_at']): ?>
                         <div class="list-group-item">
                             <strong>Accepted:</strong><br>
-                            <?= date('M j, Y g:i A', strtotime($quote['accepted_at'])) ?>
+                            <?= date('M j, Y g:i A', safe_timestamp(strtotime($quote['accepted_at']))) ?>
                         </div>
                     <?php endif; ?>
                     <?php if ($quote['declined_at']): ?>
                         <div class="list-group-item">
                             <strong>Declined:</strong><br>
-                            <?= date('M j, Y g:i A', strtotime($quote['declined_at'])) ?>
+                            <?= date('M j, Y g:i A', safe_timestamp(strtotime($quote['declined_at']))) ?>
                         </div>
                     <?php endif; ?>
                 </div>

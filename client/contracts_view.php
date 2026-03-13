@@ -5,7 +5,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = intval($_GET['id'] ?? 0);
+$id = safe_int($_GET['id'] ?? 0);
 
 $stmt = $conn->prepare("
     SELECT co.*, c.name as client_name, c.email as client_email
@@ -16,14 +16,16 @@ $stmt = $conn->prepare("
 $stmt->execute([$id]);
 $contract = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$contract) {
+if (!is_array($contract)) {
     setFlashMessage('Contract not found!', 'danger');
     redirect('contracts_list.php');
+    exit;
 }
 
 // Handle delete action
 if (isset($_POST['delete_contract'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+    if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
         setFlashMessage('Invalid request.', 'danger');
         header('Location: contracts_view.php?id=' . $id);
         exit;
@@ -40,14 +42,15 @@ if (isset($_POST['delete_contract'])) {
 
 // Handle status change
 if (isset($_POST['change_status'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+    if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
         setFlashMessage('Invalid request.', 'danger');
         header('Location: contracts_view.php?id=' . $id);
         exit;
     }
-    $new_status = $_POST['new_status'];
+    $new_status = scalar_string($_POST['new_status'] ?? '');
     $allowed_statuses = ['draft', 'sent', 'signed', 'expired'];
-    if (in_array($new_status, $allowed_statuses)) {
+    if (in_array($new_status, $allowed_statuses, true)) {
         $stmt = $conn->prepare("UPDATE contracts SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
         $stmt->execute([$new_status, $id]);
         setFlashMessage('Contract status updated successfully!', 'success');
@@ -111,7 +114,7 @@ include '../backend/includes/header.php';
                             <i class="fas fa-pencil"></i> Edit
                         </a>
                         <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this contract?')">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                             <button type="submit" name="delete_contract" class="btn btn-danger me-2">
                                 <i class="fas fa-trash"></i> Delete
                             </button>
@@ -162,8 +165,8 @@ include '../backend/includes/header.php';
                                     <?= escape($contract['signature_typed_name']) ?>
                                 </div>
                                 <p class="text-muted small mt-2">
-                                    Style: <?= escape($font_labels[$contract['signature_font']] ?? $contract['signature_font']) ?><br>
-                                    Signed on <?= escape(date('F j, Y \a\t g:i A T', strtotime($contract['signed_date']))) ?>
+                                    Style: <?= escape($font_labels[array_string_value($contract, 'signature_font')] ?? array_string_value($contract, 'signature_font')) ?><br>
+                                    Signed on <?= escape(date('F j, Y \a\t g:i A T', safe_timestamp(strtotime($contract['signed_date'])))) ?>
                                     &mdash; IP: <?= escape($contract['ip_address']) ?>
                                 </p>
                             <?php elseif ($contract['signature_data']): ?>
@@ -186,7 +189,7 @@ include '../backend/includes/header.php';
                         </div>
                         <div class="card-body">
                             <form method="POST">
-                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                                 <div class="mb-3">
                                     <label class="form-label">Change Status</label>
                                     <select name="new_status" class="form-select">
@@ -235,7 +238,7 @@ include '../backend/includes/header.php';
                                     <div class="fw-semibold text-capitalize"><?= escape($entry['event_type']) ?></div>
                                     <div><?= escape($entry['details']) ?></div>
                                     <div class="text-muted">
-                                        <?= escape(date('M j, Y g:i A T', strtotime($entry['created_at']))) ?><br>
+                                        <?= escape(date('M j, Y g:i A T', safe_timestamp(strtotime($entry['created_at'])))) ?><br>
                                         IP: <?= escape($entry['ip_address']) ?>
                                     </div>
                                 </li>

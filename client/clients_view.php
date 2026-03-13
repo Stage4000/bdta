@@ -5,7 +5,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$id = safe_int($_GET['id'] ?? 0);
 
 if ($id <= 0) {
     setFlashMessage('Invalid client ID!', 'danger');
@@ -17,9 +17,10 @@ $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ?");
 $stmt->execute([$id]);
 $client = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$client) {
+if (!is_array($client)) {
     setFlashMessage('Client not found!', 'danger');
     redirect('clients_list.php');
+    exit;
 }
 
 // Get client's pets with file count
@@ -97,7 +98,10 @@ $stmt = $conn->prepare("
     GROUP BY cpc.appointment_type_id, at.name
 ");
 $stmt->execute([$id]);
-$pkg_credits_summary = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'remaining', 'apt_type_name');
+$pkg_credits_summary = [];
+foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $summary_row) {
+    $pkg_credits_summary[array_string_value($summary_row, 'apt_type_name')] = array_int_value($summary_row, 'remaining');
+}
 
 // Get email count
 $stmt = $conn->prepare("SELECT COUNT(*) as email_count FROM client_emails WHERE client_id = ?");
@@ -170,7 +174,7 @@ include '../backend/includes/header.php';
                             <dt>Credits:</dt>
                             <dd>
                                 <?php foreach ($pkg_credits_summary as $apt_name => $rem): ?>
-                                    <span class="badge bg-primary me-1"><?= htmlspecialchars($apt_name) ?>: <?= (int)$rem ?></span>
+                                     <span class="badge bg-primary me-1"><?= escape($apt_name) ?>: <?= (int)$rem ?></span>
                                 <?php endforeach; ?>
                             </dd>
                         <?php endif; ?>
@@ -340,7 +344,7 @@ include '../backend/includes/header.php';
                                     <?php foreach ($upcoming_appointments as $apt): ?>
                                         <tr>
                                             <td><?= formatDate($apt['appointment_date']) ?></td>
-                                            <td><?= date('g:i A', strtotime($apt['appointment_time'])) ?></td>
+                                            <td><?= date('g:i A', safe_timestamp(strtotime($apt['appointment_time']))) ?></td>
                                             <td><?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?></td>
                                             <td><span class="badge bg-info"><?= escape($apt['status']) ?></span></td>
                                         </tr>
@@ -368,7 +372,7 @@ include '../backend/includes/header.php';
                                     <?php foreach (array_slice($past_appointments, 0, 10) as $apt): ?>
                                         <tr>
                                             <td><?= formatDate($apt['appointment_date']) ?></td>
-                                            <td><?= date('g:i A', strtotime($apt['appointment_time'])) ?></td>
+                                            <td><?= date('g:i A', safe_timestamp(strtotime($apt['appointment_time']))) ?></td>
                                             <td><?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?></td>
                                             <td><span class="badge bg-secondary"><?= escape($apt['status']) ?></span></td>
                                         </tr>
@@ -493,7 +497,7 @@ include '../backend/includes/header.php';
                                         <tr>
                                             <td><?= escape($quote['quote_number']) ?></td>
                                             <td><?= escape($quote['title']) ?></td>
-                                            <td>$<?= number_format($quote['amount'], 2) ?></td>
+                                            <td>$<?= number_format(safe_float($quote['amount']), 2) ?></td>
                                             <td>
                                                 <?php
                                                 $colors = ['draft' => 'secondary', 'sent' => 'info', 'viewed' => 'primary', 'accepted' => 'success', 'declined' => 'danger', 'expired' => 'warning'];
@@ -544,7 +548,7 @@ include '../backend/includes/header.php';
                                             <td><?= escape($invoice['invoice_number']) ?></td>
                                             <td><?= formatDate($invoice['issue_date']) ?></td>
                                             <td><?= formatDate($invoice['due_date']) ?></td>
-                                            <td>$<?= number_format($invoice['total_amount'], 2) ?></td>
+                                            <td>$<?= number_format(safe_float($invoice['total_amount']), 2) ?></td>
                                             <td>
                                                 <?php
                                                 $colors = ['draft' => 'secondary', 'sent' => 'info', 'paid' => 'success', 'overdue' => 'danger', 'partial' => 'warning'];

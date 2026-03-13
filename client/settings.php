@@ -78,7 +78,7 @@ $page_title = 'Settings';
 
 // Get all categories
 $categories = Settings::getCategories();
-$current_category = $_GET['category'] ?? 'general';
+$current_category = scalar_string($_GET['category'] ?? 'general');
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
@@ -101,9 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             ];
             
             foreach ($_POST as $key => $value) {
-                if ($key !== 'save_settings' && $key !== 'category' && in_array($key, $valid_keys)) {
-                    if (isset($env_key_map[$key])) {
-                        $env_updates[$env_key_map[$key]] = $value;
+                $setting_key = scalar_string($key);
+                if ($setting_key !== 'save_settings' && $setting_key !== 'category' && in_array($setting_key, $valid_keys, true)) {
+                    if (isset($env_key_map[$setting_key])) {
+                        $env_updates[$env_key_map[$setting_key]] = scalar_string($value);
                     }
                 }
             }
@@ -117,32 +118,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         } else {
             // Handle non-database settings normally
             foreach ($_POST as $key => $value) {
-                if ($key !== 'save_settings' && $key !== 'category' && in_array($key, $valid_keys)) {
+                $setting_key = scalar_string($key);
+                if ($setting_key !== 'save_settings' && $setting_key !== 'category' && in_array($setting_key, $valid_keys, true)) {
                     // Validate color values to only accept valid hex colors
                     $setting_info = null;
                     foreach ($valid_settings as $s) {
-                        if ($s['key'] === $key) { $setting_info = $s; break; }
+                        if (array_string_value($s, 'key') === $setting_key) { $setting_info = $s; break; }
                     }
-                    if ($setting_info && $setting_info['type'] === 'color') {
-                        if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $value)) {
+                    if ($setting_info && array_string_value($setting_info, 'type') === 'color') {
+                        if (preg_match('/^#[0-9A-Fa-f]{6}$/', scalar_string($value)) !== 1) {
                             continue; // Skip invalid color values
                         }
                     }
-                    Settings::set($key, $value);
+                    Settings::set($setting_key, scalar_string($value));
                 }
             }
             
             // Handle unchecked checkboxes (they don't appear in $_POST)
             foreach ($valid_settings as $setting) {
-                if ($setting['type'] === 'checkbox' && !isset($_POST[$setting['key']])) {
-                    Settings::set($setting['key'], '0');
+                $setting_key = array_string_value($setting, 'key');
+                if (array_string_value($setting, 'type') === 'checkbox' && !isset($_POST[$setting_key])) {
+                    Settings::set($setting_key, '0');
                 }
             }
             
             setFlashMessage('Settings saved successfully!', 'success');
         }
         
-        redirect(ADMIN_URL . 'settings.php?category=' . $current_category);
+        redirect(ADMIN_URL . 'settings.php?category=' . urlencode($current_category));
     } catch (Exception $e) {
         setFlashMessage('Error saving settings: ' . $e->getMessage(), 'danger');
     }
@@ -241,7 +244,7 @@ $oauth_configured = false;
 if ($current_category === 'calendar') {
     require_once __DIR__ . '/../backend/includes/google_calendar.php';
     $oauth_configured = GoogleCalendarIntegration::isOAuthConfigured();
-    $oauth_token_row  = GoogleCalendarIntegration::getOAuthToken((int)$_SESSION['admin_id']);
+    $oauth_token_row  = GoogleCalendarIntegration::getOAuthToken(safe_int($_SESSION['admin_id'] ?? 0));
     // Generate a CSRF token for the disconnect form
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
@@ -253,8 +256,10 @@ include __DIR__ . '/../backend/includes/header.php';
 
 <?php
 // Get theme colors for inline styles that aren't covered by header.php
-$st_primary      = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_color', '#9a0073')))      ? Settings::get('theme_primary_color', '#9a0073')      : '#9a0073';
-$st_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_dark_color', '#7a005a'))) ? Settings::get('theme_primary_dark_color', '#7a005a') : '#7a005a';
+$theme_primary = scalar_string(Settings::get('theme_primary_color', '#9a0073'));
+$theme_primary_dark = scalar_string(Settings::get('theme_primary_dark_color', '#7a005a'));
+$st_primary = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary) === 1 ? $theme_primary : '#9a0073';
+$st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 ? $theme_primary_dark : '#7a005a';
 ?>
 <style>
     /* Custom styling for settings submenu active state */
@@ -363,9 +368,9 @@ $st_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_prima
                                 
                                 <?php if ($setting['key'] === 'default_booking_form_id'): ?>
                                     <select class="form-select" id="default_booking_form_id" name="default_booking_form_id">
-                                        <option value="0" <?= intval($setting['actual_value']) === 0 ? 'selected' : '' ?>>— Use default fields (Name, Email, Phone, Pet Name, Notes) —</option>
+                                        <option value="0" <?= safe_int($setting['actual_value']) === 0 ? 'selected' : '' ?>>— Use default fields (Name, Email, Phone, Pet Name, Notes) —</option>
                                         <?php foreach ($booking_form_templates as $bft): ?>
-                                            <option value="<?= (int)$bft['id'] ?>" <?= intval($setting['actual_value']) === (int)$bft['id'] ? 'selected' : '' ?>>
+                                            <option value="<?= (int)$bft['id'] ?>" <?= safe_int($setting['actual_value']) === (int)$bft['id'] ? 'selected' : '' ?>>
                                                 <?= escape($bft['name']) ?>
                                             </option>
                                         <?php endforeach; ?>
@@ -403,7 +408,7 @@ $st_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_prima
                                 <?php elseif ($setting['type'] === 'select'): ?>
                                     <select class="form-select" id="<?= escape($setting['key']) ?>" name="<?= escape($setting['key']) ?>">
                                         <?php 
-                                        $options = getSelectOptions($setting['key']);
+                                        $options = getSelectOptions(array_string_value($setting, 'key'));
                                         foreach ($options as $value => $label): 
                                         ?>
                                             <option value="<?= escape(scalar_string($value)) ?>" <?= $setting['actual_value'] == $value ? 'selected' : '' ?>>
@@ -500,13 +505,13 @@ $st_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_prima
                                         <small class="text-muted">
                                             Syncing to calendar:
                                             <strong><?= escape($oauth_token_row['calendar_id'] ?? 'primary') ?></strong>
-                                            &mdash; connected <?= escape(date('M j, Y', strtotime($oauth_token_row['created_at']))) ?>
+                                            &mdash; connected <?= escape(date('M j, Y', safe_timestamp(strtotime(array_string_value($oauth_token_row, 'created_at'))))) ?>
                                         </small>
                                     </div>
 
                                     <!-- Calendar selector -->
                                     <?php
-                                    $user_calendars = GoogleCalendarIntegration::listCalendars((int)$_SESSION['admin_id']);
+                                    $user_calendars = GoogleCalendarIntegration::listCalendars(safe_int($_SESSION['admin_id'] ?? 0));
                                     if (!empty($user_calendars)):
                                     ?>
                                     <form method="POST" action="google_oauth_select_calendar.php" class="mb-3">
