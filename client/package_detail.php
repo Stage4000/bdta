@@ -10,7 +10,7 @@ require_once __DIR__ . '/../backend/includes/database.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$token = trim($_GET['token'] ?? '');
+$token = trim(scalar_string($_GET['token'] ?? ''));
 if (!$token || !preg_match('/^[a-f0-9]{32}$/', $token)) {
     http_response_code(404);
     $page_title = 'Package Not Found';
@@ -46,8 +46,8 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Record page view (analytics)
 $ip = $_SERVER['REMOTE_ADDR'] ?? null;
-$ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 512);
-$ref = substr($_SERVER['HTTP_REFERER'] ?? '', 0, 512);
+$ua = substr(scalar_string($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 512);
+$ref = substr(scalar_string($_SERVER['HTTP_REFERER'] ?? ''), 0, 512);
 try {
     $conn->prepare("INSERT INTO package_link_views (package_id, ip_address, user_agent, referrer) VALUES (?, ?, ?, ?)")
          ->execute([$package['id'], $ip, $ua, $ref]);
@@ -260,7 +260,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                         <div class="row g-3 text-center">
                             <div class="col-6">
                                 <div class="fs-4 fw-bold brand-purple">
-                                    <?= $package['price'] > 0 ? '$' . number_format($package['price'], 2) : 'Contact Us' ?>
+                                    <?= safe_float($package['price'] ?? 0) > 0 ? '$' . number_format(safe_float($package['price'] ?? 0), 2) : 'Contact Us' ?>
                                 </div>
                                 <small class="text-muted">Package Price</small>
                             </div>
@@ -291,14 +291,14 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                             <div class="mb-3">
                                 <label for="buyer_name" class="form-label">Your Name <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="buyer_name" name="buyer_name"
-                                       value="<?= htmlspecialchars($_POST['buyer_name'] ?? '') ?>"
+                                       value="<?= htmlspecialchars(scalar_string($_POST['buyer_name'] ?? '')) ?>"
                                        placeholder="Jane Smith" required>
                             </div>
 
                             <div class="mb-3">
                                 <label for="buyer_email" class="form-label">Email Address <span class="text-danger">*</span></label>
                                 <input type="email" class="form-control" id="buyer_email" name="buyer_email"
-                                       value="<?= htmlspecialchars($_POST['buyer_email'] ?? '') ?>"
+                                       value="<?= htmlspecialchars(scalar_string($_POST['buyer_email'] ?? '')) ?>"
                                        placeholder="you@example.com" required>
                                 <div class="form-text">We'll use this to look up or create your account.</div>
                             </div>
@@ -306,7 +306,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                             <div class="mb-3">
                                 <label for="notes" class="form-label">Notes <small class="text-muted">(optional)</small></label>
                                 <textarea class="form-control" id="notes" name="notes" rows="2"
-                                          placeholder="Any questions or special requests?"><?= htmlspecialchars($_POST['notes'] ?? '') ?></textarea>
+                                           placeholder="Any questions or special requests?"><?= htmlspecialchars(scalar_string($_POST['notes'] ?? '')) ?></textarea>
                             </div>
 
                             <div class="alert alert-info py-2 small">
@@ -322,7 +322,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-brand btn-lg">
                                     <i class="fas fa-check-circle me-2"></i>
-                                    Purchase<?= $package['price'] > 0 ? ' – $' . number_format($package['price'], 2) : '' ?>
+                                    Purchase<?= safe_float($package['price'] ?? 0) > 0 ? ' – $' . number_format(safe_float($package['price'] ?? 0), 2) : '' ?>
                                 </button>
                             </div>
                         </form>

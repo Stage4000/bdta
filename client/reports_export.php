@@ -6,9 +6,9 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Get parameters
-$type = $_GET['type'] ?? 'income_summary';
-$start_date = $_GET['start'] ?? date('Y-m-01');
-$end_date = $_GET['end'] ?? date('Y-m-t');
+$type = scalar_string($_GET['type'] ?? 'income_summary');
+$start_date = scalar_string($_GET['start'] ?? date('Y-m-01'));
+$end_date = scalar_string($_GET['end'] ?? date('Y-m-t'));
 
 // Validate dates
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date)) {
