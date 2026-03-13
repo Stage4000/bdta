@@ -10,6 +10,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "ckeditor5": "^43.3.1"
+    "ckeditor5": "^47.6.1"
   }
 }
