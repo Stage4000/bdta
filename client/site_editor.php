@@ -368,11 +368,6 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
     // ------------------------------------------------------------------
     const savedHtml = <?php echo json_encode(array_string_value($page, 'html_content')); ?>;
     const savedCss  = <?php echo json_encode(array_string_value($page, 'css_content')); ?>;
-    const richTextActions = [
-        'bold', 'italic', 'underline', 'link',
-        'bdta-heading1', 'bdta-heading2', 'bdta-heading3', 'bdta-paragraph',
-        'bdta-ul', 'bdta-ol', 'bdta-open-code'
-    ];
 
     const editor = grapesjs.init({
         container: '#gjs',
@@ -384,7 +379,6 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
             'gjs-blocks-basic': { flexGrid: true },
             'gjs-preset-webpage': {}
         },
-        richTextEditor: { actions: richTextActions },
         canvas: {
             styles: [
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
@@ -449,6 +443,13 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
         addAction('bdta-ul', '<i class="fas fa-list-ul"></i>', 'Bulleted list', rte => rte.exec('insertUnorderedList'));
         addAction('bdta-ol', '<i class="fas fa-list-ol"></i>', 'Numbered list', rte => rte.exec('insertOrderedList'));
         addAction('bdta-open-code', '<i class="fas fa-code"></i>', 'Edit HTML / CSS', () => openHtmlModal());
+        const desiredActions = [
+            'bold', 'italic', 'underline', 'link',
+            'bdta-heading1', 'bdta-heading2', 'bdta-heading3', 'bdta-paragraph',
+            'bdta-ul', 'bdta-ol', 'bdta-open-code'
+        ];
+        editor.getConfig().richTextEditor = editor.getConfig().richTextEditor || {};
+        editor.getConfig().richTextEditor.actions = desiredActions;
     }());
 
     // Set initial content
