@@ -14,9 +14,9 @@ header('Content-Type: application/json');
 $db = new Database();
 $conn = $db->getConnection();
 
-$action = $_GET['action'] ?? '';
-$client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : 0;
-$contact_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$action = scalar_string($_GET['action'] ?? '');
+$client_id = safe_int($_GET['client_id'] ?? 0);
+$contact_id = safe_int($_GET['id'] ?? 0);
 
 try {
     switch ($action) {
@@ -44,12 +44,12 @@ try {
                 throw new Exception('Client ID is required');
             }
             
-            $data = json_decode(file_get_contents('php://input'), true);
-            
-            $name = trim($data['name'] ?? '');
-            $email = trim($data['email'] ?? '');
-            $phone = trim($data['phone'] ?? '');
-            $is_primary = isset($data['is_primary']) ? (int)$data['is_primary'] : 0;
+            $data = decode_json_assoc(file_get_contents('php://input'));
+
+            $name = trim(array_string_value($data, 'name'));
+            $email = trim(array_string_value($data, 'email'));
+            $phone = trim(array_string_value($data, 'phone'));
+            $is_primary = array_key_exists('is_primary', $data) ? array_int_value($data, 'is_primary') : 0;
             
             // Validate required fields
             if (empty($name)) {
@@ -102,12 +102,12 @@ try {
                 throw new Exception('Contact ID is required');
             }
             
-            $data = json_decode(file_get_contents('php://input'), true);
-            
-            $name = trim($data['name'] ?? '');
-            $email = trim($data['email'] ?? '');
-            $phone = trim($data['phone'] ?? '');
-            $is_primary = isset($data['is_primary']) ? (int)$data['is_primary'] : 0;
+            $data = decode_json_assoc(file_get_contents('php://input'));
+
+            $name = trim(array_string_value($data, 'name'));
+            $email = trim(array_string_value($data, 'email'));
+            $phone = trim(array_string_value($data, 'phone'));
+            $is_primary = array_key_exists('is_primary', $data) ? array_int_value($data, 'is_primary') : 0;
             
             // Validate required fields
             if (empty($name)) {
@@ -139,7 +139,7 @@ try {
                 // If setting as primary, unset other primary contacts
                 if ($is_primary) {
                     $stmt = $conn->prepare("UPDATE client_contacts SET is_primary = 0 WHERE client_id = ? AND id != ?");
-                    $stmt->execute([$contact['client_id'], $contact_id]);
+                    $stmt->execute([array_int_value($contact, 'client_id'), $contact_id]);
                 }
                 
                 $stmt = $conn->prepare("

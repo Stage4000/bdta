@@ -3,7 +3,7 @@ require_once '../backend/includes/config.php';
 
 $error       = '';
 $success     = '';
-$token       = $_GET['token'] ?? '';
+$token       = scalar_string($_GET['token'] ?? '');
 $valid_token = false;
 $client      = null;
 
@@ -21,8 +21,8 @@ if (empty($token)) {
         $valid_token = true;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $new_password     = $_POST['new_password'] ?? '';
-            $confirm_password = $_POST['confirm_password'] ?? '';
+            $new_password     = scalar_string($_POST['new_password'] ?? '');
+            $confirm_password = scalar_string($_POST['confirm_password'] ?? '');
 
             if (empty($new_password) || empty($confirm_password)) {
                 $error = 'All fields are required.';
@@ -103,7 +103,7 @@ if (empty($token)) {
                             </div>
                         <?php elseif ($valid_token): ?>
                             <p class="text-muted text-center mb-4">
-                                Enter your new password for <strong><?php echo escape($client['email']); ?></strong>
+                                Enter your new password for <strong><?php echo escape(is_array($client) ? array_string_value($client, 'email') : ''); ?></strong>
                             </p>
                             <form method="POST">
                                 <div class="mb-3">

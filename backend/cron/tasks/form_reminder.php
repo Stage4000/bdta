@@ -6,16 +6,22 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
+/**
+ * @phpstan-type FormRow array<string, mixed>
+ * @phpstan-type MailResult array{success: bool, message: string}
+ * @phpstan-type TaskResult array{success: bool, items_processed: int, message: string, errors: list<string>}
+ */
 class FormReminderTask {
-    private $conn;
-    private $task;
+    private PDO $conn;
     
-    public function __construct($conn, $task) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
-        $this->task = $task;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Get form requests that haven't been completed
         // Send reminders for forms sent more than 3 days ago
         $reminder_threshold = date('Y-m-d H:i:s', strtotime('-3 days'));
@@ -32,15 +38,17 @@ class FormReminderTask {
         ");
         
         $stmt->execute([$reminder_threshold, $reminder_threshold]);
-        $forms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $forms = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
         $errors = [];
         
         foreach ($forms as $form) {
             try {
-                if (empty($form['client_email'])) {
-                    $errors[] = "No email found for form submission #{$form['id']}";
+                $form_id = scalar_string($form['id'] ?? '');
+                $client_email = array_string_value($form, 'client_email');
+                if ($client_email === '') {
+                    $errors[] = "No email found for form submission #{$form_id}";
                     continue;
                 }
                 
@@ -50,14 +58,14 @@ class FormReminderTask {
                 if ($result['success']) {
                     // Mark reminder as sent
                     $update = $this->conn->prepare("UPDATE form_submissions SET last_reminder_sent = ? WHERE id = ?");
-                    $update->execute([date('Y-m-d H:i:s'), $form['id']]);
+                    $update->execute([date('Y-m-d H:i:s'), $form_id]);
                     $sent_count++;
                 } else {
-                    $errors[] = "Failed to send to {$form['client_email']}: {$result['message']}";
+                    $errors[] = "Failed to send to {$client_email}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
-                $errors[] = "Error processing form #{$form['id']}: " . $e->getMessage();
+                $errors[] = "Error processing form #{$form_id}: " . $e->getMessage();
             }
         }
         
@@ -78,12 +86,18 @@ class FormReminderTask {
     /**
      * Send form reminder email
      */
-    private function sendFormReminder($form) {
+    /**
+     * @param FormRow $form
+     * @return MailResult
+     */
+    private function sendFormReminder(array $form): array {
         $email_service = new EmailService(null, $this->conn);
         
-        $client_name = htmlspecialchars($form['client_name']);
-        $form_name = htmlspecialchars($form['form_name'] ?: 'Client Form');
-        $form_link = getDynamicBaseUrl() . '/backend/public/form.php?id=' . $form['id'];
+        $client_name = htmlspecialchars(scalar_string($form['client_name'] ?? ''));
+        $form_name = htmlspecialchars(scalar_string($form['form_name'] ?? 'Client Form'));
+        $form_link = getDynamicBaseUrl() . '/backend/public/form.php?id=' . scalar_string($form['id'] ?? '');
+        $client_email = scalar_string($form['client_email'] ?? '');
+        $client_id = $form['client_id'] ?? null;
         
         $subject = "Reminder: Please Complete Your Form";
         
@@ -145,7 +159,7 @@ Brook Lefkowitz
 Brook's Dog Training Academy
 TEXT;
         
-        return $email_service->sendGenericEmail($form['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_FORM_REMINDER, $form['client_id'] ?? null);
+        return $email_service->sendGenericEmail($client_email, $subject, $html_body, $text_body, EmailService::MAIL_TYPE_FORM_REMINDER, is_int($client_id) || is_string($client_id) ? $client_id : null);
     }
 }
 ?>

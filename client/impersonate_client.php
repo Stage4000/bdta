@@ -3,7 +3,7 @@ require_once '../backend/includes/config.php';
 requireLogin();
 
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$id = safe_int($_GET['id'] ?? 0);
 
 if ($id <= 0) {
     setFlashMessage('Invalid client ID.', 'danger');
@@ -18,24 +18,25 @@ $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE id = ? AND (is
 $stmt->execute([$id]);
 $client = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$client) {
+if (!is_array($client)) {
     setFlashMessage('Client not found or cannot be impersonated.', 'danger');
     redirect('clients_list.php');
 }
+/** @var array<string, mixed> $client */
 
 // Store the admin ID so we can return to admin mode later
 $_SESSION['portal_impersonating_admin_id'] = $_SESSION['admin_id'];
 
 // Set portal session variables as the target client
-$_SESSION['portal_client_id']    = $client['id'];
-$_SESSION['portal_client_name']  = $client['name'];
-$_SESSION['portal_client_email'] = $client['email'];
+$_SESSION['portal_client_id']    = array_int_value($client, 'id');
+$_SESSION['portal_client_name']  = array_string_value($client, 'name');
+$_SESSION['portal_client_email'] = array_string_value($client, 'email');
 
 // Audit log: record who impersonated whom
 logClientActivity(
-    $client['id'],
+    array_int_value($client, 'id'),
     'admin_impersonation_start',
-    'Admin (ID: ' . intval($_SESSION['portal_impersonating_admin_id']) . ') started viewing portal as this client',
+    'Admin (ID: ' . safe_int($_SESSION['portal_impersonating_admin_id'] ?? 0) . ') started viewing portal as this client',
     $conn
 );
 

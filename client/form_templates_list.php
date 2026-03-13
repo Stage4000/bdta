@@ -24,10 +24,10 @@ if (isset($_SESSION['flash_message'])) {
 }
 
 // Get filter
-$type_filter = isset($_GET['type']) ? $_GET['type'] : 'all';
+$type_filter = scalar_string($_GET['type'] ?? 'all');
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -50,7 +50,7 @@ if ($type_filter != 'all' && $type_filter != 'client' && $type_filter != 'intern
     $count_stmt->bindParam(':form_type', $type_filter);
 }
 $count_stmt->execute();
-$total_templates = $count_stmt->fetchColumn();
+$total_templates = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total_templates / $per_page);
 
 // Get templates
@@ -88,8 +88,8 @@ require_once '../backend/includes/header.php';
     </div>
 
     <?php if ($message): ?>
-    <div class="alert alert-<?php echo htmlspecialchars($message_type); ?> alert-dismissible fade show" role="alert">
-        <?php echo htmlspecialchars($message); ?>
+    <div class="alert alert-<?php echo escape($message_type); ?> alert-dismissible fade show" role="alert">
+        <?php echo escape($message); ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
@@ -160,7 +160,7 @@ require_once '../backend/includes/header.php';
                                 <?php if ($template['required_frequency']): ?>
                                     <?php echo ucfirst(str_replace('_', ' ', $template['required_frequency'])); ?>
                                     <?php if ($template['appointment_type_name']): ?>
-                                    <br><small class="text-muted">For: <?php echo htmlspecialchars($template['appointment_type_name']); ?></small>
+                                    <br><small class="text-muted">For: <?php echo escape($template['appointment_type_name']); ?></small>
                                     <?php endif; ?>
                                 <?php else: ?>
                                     <span class="text-muted">Optional</span>
@@ -173,7 +173,7 @@ require_once '../backend/includes/header.php';
                                 <span class="badge bg-secondary">Inactive</span>
                                 <?php endif; ?>
                             </td>
-                            <td><?php echo date('M j, Y', strtotime($template['created_at'])); ?></td>
+                            <td><?php echo date('M j, Y', safe_timestamp(strtotime(array_string_value($template, 'created_at')))); ?></td>
                             <td>
                                 <a href="form_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-primary">
                                     <i class="fas fa-pencil"></i>
@@ -194,7 +194,7 @@ require_once '../backend/includes/header.php';
                 <ul class="pagination justify-content-center">
                     <?php for ($i = 1; $i <= $total_pages; $i++): ?>
                     <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
-                        <a class="page-link" href="?page=<?php echo $i; ?>&type=<?php echo $type_filter; ?>">
+                        <a class="page-link" href="?page=<?php echo $i; ?>&type=<?php echo scalar_string($type_filter); ?>">
                             <?php echo $i; ?>
                         </a>
                     </li>

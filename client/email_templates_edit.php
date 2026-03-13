@@ -7,7 +7,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = safe_int($_GET['id'] ?? 0);
 $template = null;
 
 if ($id) {
@@ -22,12 +22,12 @@ if ($id) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name']);
-    $template_type = $_POST['template_type'];
-    $subject = trim($_POST['subject']);
-    $body_html = trim($_POST['body_html']);
-    $body_text = trim($_POST['body_text']);
-    $variables = trim($_POST['variables']);
+    $name = trim(scalar_string($_POST['name'] ?? ''));
+    $template_type = scalar_string($_POST['template_type'] ?? '');
+    $subject = trim(scalar_string($_POST['subject'] ?? ''));
+    $body_html = trim(scalar_string($_POST['body_html'] ?? ''));
+    $body_text = trim(scalar_string($_POST['body_text'] ?? ''));
+    $variables = trim(scalar_string($_POST['variables'] ?? ''));
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     try {
@@ -68,7 +68,7 @@ include '../backend/includes/header.php';
 
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="alert alert-danger alert-dismissible fade show">
-                    <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+                    <?php echo htmlspecialchars(scalar_string($_SESSION['error'])); unset($_SESSION['error']); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
@@ -81,7 +81,7 @@ include '../backend/includes/header.php';
                                 <div class="mb-3">
                                     <label class="form-label">Template Name *</label>
                                     <input type="text" name="name" class="form-control" required 
-                                           value="<?php echo htmlspecialchars($template['name'] ?? ''); ?>"
+                                           value="<?php echo htmlspecialchars(array_string_value($template ?? [], 'name')); ?>"
                                            placeholder="e.g., Booking Confirmation Email">
                                 </div>
 
@@ -89,21 +89,21 @@ include '../backend/includes/header.php';
                                     <label class="form-label">Template Type *</label>
                                     <select name="template_type" class="form-select" required>
                                         <option value="">Select type...</option>
-                                        <option value="booking_confirmation" <?php echo ($template['template_type'] ?? '') === 'booking_confirmation' ? 'selected' : ''; ?>>Booking Confirmation</option>
-                                        <option value="booking_reminder" <?php echo ($template['template_type'] ?? '') === 'booking_reminder' ? 'selected' : ''; ?>>Booking Reminder</option>
-                                        <option value="booking_cancellation" <?php echo ($template['template_type'] ?? '') === 'booking_cancellation' ? 'selected' : ''; ?>>Booking Cancellation</option>
-                                        <option value="payment_receipt" <?php echo ($template['template_type'] ?? '') === 'payment_receipt' ? 'selected' : ''; ?>>Payment Receipt</option>
-                                        <option value="contract_request" <?php echo ($template['template_type'] ?? '') === 'contract_request' ? 'selected' : ''; ?>>Contract Request</option>
-                                        <option value="form_request" <?php echo ($template['template_type'] ?? '') === 'form_request' ? 'selected' : ''; ?>>Form Request</option>
-                                        <option value="quote_notification" <?php echo ($template['template_type'] ?? '') === 'quote_notification' ? 'selected' : ''; ?>>Quote Notification</option>
-                                        <option value="admin_notification" <?php echo ($template['template_type'] ?? '') === 'admin_notification' ? 'selected' : ''; ?>>Admin Notification</option>
+                                         <option value="booking_confirmation" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_confirmation' ? 'selected' : ''; ?>>Booking Confirmation</option>
+                                         <option value="booking_reminder" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_reminder' ? 'selected' : ''; ?>>Booking Reminder</option>
+                                         <option value="booking_cancellation" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_cancellation' ? 'selected' : ''; ?>>Booking Cancellation</option>
+                                         <option value="payment_receipt" <?php echo array_string_value($template ?? [], 'template_type') === 'payment_receipt' ? 'selected' : ''; ?>>Payment Receipt</option>
+                                         <option value="contract_request" <?php echo array_string_value($template ?? [], 'template_type') === 'contract_request' ? 'selected' : ''; ?>>Contract Request</option>
+                                         <option value="form_request" <?php echo array_string_value($template ?? [], 'template_type') === 'form_request' ? 'selected' : ''; ?>>Form Request</option>
+                                         <option value="quote_notification" <?php echo array_string_value($template ?? [], 'template_type') === 'quote_notification' ? 'selected' : ''; ?>>Quote Notification</option>
+                                         <option value="admin_notification" <?php echo array_string_value($template ?? [], 'template_type') === 'admin_notification' ? 'selected' : ''; ?>>Admin Notification</option>
                                     </select>
                                 </div>
 
                                 <div class="mb-3">
                                     <label class="form-label">Email Subject *</label>
                                     <input type="text" name="subject" class="form-control" required 
-                                           value="<?php echo htmlspecialchars($template['subject'] ?? ''); ?>"
+                                           value="<?php echo htmlspecialchars(array_string_value($template ?? [], 'subject')); ?>"
                                            placeholder="e.g., Your Booking Confirmation - {{appointment_date}}">
                                     <small class="text-muted">Use variables like {{client_name}}, {{appointment_date}}</small>
                                 </div>
@@ -111,21 +111,21 @@ include '../backend/includes/header.php';
                                 <div class="mb-3">
                                     <label class="form-label">Email Body (HTML) *</label>
                                     <textarea name="body_html" id="body_html" class="form-control" rows="12" required 
-                                              style="font-family: monospace;"><?php echo htmlspecialchars($template['body_html'] ?? ''); ?></textarea>
+                                              style="font-family: monospace;"><?php echo htmlspecialchars(array_string_value($template ?? [], 'body_html')); ?></textarea>
                                     <small class="text-muted">HTML content with variable support</small>
                                 </div>
 
                                 <div class="mb-3">
                                     <label class="form-label">Plain Text Version</label>
                                     <textarea name="body_text" class="form-control" rows="8" 
-                                              style="font-family: monospace;"><?php echo htmlspecialchars($template['body_text'] ?? ''); ?></textarea>
+                                              style="font-family: monospace;"><?php echo htmlspecialchars(array_string_value($template ?? [], 'body_text')); ?></textarea>
                                     <small class="text-muted">Plain text fallback (optional, will use HTML if empty)</small>
                                 </div>
 
                                 <div class="mb-3">
                                     <label class="form-label">Variables Used</label>
                                     <input type="text" name="variables" class="form-control" 
-                                           value="<?php echo htmlspecialchars($template['variables'] ?? ''); ?>"
+                                           value="<?php echo htmlspecialchars(array_string_value($template ?? [], 'variables')); ?>"
                                            placeholder="e.g., client_name, appointment_date, booking_link">
                                     <small class="text-muted">Comma-separated list for reference</small>
                                 </div>

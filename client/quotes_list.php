@@ -9,11 +9,11 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Handle filters
-$client_filter = isset($_GET['client']) ? $_GET['client'] : '';
-$status_filter = isset($_GET['status']) ? $_GET['status'] : '';
+$client_filter = scalar_string($_GET['client'] ?? '');
+$status_filter = scalar_string($_GET['status'] ?? '');
 
 // Pagination
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -37,7 +37,7 @@ $where_sql = $where ? "WHERE " . implode(" AND ", $where) : "";
 $count_sql = "SELECT COUNT(*) FROM quotes q $where_sql";
 $count_stmt = $conn->prepare($count_sql);
 $count_stmt->execute($params);
-$total = $count_stmt->fetchColumn();
+$total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get quotes
@@ -136,7 +136,7 @@ include '../backend/includes/header.php';
                                     </a>
                                 </td>
                                 <td><?= htmlspecialchars($quote['title']) ?></td>
-                                <td>$<?= number_format($quote['amount'], 2) ?></td>
+                                <td>$<?= number_format(safe_float($quote['amount'] ?? 0), 2) ?></td>
                                 <td>
                                     <?php
                                     $badge_classes = [
@@ -152,9 +152,9 @@ include '../backend/includes/header.php';
                                     </span>
                                 </td>
                                 <td>
-                                    <?= $quote['expiration_date'] ? date('M j, Y', strtotime($quote['expiration_date'])) : 'No expiration' ?>
+                                    <?= $quote['expiration_date'] ? date('M j, Y', safe_timestamp(strtotime(array_string_value($quote, 'expiration_date')))) : 'No expiration' ?>
                                 </td>
-                                <td><?= date('M j, Y', strtotime($quote['created_at'])) ?></td>
+                                <td><?= date('M j, Y', safe_timestamp(strtotime(array_string_value($quote, 'created_at')))) ?></td>
                                 <td>
                                     <a href="quotes_view.php?id=<?= $quote['id'] ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i>

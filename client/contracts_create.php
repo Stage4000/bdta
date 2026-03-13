@@ -6,7 +6,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Check if editing existing contract
-$contract_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$contract_id = safe_int($_GET['id'] ?? 0);
 $contract = null;
 
 if ($contract_id > 0) {
@@ -14,7 +14,7 @@ if ($contract_id > 0) {
     $stmt->execute([$contract_id]);
     $contract = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if (!$contract) {
+    if (!is_array($contract)) {
         setFlashMessage('Contract not found!', 'danger');
         redirect('contracts_list.php');
     }
@@ -33,7 +33,7 @@ $templates_stmt = $conn->query("SELECT id, name FROM contract_templates WHERE is
 $templates = $templates_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Load template if specified
-$template_id = isset($_GET['template_id']) ? intval($_GET['template_id']) : 0;
+$template_id = safe_int($_GET['template_id'] ?? 0);
 $selected_template = null;
 if ($template_id) {
     $stmt = $conn->prepare("SELECT * FROM contract_templates WHERE id = ?");
@@ -42,11 +42,11 @@ if ($template_id) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $client_id = intval($_POST['client_id'] ?? 0);
-    $title = trim($_POST['title'] ?? '');
-    $contract_text = trim($_POST['contract_text'] ?? '');
-    $description = trim($_POST['description'] ?? '');
-    $effective_date = trim($_POST['effective_date'] ?? '');
+    $client_id = safe_int($_POST['client_id'] ?? 0);
+    $title = trim(scalar_string($_POST['title'] ?? ''));
+    $contract_text = trim(scalar_string($_POST['contract_text'] ?? ''));
+    $description = trim(scalar_string($_POST['description'] ?? ''));
+    $effective_date = trim(scalar_string($_POST['effective_date'] ?? ''));
     
     if ($client_id && $title && $contract_text) {
         // Get client info for variable substitution
@@ -55,8 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $client = $client_stmt->fetch(PDO::FETCH_ASSOC);
         
         // Replace variables
-        $contract_text = str_replace('{{client_name}}', $client['name'], $contract_text);
-        $contract_text = str_replace('{{client_email}}', $client['email'], $contract_text);
+        $contract_text = str_replace('{{client_name}}', array_string_value($client ?: [], 'name'), $contract_text);
+        $contract_text = str_replace('{{client_email}}', array_string_value($client ?: [], 'email'), $contract_text);
         $contract_text = str_replace('{{date}}', date('F j, Y'), $contract_text);
         
         if ($contract_id > 0) {
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('contracts_view.php?id=' . $contract_id);
         } else {
             // Create new contract
-            $contract_number = 'CON-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $contract_number = 'CON-' . date('Ymd') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT);
             
             $stmt = $conn->prepare("
                 INSERT INTO contracts (contract_number, client_id, title, description, contract_text, created_date, effective_date, status) 
@@ -274,4 +274,3 @@ document.getElementById('template_select')?.addEventListener('change', function(
 </script>
 
 <?php include '../backend/includes/footer.php'; ?>
-

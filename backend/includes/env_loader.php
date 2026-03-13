@@ -5,7 +5,7 @@
  */
 
 class EnvLoader {
-    public static function load($filePath = null) {
+    public static function load(?string $filePath = null): void {
         // Default to .env in the root directory
         if ($filePath === null) {
             $filePath = __DIR__ . '/../../.env';
@@ -17,7 +17,7 @@ class EnvLoader {
         }
         
         // Read and parse .env file
-        $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
         foreach ($lines as $line) {
             // Skip comments
             if (strpos(trim($line), '#') === 0) {
@@ -45,7 +45,12 @@ class EnvLoader {
         }
     }
     
-    public static function get($key, $default = null) {
+    /**
+     * @template T
+     * @param T $default
+     * @return ($default is null ? string|null : string|T)
+     */
+    public static function get(string $key, mixed $default = null): mixed {
         $value = getenv($key);
         return $value !== false ? $value : $default;
     }

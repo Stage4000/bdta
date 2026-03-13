@@ -9,7 +9,7 @@ require_once '../backend/includes/email_service.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$quote_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$quote_id = safe_int($_GET['id'] ?? 0);
 $is_edit = $quote_id > 0;
 
 // Get clients
@@ -45,32 +45,36 @@ if ($is_edit) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $client_id = intval($_POST['client_id']);
-    $title = trim($_POST['title']);
-    $description = trim($_POST['description']);
-    $expiration_date = !empty($_POST['expiration_date']) ? $_POST['expiration_date'] : null;
-    $notes = trim($_POST['notes']);
+    $client_id = safe_int($_POST['client_id'] ?? 0);
+    $title = trim(scalar_string($_POST['title'] ?? ''));
+    $description = trim(scalar_string($_POST['description'] ?? ''));
+    $expiration_date = !empty($_POST['expiration_date']) ? scalar_string($_POST['expiration_date']) : null;
+    $notes = trim(scalar_string($_POST['notes'] ?? ''));
     
     // Parse line items
     $line_items = [];
     $total_amount = 0;
     
     if (isset($_POST['item_description']) && is_array($_POST['item_description'])) {
+        $item_quantities = is_array($_POST['item_quantity'] ?? null) ? $_POST['item_quantity'] : [];
+        $item_prices = is_array($_POST['item_price'] ?? null) ? $_POST['item_price'] : [];
+        $item_package_ids = is_array($_POST['item_package_id'] ?? null) ? $_POST['item_package_id'] : [];
+        $item_appointment_type_ids = is_array($_POST['item_appointment_type_id'] ?? null) ? $_POST['item_appointment_type_id'] : [];
         for ($i = 0; $i < count($_POST['item_description']); $i++) {
-            $desc = trim($_POST['item_description'][$i]);
-            $qty = max(1, intval($_POST['item_quantity'][$i]));
-            $price = floatval($_POST['item_price'][$i]);
+            $desc = trim(scalar_string($_POST['item_description'][$i] ?? ''));
+            $qty = max(1, safe_int($item_quantities[$i] ?? 0));
+            $price = safe_float($item_prices[$i] ?? 0);
             $amount = $qty * $price;
             
             if ($desc && $price > 0) {
                 $item_type = 'custom';
                 $reference_id = null;
-                if (!empty($_POST['item_package_id'][$i])) {
+                if (!empty($item_package_ids[$i])) {
                     $item_type = 'package';
-                    $reference_id = intval($_POST['item_package_id'][$i]);
-                } elseif (!empty($_POST['item_appointment_type_id'][$i])) {
+                    $reference_id = safe_int($item_package_ids[$i]);
+                } elseif (!empty($item_appointment_type_ids[$i])) {
                     $item_type = 'appointment_type';
-                    $reference_id = intval($_POST['item_appointment_type_id'][$i]);
+                    $reference_id = safe_int($item_appointment_type_ids[$i]);
                 }
 
                 $line_items[] = [
@@ -110,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Generate quote number
                 $stmt = $conn->query("SELECT MAX(CAST(SUBSTR(quote_number, 4) AS INTEGER)) FROM quotes WHERE quote_number LIKE 'QT-%'");
-                $last_num = $stmt->fetchColumn();
+                $last_num = safe_int($stmt->fetchColumn());
                 $next_num = ($last_num ? $last_num + 1 : 1001);
                 $quote_number = 'QT-' . $next_num;
                 
@@ -249,8 +253,8 @@ include '../backend/includes/header.php';
                                     <?php foreach ($packages as $pkg): ?>
                                         <option value="<?= $pkg['id'] ?>"
                                                 data-name="<?= htmlspecialchars($pkg['name']) ?>"
-                                                data-price="<?= $pkg['price'] ?>">
-                                            <?= htmlspecialchars($pkg['name']) ?> — $<?= number_format($pkg['price'], 2) ?>
+                                                data-price="<?= safe_float($pkg['price'] ?? 0) ?>">
+                                            <?= htmlspecialchars($pkg['name']) ?> — $<?= number_format(safe_float($pkg['price'] ?? 0), 2) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -273,7 +277,7 @@ include '../backend/includes/header.php';
                                         <option value="<?= $at['id'] ?>"
                                                 data-name="<?= htmlspecialchars($at['name']) ?>"
                                                 data-price="<?= floatval($at['default_amount'] ?? 0) ?>">
-                                            <?= htmlspecialchars($at['name']) ?><?= $at['default_amount'] > 0 ? ' — $' . number_format($at['default_amount'], 2) : '' ?>
+                                            <?= htmlspecialchars($at['name']) ?><?= safe_float($at['default_amount'] ?? 0) > 0 ? ' — $' . number_format(safe_float($at['default_amount'] ?? 0), 2) : '' ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>

@@ -5,7 +5,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$client_filter = isset($_GET['client_id']) ? intval($_GET['client_id']) : 0;
+$client_filter = safe_int($_GET['client_id'] ?? 0);
 
 // Fetch clients
 $clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
@@ -99,7 +99,7 @@ include '../backend/includes/header.php';
                                 <td><?= escape($invoice['client_name']) ?></td>
                                 <td><?= formatDate($invoice['issue_date']) ?></td>
                                 <td><?= formatDate($invoice['due_date']) ?></td>
-                                <td><strong>$<?= number_format($invoice['total_amount'], 2) ?></strong></td>
+                                <td><strong>$<?= number_format(safe_float($invoice['total_amount'] ?? 0), 2) ?></strong></td>
                                 <td>
                                     <?php
                                     $status_colors = [

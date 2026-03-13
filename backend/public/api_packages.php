@@ -11,10 +11,16 @@ ob_start();
 
 require_once __DIR__ . '/../includes/config.php';
 
-// $api_result is set to a JSON string on the happy path.
-// The shutdown function falls back to an empty-packages response if it is still null
-// (e.g. because die() was called during DB init before we could set it).
-$api_result = null;
+/**
+ * @return array<string, mixed>
+ */
+function public_package_row(mixed $row): array {
+    return assoc_row($row);
+}
+
+// Default to an empty-packages response so shutdown still returns valid JSON
+// if die() is called during DB init before the happy-path assignment runs.
+$api_result = json_encode(['packages' => []]);
 
 register_shutdown_function(function () use (&$api_result) {
     ob_end_clean(); // Discard any non-JSON output (DB init errors, PHP notices, etc.)
@@ -22,7 +28,7 @@ register_shutdown_function(function () use (&$api_result) {
         header('Content-Type: application/json');
         header('Cache-Control: public, max-age=120');
     }
-    echo $api_result !== null ? $api_result : json_encode(['packages' => []]);
+    echo $api_result;
 });
 
 try {
@@ -57,9 +63,11 @@ try {
     $items_stmt->execute($package_ids);
     $items_by_package = [];
     foreach ($items_stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
-        $items_by_package[$item['package_id']][] = [
-            'apt_type_name' => $item['apt_type_name'],
-            'quantity'      => (int)$item['quantity'],
+        $item_row = public_package_row($item);
+        $package_id = array_int_value($item_row, 'package_id');
+        $items_by_package[$package_id][] = [
+            'apt_type_name' => array_string_value($item_row, 'apt_type_name'),
+            'quantity'      => array_int_value($item_row, 'quantity'),
         ];
     }
 
@@ -67,14 +75,18 @@ try {
 
     $result = [];
     foreach ($packages as $pkg) {
+        $package_row = public_package_row($pkg);
+        $package_id = array_int_value($package_row, 'id');
+        $share_token = array_string_value($package_row, 'share_token');
+        $expiration_days = array_string_value($package_row, 'expiration_days');
         $result[] = [
-            'id'              => (int)$pkg['id'],
-            'name'            => $pkg['name'],
-            'description'     => $pkg['description'],
-            'price'           => (float)$pkg['price'],
-            'expiration_days' => $pkg['expiration_days'] ? (int)$pkg['expiration_days'] : null,
-            'items'           => $items_by_package[$pkg['id']] ?? [],
-            'purchase_url'    => $base_url . '/client/package_detail.php?token=' . rawurlencode($pkg['share_token']),
+            'id'              => $package_id,
+            'name'            => array_string_value($package_row, 'name'),
+            'description'     => array_string_value($package_row, 'description'),
+            'price'           => safe_float($package_row['price'] ?? 0),
+            'expiration_days' => $expiration_days !== '' ? safe_int($expiration_days) : null,
+            'items'           => $items_by_package[$package_id] ?? [],
+            'purchase_url'    => $base_url . '/client/package_detail.php?token=' . rawurlencode($share_token),
         ];
     }
 
@@ -82,4 +94,3 @@ try {
 } catch (Throwable $e) {
     $api_result = json_encode(['packages' => []]);
 }
-

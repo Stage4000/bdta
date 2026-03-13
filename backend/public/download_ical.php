@@ -5,9 +5,9 @@
 require_once '../includes/config.php';
 require_once '../includes/icalendar.php';
 
-$booking_id = $_GET['booking_id'] ?? null;
+$booking_id = safe_int($_GET['booking_id'] ?? 0);
 
-if (!$booking_id) {
+if ($booking_id <= 0) {
     http_response_code(400);
     die('Booking ID required');
 }

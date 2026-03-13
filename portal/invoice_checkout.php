@@ -10,7 +10,7 @@ require_once '../backend/includes/config.php';
 $db   = new Database();
 $conn = $db->getConnection();
 
-$token = trim($_GET['token'] ?? '');
+$token = trim(scalar_string($_GET['token'] ?? ''));
 
 if (!empty($token)) {
     // ── Guest flow: authenticate by pay_token ──────────────────────────────
@@ -37,8 +37,8 @@ if (!empty($token)) {
     require_once '../backend/includes/config.php';
     requirePortalLogin();
 
-    $client_id = intval($_SESSION['portal_client_id']);
-    $id        = intval($_GET['id'] ?? 0);
+    $client_id = portalClientId();
+    $id        = safe_int($_GET['id'] ?? 0);
 
     if ($id <= 0) {
         redirect(PORTAL_URL . 'invoices.php');
@@ -73,7 +73,7 @@ if (!isStripeEnabled()) {
 }
 
 $base_url     = getDynamicBaseUrl();
-$amount_cents = (int) round($invoice['total_amount'] * 100, 0);
+$amount_cents = (int) round(safe_float($invoice['total_amount']) * 100, 0);
 $currency     = STRIPE_CURRENCY;
 $secret_key   = STRIPE_SECRET_KEY;
 
@@ -110,7 +110,7 @@ curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_POST           => true,
     CURLOPT_POSTFIELDS     => $post_data,
-    CURLOPT_USERPWD        => $secret_key . ':',
+    CURLOPT_USERPWD        => scalar_string($secret_key) . ':',
     CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
 ]);
 $response = curl_exec($ch);
@@ -125,12 +125,13 @@ if ($response === false) {
 $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-$session = json_decode($response, true);
+$session = decode_json_assoc(scalar_string($response));
 
 if ($http_code !== 200 || empty($session['url'])) {
-    $error      = $session['error']['message'] ?? 'Unknown error';
-    $error_type = $session['error']['type']    ?? 'unknown';
-    $error_code = $session['error']['code']    ?? '';
+    $session_error = is_array($session['error'] ?? null) ? $session['error'] : [];
+    $error      = array_string_value($session_error, 'message', 'Unknown error');
+    $error_type = array_string_value($session_error, 'type', 'unknown');
+    $error_code = array_string_value($session_error, 'code');
     error_log("Stripe Checkout Session creation failed [$error_type/$error_code]: $error (HTTP $http_code)");
     setFlashMessage('Could not initiate online payment. Please try again or contact us.', 'danger');
     header('Location: ' . $cancel_url);
@@ -138,5 +139,5 @@ if ($http_code !== 200 || empty($session['url'])) {
 }
 
 // Redirect to Stripe-hosted checkout page
-header('Location: ' . $session['url']);
+header('Location: ' . array_string_value($session, 'url'));
 exit;

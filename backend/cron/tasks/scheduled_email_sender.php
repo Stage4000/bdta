@@ -6,16 +6,21 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
+/**
+ * @phpstan-type ScheduledEmailRow array<string, mixed>
+ * @phpstan-type TaskResult array{success: bool, message: string, items_processed: int, errors: list<string>}
+ */
 class ScheduledEmailSenderTask {
-    private $conn;
-    private $task;
+    private PDO $conn;
     
-    public function __construct($conn, $task) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
-        $this->task = $task;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Get emails that are scheduled to be sent now or in the past
         $now = date('Y-m-d H:i:s');
         
@@ -29,7 +34,7 @@ class ScheduledEmailSenderTask {
         ");
         
         $stmt->execute([$now]);
-        $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $emails = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
         $failed_count = 0;
@@ -37,13 +42,15 @@ class ScheduledEmailSenderTask {
         
         foreach ($emails as $email) {
             try {
+                $email_id = scalar_string($email['id'] ?? '');
+                $to_email = array_string_value($email, 'to_email');
                 // Send the email
                 $emailService = new EmailService();
                 $result = $emailService->sendGenericEmail(
-                    $email['to_email'],
-                    $email['subject'],
-                    $email['body_html'],
-                    $email['body_text'] ?? '',
+                    $to_email,
+                    array_string_value($email, 'subject'),
+                    array_string_value($email, 'body_html'),
+                    array_string_value($email, 'body_text'),
                     EmailService::MAIL_TYPE_COMPOSE
                 );
                 
@@ -56,7 +63,7 @@ class ScheduledEmailSenderTask {
                             updated_at = CURRENT_TIMESTAMP
                         WHERE id = ?
                     ");
-                    $update->execute([$email['id']]);
+                    $update->execute([$email_id]);
                     $sent_count++;
                 } else {
                     // Update email status to failed
@@ -68,9 +75,9 @@ class ScheduledEmailSenderTask {
                             updated_at = CURRENT_TIMESTAMP
                         WHERE id = ?
                     ");
-                    $update->execute([$result['message'], $email['id']]);
+                    $update->execute([$result['message'], $email_id]);
                     $failed_count++;
-                    $errors[] = "Failed to send email #{$email['id']} to {$email['to_email']}: {$result['message']}";
+                    $errors[] = "Failed to send email #{$email_id} to {$to_email}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
@@ -84,9 +91,10 @@ class ScheduledEmailSenderTask {
                         updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 ");
-                $update->execute([$error_message, $email['id']]);
+                $email_id = scalar_string($email['id'] ?? '');
+                $update->execute([$error_message, $email_id]);
                 $failed_count++;
-                $errors[] = "Error sending email #{$email['id']}: " . $error_message;
+                $errors[] = "Error sending email #{$email_id}: " . $error_message;
             }
         }
         

@@ -10,7 +10,7 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
+    $email = trim(scalar_string($_POST['email'] ?? ''));
     
     if (empty($email)) {
         $error = 'Email address is required.';
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Create reset link
             $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-            $reset_link = $protocol . "://" . $_SERVER['HTTP_HOST'] . "/client/reset_password.php?token=" . $token;
+            $reset_link = $protocol . '://' . scalar_string($_SERVER['HTTP_HOST'] ?? '') . "/client/reset_password.php?token=" . $token;
             
             // Send email using EmailService
             $subject = "Password Reset Request - BDTA";

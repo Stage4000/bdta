@@ -11,7 +11,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 $method = $_SERVER['REQUEST_METHOD'];
-$client_id = isset($_GET['client_id']) ? intval($_GET['client_id']) : 0;
+$client_id = safe_int($_GET['client_id'] ?? 0);
 
 // Verify client exists
 if ($client_id > 0) {
@@ -55,21 +55,27 @@ if ($method === 'GET') {
     
 } elseif ($method === 'POST') {
     // Create/send new email
-    $data = json_decode(file_get_contents('php://input'), true);
+    $data = decode_json_assoc(file_get_contents('php://input'));
+    $request_client_id = array_int_value($data, 'client_id');
+    $subject = array_string_value($data, 'subject');
+    $body_html = array_string_value($data, 'body_html');
+    $body_text = array_string_value($data, 'body_text');
+    $scheduled_at = array_string_value($data, 'scheduled_at');
+    $template_id = array_int_value($data, 'template_id');
     
-    if (!isset($data['client_id']) || $data['client_id'] <= 0) {
+    if ($request_client_id <= 0) {
         http_response_code(400);
         echo json_encode(['error' => 'client_id is required']);
         exit;
     }
     
-    if (!isset($data['subject']) || empty($data['subject'])) {
+    if ($subject === '') {
         http_response_code(400);
         echo json_encode(['error' => 'subject is required']);
         exit;
     }
     
-    if (!isset($data['body_html']) || empty($data['body_html'])) {
+    if ($body_html === '') {
         http_response_code(400);
         echo json_encode(['error' => 'body_html is required']);
         exit;
@@ -78,7 +84,7 @@ if ($method === 'GET') {
     try {
         // Get client email
         $stmt = $conn->prepare("SELECT email, name FROM clients WHERE id = ?");
-        $stmt->execute([$data['client_id']]);
+        $stmt->execute([$request_client_id]);
         $client = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$client) {
@@ -92,7 +98,7 @@ if ($method === 'GET') {
         $from_email = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
         
         // Determine send mode: immediate or scheduled
-        $send_immediately = !isset($data['scheduled_at']) || empty($data['scheduled_at']);
+        $send_immediately = $scheduled_at === '';
         
         // Insert email record
         $stmt = $conn->prepare("
@@ -104,20 +110,20 @@ if ($method === 'GET') {
         ");
         
         $status = $send_immediately ? 'pending' : 'scheduled';
-        $scheduled_at = $send_immediately ? null : $data['scheduled_at'];
-        $template_id = isset($data['template_id']) && $data['template_id'] > 0 ? $data['template_id'] : null;
+        $scheduled_at_value = $send_immediately ? null : $scheduled_at;
+        $template_id_value = $template_id > 0 ? $template_id : null;
         
         $stmt->execute([
-            $data['client_id'],
+            $request_client_id,
             'outgoing',
             $status,
             $from_email,
-            $client['email'],
-            $data['subject'],
-            $data['body_html'],
-            $data['body_text'] ?? strip_tags($data['body_html']),
-            $template_id,
-            $scheduled_at,
+            array_string_value($client, 'email'),
+            $subject,
+            $body_html,
+            $body_text !== '' ? $body_text : strip_tags($body_html),
+            $template_id_value,
+            $scheduled_at_value,
             $_SESSION['user_id'] ?? null
         ]);
         
@@ -129,10 +135,10 @@ if ($method === 'GET') {
             $emailService = new EmailService();
             
             $result = $emailService->sendGenericEmail(
-                $client['email'],
-                $data['subject'],
-                $data['body_html'],
-                $data['body_text'] ?? '',
+                array_string_value($client, 'email'),
+                $subject,
+                $body_html,
+                $body_text,
                 EmailService::MAIL_TYPE_COMPOSE
             );
             
@@ -183,7 +189,7 @@ if ($method === 'GET') {
     
 } elseif ($method === 'DELETE') {
     // Delete email (only if not sent)
-    $email_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    $email_id = safe_int($_GET['id'] ?? 0);
     
     if ($email_id <= 0) {
         http_response_code(400);
@@ -203,7 +209,7 @@ if ($method === 'GET') {
             exit;
         }
         
-        if (!in_array($email['status'], ['draft', 'scheduled', 'failed'])) {
+        if (!in_array(array_string_value($email, 'status'), ['draft', 'scheduled', 'failed'], true)) {
             http_response_code(400);
             echo json_encode(['error' => 'Cannot delete sent emails']);
             exit;

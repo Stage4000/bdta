@@ -9,11 +9,11 @@ $conn = $db->getConnection();
 
 // Handle delete action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token']), scalar_string($_POST['csrf_token']))) {
         $_SESSION['error'] = 'Invalid request.';
         redirect(ADMIN_URL . 'email_signatures_list.php');
     }
-    $id = (int)$_POST['delete_id'];
+    $id = safe_int($_POST['delete_id']);
 
     // Check if this is the default signature
     $stmt = $conn->prepare("SELECT is_default FROM email_signature_templates WHERE id = ?");
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
 
 // Handle set default action
 if (isset($_GET['action']) && $_GET['action'] === 'set_default' && isset($_GET['id'])) {
-    $id = (int)$_GET['id'];
+    $id = safe_int($_GET['id']);
     
     // First, unset all defaults
     $conn->exec("UPDATE email_signature_templates SET is_default = 0");
@@ -56,7 +56,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'set_default' && isset($_GET['
 }
 
 // Get all signatures
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -65,7 +65,7 @@ $limit_clause = $db->buildLimitClause($per_page, $offset);
 $stmt = $conn->prepare("SELECT * FROM email_signature_templates ORDER BY is_default DESC, name" . $limit_clause);
 $stmt->execute();
 $signatures = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$total = $conn->query("SELECT COUNT(*) FROM email_signature_templates")->fetchColumn();
+$total = safe_int($conn->query("SELECT COUNT(*) FROM email_signature_templates")->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 $page_title = 'Email Signatures';
@@ -143,7 +143,7 @@ include '../backend/includes/header.php';
                                                     </a>
                                                 <?php endif; ?>
                                             </td>
-                                            <td><?= date('M j, Y', strtotime($sig['created_at'])) ?></td>
+                                            <td><?= date('M j, Y', safe_timestamp(strtotime(array_string_value($sig, 'created_at')))) ?></td>
                                             <td>
                                                 <div class="btn-group btn-group-sm">
                                                     <a href="email_signatures_edit.php?id=<?= $sig['id'] ?>" 

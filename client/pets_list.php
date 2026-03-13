@@ -13,10 +13,11 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Get client filter if provided
-$client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : null;
+$client_id_value = safe_int($_GET['client_id'] ?? 0);
+$client_id = $client_id_value > 0 ? $client_id_value : null;
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -28,7 +29,7 @@ if ($client_id) {
     $stmt->bindValue(':client_id', $client_id, PDO::PARAM_INT);
 }
 $stmt->execute();
-$total_pets = $stmt->fetchColumn();
+$total_pets = safe_int($stmt->fetchColumn());
 $total_pages = ceil($total_pets / $per_page);
 
 // Get pets with file count
@@ -60,7 +61,7 @@ if ($client_id) {
     $client = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-$page_title = $client ? "Pets for " . htmlspecialchars($client['name']) : "All Pets";
+$page_title = is_array($client) ? "Pets for " . array_string_value($client, 'name') : "All Pets";
 include '../backend/includes/header.php';
 ?>
 
@@ -83,7 +84,7 @@ include '../backend/includes/header.php';
 
     <?php if (!empty($_SESSION['flash_message'])): ?>
         <div class="alert alert-success alert-dismissible fade show">
-            <?= htmlspecialchars($_SESSION['flash_message']) ?>
+            <?= escape($_SESSION['flash_message']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['flash_message']); ?>
@@ -91,7 +92,7 @@ include '../backend/includes/header.php';
 
     <?php if (!empty($_SESSION['flash_error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
-            <?= htmlspecialchars($_SESSION['flash_error']) ?>
+            <?= escape($_SESSION['flash_error']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['flash_error']); ?>

@@ -4,7 +4,7 @@ requirePortalLogin();
 
 header('Content-Type: application/json');
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$file_id = isset($_POST['file_id']) ? intval($_POST['file_id']) : 0;
+$file_id = safe_int($_POST['file_id'] ?? 0);
 if ($file_id <= 0) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid file ID']);

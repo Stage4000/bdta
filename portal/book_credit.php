@@ -7,7 +7,7 @@
 require_once '../backend/includes/config.php';
 requirePortalLogin();
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 $db   = new Database();
 $conn = $db->getConnection();
 
@@ -17,13 +17,13 @@ $selected_type       = null;
 
 if (!empty($_GET['link'])) {
     $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE unique_link = ? AND is_active = 1");
-    $stmt->execute([trim($_GET['link'])]);
+    $stmt->execute([trim(scalar_string($_GET['link']))]);
     $selected_type = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($selected_type) {
         $appointment_type_id = (int)$selected_type['id'];
     }
 } elseif (!empty($_GET['type'])) {
-    $appointment_type_id = intval($_GET['type']);
+    $appointment_type_id = safe_int($_GET['type']);
     $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE id = ? AND is_active = 1");
     $stmt->execute([$appointment_type_id]);
     $selected_type = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -77,7 +77,7 @@ $stmt = $conn->prepare("
 $stmt->execute([$appointment_type_id]);
 $form_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 foreach ($form_rows as &$fr) {
-    $fr['fields'] = json_decode($fr['fields'], true) ?: [];
+    $fr['fields'] = decode_json_assoc_list($fr['fields']);
 }
 unset($fr);
 $all_required_forms = $form_rows;
@@ -131,7 +131,7 @@ if ($required_contract) {
 // Only include forms that genuinely need to be completed again.
 $forms_needing_completion = [];
 foreach ($all_required_forms as $form) {
-    $freq = trim($form['required_frequency'] ?? '');
+    $freq = trim(array_string_value($form, 'required_frequency'));
     // 'per_booking' and 'per_appointment' both mean "required every booking";
     // empty string is also treated as always-show (optional / default)
     if ($freq === 'per_booking' || $freq === 'per_appointment' || $freq === '') {
@@ -171,9 +171,11 @@ $loc_types_all = [
 ];
 $allowed_loc = [];
 if (!$is_fixed_type && !empty($selected_type['location_types'])) {
-    $decoded = json_decode($selected_type['location_types'], true);
-    if (is_array($decoded) && !empty($decoded)) {
-        $allowed_loc = array_filter($decoded, fn($t) => isset($loc_types_all[$t]));
+    $location_types_json = array_string_value($selected_type, 'location_types');
+    $location_types_raw = json_decode($location_types_json, true);
+    $decoded = string_list($location_types_raw);
+    if (!empty($decoded)) {
+        $allowed_loc = array_values(array_filter($decoded, fn(string $t) => isset($loc_types_all[$t])));
     }
 }
 if (empty($allowed_loc) && !$is_fixed_type) {
@@ -477,30 +479,40 @@ include '../portal/includes/header.php';
                 <h6><i class="fas fa-file-alt me-2"></i>Required Forms</h6>
                 <p class="text-muted mb-3">Please complete the following forms as part of your booking.</p>
                 <?php foreach ($forms_needing_completion as $form): ?>
-                <div class="card mb-4" data-form-id="<?= $form['id'] ?>">
+                <?php
+                $form_id = array_int_value($form, 'id');
+                $form_name = array_string_value($form, 'name');
+                $form_description = array_string_value($form, 'description');
+                $form_fields = is_array($form['fields'] ?? null) ? $form['fields'] : [];
+                ?>
+                <div class="card mb-4" data-form-id="<?= $form_id ?>">
                     <div class="card-header bg-light">
-                        <h6 class="mb-0"><?= htmlspecialchars($form['name']) ?></h6>
-                        <?php if (!empty($form['description'])): ?>
-                            <small class="text-muted"><?= htmlspecialchars($form['description']) ?></small>
+                        <h6 class="mb-0"><?= htmlspecialchars($form_name) ?></h6>
+                        <?php if ($form_description !== ''): ?>
+                            <small class="text-muted"><?= htmlspecialchars($form_description) ?></small>
                         <?php endif; ?>
                     </div>
                     <div class="card-body">
-                        <?php foreach ($form['fields'] as $fi => $field):
-                            $fn = 'form_resp_' . $form['id'] . '_' . $fi;
+                        <?php foreach ($form_fields as $fi => $field):
+                            $field_label = array_string_value($field, 'label');
+                            $field_description = array_string_value($field, 'description');
+                            $field_type = array_string_value($field, 'type', 'text');
+                            $field_options = string_list($field['options'] ?? []);
+                            $fn = 'form_resp_' . $form_id . '_' . $fi;
                             $is_req = !empty($field['required']);
-                            $ph = htmlspecialchars($field['placeholder'] ?? '');
+                            $ph = htmlspecialchars(array_string_value($field, 'placeholder'));
                         ?>
                         <div class="mb-3">
                             <label class="form-label">
-                                <?= htmlspecialchars($field['label']) ?>
+                                <?= htmlspecialchars($field_label) ?>
                                 <?php if ($is_req): ?><span class="text-danger">*</span><?php endif; ?>
                             </label>
-                            <?php if (!empty($field['description'])): ?>
-                            <div class="form-text text-muted mb-1" id="field-desc-<?= $form['id'] ?>-<?= $fi ?>"><?= htmlspecialchars($field['description']) ?></div>
+                            <?php if ($field_description !== ''): ?>
+                            <div class="form-text text-muted mb-1" id="field-desc-<?= $form_id ?>-<?= $fi ?>"><?= htmlspecialchars($field_description) ?></div>
                             <?php endif; ?>
                             <?php
-                            $aria = !empty($field['description']) ? 'aria-describedby="field-desc-' . $form['id'] . '-' . $fi . '"' : '';
-                            switch ($field['type']):
+                            $aria = $field_description !== '' ? 'aria-describedby="field-desc-' . $form_id . '-' . $fi . '"' : '';
+                            switch ($field_type):
                                 case 'textarea': ?>
                                 <textarea class="form-control" data-form-field="<?= $fi ?>"
                                           placeholder="<?= $ph ?>"
@@ -509,12 +521,12 @@ include '../portal/includes/header.php';
                                 <?php break; case 'select': ?>
                                 <select class="form-select" data-form-field="<?= $fi ?>" <?= $aria ?> <?= $is_req ? 'required' : '' ?>>
                                     <option value="">— Select —</option>
-                                    <?php foreach ($field['options'] ?? [] as $opt): ?>
+                                    <?php foreach ($field_options as $opt): ?>
                                         <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                                 <?php break; case 'radio': ?>
-                                <?php foreach ($field['options'] ?? [] as $oi => $opt): ?>
+                                <?php foreach ($field_options as $oi => $opt): ?>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio"
                                            data-form-field="<?= $fi ?>"
@@ -526,7 +538,7 @@ include '../portal/includes/header.php';
                                 </div>
                                 <?php endforeach;
                                 break; case 'checkbox': ?>
-                                <?php foreach ($field['options'] ?? [] as $oi => $opt): ?>
+                                <?php foreach ($field_options as $oi => $opt): ?>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox"
                                            data-form-field="<?= $fi ?>" id="<?= $fn ?>_<?= $oi ?>"
@@ -536,7 +548,7 @@ include '../portal/includes/header.php';
                                 </div>
                                 <?php endforeach;
                                 break; default: ?>
-                                <input type="<?= htmlspecialchars($field['type']) ?>"
+                                <input type="<?= htmlspecialchars($field_type) ?>"
                                        class="form-control" data-form-field="<?= $fi ?>"
                                        placeholder="<?= $ph ?>"
                                        <?= $aria ?>
@@ -744,12 +756,16 @@ include '../portal/includes/header.php';
         $map = [];
         foreach ($forms_needing_completion as $form) {
             $fmap = [];
-            foreach ($form['fields'] as $fi => $field) {
-                if (!empty($field['profile_mapping'])) {
-                    $fmap[$fi] = $field['profile_mapping'];
+            $form_fields = is_array($form['fields'] ?? null) ? $form['fields'] : [];
+            foreach ($form_fields as $fi => $field) {
+                $profile_mapping = array_string_value($field, 'profile_mapping');
+                if ($profile_mapping !== '') {
+                    $fmap[$fi] = $profile_mapping;
                 }
             }
-            if (!empty($fmap)) $map[$form['id']] = $fmap;
+            if (!empty($fmap)) {
+                $map[array_int_value($form, 'id')] = $fmap;
+            }
         }
         return json_encode($map, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     })() ?>;

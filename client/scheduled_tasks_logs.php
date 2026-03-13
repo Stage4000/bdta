@@ -8,12 +8,12 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 50;
 $offset = ($page - 1) * $per_page;
 
 // Filter by task ID if provided
-$task_id = isset($_GET['task_id']) ? (int)$_GET['task_id'] : null;
+$task_id = isset($_GET['task_id']) ? safe_int($_GET['task_id']) : null;
 
 // Build LIMIT clause that works with both MySQL and SQLite
 $limit_clause = $db->buildLimitClause($per_page, $offset);
@@ -40,7 +40,7 @@ if ($task_id) {
 }
 
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$total = $count_stmt->fetchColumn();
+$total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 include '../backend/includes/header.php';
@@ -90,22 +90,23 @@ include '../backend/includes/header.php';
                                 </thead>
                                 <tbody>
                                     <?php foreach ($logs as $log): ?>
+                                        <?php /** @var array<string, mixed> $log */ ?>
                                         <tr class="<?php echo $log['status'] === 'error' ? 'table-danger' : ''; ?>">
                                             <td>
                                                 <small class="text-muted">
                                                     <?php 
                                                     // Convert UTC timestamp to local timezone for display
-                                                    $datetime = new DateTime($log['executed_at'], new DateTimeZone('UTC'));
+                                                    $datetime = new DateTime(array_string_value($log, 'executed_at'), new DateTimeZone('UTC'));
                                                     $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
                                                     echo $datetime->format('M j, Y g:i:s A');
                                                     ?>
                                                 </small>
                                             </td>
                                             <td>
-                                                <strong><?php echo htmlspecialchars($log['task_name']); ?></strong>
+                                                <strong><?php echo htmlspecialchars(array_string_value($log, 'task_name')); ?></strong>
                                             </td>
                                             <td>
-                                                <?php if ($log['status'] === 'success'): ?>
+                                                <?php if (array_string_value($log, 'status') === 'success'): ?>
                                                     <span class="badge bg-success">
                                                         <i class="fas fa-check"></i> Success
                                                     </span>
@@ -117,17 +118,17 @@ include '../backend/includes/header.php';
                                             </td>
                                             <td>
                                                 <span class="badge bg-primary">
-                                                    <?php echo $log['items_processed']; ?>
+                                                    <?php echo array_int_value($log, 'items_processed'); ?>
                                                 </span>
                                             </td>
                                             <td>
                                                 <small class="text-muted">
-                                                    <?php echo number_format($log['execution_time'], 3); ?>s
+                                                    <?php echo number_format(safe_float($log['execution_time'] ?? 0), 3); ?>s
                                                 </small>
                                             </td>
                                             <td>
                                                 <small>
-                                                    <?php echo htmlspecialchars($log['message']); ?>
+                                                    <?php echo htmlspecialchars(array_string_value($log, 'message')); ?>
                                                 </small>
                                             </td>
                                         </tr>
@@ -173,13 +174,22 @@ include '../backend/includes/header.php';
                 $stats_stmt = $conn->query($stats_query);
             }
             $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
+            if ($stats === false) {
+                $stats = [
+                    'total_executions' => 0,
+                    'successful' => 0,
+                    'errors' => 0,
+                    'total_items' => 0,
+                    'avg_time' => 0,
+                ];
+            }
             ?>
 
             <div class="row mt-4">
                 <div class="col-md-3">
                     <div class="card text-center">
                         <div class="card-body">
-                            <h3 class="mb-0"><?php echo number_format($stats['total_executions']); ?></h3>
+                            <h3 class="mb-0"><?php echo number_format(array_int_value($stats, 'total_executions')); ?></h3>
                             <small class="text-muted">Total Executions</small>
                         </div>
                     </div>
@@ -187,7 +197,7 @@ include '../backend/includes/header.php';
                 <div class="col-md-3">
                     <div class="card text-center">
                         <div class="card-body">
-                            <h3 class="mb-0 text-success"><?php echo number_format($stats['successful']); ?></h3>
+                            <h3 class="mb-0 text-success"><?php echo number_format(array_int_value($stats, 'successful')); ?></h3>
                             <small class="text-muted">Successful</small>
                         </div>
                     </div>
@@ -195,7 +205,7 @@ include '../backend/includes/header.php';
                 <div class="col-md-3">
                     <div class="card text-center">
                         <div class="card-body">
-                            <h3 class="mb-0 text-danger"><?php echo number_format($stats['errors']); ?></h3>
+                            <h3 class="mb-0 text-danger"><?php echo number_format(array_int_value($stats, 'errors')); ?></h3>
                             <small class="text-muted">Errors</small>
                         </div>
                     </div>
@@ -203,7 +213,7 @@ include '../backend/includes/header.php';
                 <div class="col-md-3">
                     <div class="card text-center">
                         <div class="card-body">
-                            <h3 class="mb-0"><?php echo number_format($stats['total_items']); ?></h3>
+                            <h3 class="mb-0"><?php echo number_format(array_int_value($stats, 'total_items')); ?></h3>
                             <small class="text-muted">Items Processed</small>
                         </div>
                     </div>

@@ -7,14 +7,14 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$workflow_id = isset($_GET['workflow_id']) ? (int)$_GET['workflow_id'] : 0;
+$workflow_id = safe_int($_GET['workflow_id'] ?? 0);
 
 // Get workflow details
 $stmt = $conn->prepare("SELECT * FROM workflows WHERE id = ?");
 $stmt->execute([$workflow_id]);
 $workflow = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$workflow) {
+if (!is_array($workflow)) {
     $_SESSION['error'] = 'Workflow not found';
     header('Location: workflows_list.php');
     exit;
@@ -27,12 +27,12 @@ $workflow_steps = $steps->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle delete step
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_step_id'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
         $_SESSION['error'] = 'Invalid request.';
         header('Location: workflows_steps.php?workflow_id=' . $workflow_id);
         exit;
     }
-    $step_id = (int)$_POST['delete_step_id'];
+    $step_id = safe_int($_POST['delete_step_id']);
     $stmt = $conn->prepare("DELETE FROM workflow_steps WHERE id = ? AND workflow_id = ?");
     $stmt->execute([$step_id, $workflow_id]);
     $_SESSION['success'] = 'Step deleted successfully';
@@ -60,10 +60,10 @@ include '../backend/includes/header.php';
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h2 class="mb-1">
-                        Workflow Steps: <?php echo htmlspecialchars($workflow['name']); ?>
+                        Workflow Steps: <?php echo escape(array_string_value($workflow, 'name')); ?>
                     </h2>
-                    <?php if ($workflow['description']): ?>
-                        <p class="text-muted"><?php echo htmlspecialchars($workflow['description']); ?></p>
+                    <?php if (array_string_value($workflow, 'description') !== ''): ?>
+                        <p class="text-muted"><?php echo escape(array_string_value($workflow, 'description')); ?></p>
                     <?php endif; ?>
                 </div>
                 <a href="workflows_steps_edit.php?workflow_id=<?php echo $workflow_id; ?>" class="btn btn-primary">
@@ -73,7 +73,7 @@ include '../backend/includes/header.php';
 
             <?php if (isset($_SESSION['success'])): ?>
                 <div class="alert alert-success alert-dismissible fade show">
-                    <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+                    <?php echo escape($_SESSION['success']); unset($_SESSION['success']); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>

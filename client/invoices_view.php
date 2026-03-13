@@ -6,7 +6,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = intval($_GET['id'] ?? 0);
+$id = safe_int($_GET['id'] ?? 0);
 $stmt = $conn->prepare("
     SELECT i.*, c.name as client_name, c.email as client_email, c.phone as client_phone
     FROM invoices i
@@ -16,7 +16,7 @@ $stmt = $conn->prepare("
 $stmt->execute([$id]);
 $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$invoice) {
+if (!is_array($invoice)) {
     setFlashMessage('Invoice not found!', 'danger');
     redirect('invoices_list.php');
 }
@@ -28,7 +28,7 @@ $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle "Send Receipt" POST action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
-    if ($invoice['status'] !== 'paid') {
+    if (array_string_value($invoice, 'status') !== 'paid') {
         setFlashMessage('Cannot send receipt: invoice is not fully paid.', 'danger');
     } else {
         $email_service = new EmailService(null, $conn);
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
 
 // Handle "Send Invoice" POST action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice'])) {
-    if ($invoice['status'] === 'paid') {
+    if (array_string_value($invoice, 'status') === 'paid') {
         setFlashMessage('Invoice is already paid. Use "Send Receipt" instead.', 'warning');
     } else {
         // Ensure a secure payment token exists for the guest pay link
@@ -82,7 +82,7 @@ include '../backend/includes/header.php';
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2><i class="fas fa-file-invoice me-2"></i>Invoice: <?= escape($invoice['invoice_number']) ?></h2>
                 <div>
-                    <?php if ($invoice['status'] !== 'paid'): ?>
+                    <?php if (array_string_value($invoice, 'status') !== 'paid'): ?>
                         <?php if (empty($installments)): ?>
                             <a href="invoices_payment.php?id=<?= $id ?>" class="btn btn-success">
                                 <i class="fas fa-credit-card"></i> Record Payment
@@ -97,7 +97,7 @@ include '../backend/includes/header.php';
                             </button>
                         </form>
                     <?php endif; ?>
-                    <?php if ($invoice['status'] === 'paid'): ?>
+                    <?php if (array_string_value($invoice, 'status') === 'paid'): ?>
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="send_receipt" value="1">
                             <button type="submit" class="btn btn-outline-success"
@@ -125,12 +125,12 @@ include '../backend/includes/header.php';
                         <div class="col-md-6 text-end">
                             <h3><?= escape($invoice['invoice_number']) ?></h3>
                             <p>
-                                <strong>Status:</strong> 
+                                <strong>Status:</strong>
                                 <?php
-                                $colors = ['draft' => 'secondary', 'sent' => 'info', 'paid' => 'success', 'overdue' => 'danger'];
-                                $color = $colors[$invoice['status']] ?? 'secondary';
-                                ?>
-                                <span class="badge bg-<?= $color ?>"><?= strtoupper($invoice['status']) ?></span>
+                                 $colors = ['draft' => 'secondary', 'sent' => 'info', 'paid' => 'success', 'overdue' => 'danger'];
+                                 $color = $colors[array_string_value($invoice, 'status')] ?? 'secondary';
+                                 ?>
+                                <span class="badge bg-<?= $color ?>"><?= strtoupper(array_string_value($invoice, 'status')) ?></span>
                             </p>
                             <?php if (!empty($invoice['invoice_sent_at'])): ?>
                                 <p><small><i class="fas fa-paper-plane"></i> Invoice sent: <?= escape($invoice['invoice_sent_at']) ?></small></p>
@@ -177,9 +177,9 @@ include '../backend/includes/header.php';
                                                 <span class="badge bg-primary ms-1"><i class="fas fa-calendar-check"></i> Appointment</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="text-end"><?= number_format($item['quantity'], 2) ?></td>
-                                        <td class="text-end">$<?= number_format($item['rate'], 2) ?></td>
-                                        <td class="text-end">$<?= number_format($item['amount'], 2) ?></td>
+                                        <td class="text-end"><?= number_format(safe_float($item['quantity']), 2) ?></td>
+                                        <td class="text-end">$<?= number_format(safe_float($item['rate']), 2) ?></td>
+                                        <td class="text-end">$<?= number_format(safe_float($item['amount']), 2) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -198,17 +198,17 @@ include '../backend/includes/header.php';
                             <table class="table table-sm">
                                 <tr>
                                     <td class="text-end"><strong>Subtotal:</strong></td>
-                                    <td class="text-end">$<?= number_format($invoice['subtotal'], 2) ?></td>
+                                    <td class="text-end">$<?= number_format(safe_float($invoice['subtotal']), 2) ?></td>
                                 </tr>
-                                <?php if ($invoice['tax_rate'] > 0): ?>
+                                <?php if (safe_float($invoice['tax_rate']) > 0): ?>
                                     <tr>
-                                        <td class="text-end"><strong>Tax (<?= $invoice['tax_rate'] ?>%):</strong></td>
-                                        <td class="text-end">$<?= number_format($invoice['tax_amount'], 2) ?></td>
+                                        <td class="text-end"><strong>Tax (<?= safe_float($invoice['tax_rate']) ?>%):</strong></td>
+                                        <td class="text-end">$<?= number_format(safe_float($invoice['tax_amount']), 2) ?></td>
                                     </tr>
                                 <?php endif; ?>
                                 <tr class="table-primary">
                                     <td class="text-end"><strong>TOTAL:</strong></td>
-                                    <td class="text-end"><strong>$<?= number_format($invoice['total_amount'], 2) ?></strong></td>
+                                    <td class="text-end"><strong>$<?= number_format(safe_float($invoice['total_amount']), 2) ?></strong></td>
                                 </tr>
                             </table>
                         </div>
@@ -216,7 +216,7 @@ include '../backend/includes/header.php';
                     
                     <?php if ($invoice['payment_method']): ?>
                         <div class="alert alert-success mt-3">
-                            <strong>Payment Received:</strong> $<?= number_format($invoice['total_amount'], 2) ?> via <?= escape(ucwords($invoice['payment_method'])) ?>
+                            <strong>Payment Received:</strong> $<?= number_format(safe_float($invoice['total_amount']), 2) ?> via <?= escape(ucwords(array_string_value($invoice, 'payment_method'))) ?>
                             <?php if ($invoice['stripe_payment_intent_id']): ?>
                                 <br><small>Stripe Payment ID: <?= escape($invoice['stripe_payment_intent_id']) ?></small>
                             <?php endif; ?>
@@ -266,7 +266,7 @@ include '../backend/includes/header.php';
                                     ?>
                                     <tr class="<?= $row_class ?>">
                                         <td><?= $inst['installment_number'] ?></td>
-                                        <td><strong>$<?= number_format($inst['amount'], 2) ?></strong></td>
+                                     <td><strong>$<?= number_format(safe_float($inst['amount']), 2) ?></strong></td>
                                         <td>
                                             <?= formatDate($inst['due_date']) ?>
                                             <?php if ($is_overdue): ?>
@@ -282,7 +282,7 @@ include '../backend/includes/header.php';
                                         </td>
                                         <td><?= $inst['payment_date'] ? formatDate($inst['payment_date']) : '—' ?></td>
                                         <td><?= $inst['payment_method'] ? escape(ucwords(str_replace('_', ' ', $inst['payment_method']))) : '—' ?></td>
-                                        <?php if ($invoice['status'] !== 'paid'): ?>
+                                     <?php if (array_string_value($invoice, 'status') !== 'paid'): ?>
                                             <td>
                                                 <?php if ($inst['status'] === 'unpaid'): ?>
                                                     <a href="invoices_payment.php?id=<?= $id ?>&installment_id=<?= $inst['id'] ?>"
@@ -298,10 +298,10 @@ include '../backend/includes/header.php';
                             <tfoot>
                                 <tr class="table-light">
                                     <td><strong>Total Paid</strong></td>
-                                    <td><strong>$<?= number_format($paid_amount, 2) ?></strong></td>
-                                    <td colspan="<?= $invoice['status'] !== 'paid' ? 5 : 4 ?>">
-                                        Remaining: <strong>$<?= number_format($invoice['total_amount'] - $paid_amount, 2) ?></strong>
-                                    </td>
+                                     <td><strong>$<?= number_format((float) $paid_amount, 2) ?></strong></td>
+                                     <td colspan="<?= array_string_value($invoice, 'status') !== 'paid' ? 5 : 4 ?>">
+                                         Remaining: <strong>$<?= number_format(safe_float($invoice['total_amount']) - (float) $paid_amount, 2) ?></strong>
+                                     </td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -314,4 +314,3 @@ include '../backend/includes/header.php';
 </div>
 
 <?php include '../backend/includes/footer.php'; ?>
-

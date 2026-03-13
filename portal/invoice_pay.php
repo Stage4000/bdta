@@ -9,7 +9,7 @@ require_once '../backend/includes/stripe_config.php';
 $db   = new Database();
 $conn = $db->getConnection();
 
-$token = trim($_GET['token'] ?? '');
+$token = trim(scalar_string($_GET['token'] ?? ''));
 if (empty($token)) {
     http_response_code(404);
     die('Invoice not found.');

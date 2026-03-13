@@ -7,8 +7,8 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$workflow_id = isset($_GET['workflow_id']) ? (int)$_GET['workflow_id'] : 0;
-$step_id = isset($_GET['step_id']) ? (int)$_GET['step_id'] : 0;
+$workflow_id = safe_int($_GET['workflow_id'] ?? 0);
+$step_id = safe_int($_GET['step_id'] ?? 0);
 $is_edit = $step_id > 0;
 
 // Get workflow details
@@ -16,11 +16,12 @@ $stmt = $conn->prepare("SELECT * FROM workflows WHERE id = ?");
 $stmt->execute([$workflow_id]);
 $workflow = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$workflow) {
+if (!is_array($workflow)) {
     $_SESSION['error'] = 'Workflow not found';
     header('Location: workflows_list.php');
     exit;
 }
+/** @var array<string, mixed> $workflow */
 
 // Get step if editing
 $step = null;
@@ -29,7 +30,7 @@ if ($is_edit) {
     $stmt->execute([$step_id, $workflow_id]);
     $step = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if (!$step) {
+    if (!is_array($step)) {
         $_SESSION['error'] = 'Step not found';
         header('Location: workflows_steps.php?workflow_id=' . $workflow_id);
         exit;
@@ -38,19 +39,25 @@ if ($is_edit) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
-    $step_name = trim($_POST['step_name']);
-    $email_subject = trim($_POST['email_subject']);
-    $email_body_html = trim($_POST['email_body_html']);
-    $email_body_text = trim($_POST['email_body_text']);
-    $delay_type = $_POST['delay_type'];
-    $delay_value = trim($_POST['delay_value']);
-    $scheduled_date = !empty($_POST['scheduled_date']) ? $_POST['scheduled_date'] : null;
-    $attach_contract_id = !empty($_POST['attach_contract_id']) ? (int)$_POST['attach_contract_id'] : null;
-    $attach_form_id = !empty($_POST['attach_form_id']) ? (int)$_POST['attach_form_id'] : null;
-    $attach_quote_id = !empty($_POST['attach_quote_id']) ? (int)$_POST['attach_quote_id'] : null;
-    $attach_invoice_id = !empty($_POST['attach_invoice_id']) ? (int)$_POST['attach_invoice_id'] : null;
+    $step_name = trim(scalar_string($_POST['step_name'] ?? ''));
+    $email_subject = trim(scalar_string($_POST['email_subject'] ?? ''));
+    $email_body_html = trim(scalar_string($_POST['email_body_html'] ?? ''));
+    $email_body_text = trim(scalar_string($_POST['email_body_text'] ?? ''));
+    $delay_type = scalar_string($_POST['delay_type'] ?? '');
+    $delay_value = trim(scalar_string($_POST['delay_value'] ?? ''));
+    $scheduled_date_value = trim(scalar_string($_POST['scheduled_date'] ?? ''));
+    $scheduled_date = $scheduled_date_value !== '' ? $scheduled_date_value : null;
+    $attach_contract_id_value = safe_int($_POST['attach_contract_id'] ?? 0);
+    $attach_form_id_value = safe_int($_POST['attach_form_id'] ?? 0);
+    $attach_quote_id_value = safe_int($_POST['attach_quote_id'] ?? 0);
+    $attach_invoice_id_value = safe_int($_POST['attach_invoice_id'] ?? 0);
+    $attach_contract_id = $attach_contract_id_value > 0 ? $attach_contract_id_value : null;
+    $attach_form_id = $attach_form_id_value > 0 ? $attach_form_id_value : null;
+    $attach_quote_id = $attach_quote_id_value > 0 ? $attach_quote_id_value : null;
+    $attach_invoice_id = $attach_invoice_id_value > 0 ? $attach_invoice_id_value : null;
     $include_appointment_link = isset($_POST['include_appointment_link']) ? 1 : 0;
-    $appointment_type_id = !empty($_POST['appointment_type_id']) ? (int)$_POST['appointment_type_id'] : null;
+    $appointment_type_id_value = safe_int($_POST['appointment_type_id'] ?? 0);
+    $appointment_type_id = $appointment_type_id_value > 0 ? $appointment_type_id_value : null;
     
     if (empty($step_name) || empty($email_subject) || empty($email_body_html)) {
         $error = 'Step name, email subject, and email body are required';
@@ -60,9 +67,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
             $stmt = $conn->prepare("SELECT MAX(step_order) as max_order FROM workflow_steps WHERE workflow_id = ?");
             $stmt->execute([$workflow_id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            $step_order = ($result['max_order'] ?? 0) + 1;
+            $result_row = is_array($result) ? $result : [];
+            $step_order = array_int_value($result_row, 'max_order') + 1;
         } else {
-            $step_order = $step['step_order'];
+            $step_order = array_int_value($step, 'step_order');
         }
         
         if ($is_edit) {
@@ -136,13 +144,13 @@ include '../backend/includes/header.php';
                 <div class="card-header">
                     <h3 class="mb-0">
                         <?php echo $is_edit ? 'Edit Step' : 'Add New Step'; ?> 
-                        - <?php echo htmlspecialchars($workflow['name']); ?>
+                        - <?php echo escape(array_string_value($workflow, 'name')); ?>
                     </h3>
                 </div>
                 <div class="card-body">
                     <?php if (isset($error)): ?>
                         <div class="alert alert-danger">
-                            <?php echo htmlspecialchars($error); ?>
+                            <?php echo htmlspecialchars(scalar_string($error)); ?>
                         </div>
                     <?php endif; ?>
 
@@ -240,7 +248,7 @@ include '../backend/includes/header.php';
                         <div class="mb-3" id="delay_value_group">
                             <label for="delay_value" class="form-label">Delay</label>
                             <input type="text" class="form-control" id="delay_value" name="delay_value" 
-                                   value="<?php echo htmlspecialchars($step['delay_value'] ?? ''); ?>"
+                                   value="<?php echo escape(is_array($step) ? array_string_value($step, 'delay_value') : ''); ?>"
                                    placeholder="e.g., 3 days, 2 hours, 30 minutes">
                             <small class="form-text text-muted">
                                 Examples: "3 days", "2 hours", "30 minutes", "1 week"
@@ -250,8 +258,9 @@ include '../backend/includes/header.php';
                         <!-- Scheduled Date -->
                         <div class="mb-3" id="scheduled_date_group" style="display: none;">
                             <label for="scheduled_date" class="form-label">Scheduled Date</label>
+                            <?php $scheduled_date_value = is_array($step) ? array_string_value($step, 'scheduled_date') : ''; ?>
                             <input type="datetime-local" class="form-control" id="scheduled_date" name="scheduled_date" 
-                                   value="<?php echo isset($step['scheduled_date']) ? date('Y-m-d\TH:i', strtotime($step['scheduled_date'])) : ''; ?>">
+                                   value="<?php echo $scheduled_date_value !== '' ? date('Y-m-d\TH:i', safe_timestamp(strtotime($scheduled_date_value))) : ''; ?>">
                         </div>
 
                         <hr class="my-4">
@@ -309,7 +318,7 @@ include '../backend/includes/header.php';
                                     <?php foreach ($invoices as $invoice): ?>
                                         <option value="<?php echo $invoice['id']; ?>"
                                                 <?php echo ($step['attach_invoice_id'] ?? 0) == $invoice['id'] ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($invoice['invoice_number'] . ' — ' . $invoice['client_name'] . ' ($' . number_format($invoice['total_amount'], 2) . ')'); ?>
+                                            <?php echo htmlspecialchars($invoice['invoice_number'] . ' — ' . $invoice['client_name'] . ' ($' . number_format(safe_float($invoice['total_amount'] ?? 0), 2) . ')'); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>

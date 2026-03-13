@@ -10,13 +10,11 @@ $db = new Database();
 $conn = $db->getConnection();
 
 $error = '';
-$success = '';
-
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $current_password = $_POST['current_password'] ?? '';
-    $new_password = $_POST['new_password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
+    $current_password = scalar_string($_POST['current_password'] ?? '');
+    $new_password = scalar_string($_POST['new_password'] ?? '');
+    $confirm_password = scalar_string($_POST['confirm_password'] ?? '');
     
     // Validation
     if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
@@ -30,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!isset($_SESSION['user_type'])) {
             $error = 'Invalid session. Please log in again.';
         } else {
-            $user_type = $_SESSION['user_type'];
+            $user_type = scalar_string($_SESSION['user_type']);
             
             if ($user_type === 'client') {
                 // Client user - check clients table
@@ -38,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$_SESSION['admin_id']]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                if ($user && password_verify($current_password, $user['password_hash'])) {
+                if (is_array($user) && password_verify($current_password, array_string_value($user, 'password_hash'))) {
                     // Update password
                     $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
                     $stmt = $conn->prepare("UPDATE clients SET password_hash = ? WHERE id = ?");
@@ -55,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$_SESSION['admin_id']]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                if ($user && password_verify($current_password, $user['password_hash'])) {
+                if (is_array($user) && password_verify($current_password, array_string_value($user, 'password_hash'))) {
                     // Update password
                     $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
                     $stmt = $conn->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
@@ -88,13 +86,6 @@ include '../backend/includes/header.php';
             <?php if ($error): ?>
                 <div class="alert alert-danger alert-dismissible fade show">
                     <?= escape($error) ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($success): ?>
-                <div class="alert alert-success alert-dismissible fade show">
-                    <?= escape($success) ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>

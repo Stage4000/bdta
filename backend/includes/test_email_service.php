@@ -31,7 +31,7 @@ $email_config = [
 
 echo "Current configuration:\n";
 foreach ($email_config as $key => $value) {
-    echo "  $key: $value\n";
+    echo "  $key: " . scalar_string($value) . "\n";
 }
 
 // Test 2: Validate SMTP configuration
@@ -44,11 +44,11 @@ if ($email_config['email_service'] === 'smtp') {
     }
     
     if (!in_array($email_config['smtp_encryption'], ['tls', 'ssl', 'none'])) {
-        $issues[] = "Invalid encryption type: " . $email_config['smtp_encryption'];
+        $issues[] = "Invalid encryption type: " . scalar_string($email_config['smtp_encryption']);
     }
     
     if (!in_array($email_config['smtp_port'], [587, 465, 25], true)) {
-        echo "  Warning: Uncommon SMTP port " . $email_config['smtp_port'] . "\n";
+        echo "  Warning: Uncommon SMTP port " . scalar_string($email_config['smtp_port']) . "\n";
     }
     
     if ($email_config['smtp_encryption'] === 'tls' && $email_config['smtp_port'] === 465) {
@@ -104,8 +104,11 @@ echo "This will send to: {$sample_booking['client_email']}\n";
 echo "Enter a different email address or press Enter to skip: ";
 
 $handle = fopen("php://stdin", "r");
-$input = trim(fgets($handle));
-fclose($handle);
+$input = '';
+if ($handle !== false) {
+    $input = trim(scalar_string(fgets($handle)));
+    fclose($handle);
+}
 
 if (!empty($input)) {
     // Validate email
@@ -152,11 +155,11 @@ if (!empty($input)) {
 echo "\n=== Test Complete ===\n\n";
 
 echo "Summary:\n";
-echo "- Email service: " . $email_config['email_service'] . "\n";
+echo "- Email service: " . scalar_string($email_config['email_service']) . "\n";
 if ($email_config['email_service'] === 'smtp') {
-    echo "- SMTP host: " . $email_config['smtp_host'] . "\n";
-    echo "- SMTP port: " . $email_config['smtp_port'] . "\n";
-    echo "- SMTP encryption: " . $email_config['smtp_encryption'] . "\n";
+    echo "- SMTP host: " . scalar_string($email_config['smtp_host']) . "\n";
+    echo "- SMTP port: " . scalar_string($email_config['smtp_port']) . "\n";
+    echo "- SMTP encryption: " . scalar_string($email_config['smtp_encryption']) . "\n";
 }
 echo "\nFor more information, see:\n";
 echo "  backend/EMAIL_CONFIGURATION.md\n";

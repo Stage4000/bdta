@@ -7,7 +7,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$workflow_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$workflow_id = safe_int($_GET['id'] ?? 0);
 $is_edit = $workflow_id > 0;
 
 // Get workflow if editing
@@ -17,7 +17,7 @@ if ($is_edit) {
     $stmt->execute([$workflow_id]);
     $workflow = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if (!$workflow) {
+    if (!is_array($workflow)) {
         $_SESSION['error'] = 'Workflow not found';
         header('Location: workflows_list.php');
         exit;
@@ -26,8 +26,8 @@ if ($is_edit) {
 
 // Handle workflow save
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
-    $name = trim($_POST['name']);
-    $description = trim($_POST['description']);
+    $name = trim(scalar_string($_POST['name'] ?? ''));
+    $description = trim(scalar_string($_POST['description'] ?? ''));
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     if (empty($name)) {
@@ -60,9 +60,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
 
 // Handle adding a trigger
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_trigger']) && $is_edit) {
-    $trigger_type = $_POST['trigger_type'] ?? '';
-    $appointment_type_id = !empty($_POST['trigger_appointment_type_id']) ? (int)$_POST['trigger_appointment_type_id'] : null;
-    $form_template_id = !empty($_POST['trigger_form_template_id']) ? (int)$_POST['trigger_form_template_id'] : null;
+    $trigger_type = scalar_string($_POST['trigger_type'] ?? '');
+    $appointment_type_id_value = safe_int($_POST['trigger_appointment_type_id'] ?? 0);
+    $form_template_id_value = safe_int($_POST['trigger_form_template_id'] ?? 0);
+    $appointment_type_id = $appointment_type_id_value > 0 ? $appointment_type_id_value : null;
+    $form_template_id = $form_template_id_value > 0 ? $form_template_id_value : null;
 
     $valid = false;
     if ($trigger_type === 'appointment_booking' && $appointment_type_id) {
@@ -106,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_trigger']) && $is
 
 // Handle deleting a trigger
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_trigger']) && $is_edit) {
-    $trigger_id = (int)($_POST['trigger_id'] ?? 0);
+    $trigger_id = safe_int($_POST['trigger_id'] ?? 0);
     if ($trigger_id) {
         $stmt = $conn->prepare("DELETE FROM workflow_triggers WHERE id = ? AND workflow_id = ?");
         $stmt->execute([$trigger_id, $workflow_id]);
@@ -164,7 +166,7 @@ include '../backend/includes/header.php';
                 <div class="card-body">
                     <?php if (isset($error)): ?>
                         <div class="alert alert-danger">
-                            <?php echo htmlspecialchars($error); ?>
+                            <?php echo escape($error); ?>
                         </div>
                     <?php endif; ?>
 
@@ -172,7 +174,7 @@ include '../backend/includes/header.php';
                         <div class="mb-3">
                             <label for="name" class="form-label">Workflow Name *</label>
                             <input type="text" class="form-control" id="name" name="name" 
-                                   value="<?php echo htmlspecialchars($workflow['name'] ?? ''); ?>" 
+                                   value="<?php echo escape(is_array($workflow) ? array_string_value($workflow, 'name') : ''); ?>" 
                                    required>
                             <small class="form-text text-muted">
                                 Give your workflow a descriptive name (e.g., "New Client Welcome Series")
@@ -182,7 +184,7 @@ include '../backend/includes/header.php';
                         <div class="mb-3">
                             <label for="description" class="form-label">Description</label>
                             <textarea class="form-control" id="description" name="description" 
-                                      rows="3"><?php echo htmlspecialchars($workflow['description'] ?? ''); ?></textarea>
+                                      rows="3"><?php echo escape(is_array($workflow) ? array_string_value($workflow, 'description') : ''); ?></textarea>
                             <small class="form-text text-muted">
                                 Describe the purpose of this workflow
                             </small>
@@ -190,7 +192,7 @@ include '../backend/includes/header.php';
 
                         <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="is_active" name="is_active" 
-                                   <?php echo (!$is_edit || $workflow['is_active']) ? 'checked' : ''; ?>>
+                                   <?php echo (!$is_edit || (is_array($workflow) && array_int_value($workflow, 'is_active') === 1)) ? 'checked' : ''; ?>>
                             <label class="form-check-label" for="is_active">
                                 Active (workflow will process enrollments)
                             </label>
@@ -224,13 +226,13 @@ include '../backend/includes/header.php';
 
                         <?php if (isset($_SESSION['success'])): ?>
                             <div class="alert alert-success alert-dismissible fade show">
-                                <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+                                <?php echo escape($_SESSION['success']); unset($_SESSION['success']); ?>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                             </div>
                         <?php endif; ?>
                         <?php if (isset($_SESSION['error'])): ?>
                             <div class="alert alert-danger alert-dismissible fade show">
-                                <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+                                <?php echo escape($_SESSION['error']); unset($_SESSION['error']); ?>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                             </div>
                         <?php endif; ?>

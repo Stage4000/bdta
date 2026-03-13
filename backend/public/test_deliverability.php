@@ -34,6 +34,9 @@ if ($is_cli || ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test
     // MXToolbox ping address
     $to = 'ping@tools.mxtoolbox.com';
     $subject = 'Email Deliverability Test - Brook\'s Dog Training Academy - ' . date('Y-m-d H:i:s');
+    $email_service = scalar_string(Settings::get('email_service', 'mail'));
+    $from_address = scalar_string(Settings::get('email_from_address', 'N/A'));
+    $from_name = scalar_string(Settings::get('email_from_name', 'N/A'));
     
     // Create HTML email body
     $html_body = '
@@ -60,9 +63,9 @@ if ($is_cli || ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test
             
             <div class="info-box">
                 <h3>Email Configuration Details</h3>
-                <p><strong>Email Service:</strong> ' . htmlspecialchars(Settings::get('email_service', 'mail')) . '</p>
-                <p><strong>From Address:</strong> ' . htmlspecialchars(Settings::get('email_from_address', 'N/A')) . '</p>
-                <p><strong>From Name:</strong> ' . htmlspecialchars(Settings::get('email_from_name', 'N/A')) . '</p>
+                <p><strong>Email Service:</strong> ' . htmlspecialchars($email_service) . '</p>
+                <p><strong>From Address:</strong> ' . htmlspecialchars($from_address) . '</p>
+                <p><strong>From Name:</strong> ' . htmlspecialchars($from_name) . '</p>
                 <p><strong>Test Time:</strong> ' . date('Y-m-d H:i:s T') . '</p>
                 <p><strong>Purpose:</strong> Testing email deliverability with MXToolbox</p>
             </div>
@@ -107,9 +110,9 @@ This is a test email to verify email deliverability using MXToolbox\'s ping serv
 
 Email Configuration Details:
 ----------------------------
-Email Service: ' . Settings::get('email_service', 'mail') . '
-From Address: ' . Settings::get('email_from_address', 'N/A') . '
-From Name: ' . Settings::get('email_from_name', 'N/A') . '
+Email Service: ' . $email_service . '
+From Address: ' . $from_address . '
+From Name: ' . $from_name . '
 Test Time: ' . date('Y-m-d H:i:s T') . '
 Purpose: Testing email deliverability with MXToolbox
 
@@ -147,19 +150,19 @@ This is an automated test email for deliverability testing.
         echo "Email Deliverability Test\n";
         echo "===========================================\n\n";
         
-        if ($result['success']) {
+        if (!empty($result['success'])) {
             echo "✅ SUCCESS: Email sent to ping@tools.mxtoolbox.com\n\n";
             echo "Next Steps:\n";
             echo "1. Visit https://mxtoolbox.com/EmailHealth.aspx\n";
-            echo "2. Enter the email address you configured: " . Settings::get('email_from_address', 'N/A') . "\n";
+            echo "2. Enter the email address you configured: " . $from_address . "\n";
             echo "3. Check the deliverability report\n\n";
             echo "Email Configuration:\n";
-            echo "- Service: " . Settings::get('email_service', 'mail') . "\n";
-            echo "- From: " . Settings::get('email_from_address', 'N/A') . "\n";
-            echo "- Name: " . Settings::get('email_from_name', 'N/A') . "\n";
+            echo "- Service: " . $email_service . "\n";
+            echo "- From: " . $from_address . "\n";
+            echo "- Name: " . $from_name . "\n";
         } else {
             echo "❌ ERROR: Failed to send email\n\n";
-            echo "Error Message: " . $result['message'] . "\n\n";
+            echo "Error Message: " . array_string_value($result, 'message') . "\n\n";
             echo "Troubleshooting:\n";
             echo "1. Check your email settings in Admin Panel → Settings → Email\n";
             echo "2. Verify SMTP credentials if using SMTP\n";
@@ -168,12 +171,11 @@ This is an automated test email for deliverability testing.
         }
         
         echo "\n===========================================\n\n";
-        exit($result['success'] ? 0 : 1);
+        exit(!empty($result['success']) ? 0 : 1);
     }
 }
 
-// HTML interface for browser access (only if not CLI)
-if (!$is_cli):
+// HTML interface for browser access
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -230,16 +232,16 @@ if (!$is_cli):
                         </div>
                         
                         <?php if ($result): ?>
-                            <div class="alert alert-<?= $result['success'] ? 'success' : 'danger' ?>">
-                                <strong><?= $result['success'] ? '✅ Success!' : '❌ Error:' ?></strong>
-                                <?= htmlspecialchars($result['message']) ?>
+                            <div class="alert alert-<?= !empty($result['success']) ? 'success' : 'danger' ?>">
+                                <strong><?= !empty($result['success']) ? '✅ Success!' : '❌ Error:' ?></strong>
+                                <?= htmlspecialchars(array_string_value($result, 'message')) ?>
                                 
-                                <?php if ($result['success']): ?>
+                                <?php if (!empty($result['success'])): ?>
                                     <hr>
                                     <h5>Next Steps:</h5>
                                     <ol>
                                         <li>Visit <a href="https://mxtoolbox.com/EmailHealth.aspx" target="_blank">MXToolbox Email Health</a></li>
-                                        <li>Enter your email address: <code><?= htmlspecialchars(Settings::get('email_from_address', 'N/A')) ?></code></li>
+                                        <li>Enter your email address: <code><?= htmlspecialchars($from_address) ?></code></li>
                                         <li>Review the deliverability report and recommendations</li>
                                     </ol>
                                     <p class="mb-0">
@@ -255,21 +257,21 @@ if (!$is_cli):
                         ?>
                         <div class="config-item">
                             <strong>Email Service:</strong> 
-                            <span class="badge bg-primary"><?= htmlspecialchars($email_config['service']) ?></span>
+                            <span class="badge bg-primary"><?= htmlspecialchars(array_string_value($email_config, 'service')) ?></span>
                         </div>
                         <div class="config-item">
-                            <strong>From Address:</strong> <?= htmlspecialchars($email_config['from_address'] ?: 'Not configured') ?>
+                            <strong>From Address:</strong> <?= htmlspecialchars(array_string_value($email_config, 'from_address', 'Not configured')) ?>
                         </div>
                         <div class="config-item">
-                            <strong>From Name:</strong> <?= htmlspecialchars($email_config['from_name'] ?: 'Not configured') ?>
+                            <strong>From Name:</strong> <?= htmlspecialchars(array_string_value($email_config, 'from_name', 'Not configured')) ?>
                         </div>
                         
-                        <?php if ($email_config['service'] === 'smtp'): ?>
+                        <?php if (array_string_value($email_config, 'service') === 'smtp'): ?>
                             <div class="config-item">
-                                <strong>SMTP Host:</strong> <?= htmlspecialchars($email_config['smtp_host'] ?: 'Not configured') ?>
+                                <strong>SMTP Host:</strong> <?= htmlspecialchars(array_string_value($email_config, 'smtp_host', 'Not configured')) ?>
                             </div>
                             <div class="config-item">
-                                <strong>SMTP Port:</strong> <?= htmlspecialchars($email_config['smtp_port']) ?>
+                                <strong>SMTP Port:</strong> <?= htmlspecialchars(array_string_value($email_config, 'smtp_port', '587')) ?>
                             </div>
                         <?php endif; ?>
                         
@@ -334,4 +336,3 @@ if (!$is_cli):
     </div>
 </body>
 </html>
-<?php endif; ?>

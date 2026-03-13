@@ -6,9 +6,9 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Date range handling
-$range = $_GET['range'] ?? 'this_month';
-$start_date = $_GET['start_date'] ?? '';
-$end_date = $_GET['end_date'] ?? '';
+$range = scalar_string($_GET['range'] ?? 'this_month');
+$start_date = scalar_string($_GET['start_date'] ?? '');
+$end_date = scalar_string($_GET['end_date'] ?? '');
 
 // Calculate date ranges
 switch ($range) {
@@ -38,8 +38,8 @@ switch ($range) {
         break;
     case 'this_quarter':
         $quarter = ceil(date('n') / 3);
-        $start_date = date('Y-m-01', strtotime(date('Y') . '-' . (($quarter - 1) * 3 + 1) . '-01'));
-        $end_date = date('Y-m-t', strtotime(date('Y') . '-' . ($quarter * 3) . '-01'));
+        $start_date = date('Y-m-01', safe_timestamp(strtotime(date('Y') . '-' . (($quarter - 1) * 3 + 1) . '-01')));
+        $end_date = date('Y-m-t', safe_timestamp(strtotime(date('Y') . '-' . ($quarter * 3) . '-01')));
         break;
     case 'this_year':
         $start_date = date('Y-01-01');
@@ -81,7 +81,7 @@ $total_income_stmt = $conn->prepare("
     AND payment_date BETWEEN ? AND ?
 ");
 $total_income_stmt->execute([$start_date, $end_date]);
-$total_income = $total_income_stmt->fetchColumn();
+$total_income = safe_float($total_income_stmt->fetchColumn());
 
 // Get expense data
 $expense_stmt = $conn->prepare("
@@ -103,7 +103,7 @@ $total_expense_stmt = $conn->prepare("
     WHERE expense_date BETWEEN ? AND ?
 ");
 $total_expense_stmt->execute([$start_date, $end_date]);
-$total_expenses = $total_expense_stmt->fetchColumn();
+$total_expenses = safe_float($total_expense_stmt->fetchColumn());
 
 // Calculate profit/loss
 $profit_loss = $total_income - $total_expenses;
@@ -125,7 +125,7 @@ $chart_expenses = [];
 $chart_profit = [];
 
 foreach ($all_dates as $date) {
-    $chart_labels[] = date('M j', strtotime($date));
+    $chart_labels[] = date('M j', safe_timestamp(strtotime((string) $date)));
     $income_val = isset($income_by_date[$date]) ? floatval($income_by_date[$date]) : 0;
     $expense_val = isset($expense_by_date[$date]) ? floatval($expense_by_date[$date]) : 0;
     
@@ -137,6 +137,12 @@ foreach ($all_dates as $date) {
 $page_title = 'Financial Reports';
 require_once '../backend/includes/header.php';
 ?>
+<?php
+$export_query = http_build_query([
+    'start' => $start_date,
+    'end' => $end_date,
+]);
+?>
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -146,21 +152,21 @@ require_once '../backend/includes/header.php';
                 <i class="fas fa-download me-1"></i> Export
             </button>
             <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="reports_export.php?type=income_summary&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=income_summary&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Income Summary (CSV)
                 </a></li>
-                <li><a class="dropdown-item" href="reports_export.php?type=income_detail&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=income_detail&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Income Detail (CSV)
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="reports_export.php?type=expense_summary&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=expense_summary&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Expense Summary (CSV)
                 </a></li>
-                <li><a class="dropdown-item" href="reports_export.php?type=expense_detail&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=expense_detail&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Expense Detail (CSV)
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="reports_export.php?type=profit_loss&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=profit_loss&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Profit/Loss Summary (CSV)
                 </a></li>
             </ul>

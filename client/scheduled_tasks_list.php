@@ -32,7 +32,7 @@ include '../backend/includes/header.php';
 
             <?php if (isset($_SESSION['success'])): ?>
                 <div class="alert alert-success alert-dismissible fade show">
-                    <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+                    <?php echo escape($_SESSION['success']); unset($_SESSION['success']); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
@@ -65,10 +65,10 @@ include '../backend/includes/header.php';
                                 <tbody>
                                     <?php foreach ($tasks as $task): ?>
                                         <tr>
-                                            <td><strong><?php echo htmlspecialchars($task['task_name']); ?></strong></td>
+                                            <td><strong><?php echo escape($task['task_name']); ?></strong></td>
                                             <td>
                                                 <span class="badge bg-secondary">
-                                                    <?php echo htmlspecialchars($task['task_type']); ?>
+                                                    <?php echo escape($task['task_type']); ?>
                                                 </span>
                                             </td>
                                             <td>
@@ -184,7 +184,7 @@ include '../backend/includes/header.php';
                                             <td><?php echo $log['items_processed']; ?></td>
                                             <td>
                                                 <small class="text-muted">
-                                                    <?php echo number_format($log['execution_time'], 2); ?>s
+                                                    <?php echo number_format(safe_float($log['execution_time'] ?? 0), 2); ?>s
                                                 </small>
                                             </td>
                                             <td>

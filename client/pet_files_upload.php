@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Validate pet_id
-$pet_id = isset($_POST['pet_id']) ? (int)$_POST['pet_id'] : 0;
+$pet_id = safe_int($_POST['pet_id'] ?? 0);
 if ($pet_id <= 0) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid pet ID']);
@@ -38,13 +38,14 @@ if (!$pet) {
 }
 
 // Get optional description
-$description = isset($_POST['description']) ? trim($_POST['description']) : '';
+$description = trim(scalar_string($_POST['description'] ?? ''));
 
 // Check if file was uploaded
-if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+$uploaded_file = $_FILES['file'] ?? null;
+if (!is_array($uploaded_file) || ($uploaded_file['error'] ?? null) !== UPLOAD_ERR_OK) {
     $error_message = 'No file uploaded';
-    if (isset($_FILES['file']['error'])) {
-        switch ($_FILES['file']['error']) {
+    if (is_array($uploaded_file) && isset($uploaded_file['error'])) {
+        switch ($uploaded_file['error']) {
             case UPLOAD_ERR_INI_SIZE:
             case UPLOAD_ERR_FORM_SIZE:
                 $error_message = 'File is too large. Maximum size is 10MB';
@@ -67,22 +68,25 @@ if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
 
 // Validate file size (10MB max)
 $max_file_size = 10 * 1024 * 1024; // 10MB in bytes
-if ($_FILES['file']['size'] > $max_file_size) {
+$file_size = safe_int($uploaded_file['size'] ?? 0);
+if ($file_size > $max_file_size) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'File is too large. Maximum size is 10MB']);
     exit;
 }
 
 // Get file information
-$original_name = basename($_FILES['file']['name']);
+$original_name = basename(scalar_string($uploaded_file['name'] ?? ''));
 
 // Additional sanitization: remove any path separators and allow only safe characters
-$original_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $original_name);
+$original_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $original_name) ?? $original_name;
 $original_name = str_replace(['/', '\\', '..'], '', $original_name);
 
-$file_size = $_FILES['file']['size'];
-$tmp_name = $_FILES['file']['tmp_name'];
+$tmp_name = scalar_string($uploaded_file['tmp_name'] ?? '');
 $finfo = finfo_open(FILEINFO_MIME_TYPE);
+if ($finfo === false) {
+    die('Unable to validate uploaded file type.');
+}
 $mime_type = finfo_file($finfo, $tmp_name);
 finfo_close($finfo);
 
@@ -144,7 +148,7 @@ $unique_filename = uniqid('pet_' . $pet_id . '_') . '.' . $file_extension;
 $file_path = $upload_pet_dir . '/' . $unique_filename;
 
 // Move uploaded file
-if (!move_uploaded_file($tmp_name, $file_path)) {
+if ($tmp_name === '' || !move_uploaded_file($tmp_name, $file_path)) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Failed to save uploaded file']);
     exit;

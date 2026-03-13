@@ -10,7 +10,7 @@ header('Content-Type: application/json');
 $db = new Database();
 $conn = $db->getConnection();
 
-$template_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$template_id = safe_int($_GET['id'] ?? 0);
 
 if ($template_id) {
     $stmt = $conn->prepare("SELECT * FROM contract_templates WHERE id = ?");

@@ -12,13 +12,13 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Pagination
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
 // Get total count
 $count_stmt = $conn->query("SELECT COUNT(*) FROM contract_templates");
-$total = $count_stmt->fetchColumn();
+$total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get templates

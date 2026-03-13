@@ -2,12 +2,12 @@
 require_once '../backend/includes/config.php';
 requirePortalLogin();
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 
 $db   = new Database();
 $conn = $db->getConnection();
 
-$file_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$file_id = safe_int($_GET['id'] ?? 0);
 if ($file_id <= 0) {
     http_response_code(400);
     die('Invalid file ID');
@@ -36,7 +36,7 @@ if (!file_exists($file_path)) {
 }
 
 $download     = isset($_GET['download']) && $_GET['download'] == '1';
-$safe_filename = preg_replace('/[^\w\s\.-]/', '_', $file['original_name']);
+$safe_filename = scalar_string(preg_replace('/[^\w\s\.-]/', '_', $file['original_name']));
 $safe_filename = str_replace(["\r", "\n"], '', $safe_filename);
 
 header('Content-Type: ' . $file['mime_type']);

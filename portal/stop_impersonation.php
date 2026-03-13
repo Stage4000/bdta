@@ -6,8 +6,8 @@ if (empty($_SESSION['portal_impersonating_admin_id'])) {
     redirect(PORTAL_URL . 'login.php');
 }
 
-$admin_id  = intval($_SESSION['portal_impersonating_admin_id']);
-$client_id = intval($_SESSION['portal_client_id'] ?? 0);
+$admin_id  = safe_int($_SESSION['portal_impersonating_admin_id']);
+$client_id = safe_int($_SESSION['portal_client_id'] ?? 0);
 
 if ($client_id > 0) {
     $db   = new Database();

@@ -67,7 +67,7 @@ try {
         
         if ($create_sql) {
             // Convert SQLite syntax to MySQL
-            $mysql_sql = convertSQLiteToMySQL($create_sql);
+        $mysql_sql = convertSQLiteToMySQL(scalar_string($create_sql));
             echo "$mysql_sql;\n\n";
         }
         
@@ -80,15 +80,15 @@ try {
             
             foreach ($rows as $row) {
                 $columns = array_keys($row);
-                $values = array_values($row);
                 
                 // Escape values
-                $escaped_values = array_map(function($val) use ($conn) {
-                    if ($val === null) {
+                $escaped_values = array_map(function($column) use ($conn, $row) {
+                    $value = $row[$column] ?? null;
+                    if ($value === null) {
                         return 'NULL';
                     }
-                    return $conn->quote($val);
-                }, $values);
+                    return $conn->quote(scalar_string($value));
+                }, $columns);
                 
                 echo "INSERT INTO `$table` (`" . implode('`, `', $columns) . "`) VALUES (";
                 echo implode(', ', $escaped_values);
@@ -109,16 +109,16 @@ try {
 /**
  * Convert SQLite CREATE TABLE syntax to MySQL
  */
-function convertSQLiteToMySQL($sql) {
+function convertSQLiteToMySQL(string $sql): string {
     // Replace INTEGER PRIMARY KEY AUTOINCREMENT with INT AUTO_INCREMENT PRIMARY KEY
     $sql = preg_replace(
         '/INTEGER PRIMARY KEY AUTOINCREMENT/i',
         'INT AUTO_INCREMENT PRIMARY KEY',
         $sql
-    );
+    ) ?? $sql;
     
     // Replace INTEGER with INT
-    $sql = preg_replace('/\bINTEGER\b/i', 'INT', $sql);
+    $sql = preg_replace('/\bINTEGER\b/i', 'INT', $sql) ?? $sql;
     
     // Replace TEXT fields that should be VARCHAR
     // Keep TEXT for long content fields, convert to VARCHAR for shorter fields
@@ -126,10 +126,10 @@ function convertSQLiteToMySQL($sql) {
         '/(\w+)\s+TEXT\s+(UNIQUE|NOT NULL|DEFAULT)/i',
         '$1 VARCHAR(255) $2',
         $sql
-    );
+    ) ?? $sql;
     
     // Add backticks around table and column names for MySQL
-    $sql = preg_replace('/CREATE TABLE (\w+)/i', 'CREATE TABLE IF NOT EXISTS `$1`', $sql);
+    $sql = preg_replace('/CREATE TABLE (\w+)/i', 'CREATE TABLE IF NOT EXISTS `$1`', $sql) ?? $sql;
     
     // Replace TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     $sql = str_replace('CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP', $sql);

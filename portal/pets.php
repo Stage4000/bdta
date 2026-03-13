@@ -2,7 +2,7 @@
 require_once '../backend/includes/config.php';
 requirePortalLogin();
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 $db   = new Database();
 $conn = $db->getConnection();
 
@@ -12,7 +12,7 @@ $edit_pet = null;
 
 // Handle delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
-    $pet_id = intval($_POST['pet_id'] ?? 0);
+    $pet_id = safe_int($_POST['pet_id'] ?? 0);
     // Verify ownership
     $stmt = $conn->prepare("SELECT id FROM pets WHERE id = ? AND client_id = ?");
     $stmt->execute([$pet_id, $client_id]);
@@ -27,16 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Handle add/edit submit
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST['action'] === 'save')) {
-    $pet_id          = intval($_POST['pet_id'] ?? 0);
-    $name            = trim($_POST['name'] ?? '');
-    $species         = trim($_POST['species'] ?? '');
-    $breed           = trim($_POST['breed'] ?? '');
-    $date_of_birth   = $_POST['date_of_birth'] ?: null;
+    $pet_id          = safe_int($_POST['pet_id'] ?? 0);
+    $name            = trim(scalar_string($_POST['name'] ?? ''));
+    $species         = trim(scalar_string($_POST['species'] ?? ''));
+    $breed           = trim(scalar_string($_POST['breed'] ?? ''));
+    $date_of_birth   = scalar_string($_POST['date_of_birth'] ?? '') ?: null;
     $spayed_neutered = isset($_POST['spayed_neutered']) ? 1 : 0;
-    $vaccine_notes   = trim($_POST['vaccine_notes'] ?? '');
-    $behavior_notes  = trim($_POST['behavior_notes'] ?? '');
-    $medical_notes   = trim($_POST['medical_notes'] ?? '');
-    $notes           = trim($_POST['notes'] ?? '');
+    $vaccine_notes   = trim(scalar_string($_POST['vaccine_notes'] ?? ''));
+    $behavior_notes  = trim(scalar_string($_POST['behavior_notes'] ?? ''));
+    $medical_notes   = trim(scalar_string($_POST['medical_notes'] ?? ''));
+    $notes           = trim(scalar_string($_POST['notes'] ?? ''));
 
     if (empty($name)) $errors[] = 'Pet name is required.';
 
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
 
 // Load pet for editing
 if (isset($_GET['edit'])) {
-    $pet_id = intval($_GET['edit']);
+    $pet_id = safe_int($_GET['edit']);
     $stmt = $conn->prepare("SELECT * FROM pets WHERE id = ? AND client_id = ?");
     $stmt->execute([$pet_id, $client_id]);
     $edit_pet = $stmt->fetch(PDO::FETCH_ASSOC);

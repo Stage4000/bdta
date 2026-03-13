@@ -4,8 +4,8 @@ require_once '../backend/includes/config.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
+    $username = scalar_string($_POST['username'] ?? '');
+    $password = scalar_string($_POST['password'] ?? '');
     
     if ($username && $password) {
         $db = new Database();
@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($user && password_verify($password, $user['password_hash'])) {
+        if (is_array($user) && password_verify($password, array_string_value($user, 'password_hash'))) {
             $_SESSION['admin_id'] = $user['id'];
             $_SESSION['admin_username'] = $user['username'];
             $_SESSION['is_admin'] = true;
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$username]);
             $client = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($client && password_verify($password, $client['password_hash'])) {
+            if (is_array($client) && password_verify($password, array_string_value($client, 'password_hash'))) {
                 $_SESSION['admin_id'] = $client['id'];
                 $_SESSION['admin_username'] = $client['name'];
                 $_SESSION['admin_email'] = $client['email'];

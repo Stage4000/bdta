@@ -15,6 +15,7 @@ require_once __DIR__ . '/database.php';
 function getSystemTimezone(): string {
     require_once __DIR__ . '/settings.php';
 
+    /** @var string|null $resolved */
     static $resolved = null;
     if ($resolved !== null) {
         return $resolved;
@@ -30,11 +31,11 @@ function getSystemTimezone(): string {
     }
 
     try {
-        $tz_input = ($configured === null || $configured === '') ? $fallback : $configured;
+        $tz_input = ($configured === null || $configured === '') ? $fallback : scalar_string($configured);
         $tz       = new DateTimeZone($tz_input);
         $resolved = $tz->getName();
     } catch (Exception $e) {
-        $log_value = ($configured === null || $configured === '') ? 'empty' : $configured;
+        $log_value = ($configured === null || $configured === '') ? 'empty' : scalar_string($configured);
         error_log('config.php: falling back to default timezone "' . $fallback . '" because configured value "' . $log_value . '" was invalid: ' . $e->getMessage());
         $resolved = $fallback;
     }
@@ -42,6 +43,14 @@ function getSystemTimezone(): string {
 }
 
 date_default_timezone_set(getSystemTimezone());
+
+/** @var array<string, string> $_GET */
+/** @var array<string, string> $_POST */
+/** @var array<string, string> $_REQUEST */
+/** @var array<string, string> $_COOKIE */
+/** @var array<string, string> $_SERVER */
+/** @var array<string, string> $_ENV */
+/** @var array<string, mixed> $_SESSION */
 
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
@@ -60,30 +69,33 @@ define('DEFAULT_LOCALHOST_URL', 'http://localhost:8000');
 define('PORTAL_URL', '/portal/');
 
 // Helper functions
-function redirect($url) {
+function redirect(string $url): never {
     header("Location: $url");
     exit();
 }
 
-function isLoggedIn() {
+function isLoggedIn(): bool {
     return isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id']);
 }
 
-function requireLogin() {
+function requireLogin(): void {
     if (!isLoggedIn()) {
         redirect(ADMIN_URL . 'login.php');
     }
 }
 
-function setFlashMessage($message, $type = 'info') {
+function setFlashMessage(string $message, string $type = 'info'): void {
     $_SESSION['flash_message'] = $message;
     $_SESSION['flash_type'] = $type;
 }
 
-function getFlashMessage() {
+/**
+ * @return array{message: string, type: string}|null
+ */
+function getFlashMessage(): ?array {
     if (isset($_SESSION['flash_message'])) {
-        $message = $_SESSION['flash_message'];
-        $type = $_SESSION['flash_type'] ?? 'info';
+        $message = scalar_string($_SESSION['flash_message']);
+        $type = scalar_string($_SESSION['flash_type'] ?? 'info');
         unset($_SESSION['flash_message']);
         unset($_SESSION['flash_type']);
         return ['message' => $message, 'type' => $type];
@@ -91,12 +103,101 @@ function getFlashMessage() {
     return null;
 }
 
-function escape($string) {
-    return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
+function escape(mixed $string): string {
+    return htmlspecialchars(scalar_string($string), ENT_QUOTES, 'UTF-8');
 }
 
-function formatDate($date) {
-    return date('F j, Y', strtotime($date));
+/**
+ * @param array<string|int, mixed> $row
+ */
+function array_string_value(array $row, string|int $key, string $default = ''): string {
+    return scalar_string($row[$key] ?? $default);
+}
+
+/**
+ * @param array<string|int, mixed> $row
+ */
+function array_int_value(array $row, string|int $key, int $default = 0): int {
+    return safe_int($row[$key] ?? $default);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function assoc_row(mixed $row): array {
+    if (!is_array($row)) {
+        return [];
+    }
+
+    $assoc = [];
+    foreach ($row as $key => $value) {
+        $assoc[(string) $key] = $value;
+    }
+
+    return $assoc;
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function assoc_rows(mixed $rows): array {
+    if (!is_array($rows)) {
+        return [];
+    }
+
+    $assoc_rows = [];
+    foreach ($rows as $row) {
+        if (is_array($row)) {
+            $assoc_rows[] = assoc_row($row);
+        }
+    }
+
+    return $assoc_rows;
+}
+
+/**
+ * @return list<string>
+ */
+function string_list(mixed $value): array {
+    if (!is_array($value)) {
+        return [];
+    }
+
+    $items = [];
+    foreach ($value as $item) {
+        $items[] = scalar_string($item);
+    }
+
+    return $items;
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function decode_json_assoc(mixed $json): array {
+    if (!is_string($json) || $json === '') {
+        return [];
+    }
+    $decoded = json_decode($json, true);
+    return assoc_row($decoded);
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function decode_json_assoc_list(mixed $json): array {
+    $decoded = decode_json_assoc($json);
+    $rows = [];
+    foreach ($decoded as $item) {
+        if (is_array($item)) {
+            $rows[] = assoc_row($item);
+        }
+    }
+    return $rows;
+}
+
+function formatDate(mixed $date): string {
+    return date('F j, Y', safe_timestamp(strtotime(scalar_string($date))));
 }
 
 /**
@@ -106,7 +207,7 @@ function formatDate($date) {
  * Note: IPv6 addresses in bracket notation (e.g., [::1]:8000) are not supported
  * and will fall back to SERVER_NAME. Use base_url setting for IPv6 hosts.
  */
-function getDynamicBaseUrl() {
+function getDynamicBaseUrl(): string {
     // Try to build URL from current request
     if (isset($_SERVER['HTTP_HOST'])) {
         // Detect protocol with support for reverse proxies/load balancers
@@ -131,16 +232,16 @@ function getDynamicBaseUrl() {
         
         // Get and sanitize the host
         // Use SERVER_NAME as fallback for better security
-        $host = $_SERVER['HTTP_HOST'];
+        $host = scalar_string($_SERVER['HTTP_HOST']);
         
         // Strict validation: proper hostname format with optional port
         // Pattern ensures no consecutive dots, no leading/trailing hyphens in domain parts
         // Note: Does not support IPv6 bracket notation
         if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*(:[0-9]+)?$/', $host)) {
             // If HTTP_HOST is suspicious, fall back to SERVER_NAME
-            $host = $_SERVER['SERVER_NAME'] ?? 'localhost';
+            $host = scalar_string($_SERVER['SERVER_NAME'] ?? 'localhost');
             if (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] != 80 && $_SERVER['SERVER_PORT'] != 443) {
-                $host .= ':' . $_SERVER['SERVER_PORT'];
+                $host .= ':' . scalar_string($_SERVER['SERVER_PORT']);
             }
         }
         
@@ -149,7 +250,7 @@ function getDynamicBaseUrl() {
     
     // Fallback to base_url setting (for CLI/cron contexts)
     $base_url = Settings::get('base_url', null);
-    if ($base_url) {
+    if (is_string($base_url) && $base_url !== '') {
         return rtrim($base_url, '/');
     }
     
@@ -158,27 +259,31 @@ function getDynamicBaseUrl() {
 }
 
 // Portal helper functions
-function isPortalLoggedIn() {
+function isPortalLoggedIn(): bool {
     return isset($_SESSION['portal_client_id']) && !empty($_SESSION['portal_client_id']);
 }
 
-function requirePortalLogin() {
+function requirePortalLogin(): void {
     if (!isPortalLoggedIn()) {
         redirect(PORTAL_URL . 'login.php');
     }
 }
 
-function logClientActivity($client_id, $action, $description = '', $conn = null) {
+function portalClientId(): int {
+    return safe_int($_SESSION['portal_client_id'] ?? 0);
+}
+
+function logClientActivity(int|string $client_id, string $action, string $description = '', ?PDO $conn = null): void {
     if ($conn === null) {
         $db = new Database();
         $conn = $db->getConnection();
     }
     // Use X-Forwarded-For when behind a trusted proxy, validated to prevent spoofing
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $forwarded = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
-        $ip = filter_var($forwarded, FILTER_VALIDATE_IP) ? $forwarded : ($_SERVER['REMOTE_ADDR'] ?? '');
+        $forwarded = trim(explode(',', scalar_string($_SERVER['HTTP_X_FORWARDED_FOR']))[0]);
+        $ip = filter_var($forwarded, FILTER_VALIDATE_IP) ? $forwarded : scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
     } else {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $ip = scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
     }
     $stmt = $conn->prepare("INSERT INTO client_activity_log (client_id, action, description, ip_address) VALUES (?, ?, ?, ?)");
     $stmt->execute([$client_id, $action, $description, $ip]);

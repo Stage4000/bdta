@@ -11,14 +11,25 @@
 // Depends on config.php for settings/database bootstrap and the shared getSystemTimezone() helper
 require_once __DIR__ . '/config.php';
 
+/**
+ * @phpstan-type BookingRow array<string, mixed>
+ * @phpstan-type CalendarResult array<string, mixed>
+ */
 class GoogleCalendarIntegration {
-    private $credentials_file;
-    private $calendar_id;
+    private string $credentials_file;
+    private string $calendar_id;
 
     public function __construct() {
-        $this->calendar_id       = Settings::get('google_calendar_id', 'primary');
-        $credentials_path        = Settings::get('google_calendar_credentials_file', __DIR__ . '/google-calendar-credentials.json');
+        $this->calendar_id       = scalar_string(Settings::get('google_calendar_id', 'primary'));
+        $credentials_path        = scalar_string(Settings::get('google_calendar_credentials_file', __DIR__ . '/google-calendar-credentials.json'));
         $this->credentials_file  = $credentials_path;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function rowString(array $row, string $key, string $default = ''): string {
+        return scalar_string($row[$key] ?? $default);
     }
 
     // -------------------------------------------------------------------------
@@ -27,16 +38,21 @@ class GoogleCalendarIntegration {
 
     /**
      * Build the Google Calendar event body array from a booking row.
+     *
+     * @param BookingRow $booking
+     * @return array<string, mixed>
      */
     private function buildEventBody(array $booking): array {
         $timezone = getSystemTimezone();
         // Normalise to HH:MM – MySQL TIME columns return HH:MM:SS which would
         // produce an invalid RFC3339 string like "2026-03-02T14:30:00:00".
-        $time_hhmm = substr($booking['appointment_time'], 0, 5);
-        $start_dt  = $booking['appointment_date'] . 'T' . $time_hhmm . ':00';
-        $duration  = (int)($booking['duration_minutes'] ?? 60);
+        $appointment_time = self::rowString($booking, 'appointment_time');
+        $appointment_date = self::rowString($booking, 'appointment_date');
+        $time_hhmm = substr($appointment_time, 0, 5);
+        $start_dt  = $appointment_date . 'T' . $time_hhmm . ':00';
+        $duration  = safe_int($booking['duration_minutes'] ?? 60);
         // Use the full date+time so end-time is correct even when crossing midnight
-        $start_ts  = strtotime($booking['appointment_date'] . ' ' . $time_hhmm);
+        $start_ts  = strtotime($appointment_date . ' ' . $time_hhmm);
         if ($start_ts === false || $start_ts === 0) {
             // Fallback: parse time only (today's date) – end date will match start date
             $start_ts = strtotime($time_hhmm) ?: time();
@@ -44,8 +60,8 @@ class GoogleCalendarIntegration {
         $end_ts = $start_ts + $duration * 60;
         $end_dt = date('Y-m-d', $end_ts) . 'T' . date('H:i:s', $end_ts);
 
-        $location      = trim($booking['location'] ?? '');
-        $location_type = trim($booking['location_type'] ?? '');
+        $location      = trim(self::rowString($booking, 'location'));
+        $location_type = trim(self::rowString($booking, 'location_type'));
 
         // Physical address types get added to the event's Location field so
         // Google Calendar can display them on a map.  Phone and webcall entries
@@ -58,15 +74,15 @@ class GoogleCalendarIntegration {
         $event_location   = ($is_physical_addr && $location !== '') ? $location : '';
 
         $description_lines = array_filter([
-            'Client: '   . ($booking['client_name']  ?? ''),
-            'Email: '    . ($booking['client_email'] ?? ''),
-            'Phone: '    . ($booking['client_phone'] ?? ''),
+            'Client: '   . self::rowString($booking, 'client_name'),
+            'Email: '    . self::rowString($booking, 'client_email'),
+            'Phone: '    . self::rowString($booking, 'client_phone'),
             $location !== '' ? 'Address: ' . $location : '',
-            'Notes: '    . ($booking['notes']        ?? ''),
+            'Notes: '    . self::rowString($booking, 'notes'),
         ]);
 
         $event_body = [
-            'summary'     => ($booking['service_type'] ?? 'Appointment') . ' - ' . ($booking['client_name'] ?? ''),
+            'summary'     => self::rowString($booking, 'service_type', 'Appointment') . ' - ' . self::rowString($booking, 'client_name'),
             'description' => implode("\n", $description_lines),
             'start'       => ['dateTime' => $start_dt, 'timeZone' => $timezone],
             'end'         => ['dateTime' => $end_dt,   'timeZone' => $timezone],
@@ -101,6 +117,9 @@ class GoogleCalendarIntegration {
     /**
      * Add an event using a Google service account.
      * Requires google/apiclient: composer require google/apiclient
+     *
+     * @param BookingRow $booking
+     * @return CalendarResult
      */
     public function addEvent(array $booking): array {
         if (!$this->isConfigured()) {
@@ -108,7 +127,9 @@ class GoogleCalendarIntegration {
         }
 
         try {
-            if (!class_exists('Google_Client')) {
+            if (!class_exists('Google_Client')
+                || !class_exists('Google_Service_Calendar')
+                || !class_exists('Google_Service_Calendar_Event')) {
                 return ['success' => false, 'message' => 'Google API client library not installed. Run: composer require google/apiclient'];
             }
 
@@ -118,9 +139,19 @@ class GoogleCalendarIntegration {
 
             $service = new Google_Service_Calendar($client);
             $event   = new Google_Service_Calendar_Event($this->buildEventBody($booking));
-            $created = $service->events->insert($this->calendar_id, $event);
+            $events_resource = $service->events ?? null;
+            if (!is_object($events_resource) || !is_callable([$events_resource, 'insert'])) {
+                return ['success' => false, 'message' => 'Google Calendar events resource unavailable'];
+            }
+            $created = call_user_func([$events_resource, 'insert'], $this->calendar_id, $event);
+            $event_id = is_object($created) && is_callable([$created, 'getId'])
+                ? scalar_string(call_user_func([$created, 'getId']))
+                : '';
+            $link = is_object($created) && is_callable([$created, 'getHtmlLink'])
+                ? scalar_string(call_user_func([$created, 'getHtmlLink']))
+                : '';
 
-            return ['success' => true, 'event_id' => $created->getId(), 'link' => $created->getHtmlLink()];
+            return ['success' => true, 'event_id' => $event_id, 'link' => $link];
         } catch (Exception $e) {
             return ['success' => false, 'message' => $e->getMessage()];
         }
@@ -129,6 +160,9 @@ class GoogleCalendarIntegration {
     /**
      * Update an existing event using a Google service account.
      * $event_id is the Google event ID stored in bookings.google_event_id.
+     *
+     * @param BookingRow $booking
+     * @return CalendarResult
      */
     public function updateEvent(array $booking, string $event_id): array {
         if (!$this->isConfigured()) {
@@ -136,7 +170,9 @@ class GoogleCalendarIntegration {
         }
 
         try {
-            if (!class_exists('Google_Client')) {
+            if (!class_exists('Google_Client')
+                || !class_exists('Google_Service_Calendar')
+                || !class_exists('Google_Service_Calendar_Event')) {
                 return ['success' => false, 'message' => 'Google API client library not installed. Run: composer require google/apiclient'];
             }
 
@@ -146,9 +182,19 @@ class GoogleCalendarIntegration {
 
             $service = new Google_Service_Calendar($client);
             $event   = new Google_Service_Calendar_Event($this->buildEventBody($booking));
-            $updated = $service->events->update($this->calendar_id, $event_id, $event);
+            $events_resource = $service->events ?? null;
+            if (!is_object($events_resource) || !is_callable([$events_resource, 'update'])) {
+                return ['success' => false, 'message' => 'Google Calendar events resource unavailable'];
+            }
+            $updated = call_user_func([$events_resource, 'update'], $this->calendar_id, $event_id, $event);
+            $updated_id = is_object($updated) && is_callable([$updated, 'getId'])
+                ? scalar_string(call_user_func([$updated, 'getId']))
+                : '';
+            $link = is_object($updated) && is_callable([$updated, 'getHtmlLink'])
+                ? scalar_string(call_user_func([$updated, 'getHtmlLink']))
+                : '';
 
-            return ['success' => true, 'event_id' => $updated->getId(), 'link' => $updated->getHtmlLink()];
+            return ['success' => true, 'event_id' => $updated_id, 'link' => $link];
         } catch (Exception $e) {
             return ['success' => false, 'message' => $e->getMessage()];
         }
@@ -170,6 +216,8 @@ class GoogleCalendarIntegration {
     /**
      * Retrieve the stored OAuth token for a given admin user.
      * Returns the token row or null.
+     *
+     * @return array<string, mixed>|null
      */
     public static function getOAuthToken(int $admin_user_id): ?array {
         $db   = new Database();
@@ -177,7 +225,7 @@ class GoogleCalendarIntegration {
         $stmt = $conn->prepare("SELECT * FROM google_oauth_tokens WHERE admin_user_id = ? LIMIT 1");
         $stmt->execute([$admin_user_id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        return is_array($row) ? $row : null;
     }
 
     /**
@@ -191,19 +239,21 @@ class GoogleCalendarIntegration {
         }
 
         // Check if expired (with 60-second buffer)
-        if (!empty($token['expires_at']) && strtotime($token['expires_at']) < (time() + 60)) {
-            if (empty($token['refresh_token'])) {
+        $expires_at = self::rowString($token, 'expires_at');
+        if ($expires_at !== '' && safe_timestamp(strtotime($expires_at)) < (time() + 60)) {
+            $refresh_token = self::rowString($token, 'refresh_token');
+            if ($refresh_token === '') {
                 error_log('GoogleCalendarIntegration: token for admin_user_id=' . $admin_user_id . ' is expired and no refresh_token stored');
                 return null;
             }
-            $refreshed = self::refreshAccessToken($token['refresh_token'], $admin_user_id);
+            $refreshed = self::refreshAccessToken($refresh_token, $admin_user_id);
             if (!$refreshed) {
                 error_log('GoogleCalendarIntegration: failed to refresh token for admin_user_id=' . $admin_user_id);
             }
             return $refreshed;
         }
 
-        return $token['access_token'];
+        return self::rowString($token, 'access_token');
     }
 
     /**
@@ -211,8 +261,8 @@ class GoogleCalendarIntegration {
      * Saves the new token to the database and returns the new access token, or null on failure.
      */
     private static function refreshAccessToken(string $refresh_token, int $admin_user_id): ?string {
-        $client_id     = Settings::get('google_oauth_client_id', '');
-        $client_secret = Settings::get('google_oauth_client_secret', '');
+        $client_id     = scalar_string(Settings::get('google_oauth_client_id', ''));
+        $client_secret = scalar_string(Settings::get('google_oauth_client_secret', ''));
 
         $response = self::httpPost('https://oauth2.googleapis.com/token', [
             'grant_type'    => 'refresh_token',
@@ -225,7 +275,7 @@ class GoogleCalendarIntegration {
             return null;
         }
 
-        $expires_at = date('Y-m-d H:i:s', time() + (int)($response['expires_in'] ?? 3600));
+        $expires_at = date('Y-m-d H:i:s', time() + safe_int($response['expires_in'] ?? 3600));
 
         $db   = new Database();
         $conn = $db->getConnection();
@@ -235,7 +285,7 @@ class GoogleCalendarIntegration {
             WHERE admin_user_id = ?
         ")->execute([$response['access_token'], $expires_at, $admin_user_id]);
 
-        return $response['access_token'];
+        return self::rowString($response, 'access_token');
     }
 
     /**
@@ -282,7 +332,7 @@ class GoogleCalendarIntegration {
         $token = self::getOAuthToken($admin_user_id);
         if ($token) {
             // Attempt to revoke with Google (best-effort)
-            $revoke_token = $token['refresh_token'] ?: $token['access_token'];
+            $revoke_token = self::rowString($token, 'refresh_token', self::rowString($token, 'access_token'));
             $result = self::httpPost('https://oauth2.googleapis.com/revoke', ['token' => $revoke_token]);
             if (!empty($result['error'])) {
                 error_log('GoogleCalendarIntegration: token revocation returned error: ' . json_encode($result['error']));
@@ -307,7 +357,7 @@ class GoogleCalendarIntegration {
         }
 
         $token_row   = self::getOAuthToken($admin_user_id);
-        $calendar_id = $token_row['calendar_id'] ?? 'primary';
+        $calendar_id = is_array($token_row) ? self::rowString($token_row, 'calendar_id', 'primary') : 'primary';
 
         $url = 'https://www.googleapis.com/calendar/v3/calendars/'
             . urlencode($calendar_id) . '/events/' . urlencode($event_id)
@@ -330,14 +380,19 @@ class GoogleCalendarIntegration {
         if ($http_code === 204 || $http_code === 410) {
             return true;
         }
-        $body = json_decode($result ?: '{}', true);
-        $error = $body['error']['message'] ?? ('HTTP ' . $http_code);
+        $body = json_decode(scalar_string($result ?: '{}'), true);
+        $error = is_array($body) && isset($body['error']) && is_array($body['error'])
+            ? scalar_string($body['error']['message'] ?? ('HTTP ' . $http_code))
+            : 'HTTP ' . $http_code;
         error_log('GoogleCalendarIntegration: deleteEventOAuth failed for event_id=' . $event_id . ', admin_user_id=' . $admin_user_id . ', error=' . $error);
         return false;
     }
 
     /**
      * Add a booking event to the connected calendar for a given admin user using OAuth.
+     *
+     * @param BookingRow $booking
+     * @return CalendarResult
      */
     public static function addEventOAuth(array $booking, int $admin_user_id): array {
         $access_token = self::getValidAccessToken($admin_user_id);
@@ -347,7 +402,7 @@ class GoogleCalendarIntegration {
         }
 
         $token_row   = self::getOAuthToken($admin_user_id);
-        $calendar_id = $token_row['calendar_id'] ?? 'primary';
+        $calendar_id = is_array($token_row) ? self::rowString($token_row, 'calendar_id', 'primary') : 'primary';
 
         $instance   = new self();
         $event_body = $instance->buildEventBody($booking);
@@ -360,11 +415,12 @@ class GoogleCalendarIntegration {
         ], true);
 
         if (!empty($response['id'])) {
-            return ['success' => true, 'event_id' => $response['id'], 'link' => $response['htmlLink'] ?? ''];
+            return ['success' => true, 'event_id' => array_string_value($response, 'id'), 'link' => array_string_value($response, 'htmlLink')];
         }
 
-        $error = $response['error']['message'] ?? 'Unknown error inserting event';
-        $error_code = $response['error']['code'] ?? 'unknown';
+        $response_error = isset($response['error']) && is_array($response['error']) ? $response['error'] : [];
+        $error = scalar_string($response_error['message'] ?? 'Unknown error inserting event');
+        $error_code = scalar_string($response_error['code'] ?? 'unknown');
         error_log('GoogleCalendarIntegration: addEventOAuth failed for admin_user_id=' . $admin_user_id . ', calendar=' . $calendar_id . ', http_error=' . $error_code . ': ' . $error);
         return ['success' => false, 'message' => $error];
     }
@@ -373,6 +429,9 @@ class GoogleCalendarIntegration {
      * Update an existing Google Calendar event for the given admin user using OAuth.
      * $event_id is the Google event ID stored in bookings.google_event_id.
      * Uses a PUT (full update) request so all event fields – including location – are refreshed.
+     *
+     * @param BookingRow $booking
+     * @return CalendarResult
      */
     public static function updateEventOAuth(array $booking, string $event_id, int $admin_user_id): array {
         $access_token = self::getValidAccessToken($admin_user_id);
@@ -382,7 +441,7 @@ class GoogleCalendarIntegration {
         }
 
         $token_row   = self::getOAuthToken($admin_user_id);
-        $calendar_id = $token_row['calendar_id'] ?? 'primary';
+        $calendar_id = is_array($token_row) ? self::rowString($token_row, 'calendar_id', 'primary') : 'primary';
 
         $instance   = new self();
         $event_body = $instance->buildEventBody($booking);
@@ -395,7 +454,7 @@ class GoogleCalendarIntegration {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-        $body = json_encode($event_body);
+        $body = scalar_string(json_encode($event_body));
         curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Authorization: Bearer ' . $access_token,
@@ -412,14 +471,16 @@ class GoogleCalendarIntegration {
             return ['success' => false, 'message' => $curl_err];
         }
 
-        $response = json_decode($result ?: '{}', true) ?: [];
+        /** @var array<string, mixed> $response */
+        $response = json_decode(scalar_string($result ?: '{}'), true) ?: [];
 
         if (!empty($response['id'])) {
-            return ['success' => true, 'event_id' => $response['id'], 'link' => $response['htmlLink'] ?? ''];
+            return ['success' => true, 'event_id' => array_string_value($response, 'id'), 'link' => array_string_value($response, 'htmlLink')];
         }
 
-        $error      = $response['error']['message'] ?? 'Unknown error updating event';
-        $error_code = $response['error']['code'] ?? 'unknown';
+        $response_error = isset($response['error']) && is_array($response['error']) ? $response['error'] : [];
+        $error      = scalar_string($response_error['message'] ?? 'Unknown error updating event');
+        $error_code = scalar_string($response_error['code'] ?? 'unknown');
         error_log('GoogleCalendarIntegration: updateEventOAuth failed for event_id=' . $event_id . ', admin_user_id=' . $admin_user_id . ', http_error=' . $error_code . ': ' . $error);
         return ['success' => false, 'message' => $error];
     }
@@ -444,7 +505,7 @@ class GoogleCalendarIntegration {
         }
 
         $token_row   = self::getOAuthToken($admin_user_id);
-        $calendar_id = $token_row['calendar_id'] ?? 'primary';
+        $calendar_id = is_array($token_row) ? self::rowString($token_row, 'calendar_id', 'primary') : 'primary';
         $timezone    = getSystemTimezone();
 
         try {
@@ -478,7 +539,17 @@ class GoogleCalendarIntegration {
             return [];
         }
 
-        return $response['calendars'][$calendar_id]['busy'] ?? [];
+        $calendars = $response['calendars'] ?? null;
+        if (!is_array($calendars)) {
+            return [];
+        }
+        $calendar = $calendars[$calendar_id] ?? null;
+        if (!is_array($calendar) || !isset($calendar['busy']) || !is_array($calendar['busy'])) {
+            return [];
+        }
+        /** @var array<int, array{start: string, end: string}> $busy */
+        $busy = $calendar['busy'];
+        return $busy;
     }
 
     /**
@@ -502,7 +573,7 @@ class GoogleCalendarIntegration {
         }
 
         $token_row   = self::getOAuthToken($admin_user_id);
-        $calendar_id = $token_row['calendar_id'] ?? 'primary';
+        $calendar_id = is_array($token_row) ? self::rowString($token_row, 'calendar_id', 'primary') : 'primary';
         $timezone    = getSystemTimezone();
 
         try {
@@ -536,12 +607,24 @@ class GoogleCalendarIntegration {
             return [];
         }
 
-        return $response['calendars'][$calendar_id]['busy'] ?? [];
+        $calendars = $response['calendars'] ?? null;
+        if (!is_array($calendars)) {
+            return [];
+        }
+        $calendar = $calendars[$calendar_id] ?? null;
+        if (!is_array($calendar) || !isset($calendar['busy']) || !is_array($calendar['busy'])) {
+            return [];
+        }
+        /** @var array<int, array{start: string, end: string}> $busy */
+        $busy = $calendar['busy'];
+        return $busy;
     }
 
     /**
      * List available calendars for the given admin user.
      * Returns array of ['id' => ..., 'summary' => ...] or empty array on failure.
+     *
+     * @return list<array{id: string, summary: string}>
      */
     public static function listCalendars(int $admin_user_id): array {
         $access_token = self::getValidAccessToken($admin_user_id);
@@ -554,11 +637,19 @@ class GoogleCalendarIntegration {
             ['Authorization: Bearer ' . $access_token]
         );
 
-        if (empty($response['items'])) {
+        $items = $response['items'] ?? null;
+        if (!is_array($items) || $items === []) {
             return [];
         }
 
-        return array_map(fn($c) => ['id' => $c['id'], 'summary' => $c['summary'] ?? $c['id']], $response['items']);
+        /** @var list<array<string, mixed>> $items */
+        return array_map(
+            fn(array $calendar): array => [
+                'id' => scalar_string($calendar['id'] ?? ''),
+                'summary' => scalar_string($calendar['summary'] ?? ($calendar['id'] ?? '')),
+            ],
+            $items
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -567,15 +658,18 @@ class GoogleCalendarIntegration {
 
     /**
      * POST to a URL. Supports both form-encoded and JSON payloads.
-     * @param array|string $headers  Extra HTTP headers.
-     * @param bool         $json     Send body as JSON instead of form-encoded.
+     *
+     * @param array<string, mixed> $data
+     * @param list<string> $headers Extra HTTP headers.
+     * @param bool $json Send body as JSON instead of form-encoded.
+     * @return array<string, mixed>
      */
     private static function httpPost(string $url, array $data, array $headers = [], bool $json = false): array {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         if ($json) {
-            $body = json_encode($data);
+            $body = scalar_string(json_encode($data));
             $headers[] = 'Content-Length: ' . strlen($body);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         } else {
@@ -591,11 +685,16 @@ class GoogleCalendarIntegration {
             error_log('GoogleCalendarIntegration cURL POST error: ' . $curl_err);
             return [];
         }
-        return json_decode($result ?: '{}', true) ?: [];
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];
+        return $decoded;
     }
 
     /**
      * GET a URL with optional extra headers, returning decoded JSON.
+     *
+     * @param list<string> $headers
+     * @return array<string, mixed>
      */
     private static function httpGet(string $url, array $headers = []): array {
         $ch = curl_init($url);
@@ -610,7 +709,9 @@ class GoogleCalendarIntegration {
             error_log('GoogleCalendarIntegration cURL GET error: ' . $curl_err);
             return [];
         }
-        return json_decode($result ?: '{}', true) ?: [];
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];
+        return $decoded;
     }
 }
 ?>

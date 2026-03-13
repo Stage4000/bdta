@@ -16,7 +16,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -28,7 +28,7 @@ $stmt = $conn->prepare("
 $stmt->execute();
 $packages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$total = $conn->query("SELECT COUNT(*) FROM packages")->fetchColumn();
+$total = safe_int($conn->query("SELECT COUNT(*) FROM packages")->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Fetch items for each package (join appointment_types for name)
@@ -83,8 +83,11 @@ include __DIR__ . '/../backend/includes/header.php';
     </div>
 
     <?php if (isset($_SESSION['flash'])): ?>
-        <div class="alert alert-<?= $_SESSION['flash']['type'] ?> alert-dismissible fade show">
-            <?= htmlspecialchars($_SESSION['flash']['message']) ?>
+        <?php $flash = is_array($_SESSION['flash']) ? $_SESSION['flash'] : []; ?>
+        <?php $flash_type = array_string_value($flash, 'type', 'info'); ?>
+        <?php if (!in_array($flash_type, ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'], true)) $flash_type = 'info'; ?>
+        <div class="alert alert-<?= htmlspecialchars($flash_type) ?> alert-dismissible fade show">
+            <?= htmlspecialchars(array_string_value($flash, 'message', '')) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['flash']); ?>
@@ -114,6 +117,7 @@ include __DIR__ . '/../backend/includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($packages as $pkg): ?>
+                                <?php $price = safe_float($pkg['price'] ?? 0); ?>
                                 <?php $share_url = getDynamicBaseUrl() . '/client/package_detail.php?token=' . ($pkg['share_token'] ?? ''); ?>
                                 <tr>
                                     <td>
@@ -134,7 +138,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                             <?php endforeach; ?>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= $pkg['price'] > 0 ? '$' . number_format($pkg['price'], 2) : '<span class="text-muted">—</span>' ?></td>
+                                    <td><?= $price > 0 ? '$' . number_format($price, 2) : '<span class="text-muted">—</span>' ?></td>
                                     <td>
                                         <?php if ($pkg['expiration_days']): ?>
                                             <?= $pkg['expiration_days'] ?> days
@@ -164,7 +168,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php if (!empty($pkg['share_token'])): ?>
                                         <button type="button" class="btn btn-sm btn-outline-success"
                                                 title="Copy shareable link"
-                                                onclick="copyLink(<?= htmlspecialchars(json_encode($share_url)) ?>, this)">
+                                                onclick="copyLink(<?= htmlspecialchars(scalar_string(json_encode($share_url))) ?>, this)">
                                             <i class="fas fa-share-nodes"></i>
                                         </button>
                                         <?php endif; ?>

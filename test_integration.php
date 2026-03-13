@@ -173,6 +173,9 @@ try {
             $stmt = $conn->query($q['sql']);
         }
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($result)) {
+            throw new Exception("Failed to fetch query result for {$q['label']}");
+        }
         echo "   ✓ {$q['label']}: {$result['count']}\n";
     }
     echo "\n";

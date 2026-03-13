@@ -9,13 +9,13 @@ $conn = $db->getConnection();
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isset($_POST['status'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token']), scalar_string($_POST['csrf_token']))) {
         setFlashMessage('Invalid request.', 'danger');
         header('Location: bookings_list.php');
         exit;
     }
-    $booking_id = (int)$_POST['booking_id'];
-    $status = $_POST['status'];
+    $booking_id = safe_int($_POST['booking_id']);
+    $status = scalar_string($_POST['status']);
 
     // Fetch current booking for credit handling
     $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
@@ -149,11 +149,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
 
 // Handle deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token']), scalar_string($_POST['csrf_token']))) {
         setFlashMessage('Invalid request.', 'danger');
         redirect('bookings_list.php');
     }
-    $booking_id = intval($_POST['delete_id']);
+    $booking_id = safe_int($_POST['delete_id']);
     $stmt = $conn->prepare("DELETE FROM bookings WHERE id = ?");
     $stmt->execute([$booking_id]);
 
@@ -245,7 +245,7 @@ require_once '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <form method="POST" class="d-inline">
-                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                                         <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
                                         <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
                                             <option value="pending" <?php echo $booking['status'] === 'pending' ? 'selected' : ''; ?>>Pending</option>

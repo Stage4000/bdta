@@ -61,6 +61,9 @@ try {
     $stmt = $conn->prepare("SELECT title FROM blog_posts WHERE id = :id");
     $stmt->execute(['id' => $inserted_id]);
     $updated_post = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($updated_post)) {
+        throw new Exception("Failed to load updated blog post");
+    }
     
     if ($updated_post['title'] === $new_title) {
         echo "  ✓ Blog post updated successfully\n";
@@ -78,6 +81,9 @@ try {
     $stmt = $conn->prepare("SELECT COUNT(*) as count FROM blog_posts WHERE id = :id");
     $stmt->execute(['id' => $inserted_id]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($result)) {
+        throw new Exception("Failed to verify blog post deletion");
+    }
     
     if ($result['count'] == 0) {
         echo "  ✓ Blog post deleted successfully\n\n";
@@ -160,6 +166,9 @@ try {
         $stmt = $conn->prepare("SELECT COUNT(*) as count FROM clients WHERE id = :id");
         $stmt->execute(['id' => $trans_client_id]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($result)) {
+            throw new Exception("Failed to verify transaction rollback");
+        }
         
         if ($result['count'] == 0) {
             echo "  ✓ Transaction rollback successful\n\n";

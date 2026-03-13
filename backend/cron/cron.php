@@ -33,9 +33,9 @@ require_once $backend_dir . '/includes/email_service.php';
 define('TASK_HANDLERS_DIR', __DIR__ . '/tasks');
 
 class CronRunner {
-    private $db;
-    private $conn;
-    private $start_time;
+    private Database $db;
+    private SafePDO $conn;
+    private float $start_time;
     
     public function __construct() {
         $this->db = new Database();
@@ -48,7 +48,7 @@ class CronRunner {
     /**
      * Main execution method
      */
-    public function run() {
+    public function run(): void {
         // Get all active scheduled tasks that are due to run
         $tasks = $this->getDueTasks();
         
@@ -70,7 +70,10 @@ class CronRunner {
     /**
      * Get tasks that are due to run
      */
-    private function getDueTasks() {
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function getDueTasks(): array {
         $current_time = date('Y-m-d H:i:s');
         
         $stmt = $this->conn->prepare("
@@ -87,13 +90,19 @@ class CronRunner {
     /**
      * Execute a single task
      */
-    private function executeTask($task) {
+    /**
+     * @param array<string, mixed> $task
+     */
+    private function executeTask(array $task): void {
         $task_start_time = microtime(true);
-        $this->log("Executing task: {$task['task_name']} (Type: {$task['task_type']})");
+        $task_id = $task['id'] ?? null;
+        $task_name = scalar_string($task['task_name'] ?? '');
+        $task_type = scalar_string($task['task_type'] ?? '');
+        $this->log("Executing task: {$task_name} (Type: {$task_type})");
         
         try {
             // Load the task handler
-            $handler_file = TASK_HANDLERS_DIR . '/' . $task['task_type'] . '.php';
+            $handler_file = TASK_HANDLERS_DIR . '/' . $task_type . '.php';
             
             if (!file_exists($handler_file)) {
                 throw new Exception("Task handler not found: {$handler_file}");
@@ -102,22 +111,40 @@ class CronRunner {
             require_once $handler_file;
             
             // Get handler class name (convert snake_case to PascalCase)
-            $class_name = str_replace('_', '', ucwords($task['task_type'], '_')) . 'Task';
+            $class_name = str_replace('_', '', ucwords($task_type, '_')) . 'Task';
             
             if (!class_exists($class_name)) {
                 throw new Exception("Task class not found: {$class_name}");
             }
             
             // Instantiate and run the handler
-            $handler = new $class_name($this->conn, $task);
+            $reflection = new ReflectionClass($class_name);
+            $constructor = $reflection->getConstructor();
+
+            if ($constructor === null || $constructor->getNumberOfParameters() === 0) {
+                $handler = $reflection->newInstance();
+            } elseif ($constructor->getNumberOfParameters() === 1) {
+                $handler = $reflection->newInstance($this->conn);
+            } else {
+                $handler = $reflection->newInstance($this->conn, $task);
+            }
+            if (!method_exists($handler, 'execute')) {
+                throw new Exception("Task handler is missing execute(): {$class_name}");
+            }
             $result = $handler->execute();
+            if (!is_array($result)) {
+                throw new RuntimeException("Task handler returned invalid result: {$class_name}");
+            }
             
             // Log success
             $execution_time = round(microtime(true) - $task_start_time, 2);
-            $items_processed = $result['items_processed'] ?? 0;
-            $message = $result['message'] ?? 'Task completed successfully';
+            $items_processed = safe_int($result['items_processed'] ?? 0);
+            $message = scalar_string($result['message'] ?? 'Task completed successfully');
             
-            $this->logTaskExecution($task['id'], $task['task_name'], 'success', $message, $items_processed, $execution_time);
+            if (!is_int($task_id) && !is_string($task_id)) {
+                throw new RuntimeException('Task id missing.');
+            }
+            $this->logTaskExecution($task_id, $task_name, 'success', $message, $items_processed, $execution_time);
             $this->log("✓ Task completed: {$message} ({$items_processed} items, {$execution_time}s)");
             
             // Update task's last_run and next_run times
@@ -128,7 +155,9 @@ class CronRunner {
             $execution_time = round(microtime(true) - $task_start_time, 2);
             $error_message = $e->getMessage();
             
-            $this->logTaskExecution($task['id'], $task['task_name'], 'error', $error_message, 0, $execution_time);
+            if (is_int($task_id) || is_string($task_id)) {
+                $this->logTaskExecution($task_id, $task_name, 'error', $error_message, 0, $execution_time);
+            }
             $this->log("✗ Task failed: {$error_message}");
         }
     }
@@ -136,7 +165,7 @@ class CronRunner {
     /**
      * Log task execution to database
      */
-    private function logTaskExecution($task_id, $task_name, $status, $message, $items_processed, $execution_time) {
+    private function logTaskExecution(int|string $task_id, string $task_name, string $status, string $message, int $items_processed, float $execution_time): void {
         $stmt = $this->conn->prepare("
             INSERT INTO task_logs (task_id, task_name, status, message, items_processed, execution_time)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -147,24 +176,32 @@ class CronRunner {
     /**
      * Update task's last_run and calculate next_run
      */
-    private function updateTaskSchedule($task) {
+    /**
+     * @param array<string, mixed> $task
+     */
+    private function updateTaskSchedule(array $task): void {
         $current_time = date('Y-m-d H:i:s');
         $next_run = $this->calculateNextRun($task);
+        $task_id = $task['id'] ?? null;
         
         $stmt = $this->conn->prepare("
             UPDATE scheduled_tasks 
             SET last_run = ?, next_run = ?, updated_at = ?
             WHERE id = ?
         ");
-        $stmt->execute([$current_time, $next_run, $current_time, $task['id']]);
+        $stmt->execute([$current_time, $next_run, $current_time, $task_id]);
     }
     
     /**
      * Calculate next run time based on schedule
      */
-    private function calculateNextRun($task) {
-        $schedule_type = $task['schedule_type'];
-        $schedule_value = $task['schedule_value'];
+    /**
+     * @param array<string, mixed> $task
+     */
+    private function calculateNextRun(array $task): string {
+        $schedule_type = scalar_string($task['schedule_type'] ?? '');
+        $schedule_value = scalar_string($task['schedule_value'] ?? '');
+        $task_name = scalar_string($task['task_name'] ?? '');
         
         switch ($schedule_type) {
             case 'hourly':
@@ -175,7 +212,7 @@ class CronRunner {
                 if ($schedule_value && !$this->isCronExpression($schedule_value)) {
                     $time_parts = explode(':', $schedule_value);
                     $next = strtotime('tomorrow ' . $schedule_value);
-                    return date('Y-m-d H:i:s', $next);
+                    return date('Y-m-d H:i:s', safe_timestamp($next));
                 }
                 return date('Y-m-d H:i:s', strtotime('+1 day'));
             
@@ -183,14 +220,14 @@ class CronRunner {
                 // Run on specific day of week at specific time (e.g., "monday 09:00")
                 if ($schedule_value) {
                     $next = strtotime('next ' . $schedule_value);
-                    return date('Y-m-d H:i:s', $next);
+                    return date('Y-m-d H:i:s', safe_timestamp($next));
                 }
                 return date('Y-m-d H:i:s', strtotime('+1 week'));
             
             case 'interval':
                 // Run every X minutes (e.g., "15" for every 15 minutes)
                 $minutes = intval($schedule_value) ?: 60;
-                return date('Y-m-d H:i:s', strtotime("+{$minutes} minutes"));
+                return date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$minutes} minutes")));
             
             case 'custom':
                 // Custom schedule using cron expression
@@ -199,14 +236,14 @@ class CronRunner {
                     if ($next_run) {
                         return $next_run;
                     }
-                    $this->log("Warning: Unsupported cron expression '{$schedule_value}' for task '{$task['task_name']}'. Defaulting to +15 minutes.");
+                    $this->log("Warning: Unsupported cron expression '{$schedule_value}' for task '{$task_name}'. Defaulting to +15 minutes.");
                 }
                 // Fallback to 15 minutes for custom schedules
                 return date('Y-m-d H:i:s', strtotime('+15 minutes'));
             
             default:
                 // Default to daily
-                $this->log("Warning: Unknown schedule_type '{$schedule_type}' for task '{$task['task_name']}'. Defaulting to +1 day.");
+                $this->log("Warning: Unknown schedule_type '{$schedule_type}' for task '{$task_name}'. Defaulting to +1 day.");
                 return date('Y-m-d H:i:s', strtotime('+1 day'));
         }
     }
@@ -214,19 +251,19 @@ class CronRunner {
     /**
      * Check if a string is a cron expression
      */
-    private function isCronExpression($value) {
+    private function isCronExpression(string $value): bool {
         // Cron expressions have 5 parts: minute hour day month weekday
         // Pattern: each part can contain digits, *, commas, hyphens, or slashes
         $pattern = '/^(?:[\d*,\/-]+\s+){4}[\d*,\/-]+$/';
-        return preg_match($pattern, trim($value));
+        return preg_match($pattern, trim($value)) === 1;
     }
     
     /**
      * Parse common cron expressions and calculate next run time
      * Supports basic patterns like every N minutes, hourly, daily, etc.
      */
-    private function parseCronExpression($cron) {
-        $parts = preg_split('/\s+/', trim($cron));
+    private function parseCronExpression(string $cron): ?string {
+        $parts = preg_split('/\s+/', trim($cron)) ?: [];
         if (count($parts) !== 5) {
             return null;
         }
@@ -236,7 +273,7 @@ class CronRunner {
         // Handle common interval patterns (e.g., */5 * * * * = every 5 minutes)
         if (preg_match('/^\*\/(\d+)$/', $minute, $matches) && $this->areAllWildcards([$hour, $day, $month, $weekday])) {
             $interval = intval($matches[1]);
-            return date('Y-m-d H:i:s', strtotime("+{$interval} minutes"));
+            return date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$interval} minutes")));
         }
         
         // Handle hourly at specific minute (e.g., 15 * * * * = every hour at minute 15)
@@ -251,7 +288,7 @@ class CronRunner {
                 // Next hour
                 $next = mktime(intval(date('H')) + 1, $target_minute, 0);
             }
-            return date('Y-m-d H:i:s', $next);
+            return date('Y-m-d H:i:s', safe_timestamp($next));
         }
         
         // Handle daily at specific time (e.g., 0 9 * * * = daily at 9:00 AM)
@@ -266,7 +303,7 @@ class CronRunner {
                 return date('Y-m-d H:i:s', $today_run);
             } else {
                 // Tomorrow at the same time
-                return date('Y-m-d H:i:s', strtotime('+1 day', $today_run));
+                return date('Y-m-d H:i:s', safe_timestamp(strtotime('+1 day', safe_timestamp($today_run))));
             }
         }
         
@@ -277,7 +314,10 @@ class CronRunner {
     /**
      * Check if all provided cron parts are wildcards
      */
-    private function areAllWildcards($parts) {
+    /**
+     * @param list<string> $parts
+     */
+    private function areAllWildcards(array $parts): bool {
         foreach ($parts as $part) {
             if ($part !== '*') {
                 return false;
@@ -289,7 +329,7 @@ class CronRunner {
     /**
      * Log to console/file
      */
-    private function log($message) {
+    private function log(string $message): void {
         $timestamp = date('Y-m-d H:i:s');
         echo "[{$timestamp}] {$message}\n";
     }

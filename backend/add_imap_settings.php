@@ -17,8 +17,11 @@ try {
     $stmt = $conn->prepare("SELECT COUNT(*) as count FROM settings WHERE setting_key = 'imap_enabled'");
     $stmt->execute();
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($result)) {
+        throw new RuntimeException('Unable to check existing IMAP settings.');
+    }
     
-    if ($result['count'] > 0) {
+    if (safe_int($result['count'] ?? 0) > 0) {
         echo "IMAP settings already exist in the database.\n";
         exit(0);
     }

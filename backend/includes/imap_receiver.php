@@ -8,9 +8,9 @@ require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/database.php';
 
 class ImapEmailReceiver {
-    private $db;
-    private $conn;
-    private $imap_connection = null;
+    private Database $db;
+    private SafePDO $conn;
+    private ?\IMAP\Connection $imap_connection = null;
     
     public function __construct() {
         $this->db = new Database();
@@ -20,19 +20,19 @@ class ImapEmailReceiver {
     /**
      * Connect to IMAP server
      */
-    private function connect() {
+    private function connect(): bool {
         // Check if IMAP is enabled
         if (!Settings::get('imap_enabled', false)) {
             return false;
         }
         
         // Get IMAP settings
-        $host = Settings::get('imap_host');
-        $port = Settings::get('imap_port', 993);
-        $encryption = Settings::get('imap_encryption', 'ssl');
-        $username = Settings::get('imap_username');
-        $password = Settings::get('imap_password');
-        $folder = Settings::get('imap_folder', 'INBOX');
+        $host = scalar_string(Settings::get('imap_host', ''));
+        $port = safe_int(Settings::get('imap_port', 993));
+        $encryption = scalar_string(Settings::get('imap_encryption', 'ssl'));
+        $username = scalar_string(Settings::get('imap_username', ''));
+        $password = scalar_string(Settings::get('imap_password', ''));
+        $folder = scalar_string(Settings::get('imap_folder', 'INBOX'));
         
         if (empty($host) || empty($username) || empty($password)) {
             throw new Exception('IMAP settings are incomplete');
@@ -52,11 +52,13 @@ class ImapEmailReceiver {
         $connection_string .= '}' . $folder;
         
         // Connect to IMAP server
-        $this->imap_connection = @imap_open($connection_string, $username, $password);
-        
-        if (!$this->imap_connection) {
+        $imap_connection = @imap_open($connection_string, $username, $password);
+
+        if ($imap_connection === false) {
             throw new Exception('Failed to connect to IMAP server: ' . imap_last_error());
         }
+
+        $this->imap_connection = $imap_connection;
         
         return true;
     }
@@ -64,17 +66,28 @@ class ImapEmailReceiver {
     /**
      * Disconnect from IMAP server
      */
-    private function disconnect() {
+    private function disconnect(): void {
         if ($this->imap_connection) {
             imap_close($this->imap_connection);
             $this->imap_connection = null;
         }
     }
+
+    private function getImapConnection(): \IMAP\Connection {
+        if (!$this->imap_connection instanceof \IMAP\Connection) {
+            throw new RuntimeException('IMAP connection is not established or invalid');
+        }
+
+        return $this->imap_connection;
+    }
     
     /**
      * Fetch and process new emails
      */
-    public function fetchEmails() {
+    /**
+     * @return array{success: bool, message: string, emails_processed: int, errors?: list<string>}
+     */
+    public function fetchEmails(): array {
         try {
             // Connect to IMAP
             if (!$this->connect()) {
@@ -86,11 +99,11 @@ class ImapEmailReceiver {
             }
             
             // Get sync days setting
-            $sync_days = Settings::get('imap_sync_days', 30);
-            $since_date = date('d-M-Y', strtotime("-{$sync_days} days"));
+            $sync_days = safe_int(Settings::get('imap_sync_days', 30));
+            $since_date = date('d-M-Y', safe_timestamp(strtotime("-{$sync_days} days")));
             
             // Search for emails since the sync date
-            $emails = imap_search($this->imap_connection, "SINCE \"{$since_date}\"");
+            $emails = imap_search($this->getImapConnection(), "SINCE \"{$since_date}\"");
             
             if (!$emails) {
                 $this->disconnect();
@@ -105,8 +118,13 @@ class ImapEmailReceiver {
             $errors = [];
             
             // Process each email
-            foreach ($emails as $email_number) {
+            foreach ($emails as $email_number_raw) {
+                $email_number = 0;
                 try {
+                    $email_number = safe_int($email_number_raw);
+                    if ($email_number <= 0) {
+                        continue;
+                    }
                     $this->processEmail($email_number);
                     $processed_count++;
                 } catch (Exception $e) {
@@ -136,26 +154,31 @@ class ImapEmailReceiver {
     /**
      * Process a single email
      */
-    private function processEmail($email_number) {
+    private function processEmail(int $email_number): void {
         // Get email header
-        $header = imap_headerinfo($this->imap_connection, $email_number);
+        $header = imap_headerinfo($this->getImapConnection(), $email_number);
         
         if (!$header) {
             throw new Exception('Failed to get email header');
         }
         
         // Decode subject and received date (needed for both duplicate check and storage)
-        $subject = $this->decodeHeader($header->subject ?? '(No Subject)');
-        $parsed_date = isset($header->date) ? strtotime($header->date) : false;
+        $subject = $this->decodeHeader(scalar_string($header->subject ?? '(No Subject)'));
+        $header_date = $header->date ?? null;
+        $parsed_date = is_string($header_date) ? strtotime($header_date) : false;
         $received_date = $parsed_date !== false ? date('Y-m-d H:i:s', $parsed_date) : date('Y-m-d H:i:s');
 
         // Get from address (needed for duplicate check and storage)
         $from_email = '';
-        if (isset($header->from) && count($header->from) > 0) {
+        if (isset($header->from) && is_array($header->from) && count($header->from) > 0) {
             $from = $header->from[0];
-            $from_email = isset($from->mailbox) && isset($from->host)
-                ? $from->mailbox . '@' . $from->host
-                : '';
+            if (is_object($from)) {
+                $mailbox = scalar_string($from->mailbox ?? '');
+                $host = scalar_string($from->host ?? '');
+                $from_email = $mailbox !== '' && $host !== ''
+                    ? $mailbox . '@' . $host
+                    : '';
+            }
         }
 
         // Get message ID to avoid duplicates
@@ -190,12 +213,15 @@ class ImapEmailReceiver {
         }
         
         // Get email body
-        $structure = imap_fetchstructure($this->imap_connection, $email_number);
+        $structure = imap_fetchstructure($this->getImapConnection(), $email_number);
+        if ($structure === false) {
+            throw new Exception('Failed to get email structure');
+        }
         $body_html = $this->getEmailBody($email_number, $structure, 'html');
         $body_text = $this->getEmailBody($email_number, $structure, 'text');
         
         // Get to address
-        $to_email = Settings::get('imap_username', '');
+        $to_email = scalar_string(Settings::get('imap_username', ''));
         
         // Try to match email to a client
         $client_id = $this->findClientByEmail($from_email);
@@ -231,7 +257,7 @@ class ImapEmailReceiver {
     /**
      * Get email body (HTML or plain text)
      */
-    private function getEmailBody($email_number, $structure, $type = 'text') {
+    private function getEmailBody(int $email_number, ?object $structure, string $type = 'text'): string {
         $body = '';
         
         if (!$structure) {
@@ -239,8 +265,11 @@ class ImapEmailReceiver {
         }
         
         // Check if multipart
-        if (isset($structure->parts) && count($structure->parts)) {
+        if (isset($structure->parts) && is_array($structure->parts) && count($structure->parts) > 0) {
             foreach ($structure->parts as $part_num => $part) {
+                if (!is_object($part)) {
+                    continue;
+                }
                 $body_part = $this->getPartBody($email_number, $part, $part_num + 1, $type);
                 if ($body_part) {
                     $body = $body_part;
@@ -249,12 +278,10 @@ class ImapEmailReceiver {
             }
         } else {
             // Single part message
-            $body = imap_body($this->imap_connection, $email_number);
+            $body = scalar_string(imap_body($this->getImapConnection(), $email_number));
             
             // Decode if needed
-            if (isset($structure->encoding)) {
-                $body = $this->decodeBody($body, $structure->encoding);
-            }
+            $body = $this->decodeBody($body, safe_int($structure->encoding ?? 0));
         }
         
         return $body;
@@ -263,27 +290,29 @@ class ImapEmailReceiver {
     /**
      * Get specific part of multipart email
      */
-    private function getPartBody($email_number, $part, $part_num, $type = 'text') {
+    private function getPartBody(int $email_number, object $part, int|string $part_num, string $type = 'text'): string {
         $data = '';
         
         // Check if this part matches the desired type
-        $is_html = isset($part->subtype) && strtolower($part->subtype) === 'html';
-        $is_text = isset($part->subtype) && strtolower($part->subtype) === 'plain';
+        $subtype = strtolower(scalar_string($part->subtype ?? ''));
+        $is_html = $subtype === 'html';
+        $is_text = $subtype === 'plain';
         
         if (($type === 'html' && $is_html) || ($type === 'text' && $is_text)) {
-            $data = imap_fetchbody($this->imap_connection, $email_number, $part_num);
+            $data = scalar_string(imap_fetchbody($this->getImapConnection(), $email_number, (string) $part_num));
             
             // Decode if needed
-            if (isset($part->encoding)) {
-                $data = $this->decodeBody($data, $part->encoding);
-            }
+            $data = $this->decodeBody($data, safe_int($part->encoding ?? 0));
             
             return $data;
         }
         
         // Check sub-parts
-        if (isset($part->parts) && count($part->parts)) {
+        if (isset($part->parts) && is_array($part->parts) && count($part->parts) > 0) {
             foreach ($part->parts as $sub_part_num => $sub_part) {
+                if (!is_object($sub_part)) {
+                    continue;
+                }
                 $sub_data = $this->getPartBody($email_number, $sub_part, $part_num . '.' . ($sub_part_num + 1), $type);
                 if ($sub_data) {
                     return $sub_data;
@@ -297,7 +326,7 @@ class ImapEmailReceiver {
     /**
      * Decode email body based on encoding
      */
-    private function decodeBody($body, $encoding) {
+    private function decodeBody(string $body, int $encoding): string {
         switch ($encoding) {
             case 0: // 7bit
             case 1: // 8bit
@@ -305,7 +334,7 @@ class ImapEmailReceiver {
             case 2: // Binary
                 return $body;
             case 3: // Base64
-                return base64_decode($body);
+                return base64_decode($body) ?: '';
             case 4: // Quoted-printable
                 return quoted_printable_decode($body);
             case 5: // Other
@@ -318,12 +347,14 @@ class ImapEmailReceiver {
     /**
      * Decode email header (subject, from, etc.)
      */
-    private function decodeHeader($header) {
-        $decoded = imap_mime_header_decode($header);
+    private function decodeHeader(string $header): string {
+        $decoded = imap_mime_header_decode($header) ?: [];
         $result = '';
         
         foreach ($decoded as $part) {
-            $result .= $part->text;
+            if (is_object($part)) {
+                $result .= scalar_string($part->text ?? '');
+            }
         }
         
         return $result;
@@ -332,7 +363,7 @@ class ImapEmailReceiver {
     /**
      * Find client by email address
      */
-    private function findClientByEmail($email) {
+    private function findClientByEmail(string $email): ?string {
         if (empty($email)) {
             return null;
         }
@@ -341,18 +372,24 @@ class ImapEmailReceiver {
         $stmt->execute([$email]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        return $result ? $result['id'] : null;
+        if (!is_array($result)) {
+            return null;
+        }
+        $client_id = $result['id'] ?? null;
+        return is_string($client_id) && $client_id !== '' ? $client_id : null;
     }
     
     /**
      * Store unmatched email (from unknown sender)
      */
-    private function storeUnmatchedEmail($header, $from_email, $to_email, $subject, $body_html, $body_text, $received_date) {
+    private function storeUnmatchedEmail(object $header, string $from_email, string $to_email, string $subject, string $body_html, string $body_text, string $received_date): void {
         // Get from name
         $from_name = '';
-        if (isset($header->from) && count($header->from) > 0) {
+        if (isset($header->from) && is_array($header->from) && count($header->from) > 0) {
             $from = $header->from[0];
-            $from_name = isset($from->personal) ? $this->decodeHeader($from->personal) : '';
+            if (is_object($from)) {
+                $from_name = isset($from->personal) ? $this->decodeHeader(scalar_string($from->personal)) : '';
+            }
         }
         
         // Check if this unmatched email already exists

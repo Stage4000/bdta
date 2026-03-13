@@ -9,14 +9,14 @@ $db = new Database();
 $conn = $db->getConnection();
 $workflow_helper = new WorkflowHelper($conn);
 
-$workflow_id = isset($_GET['workflow_id']) ? (int)$_GET['workflow_id'] : 0;
+$workflow_id = safe_int($_GET['workflow_id'] ?? 0);
 
 // Get workflow details
 $stmt = $conn->prepare("SELECT * FROM workflows WHERE id = ?");
 $stmt->execute([$workflow_id]);
 $workflow = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$workflow) {
+if (!is_array($workflow)) {
     $_SESSION['error'] = 'Workflow not found';
     header('Location: workflows_list.php');
     exit;
@@ -24,16 +24,17 @@ if (!$workflow) {
 
 // Handle enrollment
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enroll'])) {
-    $client_ids = $_POST['client_ids'] ?? [];
+    $client_ids = is_array($_POST['client_ids'] ?? null) ? $_POST['client_ids'] : [];
     $enrolled_count = 0;
     $errors = [];
     
-    foreach ($client_ids as $client_id) {
-        $result = $workflow_helper->enrollClient($workflow_id, $client_id, $_SESSION['admin_id']);
+    foreach ($client_ids as $client_id_raw) {
+        $client_id = safe_int($client_id_raw);
+        $result = $workflow_helper->enrollClient($workflow_id, $client_id, safe_int($_SESSION['admin_id'] ?? 0));
         if ($result['success']) {
             $enrolled_count++;
         } else {
-            $errors[] = "Client ID {$client_id}: " . $result['message'];
+            $errors[] = "Client ID {$client_id}: " . ($result['message'] ?? 'Enrollment failed');
         }
     }
     
@@ -56,6 +57,7 @@ $clients = $conn->query("
     FROM clients c
     ORDER BY c.name
 ")->fetchAll(PDO::FETCH_ASSOC);
+$clients = assoc_rows($clients);
 
 include '../backend/includes/header.php';
 ?>
@@ -71,13 +73,13 @@ include '../backend/includes/header.php';
 
             <h2 class="mb-4">
                 <i class="fas fa-user-plus me-2"></i>
-                Enroll Clients in "<?php echo htmlspecialchars($workflow['name']); ?>"
+                Enroll Clients in "<?php echo escape(array_string_value($workflow, 'name')); ?>"
             </h2>
 
-            <?php if ($workflow['description']): ?>
+            <?php if (array_string_value($workflow, 'description') !== ''): ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
-                    <?php echo htmlspecialchars($workflow['description']); ?>
+                    <?php echo escape(array_string_value($workflow, 'description')); ?>
                 </div>
             <?php endif; ?>
 
@@ -117,12 +119,12 @@ include '../backend/includes/header.php';
                                                         <input type="checkbox" disabled title="Already enrolled">
                                                     <?php else: ?>
                                                         <input type="checkbox" name="client_ids[]" 
-                                                               value="<?php echo $client['id']; ?>" 
+                                                               value="<?php echo array_int_value($client, 'id'); ?>" 
                                                                class="client-checkbox">
                                                     <?php endif; ?>
                                                 </td>
-                                                <td><?php echo htmlspecialchars($client['name']); ?></td>
-                                                <td><?php echo htmlspecialchars($client['email']); ?></td>
+                                                <td><?php echo htmlspecialchars(array_string_value($client, 'name')); ?></td>
+                                                <td><?php echo htmlspecialchars(array_string_value($client, 'email')); ?></td>
                                                 <td>
                                                     <?php if ($client['is_enrolled']): ?>
                                                         <span class="badge bg-success">Already Enrolled</span>

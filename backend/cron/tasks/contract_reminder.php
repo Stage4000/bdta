@@ -6,16 +6,22 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
+/**
+ * @phpstan-type ContractRow array<string, mixed>
+ * @phpstan-type MailResult array{success: bool, message: string}
+ * @phpstan-type TaskResult array{success: bool, items_processed: int, message: string, errors: list<string>}
+ */
 class ContractReminderTask {
-    private $conn;
-    private $task;
+    private PDO $conn;
     
-    public function __construct($conn, $task) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
-        $this->task = $task;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Get contracts that have been sent but not signed
         // Send reminders for contracts sent more than 3 days ago
         $reminder_threshold = date('Y-m-d H:i:s', strtotime('-3 days'));
@@ -31,15 +37,17 @@ class ContractReminderTask {
         ");
         
         $stmt->execute([$reminder_threshold, $reminder_threshold]);
-        $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $contracts = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
         $errors = [];
         
         foreach ($contracts as $contract) {
             try {
-                if (empty($contract['client_email'])) {
-                    $errors[] = "No email found for contract #{$contract['id']}";
+                $contract_id = scalar_string($contract['id'] ?? '');
+                $client_email = array_string_value($contract, 'client_email');
+                if ($client_email === '') {
+                    $errors[] = "No email found for contract #{$contract_id}";
                     continue;
                 }
                 
@@ -49,14 +57,14 @@ class ContractReminderTask {
                 if ($result['success']) {
                     // Mark reminder as sent
                     $update = $this->conn->prepare("UPDATE contracts SET last_reminder_sent = ? WHERE id = ?");
-                    $update->execute([date('Y-m-d H:i:s'), $contract['id']]);
+                    $update->execute([date('Y-m-d H:i:s'), $contract_id]);
                     $sent_count++;
                 } else {
-                    $errors[] = "Failed to send to {$contract['client_email']}: {$result['message']}";
+                    $errors[] = "Failed to send to {$client_email}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
-                $errors[] = "Error processing contract #{$contract['id']}: " . $e->getMessage();
+                $errors[] = "Error processing contract #{$contract_id}: " . $e->getMessage();
             }
         }
         
@@ -77,11 +85,17 @@ class ContractReminderTask {
     /**
      * Send contract reminder email
      */
-    private function sendContractReminder($contract) {
+    /**
+     * @param ContractRow $contract
+     * @return MailResult
+     */
+    private function sendContractReminder(array $contract): array {
         $email_service = new EmailService(null, $this->conn);
         
-        $client_name = htmlspecialchars($contract['client_name']);
-        $contract_link = getDynamicBaseUrl() . '/backend/public/contract.php?id=' . $contract['id'];
+        $client_name = htmlspecialchars(scalar_string($contract['client_name'] ?? ''));
+        $contract_link = getDynamicBaseUrl() . '/backend/public/contract.php?id=' . scalar_string($contract['id'] ?? '');
+        $client_email = scalar_string($contract['client_email'] ?? '');
+        $client_id = $contract['client_id'] ?? null;
         
         $subject = "Reminder: Contract Signature Required";
         
@@ -143,7 +157,7 @@ Brook Lefkowitz
 Brook's Dog Training Academy
 TEXT;
         
-        return $email_service->sendGenericEmail($contract['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_CONTRACT_REMINDER, $contract['client_id'] ?? null);
+        return $email_service->sendGenericEmail($client_email, $subject, $html_body, $text_body, EmailService::MAIL_TYPE_CONTRACT_REMINDER, is_int($client_id) || is_string($client_id) ? $client_id : null);
     }
 }
 ?>

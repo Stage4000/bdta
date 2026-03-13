@@ -12,7 +12,7 @@ header('Content-Type: application/json');
 $db   = new Database();
 $conn = $db->getConnection();
 
-$action = $_REQUEST['action'] ?? '';
+$action = scalar_string($_REQUEST['action'] ?? '');
 
 switch ($action) {
 
@@ -27,7 +27,7 @@ switch ($action) {
 
     // ------------------------------------------------------------------ GET
     case 'get':
-        $id = intval($_GET['id'] ?? 0);
+        $id = safe_int($_GET['id'] ?? 0);
         if (!$id) { echo json_encode(['success' => false, 'error' => 'Missing id']); break; }
         $stmt = $conn->prepare("SELECT * FROM site_pages WHERE id = ?");
         $stmt->execute([$id]);
@@ -38,9 +38,9 @@ switch ($action) {
 
     // ------------------------------------------------------------------ CREATE
     case 'create':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $title = trim($data['title'] ?? '');
-        $slug  = trim($data['slug']  ?? '');
+        $data = decode_json_assoc(file_get_contents('php://input'));
+        $title = trim(array_string_value($data, 'title'));
+        $slug  = trim(array_string_value($data, 'slug'));
 
         if ($title === '') { echo json_encode(['success' => false, 'error' => 'Title is required']); break; }
         if ($slug  === '') { $slug = slugify($title); }
@@ -68,11 +68,11 @@ switch ($action) {
 
     // ------------------------------------------------------------------ SAVE (editor content)
     case 'save':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $id           = intval($data['id'] ?? 0);
-        $html_content = $data['html_content'] ?? '';
-        $css_content  = $data['css_content']  ?? '';
-        $is_published = isset($data['is_published']) ? intval($data['is_published']) : null;
+        $data = decode_json_assoc(file_get_contents('php://input'));
+        $id           = array_int_value($data, 'id');
+        $html_content = array_string_value($data, 'html_content');
+        $css_content  = array_string_value($data, 'css_content');
+        $is_published = array_key_exists('is_published', $data) ? array_int_value($data, 'is_published') : null;
 
         if (!$id) { echo json_encode(['success' => false, 'error' => 'Missing id']); break; }
 
@@ -92,13 +92,13 @@ switch ($action) {
 
     // ------------------------------------------------------------------ SAVE SEO
     case 'save_seo':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $id              = intval($data['id'] ?? 0);
-        $meta_desc       = trim($data['meta_description'] ?? '');
-        $meta_keywords   = trim($data['meta_keywords']    ?? '');
-        $og_title        = trim($data['og_title']         ?? '');
-        $og_description  = trim($data['og_description']   ?? '');
-        $og_image        = trim($data['og_image']         ?? '');
+        $data = decode_json_assoc(file_get_contents('php://input'));
+        $id              = array_int_value($data, 'id');
+        $meta_desc       = trim(array_string_value($data, 'meta_description'));
+        $meta_keywords   = trim(array_string_value($data, 'meta_keywords'));
+        $og_title        = trim(array_string_value($data, 'og_title'));
+        $og_description  = trim(array_string_value($data, 'og_description'));
+        $og_image        = trim(array_string_value($data, 'og_image'));
 
         if (!$id) { echo json_encode(['success' => false, 'error' => 'Missing id']); break; }
 
@@ -129,10 +129,11 @@ switch ($action) {
 
     // ------------------------------------------------------------------ UPLOAD OG IMAGE
     case 'upload_og_image':
-        $page_id = intval($_POST['page_id'] ?? 0);
+        $page_id = safe_int($_POST['page_id'] ?? 0);
         if (!$page_id) { echo json_encode(['success' => false, 'error' => 'Missing page_id']); break; }
-        if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-            $upload_err = $_FILES['image']['error'] ?? UPLOAD_ERR_NO_FILE;
+        $upload = $_FILES['image'] ?? null;
+        $upload_err = is_array($upload) ? array_int_value($upload, 'error', UPLOAD_ERR_NO_FILE) : UPLOAD_ERR_NO_FILE;
+        if (!is_array($upload) || $upload_err !== UPLOAD_ERR_OK) {
             $err_messages = [
                 UPLOAD_ERR_INI_SIZE   => 'File exceeds server upload size limit.',
                 UPLOAD_ERR_FORM_SIZE  => 'File exceeds form upload size limit.',
@@ -150,17 +151,21 @@ switch ($action) {
         $allowed_exts  = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
         $max_size      = 5 * 1024 * 1024; // 5 MB
 
-        $tmp_path  = $_FILES['image']['tmp_name'];
-        $orig_name = $_FILES['image']['name'];
-        $file_size = $_FILES['image']['size'];
+        $tmp_path  = array_string_value($upload, 'tmp_name');
+        $orig_name = array_string_value($upload, 'name');
+        $file_size = array_int_value($upload, 'size');
 
         if ($file_size > $max_size) { echo json_encode(['success' => false, 'error' => 'Image must be smaller than 5 MB.']); break; }
 
         // Validate MIME type via finfo (not trusting client-reported type)
-        $finfo     = finfo_open(FILEINFO_MIME_TYPE);
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo === false) {
+            echo json_encode(['success' => false, 'error' => 'File type validation is unavailable.']);
+            break;
+        }
         $mime_type = finfo_file($finfo, $tmp_path);
         finfo_close($finfo);
-        if (!in_array($mime_type, $allowed_mime)) {
+        if (!in_array($mime_type, $allowed_mime, true)) {
             echo json_encode(['success' => false, 'error' => 'Only JPG, PNG, WebP, or GIF images are allowed.']);
             break;
         }
@@ -172,7 +177,7 @@ switch ($action) {
             'image/webp' => 'webp',
             'image/gif'  => 'gif',
         ];
-        if (!in_array($ext, $allowed_exts)) { $ext = $mime_to_ext[$mime_type] ?? 'jpg'; }
+        if (!in_array($ext, $allowed_exts, true)) { $ext = $mime_to_ext[$mime_type]; }
 
         $upload_dir = __DIR__ . '/../backend/uploads/seo/';
         if (!is_dir($upload_dir)) { mkdir($upload_dir, 0755, true); }
@@ -191,9 +196,9 @@ switch ($action) {
 
     // ------------------------------------------------------------------ RENAME
     case 'rename':
-        $data  = json_decode(file_get_contents('php://input'), true) ?? [];
-        $id    = intval($data['id'] ?? 0);
-        $title = trim($data['title'] ?? '');
+        $data  = decode_json_assoc(file_get_contents('php://input'));
+        $id    = array_int_value($data, 'id');
+        $title = trim(array_string_value($data, 'title'));
         if (!$id || $title === '') { echo json_encode(['success' => false, 'error' => 'Missing id or title']); break; }
         $stmt = $conn->prepare("UPDATE site_pages SET title=?, updated_at=CURRENT_TIMESTAMP WHERE id=?");
         $stmt->execute([$title, $id]);
@@ -202,8 +207,8 @@ switch ($action) {
 
     // ------------------------------------------------------------------ DELETE
     case 'delete':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $id   = intval($data['id'] ?? 0);
+        $data = decode_json_assoc(file_get_contents('php://input'));
+        $id   = array_int_value($data, 'id');
         if (!$id) { echo json_encode(['success' => false, 'error' => 'Missing id']); break; }
         // Prevent deleting the homepage
         $chk = $conn->prepare("SELECT is_homepage FROM site_pages WHERE id=?");
@@ -218,8 +223,8 @@ switch ($action) {
 
     // ------------------------------------------------------------------ PUBLISH TOGGLE
     case 'toggle_publish':
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $id   = intval($data['id'] ?? 0);
+        $data = decode_json_assoc(file_get_contents('php://input'));
+        $id   = array_int_value($data, 'id');
         if (!$id) { echo json_encode(['success' => false, 'error' => 'Missing id']); break; }
         $stmt = $conn->prepare("UPDATE site_pages SET is_published = 1-is_published, updated_at=CURRENT_TIMESTAMP WHERE id=?");
         $stmt->execute([$id]);
@@ -231,11 +236,14 @@ switch ($action) {
 
     // ------------------------------------------------------------------ REORDER
     case 'reorder':
-        $data  = json_decode(file_get_contents('php://input'), true) ?? [];
-        $order = $data['order'] ?? []; // array of page ids in new order
+        $data  = decode_json_assoc(file_get_contents('php://input'));
+        $raw_order = $data['order'] ?? [];
+        $order = is_array($raw_order) ? $raw_order : [];
         $stmt  = $conn->prepare("UPDATE site_pages SET sort_order=? WHERE id=?");
-        foreach ($order as $pos => $pid) {
-            $stmt->execute([$pos, intval($pid)]);
+        $position = 0;
+        foreach ($order as $pid) {
+            $stmt->execute([$position, safe_int($pid)]);
+            $position++;
         }
         echo json_encode(['success' => true]);
         break;
@@ -247,7 +255,7 @@ switch ($action) {
 // ------------------------------------------------------------------ helpers
 function slugify(string $text): string {
     $text = strtolower(trim($text));
-    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text) ?? $text;
     $text = trim($text, '-');
     return $text ?: 'page';
 }

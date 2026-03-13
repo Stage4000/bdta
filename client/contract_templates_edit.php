@@ -8,7 +8,7 @@ require_once '../backend/includes/database.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$template_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$template_id = safe_int($_GET['id'] ?? 0);
 $is_edit = $template_id > 0;
 
 // Load template if editing
@@ -27,11 +27,11 @@ if ($is_edit) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name']);
-    $description = trim($_POST['description']);
-    $template_text = trim($_POST['template_text']);
-    $service_type = trim($_POST['service_type']);
-    $renewal_period_months = max(1, intval($_POST['renewal_period_months']));
+    $name = trim(scalar_string($_POST['name'] ?? ''));
+    $description = trim(scalar_string($_POST['description'] ?? ''));
+    $template_text = trim(scalar_string($_POST['template_text'] ?? ''));
+    $service_type = trim(scalar_string($_POST['service_type'] ?? ''));
+    $renewal_period_months = max(1, safe_int($_POST['renewal_period_months'] ?? 12));
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     if (empty($name) || empty($template_text)) {

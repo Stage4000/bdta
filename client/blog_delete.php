@@ -6,12 +6,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect('blog_list.php');
 }
 
-if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+$csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
     setFlashMessage('Invalid request.', 'danger');
     redirect('blog_list.php');
 }
 
-$post_id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+$post_id = safe_int($_POST['id'] ?? 0);
 
 if ($post_id > 0) {
     $db = new Database();

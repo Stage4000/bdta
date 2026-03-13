@@ -7,15 +7,13 @@
 require_once dirname(dirname(__DIR__)) . '/includes/imap_receiver.php';
 
 class EmailReceiverTask {
-    private $conn;
-    private $task;
-    
-    public function __construct($conn, $task) {
-        $this->conn = $conn;
-        $this->task = $task;
+    public function __construct() {
     }
     
-    public function execute() {
+    /**
+     * @return array{success: bool, message: string, items_processed: int, errors?: list<string>}
+     */
+    public function execute(): array {
         try {
             $receiver = new ImapEmailReceiver();
             $result = $receiver->fetchEmails();

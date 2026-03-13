@@ -29,24 +29,35 @@ if ($stripe_config) {
 // Initialize Stripe library if available and configured
 if (file_exists(__DIR__ . '/../vendor/autoload.php') && !empty(STRIPE_SECRET_KEY)) {
     require_once __DIR__ . '/../vendor/autoload.php';
-    \Stripe\Stripe::setApiKey(STRIPE_SECRET_KEY);
+    if (class_exists('\Stripe\Stripe')) {
+        \Stripe\Stripe::setApiKey(STRIPE_SECRET_KEY);
+    }
 }
 
 /**
  * Check if Stripe is enabled and configured
  */
-function isStripeEnabled() {
+function isStripeEnabled(): bool {
     return Settings::get('stripe_enabled', false) && STRIPE_SECRET_KEY !== '';
 }
 
 /**
  * Create a Stripe payment intent
+ *
+ * @param array<string, scalar> $metadata
+ * @return array<string, scalar>
  */
-function createPaymentIntent($amount, $description, $metadata = []) {
+function createPaymentIntent(int|float $amount, string $description, array $metadata = []): array {
     if (!isStripeEnabled()) {
         return [
             'success' => false,
             'error' => 'Stripe is not enabled or configured'
+        ];
+    }
+    if (!class_exists('\Stripe\PaymentIntent')) {
+        return [
+            'success' => false,
+            'error' => 'Stripe PHP SDK is not installed'
         ];
     }
     
@@ -58,11 +69,13 @@ function createPaymentIntent($amount, $description, $metadata = []) {
             'metadata' => $metadata,
             'automatic_payment_methods' => ['enabled' => true]
         ]);
+        $client_secret = is_object($intent) ? scalar_string($intent->client_secret ?? '') : '';
+        $payment_intent_id = is_object($intent) ? scalar_string($intent->id ?? '') : '';
         
         return [
             'success' => true,
-            'client_secret' => $intent->client_secret,
-            'payment_intent_id' => $intent->id
+            'client_secret' => $client_secret,
+            'payment_intent_id' => $payment_intent_id
         ];
     } catch (Exception $e) {
         return [
@@ -74,21 +87,31 @@ function createPaymentIntent($amount, $description, $metadata = []) {
 
 /**
  * Verify a payment intent
+ *
+ * @return array<string, scalar>
  */
-function verifyPaymentIntent($payment_intent_id) {
+function verifyPaymentIntent(string $payment_intent_id): array {
     if (!isStripeEnabled()) {
         return [
             'success' => false,
             'error' => 'Stripe is not enabled or configured'
         ];
     }
+    if (!class_exists('\Stripe\PaymentIntent')) {
+        return [
+            'success' => false,
+            'error' => 'Stripe PHP SDK is not installed'
+        ];
+    }
     
     try {
         $intent = \Stripe\PaymentIntent::retrieve($payment_intent_id);
+        $status = is_object($intent) ? scalar_string($intent->status ?? '') : '';
+        $amount_paid = is_object($intent) ? safe_float($intent->amount ?? 0) / 100 : 0.0;
         return [
             'success' => true,
-            'status' => $intent->status,
-            'amount' => $intent->amount / 100
+            'status' => $status,
+            'amount' => $amount_paid
         ];
     } catch (Exception $e) {
         return [
@@ -97,4 +120,3 @@ function verifyPaymentIntent($payment_intent_id) {
         ];
     }
 }
-?>

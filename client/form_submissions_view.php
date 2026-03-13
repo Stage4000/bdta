@@ -5,7 +5,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$submission_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$submission_id = safe_int($_GET['id'] ?? 0);
 
 if ($submission_id == 0) {
     $_SESSION['flash_message'] = 'Invalid submission ID';
@@ -16,14 +16,14 @@ if ($submission_id == 0) {
 
 // Handle review action
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
         $_SESSION['flash_message'] = 'Invalid request.';
         $_SESSION['flash_type'] = 'danger';
         header('Location: form_submissions_view.php?id=' . $submission_id);
         exit;
     }
-    if ($_POST['action'] == 'review') {
-        $notes = trim($_POST['notes'] ?? '');
+    if (scalar_string($_POST['action']) == 'review') {
+        $notes = trim(scalar_string($_POST['notes'] ?? ''));
         
         $update_query = "UPDATE form_submissions 
                         SET status = 'reviewed',
@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
         $_SESSION['flash_type'] = 'success';
         header('Location: form_submissions_view.php?id=' . $submission_id);
         exit;
-    } elseif ($_POST['action'] == 'unreview') {
+    } elseif (scalar_string($_POST['action']) == 'unreview') {
         $update_query = "UPDATE form_submissions 
                         SET status = 'submitted',
                             reviewed_by = NULL,
@@ -85,9 +85,12 @@ if (!$submission) {
     exit;
 }
 
+/** @var array<string, mixed> $submission */
+$submission = $submission;
+
 // Decode JSON fields
-$fields = json_decode($submission['fields'], true);
-$responses = json_decode($submission['responses'], true);
+$fields = decode_json_assoc_list(array_string_value($submission, 'fields'));
+$responses = decode_json_assoc(array_string_value($submission, 'responses'));
 
 include '../backend/includes/header.php';
 ?>
@@ -101,8 +104,8 @@ include '../backend/includes/header.php';
     </div>
 
     <?php if (isset($_SESSION['flash_message'])): ?>
-        <div class="alert alert-<?= $_SESSION['flash_type'] ?> alert-dismissible fade show">
-            <?= $_SESSION['flash_message'] ?>
+        <div class="alert alert-<?= escape($_SESSION['flash_type']) ?> alert-dismissible fade show">
+            <?= escape($_SESSION['flash_message']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['flash_message'], $_SESSION['flash_type']); ?>
@@ -113,18 +116,26 @@ include '../backend/includes/header.php';
             <!-- Form Responses -->
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0"><?= htmlspecialchars($submission['form_name']) ?></h5>
+                    <h5 class="mb-0"><?= escape(array_string_value($submission, 'form_name')) ?></h5>
                 </div>
                 <div class="card-body">
                     <?php if (!empty($fields)): ?>
                         <?php foreach ($fields as $index => $field): ?>
+                            <?php
+                            $field_label = array_string_value($field, 'label');
+                            $field_required = array_int_value($field, 'required');
+                            $field_mapping = array_string_value($field, 'profile_mapping');
+                            $field_type = array_string_value($field, 'type');
+                            $response = $responses[(string) $index] ?? null;
+                            $response_text = is_array($response) ? '' : scalar_string($response);
+                            ?>
                             <div class="mb-4">
                                 <label class="fw-bold text-muted d-block mb-2">
-                                    <?= htmlspecialchars($field['label']) ?>
-                                    <?php if (!empty($field['required'])): ?>
+                                    <?= escape($field_label) ?>
+                                    <?php if ($field_required !== 0): ?>
                                         <span class="text-danger">*</span>
                                     <?php endif; ?>
-                                    <?php if (!empty($field['profile_mapping'])): ?>
+                                    <?php if ($field_mapping !== ''): ?>
                                         <?php
                                         $mapping_labels = [
                                             'client.name'    => ['Client: Name',      'bg-info'],
@@ -145,42 +156,40 @@ include '../backend/includes/header.php';
                                             $mapping_labels["pet_{$p}.medical_notes"]    = ["Pet {$p}: Medical Notes",    'bg-success'];
                                             $mapping_labels["pet_{$p}.training_notes"]   = ["Pet {$p}: Training Notes",   'bg-success'];
                                         }
-                                        $ml = $mapping_labels[$field['profile_mapping']] ?? [$field['profile_mapping'], 'bg-secondary'];
+                                        $ml = $mapping_labels[$field_mapping] ?? [$field_mapping, 'bg-secondary'];
                                         ?>
                                         <span class="badge <?= $ml[1] ?> ms-1" title="Maps to profile field">
-                                            <i class="fas fa-link me-1"></i><?= htmlspecialchars($ml[0]) ?>
+                                            <i class="fas fa-link me-1"></i><?= escape($ml[0]) ?>
                                         </span>
                                     <?php endif; ?>
                                 </label>
                                 <div class="border-start border-3 border-primary ps-3">
                                     <?php
-                                    $response = $responses[$index] ?? '';
-                                    
-                                    if ($field['type'] == 'checkbox' && is_array($response)) {
+                                    if ($field_type == 'checkbox' && is_array($response)) {
                                         // Checkbox responses (array)
                                         if (!empty($response)) {
                                             echo '<ul class="mb-0">';
                                             foreach ($response as $value) {
-                                                echo '<li>' . htmlspecialchars($value) . '</li>';
+                                                echo '<li>' . escape($value) . '</li>';
                                             }
                                             echo '</ul>';
                                         } else {
                                             echo '<span class="text-muted">None selected</span>';
                                         }
-                                    } elseif ($field['type'] == 'textarea') {
+                                    } elseif ($field_type == 'textarea') {
                                         // Textarea - preserve line breaks
-                                        echo '<p class="mb-0">' . nl2br(htmlspecialchars($response)) . '</p>';
-                                    } elseif ($field['type'] == 'file') {
+                                        echo '<p class="mb-0">' . nl2br(escape($response_text)) . '</p>';
+                                    } elseif ($field_type == 'file') {
                                         // File upload (show link when implemented)
-                                        if (!empty($response)) {
-                                            echo '<i class="fas fa-file"></i> ' . htmlspecialchars($response);
+                                        if ($response_text !== '') {
+                                            echo '<i class="fas fa-file"></i> ' . escape($response_text);
                                         } else {
                                             echo '<span class="text-muted">No file uploaded</span>';
                                         }
                                     } else {
                                         // All other fields
-                                        if (!empty($response)) {
-                                            echo htmlspecialchars($response);
+                                        if ($response_text !== '') {
+                                            echo escape($response_text);
                                         } else {
                                             echo '<span class="text-muted">No response</span>';
                                         }
@@ -196,14 +205,14 @@ include '../backend/includes/header.php';
             </div>
 
             <!-- Admin Notes -->
-            <?php if (!empty($submission['notes']) || $submission['status'] == 'reviewed'): ?>
+            <?php if (array_string_value($submission, 'notes') !== '' || array_string_value($submission, 'status') == 'reviewed'): ?>
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">Admin Notes</h5>
                     </div>
                     <div class="card-body">
-                        <?php if (!empty($submission['notes'])): ?>
-                            <p><?= nl2br(htmlspecialchars($submission['notes'])) ?></p>
+                        <?php if (array_string_value($submission, 'notes') !== ''): ?>
+                            <p><?= nl2br(escape(array_string_value($submission, 'notes'))) ?></p>
                         <?php else: ?>
                             <p class="text-muted">No notes added.</p>
                         <?php endif; ?>
@@ -227,31 +236,32 @@ include '../backend/includes/header.php';
                             'submitted' => 'bg-warning text-dark',
                             'reviewed' => 'bg-success'
                         ];
-                        $status_badge = $status_badges[$submission['status']] ?? 'bg-secondary';
+                        $submission_status = array_string_value($submission, 'status');
+                        $status_badge = $status_badges[$submission_status] ?? 'bg-secondary';
                         ?>
-                        <div><span class="badge <?= $status_badge ?>"><?= ucfirst($submission['status']) ?></span></div>
+                        <div><span class="badge <?= $status_badge ?>"><?= ucfirst($submission_status) ?></span></div>
                     </div>
 
                     <div class="mb-3">
                         <label class="text-muted small">Form Type</label>
-                        <div><?= ucwords(str_replace('_', ' ', $submission['form_type'])) ?></div>
+                        <div><?= ucwords(str_replace('_', ' ', array_string_value($submission, 'form_type'))) ?></div>
                     </div>
 
                     <div class="mb-3">
                         <label class="text-muted small">Client</label>
                         <div>
-                            <a href="clients_view.php?id=<?= $submission['client_id'] ?>">
-                                <?= htmlspecialchars($submission['client_name']) ?>
+                            <a href="clients_view.php?id=<?= array_int_value($submission, 'client_id') ?>">
+                                <?= escape(array_string_value($submission, 'client_name')) ?>
                             </a>
                         </div>
                     </div>
 
-                    <?php if ($submission['booking_id']): ?>
+                    <?php if (array_int_value($submission, 'booking_id')): ?>
                         <div class="mb-3">
                             <label class="text-muted small">Appointment</label>
                             <div>
-                                <?= htmlspecialchars($submission['service_type']) ?><br>
-                                <small><?= htmlspecialchars($submission['appointment_datetime']) ?></small>
+                                <?= escape(array_string_value($submission, 'service_type')) ?><br>
+                                <small><?= escape(array_string_value($submission, 'appointment_datetime')) ?></small>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -259,19 +269,19 @@ include '../backend/includes/header.php';
                     <div class="mb-3">
                         <label class="text-muted small">Submitted</label>
                         <div>
-                            <?= date('M j, Y g:i A', strtotime($submission['submitted_at'])) ?>
-                            <?php if ($submission['submitted_by_name']): ?>
-                                <br><small>by <?= htmlspecialchars($submission['submitted_by_name']) ?></small>
+                            <?= date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($submission, 'submitted_at')))) ?>
+                            <?php if (array_string_value($submission, 'submitted_by_name') !== ''): ?>
+                                <br><small>by <?= escape(array_string_value($submission, 'submitted_by_name')) ?></small>
                             <?php endif; ?>
                         </div>
                     </div>
 
-                    <?php if ($submission['reviewed_by_name']): ?>
+                    <?php if (array_string_value($submission, 'reviewed_by_name') !== ''): ?>
                         <div class="mb-3">
                             <label class="text-muted small">Reviewed</label>
                             <div>
-                                <?= date('M j, Y g:i A', strtotime($submission['reviewed_at'])) ?>
-                                <br><small>by <?= htmlspecialchars($submission['reviewed_by_name']) ?></small>
+                                <?= date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($submission, 'reviewed_at')))) ?>
+                                <br><small>by <?= escape(array_string_value($submission, 'reviewed_by_name')) ?></small>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -284,13 +294,13 @@ include '../backend/includes/header.php';
                     <h5 class="mb-0">Actions</h5>
                 </div>
                 <div class="card-body">
-                    <?php if ($submission['status'] != 'reviewed'): ?>
+                    <?php if (array_string_value($submission, 'status') != 'reviewed'): ?>
                         <button type="button" class="btn btn-success w-100 mb-2" data-bs-toggle="modal" data-bs-target="#reviewModal">
                             <i class="fas fa-check-circle"></i> Mark as Reviewed
                         </button>
                     <?php else: ?>
                         <form method="POST" onsubmit="return confirm('Remove review status?');">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="action" value="unreview">
                             <button type="submit" class="btn btn-warning w-100 mb-2">
                                 <i class="fas fa-circle-xmark"></i> Remove Review
@@ -298,7 +308,7 @@ include '../backend/includes/header.php';
                         </form>
                     <?php endif; ?>
                     
-                    <a href="clients_view.php?id=<?= $submission['client_id'] ?>" class="btn btn-outline-primary w-100">
+                    <a href="clients_view.php?id=<?= array_int_value($submission, 'client_id') ?>" class="btn btn-outline-primary w-100">
                         <i class="fas fa-user"></i> View Client
                     </a>
                 </div>
@@ -317,7 +327,7 @@ include '../backend/includes/header.php';
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="review">
                     <div class="mb-3">
                         <label for="notes" class="form-label">Admin Notes (Optional)</label>

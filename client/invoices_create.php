@@ -17,43 +17,64 @@ $appt_types_stmt = $conn->query("SELECT id, name, default_amount FROM appointmen
 $appt_types = $appt_types_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $client_id = intval($_POST['client_id'] ?? 0);
-    $issue_date = $_POST['issue_date'] ?? date('Y-m-d');
-    $due_date = $_POST['due_date'] ?? date('Y-m-d', strtotime('+30 days'));
-    $tax_rate = floatval($_POST['tax_rate'] ?? 0);
-    $notes = trim($_POST['notes'] ?? '');
+    $client_id = safe_int($_POST['client_id'] ?? 0);
+    $issue_date = scalar_string($_POST['issue_date'] ?? date('Y-m-d'));
+    $due_date = scalar_string($_POST['due_date'] ?? date('Y-m-d', strtotime('+30 days')));
+    $tax_rate = safe_float($_POST['tax_rate'] ?? 0);
+    $notes = trim(scalar_string($_POST['notes'] ?? ''));
 
     // Installment configuration
     $use_installments = !empty($_POST['use_installments']);
-    $installment_count = max(2, intval($_POST['installment_count'] ?? 2));
-    $installment_interval_value = max(1, intval($_POST['installment_interval_value'] ?? 1));
+    $installment_count = max(2, safe_int($_POST['installment_count'] ?? 2));
+    $installment_interval_value = max(1, safe_int($_POST['installment_interval_value'] ?? 1));
     $installment_interval_type = in_array($_POST['installment_interval_type'] ?? '', ['days', 'weeks', 'months'])
         ? $_POST['installment_interval_type'] : 'months';
 
     // Calculate totals from posted items
     $subtotal = 0;
     $items = [];
+    $posted_item_desc = $_POST['item_desc'] ?? [];
+    $posted_item_qty = $_POST['item_qty'] ?? [];
+    $posted_item_rate = $_POST['item_rate'] ?? [];
+    $posted_item_package_id = $_POST['item_package_id'] ?? [];
+    $posted_item_appointment_type_id = $_POST['item_appointment_type_id'] ?? [];
+    if (!is_array($posted_item_desc)) {
+        $posted_item_desc = [];
+    }
+    if (!is_array($posted_item_qty)) {
+        $posted_item_qty = [];
+    }
+    if (!is_array($posted_item_rate)) {
+        $posted_item_rate = [];
+    }
+    if (!is_array($posted_item_package_id)) {
+        $posted_item_package_id = [];
+    }
+    if (!is_array($posted_item_appointment_type_id)) {
+        $posted_item_appointment_type_id = [];
+    }
 
-    if (isset($_POST['item_desc'])) {
-        foreach ($_POST['item_desc'] as $index => $desc) {
-            if (!empty($desc)) {
-                $qty = floatval($_POST['item_qty'][$index] ?? 1);
-                $rate = floatval($_POST['item_rate'][$index] ?? 0);
+    if ($posted_item_desc !== []) {
+        foreach ($posted_item_desc as $index => $desc) {
+            $description = scalar_string($desc);
+            if ($description !== '') {
+                $qty = safe_float($posted_item_qty[$index] ?? 1);
+                $rate = safe_float($posted_item_rate[$index] ?? 0);
                 $amount = $qty * $rate;
                 $subtotal += $amount;
 
                 $item_type = 'custom';
                 $reference_id = null;
-                if (!empty($_POST['item_package_id'][$index])) {
+                if (!empty($posted_item_package_id[$index])) {
                     $item_type = 'package';
-                    $reference_id = intval($_POST['item_package_id'][$index]);
-                } elseif (!empty($_POST['item_appointment_type_id'][$index])) {
+                    $reference_id = safe_int($posted_item_package_id[$index]);
+                } elseif (!empty($posted_item_appointment_type_id[$index])) {
                     $item_type = 'appointment_type';
-                    $reference_id = intval($_POST['item_appointment_type_id'][$index]);
+                    $reference_id = safe_int($posted_item_appointment_type_id[$index]);
                 }
 
                 $items[] = [
-                    'description' => $desc,
+                    'description' => $description,
                     'quantity'    => $qty,
                     'rate'        => $rate,
                     'amount'      => $amount,
@@ -68,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $total_amount = $subtotal + $tax_amount;
 
     if ($client_id && !empty($items)) {
-        $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT);
 
         // Insert invoice
         $stmt = $conn->prepare("
@@ -88,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Insert installments if enabled
-        if ($use_installments && $installment_count >= 2) {
+        if ($use_installments) {
             $inst_amount = round($total_amount / $installment_count, 2);
             // Correct for rounding on last installment
             $last_amount = $total_amount - ($inst_amount * ($installment_count - 1));
@@ -97,8 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?, ?, ?, ?, 'unpaid')
             ");
             for ($i = 1; $i <= $installment_count; $i++) {
-                $interval = (($i - 1) * $installment_interval_value) . ' ' . $installment_interval_type;
-                $inst_due = date('Y-m-d', strtotime($due_date . ' +' . $interval));
+                $interval = (($i - 1) * $installment_interval_value) . ' ' . scalar_string($installment_interval_type);
+                $inst_due = date('Y-m-d', safe_timestamp(strtotime($due_date . ' +' . $interval)));
                 $amt = ($i === $installment_count) ? $last_amount : $inst_amount;
                 $inst_stmt->execute([$invoice_id, $i, $amt, $inst_due]);
             }
@@ -150,8 +171,8 @@ include '../backend/includes/header.php';
                                     <?php foreach ($packages as $pkg): ?>
                                         <option value="<?= $pkg['id'] ?>"
                                                 data-name="<?= escape($pkg['name']) ?>"
-                                                data-price="<?= $pkg['price'] ?>">
-                                            <?= escape($pkg['name']) ?> — $<?= number_format($pkg['price'], 2) ?>
+                                                data-price="<?= safe_float($pkg['price']) ?>">
+                                            <?= escape($pkg['name']) ?> — $<?= number_format(safe_float($pkg['price']), 2) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -174,7 +195,7 @@ include '../backend/includes/header.php';
                                         <option value="<?= $at['id'] ?>"
                                                 data-name="<?= escape($at['name']) ?>"
                                                 data-price="<?= floatval($at['default_amount'] ?? 0) ?>">
-                                            <?= escape($at['name']) ?><?= $at['default_amount'] > 0 ? ' — $' . number_format($at['default_amount'], 2) : '' ?>
+                                            <?= escape($at['name']) ?><?= safe_float($at['default_amount']) > 0 ? ' — $' . number_format(safe_float($at['default_amount']), 2) : '' ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>

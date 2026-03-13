@@ -13,7 +13,7 @@ if (!isPortalLoggedIn()) {
     exit;
 }
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 $db   = new Database();
 $conn = $db->getConnection();
 
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$data = json_decode(file_get_contents('php://input'), true);
+$data = json_decode(scalar_string(file_get_contents('php://input')), true);
 if (!is_array($data)) {
     echo json_encode(['error' => 'Invalid JSON payload.']);
     exit;
@@ -34,9 +34,9 @@ $action = $data['action'] ?? '';
  *  Action: add_pet  — create a new pet for the logged-in client
  * ═════════════════════════════════════════════════════════════════════════ */
 if ($action === 'add_pet') {
-    $name    = trim($data['name']    ?? '');
-    $species = trim($data['species'] ?? 'Dog');
-    $breed   = trim($data['breed']   ?? '');
+    $name    = trim(scalar_string($data['name'] ?? ''));
+    $species = trim(scalar_string($data['species'] ?? 'Dog'));
+    $breed   = trim(scalar_string($data['breed'] ?? ''));
 
     if ($name === '') {
         echo json_encode(['error' => 'Pet name is required.']);
@@ -77,12 +77,12 @@ foreach ($required as $f) {
     }
 }
 
-if (!filter_var($data['client_email'], FILTER_VALIDATE_EMAIL)) {
+if (!filter_var(scalar_string($data['client_email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
     echo json_encode(['error' => 'Invalid email address.']);
     exit;
 }
 
-$appointment_type_id = (int)$data['appointment_type_id'];
+$appointment_type_id = safe_int($data['appointment_type_id'] ?? 0);
 
 // ── Verify this appointment type exists and is active ────────────────────
 $stmt = $conn->prepare("
@@ -95,8 +95,8 @@ $stmt = $conn->prepare("
     WHERE id = ? AND is_active = 1
 ");
 $stmt->execute([$appointment_type_id]);
-$apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
-if (!$apt_type) {
+$apt_type = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+if ($apt_type === []) {
     echo json_encode(['error' => 'Invalid or inactive appointment type.']);
     exit;
 }
@@ -114,36 +114,36 @@ $stmt = $conn->prepare("
     LIMIT 1
 ");
 $stmt->execute([$client_id, $appointment_type_id]);
-$credit_row = $stmt->fetch(PDO::FETCH_ASSOC);
-if (!$credit_row) {
+$credit_row = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+if ($credit_row === []) {
     echo json_encode(['error' => 'No available credits for this appointment type.']);
     exit;
 }
-$pkg_credit_id = (int)$credit_row['id'];
+$pkg_credit_id = array_int_value($credit_row, 'id');
 
 // ── Contract validation (skip if client already has a current one) ────────
-$contract_typed_name = trim($data['contract_typed_name'] ?? '');
+$contract_typed_name = trim(scalar_string($data['contract_typed_name'] ?? ''));
 $allowed_sig_fonts   = ['font-dancing', 'font-pacifico', 'font-satisfy', 'font-great-vibes', 'font-allura'];
-$contract_sig_font   = in_array($data['contract_signature_font'] ?? '', $allowed_sig_fonts)
-    ? $data['contract_signature_font']
+$contract_sig_font   = in_array(scalar_string($data['contract_signature_font'] ?? ''), $allowed_sig_fonts, true)
+    ? scalar_string($data['contract_signature_font'] ?? '')
     : 'font-dancing';
 
-$contract_template_id = !empty($data['contract_template_id']) ? (int)$data['contract_template_id'] : null;
+$contract_template_id = !empty($data['contract_template_id']) ? safe_int($data['contract_template_id']) : null;
 
 // Server-side contract skip re-check (don't trust client-side flag)
 $contract_accepted    = 0;
 $contract_accepted_at = null;
 
 if (!empty($apt_type['contract_template_id'])) {
-    $ctpl_id = (int)$apt_type['contract_template_id'];
+    $ctpl_id = array_int_value($apt_type, 'contract_template_id');
 
     // Check renewal period
     $renewal_months = 12;
     $stmt = $conn->prepare("SELECT renewal_period_months FROM contract_templates WHERE id = ? AND is_active = 1");
     $stmt->execute([$ctpl_id]);
-    $ctpl = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($ctpl) {
-        $renewal_months = max(1, intval($ctpl['renewal_period_months'] ?? 12));
+    $ctpl = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+    if ($ctpl !== []) {
+        $renewal_months = max(1, array_int_value($ctpl, 'renewal_period_months', 12));
     }
 
     $stmt = $conn->prepare("
@@ -158,11 +158,11 @@ if (!empty($apt_type['contract_template_id'])) {
         LIMIT 1
     ");
     $stmt->execute([$client_id, $ctpl_id]);
-    $prev = $stmt->fetch(PDO::FETCH_ASSOC);
+    $prev = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
 
     $can_skip = false;
-    if ($prev) {
-        $expiry = strtotime($prev['contract_accepted_at'] . " +{$renewal_months} months");
+    if ($prev !== []) {
+        $expiry = strtotime(array_string_value($prev, 'contract_accepted_at') . " +{$renewal_months} months");
         if ($expiry >= time()) {
             $can_skip = true;
         }
@@ -182,8 +182,8 @@ if (!empty($apt_type['contract_template_id'])) {
 
 // ── Resolve location ──────────────────────────────────────────────────────
 $location       = null;
-$location_type  = trim($data['location_type']  ?? '');
-$location_value = trim($data['location_value'] ?? '');
+$location_type  = trim(scalar_string($data['location_type'] ?? ''));
+$location_value = trim(scalar_string($data['location_value'] ?? ''));
 $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
 
 if (!empty($apt_type['is_mini_session'])) {
@@ -198,8 +198,10 @@ if (!empty($apt_type['is_mini_session'])) {
 } else {
     // Restrict to configured types for this appointment type
     if (!empty($apt_type['location_types'])) {
-        $configured = json_decode($apt_type['location_types'], true);
-        if (is_array($configured) && !empty($configured)) {
+        $location_types_json = array_string_value($apt_type, 'location_types');
+        $location_types_raw = json_decode($location_types_json, true);
+        $configured = string_list($location_types_raw);
+        if (!empty($configured)) {
             $allowed_location_types = array_merge($configured, ['fixed']);
         }
     }
@@ -215,8 +217,8 @@ if (!empty($apt_type['is_mini_session'])) {
         if ($location_type === 'client_address') {
             $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
             $stmt->execute([$client_id]);
-            $cl = $stmt->fetch(PDO::FETCH_ASSOC);
-            $resolved = trim($cl['address'] ?? '');
+            $cl = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+            $resolved = trim(array_string_value($cl, 'address'));
             if (empty($resolved)) {
                 echo json_encode(['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.']);
                 exit;
@@ -235,8 +237,8 @@ if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
     // Verify all pet IDs belong to this client
     $placeholders = implode(',', array_fill(0, count($pet_ids_raw), '?'));
     $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND id IN ($placeholders) AND is_active = 1");
-    $stmt->execute(array_merge([$client_id], array_map('intval', $pet_ids_raw)));
-    $pet_ids = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id');
+    $stmt->execute(array_merge([$client_id], array_map('safe_int', $pet_ids_raw)));
+    $pet_ids = array_map('safe_int', array_column(assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)), 'id'));
 }
 
 // ── Insert booking ────────────────────────────────────────────────────────
@@ -252,14 +254,14 @@ $stmt = $conn->prepare("
 $stmt->execute([
     $client_id,
     $appointment_type_id,
-    trim($data['client_name']),
-    trim($data['client_email']),
-    trim($data['client_phone'] ?? ''),
-    $apt_type['name'],
-    $data['appointment_date'],
-    $data['appointment_time'],
-    trim($data['notes'] ?? ''),
-    (int)($apt_type['duration_minutes'] ?? 60),
+    trim(scalar_string($data['client_name'] ?? '')),
+    trim(scalar_string($data['client_email'] ?? '')),
+    trim(scalar_string($data['client_phone'] ?? '')),
+    array_string_value($apt_type, 'name'),
+    scalar_string($data['appointment_date'] ?? ''),
+    scalar_string($data['appointment_time'] ?? ''),
+    trim(scalar_string($data['notes'] ?? '')),
+    array_int_value($apt_type, 'duration_minutes', 60),
     $location,
     $location_type,
     $pkg_credit_id,
@@ -324,7 +326,7 @@ $overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwri
 
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
     // Ordered list of pet IDs selected for this booking (0-based)
-    $booking_pet_ids = array_values(array_filter(array_map('intval', (array)($data['pet_ids'] ?? []))));
+    $booking_pet_ids = array_values(array_filter(array_map('safe_int', (array)($data['pet_ids'] ?? []))));
 
     // Load current client record for conflict checking
     $cur_client_stmt = $conn->prepare("SELECT name, email, phone, address FROM clients WHERE id = ?");
@@ -339,16 +341,16 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
         $tpl_row = $tpl_stmt->fetch(PDO::FETCH_ASSOC);
         if (!$tpl_row) continue;
 
-        $tpl_fields = json_decode($tpl_row['fields'], true) ?: [];
+        $tpl_fields = decode_json_assoc_list(array_string_value($tpl_row, 'fields'));
 
         foreach ($tpl_fields as $fi => $field) {
-            $mapping = $field['profile_mapping'] ?? '';
+            $mapping = array_string_value($field, 'profile_mapping');
             if (empty($mapping)) continue;
 
             $value = $responses[$fi] ?? null;
             if ($value === null || $value === '') continue;
-            if (is_array($value)) $value = implode(', ', $value);
-            $value = (string)$value;
+            if (is_array($value)) $value = implode(', ', string_list($value));
+            $value = scalar_string($value);
 
             if (strpos($mapping, 'client.') === 0) {
                 $attr = substr($mapping, 7);
@@ -427,7 +429,7 @@ $conn->prepare("
 ]);
 
 // ── Log activity ──────────────────────────────────────────────────────────
-logClientActivity($client_id, 'booking_created', "Created booking #{$booking_id} for {$apt_type['name']}", $conn);
+logClientActivity($client_id, 'booking_created', 'Created booking #' . $booking_id . ' for ' . array_string_value($apt_type, 'name'), $conn);
 
 // ── Send confirmation email ───────────────────────────────────────────────
 require_once '../backend/includes/email_service.php';
@@ -437,6 +439,10 @@ require_once '../backend/includes/icalendar.php';
 $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
 $stmt->execute([$booking_id]);
 $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+if (!$booking) {
+    echo json_encode(['error' => 'Booking confirmation data could not be loaded.']);
+    exit;
+}
 
 $base_url          = getDynamicBaseUrl();
 $google_cal_link   = ICalendarGenerator::generateGoogleCalendarLink($booking);

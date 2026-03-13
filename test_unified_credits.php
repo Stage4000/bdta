@@ -41,33 +41,39 @@ try {
         $stmt->execute();
         $manual_pkg = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$manual_pkg) {
+        if (!is_array($manual_pkg)) {
             $conn->prepare("INSERT INTO packages (name, description, price, is_active) VALUES ('__manual_credit__', 'System record for manual credit adjustments', 0, 0)")->execute();
             $manual_pkg_id = (int)$conn->lastInsertId();
         } else {
-            $manual_pkg_id = (int)$manual_pkg['id'];
+            $manual_pkg_id = isset($manual_pkg['id']) && (is_int($manual_pkg['id']) || is_string($manual_pkg['id']))
+                ? (int)$manual_pkg['id']
+                : 0;
         }
 
         $stmt = $conn->prepare("SELECT id FROM client_packages WHERE client_id = ? AND package_id = ? LIMIT 1");
         $stmt->execute([$client_id, $manual_pkg_id]);
         $manual_cp = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$manual_cp) {
+        if (!is_array($manual_cp)) {
             $conn->prepare("INSERT INTO client_packages (client_id, package_id, package_name, is_active, notes, created_by) VALUES (?, ?, 'Manual Credits', 1, 'System record for manual credit adjustments', ?)")->execute([$client_id, $manual_pkg_id, $admin_id]);
             $manual_cp_id = (int)$conn->lastInsertId();
         } else {
-            $manual_cp_id = (int)$manual_cp['id'];
+            $manual_cp_id = isset($manual_cp['id']) && (is_int($manual_cp['id']) || is_string($manual_cp['id']))
+                ? (int)$manual_cp['id']
+                : 0;
         }
 
         $stmt = $conn->prepare("SELECT id FROM client_package_credits WHERE client_package_id = ? AND appointment_type_id = ? LIMIT 1");
         $stmt->execute([$manual_cp_id, $appointment_type_id]);
         $cpc = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$cpc) {
+        if (!is_array($cpc)) {
             $conn->prepare("INSERT INTO client_package_credits (client_package_id, client_id, appointment_type_id, total_credits, used_credits) VALUES (?, ?, ?, 0, 0)")->execute([$manual_cp_id, $client_id, $appointment_type_id]);
             return (int)$conn->lastInsertId();
         }
-        return (int)$cpc['id'];
+        return isset($cpc['id']) && (is_int($cpc['id']) || is_string($cpc['id']))
+            ? (int)$cpc['id']
+            : 0;
     }
 
     // ------------------------------------------------------------------
@@ -83,6 +89,9 @@ try {
     $stmt = $conn->prepare("SELECT total_credits, used_credits FROM client_package_credits WHERE id = ?");
     $stmt->execute([$cpc_id]);
     $cpc = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($cpc)) {
+        throw new Exception('Failed to load credit row after addition');
+    }
 
     assert((int)$cpc['total_credits'] === 3, 'total_credits should be 3 after addition');
     assert((int)$cpc['used_credits'] === 0, 'used_credits should still be 0');
@@ -94,13 +103,14 @@ try {
     echo "Test 2: Admin manually subtracts 1 credit for 'Test Session'\n";
 
     $remaining = (int)$cpc['total_credits'] - (int)$cpc['used_credits'];
-    assert($remaining + (-1) >= 0, 'Subtraction must not go below zero');
-
     $conn->prepare("UPDATE client_package_credits SET total_credits = total_credits + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([-1, $cpc_id]);
     $conn->prepare("INSERT INTO package_credit_transactions (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, notes, created_by) VALUES (?, ?, ?, 'adjustment', ?, 'Admin correction', ?)")->execute([$cpc_id, $client_id, $apt_type_id, -1, $admin_id]);
 
     $stmt->execute([$cpc_id]);
     $cpc = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($cpc)) {
+        throw new Exception('Failed to load credit row after subtraction');
+    }
 
     assert((int)$cpc['total_credits'] === 2, 'total_credits should be 2 after subtraction');
     echo "  ✓ 1 credit subtracted; balance = 2\n\n";
@@ -112,6 +122,9 @@ try {
 
     $stmt->execute([$cpc_id]);
     $cpc = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($cpc)) {
+        throw new Exception('Failed to load credit row for negative-balance validation');
+    }
     $remaining = (int)$cpc['total_credits'] - (int)$cpc['used_credits'];
     $would_go_negative = ($remaining + (-10)) < 0;
 

@@ -16,7 +16,7 @@ if (!isLoggedIn()) {
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = safe_int($_GET['id'] ?? 0);
 $is_edit = $id > 0;
 
 // Get existing type data if editing
@@ -32,52 +32,53 @@ if ($is_edit) {
         exit;
     }
 }
+$type_row = is_array($type) ? $type : [];
 
 // Get base URL for building booking link dynamically from current request
 $base_url = getDynamicBaseUrl();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = $_POST['name'] ?? '';
-    $description = $_POST['description'] ?? '';
-    $duration_minutes = (int)($_POST['duration_minutes'] ?? 60);
-    $buffer_before_minutes = (int)($_POST['buffer_before_minutes'] ?? 0);
-    $buffer_after_minutes = (int)($_POST['buffer_after_minutes'] ?? 0);
+    $name = scalar_string($_POST['name'] ?? '');
+    $description = scalar_string($_POST['description'] ?? '');
+    $duration_minutes = safe_int($_POST['duration_minutes'] ?? 60);
+    $buffer_before_minutes = safe_int($_POST['buffer_before_minutes'] ?? 0);
+    $buffer_after_minutes = safe_int($_POST['buffer_after_minutes'] ?? 0);
     $use_travel_time_buffer = isset($_POST['use_travel_time_buffer']) ? 1 : 0;
-    $travel_time_minutes = (int)($_POST['travel_time_minutes'] ?? 0);
-    $advance_booking_min_days = (int)($_POST['advance_booking_min_days'] ?? 1);
-    $advance_booking_max_days = (int)($_POST['advance_booking_max_days'] ?? 90);
-    $cancellation_notice_hours = (int)($_POST['cancellation_notice_hours'] ?? 0);
+    $travel_time_minutes = safe_int($_POST['travel_time_minutes'] ?? 0);
+    $advance_booking_min_days = safe_int($_POST['advance_booking_min_days'] ?? 1);
+    $advance_booking_max_days = safe_int($_POST['advance_booking_max_days'] ?? 90);
+    $cancellation_notice_hours = safe_int($_POST['cancellation_notice_hours'] ?? 0);
     $selected_form_ids = isset($_POST['form_ids']) && is_array($_POST['form_ids'])
-        ? array_map('intval', $_POST['form_ids'])
+        ? array_map(static fn(mixed $value): int => safe_int($value), $_POST['form_ids'])
         : [];
     $requires_forms = !empty($selected_form_ids) ? 1 : 0;
-    $contract_template_id = !empty($_POST['contract_template_id']) ? (int)$_POST['contract_template_id'] : null;
+    $contract_template_id = !empty($_POST['contract_template_id']) ? safe_int($_POST['contract_template_id']) : null;
     $requires_contract = ($contract_template_id !== null) ? 1 : 0;
     $auto_invoice = isset($_POST['auto_invoice']) ? 1 : 0;
-    $invoice_due_days = (int)($_POST['invoice_due_days'] ?? 7);
-    $default_amount = floatval($_POST['default_amount'] ?? 0);
+    $invoice_due_days = safe_int($_POST['invoice_due_days'] ?? 7);
+    $default_amount = safe_float($_POST['default_amount'] ?? 0);
     $consumes_credits = isset($_POST['consumes_credits']) ? 1 : 0;
-    $credit_count = (int)($_POST['credit_count'] ?? 1);
+    $credit_count = safe_int($_POST['credit_count'] ?? 1);
     $is_group_class = isset($_POST['is_group_class']) ? 1 : 0;
-    $max_participants = (int)($_POST['max_participants'] ?? 1);
+    $max_participants = safe_int($_POST['max_participants'] ?? 1);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     $portal_available = isset($_POST['portal_available']) ? 1 : 0;
-    $confirmation_template_id = !empty($_POST['confirmation_template_id']) ? (int)$_POST['confirmation_template_id'] : null;
-    $reminder_template_id     = !empty($_POST['reminder_template_id'])     ? (int)$_POST['reminder_template_id']     : null;
-    $cancellation_template_id = !empty($_POST['cancellation_template_id']) ? (int)$_POST['cancellation_template_id'] : null;
+    $confirmation_template_id = !empty($_POST['confirmation_template_id']) ? safe_int($_POST['confirmation_template_id']) : null;
+    $reminder_template_id     = !empty($_POST['reminder_template_id'])     ? safe_int($_POST['reminder_template_id'])     : null;
+    $cancellation_template_id = !empty($_POST['cancellation_template_id']) ? safe_int($_POST['cancellation_template_id']) : null;
     
     // Handle Mini Sessions configuration
     $is_mini_session = isset($_POST['is_mini_session']) ? 1 : 0;
-    $mini_session_location = $is_mini_session ? ($_POST['mini_session_location'] ?? '') : null;
-    $mini_session_topic = $is_mini_session ? ($_POST['mini_session_topic'] ?? '') : null;
+    $mini_session_location = $is_mini_session ? scalar_string($_POST['mini_session_location'] ?? '') : null;
+    $mini_session_topic = $is_mini_session ? scalar_string($_POST['mini_session_topic'] ?? '') : null;
     
     // Handle Field Rental configuration
     $is_field_rental = isset($_POST['is_field_rental']) ? 1 : 0;
-    $field_rental_location = $is_field_rental ? ($_POST['field_rental_location'] ?? '') : null;
+    $field_rental_location = $is_field_rental ? scalar_string($_POST['field_rental_location'] ?? '') : null;
 
     // Handle Group Class location
-    $group_class_location = $is_group_class ? ($_POST['group_class_location'] ?? '') : null;
+    $group_class_location = $is_group_class ? scalar_string($_POST['group_class_location'] ?? '') : null;
 
     // Handle allowed location types configuration
     // Fixed types (mini_session/field_rental/group_class) don't need this — location is always 'fixed'
@@ -86,43 +87,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $location_types_json = null; // Fixed location — no selection needed
     } else {
         $selected_loc_types = isset($_POST['location_types']) && is_array($_POST['location_types'])
-            ? array_values(array_filter($_POST['location_types'], fn($t) => in_array($t, $allowed_loc_types)))
+            ? array_values(array_filter($_POST['location_types'], static fn($t): bool => is_string($t) && in_array($t, $allowed_loc_types, true)))
             : [];
         $location_types_json = !empty($selected_loc_types) ? json_encode($selected_loc_types) : null;
     }
     
     // Handle schedule type and specific date(s)
-    $schedule_type = $_POST['schedule_type'] ?? 'recurring';
+    $schedule_type = scalar_string($_POST['schedule_type'] ?? 'recurring');
     $specific_date  = null;
     $specific_dates = null;
 
     if ($schedule_type === 'specific_date') {
         // Parse the new multi-date JSON submitted from the builder UI
-        $raw_specific_dates = $_POST['specific_dates'] ?? '';
-        if (!empty($raw_specific_dates)) {
-            $parsed_dates = json_decode($raw_specific_dates, true);
-            if (is_array($parsed_dates) && !empty($parsed_dates)) {
+        $raw_specific_dates = scalar_string($_POST['specific_dates'] ?? '');
+        if ($raw_specific_dates !== '') {
+            $parsed_dates = decode_json_assoc_list($raw_specific_dates);
+            if ($parsed_dates !== []) {
                 $clean_dates = [];
                 foreach ($parsed_dates as $entry) {
-                    $entry_date = trim($entry['date'] ?? '');
+                    $entry_date = trim(array_string_value($entry, 'date'));
                     if (empty($entry_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $entry_date)) {
                         continue;
                     }
                     $clean_timeslots = [];
-                    foreach ($entry['timeslots'] ?? [] as $slot) {
-                        $slot_type = $slot['type'] ?? '';
-                        if ($slot_type === 'point' && !empty($slot['time'])
-                            && preg_match('/^\d{2}:\d{2}$/', $slot['time'])) {
-                            $clean_timeslots[] = ['type' => 'point', 'time' => $slot['time']];
+                    $timeslots = $entry['timeslots'] ?? [];
+                    if (!is_array($timeslots)) {
+                        $timeslots = [];
+                    }
+                    foreach ($timeslots as $slot) {
+                        if (!is_array($slot)) {
+                            continue;
+                        }
+                        $slot_type = array_string_value($slot, 'type');
+                        $slot_time = array_string_value($slot, 'time');
+                        $slot_start = array_string_value($slot, 'start');
+                        $slot_end = array_string_value($slot, 'end');
+                        if ($slot_type === 'point' && $slot_time !== ''
+                            && preg_match('/^\d{2}:\d{2}$/', $slot_time)) {
+                            $clean_timeslots[] = ['type' => 'point', 'time' => $slot_time];
                         } elseif ($slot_type === 'range'
-                            && !empty($slot['start']) && !empty($slot['end'])
-                            && preg_match('/^\d{2}:\d{2}$/', $slot['start'])
-                            && preg_match('/^\d{2}:\d{2}$/', $slot['end'])
-                            && $slot['start'] < $slot['end']) {
+                            && $slot_start !== '' && $slot_end !== ''
+                            && preg_match('/^\d{2}:\d{2}$/', $slot_start)
+                            && preg_match('/^\d{2}:\d{2}$/', $slot_end)
+                            && $slot_start < $slot_end) {
                             $clean_timeslots[] = [
                                 'type'  => 'range',
-                                'start' => $slot['start'],
-                                'end'   => $slot['end'],
+                                'start' => $slot_start,
+                                'end'   => $slot_end,
                             ];
                         }
                     }
@@ -131,35 +142,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($clean_dates)) {
                     $specific_dates = json_encode($clean_dates);
                     // Keep legacy specific_date as the first/earliest date for backward compat
-                    usort($clean_dates, fn($a, $b) => $a['date'] <=> $b['date']);
-                    $specific_date = $clean_dates[0]['date'];
+                    usort(
+                        $clean_dates,
+                        static fn(array $a, array $b): int => array_string_value($a, 'date') <=> array_string_value($b, 'date')
+                    );
+                    $specific_date = array_string_value($clean_dates[0], 'date');
                 }
             }
         }
         // Fallback to legacy single-date field if no multi-date data was submitted
         if (empty($specific_dates) && !empty($_POST['specific_date'])) {
-            $specific_date = $_POST['specific_date'];
+            $specific_date = scalar_string($_POST['specific_date']);
         }
     }
     
     // Handle availability configuration
     $available_days = isset($_POST['available_days']) && is_array($_POST['available_days']) 
-        ? array_map('intval', $_POST['available_days']) 
+        ? array_map(static fn(mixed $value): int => safe_int($value), $_POST['available_days']) 
         : [0,1,2,3,4,5,6];
     $available_days_json = json_encode($available_days);
-    $available_start_time = $_POST['available_start_time'] ?? '09:00';
-    $available_end_time = $_POST['available_end_time'] ?? '17:00';
-    $time_slot_interval = (int)($_POST['time_slot_interval'] ?? 30);
+    $available_start_time = scalar_string($_POST['available_start_time'] ?? '09:00');
+    $available_end_time = scalar_string($_POST['available_end_time'] ?? '17:00');
+    $time_slot_interval = safe_int($_POST['time_slot_interval'] ?? 30);
 
     // Handle per-day schedule configuration
     $per_day_schedule = null;
     if (isset($_POST['use_per_day_schedule'])) {
-        $day_start_times = $_POST['day_start_time'] ?? [];
-        $day_end_times = $_POST['day_end_time'] ?? [];
+        $day_start_times = isset($_POST['day_start_time']) && is_array($_POST['day_start_time']) ? $_POST['day_start_time'] : [];
+        $day_end_times = isset($_POST['day_end_time']) && is_array($_POST['day_end_time']) ? $_POST['day_end_time'] : [];
         $per_day = [];
         foreach ($available_days as $day_index) {
-            $start = $day_start_times[$day_index] ?? '';
-            $end   = $day_end_times[$day_index] ?? '';
+            $start = scalar_string($day_start_times[$day_index] ?? '');
+            $end   = scalar_string($day_end_times[$day_index] ?? '');
             if (!empty($start) && !empty($end) && $start < $end) {
                 $per_day[$day_index] = ['start' => $start, 'end' => $end];
             }
@@ -259,7 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $unique_link = bin2hex(random_bytes(16));
                 $check_stmt = $conn->prepare("SELECT COUNT(*) FROM appointment_types WHERE unique_link = ?");
                 $check_stmt->execute([$unique_link]);
-                $exists = $check_stmt->fetchColumn();
+                $exists = safe_int($check_stmt->fetchColumn());
             } while ($exists > 0);
             
             $stmt = $conn->prepare("
@@ -312,7 +326,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $reminder_template_id,
                 $cancellation_template_id
             ]);
-            $id = $conn->lastInsertId();
+            $id = safe_int($conn->lastInsertId());
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
         }
 
@@ -335,12 +349,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Handle reminder rule sub-actions (add/delete/toggle) — must be editing an existing type
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sub_action']) && $is_edit) {
-    $sub_action = $_POST['sub_action'];
+    $sub_action = scalar_string($_POST['sub_action']);
 
     if ($sub_action === 'add_rule') {
-        $rule_name    = trim($_POST['rule_name'] ?? '');
-        $hours_before = (int)($_POST['rule_hours_before'] ?? 0);
-        $tpl_id       = !empty($_POST['rule_template_id']) ? (int)$_POST['rule_template_id'] : null;
+        $rule_name    = trim(scalar_string($_POST['rule_name'] ?? ''));
+        $hours_before = safe_int($_POST['rule_hours_before'] ?? 0);
+        $tpl_id       = !empty($_POST['rule_template_id']) ? safe_int($_POST['rule_template_id']) : null;
         $rule_active  = isset($_POST['rule_is_active']) ? 1 : 0;
         if ($rule_name !== '' && $hours_before >= 1) {
             $conn->prepare("INSERT INTO booking_reminder_rules (appointment_type_id, name, hours_before, template_id, is_active) VALUES (?, ?, ?, ?, ?)")
@@ -354,7 +368,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sub_action']) && $is_
     }
 
     if ($sub_action === 'delete_rule') {
-        $rule_id = (int)($_POST['rule_id'] ?? 0);
+        $rule_id = safe_int($_POST['rule_id'] ?? 0);
         $conn->prepare("DELETE FROM booking_reminder_rules WHERE id = ? AND appointment_type_id = ?")
              ->execute([$rule_id, $id]);
         $_SESSION['flash'] = ['type' => 'success', 'message' => 'Reminder rule removed.'];
@@ -363,7 +377,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sub_action']) && $is_
     }
 
     if ($sub_action === 'toggle_rule') {
-        $rule_id = (int)($_POST['rule_id'] ?? 0);
+        $rule_id = safe_int($_POST['rule_id'] ?? 0);
         $conn->prepare("UPDATE booking_reminder_rules SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND appointment_type_id = ?")
              ->execute([$rule_id, $id]);
         $_SESSION['flash'] = ['type' => 'success', 'message' => 'Reminder rule status updated.'];
@@ -377,17 +391,17 @@ $all_forms = $conn->query("SELECT id, name FROM form_templates WHERE is_active =
 
 // Prepare existing specific_dates data for the multi-date builder
 $existing_specific_dates = [];
-if ($is_edit && !empty($type['specific_dates'])) {
-    $decoded_sd = json_decode($type['specific_dates'], true);
-    if (is_array($decoded_sd)) {
-        $existing_specific_dates = $decoded_sd;
-    }
+if ($is_edit) {
+    $existing_specific_dates = decode_json_assoc_list(array_string_value($type_row, 'specific_dates'));
 }
 // Migrate legacy single specific_date into the new format for display
-if ($is_edit && empty($existing_specific_dates) && !empty($type['specific_date'])) {
-    $existing_specific_dates = [['date' => $type['specific_date'], 'timeslots' => []]];
+if ($is_edit && $existing_specific_dates === []) {
+    $legacy_specific_date = array_string_value($type_row, 'specific_date');
+    if ($legacy_specific_date !== '') {
+        $existing_specific_dates = [['date' => $legacy_specific_date, 'timeslots' => []]];
+    }
 }
-$existing_specific_dates_json = htmlspecialchars(json_encode($existing_specific_dates), ENT_QUOTES, 'UTF-8');
+$existing_specific_dates_json = htmlspecialchars(scalar_string(json_encode($existing_specific_dates)), ENT_QUOTES, 'UTF-8');
 
 // Load all active contract templates for the dropdown
 $all_contract_templates = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
@@ -410,6 +424,53 @@ if ($is_edit) {
     $stmt->execute([$id]);
     $type_reminder_rules = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+$selected_form_ids_current = [];
+$type_name = array_string_value($type_row, 'name');
+$type_description = array_string_value($type_row, 'description');
+$type_duration = array_int_value($type_row, 'duration_minutes', 60);
+$type_buffer_before = array_int_value($type_row, 'buffer_before_minutes');
+$type_buffer_after = array_int_value($type_row, 'buffer_after_minutes');
+$type_use_travel_time_buffer = array_int_value($type_row, 'use_travel_time_buffer') === 1;
+$type_travel_time_minutes = array_int_value($type_row, 'travel_time_minutes');
+$type_advance_min_days = array_int_value($type_row, 'advance_booking_min_days', 1);
+$type_advance_max_days = array_int_value($type_row, 'advance_booking_max_days', 90);
+$type_cancellation_notice_hours = array_int_value($type_row, 'cancellation_notice_hours');
+$type_schedule = array_string_value($type_row, 'schedule_type', 'recurring');
+$type_available_days = array_map(static fn(mixed $value): int => safe_int($value), decode_json_assoc(array_string_value($type_row, 'available_days')));
+if ($type_available_days === []) {
+    $type_available_days = [0, 1, 2, 3, 4, 5, 6];
+}
+$type_available_start_time = array_string_value($type_row, 'available_start_time', '09:00');
+$type_available_end_time = array_string_value($type_row, 'available_end_time', '17:00');
+$type_time_slot_interval = array_int_value($type_row, 'time_slot_interval', 30);
+$type_contract_template_id = array_int_value($type_row, 'contract_template_id');
+$type_confirmation_template_id = array_int_value($type_row, 'confirmation_template_id');
+$type_reminder_template_id = array_int_value($type_row, 'reminder_template_id');
+$type_cancellation_template_id = array_int_value($type_row, 'cancellation_template_id');
+$type_auto_invoice = array_int_value($type_row, 'auto_invoice') === 1;
+$type_invoice_due_days = array_int_value($type_row, 'invoice_due_days', 7);
+$type_default_amount = safe_float($type_row['default_amount'] ?? 0);
+$type_consumes_credits = array_int_value($type_row, 'consumes_credits') === 1;
+$type_credit_count = array_int_value($type_row, 'credit_count', 1);
+$type_is_group_class = array_int_value($type_row, 'is_group_class') === 1;
+$type_max_participants = array_int_value($type_row, 'max_participants', 1);
+$type_group_class_location = array_string_value($type_row, 'group_class_location');
+$type_is_mini_session = array_int_value($type_row, 'is_mini_session') === 1;
+$type_mini_session_location = array_string_value($type_row, 'mini_session_location');
+$type_mini_session_topic = array_string_value($type_row, 'mini_session_topic');
+$type_is_field_rental = array_int_value($type_row, 'is_field_rental') === 1;
+$type_field_rental_location = array_string_value($type_row, 'field_rental_location');
+$type_location_types = decode_json_assoc(array_string_value($type_row, 'location_types'));
+$type_unique_link = array_string_value($type_row, 'unique_link');
+$type_is_active = !isset($type) || array_int_value($type_row, 'is_active', 1) === 1;
+$type_portal_available = array_int_value($type_row, 'portal_available') === 1;
+$type_per_day_data = [];
+foreach (decode_json_assoc(array_string_value($type_row, 'per_day_schedule')) as $day_key => $day_value) {
+    if (ctype_digit($day_key) && is_array($day_value)) {
+        $type_per_day_data[(int) $day_key] = $day_value;
+    }
+}
+$has_per_day = $type_per_day_data !== [];
 
 /**
  * Human-readable label for hours_before, e.g. 48 → "2 days before"
@@ -431,7 +492,7 @@ $selected_form_ids_current = [];
 if ($is_edit) {
     $stmt = $conn->prepare("SELECT form_template_id FROM appointment_type_forms WHERE appointment_type_id = ?");
     $stmt->execute([$id]);
-    $selected_form_ids_current = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $selected_form_ids_current = array_map(static fn(mixed $value): int => safe_int($value), $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
 $page_title = $is_edit ? "Edit Appointment Type" : "Add Appointment Type";
@@ -451,16 +512,16 @@ include __DIR__ . '/../backend/includes/header.php';
         </div>
         <div class="card-body">
             <?php if (isset($error)): ?>
-                <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+                <div class="alert alert-danger"><?= htmlspecialchars(scalar_string($error)) ?></div>
             <?php endif; ?>
 
-            <?php if ($is_edit && !empty($type['unique_link'])): ?>
+            <?php if ($is_edit && $type_unique_link !== ''): ?>
                 <div class="alert alert-info">
                     <h6 class="alert-heading"><i class="fas fa-link"></i> Unique Booking Link</h6>
                     <p class="mb-2">Share this link with clients to book this appointment type directly:</p>
                     <div class="input-group">
                         <input type="text" class="form-control" id="booking-link" 
-                               value="<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $type['unique_link']) ?>" 
+                               value="<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $type_unique_link) ?>" 
                                readonly>
                         <button class="btn btn-outline-secondary" type="button" onclick="copyBookingLink(event)">
                             <i class="fas fa-copy"></i> Copy
@@ -476,18 +537,18 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="name" name="name" 
-                               value="<?= htmlspecialchars($type['name'] ?? '') ?>" required>
+                               value="<?= htmlspecialchars($type_name) ?>" required>
                         <div class="form-text">The name of this appointment type</div>
                     </div>
                     <div class="col-md-6">
                         <label for="duration_minutes" class="form-label">Duration (minutes) <span class="text-danger">*</span></label>
                         <input type="number" class="form-control" id="duration_minutes" name="duration_minutes" 
-                               value="<?= $type['duration_minutes'] ?? 60 ?>" min="5" step="5" required>
+                               value="<?= $type_duration ?>" min="5" step="5" required>
                         <div class="form-text">Length of the appointment</div>
                     </div>
                     <div class="col-12">
                         <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control" id="description" name="description" rows="2"><?= htmlspecialchars($type['description'] ?? '') ?></textarea>
+                        <textarea class="form-control" id="description" name="description" rows="2"><?= htmlspecialchars($type_description) ?></textarea>
                         <div class="form-text">Brief description of this appointment type</div>
                     </div>
                 </div>
@@ -497,13 +558,13 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <label for="buffer_before_minutes" class="form-label">Buffer Before (minutes)</label>
                         <input type="number" class="form-control" id="buffer_before_minutes" name="buffer_before_minutes" 
-                               value="<?= $type['buffer_before_minutes'] ?? 0 ?>" min="0" step="5">
+                               value="<?= $type_buffer_before ?>" min="0" step="5">
                         <div class="form-text">Time blocked before appointment starts</div>
                     </div>
                     <div class="col-md-6">
                         <label for="buffer_after_minutes" class="form-label">Buffer After (minutes)</label>
                         <input type="number" class="form-control" id="buffer_after_minutes" name="buffer_after_minutes" 
-                               value="<?= $type['buffer_after_minutes'] ?? 0 ?>" min="0" step="5">
+                               value="<?= $type_buffer_after ?>" min="0" step="5">
                         <div class="form-text">Time blocked after appointment ends</div>
                     </div>
                 </div>
@@ -513,7 +574,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-12">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="use_travel_time_buffer" name="use_travel_time_buffer" 
-                                   value="1" <?= ($type['use_travel_time_buffer'] ?? 0) ? 'checked' : '' ?>
+                                   value="1" <?= $type_use_travel_time_buffer ? 'checked' : '' ?>
                                    onchange="toggleTravelTime()">
                             <label class="form-check-label" for="use_travel_time_buffer">
                                 Use Travel Time Buffer (Phase 2 Feature)
@@ -527,7 +588,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <label for="travel_time_minutes" class="form-label">Travel Time (minutes)</label>
                         <input type="number" class="form-control" id="travel_time_minutes" name="travel_time_minutes" 
-                               value="<?= $type['travel_time_minutes'] ?? 0 ?>" min="0" step="5">
+                               value="<?= $type_travel_time_minutes ?>" min="0" step="5">
                         <div class="form-text">Time needed for travel to/from appointment location</div>
                     </div>
                 </div>
@@ -536,13 +597,13 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <label for="advance_booking_min_days" class="form-label">Minimum Advance Booking (days)</label>
                         <input type="number" class="form-control" id="advance_booking_min_days" name="advance_booking_min_days" 
-                               value="<?= $type['advance_booking_min_days'] ?? 1 ?>" min="0">
+                               value="<?= $type_advance_min_days ?>" min="0">
                         <div class="form-text">Clients must book at least this many days in advance</div>
                     </div>
                     <div class="col-md-6">
                         <label for="advance_booking_max_days" class="form-label">Maximum Advance Booking (days)</label>
                         <input type="number" class="form-control" id="advance_booking_max_days" name="advance_booking_max_days" 
-                               value="<?= $type['advance_booking_max_days'] ?? 90 ?>" min="1">
+                               value="<?= $type_advance_max_days ?>" min="1">
                         <div class="form-text">Clients can book up to this many days in advance</div>
                     </div>
                 </div>
@@ -551,7 +612,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <label for="cancellation_notice_hours" class="form-label">Minimum Notice for Changes (hours)</label>
                         <input type="number" class="form-control" id="cancellation_notice_hours" name="cancellation_notice_hours"
-                               value="<?= intval($type['cancellation_notice_hours'] ?? 0) ?>" min="0">
+                               value="<?= $type_cancellation_notice_hours ?>" min="0">
                         <div class="form-text">Clients can only cancel or reschedule if the appointment is at least this many hours away. Set to 0 to allow changes at any time.</div>
                     </div>
                 </div>
@@ -565,7 +626,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="schedule_type" 
                                            id="schedule_type_recurring" value="recurring"
-                                           <?= (!isset($type['schedule_type']) || $type['schedule_type'] === 'recurring') ? 'checked' : '' ?>
+                                           <?= $type_schedule === 'recurring' ? 'checked' : '' ?>
                                            onchange="toggleScheduleType()">
                                     <label class="form-check-label" for="schedule_type_recurring">
                                         <strong>Recurring Schedule</strong>
@@ -577,7 +638,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="schedule_type" 
                                            id="schedule_type_specific" value="specific_date"
-                                           <?= (isset($type['schedule_type']) && $type['schedule_type'] === 'specific_date') ? 'checked' : '' ?>
+                                           <?= $type_schedule === 'specific_date' ? 'checked' : '' ?>
                                            onchange="toggleScheduleType()">
                                     <label class="form-check-label" for="schedule_type_specific">
                                         <strong>Specific Date</strong>
@@ -595,26 +656,15 @@ include __DIR__ . '/../backend/includes/header.php';
                         <div class="row">
                             <?php 
                             $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                            $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [0,1,2,3,4,5,6];
-                            if (!is_array($available_days)) {
-                                $available_days = [0,1,2,3,4,5,6];
-                            }
-                            $per_day_data = [];
-                            $has_per_day = false;
-                            if (!empty($type['per_day_schedule'])) {
-                                $decoded_pds = json_decode($type['per_day_schedule'], true);
-                                if (is_array($decoded_pds) && !empty($decoded_pds)) {
-                                    $per_day_data = $decoded_pds;
-                                    $has_per_day = true;
-                                }
-                            }
+                            $available_days = $type_available_days;
+                            $per_day_data = $type_per_day_data;
                             foreach ($days as $index => $day): 
                             ?>
                             <div class="col-md-3 col-6">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="available_days[]" 
-                                           id="day_<?= $index ?>" value="<?= $index ?>"
-                                           <?= in_array($index, $available_days) ? 'checked' : '' ?>>
+                                        <input class="form-check-input" type="checkbox" name="available_days[]" 
+                                               id="day_<?= $index ?>" value="<?= $index ?>"
+                                           <?= in_array($index, $available_days, true) ? 'checked' : '' ?>>
                                     <label class="form-check-label" for="day_<?= $index ?>">
                                         <?= $day ?>
                                     </label>
@@ -648,17 +698,20 @@ include __DIR__ . '/../backend/includes/header.php';
                             </thead>
                             <tbody>
                                 <?php foreach ($days as $index => $day): ?>
-                                <tr id="per_day_row_<?= $index ?>" style="display: <?= in_array($index, $available_days) ? 'table-row' : 'none' ?>;">
+                                <?php
+                                $per_day_row = isset($per_day_data[$index]) ? $per_day_data[$index] : [];
+                                ?>
+                                <tr id="per_day_row_<?= $index ?>" style="display: <?= in_array($index, $available_days, true) ? 'table-row' : 'none' ?>;">
                                     <td><strong><?= $day ?></strong></td>
                                     <td>
                                         <input type="time" class="form-control form-control-sm"
                                                name="day_start_time[<?= $index ?>]"
-                                               value="<?= htmlspecialchars($per_day_data[$index]['start'] ?? ($type['available_start_time'] ?? '09:00')) ?>">
+                                               value="<?= htmlspecialchars(array_string_value($per_day_row, 'start', $type_available_start_time)) ?>">
                                     </td>
                                     <td>
                                         <input type="time" class="form-control form-control-sm"
                                                name="day_end_time[<?= $index ?>]"
-                                               value="<?= htmlspecialchars($per_day_data[$index]['end'] ?? ($type['available_end_time'] ?? '17:00')) ?>">
+                                               value="<?= htmlspecialchars(array_string_value($per_day_row, 'end', $type_available_end_time)) ?>">
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -698,7 +751,7 @@ include __DIR__ . '/../backend/includes/header.php';
 
                 <div class="row g-3 mb-4 mt-3">
                     <?php
-                    $display_schedule_type = $type['schedule_type'] ?? 'recurring';
+                    $display_schedule_type = $type_schedule;
                     $show_global_times = ($display_schedule_type !== 'specific_date') && !$has_per_day;
                     ?>
                     <div class="col-12" id="global_availability_times"
@@ -707,21 +760,21 @@ include __DIR__ . '/../backend/includes/header.php';
                             <div class="col-md-4">
                                 <label for="available_start_time" class="form-label">Available Start Time</label>
                                 <input type="time" class="form-control" id="available_start_time" name="available_start_time"
-                                       value="<?= $type['available_start_time'] ?? '09:00' ?>">
+                                       value="<?= $type_available_start_time ?>">
                                 <div class="form-text">Earliest time for appointments</div>
                             </div>
                             <div class="col-md-4">
                                 <label for="available_end_time" class="form-label">Available End Time</label>
                                 <input type="time" class="form-control" id="available_end_time" name="available_end_time"
-                                       value="<?= $type['available_end_time'] ?? '17:00' ?>">
+                                       value="<?= $type_available_end_time ?>">
                                 <div class="form-text">Latest time for appointments</div>
                             </div>
                             <div class="col-md-4">
                                 <label for="time_slot_interval" class="form-label">Time Slot Interval (minutes)</label>
                                 <select class="form-select" id="time_slot_interval" name="time_slot_interval">
-                                    <option value="15" <?= ($type['time_slot_interval'] ?? 30) == 15 ? 'selected' : '' ?>>15 minutes</option>
-                                    <option value="30" <?= ($type['time_slot_interval'] ?? 30) == 30 ? 'selected' : '' ?>>30 minutes</option>
-                                    <option value="60" <?= ($type['time_slot_interval'] ?? 30) == 60 ? 'selected' : '' ?>>60 minutes</option>
+                                    <option value="15" <?= $type_time_slot_interval === 15 ? 'selected' : '' ?>>15 minutes</option>
+                                    <option value="30" <?= $type_time_slot_interval === 30 ? 'selected' : '' ?>>30 minutes</option>
+                                    <option value="60" <?= $type_time_slot_interval === 60 ? 'selected' : '' ?>>60 minutes</option>
                                 </select>
                                 <div class="form-text">Interval between available time slots</div>
                             </div>
@@ -732,9 +785,9 @@ include __DIR__ . '/../backend/includes/header.php';
                             <i class="fas fa-info-circle"></i> 
                             <strong>Preview:</strong> <span id="preview_text">
                             <?php
-                            $schedule_type = $type['schedule_type'] ?? 'recurring';
+                            $schedule_type = $type_schedule;
                             if ($schedule_type === 'specific_date' && !empty($existing_specific_dates)) {
-                                $date_labels = array_map(fn($e) => date('F j, Y', strtotime($e['date'])), $existing_specific_dates);
+                                $date_labels = array_map(static fn(array $e): string => date('F j, Y', safe_timestamp(strtotime(array_string_value($e, 'date')))), $existing_specific_dates);
                                 echo 'This appointment will be available on <strong>' . implode(', ', $date_labels) . '</strong>';
                             } else {
                                 echo 'Based on your settings, appointment slots will be available ';
@@ -744,31 +797,30 @@ include __DIR__ . '/../backend/includes/header.php';
                             <span id="preview_recurring">
                             <span id="preview_days">
                                 <?php
-                                if (!isset($schedule_type) || $schedule_type === 'recurring') {
+                                if ($schedule_type === 'recurring') {
                                     $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                                    $available_days = isset($type['available_days']) ? json_decode($type['available_days'], true) : [0,1,2,3,4,5,6];
-                                    if (!is_array($available_days)) $available_days = [0,1,2,3,4,5,6];
-                                    $selected_day_names = array_map(function($d) use ($day_names) { return $day_names[$d]; }, $available_days);
+                                    $available_days = $type_available_days;
+                                    $selected_day_names = array_map(static fn(int $d): string => $day_names[$d] ?? '', $available_days);
                                     echo implode(', ', $selected_day_names);
                                 }
                                 ?>
                             </span><span id="preview_global_time"> 
                             from <strong id="preview_start">
                                 <?php
-                                $start = $type['available_start_time'] ?? '09:00';
+                                $start = $type_available_start_time;
                                 list($h, $m) = explode(':', $start);
                                 $hi = (int)$h;
                                 echo ($hi % 12 ?: 12) . ':' . $m . ' ' . ($hi >= 12 ? 'PM' : 'AM');
                                 ?>
                             </strong> to <strong id="preview_end">
                                 <?php
-                                $end = $type['available_end_time'] ?? '17:00';
+                                $end = $type_available_end_time;
                                 list($h, $m) = explode(':', $end);
                                 $hi = (int)$h;
                                 echo ($hi % 12 ?: 12) . ':' . $m . ' ' . ($hi >= 12 ? 'PM' : 'AM');
                                 ?>
                             </strong></span> 
-                            in <strong id="preview_interval"><?= $type['time_slot_interval'] ?? 30 ?></strong>-minute intervals.
+                            in <strong id="preview_interval"><?= $type_time_slot_interval ?></strong>-minute intervals.
                             </span>
                         </div>
                     </div>
@@ -783,12 +835,16 @@ include __DIR__ . '/../backend/includes/header.php';
                         <?php else: ?>
                             <div class="border rounded p-2" style="max-height: 160px; overflow-y: auto;">
                                 <?php foreach ($all_forms as $form): ?>
+                                    <?php
+                                    $form_id = array_int_value($form, 'id');
+                                    $form_name = array_string_value($form, 'name');
+                                    ?>
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" name="form_ids[]"
-                                               id="form_<?= $form['id'] ?>" value="<?= $form['id'] ?>"
-                                               <?= in_array($form['id'], $selected_form_ids_current) ? 'checked' : '' ?>>
-                                        <label class="form-check-label" for="form_<?= $form['id'] ?>">
-                                            <?= htmlspecialchars($form['name']) ?>
+                                               id="form_<?= $form_id ?>" value="<?= $form_id ?>"
+                                               <?= in_array($form_id, $selected_form_ids_current, true) ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="form_<?= $form_id ?>">
+                                            <?= htmlspecialchars($form_name) ?>
                                         </label>
                                     </div>
                                 <?php endforeach; ?>
@@ -805,9 +861,13 @@ include __DIR__ . '/../backend/includes/header.php';
                             <select class="form-select" id="contract_template_id" name="contract_template_id">
                                 <option value="">— None (no contract required) —</option>
                                 <?php foreach ($all_contract_templates as $tmpl): ?>
-                                    <option value="<?= $tmpl['id'] ?>"
-                                        <?= (isset($type['contract_template_id']) && $type['contract_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($tmpl['name']) ?>
+                                    <?php
+                                    $tmpl_id = array_int_value($tmpl, 'id');
+                                    $tmpl_name = array_string_value($tmpl, 'name');
+                                    ?>
+                                    <option value="<?= $tmpl_id ?>"
+                                        <?= $type_contract_template_id === $tmpl_id ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($tmpl_name) ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -821,7 +881,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="auto_invoice" name="auto_invoice"
-                                   <?= !empty($type['auto_invoice']) ? 'checked' : '' ?>>
+                                   <?= $type_auto_invoice ? 'checked' : '' ?>>
                             <label class="form-check-label" for="auto_invoice">
                                 Auto-Invoice
                             </label>
@@ -831,7 +891,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <label for="invoice_due_days" class="form-label">Invoice Due (days after appointment)</label>
                         <input type="number" class="form-control" id="invoice_due_days" name="invoice_due_days" 
-                               value="<?= $type['invoice_due_days'] ?? 7 ?>" min="0">
+                               value="<?= $type_invoice_due_days ?>" min="0">
                         <div class="form-text">Invoice due date offset from appointment</div>
                     </div>
                 </div>
@@ -839,7 +899,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <label for="default_amount" class="form-label">Default Invoice Amount ($)</label>
                         <input type="number" class="form-control" id="default_amount" name="default_amount"
-                               value="<?= htmlspecialchars((string)(float)($type['default_amount'] ?? 0)) ?>" min="0" step="0.01">
+                               value="<?= htmlspecialchars((string) $type_default_amount) ?>" min="0" step="0.01">
                         <div class="form-text">Dollar amount used when auto-invoicing this appointment type</div>
                     </div>
                 </div>
@@ -849,7 +909,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="consumes_credits" name="consumes_credits"
-                                   <?= !empty($type['consumes_credits']) ? 'checked' : '' ?>>
+                                   <?= $type_consumes_credits ? 'checked' : '' ?>>
                             <label class="form-check-label" for="consumes_credits">
                                 Consumes Credits
                             </label>
@@ -859,7 +919,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <label for="credit_count" class="form-label">Credit Count</label>
                         <input type="number" class="form-control" id="credit_count" name="credit_count" 
-                               value="<?= $type['credit_count'] ?? 1 ?>" min="1">
+                               value="<?= $type_credit_count ?>" min="1">
                         <div class="form-text">Number of credits consumed per appointment</div>
                     </div>
                 </div>
@@ -869,7 +929,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="is_group_class" name="is_group_class"
-                                   <?= !empty($type['is_group_class']) ? 'checked' : '' ?>
+                                   <?= $type_is_group_class ? 'checked' : '' ?>
                                    onchange="toggleGroupClassFields()">
                             <label class="form-check-label" for="is_group_class">
                                 Is Group Class
@@ -880,17 +940,17 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <label for="max_participants" class="form-label">Maximum Participants</label>
                         <input type="number" class="form-control" id="max_participants" name="max_participants" 
-                               value="<?= $type['max_participants'] ?? 1 ?>" min="1">
+                               value="<?= $type_max_participants ?>" min="1">
                         <div class="form-text">Maximum number of clients for group classes</div>
                     </div>
                 </div>
 
-                <div id="group_class_fields" style="display: <?= !empty($type['is_group_class']) ? 'block' : 'none' ?>;">
+                <div id="group_class_fields" style="display: <?= $type_is_group_class ? 'block' : 'none' ?>;">
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">
                             <label for="group_class_location" class="form-label">Class Location <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="group_class_location" name="group_class_location"
-                                   value="<?= htmlspecialchars($type['group_class_location'] ?? '') ?>"
+                                   value="<?= htmlspecialchars($type_group_class_location) ?>"
                                    placeholder="e.g., Brooks Training Center - 123 Main St, City, State ZIP">
                             <div class="form-text">Address or venue where the group class will be held. This location will be shown to clients when booking.</div>
                         </div>
@@ -910,7 +970,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-12">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="is_mini_session" name="is_mini_session"
-                                   <?= !empty($type['is_mini_session']) ? 'checked' : '' ?>
+                                   <?= $type_is_mini_session ? 'checked' : '' ?>
                                    onchange="toggleMiniSessionFields()">
                             <label class="form-check-label" for="is_mini_session">
                                 <strong>This is a Mini Sessions Event</strong>
@@ -920,12 +980,12 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
                 
-                <div id="mini_session_fields" style="display: <?= !empty($type['is_mini_session']) ? 'block' : 'none' ?>;">
+                <div id="mini_session_fields" style="display: <?= $type_is_mini_session ? 'block' : 'none' ?>;">
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">
                             <label for="mini_session_location" class="form-label">Event Location <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="mini_session_location" name="mini_session_location" 
-                                   value="<?= htmlspecialchars($type['mini_session_location'] ?? '') ?>"
+                                   value="<?= htmlspecialchars($type_mini_session_location) ?>"
                                    placeholder="e.g., Greenwood Dog Park, 123 Main St, City, State ZIP">
                             <div class="form-text">Fixed venue where all mini sessions will be held. This location will be shown to clients when booking.</div>
                         </div>
@@ -934,7 +994,7 @@ include __DIR__ . '/../backend/includes/header.php';
                         <div class="col-md-12">
                             <label for="mini_session_topic" class="form-label">Event Topic/Focus</label>
                             <input type="text" class="form-control" id="mini_session_topic" name="mini_session_topic" 
-                                   value="<?= htmlspecialchars($type['mini_session_topic'] ?? '') ?>"
+                                   value="<?= htmlspecialchars($type_mini_session_topic) ?>"
                                    placeholder="e.g., Recall Training, Agility Introduction, Leash Manners">
                             <div class="form-text">Optional: Specific topic or focus for this Mini Sessions event</div>
                         </div>
@@ -956,7 +1016,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-12">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="is_field_rental" name="is_field_rental"
-                                   <?= !empty($type['is_field_rental']) ? 'checked' : '' ?>
+                                   <?= $type_is_field_rental ? 'checked' : '' ?>
                                    onchange="toggleFieldRentalFields()">
                             <label class="form-check-label" for="is_field_rental">
                                 <strong>This is a Field Rental</strong>
@@ -966,12 +1026,12 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
                 
-                <div id="field_rental_fields" style="display: <?= !empty($type['is_field_rental']) ? 'block' : 'none' ?>;">
+                <div id="field_rental_fields" style="display: <?= $type_is_field_rental ? 'block' : 'none' ?>;">
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">
                             <label for="field_rental_location" class="form-label">Field Location <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="field_rental_location" name="field_rental_location" 
-                                   value="<?= htmlspecialchars($type['field_rental_location'] ?? '') ?>"
+                                   value="<?= htmlspecialchars($type_field_rental_location) ?>"
                                    placeholder="e.g., Brooks Training Field - 456 Park Ave, City, State ZIP">
                             <div class="form-text">Address or description of the rental field.</div>
                         </div>
@@ -987,12 +1047,8 @@ include __DIR__ . '/../backend/includes/header.php';
                 </div>
 
                 <?php
-                $current_location_types = [];
-                if (!empty($type['location_types'])) {
-                    $decoded = json_decode($type['location_types'], true);
-                    if (is_array($decoded)) $current_location_types = $decoded;
-                }
-                $is_fixed_type = !empty($type['is_mini_session']) || !empty($type['is_field_rental']) || !empty($type['is_group_class']);
+                $current_location_types = array_values(array_filter(array_map('scalar_string', $type_location_types)));
+                $is_fixed_type = $type_is_mini_session || $type_is_field_rental || $type_is_group_class;
                 ?>
 
                 <div id="locationTypesSection" style="display: <?= $is_fixed_type ? 'none' : 'block' ?>;">
@@ -1012,7 +1068,7 @@ include __DIR__ . '/../backend/includes/header.php';
                             'webcall'         => ['label' => 'Webcall (Zoom, Google Meet…)',   'icon' => 'fa-video',          'desc' => 'Video call via a URL provided at booking time'],
                         ];
                         foreach ($loc_type_defs as $lt_key => $lt_def):
-                            $checked = in_array($lt_key, $current_location_types) ? 'checked' : '';
+                            $checked = in_array($lt_key, $current_location_types, true) ? 'checked' : '';
                         ?>
                         <div class="col-md-6">
                             <div class="form-check border rounded p-3">
@@ -1041,9 +1097,13 @@ include __DIR__ . '/../backend/includes/header.php';
                         <select class="form-select" id="confirmation_template_id" name="confirmation_template_id">
                             <option value="">— Use system default —</option>
                             <?php foreach ($confirmation_templates as $tmpl): ?>
-                                <option value="<?= $tmpl['id'] ?>"
-                                    <?= (isset($type['confirmation_template_id']) && $type['confirmation_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($tmpl['name']) ?>
+                                <?php
+                                $tmpl_id = array_int_value($tmpl, 'id');
+                                $tmpl_name = array_string_value($tmpl, 'name');
+                                ?>
+                                <option value="<?= $tmpl_id ?>"
+                                    <?= $type_confirmation_template_id === $tmpl_id ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl_name) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -1054,9 +1114,13 @@ include __DIR__ . '/../backend/includes/header.php';
                         <select class="form-select" id="reminder_template_id" name="reminder_template_id">
                             <option value="">— Use system default —</option>
                             <?php foreach ($reminder_templates as $tmpl): ?>
-                                <option value="<?= $tmpl['id'] ?>"
-                                    <?= (isset($type['reminder_template_id']) && $type['reminder_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($tmpl['name']) ?>
+                                <?php
+                                $tmpl_id = array_int_value($tmpl, 'id');
+                                $tmpl_name = array_string_value($tmpl, 'name');
+                                ?>
+                                <option value="<?= $tmpl_id ?>"
+                                    <?= $type_reminder_template_id === $tmpl_id ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl_name) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -1069,9 +1133,13 @@ include __DIR__ . '/../backend/includes/header.php';
                         <select class="form-select" id="cancellation_template_id" name="cancellation_template_id">
                             <option value="">— Use system default —</option>
                             <?php foreach ($cancellation_templates as $tmpl): ?>
-                                <option value="<?= $tmpl['id'] ?>"
-                                    <?= (isset($type['cancellation_template_id']) && $type['cancellation_template_id'] == $tmpl['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($tmpl['name']) ?>
+                                <?php
+                                $tmpl_id = array_int_value($tmpl, 'id');
+                                $tmpl_name = array_string_value($tmpl, 'name');
+                                ?>
+                                <option value="<?= $tmpl_id ?>"
+                                    <?= $type_cancellation_template_id === $tmpl_id ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl_name) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -1084,7 +1152,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
-                                   <?= !isset($type) || !empty($type['is_active']) ? 'checked' : '' ?>>
+                                   <?= $type_is_active ? 'checked' : '' ?>>
                             <label class="form-check-label" for="is_active">
                                 Active
                             </label>
@@ -1094,7 +1162,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="portal_available" name="portal_available"
-                                   <?= !empty($type['portal_available']) ? 'checked' : '' ?>>
+                                   <?= $type_portal_available ? 'checked' : '' ?>>
                             <label class="form-check-label" for="portal_available">
                                 Available in Client Portal
                             </label>
@@ -1143,21 +1211,28 @@ include __DIR__ . '/../backend/includes/header.php';
                                 </thead>
                                 <tbody>
                                     <?php foreach ($type_reminder_rules as $rule): ?>
+                                        <?php
+                                        $rule_name = array_string_value($rule, 'name');
+                                        $rule_hours_before = array_int_value($rule, 'hours_before');
+                                        $rule_template_name = array_string_value($rule, 'template_name');
+                                        $rule_is_active = array_int_value($rule, 'is_active') === 1;
+                                        $rule_id = array_int_value($rule, 'id');
+                                        ?>
                                         <tr>
-                                            <td><strong><?= htmlspecialchars($rule['name']) ?></strong></td>
+                                            <td><strong><?= htmlspecialchars($rule_name) ?></strong></td>
                                             <td>
-                                                <span class="badge bg-secondary"><?= (int)$rule['hours_before'] ?>h</span>
-                                                <small class="text-muted ms-1"><?= formatHoursBefore((int)$rule['hours_before']) ?></small>
+                                                <span class="badge bg-secondary"><?= $rule_hours_before ?>h</span>
+                                                <small class="text-muted ms-1"><?= formatHoursBefore($rule_hours_before) ?></small>
                                             </td>
                                             <td>
-                                                <?php if ($rule['template_name']): ?>
-                                                    <small><?= htmlspecialchars($rule['template_name']) ?></small>
+                                                <?php if ($rule_template_name !== ''): ?>
+                                                    <small><?= htmlspecialchars($rule_template_name) ?></small>
                                                 <?php else: ?>
                                                     <small class="text-muted fst-italic">system default</small>
                                                 <?php endif; ?>
                                             </td>
                                             <td>
-                                                <?php if ($rule['is_active']): ?>
+                                                <?php if ($rule_is_active): ?>
                                                     <span class="badge bg-success">Active</span>
                                                 <?php else: ?>
                                                     <span class="badge bg-secondary">Inactive</span>
@@ -1167,16 +1242,16 @@ include __DIR__ . '/../backend/includes/header.php';
                                                 <div class="btn-group btn-group-sm">
                                                     <form method="POST" class="d-inline">
                                                         <input type="hidden" name="sub_action" value="toggle_rule">
-                                                        <input type="hidden" name="rule_id" value="<?= (int)$rule['id'] ?>">
+                                                        <input type="hidden" name="rule_id" value="<?= $rule_id ?>">
                                                         <button type="submit" class="btn btn-outline-secondary btn-sm"
-                                                                title="<?= $rule['is_active'] ? 'Deactivate' : 'Activate' ?>">
-                                                            <i class="fas fa-<?= $rule['is_active'] ? 'pause' : 'play' ?>"></i>
+                                                                title="<?= $rule_is_active ? 'Deactivate' : 'Activate' ?>">
+                                                            <i class="fas fa-<?= $rule_is_active ? 'pause' : 'play' ?>"></i>
                                                         </button>
                                                     </form>
                                                     <form method="POST" class="d-inline"
                                                           onsubmit="return confirm('Remove this reminder rule?')">
                                                         <input type="hidden" name="sub_action" value="delete_rule">
-                                                        <input type="hidden" name="rule_id" value="<?= (int)$rule['id'] ?>">
+                                                        <input type="hidden" name="rule_id" value="<?= $rule_id ?>">
                                                         <button type="submit" class="btn btn-outline-danger btn-sm" title="Remove">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
@@ -1221,7 +1296,11 @@ include __DIR__ . '/../backend/includes/header.php';
                                             <select name="rule_template_id" class="form-select form-select-sm">
                                                 <option value="">— Use system default —</option>
                                                 <?php foreach ($reminder_templates as $tmpl): ?>
-                                                    <option value="<?= $tmpl['id'] ?>"><?= htmlspecialchars($tmpl['name']) ?></option>
+                                                    <?php
+                                                    $tmpl_id = array_int_value($tmpl, 'id');
+                                                    $tmpl_name = array_string_value($tmpl, 'name');
+                                                    ?>
+                                                    <option value="<?= $tmpl_id ?>"><?= htmlspecialchars($tmpl_name) ?></option>
                                                 <?php endforeach; ?>
                                             </select>
                                         </div>

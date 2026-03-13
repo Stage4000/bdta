@@ -6,12 +6,12 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Get filter parameters
-$client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : 0;
-$template_id = isset($_GET['template_id']) ? (int)$_GET['template_id'] : 0;
-$status = isset($_GET['status']) ? $_GET['status'] : '';
+$client_id = safe_int($_GET['client_id'] ?? 0);
+$template_id = safe_int($_GET['template_id'] ?? 0);
+$status = scalar_string($_GET['status'] ?? '');
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -44,7 +44,7 @@ if (!empty($params)) {
 } else {
     $count_stmt->execute();
 }
-$total = $count_stmt->fetchColumn();
+$total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get submissions
@@ -156,18 +156,19 @@ include '../backend/includes/header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($submissions as $sub): ?>
+                            <?php /** @var array<string, mixed> $sub */ ?>
                             <tr>
                                 <td>
-                                    <strong><?= htmlspecialchars($sub['form_name']) ?></strong>
-                                    <?php if ($sub['booking_id']): ?>
+                                    <strong><?= htmlspecialchars(array_string_value($sub, 'form_name')) ?></strong>
+                                    <?php if (array_int_value($sub, 'booking_id') !== 0): ?>
                                         <br><small class="text-muted">
-                                            <i class="fas fa-calendar"></i> <?= htmlspecialchars($sub['appointment_datetime']) ?>
+                                            <i class="fas fa-calendar"></i> <?= htmlspecialchars(array_string_value($sub, 'appointment_datetime')) ?>
                                         </small>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a href="clients_view.php?id=<?= $sub['client_id'] ?>">
-                                        <?= htmlspecialchars($sub['client_name']) ?>
+                                    <a href="clients_view.php?id=<?= array_int_value($sub, 'client_id') ?>">
+                                        <?= htmlspecialchars(array_string_value($sub, 'client_name')) ?>
                                     </a>
                                 </td>
                                 <td>
@@ -178,16 +179,17 @@ include '../backend/includes/header.php';
                                         'behavior_assessment' => 'bg-warning',
                                         'training_plan' => 'bg-success'
                                     ];
-                                    $badge = $type_badges[$sub['form_type']] ?? 'bg-secondary';
+                                    $form_type = array_string_value($sub, 'form_type');
+                                    $badge = $type_badges[$form_type] ?? 'bg-secondary';
                                     ?>
                                     <span class="badge <?= $badge ?>">
-                                        <?= ucwords(str_replace('_', ' ', $sub['form_type'])) ?>
+                                        <?= ucwords(str_replace('_', ' ', $form_type)) ?>
                                     </span>
                                 </td>
                                 <td>
-                                    <?= date('M j, Y g:i A', strtotime($sub['submitted_at'])) ?>
-                                    <?php if ($sub['submitted_by_name']): ?>
-                                        <br><small class="text-muted">by <?= htmlspecialchars($sub['submitted_by_name']) ?></small>
+                                    <?= date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($sub, 'submitted_at')))) ?>
+                                    <?php if (array_string_value($sub, 'submitted_by_name') !== ''): ?>
+                                        <br><small class="text-muted">by <?= htmlspecialchars(array_string_value($sub, 'submitted_by_name')) ?></small>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -197,22 +199,23 @@ include '../backend/includes/header.php';
                                         'submitted' => 'bg-warning text-dark',
                                         'reviewed' => 'bg-success'
                                     ];
-                                    $status_badge = $status_badges[$sub['status']] ?? 'bg-secondary';
+                                    $submission_status = array_string_value($sub, 'status');
+                                    $status_badge = $status_badges[$submission_status] ?? 'bg-secondary';
                                     ?>
                                     <span class="badge <?= $status_badge ?>">
-                                        <?= ucfirst($sub['status']) ?>
+                                        <?= ucfirst($submission_status) ?>
                                     </span>
                                 </td>
                                 <td>
-                                    <?php if ($sub['reviewed_by_name']): ?>
-                                        <?= htmlspecialchars($sub['reviewed_by_name']) ?>
-                                        <br><small class="text-muted"><?= date('M j, Y', strtotime($sub['reviewed_at'])) ?></small>
+                                    <?php if (array_string_value($sub, 'reviewed_by_name') !== ''): ?>
+                                        <?= htmlspecialchars(array_string_value($sub, 'reviewed_by_name')) ?>
+                                        <br><small class="text-muted"><?= date('M j, Y', safe_timestamp(strtotime(array_string_value($sub, 'reviewed_at')))) ?></small>
                                     <?php else: ?>
                                         <span class="text-muted">-</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a href="form_submissions_view.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-outline-primary" title="View">
+                                    <a href="form_submissions_view.php?id=<?= array_int_value($sub, 'id') ?>" class="btn btn-sm btn-outline-primary" title="View">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                 </td>

@@ -11,7 +11,10 @@ requireLogin();
 header('Content-Type: application/json');
 
 // Helper function to load database settings
-function loadDatabaseSettings() {
+/**
+ * @return array<string, string>
+ */
+function loadDatabaseSettings(): array {
     // Load from .env file instead of database to avoid circular dependency
     require_once __DIR__ . '/../backend/includes/env_loader.php';
     EnvLoader::load();
@@ -126,7 +129,7 @@ if ($current_db_type !== 'mysql') {
     if ($mysql_host && $mysql_db) {
         try {
             $dsn = "mysql:host={$mysql_host};port={$mysql_port};dbname={$mysql_db};charset=utf8mb4";
-            $test_conn = new PDO($dsn, $mysql_user, $mysql_pass);
+            $test_conn = new SafePDO($dsn, $mysql_user, $mysql_pass);
             $test_conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
             $stmt = $test_conn->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()");
@@ -175,7 +178,7 @@ if ($current_db_type !== 'sqlite') {
     
     if (file_exists($sqlite_file)) {
         try {
-            $test_conn = new PDO('sqlite:' . $sqlite_file);
+            $test_conn = new SafePDO('sqlite:' . $sqlite_file);
             $test_conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
             $stmt = $test_conn->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table'");

@@ -11,7 +11,10 @@ requireLogin();
 header('Content-Type: application/json');
 
 // Helper function to load database settings
-function loadDatabaseSettings() {
+/**
+ * @return array<string, string>
+ */
+function loadDatabaseSettings(): array {
     // Load from .env file instead of database to avoid circular dependency
     require_once __DIR__ . '/../backend/includes/env_loader.php';
     EnvLoader::load();
@@ -48,7 +51,7 @@ if (empty($mysql_host) || empty($mysql_db) || empty($mysql_user)) {
 try {
     // Step 1: Test MySQL connection
     $dsn = "mysql:host={$mysql_host};port={$mysql_port};charset=utf8mb4";
-    $mysql_conn = new PDO($dsn, $mysql_user, $mysql_pass);
+    $mysql_conn = new SafePDO($dsn, $mysql_user, $mysql_pass);
     $mysql_conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Step 2: Create database if it doesn't exist
@@ -66,7 +69,7 @@ try {
         exit;
     }
     
-    $sqlite_conn = new PDO('sqlite:' . $sqlite_file);
+    $sqlite_conn = new SafePDO('sqlite:' . $sqlite_file);
     $sqlite_conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Step 4: Get all tables from SQLite
@@ -95,7 +98,7 @@ try {
             
             if ($create_sql) {
                 // Convert SQLite syntax to MySQL
-                $mysql_sql = convertSQLiteToMySQL($create_sql);
+                $mysql_sql = convertSQLiteToMySQL(scalar_string($create_sql));
                 $mysql_conn->exec($mysql_sql);
             }
         } catch (Exception $e) {
@@ -154,26 +157,26 @@ try {
 /**
  * Convert SQLite CREATE TABLE syntax to MySQL
  */
-function convertSQLiteToMySQL($sql) {
+function convertSQLiteToMySQL(string $sql): string {
     // Replace INTEGER PRIMARY KEY AUTOINCREMENT with INT AUTO_INCREMENT PRIMARY KEY
     $sql = preg_replace(
         '/INTEGER PRIMARY KEY AUTOINCREMENT/i',
         'INT AUTO_INCREMENT PRIMARY KEY',
         $sql
-    );
+    ) ?? $sql;
     
     // Replace INTEGER with INT
-    $sql = preg_replace('/\bINTEGER\b/i', 'INT', $sql);
+    $sql = preg_replace('/\bINTEGER\b/i', 'INT', $sql) ?? $sql;
     
     // Replace TEXT fields that should be VARCHAR for indexes
     $sql = preg_replace(
         '/(\w+)\s+TEXT\s+(UNIQUE|NOT NULL)/i',
         '$1 VARCHAR(255) $2',
         $sql
-    );
+    ) ?? $sql;
     
     // Add backticks around table name for MySQL
-    $sql = preg_replace('/CREATE TABLE (\w+)/i', 'CREATE TABLE IF NOT EXISTS `$1`', $sql);
+    $sql = preg_replace('/CREATE TABLE (\w+)/i', 'CREATE TABLE IF NOT EXISTS `$1`', $sql) ?? $sql;
     
     // Add ENGINE=InnoDB at the end
     if (!preg_match('/ENGINE\s*=/i', $sql)) {

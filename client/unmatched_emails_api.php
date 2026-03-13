@@ -14,7 +14,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
     // Get all unmatched emails or a specific one
-    $email_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    $email_id = safe_int($_GET['id'] ?? 0);
     
     if ($email_id > 0) {
         // Get specific email
@@ -39,8 +39,8 @@ if ($method === 'GET') {
         }
     } else {
         // Get all unmatched emails with optional filters
-        $show_archived = isset($_GET['archived']) && $_GET['archived'] === '1';
-        $show_assigned = isset($_GET['assigned']) && $_GET['assigned'] === '1';
+        $show_archived = scalar_string($_GET['archived'] ?? '') === '1';
+        $show_assigned = scalar_string($_GET['assigned'] ?? '') === '1';
         
         $where_conditions = [];
         $params = [];
@@ -58,7 +58,7 @@ if ($method === 'GET') {
             $where_conditions[] = "ue.is_archived = 0";
         }
         
-        $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+        $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
         
         $stmt = $conn->prepare("
             SELECT 
@@ -88,16 +88,16 @@ if ($method === 'GET') {
     
 } elseif ($method === 'POST') {
     // Assign email to a client or archive it
-    $data = json_decode(file_get_contents('php://input'), true);
-    $action = $data['action'] ?? 'assign';
+    $data = decode_json_assoc(file_get_contents('php://input'));
+    $action = array_string_value($data, 'action', 'assign');
 
     // Compose action does not require an existing email ID
     if ($action === 'compose') {
-        $to = isset($data['to']) ? trim($data['to']) : '';
-        $cc_raw = isset($data['cc']) ? trim($data['cc']) : '';
-        $bcc_raw = isset($data['bcc']) ? trim($data['bcc']) : '';
-        $subject = isset($data['subject']) ? trim($data['subject']) : '';
-        $body_html = isset($data['body_html']) ? trim($data['body_html']) : '';
+        $to = trim(array_string_value($data, 'to'));
+        $cc_raw = trim(array_string_value($data, 'cc'));
+        $bcc_raw = trim(array_string_value($data, 'bcc'));
+        $subject = trim(array_string_value($data, 'subject'));
+        $body_html = trim(array_string_value($data, 'body_html'));
 
         if (empty($to)) {
             http_response_code(400);
@@ -175,19 +175,18 @@ if ($method === 'GET') {
         exit;
     }
     
-    if (!isset($data['id']) || $data['id'] <= 0) {
+    $email_id = array_int_value($data, 'id');
+    if ($email_id <= 0) {
         http_response_code(400);
         echo json_encode(['error' => 'Email ID is required']);
         exit;
     }
-    
-    $email_id = $data['id'];
 
     try {
-        if ($action === 'assign' && isset($data['client_id']) && $data['client_id'] > 0) {
+        if ($action === 'assign' && array_int_value($data, 'client_id') > 0) {
             // Assign to client and optionally create client_email record
-            $client_id = $data['client_id'];
-            $create_client_email = isset($data['create_client_email']) && $data['create_client_email'];
+            $client_id = array_int_value($data, 'client_id');
+            $create_client_email = !empty($data['create_client_email']);
             
             // Verify client exists
             $stmt = $conn->prepare("SELECT id, email FROM clients WHERE id = ?");
@@ -227,7 +226,7 @@ if ($method === 'GET') {
             
             // Optionally create client_email record
             if ($create_client_email) {
-                $email_direction = $unmatched_email['direction'] ?? 'incoming';
+                $email_direction = array_string_value($unmatched_email, 'direction', 'incoming');
                 $email_status = ($email_direction === 'outgoing') ? 'sent' : 'received';
                 $stmt = $conn->prepare("
                     INSERT INTO client_emails (
@@ -239,13 +238,13 @@ if ($method === 'GET') {
                     $client_id,
                     $email_direction,
                     $email_status,
-                    $unmatched_email['from_email'],
-                    $unmatched_email['to_email'],
-                    $unmatched_email['subject'],
-                    $unmatched_email['body_html'],
-                    $unmatched_email['body_text'],
-                    $unmatched_email['received_at'],
-                    $unmatched_email['received_at'],
+                    array_string_value($unmatched_email, 'from_email'),
+                    array_string_value($unmatched_email, 'to_email'),
+                    array_string_value($unmatched_email, 'subject'),
+                    array_string_value($unmatched_email, 'body_html'),
+                    array_string_value($unmatched_email, 'body_text'),
+                    array_string_value($unmatched_email, 'received_at'),
+                    array_string_value($unmatched_email, 'received_at'),
                     date('Y-m-d H:i:s')
                 ]);
             }
@@ -289,9 +288,9 @@ if ($method === 'GET') {
             
         } elseif ($action === 'reply') {
             // Reply to the sender of an unmatched email
-            $subject = isset($data['subject']) ? trim($data['subject']) : '';
-            $body_html = isset($data['body_html']) ? trim($data['body_html']) : '';
-            $body_text = isset($data['body_text']) ? trim($data['body_text']) : '';
+            $subject = trim(array_string_value($data, 'subject'));
+            $body_html = trim(array_string_value($data, 'body_html'));
+            $body_text = trim(array_string_value($data, 'body_text'));
 
             if (empty($subject)) {
                 http_response_code(400);
@@ -315,7 +314,7 @@ if ($method === 'GET') {
                 exit;
             }
 
-            $to_email = $unmatched_email['from_email'];
+            $to_email = array_string_value($unmatched_email, 'from_email');
             if (empty($to_email)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Cannot reply: sender address is missing']);
@@ -372,7 +371,7 @@ if ($method === 'GET') {
     
 } elseif ($method === 'DELETE') {
     // Delete an unmatched email
-    $email_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    $email_id = safe_int($_GET['id'] ?? 0);
     
     if ($email_id <= 0) {
         http_response_code(400);

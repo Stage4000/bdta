@@ -6,16 +6,22 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 
+/**
+ * @phpstan-type QuoteRow array<string, mixed>
+ * @phpstan-type MailResult array{success: bool, message: string}
+ * @phpstan-type TaskResult array{success: bool, items_processed: int, message: string, errors: list<string>}
+ */
 class QuoteReminderTask {
-    private $conn;
-    private $task;
+    private PDO $conn;
     
-    public function __construct($conn, $task) {
+    public function __construct(PDO $conn) {
         $this->conn = $conn;
-        $this->task = $task;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Get quotes that have been sent but not approved for 3+ days
         $reminder_threshold = date('Y-m-d H:i:s', strtotime('-3 days'));
         
@@ -33,15 +39,17 @@ class QuoteReminderTask {
         ");
         
         $stmt->execute([$reminder_threshold, $reminder_threshold]);
-        $quotes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $quotes = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
         $errors = [];
         
         foreach ($quotes as $quote) {
             try {
-                if (empty($quote['client_email'])) {
-                    $errors[] = "No email found for quote #{$quote['id']}";
+                $quote_id = scalar_string($quote['id'] ?? '');
+                $client_email = array_string_value($quote, 'client_email');
+                if ($client_email === '') {
+                    $errors[] = "No email found for quote #{$quote_id}";
                     continue;
                 }
                 
@@ -51,14 +59,14 @@ class QuoteReminderTask {
                 if ($result['success']) {
                     // Mark reminder as sent
                     $update = $this->conn->prepare("UPDATE quotes SET last_reminder_sent = ? WHERE id = ?");
-                    $update->execute([date('Y-m-d H:i:s'), $quote['id']]);
+                    $update->execute([date('Y-m-d H:i:s'), $quote_id]);
                     $sent_count++;
                 } else {
-                    $errors[] = "Failed to send to {$quote['client_email']}: {$result['message']}";
+                    $errors[] = "Failed to send to {$client_email}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
-                $errors[] = "Error processing quote #{$quote['id']}: " . $e->getMessage();
+                $errors[] = "Error processing quote #{$quote_id}: " . $e->getMessage();
             }
         }
         
@@ -79,21 +87,28 @@ class QuoteReminderTask {
     /**
      * Send quote reminder email
      */
-    private function sendQuoteReminder($quote) {
+    /**
+     * @param QuoteRow $quote
+     * @return MailResult
+     */
+    private function sendQuoteReminder(array $quote): array {
         $email_service = new EmailService(null, $this->conn);
         
-        $client_name = htmlspecialchars($quote['client_name']);
-        $quote_title = htmlspecialchars($quote['title']);
-        $quote_amount = number_format($quote['amount'], 2);
-        $quote_link = getDynamicBaseUrl() . '/backend/public/quote.php?id=' . $quote['id'];
+        $client_name = htmlspecialchars(scalar_string($quote['client_name'] ?? ''));
+        $quote_title = htmlspecialchars(scalar_string($quote['title'] ?? ''));
+        $quote_amount = number_format(safe_float($quote['amount'] ?? 0), 2);
+        $quote_link = getDynamicBaseUrl() . '/backend/public/quote.php?id=' . scalar_string($quote['id'] ?? '');
+        $expiration_date = scalar_string($quote['expiration_date'] ?? '');
+        $client_email = scalar_string($quote['client_email'] ?? '');
+        $client_id = $quote['client_id'] ?? null;
         
         // Check if quote expires soon
         $expires_soon = false;
         $days_until_expiry = null;
-        if ($quote['expiration_date']) {
-            $expiry = strtotime($quote['expiration_date']);
+        if ($expiration_date !== '') {
+            $expiry = strtotime($expiration_date);
             $now = time();
-            $days_until_expiry = ceil(($expiry - $now) / 86400);
+            $days_until_expiry = (int) ceil((safe_timestamp($expiry) - $now) / 86400);
             $expires_soon = $days_until_expiry <= 7;
         }
         
@@ -174,7 +189,7 @@ HTML;
         $text_body .= "If you have any questions, please don't hesitate to reach out.\n\n";
         $text_body .= "Best regards,\nBrook Lefkowitz\nBrook's Dog Training Academy";
         
-        return $email_service->sendGenericEmail($quote['client_email'], $subject, $html_body, $text_body, EmailService::MAIL_TYPE_QUOTE_REMINDER, $quote['client_id'] ?? null);
+        return $email_service->sendGenericEmail($client_email, $subject, $html_body, $text_body, EmailService::MAIL_TYPE_QUOTE_REMINDER, is_int($client_id) || is_string($client_id) ? $client_id : null);
     }
 }
 ?>

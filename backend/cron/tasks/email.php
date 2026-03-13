@@ -14,30 +14,41 @@
 
 require_once __DIR__ . '/scheduled_email_sender.php';
 
+/**
+ * @phpstan-type TaskRow array<string, mixed>
+ * @phpstan-type TaskResult array{success: bool, message: string, items_processed: int, errors?: list<string>}
+ */
 class EmailTask {
-    private $conn;
-    private $task;
+    private PDO $conn;
+    /** @var TaskRow */
+    private array $task;
     
-    public function __construct($conn, $task) {
+    /**
+     * @param TaskRow $task
+     */
+    public function __construct(PDO $conn, array $task) {
         $this->conn = $conn;
         $this->task = $task;
     }
     
-    public function execute() {
+    /**
+     * @return TaskResult
+     */
+    public function execute(): array {
         // Determine which handler to use based on task name
-        $task_name_lower = strtolower($this->task['task_name'] ?? '');
+        $task_name_lower = strtolower(scalar_string($this->task['task_name'] ?? ''));
         
         // Check if this is an IMAP/receive emails task
         // Use word boundary matching to avoid false positives (e.g., "receipts" matching "receive")
         if (preg_match('/\b(receive|imap|fetch)\b/', $task_name_lower)) {
             // Delegate to EmailReceiverTask
             require_once __DIR__ . '/email_receiver.php';
-            $handler = new EmailReceiverTask($this->conn, $this->task);
+            $handler = new EmailReceiverTask();
             return $handler->execute();
         }
         
         // Default: delegate to ScheduledEmailSenderTask
-        $sender = new ScheduledEmailSenderTask($this->conn, $this->task);
+        $sender = new ScheduledEmailSenderTask($this->conn);
         return $sender->execute();
     }
 }

@@ -5,20 +5,21 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$client_filter = isset($_GET['client_id']) ? intval($_GET['client_id']) : 0;
+$client_filter = safe_int($_GET['client_id'] ?? 0);
 
 // Handle time entry deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+    if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
         setFlashMessage('Invalid request.', 'danger');
-        redirect($_SERVER['PHP_SELF'] . ($client_filter > 0 ? "?client_id=$client_filter" : ''));
+        redirect(scalar_string($_SERVER['PHP_SELF'] ?? 'time_entries_list.php') . ($client_filter > 0 ? "?client_id=$client_filter" : ''));
     }
-    $id = intval($_POST['delete_id']);
-    $post_client_filter = isset($_POST['client_id']) ? intval($_POST['client_id']) : 0;
+    $id = safe_int($_POST['delete_id']);
+    $post_client_filter = safe_int($_POST['client_id'] ?? 0);
     $stmt = $conn->prepare("DELETE FROM time_entries WHERE id = ?");
     $stmt->execute([$id]);
     setFlashMessage('Time entry deleted successfully!', 'success');
-    redirect($_SERVER['PHP_SELF'] . ($post_client_filter > 0 ? "?client_id=$post_client_filter" : ''));
+    redirect(scalar_string($_SERVER['PHP_SELF'] ?? 'time_entries_list.php') . ($post_client_filter > 0 ? "?client_id=$post_client_filter" : ''));
 }
 
 // Fetch clients for filter
@@ -51,13 +52,13 @@ $billable_hours = 0;
 $billable_amount = 0;
 
 foreach ($time_entries as $entry) {
-    $hours = $entry['duration_minutes'] / 60;
+    $hours = safe_float($entry['duration_minutes'] ?? 0) / 60;
     $total_hours += $hours;
-    $total_amount += $entry['total_amount'];
+    $total_amount += safe_float($entry['total_amount'] ?? 0);
     
-    if ($entry['billable']) {
+    if (safe_int($entry['billable'] ?? 0) === 1) {
         $billable_hours += $hours;
-        $billable_amount += $entry['total_amount'];
+        $billable_amount += safe_float($entry['total_amount'] ?? 0);
     }
 }
 
@@ -181,10 +182,10 @@ include '../backend/includes/header.php';
                                     <td><strong><?= escape($entry['client_name']) ?></strong></td>
                                     <td><?= escape($entry['service_type']) ?></td>
                                     <td><?= escape($entry['description'] ?? '-') ?></td>
-                                    <td><?= date('g:i A', strtotime($entry['start_time'])) ?> - <?= date('g:i A', strtotime($entry['end_time'])) ?></td>
-                                    <td><?= number_format($entry['duration_minutes'] / 60, 2) ?> hrs</td>
-                                    <td>$<?= number_format($entry['hourly_rate'], 2) ?>/hr</td>
-                                    <td><strong>$<?= number_format($entry['total_amount'], 2) ?></strong></td>
+                                     <td><?= date('g:i A', safe_timestamp(strtotime(array_string_value($entry, 'start_time')))) ?> - <?= date('g:i A', safe_timestamp(strtotime(array_string_value($entry, 'end_time')))) ?></td>
+                                     <td><?= number_format(safe_float($entry['duration_minutes'] ?? 0) / 60, 2) ?> hrs</td>
+                                     <td>$<?= number_format(safe_float($entry['hourly_rate'] ?? 0), 2) ?>/hr</td>
+                                     <td><strong>$<?= number_format(safe_float($entry['total_amount'] ?? 0), 2) ?></strong></td>
                                     <td>
                                         <?php if ($entry['invoiced']): ?>
                                             <span class="badge bg-secondary">Invoiced</span>

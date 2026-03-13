@@ -6,9 +6,9 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Get parameters
-$type = $_GET['type'] ?? 'income_summary';
-$start_date = $_GET['start'] ?? date('Y-m-01');
-$end_date = $_GET['end'] ?? date('Y-m-t');
+$type = scalar_string($_GET['type'] ?? 'income_summary');
+$start_date = scalar_string($_GET['start'] ?? date('Y-m-01'));
+$end_date = scalar_string($_GET['end'] ?? date('Y-m-t'));
 
 // Validate dates
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date)) {
@@ -18,8 +18,8 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) || !preg_match('/^\d{4}-\d
 // Validate that dates are valid calendar dates
 $start_parts = explode('-', $start_date);
 $end_parts = explode('-', $end_date);
-if (!checkdate($start_parts[1], $start_parts[2], $start_parts[0]) || 
-    !checkdate($end_parts[1], $end_parts[2], $end_parts[0])) {
+if (!checkdate((int)$start_parts[1], (int)$start_parts[2], (int)$start_parts[0]) || 
+    !checkdate((int)$end_parts[1], (int)$end_parts[2], (int)$end_parts[0])) {
     die('Invalid date values');
 }
 
@@ -29,6 +29,9 @@ header('Content-Disposition: attachment; filename="' . $type . '_' . $start_date
 
 // Open output stream
 $output = fopen('php://output', 'w');
+if ($output === false) {
+    throw new RuntimeException('Unable to open CSV output stream.');
+}
 
 switch ($type) {
     case 'income_summary':
@@ -58,10 +61,10 @@ switch ($type) {
             fputcsv($output, [
                 $row['date'],
                 $row['count'],
-                number_format($row['total'], 2)
+                number_format(safe_float($row['total']), 2)
             ]);
-            $grand_total += $row['total'];
-            $total_invoices += $row['count'];
+            $grand_total += safe_float($row['total']);
+            $total_invoices += safe_int($row['count']);
         }
         
         fputcsv($output, []);
@@ -104,13 +107,13 @@ switch ($type) {
                 $row['issue_date'],
                 $row['payment_date'],
                 $row['payment_method'] ?? 'N/A',
-                number_format($row['subtotal'], 2),
-                number_format($row['tax_amount'], 2),
-                number_format($row['total_amount'], 2)
+                number_format(safe_float($row['subtotal']), 2),
+                number_format(safe_float($row['tax_amount']), 2),
+                number_format(safe_float($row['total_amount']), 2)
             ]);
-            $total_subtotal += $row['subtotal'];
-            $total_tax += $row['tax_amount'];
-            $grand_total += $row['total_amount'];
+            $total_subtotal += safe_float($row['subtotal']);
+            $total_tax += safe_float($row['tax_amount']);
+            $grand_total += safe_float($row['total_amount']);
         }
         
         fputcsv($output, []);
@@ -143,10 +146,10 @@ switch ($type) {
             fputcsv($output, [
                 $row['date'],
                 $row['count'],
-                number_format($row['total'], 2)
+                number_format(safe_float($row['total']), 2)
             ]);
-            $grand_total += $row['total'];
-            $total_expenses += $row['count'];
+            $grand_total += safe_float($row['total']);
+            $total_expenses += safe_int($row['count']);
         }
         
         fputcsv($output, []);
@@ -184,11 +187,11 @@ switch ($type) {
                 $row['category'],
                 $row['description'],
                 $row['client_name'] ?? 'General',
-                number_format($row['amount'], 2),
+                number_format(safe_float($row['amount']), 2),
                 $row['billable'] ? 'Yes' : 'No',
                 $row['invoiced'] ? 'Yes' : 'No'
             ]);
-            $grand_total += $row['amount'];
+            $grand_total += safe_float($row['amount']);
         }
         
         fputcsv($output, []);
@@ -210,7 +213,7 @@ switch ($type) {
             AND payment_date BETWEEN ? AND ?
         ");
         $income_stmt->execute([$start_date, $end_date]);
-        $total_income = $income_stmt->fetchColumn();
+        $total_income = safe_float($income_stmt->fetchColumn());
         
         // Get income by category (using invoice line items if available, or just totals)
         fputcsv($output, ['INCOME']);
@@ -237,9 +240,9 @@ switch ($type) {
         while ($row = $expense_stmt->fetch(PDO::FETCH_ASSOC)) {
             fputcsv($output, [
                 $row['category'],
-                number_format($row['total'], 2)
+                number_format(safe_float($row['total']), 2)
             ]);
-            $total_expenses += $row['total'];
+            $total_expenses += safe_float($row['total']);
         }
         
         fputcsv($output, ['Total Expenses', number_format($total_expenses, 2)]);

@@ -13,13 +13,14 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$template_id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+$template_id = isset($_GET['id']) ? safe_int($_GET['id']) : null;
 $is_edit = $template_id !== null;
 
 // Initialize variables
 $name = '';
 $description = '';
 $form_type = 'client_form';
+/** @var list<array<string, mixed>> $fields */
 $fields = [];
 $required_frequency = '';
 $appointment_type_id = null;
@@ -33,36 +34,43 @@ if ($is_edit) {
     $template = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if ($template) {
-        $name = $template['name'];
-        $description = $template['description'];
-        $form_type = $template['form_type'];
-        $fields = json_decode($template['fields'], true) ?: [];
-        $required_frequency = $template['required_frequency'];
-        $appointment_type_id = $template['appointment_type_id'];
-        $is_internal = $template['is_internal'];
-        $is_active = $template['is_active'];
+        $name = array_string_value($template, 'name');
+        $description = array_string_value($template, 'description');
+        $form_type = array_string_value($template, 'form_type', 'client_form');
+        $fields = decode_json_assoc_list(array_string_value($template, 'fields'));
+        $required_frequency = array_string_value($template, 'required_frequency');
+        $appointment_type_id = array_int_value($template, 'appointment_type_id');
+        $is_internal = array_int_value($template, 'is_internal');
+        $is_active = array_int_value($template, 'is_active');
     }
 }
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
         setFlashMessage('Invalid request.', 'danger');
         header('Location: form_templates_edit.php' . ($is_edit ? '?id=' . $template_id : ''));
         exit;
     }
-    $name = trim($_POST['name']);
-    $description = trim($_POST['description']);
-    $form_type = $_POST['form_type'];
+    $name = trim(scalar_string($_POST['name'] ?? ''));
+    $description = trim(scalar_string($_POST['description'] ?? ''));
+    $form_type = scalar_string($_POST['form_type'] ?? 'client_form');
     $is_internal = isset($_POST['is_internal']) ? 1 : 0;
     $is_active = isset($_POST['is_active']) ? 1 : 0;
-    $required_frequency = $_POST['required_frequency'] ?? null;
-    $appointment_type_id = !empty($_POST['appointment_type_id']) ? (int)$_POST['appointment_type_id'] : null;
+    $required_frequency = scalar_string($_POST['required_frequency'] ?? '');
+    $appointment_type_id = !empty($_POST['appointment_type_id']) ? safe_int($_POST['appointment_type_id']) : null;
     
     // Build fields array from POST data
     $fields = [];
+    $field_types = is_array($_POST['field_type'] ?? null) ? $_POST['field_type'] : [];
+    $field_placeholders = is_array($_POST['field_placeholder'] ?? null) ? $_POST['field_placeholder'] : [];
+    $field_descriptions = is_array($_POST['field_description'] ?? null) ? $_POST['field_description'] : [];
+    $field_required = is_array($_POST['field_required'] ?? null) ? $_POST['field_required'] : [];
+    $field_options = is_array($_POST['field_options'] ?? null) ? $_POST['field_options'] : [];
+    $field_mappings = is_array($_POST['field_mapping'] ?? null) ? $_POST['field_mapping'] : [];
     if (isset($_POST['field_label']) && is_array($_POST['field_label'])) {
-        foreach ($_POST['field_label'] as $index => $label) {
+        foreach ($_POST['field_label'] as $index => $label_value) {
+            $label = scalar_string($label_value);
             if (!empty(trim($label))) {
                 $allowed_mappings = [
                     '', 'client.name', 'client.email', 'client.phone', 'client.address',
@@ -77,19 +85,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     'pet_3.vaccine_notes', 'pet_3.behavior_notes', 'pet_3.medical_notes', 'pet_3.training_notes',
                     'booking.notes',
                 ];
-                $raw_mapping = $_POST['field_mapping'][$index] ?? '';
+                $raw_mapping = scalar_string($field_mappings[$index] ?? '');
                 $field = [
                     'label' => trim($label),
-                    'type' => $_POST['field_type'][$index] ?? 'text',
-                    'placeholder' => trim($_POST['field_placeholder'][$index] ?? ''),
-                    'description' => trim($_POST['field_description'][$index] ?? ''),
-                    'required' => isset($_POST['field_required'][$index]) ? 1 : 0,
-                    'profile_mapping' => in_array($raw_mapping, $allowed_mappings) ? $raw_mapping : '',
+                    'type' => scalar_string($field_types[$index] ?? 'text'),
+                    'placeholder' => trim(scalar_string($field_placeholders[$index] ?? '')),
+                    'description' => trim(scalar_string($field_descriptions[$index] ?? '')),
+                    'required' => array_key_exists($index, $field_required) ? 1 : 0,
+                    'profile_mapping' => in_array($raw_mapping, $allowed_mappings, true) ? $raw_mapping : '',
                 ];
                 
                 // Add options for select, radio, checkbox
-                if (in_array($field['type'], ['select', 'radio', 'checkbox'])) {
-                    $options_str = trim($_POST['field_options'][$index] ?? '');
+                if (in_array(array_string_value($field, 'type'), ['select', 'radio', 'checkbox'], true)) {
+                    $options_str = trim(scalar_string($field_options[$index] ?? ''));
                     $field['options'] = array_filter(array_map('trim', explode("\n", $options_str)));
                 }
                 
@@ -145,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 // Get appointment types for dropdown
 $stmt = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name");
-$appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$appointment_types = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 
 require_once '../backend/includes/header.php';
 ?>
@@ -162,13 +170,13 @@ require_once '../backend/includes/header.php';
 
     <?php if (isset($error)): ?>
     <div class="alert alert-danger alert-dismissible fade show">
-        <?php echo htmlspecialchars($error); ?>
+        <?php echo htmlspecialchars(scalar_string($error)); ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
 
     <form method="POST" id="templateForm">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
         <div class="row">
             <div class="col-md-8">
                 <div class="card mb-4">
@@ -215,10 +223,19 @@ require_once '../backend/includes/header.php';
                             </div>
                             <?php else: ?>
                             <?php foreach ($fields as $index => $field): ?>
+                            <?php
+                                $field_label = array_string_value($field, 'label');
+                                $field_type = array_string_value($field, 'type');
+                                $field_placeholder = array_string_value($field, 'placeholder');
+                                $field_required = array_int_value($field, 'required');
+                                $field_description = array_string_value($field, 'description');
+                                $cur_mapping = array_string_value($field, 'profile_mapping');
+                                $field_options = isset($field['options']) && is_array($field['options']) ? array_map('scalar_string', $field['options']) : [];
+                            ?>
                             <div class="field-item border rounded p-3 mb-3">
                                 <div class="field-item-header d-flex align-items-center pb-2 mb-3 border-bottom">
                                     <i class="fas fa-grip-vertical drag-handle text-muted me-2 fs-5" style="cursor:grab" title="Drag to reorder"></i>
-                                    <span class="small text-muted">Field <?php echo $index + 1; ?></span>
+                                     <span class="small text-muted">Field <?php echo $index + 1; ?></span>
                                     <div class="ms-auto d-flex gap-1">
                                         <button type="button" class="btn btn-sm btn-outline-secondary move-up-btn" onclick="moveField(this, -1)" title="Move Up" aria-label="Move field up"><i class="fas fa-arrow-up"></i></button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary move-down-btn" onclick="moveField(this, 1)" title="Move Down" aria-label="Move field down"><i class="fas fa-arrow-down"></i></button>
@@ -228,31 +245,31 @@ require_once '../backend/includes/header.php';
                                     <div class="col-md-4">
                                         <label class="form-label">Label *</label>
                                         <input type="text" name="field_label[]" class="form-control" 
-                                               value="<?php echo htmlspecialchars($field['label']); ?>" required>
+                                               value="<?php echo htmlspecialchars($field_label); ?>" required>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Type *</label>
                                         <select name="field_type[]" class="form-select field-type-select" onchange="toggleOptions(this)">
-                                            <option value="text" <?php echo $field['type'] == 'text' ? 'selected' : ''; ?>>Text</option>
-                                            <option value="textarea" <?php echo $field['type'] == 'textarea' ? 'selected' : ''; ?>>Textarea</option>
-                                            <option value="select" <?php echo $field['type'] == 'select' ? 'selected' : ''; ?>>Select</option>
-                                            <option value="checkbox" <?php echo $field['type'] == 'checkbox' ? 'selected' : ''; ?>>Checkbox</option>
-                                            <option value="radio" <?php echo $field['type'] == 'radio' ? 'selected' : ''; ?>>Radio</option>
-                                            <option value="file" <?php echo $field['type'] == 'file' ? 'selected' : ''; ?>>File</option>
-                                            <option value="date" <?php echo $field['type'] == 'date' ? 'selected' : ''; ?>>Date</option>
-                                            <option value="email" <?php echo $field['type'] == 'email' ? 'selected' : ''; ?>>Email</option>
-                                            <option value="phone" <?php echo $field['type'] == 'phone' ? 'selected' : ''; ?>>Phone</option>
+                                            <option value="text" <?php echo $field_type == 'text' ? 'selected' : ''; ?>>Text</option>
+                                            <option value="textarea" <?php echo $field_type == 'textarea' ? 'selected' : ''; ?>>Textarea</option>
+                                            <option value="select" <?php echo $field_type == 'select' ? 'selected' : ''; ?>>Select</option>
+                                            <option value="checkbox" <?php echo $field_type == 'checkbox' ? 'selected' : ''; ?>>Checkbox</option>
+                                            <option value="radio" <?php echo $field_type == 'radio' ? 'selected' : ''; ?>>Radio</option>
+                                            <option value="file" <?php echo $field_type == 'file' ? 'selected' : ''; ?>>File</option>
+                                            <option value="date" <?php echo $field_type == 'date' ? 'selected' : ''; ?>>Date</option>
+                                            <option value="email" <?php echo $field_type == 'email' ? 'selected' : ''; ?>>Email</option>
+                                            <option value="phone" <?php echo $field_type == 'phone' ? 'selected' : ''; ?>>Phone</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Placeholder</label>
                                         <input type="text" name="field_placeholder[]" class="form-control" 
-                                               value="<?php echo htmlspecialchars($field['placeholder'] ?? ''); ?>">
+                                               value="<?php echo htmlspecialchars($field_placeholder); ?>">
                                     </div>
                                     <div class="col-md-2 d-flex flex-column align-items-start justify-content-end">
                                         <div class="form-check">
                                             <input type="checkbox" name="field_required[<?php echo $index; ?>]" 
-                                                   class="form-check-input" <?php echo ($field['required'] ?? 0) ? 'checked' : ''; ?>>
+                                                   class="form-check-input" <?php echo $field_required ? 'checked' : ''; ?>>
                                             <label class="form-check-label">Required</label>
                                         </div>
                                         <button type="button" class="btn btn-sm btn-danger mt-1" onclick="removeField(this)">
@@ -263,14 +280,13 @@ require_once '../backend/includes/header.php';
                                 <div class="row mt-2">
                                     <div class="col-md-8">
                                         <label class="form-label">Description <small class="text-muted">(optional — shown to clients below the field)</small></label>
-                                        <textarea name="field_description[]" class="form-control" rows="2" placeholder="Add a brief description or instructions for this field..."><?php echo htmlspecialchars($field['description'] ?? ''); ?></textarea>
+                                        <textarea name="field_description[]" class="form-control" rows="2" placeholder="Add a brief description or instructions for this field..."><?php echo htmlspecialchars($field_description); ?></textarea>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">
                                             Map to Profile
                                             <small class="text-muted d-block">Auto-update profile on submit</small>
                                         </label>
-                                        <?php $cur_mapping = $field['profile_mapping'] ?? ''; ?>
                                         <select name="field_mapping[<?php echo $index; ?>]" class="form-select form-select-sm">
                                             <option value="">— None —</option>
                                             <optgroup label="Client Profile">
@@ -300,13 +316,13 @@ require_once '../backend/includes/header.php';
                                         </select>
                                     </div>
                                 </div>
-                                <?php if (in_array($field['type'], ['select', 'radio', 'checkbox'])): ?>
+                                <?php if (in_array($field_type, ['select', 'radio', 'checkbox'], true)): ?>
                                 <div class="row mt-2 field-options-container">
                                     <div class="col-12">
                                         <label class="form-label">Options (one per line)</label>
                                         <textarea name="field_options[]" class="form-control" rows="3"><?php 
-                                            if (isset($field['options']) && is_array($field['options'])) {
-                                                echo htmlspecialchars(implode("\n", $field['options']));
+                                            if ($field_options !== []) {
+                                                echo htmlspecialchars(implode("\n", $field_options));
                                             }
                                         ?></textarea>
                                     </div>
@@ -344,8 +360,8 @@ require_once '../backend/includes/header.php';
                             <select name="appointment_type_id" class="form-select">
                                 <option value="">All appointment types</option>
                                 <?php foreach ($appointment_types as $type): ?>
-                                <option value="<?php echo $type['id']; ?>" <?php echo $appointment_type_id == $type['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($type['name']); ?>
+                                <option value="<?php echo array_int_value($type, 'id'); ?>" <?php echo $appointment_type_id == array_int_value($type, 'id') ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(array_string_value($type, 'name')); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>

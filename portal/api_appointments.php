@@ -15,7 +15,7 @@ if (!isPortalLoggedIn()) {
     exit;
 }
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 $db   = new Database();
 $conn = $db->getConnection();
 
@@ -24,15 +24,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$data = json_decode(file_get_contents('php://input'), true);
+$data = json_decode(scalar_string(file_get_contents('php://input')), true);
 if (!is_array($data)) {
     echo json_encode(['error' => 'Invalid JSON payload.']);
     exit;
 }
 
-$action     = $data['action'] ?? '';
-$booking_id = intval($data['booking_id'] ?? 0);
-$reason     = mb_substr(trim($data['reason'] ?? ''), 0, 1000);
+$action     = scalar_string($data['action'] ?? '');
+$booking_id = safe_int($data['booking_id'] ?? 0);
+$reason     = mb_substr(trim(scalar_string($data['reason'] ?? '')), 0, 1000);
 
 if ($booking_id <= 0) {
     echo json_encode(['error' => 'Invalid booking ID.']);
@@ -52,9 +52,9 @@ $stmt = $conn->prepare("
     WHERE b.id = ?
 ");
 $stmt->execute([$booking_id]);
-$booking = $stmt->fetch(PDO::FETCH_ASSOC);
+$booking = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
 
-if (!$booking) {
+if ($booking === []) {
     echo json_encode(['error' => 'Booking not found.']);
     exit;
 }
@@ -65,8 +65,8 @@ $stmt->execute([$client_id]);
 $client_email = $stmt->fetchColumn();
 
 $belongs = (
-    (int)($booking['client_id'] ?? 0) === $client_id ||
-    (!empty($client_email) && strtolower($booking['client_email'] ?? '') === strtolower($client_email))
+    safe_int($booking['client_id'] ?? 0) === $client_id ||
+    (!empty($client_email) && strtolower(scalar_string($booking['client_email'] ?? '')) === strtolower((string) $client_email))
 );
 if (!$belongs) {
     echo json_encode(['error' => 'Access denied.']);
@@ -75,19 +75,19 @@ if (!$belongs) {
 
 // ── Block modifications on past / already-cancelled / completed bookings ─────
 $allowed_statuses = ['pending', 'confirmed'];
-if (!in_array($booking['status'] ?? '', $allowed_statuses, true)) {
-    echo json_encode(['error' => 'This appointment cannot be modified (status: ' . ($booking['status'] ?? 'unknown') . ').']);
+if (!in_array(array_string_value($booking, 'status', 'unknown'), $allowed_statuses, true)) {
+    echo json_encode(['error' => 'This appointment cannot be modified (status: ' . array_string_value($booking, 'status', 'unknown') . ').']);
     exit;
 }
 
 // ── Enforce advance notice window ────────────────────────────────────────────
-$notice_hours    = intval($booking['cancellation_notice_hours'] ?? 0);
-$apt_datetime    = strtotime($booking['appointment_date'] . ' ' . $booking['appointment_time']);
+$notice_hours    = safe_int($booking['cancellation_notice_hours'] ?? 0);
+$apt_datetime    = strtotime(array_string_value($booking, 'appointment_date') . ' ' . array_string_value($booking, 'appointment_time'));
 $hours_until_apt = ($apt_datetime - time()) / 3600.0;
 
 // If appointment is in the past (or now), never allow modification
 if ($hours_until_apt <= 0) {
-    $business_email = Settings::get('business_email', '');
+    $business_email = scalar_string(Settings::get('business_email', ''));
     $msg = 'This appointment cannot be changed online. Please contact us directly.';
     if ($business_email) $msg .= " ({$business_email})";
     echo json_encode(['error' => 'restriction', 'message' => $msg]);
@@ -95,7 +95,7 @@ if ($hours_until_apt <= 0) {
 }
 
 if ($notice_hours > 0 && $hours_until_apt < $notice_hours) {
-    $business_email = Settings::get('business_email', '');
+    $business_email = scalar_string(Settings::get('business_email', ''));
     $msg = 'This appointment cannot be changed online. Please contact us directly.';
     if ($business_email) $msg .= " ({$business_email})";
     echo json_encode(['error' => 'restriction', 'message' => $msg]);
@@ -104,10 +104,10 @@ if ($notice_hours > 0 && $hours_until_apt < $notice_hours) {
 
 // ── Resolve IP for audit log ─────────────────────────────────────────────────
 if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-    $forwarded = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
-    $client_ip = filter_var($forwarded, FILTER_VALIDATE_IP) ? $forwarded : ($_SERVER['REMOTE_ADDR'] ?? '');
+    $forwarded = trim(explode(',', scalar_string($_SERVER['HTTP_X_FORWARDED_FOR']))[0]);
+    $client_ip = filter_var($forwarded, FILTER_VALIDATE_IP) ? $forwarded : scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
 } else {
-    $client_ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    $client_ip = scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -123,10 +123,10 @@ if ($action === 'cancel') {
 
     // Remove from Google Calendar if linked
     if (!empty($booking['google_event_id']) && GoogleCalendarIntegration::isOAuthConfigured()) {
-        $gcal_event_id = $booking['google_event_id'];
+        $gcal_event_id = array_string_value($booking, 'google_event_id');
         $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-        while ($tok_row = $stmt_tok->fetch(PDO::FETCH_ASSOC)) {
-            if (GoogleCalendarIntegration::deleteEventOAuth($gcal_event_id, (int)$tok_row['admin_user_id'])) {
+        while (($tok_row = assoc_row($stmt_tok->fetch(PDO::FETCH_ASSOC))) !== []) {
+            if (GoogleCalendarIntegration::deleteEventOAuth($gcal_event_id, array_int_value($tok_row, 'admin_user_id'))) {
                 $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
                 break;
             }
@@ -134,7 +134,7 @@ if ($action === 'cancel') {
     }
 
     // Refund package credit if applicable
-    $pkg_credit_id = intval($booking['package_credit_id'] ?? 0);
+    $pkg_credit_id = safe_int($booking['package_credit_id'] ?? 0);
     if ($pkg_credit_id > 0) {
         $stmt = $conn->prepare("
             SELECT COUNT(*) FROM package_credit_transactions
@@ -150,8 +150,8 @@ if ($action === 'cancel') {
 
             $stmt2 = $conn->prepare("SELECT appointment_type_id, client_id FROM client_package_credits WHERE id = ?");
             $stmt2->execute([$pkg_credit_id]);
-            $cpc = $stmt2->fetch(PDO::FETCH_ASSOC);
-            if ($cpc) {
+            $cpc = assoc_row($stmt2->fetch(PDO::FETCH_ASSOC));
+            if ($cpc !== []) {
                 $conn->prepare("
                     INSERT INTO package_credit_transactions
                         (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
@@ -192,8 +192,8 @@ if ($action === 'cancel') {
  *  Action: reschedule
  * ═════════════════════════════════════════════════════════════════════════ */
 if ($action === 'reschedule') {
-    $new_date = trim($data['new_date'] ?? '');
-    $new_time = trim($data['new_time'] ?? '');
+    $new_date = trim(scalar_string($data['new_date'] ?? ''));
+    $new_time = trim(scalar_string($data['new_time'] ?? ''));
 
     // Validate date/time format
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $new_date)) {
@@ -214,10 +214,10 @@ if ($action === 'reschedule') {
     }
 
     // Enforce advance booking minimum on new slot
-    $apt_type_id = intval($booking['appointment_type_id'] ?? 0);
+    $apt_type_id = safe_int($booking['appointment_type_id'] ?? 0);
     if ($apt_type_id > 0) {
-        $min_days = intval($booking['advance_booking_min_days'] ?? 0);
-        $max_days = intval($booking['advance_booking_max_days'] ?? 365);
+        $min_days = safe_int($booking['advance_booking_min_days'] ?? 0);
+        $max_days = safe_int($booking['advance_booking_max_days'] ?? 365);
         $days_until = ($new_datetime - time()) / 86400;
         if ($min_days > 0 && $days_until < $min_days) {
             echo json_encode(['error' => "Appointments must be booked at least {$min_days} day(s) in advance."]);
@@ -233,7 +233,7 @@ if ($action === 'reschedule') {
     // (for this appointment type; excludes the current booking being rescheduled)
     // Use PHP-computed end time so query works on both MySQL and SQLite.
     if ($apt_type_id > 0) {
-        $duration = intval($booking['apt_duration_minutes'] ?? $booking['duration_minutes'] ?? 60);
+        $duration = safe_int($booking['apt_duration_minutes'] ?? ($booking['duration_minutes'] ?? 60));
         // Use DateTime for safe end-time arithmetic (avoids integer overflow with strtotime)
         $new_end_dt = new DateTime($new_date . ' ' . $new_time_hhmm . ':00');
         $new_end_dt->modify("+{$duration} minutes");
@@ -250,10 +250,10 @@ if ($action === 'reschedule') {
         $stmt->execute([$apt_type_id, $new_date, $booking_id, $new_end_time]);
         $conflict = false;
         $new_start_ts = strtotime($new_date . ' ' . $new_time_hhmm . ':00');
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        while (($row = assoc_row($stmt->fetch(PDO::FETCH_ASSOC))) !== []) {
             // Compute existing booking's end time using DateTime for consistency
-            $existing_start = new DateTime($new_date . ' ' . substr($row['appointment_time'], 0, 8));
-            $existing_dur   = intval($row['duration_minutes'] ?? 60);
+            $existing_start = new DateTime($new_date . ' ' . substr(array_string_value($row, 'appointment_time'), 0, 8));
+            $existing_dur   = safe_int($row['duration_minutes'] ?? 60);
             $existing_end   = clone $existing_start;
             $existing_end->modify("+{$existing_dur} minutes");
             // Overlap if existing_end > new_start (we already know existing_start < new_end from query)
@@ -288,8 +288,8 @@ if ($action === 'reschedule') {
         $gcal = new GoogleCalendarIntegration();
         $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
         $gcal_updated = false;
-        while ($tok_row = $stmt_tok->fetch(PDO::FETCH_ASSOC)) {
-            $result = GoogleCalendarIntegration::updateEventOAuth($updated_booking, $booking['google_event_id'], (int)$tok_row['admin_user_id']);
+        while (($tok_row = assoc_row($stmt_tok->fetch(PDO::FETCH_ASSOC))) !== []) {
+            $result = GoogleCalendarIntegration::updateEventOAuth($updated_booking, array_string_value($booking, 'google_event_id'), array_int_value($tok_row, 'admin_user_id'));
             if (!empty($result['success'])) {
                 $gcal_updated = true;
                 break;
@@ -298,8 +298,8 @@ if ($action === 'reschedule') {
         // If update failed, fall back to delete so stale event is removed
         if (!$gcal_updated) {
             $stmt_tok2 = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-            while ($tok_row2 = $stmt_tok2->fetch(PDO::FETCH_ASSOC)) {
-                if (GoogleCalendarIntegration::deleteEventOAuth($booking['google_event_id'], (int)$tok_row2['admin_user_id'])) {
+            while (($tok_row2 = assoc_row($stmt_tok2->fetch(PDO::FETCH_ASSOC))) !== []) {
+                if (GoogleCalendarIntegration::deleteEventOAuth(array_string_value($booking, 'google_event_id'), array_int_value($tok_row2, 'admin_user_id'))) {
                     $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
                     break;
                 }
@@ -320,14 +320,18 @@ if ($action === 'reschedule') {
     // Fetch updated booking row for emails
     $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
     $stmt->execute([$booking_id]);
-    $updated_booking = $stmt->fetch(PDO::FETCH_ASSOC);
+    $updated_booking = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+    if ($updated_booking === []) {
+        echo json_encode(['error' => 'Updated booking could not be loaded.']);
+        exit;
+    }
 
     // Send emails
     $email_service = new EmailService(null, $conn);
     if (!empty($booking['client_email'])) {
-        $email_service->sendBookingReschedule($updated_booking, $old_date, $old_time, $reason);
+        $email_service->sendBookingReschedule($updated_booking, array_string_value($booking, 'appointment_date'), array_string_value($booking, 'appointment_time'), $reason);
     }
-    $email_service->sendAdminBookingChangeNotification($updated_booking, 'reschedule', $reason, $old_date, $old_time);
+    $email_service->sendAdminBookingChangeNotification($updated_booking, 'reschedule', $reason, array_string_value($booking, 'appointment_date'), array_string_value($booking, 'appointment_time'));
 
     echo json_encode([
         'success'  => true,

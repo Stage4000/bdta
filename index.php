@@ -13,7 +13,7 @@ $conn = $db->getConnection();
 $stmt = $conn->query(
     "SELECT * FROM site_pages WHERE is_homepage = 1 AND is_published = 1 LIMIT 1"
 );
-$page = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+$page = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$page || trim($page['html_content']) === '') {
     // Fall back to the static index.html

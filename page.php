@@ -10,7 +10,7 @@ require_once __DIR__ . '/backend/includes/config.php';
 $db   = new Database();
 $conn = $db->getConnection();
 
-$slug = trim($_GET['slug'] ?? '');
+$slug = trim(scalar_string($_GET['slug'] ?? ''));
 
 // Sanitise slug: only allow lowercase alphanumeric and hyphens
 $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($slug));

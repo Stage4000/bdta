@@ -13,8 +13,8 @@ require_once '../includes/database.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$contract_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-$action = isset($_POST['action']) ? $_POST['action'] : '';
+$contract_id = safe_int($_GET['id'] ?? 0);
+$action = scalar_string($_POST['action'] ?? '');
 
 // Get contract
 $stmt = $conn->prepare("
@@ -30,9 +30,21 @@ if (!$contract) {
     die("Contract not found");
 }
 
+$contract_status = array_string_value($contract, 'status');
+$contract_number = array_string_value($contract, 'contract_number');
+$contract_title = array_string_value($contract, 'title');
+$contract_client_name = array_string_value($contract, 'client_name');
+$contract_effective_date = array_string_value($contract, 'effective_date');
+$contract_description = array_string_value($contract, 'description');
+$contract_text = array_string_value($contract, 'contract_text');
+$contract_signature_typed_name = array_string_value($contract, 'signature_typed_name');
+$contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
+$contract_signed_date = array_string_value($contract, 'signed_date');
+$contract_signature_data = array_string_value($contract, 'signature_data');
+
 // Check if contract is viewable
-$can_sign = in_array($contract['status'], ['sent']);
-$already_signed = $contract['status'] === 'signed';
+$can_sign = in_array($contract_status, ['sent'], true);
+$already_signed = $contract_status === 'signed';
 
 /**
  * Retrieve the real client IP address.
@@ -41,16 +53,16 @@ $already_signed = $contract['status'] === 'signed';
  */
 function getClientIp(): string {
     if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-        return $_SERVER['HTTP_CF_CONNECTING_IP'];
+        return scalar_string($_SERVER['HTTP_CF_CONNECTING_IP']);
     }
-    return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    return scalar_string($_SERVER['REMOTE_ADDR'] ?? 'unknown');
 }
 
 // Handle signature submission
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
-    $typed_name      = trim($_POST['typed_name'] ?? '');
-    $signature_font  = trim($_POST['signature_font'] ?? 'font-dancing');
+    $typed_name      = trim(scalar_string($_POST['typed_name'] ?? ''));
+    $signature_font  = trim(scalar_string($_POST['signature_font'] ?? 'font-dancing'));
     $client_confirmation = isset($_POST['client_confirmation']);
 
     $allowed_fonts = ['font-dancing', 'font-pacifico', 'font-satisfy', 'font-great-vibes', 'font-allura'];
@@ -63,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
         $message = '<div class="alert alert-danger">Invalid signature style selected.</div>';
     } else {
         $ip_address = getClientIp();
-        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $user_agent = scalar_string($_SERVER['HTTP_USER_AGENT'] ?? '');
         $signed_at  = date('Y-m-d H:i:s'); // Timezone already set in config
 
         // Update contract with signature (store typed name in signature_typed_name;
@@ -103,6 +115,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
         ");
         $stmt->execute([$contract_id]);
         $contract = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($contract)) {
+            die("Contract not found");
+        }
+        $contract_status = array_string_value($contract, 'status');
+        $contract_number = array_string_value($contract, 'contract_number');
+        $contract_title = array_string_value($contract, 'title');
+        $contract_client_name = array_string_value($contract, 'client_name');
+        $contract_effective_date = array_string_value($contract, 'effective_date');
+        $contract_description = array_string_value($contract, 'description');
+        $contract_text = array_string_value($contract, 'contract_text');
+        $contract_signature_typed_name = array_string_value($contract, 'signature_typed_name');
+        $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
+        $contract_signed_date = array_string_value($contract, 'signed_date');
+        $contract_signature_data = array_string_value($contract, 'signature_data');
 
         $already_signed = true;
         $can_sign       = false;
@@ -118,15 +144,18 @@ $font_labels = [
     'font-great-vibes'=> 'Great Vibes',
     'font-allura'     => 'Allura',
 ];
-$page_title = 'Contract ' . $contract['contract_number'];
+$page_title = 'Contract ' . $contract_number;
 ?>
 <?php require_once __DIR__ . '/includes/public_head.php'; ?>
     <!-- Script-style fonts for signature display -->
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Pacifico&family=Satisfy&family=Great+Vibes&family=Allura&display=swap" rel="stylesheet">
     <?php
-    $tc_primary      = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_color', '#9a0073')))      ? Settings::get('theme_primary_color', '#9a0073')      : '#9a0073';
-    $tc_primary_dark = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_primary_dark_color', '#7a005a'))) ? Settings::get('theme_primary_dark_color', '#7a005a') : '#7a005a';
-    $tc_secondary    = (preg_match('/^#[0-9A-Fa-f]{6}$/', Settings::get('theme_secondary_color', '#0a9a9c')))    ? Settings::get('theme_secondary_color', '#0a9a9c')    : '#0a9a9c';
+    $theme_primary = scalar_string(Settings::get('theme_primary_color', '#9a0073'));
+    $theme_primary_dark = scalar_string(Settings::get('theme_primary_dark_color', '#7a005a'));
+    $theme_secondary = scalar_string(Settings::get('theme_secondary_color', '#0a9a9c'));
+    $tc_primary      = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary) ? $theme_primary : '#9a0073';
+    $tc_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) ? $theme_primary_dark : '#7a005a';
+    $tc_secondary    = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_secondary) ? $theme_secondary : '#0a9a9c';
     ?>
     <style>
         body { background: #f8f9fa; }
@@ -204,7 +233,7 @@ $page_title = 'Contract ' . $contract['contract_number'];
                     <div class="d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">
                             <i class="fas fa-file-circle-check me-2"></i>
-                            Contract <?= htmlspecialchars($contract['contract_number']) ?>
+                            Contract <?= htmlspecialchars($contract_number) ?>
                         </h4>
                         <?php
                         $badge_classes = [
@@ -213,7 +242,7 @@ $page_title = 'Contract ' . $contract['contract_number'];
                             'signed'  => 'bg-success',
                             'expired' => 'bg-danger',
                         ];
-                        $display_status = $contract['status'];
+                        $display_status = $contract_status;
                         ?>
                         <span class="badge <?= $badge_classes[$display_status] ?? 'bg-secondary' ?> fs-6">
                             <?= ucfirst($display_status) ?>
@@ -224,24 +253,24 @@ $page_title = 'Contract ' . $contract['contract_number'];
                 <div class="card-body p-4">
                     <?= $message ?>
 
-                    <h3 class="mb-3"><?= htmlspecialchars($contract['title']) ?></h3>
+                    <h3 class="mb-3"><?= htmlspecialchars($contract_title) ?></h3>
 
                     <div class="mb-3">
-                        <strong>For:</strong> <?= htmlspecialchars($contract['client_name']) ?><br>
-                        <?php if ($contract['effective_date']): ?>
-                            <strong>Effective Date:</strong> <?= date('F j, Y', strtotime($contract['effective_date'])) ?>
+                        <strong>For:</strong> <?= htmlspecialchars($contract_client_name) ?><br>
+                        <?php if ($contract_effective_date !== ''): ?>
+                            <strong>Effective Date:</strong> <?= date('F j, Y', safe_timestamp(strtotime($contract_effective_date))) ?>
                         <?php endif; ?>
                     </div>
 
-                    <?php if ($contract['description']): ?>
-                        <p class="text-muted mb-4"><?= htmlspecialchars($contract['description']) ?></p>
+                    <?php if ($contract_description !== ''): ?>
+                        <p class="text-muted mb-4"><?= htmlspecialchars($contract_description) ?></p>
                     <?php endif; ?>
 
                     <hr>
 
                     <!-- Contract Content -->
                     <div class="contract-content mb-4">
-                        <?= $contract['contract_text'] ?>
+                        <?= $contract_text ?>
                     </div>
 
                     <?php if ($already_signed): ?>
@@ -251,26 +280,26 @@ $page_title = 'Contract ' . $contract['contract_number'];
                             This contract has been signed and is locked.
                         </div>
 
-                        <?php if ($contract['signature_typed_name']): ?>
+                        <?php if ($contract_signature_typed_name !== ''): ?>
                             <div class="mt-4">
                                 <h5>Electronic Signature</h5>
-                                <div class="signed-sig <?= htmlspecialchars($contract['signature_font'] ?? 'font-dancing') ?>">
-                                    <?= htmlspecialchars($contract['signature_typed_name']) ?>
+                                <div class="signed-sig <?= htmlspecialchars($contract_signature_font) ?>">
+                                    <?= htmlspecialchars($contract_signature_typed_name) ?>
                                 </div>
                                 <p class="text-muted small mt-2">
                                     <i class="fas fa-calendar-days me-1"></i>
-                                    Signed on <?= date('F j, Y \a\t g:i A T', strtotime($contract['signed_date'])) ?>
+                                    Signed on <?= date('F j, Y \a\t g:i A T', safe_timestamp(strtotime($contract_signed_date))) ?>
                                 </p>
                             </div>
-                        <?php elseif ($contract['signature_data']): ?>
+                        <?php elseif ($contract_signature_data !== ''): ?>
                             <!-- Legacy drawn signature -->
                             <div class="mt-4">
                                 <h5>Signature</h5>
-                                <img src="<?= htmlspecialchars($contract['signature_data']) ?>"
+                                <img src="<?= htmlspecialchars($contract_signature_data) ?>"
                                      alt="Signature" class="border p-2" style="max-width: 400px;">
                                 <p class="text-muted small mt-2">
                                     <i class="fas fa-calendar-days me-1"></i>
-                                    Signed on <?= date('F j, Y \a\t g:i A', strtotime($contract['signed_date'])) ?>
+                                    Signed on <?= date('F j, Y \a\t g:i A', safe_timestamp(strtotime($contract_signed_date))) ?>
                                 </p>
                             </div>
                         <?php endif; ?>

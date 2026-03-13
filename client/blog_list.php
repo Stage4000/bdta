@@ -37,28 +37,32 @@ require_once '../backend/includes/header.php';
                     <tbody>
                         <?php if (count($posts) > 0): ?>
                             <?php foreach ($posts as $post): ?>
+                            <?php
+                                $post_title = array_string_value($post, 'title');
+                                $post_author = array_string_value($post, 'author');
+                                $effective_date = array_string_value($post, 'publish_date', array_string_value($post, 'created_at'));
+                                $post_published = array_int_value($post, 'published') === 1;
+                                $post_id = array_int_value($post, 'id');
+                                $isScheduled = $post_published && strtotime($effective_date) > strtotime($now);
+                                $statusLabel = $post_published ? ($isScheduled ? 'Scheduled' : 'Published') : 'Draft';
+                                $statusClass = $post_published ? ($isScheduled ? 'warning' : 'success') : 'secondary';
+                            ?>
                             <tr>
-                                <td><?php echo escape($post['title']); ?></td>
-                                <td><?php echo escape($post['author']); ?></td>
+                                <td><?php echo escape($post_title); ?></td>
+                                <td><?php echo escape($post_author); ?></td>
                                 <td>
-                                    <?php
-                                        $effectiveDate = $post['publish_date'] ?? $post['created_at'];
-                                        $isScheduled = $post['published'] && strtotime($effectiveDate) > strtotime($now);
-                                        $statusLabel = $post['published'] ? ($isScheduled ? 'Scheduled' : 'Published') : 'Draft';
-                                        $statusClass = $post['published'] ? ($isScheduled ? 'warning' : 'success') : 'secondary';
-                                    ?>
                                     <span class="badge bg-<?php echo $statusClass; ?>">
                                         <?php echo $statusLabel; ?>
                                     </span>
                                 </td>
-                                <td><?php echo date('Y-m-d', strtotime($effectiveDate)); ?></td>
+                                <td><?php echo date('Y-m-d', safe_timestamp(strtotime($effective_date))); ?></td>
                                 <td>
-                                    <a href="blog_edit.php?id=<?php echo $post['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                    <a href="blog_edit.php?id=<?php echo $post_id; ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-pencil"></i>
                                     </a>
                                     <form method="POST" action="blog_delete.php" class="d-inline" onsubmit="return confirm('Delete this post?')">
-                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-                                        <input type="hidden" name="id" value="<?php echo $post['id']; ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="id" value="<?php echo $post_id; ?>">
                                         <button type="submit" class="btn btn-sm btn-outline-danger">
                                             <i class="fas fa-trash"></i>
                                         </button>
