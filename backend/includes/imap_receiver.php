@@ -108,7 +108,7 @@ class ImapEmailReceiver {
             // Search for unread emails since the sync date
             // Note: imap_search returns false on *errors* as well as "no results".
             // We disambiguate by checking the IMAP error stack immediately after the call.
-            // Clear any prior IMAP warnings before searching; errors from the search itself are handled below
+            // Clear any prior IMAP errors and warnings before searching; errors from the search itself are handled below
             imap_errors();
             $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
             $search_errors = imap_errors() ?: [];
@@ -154,18 +154,24 @@ class ImapEmailReceiver {
                 }
             }
             
-            // Mark all processed messages as seen in a single operation
+            // Mark all processed messages as seen in batches to avoid oversized IMAP commands
             if (!empty($flag_queue)) {
-                // Clear the IMAP error buffer so any issues setting flags are captured below
-                imap_errors();
-                /** @var bool $flag_set */
-                $flag_set = imap_setflag_full($this->getImapConnection(), implode(',', $flag_queue), "\\Seen");
-                $flag_errors = imap_errors() ?: [];
-                if (!$flag_set) {
-                    $flag_errors[] = 'imap_setflag_full returned false';
+                $flag_errors = [];
+                foreach (array_chunk($flag_queue, 100) as $flag_batch) {
+                    // Clear the IMAP error buffer so any issues setting flags are captured below
+                    imap_errors();
+                    /** @var bool $flag_set */
+                    $flag_set = imap_setflag_full($this->getImapConnection(), implode(',', $flag_batch), "\\Seen");
+                    $batch_errors = imap_errors() ?: [];
+                    if (!$flag_set) {
+                        $batch_errors[] = 'imap_setflag_full returned false';
+                    }
+                    if (!empty($batch_errors)) {
+                        $flag_errors[] = implode('; ', $batch_errors);
+                    }
                 }
                 if (!empty($flag_errors)) {
-                    $errors[] = 'Failed to mark one or more emails as seen: ' . implode('; ', $flag_errors);
+                    $errors[] = 'Failed to mark one or more emails as seen: ' . implode(' | ', $flag_errors);
                 }
             }
             

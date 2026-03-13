@@ -168,6 +168,14 @@ class CronRunner {
     /**
      * Log task execution to database
      */
+    /**
+     * @param int|string $task_id
+     * @param string $task_name
+     * @param 'success'|'error' $status
+     * @param string $message
+     * @param int $items_processed
+     * @param float $execution_time
+     */
     private function logTaskExecution(int|string $task_id, string $task_name, string $status, string $message, int $items_processed, float $execution_time): void {
         $stmt = $this->conn->prepare("
             INSERT INTO task_logs (task_id, task_name, status, message, items_processed, execution_time)
