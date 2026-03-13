@@ -623,13 +623,13 @@ class GoogleCalendarIntegration {
         }
 
         /** @var list<array<string, mixed>> $items */
-        return array_values(array_map(
+        return array_map(
             fn(array $calendar): array => [
                 'id' => scalar_string($calendar['id'] ?? ''),
                 'summary' => scalar_string($calendar['summary'] ?? ($calendar['id'] ?? '')),
             ],
             $items
-        ));
+        );
     }
 
     // -------------------------------------------------------------------------

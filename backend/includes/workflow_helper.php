@@ -62,8 +62,8 @@ class WorkflowHelper {
             WHERE workflow_id = ? 
             ORDER BY step_order
         ");
-        $workflow_id = $enrollment['workflow_id'] ?? null;
-        if (!is_int($workflow_id) && !is_string($workflow_id)) {
+        $workflow_id = array_string_value($enrollment, 'workflow_id');
+        if ($workflow_id === '') {
             return false;
         }
         $stmt->execute([$workflow_id]);
@@ -110,12 +110,12 @@ class WorkflowHelper {
             
             case 'after_enrollment':
                 // Delay from enrollment time
-                $delay_minutes = $this->parseDelayValue($step['delay_value'] ?? null);
+                $delay_minutes = $this->parseDelayValue($this->getDelayValue($step));
                 return $enrollment_time + ($delay_minutes * 60);
             
             case 'after_previous':
                 // Delay from previous step
-                $delay_minutes = $this->parseDelayValue($step['delay_value'] ?? null);
+                $delay_minutes = $this->parseDelayValue($this->getDelayValue($step));
                 $base_time = $previous_step_time ?? $enrollment_time;
                 return $base_time + ($delay_minutes * 60);
             
@@ -164,6 +164,17 @@ class WorkflowHelper {
         
         return 0;
     }
+
+    /**
+     * @param array<string, mixed> $step
+     */
+    private function getDelayValue(array $step): string|int|float|null {
+        $delay_value = $step['delay_value'] ?? null;
+
+        return is_string($delay_value) || is_int($delay_value) || is_float($delay_value)
+            ? $delay_value
+            : null;
+    }
     
     /**
      * Cancel an enrollment
@@ -198,10 +209,13 @@ class WorkflowHelper {
         ");
         $stmt->execute([$booking_id]);
         $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$booking) {
+            return false;
+        }
         
-        $client_id = $booking['client_id'] ?? null;
-        $appointment_type_id = $booking['appointment_type_id'] ?? null;
-        if (!$booking || (!is_int($client_id) && !is_string($client_id)) || (!is_int($appointment_type_id) && !is_string($appointment_type_id))) {
+        $client_id = array_string_value($booking, 'client_id');
+        $appointment_type_id = array_string_value($booking, 'appointment_type_id');
+        if ($client_id === '' || $appointment_type_id === '') {
             return false;
         }
         
@@ -216,8 +230,8 @@ class WorkflowHelper {
         $triggers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($triggers as $trigger) {
-            $workflow_id = $trigger['workflow_id'] ?? null;
-            if (is_int($workflow_id) || is_string($workflow_id)) {
+            $workflow_id = array_string_value($trigger, 'workflow_id');
+            if ($workflow_id !== '') {
                 $this->enrollClient($workflow_id, $client_id);
             }
         }
@@ -235,10 +249,13 @@ class WorkflowHelper {
         ");
         $stmt->execute([$form_submission_id]);
         $submission = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$submission) {
+            return false;
+        }
         
-        $client_id = $submission['client_id'] ?? null;
-        $template_id = $submission['template_id'] ?? null;
-        if (!$submission || (!is_int($client_id) && !is_string($client_id)) || (!is_int($template_id) && !is_string($template_id))) {
+        $client_id = array_string_value($submission, 'client_id');
+        $template_id = array_string_value($submission, 'template_id');
+        if ($client_id === '' || $template_id === '') {
             return false;
         }
         
@@ -253,8 +270,8 @@ class WorkflowHelper {
         $triggers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($triggers as $trigger) {
-            $workflow_id = $trigger['workflow_id'] ?? null;
-            if (is_int($workflow_id) || is_string($workflow_id)) {
+            $workflow_id = array_string_value($trigger, 'workflow_id');
+            if ($workflow_id !== '') {
                 $this->enrollClient($workflow_id, $client_id);
             }
         }

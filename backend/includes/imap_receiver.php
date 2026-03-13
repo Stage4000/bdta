@@ -10,8 +10,7 @@ require_once __DIR__ . '/database.php';
 class ImapEmailReceiver {
     private Database $db;
     private SafePDO $conn;
-    /** @var object|resource|null */
-    private $imap_connection = null;
+    private ?\IMAP\Connection $imap_connection = null;
     
     public function __construct() {
         $this->db = new Database();
@@ -74,11 +73,8 @@ class ImapEmailReceiver {
         }
     }
 
-    /**
-     * @return object|resource
-     */
-    private function getImapConnection() {
-        if (!is_object($this->imap_connection) && !is_resource($this->imap_connection)) {
+    private function getImapConnection(): \IMAP\Connection {
+        if (!$this->imap_connection instanceof \IMAP\Connection) {
             throw new RuntimeException('IMAP connection is not available');
         }
 
@@ -352,7 +348,7 @@ class ImapEmailReceiver {
     /**
      * Find client by email address
      */
-    private function findClientByEmail(string $email): int|string|null {
+    private function findClientByEmail(string $email): ?string {
         if (empty($email)) {
             return null;
         }
@@ -365,7 +361,7 @@ class ImapEmailReceiver {
             return null;
         }
         $client_id = $result['id'] ?? null;
-        return is_int($client_id) || is_string($client_id) ? $client_id : null;
+        return is_string($client_id) && $client_id !== '' ? $client_id : null;
     }
     
     /**
