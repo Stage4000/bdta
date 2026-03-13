@@ -10,7 +10,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$task_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$task_id = safe_int($_GET['id'] ?? 0);
 $is_edit = $task_id > 0;
 
 // Load task if editing
@@ -29,10 +29,10 @@ if ($is_edit) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $task_name = trim($_POST['task_name']);
-    $task_type = trim($_POST['task_type']);
-    $schedule_type = trim($_POST['schedule_type']);
-    $schedule_value = trim($_POST['schedule_value']);
+    $task_name = trim(scalar_string($_POST['task_name'] ?? ''));
+    $task_type = trim(scalar_string($_POST['task_type'] ?? ''));
+    $schedule_type = trim(scalar_string($_POST['schedule_type'] ?? ''));
+    $schedule_value = trim(scalar_string($_POST['schedule_value'] ?? ''));
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     if (empty($task_name) || empty($task_type) || empty($schedule_type)) {
@@ -87,7 +87,7 @@ include '../backend/includes/header.php';
 
     <?php if (isset($_SESSION['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
-            <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+            <?php echo escape($_SESSION['error']); unset($_SESSION['error']); ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     <?php endif; ?>
@@ -103,7 +103,7 @@ include '../backend/includes/header.php';
                         <div class="mb-3">
                             <label class="form-label">Task Name *</label>
                             <input type="text" name="task_name" class="form-control" 
-                                   value="<?= $task ? htmlspecialchars($task['task_name']) : '' ?>" 
+                                   value="<?= $task ? escape($task['task_name']) : '' ?>" 
                                    placeholder="e.g., Send Daily Report Emails" required>
                             <small class="text-muted">Descriptive name for this scheduled task</small>
                         </div>
@@ -140,7 +140,7 @@ include '../backend/includes/header.php';
                         <div class="mb-3">
                             <label class="form-label">Schedule Value</label>
                             <input type="text" name="schedule_value" class="form-control" 
-                                   value="<?= $task ? htmlspecialchars($task['schedule_value']) : '' ?>" 
+                                   value="<?= $task ? escape($task['schedule_value']) : '' ?>" 
                                    placeholder="e.g., 09:00, Monday, 1st, */5 * * * *">
                             <small class="text-muted">
                                 Optional: Specify time (HH:MM), day name, day of month, or cron expression

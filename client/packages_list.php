@@ -16,7 +16,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -83,8 +83,9 @@ include __DIR__ . '/../backend/includes/header.php';
     </div>
 
     <?php if (isset($_SESSION['flash'])): ?>
-        <div class="alert alert-<?= $_SESSION['flash']['type'] ?> alert-dismissible fade show">
-            <?= htmlspecialchars($_SESSION['flash']['message']) ?>
+        <?php $flash = is_array($_SESSION['flash']) ? $_SESSION['flash'] : []; ?>
+        <div class="alert alert-<?= htmlspecialchars(array_string_value($flash, 'type', 'info')) ?> alert-dismissible fade show">
+            <?= htmlspecialchars(array_string_value($flash, 'message')) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['flash']); ?>
@@ -134,7 +135,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                             <?php endforeach; ?>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= $pkg['price'] > 0 ? '$' . number_format($pkg['price'], 2) : '<span class="text-muted">—</span>' ?></td>
+                                    <td><?= safe_float($pkg['price'] ?? 0) > 0 ? '$' . number_format(safe_float($pkg['price'] ?? 0), 2) : '<span class="text-muted">—</span>' ?></td>
                                     <td>
                                         <?php if ($pkg['expiration_days']): ?>
                                             <?= $pkg['expiration_days'] ?> days
