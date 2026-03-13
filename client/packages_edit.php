@@ -57,12 +57,13 @@ $stmt = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1
 $appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Map existing items by appointment_type_id for pre-fill on edit
+/** @var array<int, int> $existing_items */
 $existing_items = [];
 if ($is_edit) {
     $stmt = $conn->prepare("SELECT * FROM package_items WHERE package_id = ?");
     $stmt->execute([$id]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
-        $existing_items[(string) array_int_value($item, 'appointment_type_id')] = array_int_value($item, 'quantity');
+        $existing_items[array_int_value($item, 'appointment_type_id')] = array_int_value($item, 'quantity');
     }
 }
 
@@ -197,7 +198,7 @@ include __DIR__ . '/../backend/includes/header.php';
                 <div class="row g-3 mb-4">
                     <?php foreach ($appointment_types as $apt):
                         $apt_id = array_int_value($apt, 'id');
-                        $qty = $existing_items[(string) $apt_id] ?? safe_int($_POST['qty_' . $apt_id] ?? 0);
+                        $qty = $existing_items[$apt_id] ?? safe_int($_POST['qty_' . $apt_id] ?? 0);
                     ?>
                     <div class="col-md-3 col-sm-6">
                         <div class="card h-100 <?= $qty > 0 ? 'border-primary' : '' ?>" id="card_<?= $apt_id ?>">

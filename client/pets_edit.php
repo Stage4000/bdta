@@ -12,10 +12,11 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$pet_id = safe_int($_GET['id'] ?? 0) ?: null;
-$client_id = safe_int($_GET['client_id'] ?? 0) ?: null;
+$pet_id_value = safe_int($_GET['id'] ?? 0);
+$pet_id = $pet_id_value > 0 ? $pet_id_value : null;
+$client_id_value = safe_int($_GET['client_id'] ?? 0);
+$client_id = $client_id_value > 0 ? $client_id_value : null;
 $pet = null;
-$pet_row = [];
 $clients = [];
 
 // Get all clients for dropdown
@@ -33,10 +34,9 @@ if ($pet_id) {
         header('Location: pets_list.php');
         exit;
     }
-
-    $pet_row = $pet;
-    $client_id = array_int_value($pet_row, 'client_id');
+    $client_id = array_int_value($pet, 'client_id');
 }
+$pet_row = is_array($pet) ? $pet : [];
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
