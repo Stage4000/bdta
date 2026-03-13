@@ -18,15 +18,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // CSRF protection
-$token         = $_POST['csrf_token'] ?? '';
-$session_token = $_SESSION['csrf_token'] ?? '';
+$token         = scalar_string($_POST['csrf_token'] ?? '');
+$session_token = scalar_string($_SESSION['csrf_token'] ?? '');
 if (empty($token) || !hash_equals($session_token, $token)) {
     setFlashMessage('Invalid request. Please try again.', 'danger');
     redirect(ADMIN_URL . 'settings.php?category=calendar');
 }
 
-$calendar_id   = trim($_POST['calendar_id'] ?? 'primary');
-$admin_user_id = (int)$_SESSION['admin_id'];
+$calendar_id   = trim(scalar_string($_POST['calendar_id'] ?? 'primary'));
+$admin_user_id = safe_int($_SESSION['admin_id'] ?? 0);
 
 if (empty($calendar_id)) {
     $calendar_id = 'primary';

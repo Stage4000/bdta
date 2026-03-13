@@ -7,7 +7,7 @@ require_once '../backend/includes/config.php';
 
 $error = '';
 $success = '';
-$token = $_GET['token'] ?? '';
+$token = scalar_string($_GET['token'] ?? '');
 $valid_token = false;
 $client = null;
 
@@ -27,8 +27,8 @@ if (empty($token)) {
         
         // Handle form submission
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $new_password = $_POST['new_password'] ?? '';
-            $confirm_password = $_POST['confirm_password'] ?? '';
+            $new_password = scalar_string($_POST['new_password'] ?? '');
+            $confirm_password = scalar_string($_POST['confirm_password'] ?? '');
             
             // Validation
             if (empty($new_password) || empty($confirm_password)) {
@@ -41,7 +41,7 @@ if (empty($token)) {
                 // Update password and clear reset token
                 $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
                 $stmt = $conn->prepare("UPDATE clients SET password_hash = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?");
-                $stmt->execute([$password_hash, $client['id']]);
+                $stmt->execute([$password_hash, safe_int($client['id'] ?? 0)]);
                 
                 $success = 'Your password has been reset successfully! You can now log in with your new password.';
             }
@@ -127,7 +127,7 @@ $page_title = 'Reset Password';
                             </div>
                         <?php elseif ($valid_token): ?>
                             <p class="text-muted text-center mb-4">
-                                Enter your new password for <strong><?php echo escape($client['email']); ?></strong>
+                                Enter your new password for <strong><?php echo escape(is_array($client) ? array_string_value($client, 'email') : ''); ?></strong>
                             </p>
                             
                             <form method="POST">

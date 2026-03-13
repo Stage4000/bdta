@@ -24,10 +24,10 @@ if (isset($_SESSION['flash_message'])) {
 }
 
 // Get filter
-$type_filter = isset($_GET['type']) ? $_GET['type'] : 'all';
+$type_filter = scalar_string($_GET['type'] ?? 'all');
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
@@ -88,8 +88,8 @@ require_once '../backend/includes/header.php';
     </div>
 
     <?php if ($message): ?>
-    <div class="alert alert-<?php echo htmlspecialchars($message_type); ?> alert-dismissible fade show" role="alert">
-        <?php echo htmlspecialchars($message); ?>
+    <div class="alert alert-<?php echo escape($message_type); ?> alert-dismissible fade show" role="alert">
+        <?php echo escape($message); ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
@@ -160,7 +160,7 @@ require_once '../backend/includes/header.php';
                                 <?php if ($template['required_frequency']): ?>
                                     <?php echo ucfirst(str_replace('_', ' ', $template['required_frequency'])); ?>
                                     <?php if ($template['appointment_type_name']): ?>
-                                    <br><small class="text-muted">For: <?php echo htmlspecialchars($template['appointment_type_name']); ?></small>
+                                    <br><small class="text-muted">For: <?php echo escape($template['appointment_type_name']); ?></small>
                                     <?php endif; ?>
                                 <?php else: ?>
                                     <span class="text-muted">Optional</span>
@@ -173,7 +173,7 @@ require_once '../backend/includes/header.php';
                                 <span class="badge bg-secondary">Inactive</span>
                                 <?php endif; ?>
                             </td>
-                            <td><?php echo date('M j, Y', strtotime($template['created_at'])); ?></td>
+                            <td><?php echo date('M j, Y', safe_timestamp(strtotime(array_string_value($template, 'created_at')))); ?></td>
                             <td>
                                 <a href="form_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-primary">
                                     <i class="fas fa-pencil"></i>

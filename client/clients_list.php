@@ -7,11 +7,11 @@ $conn = $db->getConnection();
 
 // Handle client deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
         setFlashMessage('Invalid request.', 'danger');
         redirect('clients_list.php');
     }
-    $id = intval($_POST['delete_id']);
+    $id = safe_int($_POST['delete_id']);
     $stmt = $conn->prepare("DELETE FROM clients WHERE id = ?");
     $stmt->execute([$id]);
     setFlashMessage('Client deleted successfully!', 'success');

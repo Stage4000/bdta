@@ -7,11 +7,11 @@ $conn = $db->getConnection();
 
 // Handle deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
         setFlashMessage('Invalid request.', 'danger');
         redirect('expenses_list.php');
     }
-    $id = intval($_POST['delete_id']);
+    $id = safe_int($_POST['delete_id']);
     $stmt = $conn->prepare("DELETE FROM expenses WHERE id = ?");
     $stmt->execute([$id]);
     setFlashMessage('Expense deleted successfully!', 'success');
@@ -96,7 +96,7 @@ include '../backend/includes/header.php';
                                 <td><?= escape($expense['category']) ?></td>
                                 <td><?= escape($expense['description']) ?></td>
                                 <td><?= escape($expense['client_name'] ?? 'General') ?></td>
-                                <td><strong>$<?= number_format($expense['amount'], 2) ?></strong></td>
+                                <td><strong>$<?= number_format(safe_float($expense['amount'] ?? 0), 2) ?></strong></td>
                                 <td>
                                     <?php if ($expense['invoiced']): ?>
                                         <span class="badge bg-secondary">Invoiced</span>
