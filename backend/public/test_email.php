@@ -23,7 +23,7 @@ $test_email = '';
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['test_email'])) {
-    $validated_email = filter_var(scalar_string($_POST['test_email'] ?? ''), FILTER_VALIDATE_EMAIL);
+    $validated_email = filter_var(scalar_string($_POST['test_email']), FILTER_VALIDATE_EMAIL);
     $test_email = is_string($validated_email) ? $validated_email : '';
     
     if ($test_email) {

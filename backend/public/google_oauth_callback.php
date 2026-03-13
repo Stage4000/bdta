@@ -26,7 +26,7 @@ if (empty($state) || !hash_equals($session_state, $state)) {
 
 // Handle denied access
 if (isset($_GET['error'])) {
-    $err = htmlspecialchars(scalar_string($_GET['error'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $err = htmlspecialchars(scalar_string($_GET['error']), ENT_QUOTES, 'UTF-8');
     setFlashMessage('Google Calendar authorisation was denied: ' . $err, 'warning');
     redirect(ADMIN_URL . 'settings.php?category=calendar');
 }
@@ -68,7 +68,7 @@ if (empty($token_data['access_token'])) {
 $google_email = '';
 $ch = curl_init('https://www.googleapis.com/oauth2/v3/userinfo');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $token_data['access_token']]);
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . array_string_value($token_data, 'access_token')]);
 $ui_result = curl_exec($ch);
 curl_close($ch);
 $user_info = decode_json_assoc($ui_result ?: '{}');

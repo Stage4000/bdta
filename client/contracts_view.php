@@ -19,7 +19,6 @@ $contract = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!is_array($contract)) {
     setFlashMessage('Contract not found!', 'danger');
     redirect('contracts_list.php');
-    exit;
 }
 
 // Handle delete action

@@ -33,6 +33,9 @@ try {
     // Test admin user
     $stmt = $conn->query("SELECT COUNT(*) as count FROM admin_users");
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($result)) {
+        throw new Exception("Failed to read admin user count");
+    }
     echo "✓ Admin users table accessible!\n";
     echo "  Admin users count: " . $result['count'] . "\n\n";
     

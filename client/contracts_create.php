@@ -17,7 +17,6 @@ if ($contract_id > 0) {
     if (!is_array($contract)) {
         setFlashMessage('Contract not found!', 'danger');
         redirect('contracts_list.php');
-        exit;
     }
     
     // Only allow editing draft contracts

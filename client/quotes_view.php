@@ -82,7 +82,6 @@ $quote = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!is_array($quote)) {
     setFlashMessage('Quote not found', 'danger');
     redirect('quotes_list.php');
-    exit;
 }
 
 // Get line items

@@ -171,7 +171,7 @@ $page_title = 'Quote ' . $quote_quote_number;
                             <p class="text-muted mb-4">
                                 <small>
                                     <i class="fas fa-calendar-days me-1"></i>
-                                    Expires: <?= date('F j, Y', strtotime($quote_expiration_date)) ?>
+                                    Expires: <?= date('F j, Y', safe_timestamp(strtotime($quote_expiration_date))) ?>
                                 </small>
                             </p>
                         <?php endif; ?>

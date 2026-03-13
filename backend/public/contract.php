@@ -258,7 +258,7 @@ $page_title = 'Contract ' . $contract_number;
                     <div class="mb-3">
                         <strong>For:</strong> <?= htmlspecialchars($contract_client_name) ?><br>
                         <?php if ($contract_effective_date !== ''): ?>
-                            <strong>Effective Date:</strong> <?= date('F j, Y', strtotime($contract_effective_date)) ?>
+                            <strong>Effective Date:</strong> <?= date('F j, Y', safe_timestamp(strtotime($contract_effective_date))) ?>
                         <?php endif; ?>
                     </div>
 
@@ -288,7 +288,7 @@ $page_title = 'Contract ' . $contract_number;
                                 </div>
                                 <p class="text-muted small mt-2">
                                     <i class="fas fa-calendar-days me-1"></i>
-                                    Signed on <?= date('F j, Y \a\t g:i A T', strtotime($contract_signed_date)) ?>
+                                    Signed on <?= date('F j, Y \a\t g:i A T', safe_timestamp(strtotime($contract_signed_date))) ?>
                                 </p>
                             </div>
                         <?php elseif ($contract_signature_data !== ''): ?>
@@ -299,7 +299,7 @@ $page_title = 'Contract ' . $contract_number;
                                      alt="Signature" class="border p-2" style="max-width: 400px;">
                                 <p class="text-muted small mt-2">
                                     <i class="fas fa-calendar-days me-1"></i>
-                                    Signed on <?= date('F j, Y \a\t g:i A', strtotime($contract_signed_date)) ?>
+                                    Signed on <?= date('F j, Y \a\t g:i A', safe_timestamp(strtotime($contract_signed_date))) ?>
                                 </p>
                             </div>
                         <?php endif; ?>

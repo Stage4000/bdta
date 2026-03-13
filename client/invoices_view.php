@@ -19,7 +19,6 @@ $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!is_array($invoice)) {
     setFlashMessage('Invoice not found!', 'danger');
     redirect('invoices_list.php');
-    exit;
 }
 
 // Fetch invoice items (used for the view and for sending receipts)

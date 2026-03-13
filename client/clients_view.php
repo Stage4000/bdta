@@ -20,7 +20,6 @@ $client = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!is_array($client)) {
     setFlashMessage('Client not found!', 'danger');
     redirect('clients_list.php');
-    exit;
 }
 
 // Get client's pets with file count

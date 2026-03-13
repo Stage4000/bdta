@@ -44,12 +44,10 @@ class BookingReminderTask {
         // Appointment types that have their own rules (global rules skip these bookings)
         $types_with_rules = array_values(array_filter(
             array_map(
-                static fn(mixed $appointmentTypeId): int|string|null => is_int($appointmentTypeId) || is_string($appointmentTypeId)
-                    ? $appointmentTypeId
-                    : null,
+                static fn(mixed $appointmentTypeId): string => scalar_string($appointmentTypeId),
                 array_column($per_type_rules, 'appointment_type_id')
             ),
-            static fn(int|string|null $appointmentTypeId): bool => $appointmentTypeId !== null
+            static fn(string $appointmentTypeId): bool => $appointmentTypeId !== ''
         ));
 
         $total_sent = 0;
@@ -57,10 +55,10 @@ class BookingReminderTask {
 
         // Process per-appointment-type rules — each rule only sends to its own appointment type
         foreach ($per_type_rules as $rule) {
-            $appointment_type_id = $rule['appointment_type_id'] ?? null;
+            $appointment_type_id = scalar_string($rule['appointment_type_id'] ?? '');
             $result = $this->processRule(
                 $rule,
-                (is_int($appointment_type_id) || is_string($appointment_type_id)) ? [$appointment_type_id] : null,
+                $appointment_type_id !== '' ? [$appointment_type_id] : null,
                 []
             );
             $total_sent  += $result['sent'];

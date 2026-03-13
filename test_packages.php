@@ -62,6 +62,9 @@ try {
     $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE id = ?");
     $stmt->execute([$field_rental_type_id]);
     $apt = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($apt)) {
+        throw new Exception('Failed to load appointment type');
+    }
 
     assert($apt['is_field_rental'] == 1,       'is_field_rental should be 1');
     assert($apt['field_rental_location'] === '123 Test Field Lane', 'field_rental_location mismatch');
@@ -192,9 +195,12 @@ try {
     $stmt = $conn->prepare("SELECT total_credits, used_credits FROM client_package_credits WHERE id = ?");
     $stmt->execute([$cpc_id]);
     $cred = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($cred)) {
+        throw new Exception('Failed to load package credit row');
+    }
 
-    assert($cred['used_credits']  == 1, 'used_credits should be 1');
-    assert(($cred['total_credits'] - $cred['used_credits']) == 2, 'remaining should be 2');
+    assert((int)$cred['used_credits'] === 1, 'used_credits should be 1');
+    assert(((int)$cred['total_credits'] - (int)$cred['used_credits']) === 2, 'remaining should be 2');
     echo "  ✓ Credit consumed: 1 used, 2 remaining for field_rental\n\n";
 
     // ------------------------------------------------------------------
@@ -230,6 +236,9 @@ try {
     $stmt = $conn->prepare("SELECT id FROM client_package_credits WHERE client_package_id = ? AND appointment_type_id = ?");
     $stmt->execute([$cp_id, $group_type_id]);
     $group_cred = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($group_cred)) {
+        throw new Exception('Failed to load group credit row');
+    }
 
     // Simulate validation from bookings_create.php (uses appointment_type_id match)
     $stmt = $conn->prepare("

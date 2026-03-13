@@ -27,7 +27,7 @@ if (!$client) {
     setFlashMessage('Client not found!', 'danger');
     redirect('clients_list.php');
 }
-$client_row = is_array($client) ? $client : [];
+$client_row = $client;
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
