@@ -15,7 +15,7 @@ if (!isLoggedIn()) {
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = safe_int($_GET['id'] ?? 0);
 $is_edit = $id > 0;
 
 // Handle delete
@@ -62,16 +62,16 @@ if ($is_edit) {
     $stmt = $conn->prepare("SELECT * FROM package_items WHERE package_id = ?");
     $stmt->execute([$id]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
-        $existing_items[$item['appointment_type_id']] = $item['quantity'];
+        $existing_items[(string) array_int_value($item, 'appointment_type_id')] = array_int_value($item, 'quantity');
     }
 }
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name            = trim($_POST['name'] ?? '');
-    $description     = trim($_POST['description'] ?? '');
-    $price           = (float)($_POST['price'] ?? 0);
-    $expiration_days = !empty($_POST['expiration_days']) ? (int)$_POST['expiration_days'] : null;
+    $name            = trim(scalar_string($_POST['name'] ?? ''));
+    $description     = trim(scalar_string($_POST['description'] ?? ''));
+    $price           = safe_float($_POST['price'] ?? 0);
+    $expiration_days = !empty($_POST['expiration_days']) ? safe_int($_POST['expiration_days']) : null;
     $is_active       = isset($_POST['is_active']) ? 1 : 0;
 
     // Validate
@@ -83,9 +83,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Build items: only appointment types with quantity > 0
     $items = [];
     foreach ($appointment_types as $apt) {
-        $qty = (int)($_POST['qty_' . $apt['id']] ?? 0);
+        $apt_id = array_int_value($apt, 'id');
+        $qty = safe_int($_POST['qty_' . $apt_id] ?? 0);
         if ($qty > 0) {
-            $items[$apt['id']] = $qty;
+            $items[$apt_id] = $qty;
         }
     }
     if (empty($items)) {
@@ -195,17 +196,18 @@ include __DIR__ . '/../backend/includes/header.php';
                 <?php else: ?>
                 <div class="row g-3 mb-4">
                     <?php foreach ($appointment_types as $apt):
-                        $qty = $existing_items[$apt['id']] ?? (isset($_POST['qty_' . $apt['id']]) ? (int)$_POST['qty_' . $apt['id']] : 0);
+                        $apt_id = array_int_value($apt, 'id');
+                        $qty = $existing_items[(string) $apt_id] ?? safe_int($_POST['qty_' . $apt_id] ?? 0);
                     ?>
                     <div class="col-md-3 col-sm-6">
-                        <div class="card h-100 <?= $qty > 0 ? 'border-primary' : '' ?>" id="card_<?= $apt['id'] ?>">
+                        <div class="card h-100 <?= $qty > 0 ? 'border-primary' : '' ?>" id="card_<?= $apt_id ?>">
                             <div class="card-body text-center">
                                 <i class="fas fa-calendar-check fa-2x mb-2 text-muted"></i>
-                                <h6 class="card-title"><?= htmlspecialchars($apt['name']) ?></h6>
+                                <h6 class="card-title"><?= htmlspecialchars(array_string_value($apt, 'name')) ?></h6>
                                 <input type="number" class="form-control form-control-lg text-center"
-                                       id="qty_<?= $apt['id'] ?>" name="qty_<?= $apt['id'] ?>"
+                                       id="qty_<?= $apt_id ?>" name="qty_<?= $apt_id ?>"
                                        value="<?= $qty ?>" min="0" max="100"
-                                       onchange="highlightCard('<?= $apt['id'] ?>', this.value)">
+                                       onchange="highlightCard('<?= $apt_id ?>', this.value)">
                                 <div class="form-text">credits</div>
                             </div>
                         </div>

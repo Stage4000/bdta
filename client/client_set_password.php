@@ -9,7 +9,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$client_id = isset($_GET['client_id']) ? intval($_GET['client_id']) : 0;
+$client_id = safe_int($_GET['client_id'] ?? 0);
 $error = '';
 $success = '';
 
@@ -27,11 +27,12 @@ if (!$client) {
     setFlashMessage('Client not found!', 'danger');
     redirect('clients_list.php');
 }
+$client_row = is_array($client) ? $client : [];
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $new_password = $_POST['new_password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
+    $new_password = scalar_string($_POST['new_password'] ?? '');
+    $confirm_password = scalar_string($_POST['confirm_password'] ?? '');
     
     // Validation
     if (empty($new_password) || empty($confirm_password)) {
@@ -46,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $conn->prepare("UPDATE clients SET password_hash = ? WHERE id = ?");
         $stmt->execute([$password_hash, $client_id]);
         
-        setFlashMessage('Password set successfully for ' . escape($client['name']) . '!', 'success');
+        setFlashMessage('Password set successfully for ' . escape(array_string_value($client_row, 'name')) . '!', 'success');
         redirect('clients_view.php?id=' . $client_id);
     }
 }
@@ -75,7 +76,7 @@ include '../backend/includes/header.php';
             <div class="card">
                 <div class="card-body">
                     <div class="alert alert-info">
-                        <i class="fas fa-circle-info"></i> Setting a password for <strong><?= escape($client['name']) ?></strong>
+                        <i class="fas fa-circle-info"></i> Setting a password for <strong><?= escape(array_string_value($client_row, 'name')) ?></strong>
                     </div>
 
                     <form method="POST">
@@ -103,7 +104,7 @@ include '../backend/includes/header.php';
                 <i class="fas fa-circle-check"></i> <strong>Client Portal Access</strong>
                 <ul class="mb-0 mt-2">
                     <li>The client logs in at <strong><a href="../portal/login.php" target="_blank">/portal/login.php</a></strong></li>
-                    <li>Username: <strong><?= escape($client['email']) ?></strong> (their email address)</li>
+                    <li>Username: <strong><?= escape(array_string_value($client_row, 'email')) ?></strong> (their email address)</li>
                     <li>Share the password securely — the client can change it after logging in</li>
                 </ul>
             </div>

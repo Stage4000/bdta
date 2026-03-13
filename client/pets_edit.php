@@ -12,9 +12,10 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$pet_id = isset($_GET['id']) ? (int)$_GET['id'] : null;
-$client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : null;
+$pet_id = safe_int($_GET['id'] ?? 0) ?: null;
+$client_id = safe_int($_GET['client_id'] ?? 0) ?: null;
 $pet = null;
+$pet_row = [];
 $clients = [];
 
 // Get all clients for dropdown
@@ -32,28 +33,34 @@ if ($pet_id) {
         header('Location: pets_list.php');
         exit;
     }
-    
-    $client_id = $pet['client_id'];
+
+    $pet_row = $pet;
+    $client_id = array_int_value($pet_row, 'client_id');
 }
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $client_id = (int)$_POST['client_id'];
-    $name = trim($_POST['name']);
-    $species = trim($_POST['species']);
-    $breed = trim($_POST['breed']);
-    $date_of_birth = $_POST['date_of_birth'] ?: null;
-    $age_years = $_POST['age_years'] ? (int)$_POST['age_years'] : null;
-    $age_months = $_POST['age_months'] ? (int)$_POST['age_months'] : null;
-    $source = trim($_POST['source']);
-    $ownership_length_years = $_POST['ownership_length_years'] ? (int)$_POST['ownership_length_years'] : null;
-    $ownership_length_months = $_POST['ownership_length_months'] ? (int)$_POST['ownership_length_months'] : null;
+    $client_id = safe_int($_POST['client_id'] ?? 0);
+    $name = trim(scalar_string($_POST['name'] ?? ''));
+    $species = trim(scalar_string($_POST['species'] ?? ''));
+    $breed = trim(scalar_string($_POST['breed'] ?? ''));
+    $date_of_birth_input = scalar_string($_POST['date_of_birth'] ?? '');
+    $date_of_birth = $date_of_birth_input !== '' ? $date_of_birth_input : null;
+    $age_years_input = scalar_string($_POST['age_years'] ?? '');
+    $age_years = $age_years_input !== '' ? safe_int($age_years_input) : null;
+    $age_months_input = scalar_string($_POST['age_months'] ?? '');
+    $age_months = $age_months_input !== '' ? safe_int($age_months_input) : null;
+    $source = trim(scalar_string($_POST['source'] ?? ''));
+    $ownership_length_years_input = scalar_string($_POST['ownership_length_years'] ?? '');
+    $ownership_length_years = $ownership_length_years_input !== '' ? safe_int($ownership_length_years_input) : null;
+    $ownership_length_months_input = scalar_string($_POST['ownership_length_months'] ?? '');
+    $ownership_length_months = $ownership_length_months_input !== '' ? safe_int($ownership_length_months_input) : null;
     $spayed_neutered = isset($_POST['spayed_neutered']) ? 1 : 0;
     $vaccines_current = isset($_POST['vaccines_current']) ? 1 : 0;
-    $vaccine_notes = trim($_POST['vaccine_notes']);
-    $behavior_notes = trim($_POST['behavior_notes']);
-    $medical_notes = trim($_POST['medical_notes']);
-    $training_notes = trim($_POST['training_notes']);
+    $vaccine_notes = trim(scalar_string($_POST['vaccine_notes'] ?? ''));
+    $behavior_notes = trim(scalar_string($_POST['behavior_notes'] ?? ''));
+    $medical_notes = trim(scalar_string($_POST['medical_notes'] ?? ''));
+    $training_notes = trim(scalar_string($_POST['training_notes'] ?? ''));
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     // Validation
@@ -122,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // Redirect back to client profile or pets list
-            $return_url = isset($_POST['return_to']) ? $_POST['return_to'] : 'pets_list.php';
+            $return_url = scalar_string($_POST['return_to'] ?? 'pets_list.php');
             header("Location: $return_url");
             exit;
             
@@ -301,7 +308,7 @@ include '../backend/includes/header.php';
                             <div class="row mb-3">
                                 <div class="col-md-12">
                                     <label for="pet-file-input" class="form-label">Upload Files</label>
-                                    <p class="text-muted small">Upload vaccination records, medical documents, photos, or other files related to <?= htmlspecialchars($pet['name'], ENT_QUOTES, 'UTF-8') ?>.</p>
+                                    <p class="text-muted small">Upload vaccination records, medical documents, photos, or other files related to <?= htmlspecialchars(array_string_value($pet_row, 'name'), ENT_QUOTES, 'UTF-8') ?>.</p>
                                     
                                     <div class="mb-3">
                                         <input type="file" id="pet-file-input" class="form-control" accept=".jpg,.jpeg,.png,.gif,.pdf">
