@@ -58,7 +58,7 @@ foreach ($all_templates as $t) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_defaults'])) {
     foreach ($task_types as $type_key => $type_info) {
         $setting_key = $type_info['setting_key'];
-        $value       = !empty($_POST[$setting_key]) ? (int)$_POST[$setting_key] : 0;
+        $value       = !empty($_POST[$setting_key]) ? safe_int($_POST[$setting_key]) : 0;
         Settings::set($setting_key, (string)$value);
     }
     $_SESSION['flash'] = ['type' => 'success', 'message' => 'Default email templates saved.'];
@@ -96,7 +96,7 @@ include __DIR__ . '/../backend/includes/header.php';
                         <?php foreach ($task_types as $type_key => $type_info): ?>
                             <?php
                             $setting_key     = $type_info['setting_key'];
-                            $current_id      = (int) Settings::get($setting_key, 0);
+                            $current_id      = safe_int(Settings::get($setting_key, 0));
                             $available       = $templates_by_type[$type_key] ?? [];
                             ?>
                             <div class="row g-3 mb-4 align-items-start">

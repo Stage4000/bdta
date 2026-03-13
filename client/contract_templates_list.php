@@ -12,7 +12,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Pagination
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 

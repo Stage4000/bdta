@@ -55,7 +55,7 @@ require_once '../backend/includes/header.php';
                                         <?php echo $statusLabel; ?>
                                     </span>
                                 </td>
-                                <td><?php echo date('Y-m-d', strtotime($effective_date)); ?></td>
+                                <td><?php echo date('Y-m-d', safe_timestamp(strtotime($effective_date))); ?></td>
                                 <td>
                                     <a href="blog_edit.php?id=<?php echo $post_id; ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-pencil"></i>

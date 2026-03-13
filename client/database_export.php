@@ -84,10 +84,7 @@ try {
                 
                 // Escape values
                 $escaped_values = array_map(function($val) use ($conn) {
-                    if ($val === null) {
-                        return 'NULL';
-                    }
-                    return $conn->quote($val);
+                    return $conn->quote(scalar_string($val));
                 }, $values);
                 
                 echo "INSERT INTO `$table` (`" . implode('`, `', $columns) . "`) VALUES (";

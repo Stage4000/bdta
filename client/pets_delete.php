@@ -9,8 +9,10 @@ require_once '../backend/includes/database.php';
 // Check if user is logged in
 requireLogin();
 
-$pet_id = isset($_GET['id']) ? (int)$_GET['id'] : null;
-$client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : null;
+$pet_id_value = safe_int($_GET['id'] ?? 0);
+$pet_id = $pet_id_value > 0 ? $pet_id_value : null;
+$client_id_value = safe_int($_GET['client_id'] ?? 0);
+$client_id = $client_id_value > 0 ? $client_id_value : null;
 
 if (!$pet_id) {
     $_SESSION['flash_error'] = "Pet ID is required.";

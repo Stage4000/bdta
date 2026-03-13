@@ -140,7 +140,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                                 <i class="fas fa-calendar-day"></i> Specific Date<?= count($list_specific_dates) > 1 ? 's' : '' ?>
                                             </span><br>
                                             <?php foreach ($list_specific_dates as $sd_entry): ?>
-                                            <small><?= date('M j, Y', strtotime(array_string_value($sd_entry, 'date'))) ?></small><br>
+                                            <small><?= date('M j, Y', safe_timestamp(strtotime(array_string_value($sd_entry, 'date')))) ?></small><br>
                                             <?php endforeach; ?>
                                         <?php else: ?>
                                             <span class="badge bg-info text-dark">

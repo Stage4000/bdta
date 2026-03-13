@@ -9,14 +9,14 @@ $db = new Database();
 $conn = $db->getConnection();
 $workflow_helper = new WorkflowHelper($conn);
 
-$workflow_id = isset($_GET['workflow_id']) ? (int)$_GET['workflow_id'] : 0;
+$workflow_id = safe_int($_GET['workflow_id'] ?? 0);
 
 // Get workflow details
 $stmt = $conn->prepare("SELECT * FROM workflows WHERE id = ?");
 $stmt->execute([$workflow_id]);
 $workflow = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$workflow) {
+if (!is_array($workflow)) {
     $_SESSION['error'] = 'Workflow not found';
     header('Location: workflows_list.php');
     exit;
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enroll'])) {
     $errors = [];
     
     foreach ($client_ids as $client_id) {
-        $result = $workflow_helper->enrollClient($workflow_id, $client_id, $_SESSION['admin_id']);
+        $result = $workflow_helper->enrollClient($workflow_id, $client_id, safe_int($_SESSION['admin_id'] ?? 0));
         if ($result['success']) {
             $enrolled_count++;
         } else {
@@ -71,13 +71,13 @@ include '../backend/includes/header.php';
 
             <h2 class="mb-4">
                 <i class="fas fa-user-plus me-2"></i>
-                Enroll Clients in "<?php echo htmlspecialchars($workflow['name']); ?>"
+                Enroll Clients in "<?php echo escape(array_string_value($workflow, 'name')); ?>"
             </h2>
 
-            <?php if ($workflow['description']): ?>
+            <?php if (array_string_value($workflow, 'description') !== ''): ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
-                    <?php echo htmlspecialchars($workflow['description']); ?>
+                    <?php echo escape(array_string_value($workflow, 'description')); ?>
                 </div>
             <?php endif; ?>
 
