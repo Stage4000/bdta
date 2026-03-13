@@ -107,8 +107,7 @@ class ImapEmailReceiver {
             
             // Search for unread emails since the sync date
             // Note: imap_search returns false on *errors* as well as "no results".
-            // To avoid silently succeeding on search errors (e.g. bad criteria, folder issues),
-            // capture errors immediately after the call.
+            // We disambiguate by checking the IMAP error stack immediately after the call.
             // Clear any prior IMAP warnings before searching; errors from the search itself are handled below
             imap_errors();
             $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
@@ -159,8 +158,12 @@ class ImapEmailReceiver {
             if (!empty($flag_queue)) {
                 // Clear the IMAP error buffer so any issues setting flags are captured below
                 imap_errors();
-                imap_setflag_full($this->getImapConnection(), implode(',', $flag_queue), "\\Seen");
+                $flag_set = imap_setflag_full($this->getImapConnection(), implode(',', $flag_queue), "\\Seen");
+                /** @var bool $flag_set */
                 $flag_errors = imap_errors() ?: [];
+                if (!$flag_set) {
+                    $flag_errors[] = 'imap_setflag_full returned false';
+                }
                 if (!empty($flag_errors)) {
                     $errors[] = 'Failed to mark one or more emails as seen: ' . implode('; ', $flag_errors);
                 }
