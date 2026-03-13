@@ -10,7 +10,7 @@ require_once '../includes/database.php';
  * @return array<string, mixed>
  */
 function public_book_map(mixed $value): array {
-    return is_array($value) ? $value : [];
+    return assoc_row($value);
 }
 
 /**
@@ -34,17 +34,7 @@ function public_book_assoc_rows(mixed $value): array {
     if (is_string($value)) {
         return decode_json_assoc_list($value);
     }
-    if (!is_array($value)) {
-        return [];
-    }
-
-    $rows = [];
-    foreach ($value as $item) {
-        if (is_array($item)) {
-            $rows[] = $item;
-        }
-    }
-    return $rows;
+    return assoc_rows($value);
 }
 
 /**

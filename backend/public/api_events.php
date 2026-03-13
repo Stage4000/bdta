@@ -19,17 +19,7 @@ function public_event_assoc_rows(mixed $value): array {
     if (is_string($value)) {
         return decode_json_assoc_list($value);
     }
-    if (!is_array($value)) {
-        return [];
-    }
-
-    $rows = [];
-    foreach ($value as $item) {
-        if (is_array($item)) {
-            $rows[] = $item;
-        }
-    }
-    return $rows;
+    return assoc_rows($value);
 }
 
 // Default to an empty-events response so shutdown still returns valid JSON

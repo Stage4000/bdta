@@ -110,7 +110,7 @@ curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_POST           => true,
     CURLOPT_POSTFIELDS     => $post_data,
-    CURLOPT_USERPWD        => $secret_key . ':',
+    CURLOPT_USERPWD        => scalar_string($secret_key) . ':',
     CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
 ]);
 $response = curl_exec($ch);

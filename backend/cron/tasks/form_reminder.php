@@ -38,15 +38,17 @@ class FormReminderTask {
         ");
         
         $stmt->execute([$reminder_threshold, $reminder_threshold]);
-        $forms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $forms = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
         $errors = [];
         
         foreach ($forms as $form) {
             try {
-                if (empty($form['client_email'])) {
-                    $errors[] = "No email found for form submission #{$form['id']}";
+                $form_id = scalar_string($form['id'] ?? '');
+                $client_email = array_string_value($form, 'client_email');
+                if ($client_email === '') {
+                    $errors[] = "No email found for form submission #{$form_id}";
                     continue;
                 }
                 
@@ -56,14 +58,14 @@ class FormReminderTask {
                 if ($result['success']) {
                     // Mark reminder as sent
                     $update = $this->conn->prepare("UPDATE form_submissions SET last_reminder_sent = ? WHERE id = ?");
-                    $update->execute([date('Y-m-d H:i:s'), $form['id']]);
+                    $update->execute([date('Y-m-d H:i:s'), $form_id]);
                     $sent_count++;
                 } else {
-                    $errors[] = "Failed to send to {$form['client_email']}: {$result['message']}";
+                    $errors[] = "Failed to send to {$client_email}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
-                $errors[] = "Error processing form #{$form['id']}: " . $e->getMessage();
+                $errors[] = "Error processing form #{$form_id}: " . $e->getMessage();
             }
         }
         

@@ -62,9 +62,9 @@ $package_price = safe_float($package['price'] ?? 0);
 
 // Handle purchase form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purchase') {
-    $buyer_name  = trim($_POST['buyer_name'] ?? '');
-    $buyer_email = trim($_POST['buyer_email'] ?? '');
-    $notes       = trim($_POST['notes'] ?? '');
+    $buyer_name  = trim(scalar_string($_POST['buyer_name'] ?? ''));
+    $buyer_email = trim(scalar_string($_POST['buyer_email'] ?? ''));
+    $notes       = trim(scalar_string($_POST['notes'] ?? ''));
 
     if ($buyer_name === '' || $buyer_email === '') {
         $error = 'Please enter your name and email address.';

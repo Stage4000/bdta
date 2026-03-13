@@ -69,11 +69,13 @@ function createPaymentIntent(int|float $amount, string $description, array $meta
             'metadata' => $metadata,
             'automatic_payment_methods' => ['enabled' => true]
         ]);
+        $client_secret = is_object($intent) ? scalar_string($intent->client_secret ?? '') : '';
+        $payment_intent_id = is_object($intent) ? scalar_string($intent->id ?? '') : '';
         
         return [
             'success' => true,
-            'client_secret' => $intent->client_secret,
-            'payment_intent_id' => $intent->id
+            'client_secret' => $client_secret,
+            'payment_intent_id' => $payment_intent_id
         ];
     } catch (Exception $e) {
         return [
@@ -104,10 +106,12 @@ function verifyPaymentIntent(string $payment_intent_id): array {
     
     try {
         $intent = \Stripe\PaymentIntent::retrieve($payment_intent_id);
+        $status = is_object($intent) ? scalar_string($intent->status ?? '') : '';
+        $amount_paid = is_object($intent) ? safe_float($intent->amount ?? 0) / 100 : 0.0;
         return [
             'success' => true,
-            'status' => $intent->status,
-            'amount' => $intent->amount / 100
+            'status' => $status,
+            'amount' => $amount_paid
         ];
     } catch (Exception $e) {
         return [

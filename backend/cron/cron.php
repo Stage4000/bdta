@@ -118,16 +118,28 @@ class CronRunner {
             }
             
             // Instantiate and run the handler
-            $handler = new $class_name($this->conn, $task);
+            $reflection = new ReflectionClass($class_name);
+            $constructor = $reflection->getConstructor();
+
+            if ($constructor === null || $constructor->getNumberOfParameters() === 0) {
+                $handler = $reflection->newInstance();
+            } elseif ($constructor->getNumberOfParameters() === 1) {
+                $handler = $reflection->newInstance($this->conn);
+            } else {
+                $handler = $reflection->newInstance($this->conn, $task);
+            }
             if (!method_exists($handler, 'execute')) {
                 throw new Exception("Task handler is missing execute(): {$class_name}");
             }
             $result = $handler->execute();
+            if (!is_array($result)) {
+                throw new RuntimeException("Task handler returned invalid result: {$class_name}");
+            }
             
             // Log success
             $execution_time = round(microtime(true) - $task_start_time, 2);
-            $items_processed = $result['items_processed'] ?? 0;
-            $message = $result['message'] ?? 'Task completed successfully';
+            $items_processed = safe_int($result['items_processed'] ?? 0);
+            $message = scalar_string($result['message'] ?? 'Task completed successfully');
             
             if (!is_int($task_id) && !is_string($task_id)) {
                 throw new RuntimeException('Task id missing.');

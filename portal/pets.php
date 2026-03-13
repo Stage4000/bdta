@@ -12,7 +12,7 @@ $edit_pet = null;
 
 // Handle delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
-    $pet_id = intval($_POST['pet_id'] ?? 0);
+    $pet_id = safe_int($_POST['pet_id'] ?? 0);
     // Verify ownership
     $stmt = $conn->prepare("SELECT id FROM pets WHERE id = ? AND client_id = ?");
     $stmt->execute([$pet_id, $client_id]);

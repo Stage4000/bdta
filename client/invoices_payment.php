@@ -11,22 +11,20 @@ $installment_id = safe_int($_GET['installment_id'] ?? 0);
 
 $stmt = $conn->prepare("SELECT * FROM invoices WHERE id = ?");
 $stmt->execute([$id]);
-$invoice = $stmt->fetch(PDO::FETCH_ASSOC);
+$invoice = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
 
-if (!$invoice || array_string_value($invoice, 'status') === 'paid') {
+if ($invoice === [] || array_string_value($invoice, 'status') === 'paid') {
     setFlashMessage('Invoice not found or already paid!', 'danger');
     redirect('invoices_list.php');
 }
-/** @var array<string, mixed> $invoice */
-$invoice = $invoice;
 
 // If paying a specific installment, load it
 $installment = null;
 if ($installment_id) {
     $stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE id = ? AND invoice_id = ?");
     $stmt->execute([$installment_id, $id]);
-    $installment = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$installment || $installment['status'] === 'paid') {
+    $installment = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+    if ($installment === [] || array_string_value($installment, 'status') === 'paid') {
         setFlashMessage('Installment not found or already paid!', 'danger');
         redirect('invoices_view.php?id=' . $id);
     }
@@ -41,14 +39,12 @@ function sendFullInvoiceReceipt(PDO $conn, int $invoice_id): void {
          FROM invoices i JOIN clients c ON i.client_id = c.id WHERE i.id = ?"
     );
     $invoice_stmt->execute([$invoice_id]);
-    $full_invoice = $invoice_stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$full_invoice) return;
-    /** @var array<string, mixed> $full_invoice */
-    $full_invoice = $full_invoice;
+    $full_invoice = assoc_row($invoice_stmt->fetch(PDO::FETCH_ASSOC));
+    if ($full_invoice === []) return;
 
     $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
     $items_stmt->execute([$invoice_id]);
-    $items = array_values($items_stmt->fetchAll(PDO::FETCH_ASSOC));
+    $items = assoc_rows($items_stmt->fetchAll(PDO::FETCH_ASSOC));
 
     $email_service = new EmailService(null, $conn);
     $result = $email_service->sendPaymentReceipt($full_invoice, null, $items);
@@ -63,7 +59,7 @@ function sendFullInvoiceReceipt(PDO $conn, int $invoice_id): void {
 function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, int|string $admin_id): void {
     $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ? AND item_type = 'package' AND reference_id IS NOT NULL");
     $items_stmt->execute([$invoice_id]);
-    $package_items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
+    $package_items = assoc_rows($items_stmt->fetchAll(PDO::FETCH_ASSOC));
 
     foreach ($package_items as $item) {
         $pkg_id = array_int_value($item, 'reference_id');
@@ -71,14 +67,12 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
 
         $stmt = $conn->prepare("SELECT * FROM packages WHERE id = ? AND is_active = 1");
         $stmt->execute([$pkg_id]);
-        $package = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$package) continue;
-        /** @var array<string, mixed> $package */
-        $package = $package;
+        $package = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+        if ($package === []) continue;
 
         $stmt = $conn->prepare("SELECT * FROM package_items WHERE package_id = ?");
         $stmt->execute([$pkg_id]);
-        $pkg_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $pkg_items = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         if (empty($pkg_items)) continue;
 
         // For each unit quantity on the invoice line, assign one package instance
@@ -105,7 +99,7 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
                 VALUES (?, ?, ?, ?, 0)
             ");
             foreach ($pkg_items as $pi) {
-                $credit_stmt->execute([$cp_id, $client_id, $pi['appointment_type_id'], $pi['quantity']]);
+                $credit_stmt->execute([$cp_id, $client_id, array_int_value($pi, 'appointment_type_id'), array_int_value($pi, 'quantity')]);
             }
 
             // Audit trail
@@ -116,7 +110,7 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
                     (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, notes, created_by)
                 VALUES (?, ?, ?, 'purchase', ?, ?, ?)
             ");
-            foreach ($cred_stmt->fetchAll(PDO::FETCH_ASSOC) as $cred) {
+            foreach (assoc_rows($cred_stmt->fetchAll(PDO::FETCH_ASSOC)) as $cred) {
                 $tx_stmt->execute([
                     array_int_value($cred, 'id'), $client_id, array_int_value($cred, 'appointment_type_id'),
                     array_int_value($cred, 'total_credits'),
@@ -146,19 +140,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Reload installment to get fresh data for the receipt
         $stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE id = ?");
         $stmt->execute([$installment_id]);
-        $installment = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$installment) {
+        $installment = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+        if ($installment === []) {
             setFlashMessage('Installment not found or already paid!', 'danger');
             redirect('invoices_view.php?id=' . $id);
         }
-        /** @var array<string, mixed> $installment */
-        $installment = $installment;
 
         // Fetch client info for receipt
         $client_stmt = $conn->prepare("SELECT name as client_name, email as client_email FROM clients WHERE id = ?");
         $client_stmt->execute([array_int_value($invoice, 'client_id')]);
-        $client = $client_stmt->fetch(PDO::FETCH_ASSOC);
-        $invoice_for_receipt = array_merge($invoice, $client ?: []);
+        $client = assoc_row($client_stmt->fetch(PDO::FETCH_ASSOC));
+        $invoice_for_receipt = array_merge($invoice, $client);
 
         // Send installment receipt
         $email_service = new EmailService(null, $conn);

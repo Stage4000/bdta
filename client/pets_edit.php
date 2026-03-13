@@ -21,15 +21,15 @@ $clients = [];
 
 // Get all clients for dropdown
 $stmt = $conn->query("SELECT id, name, email FROM clients ORDER BY name");
-$clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$clients = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 
 // If editing, get pet data
 if ($pet_id) {
     $stmt = $conn->prepare("SELECT * FROM pets WHERE id = ?");
     $stmt->execute([$pet_id]);
-    $pet = $stmt->fetch(PDO::FETCH_ASSOC);
+    $pet = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
     
-    if (!$pet) {
+    if ($pet === []) {
         $_SESSION['flash_error'] = "Pet not found.";
         header('Location: pets_list.php');
         exit;
@@ -139,6 +139,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+/** @var list<string> $errors */
+$errors = isset($errors) ? string_list($errors) : [];
+
 $page_title = $pet_id ? "Edit Pet" : "Add Pet";
 include '../backend/includes/header.php';
 ?>
@@ -179,9 +182,9 @@ include '../backend/includes/header.php';
                             <select name="client_id" id="client_id" class="form-select" required>
                                 <option value="">Select Client</option>
                                 <?php foreach ($clients as $client): ?>
-                                    <option value="<?= $client['id'] ?>" <?= $client_id == $client['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($client['name']) ?> (<?= htmlspecialchars($client['email']) ?>)
-                                    </option>
+                                     <option value="<?= array_int_value($client, 'id') ?>" <?= $client_id == array_int_value($client, 'id') ? 'selected' : '' ?>>
+                                         <?= htmlspecialchars(array_string_value($client, 'name')) ?> (<?= htmlspecialchars(array_string_value($client, 'email')) ?>)
+                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -189,7 +192,7 @@ include '../backend/includes/header.php';
                         <div class="col-md-6">
                             <label for="name" class="form-label">Pet Name *</label>
                             <input type="text" name="name" id="name" class="form-control" 
-                                   value="<?= htmlspecialchars($pet['name'] ?? '') ?>" required>
+                                   value="<?= htmlspecialchars(array_string_value($pet_row, 'name')) ?>" required>
                         </div>
                     </div>
 
@@ -197,14 +200,14 @@ include '../backend/includes/header.php';
                         <div class="col-md-6">
                             <label for="species" class="form-label">Species</label>
                             <input type="text" name="species" id="species" class="form-control" 
-                                   value="<?= htmlspecialchars($pet['species'] ?? 'Dog') ?>">
+                                   value="<?= htmlspecialchars(array_string_value($pet_row, 'species', 'Dog')) ?>">
                             <small class="form-text text-muted">e.g., Dog, Cat, etc.</small>
                         </div>
                         
                         <div class="col-md-6">
                             <label for="breed" class="form-label">Breed</label>
                             <input type="text" name="breed" id="breed" class="form-control" 
-                                   value="<?= htmlspecialchars($pet['breed'] ?? '') ?>">
+                                   value="<?= htmlspecialchars(array_string_value($pet_row, 'breed')) ?>">
                         </div>
                     </div>
 
@@ -212,19 +215,19 @@ include '../backend/includes/header.php';
                         <div class="col-md-4">
                             <label for="date_of_birth" class="form-label">Date of Birth</label>
                             <input type="date" name="date_of_birth" id="date_of_birth" class="form-control" 
-                                   value="<?= htmlspecialchars($pet['date_of_birth'] ?? '') ?>">
+                                   value="<?= htmlspecialchars(array_string_value($pet_row, 'date_of_birth')) ?>">
                         </div>
                         
                         <div class="col-md-4">
                             <label for="age_years" class="form-label">Age (Years)</label>
                             <input type="number" name="age_years" id="age_years" class="form-control" min="0" 
-                                   value="<?= htmlspecialchars($pet['age_years'] ?? '') ?>">
+                                   value="<?= htmlspecialchars(array_string_value($pet_row, 'age_years')) ?>">
                         </div>
                         
                         <div class="col-md-4">
                             <label for="age_months" class="form-label">Age (Months)</label>
                             <input type="number" name="age_months" id="age_months" class="form-control" min="0" max="11" 
-                                   value="<?= htmlspecialchars($pet['age_months'] ?? '') ?>">
+                                   value="<?= htmlspecialchars(array_string_value($pet_row, 'age_months')) ?>">
                         </div>
                     </div>
 
@@ -232,20 +235,20 @@ include '../backend/includes/header.php';
                         <div class="col-md-4">
                             <label for="source" class="form-label">Source</label>
                             <input type="text" name="source" id="source" class="form-control" 
-                                   value="<?= htmlspecialchars($pet['source'] ?? '') ?>">
+                                   value="<?= htmlspecialchars(array_string_value($pet_row, 'source')) ?>">
                             <small class="form-text text-muted">Where acquired (breeder, rescue, etc.)</small>
                         </div>
                         
                         <div class="col-md-4">
                             <label for="ownership_length_years" class="form-label">Ownership (Years)</label>
                             <input type="number" name="ownership_length_years" id="ownership_length_years" 
-                                   class="form-control" min="0" value="<?= htmlspecialchars($pet['ownership_length_years'] ?? '') ?>">
+                                   class="form-control" min="0" value="<?= htmlspecialchars(array_string_value($pet_row, 'ownership_length_years')) ?>">
                         </div>
                         
                         <div class="col-md-4">
                             <label for="ownership_length_months" class="form-label">Ownership (Months)</label>
                             <input type="number" name="ownership_length_months" id="ownership_length_months" 
-                                   class="form-control" min="0" max="11" value="<?= htmlspecialchars($pet['ownership_length_months'] ?? '') ?>">
+                                   class="form-control" min="0" max="11" value="<?= htmlspecialchars(array_string_value($pet_row, 'ownership_length_months')) ?>">
                         </div>
                     </div>
 
@@ -276,12 +279,12 @@ include '../backend/includes/header.php';
 
                     <div class="mb-3">
                         <label for="vaccine_notes" class="form-label">Vaccine Notes</label>
-                        <textarea name="vaccine_notes" id="vaccine_notes" class="form-control" rows="2"><?= htmlspecialchars($pet['vaccine_notes'] ?? '') ?></textarea>
+                        <textarea name="vaccine_notes" id="vaccine_notes" class="form-control" rows="2"><?= htmlspecialchars(array_string_value($pet_row, 'vaccine_notes')) ?></textarea>
                     </div>
 
                     <div class="mb-3">
                         <label for="medical_notes" class="form-label">Medical Notes</label>
-                        <textarea name="medical_notes" id="medical_notes" class="form-control" rows="3"><?= htmlspecialchars($pet['medical_notes'] ?? '') ?></textarea>
+                        <textarea name="medical_notes" id="medical_notes" class="form-control" rows="3"><?= htmlspecialchars(array_string_value($pet_row, 'medical_notes')) ?></textarea>
                         <small class="form-text text-muted">Any medical conditions, allergies, medications, etc.</small>
                     </div>
 
@@ -290,13 +293,13 @@ include '../backend/includes/header.php';
 
                     <div class="mb-3">
                         <label for="behavior_notes" class="form-label">Behavior Notes</label>
-                        <textarea name="behavior_notes" id="behavior_notes" class="form-control" rows="3"><?= htmlspecialchars($pet['behavior_notes'] ?? '') ?></textarea>
+                        <textarea name="behavior_notes" id="behavior_notes" class="form-control" rows="3"><?= htmlspecialchars(array_string_value($pet_row, 'behavior_notes')) ?></textarea>
                         <small class="form-text text-muted">Temperament, behavior issues, triggers, etc.</small>
                     </div>
 
                     <div class="mb-3">
                         <label for="training_notes" class="form-label">Training Notes</label>
-                        <textarea name="training_notes" id="training_notes" class="form-control" rows="3"><?= htmlspecialchars($pet['training_notes'] ?? '') ?></textarea>
+                        <textarea name="training_notes" id="training_notes" class="form-control" rows="3"><?= htmlspecialchars(array_string_value($pet_row, 'training_notes')) ?></textarea>
                         <small class="form-text text-muted">Training history, commands known, goals, etc.</small>
                     </div>
 
@@ -350,7 +353,7 @@ include '../backend/includes/header.php';
                 </div>
 
                 <div class="card-footer">
-                    <input type="hidden" name="return_to" value="<?= htmlspecialchars($_SERVER['HTTP_REFERER'] ?? 'pets_list.php') ?>">
+                    <input type="hidden" name="return_to" value="<?= htmlspecialchars(scalar_string($_SERVER['HTTP_REFERER'] ?? 'pets_list.php')) ?>">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-check-circle"></i> <?= $pet_id ? 'Update' : 'Add' ?> Pet
                     </button>

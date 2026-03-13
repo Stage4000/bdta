@@ -39,15 +39,17 @@ class QuoteReminderTask {
         ");
         
         $stmt->execute([$reminder_threshold, $reminder_threshold]);
-        $quotes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $quotes = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
         $errors = [];
         
         foreach ($quotes as $quote) {
             try {
-                if (empty($quote['client_email'])) {
-                    $errors[] = "No email found for quote #{$quote['id']}";
+                $quote_id = scalar_string($quote['id'] ?? '');
+                $client_email = array_string_value($quote, 'client_email');
+                if ($client_email === '') {
+                    $errors[] = "No email found for quote #{$quote_id}";
                     continue;
                 }
                 
@@ -57,14 +59,14 @@ class QuoteReminderTask {
                 if ($result['success']) {
                     // Mark reminder as sent
                     $update = $this->conn->prepare("UPDATE quotes SET last_reminder_sent = ? WHERE id = ?");
-                    $update->execute([date('Y-m-d H:i:s'), $quote['id']]);
+                    $update->execute([date('Y-m-d H:i:s'), $quote_id]);
                     $sent_count++;
                 } else {
-                    $errors[] = "Failed to send to {$quote['client_email']}: {$result['message']}";
+                    $errors[] = "Failed to send to {$client_email}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
-                $errors[] = "Error processing quote #{$quote['id']}: " . $e->getMessage();
+                $errors[] = "Error processing quote #{$quote_id}: " . $e->getMessage();
             }
         }
         

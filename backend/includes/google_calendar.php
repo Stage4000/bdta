@@ -139,9 +139,19 @@ class GoogleCalendarIntegration {
 
             $service = new Google_Service_Calendar($client);
             $event   = new Google_Service_Calendar_Event($this->buildEventBody($booking));
-            $created = $service->events->insert($this->calendar_id, $event);
+            $events_resource = $service->events ?? null;
+            if (!is_object($events_resource) || !is_callable([$events_resource, 'insert'])) {
+                return ['success' => false, 'message' => 'Google Calendar events resource unavailable'];
+            }
+            $created = call_user_func([$events_resource, 'insert'], $this->calendar_id, $event);
+            $event_id = is_object($created) && is_callable([$created, 'getId'])
+                ? scalar_string(call_user_func([$created, 'getId']))
+                : '';
+            $link = is_object($created) && is_callable([$created, 'getHtmlLink'])
+                ? scalar_string(call_user_func([$created, 'getHtmlLink']))
+                : '';
 
-            return ['success' => true, 'event_id' => scalar_string($created->getId()), 'link' => scalar_string($created->getHtmlLink())];
+            return ['success' => true, 'event_id' => $event_id, 'link' => $link];
         } catch (Exception $e) {
             return ['success' => false, 'message' => $e->getMessage()];
         }
@@ -172,9 +182,19 @@ class GoogleCalendarIntegration {
 
             $service = new Google_Service_Calendar($client);
             $event   = new Google_Service_Calendar_Event($this->buildEventBody($booking));
-            $updated = $service->events->update($this->calendar_id, $event_id, $event);
+            $events_resource = $service->events ?? null;
+            if (!is_object($events_resource) || !is_callable([$events_resource, 'update'])) {
+                return ['success' => false, 'message' => 'Google Calendar events resource unavailable'];
+            }
+            $updated = call_user_func([$events_resource, 'update'], $this->calendar_id, $event_id, $event);
+            $updated_id = is_object($updated) && is_callable([$updated, 'getId'])
+                ? scalar_string(call_user_func([$updated, 'getId']))
+                : '';
+            $link = is_object($updated) && is_callable([$updated, 'getHtmlLink'])
+                ? scalar_string(call_user_func([$updated, 'getHtmlLink']))
+                : '';
 
-            return ['success' => true, 'event_id' => scalar_string($updated->getId()), 'link' => scalar_string($updated->getHtmlLink())];
+            return ['success' => true, 'event_id' => $updated_id, 'link' => $link];
         } catch (Exception $e) {
             return ['success' => false, 'message' => $e->getMessage()];
         }

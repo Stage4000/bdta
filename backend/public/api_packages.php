@@ -15,7 +15,7 @@ require_once __DIR__ . '/../includes/config.php';
  * @return array<string, mixed>
  */
 function public_package_row(mixed $row): array {
-    return is_array($row) ? $row : [];
+    return assoc_row($row);
 }
 
 // Default to an empty-packages response so shutdown still returns valid JSON

@@ -150,7 +150,7 @@ include '../backend/includes/header.php';
                 <div class="card-body">
                     <?php if (isset($error)): ?>
                         <div class="alert alert-danger">
-                            <?php echo htmlspecialchars($error); ?>
+                            <?php echo htmlspecialchars(scalar_string($error)); ?>
                         </div>
                     <?php endif; ?>
 

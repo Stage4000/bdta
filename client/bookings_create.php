@@ -10,8 +10,8 @@ $conn = $db->getConnection();
 
 // AJAX: get eligible package credits for a client + appointment type
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'credits') {
-    $client_id  = (int)($_GET['client_id']  ?? 0);
-    $type_id    = (int)($_GET['type_id']    ?? 0);
+    $client_id  = safe_int($_GET['client_id']  ?? 0);
+    $type_id    = safe_int($_GET['type_id']    ?? 0);
     $result = [];
     if ($type_id && $client_id) {
         // Fetch active, non-expired package credits matching this appointment type

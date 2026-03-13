@@ -24,11 +24,12 @@ if (!is_array($workflow)) {
 
 // Handle enrollment
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enroll'])) {
-    $client_ids = $_POST['client_ids'] ?? [];
+    $client_ids = is_array($_POST['client_ids'] ?? null) ? $_POST['client_ids'] : [];
     $enrolled_count = 0;
     $errors = [];
     
-    foreach ($client_ids as $client_id) {
+    foreach ($client_ids as $client_id_raw) {
+        $client_id = safe_int($client_id_raw);
         $result = $workflow_helper->enrollClient($workflow_id, $client_id, safe_int($_SESSION['admin_id'] ?? 0));
         if ($result['success']) {
             $enrolled_count++;
@@ -56,6 +57,7 @@ $clients = $conn->query("
     FROM clients c
     ORDER BY c.name
 ")->fetchAll(PDO::FETCH_ASSOC);
+$clients = assoc_rows($clients);
 
 include '../backend/includes/header.php';
 ?>
@@ -117,12 +119,12 @@ include '../backend/includes/header.php';
                                                         <input type="checkbox" disabled title="Already enrolled">
                                                     <?php else: ?>
                                                         <input type="checkbox" name="client_ids[]" 
-                                                               value="<?php echo $client['id']; ?>" 
+                                                               value="<?php echo array_int_value($client, 'id'); ?>" 
                                                                class="client-checkbox">
                                                     <?php endif; ?>
                                                 </td>
-                                                <td><?php echo htmlspecialchars($client['name']); ?></td>
-                                                <td><?php echo htmlspecialchars($client['email']); ?></td>
+                                                <td><?php echo htmlspecialchars(array_string_value($client, 'name')); ?></td>
+                                                <td><?php echo htmlspecialchars(array_string_value($client, 'email')); ?></td>
                                                 <td>
                                                     <?php if ($client['is_enrolled']): ?>
                                                         <span class="badge bg-success">Already Enrolled</span>

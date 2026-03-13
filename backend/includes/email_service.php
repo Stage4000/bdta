@@ -1529,7 +1529,7 @@ TEXT;
             if ($debug_mode) {
                 $mail->SMTPDebug = 2; // Show detailed debug output
                 $mail->Debugoutput = function($str, $level) {
-                    error_log("PHPMailer Debug: $str");
+                    error_log('PHPMailer Debug: ' . scalar_string($str));
                 };
             }
             

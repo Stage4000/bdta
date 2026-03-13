@@ -512,7 +512,7 @@ include __DIR__ . '/../backend/includes/header.php';
         </div>
         <div class="card-body">
             <?php if (isset($error)): ?>
-                <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+                <div class="alert alert-danger"><?= htmlspecialchars(scalar_string($error)) ?></div>
             <?php endif; ?>
 
             <?php if ($is_edit && $type_unique_link !== ''): ?>

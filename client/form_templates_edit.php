@@ -62,6 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     // Build fields array from POST data
     $fields = [];
+    $field_types = is_array($_POST['field_type'] ?? null) ? $_POST['field_type'] : [];
+    $field_placeholders = is_array($_POST['field_placeholder'] ?? null) ? $_POST['field_placeholder'] : [];
+    $field_descriptions = is_array($_POST['field_description'] ?? null) ? $_POST['field_description'] : [];
+    $field_required = is_array($_POST['field_required'] ?? null) ? $_POST['field_required'] : [];
+    $field_options = is_array($_POST['field_options'] ?? null) ? $_POST['field_options'] : [];
+    $field_mappings = is_array($_POST['field_mapping'] ?? null) ? $_POST['field_mapping'] : [];
     if (isset($_POST['field_label']) && is_array($_POST['field_label'])) {
         foreach ($_POST['field_label'] as $index => $label_value) {
             $label = scalar_string($label_value);
@@ -79,19 +85,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     'pet_3.vaccine_notes', 'pet_3.behavior_notes', 'pet_3.medical_notes', 'pet_3.training_notes',
                     'booking.notes',
                 ];
-                $raw_mapping = scalar_string($_POST['field_mapping'][$index] ?? '');
+                $raw_mapping = scalar_string($field_mappings[$index] ?? '');
                 $field = [
                     'label' => trim($label),
-                    'type' => scalar_string($_POST['field_type'][$index] ?? 'text'),
-                    'placeholder' => trim(scalar_string($_POST['field_placeholder'][$index] ?? '')),
-                    'description' => trim(scalar_string($_POST['field_description'][$index] ?? '')),
-                    'required' => isset($_POST['field_required'][$index]) ? 1 : 0,
+                    'type' => scalar_string($field_types[$index] ?? 'text'),
+                    'placeholder' => trim(scalar_string($field_placeholders[$index] ?? '')),
+                    'description' => trim(scalar_string($field_descriptions[$index] ?? '')),
+                    'required' => array_key_exists($index, $field_required) ? 1 : 0,
                     'profile_mapping' => in_array($raw_mapping, $allowed_mappings, true) ? $raw_mapping : '',
                 ];
                 
                 // Add options for select, radio, checkbox
                 if (in_array(array_string_value($field, 'type'), ['select', 'radio', 'checkbox'], true)) {
-                    $options_str = trim(scalar_string($_POST['field_options'][$index] ?? ''));
+                    $options_str = trim(scalar_string($field_options[$index] ?? ''));
                     $field['options'] = array_filter(array_map('trim', explode("\n", $options_str)));
                 }
                 
@@ -147,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 // Get appointment types for dropdown
 $stmt = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name");
-$appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$appointment_types = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 
 require_once '../backend/includes/header.php';
 ?>
@@ -164,7 +170,7 @@ require_once '../backend/includes/header.php';
 
     <?php if (isset($error)): ?>
     <div class="alert alert-danger alert-dismissible fade show">
-        <?php echo htmlspecialchars($error); ?>
+        <?php echo htmlspecialchars(scalar_string($error)); ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
@@ -354,8 +360,8 @@ require_once '../backend/includes/header.php';
                             <select name="appointment_type_id" class="form-select">
                                 <option value="">All appointment types</option>
                                 <?php foreach ($appointment_types as $type): ?>
-                                <option value="<?php echo $type['id']; ?>" <?php echo $appointment_type_id == $type['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($type['name']); ?>
+                                <option value="<?php echo array_int_value($type, 'id'); ?>" <?php echo $appointment_type_id == array_int_value($type, 'id') ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(array_string_value($type, 'name')); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>

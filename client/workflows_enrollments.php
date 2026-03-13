@@ -14,18 +14,16 @@ $workflow_id = safe_int($_GET['workflow_id'] ?? 0);
 // Get workflow details
 $stmt = $conn->prepare("SELECT * FROM workflows WHERE id = ?");
 $stmt->execute([$workflow_id]);
-$workflow = $stmt->fetch(PDO::FETCH_ASSOC);
+$workflow = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
 
-if (!is_array($workflow)) {
+if ($workflow === []) {
     $_SESSION['error'] = 'Workflow not found';
     header('Location: workflows_list.php');
     exit;
 }
-/** @var array<string, mixed> $workflow */
-
 // Handle cancellation
 if (isset($_GET['cancel']) && isset($_GET['enrollment_id'])) {
-    $enrollment_id = (int)$_GET['enrollment_id'];
+    $enrollment_id = safe_int($_GET['enrollment_id']);
     $workflow_helper->cancelEnrollment($enrollment_id);
     $_SESSION['success'] = 'Enrollment cancelled successfully';
     header('Location: workflows_enrollments.php?workflow_id=' . $workflow_id);

@@ -194,7 +194,7 @@ require_once '../backend/includes/header.php';
                 <ul class="pagination justify-content-center">
                     <?php for ($i = 1; $i <= $total_pages; $i++): ?>
                     <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
-                        <a class="page-link" href="?page=<?php echo $i; ?>&type=<?php echo $type_filter; ?>">
+                        <a class="page-link" href="?page=<?php echo $i; ?>&type=<?php echo scalar_string($type_filter); ?>">
                             <?php echo $i; ?>
                         </a>
                     </li>

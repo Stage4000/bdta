@@ -118,8 +118,13 @@ class ImapEmailReceiver {
             $errors = [];
             
             // Process each email
-            foreach ($emails as $email_number) {
+            foreach ($emails as $email_number_raw) {
+                $email_number = 0;
                 try {
+                    $email_number = safe_int($email_number_raw);
+                    if ($email_number <= 0) {
+                        continue;
+                    }
                     $this->processEmail($email_number);
                     $processed_count++;
                 } catch (Exception $e) {
@@ -158,17 +163,22 @@ class ImapEmailReceiver {
         }
         
         // Decode subject and received date (needed for both duplicate check and storage)
-        $subject = $this->decodeHeader($header->subject ?? '(No Subject)');
-        $parsed_date = isset($header->date) ? strtotime($header->date) : false;
+        $subject = $this->decodeHeader(scalar_string($header->subject ?? '(No Subject)'));
+        $header_date = $header->date ?? null;
+        $parsed_date = is_string($header_date) ? strtotime($header_date) : false;
         $received_date = $parsed_date !== false ? date('Y-m-d H:i:s', $parsed_date) : date('Y-m-d H:i:s');
 
         // Get from address (needed for duplicate check and storage)
         $from_email = '';
-        if (isset($header->from) && count($header->from) > 0) {
+        if (isset($header->from) && is_array($header->from) && count($header->from) > 0) {
             $from = $header->from[0];
-            $from_email = isset($from->mailbox) && isset($from->host)
-                ? $from->mailbox . '@' . $from->host
-                : '';
+            if (is_object($from)) {
+                $mailbox = scalar_string($from->mailbox ?? '');
+                $host = scalar_string($from->host ?? '');
+                $from_email = $mailbox !== '' && $host !== ''
+                    ? $mailbox . '@' . $host
+                    : '';
+            }
         }
 
         // Get message ID to avoid duplicates
@@ -255,8 +265,11 @@ class ImapEmailReceiver {
         }
         
         // Check if multipart
-        if (isset($structure->parts) && count($structure->parts)) {
+        if (isset($structure->parts) && is_array($structure->parts) && count($structure->parts) > 0) {
             foreach ($structure->parts as $part_num => $part) {
+                if (!is_object($part)) {
+                    continue;
+                }
                 $body_part = $this->getPartBody($email_number, $part, $part_num + 1, $type);
                 if ($body_part) {
                     $body = $body_part;
@@ -268,9 +281,7 @@ class ImapEmailReceiver {
             $body = scalar_string(imap_body($this->getImapConnection(), $email_number));
             
             // Decode if needed
-            if (isset($structure->encoding)) {
-                $body = $this->decodeBody($body, $structure->encoding);
-            }
+            $body = $this->decodeBody($body, safe_int($structure->encoding ?? 0));
         }
         
         return $body;
@@ -283,23 +294,25 @@ class ImapEmailReceiver {
         $data = '';
         
         // Check if this part matches the desired type
-        $is_html = isset($part->subtype) && strtolower($part->subtype) === 'html';
-        $is_text = isset($part->subtype) && strtolower($part->subtype) === 'plain';
+        $subtype = strtolower(scalar_string($part->subtype ?? ''));
+        $is_html = $subtype === 'html';
+        $is_text = $subtype === 'plain';
         
         if (($type === 'html' && $is_html) || ($type === 'text' && $is_text)) {
             $data = scalar_string(imap_fetchbody($this->getImapConnection(), $email_number, (string) $part_num));
             
             // Decode if needed
-            if (isset($part->encoding)) {
-                $data = $this->decodeBody($data, $part->encoding);
-            }
+            $data = $this->decodeBody($data, safe_int($part->encoding ?? 0));
             
             return $data;
         }
         
         // Check sub-parts
-        if (isset($part->parts) && count($part->parts)) {
+        if (isset($part->parts) && is_array($part->parts) && count($part->parts) > 0) {
             foreach ($part->parts as $sub_part_num => $sub_part) {
+                if (!is_object($sub_part)) {
+                    continue;
+                }
                 $sub_data = $this->getPartBody($email_number, $sub_part, $part_num . '.' . ($sub_part_num + 1), $type);
                 if ($sub_data) {
                     return $sub_data;
@@ -339,7 +352,9 @@ class ImapEmailReceiver {
         $result = '';
         
         foreach ($decoded as $part) {
-            $result .= $part->text;
+            if (is_object($part)) {
+                $result .= scalar_string($part->text ?? '');
+            }
         }
         
         return $result;
@@ -370,9 +385,11 @@ class ImapEmailReceiver {
     private function storeUnmatchedEmail(object $header, string $from_email, string $to_email, string $subject, string $body_html, string $body_text, string $received_date): void {
         // Get from name
         $from_name = '';
-        if (isset($header->from) && count($header->from) > 0) {
+        if (isset($header->from) && is_array($header->from) && count($header->from) > 0) {
             $from = $header->from[0];
-            $from_name = isset($from->personal) ? $this->decodeHeader($from->personal) : '';
+            if (is_object($from)) {
+                $from_name = isset($from->personal) ? $this->decodeHeader(scalar_string($from->personal)) : '';
+            }
         }
         
         // Check if this unmatched email already exists

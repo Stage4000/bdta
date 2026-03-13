@@ -12,14 +12,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
     if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
         setFlashMessage('Invalid request.', 'danger');
-        redirect($_SERVER['PHP_SELF'] . ($client_filter > 0 ? "?client_id=$client_filter" : ''));
+        redirect(scalar_string($_SERVER['PHP_SELF'] ?? 'time_entries_list.php') . ($client_filter > 0 ? "?client_id=$client_filter" : ''));
     }
     $id = safe_int($_POST['delete_id']);
     $post_client_filter = safe_int($_POST['client_id'] ?? 0);
     $stmt = $conn->prepare("DELETE FROM time_entries WHERE id = ?");
     $stmt->execute([$id]);
     setFlashMessage('Time entry deleted successfully!', 'success');
-    redirect($_SERVER['PHP_SELF'] . ($post_client_filter > 0 ? "?client_id=$post_client_filter" : ''));
+    redirect(scalar_string($_SERVER['PHP_SELF'] ?? 'time_entries_list.php') . ($post_client_filter > 0 ? "?client_id=$post_client_filter" : ''));
 }
 
 // Fetch clients for filter

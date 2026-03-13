@@ -15,6 +15,7 @@ require_once __DIR__ . '/database.php';
 function getSystemTimezone(): string {
     require_once __DIR__ . '/settings.php';
 
+    /** @var string|null $resolved */
     static $resolved = null;
     if ($resolved !== null) {
         return $resolved;
@@ -121,6 +122,40 @@ function array_int_value(array $row, string|int $key, int $default = 0): int {
 }
 
 /**
+ * @return array<string, mixed>
+ */
+function assoc_row(mixed $row): array {
+    if (!is_array($row)) {
+        return [];
+    }
+
+    $assoc = [];
+    foreach ($row as $key => $value) {
+        $assoc[(string) $key] = $value;
+    }
+
+    return $assoc;
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function assoc_rows(mixed $rows): array {
+    if (!is_array($rows)) {
+        return [];
+    }
+
+    $assoc_rows = [];
+    foreach ($rows as $row) {
+        if (is_array($row)) {
+            $assoc_rows[] = assoc_row($row);
+        }
+    }
+
+    return $assoc_rows;
+}
+
+/**
  * @return list<string>
  */
 function string_list(mixed $value): array {
@@ -144,7 +179,7 @@ function decode_json_assoc(mixed $json): array {
         return [];
     }
     $decoded = json_decode($json, true);
-    return is_array($decoded) ? $decoded : [];
+    return assoc_row($decoded);
 }
 
 /**
@@ -155,7 +190,7 @@ function decode_json_assoc_list(mixed $json): array {
     $rows = [];
     foreach ($decoded as $item) {
         if (is_array($item)) {
-            $rows[] = $item;
+            $rows[] = assoc_row($item);
         }
     }
     return $rows;

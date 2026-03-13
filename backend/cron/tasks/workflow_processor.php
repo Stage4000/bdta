@@ -41,16 +41,23 @@ class WorkflowProcessorTask {
         ");
         
         $stmt->execute([$current_time]);
-        $executions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $executions = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
         $errors = [];
         
         foreach ($executions as $execution) {
             try {
-                if (empty($execution['client_email'])) {
-                    $this->markExecutionFailed($execution['id'], "No email found for client");
-                    $errors[] = "No email for workflow step #{$execution['id']}";
+                $execution_id = $execution['id'] ?? null;
+                $enrollment_id = $execution['enrollment_id'] ?? null;
+                $client_email = array_string_value($execution, 'client_email');
+                if (!is_int($execution_id) && !is_string($execution_id)) {
+                    $errors[] = 'Workflow step missing id.';
+                    continue;
+                }
+                if ($client_email === '') {
+                    $this->markExecutionFailed($execution_id, "No email found for client");
+                    $errors[] = "No email for workflow step #{$execution_id}";
                     continue;
                 }
                 
@@ -59,20 +66,26 @@ class WorkflowProcessorTask {
                 
                 if ($result['success']) {
                     // Mark as executed
-                    $this->markExecutionComplete($execution['id']);
+                    $this->markExecutionComplete($execution_id);
                     $sent_count++;
                     
                     // Check if this was the last step and mark enrollment as complete
-                    $this->checkEnrollmentCompletion($execution['enrollment_id']);
+                    if (is_int($enrollment_id) || is_string($enrollment_id)) {
+                        $this->checkEnrollmentCompletion($enrollment_id);
+                    }
                 } else {
-                    $this->markExecutionFailed($execution['id'], $result['message']);
-                    $errors[] = "Failed to send to {$execution['client_email']}: {$result['message']}";
+                    $this->markExecutionFailed($execution_id, $result['message']);
+                    $errors[] = "Failed to send to {$client_email}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
                 $error_msg = $e->getMessage();
-                $this->markExecutionFailed($execution['id'], $error_msg);
-                $errors[] = "Error processing workflow step #{$execution['id']}: " . $error_msg;
+                if (isset($execution_id) && (is_int($execution_id) || is_string($execution_id))) {
+                    $this->markExecutionFailed($execution_id, $error_msg);
+                    $errors[] = "Error processing workflow step #{$execution_id}: " . $error_msg;
+                } else {
+                    $errors[] = 'Error processing workflow step: ' . $error_msg;
+                }
             }
         }
         
@@ -174,10 +187,10 @@ class WorkflowProcessorTask {
             // Get appointment type unique link
             $stmt = $this->conn->prepare("SELECT unique_link FROM appointment_types WHERE id = ?");
             $stmt->execute([$appointment_type_id]);
-            $apt_type = $stmt->fetch(PDO::FETCH_ASSOC);
+            $apt_type = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
             
-            if (is_array($apt_type) && !empty($apt_type['unique_link'])) {
-                $link = $base_url . '/backend/public/book.php?type=' . scalar_string($apt_type['unique_link']);
+            if ($apt_type !== [] && !empty($apt_type['unique_link'])) {
+                $link = $base_url . '/backend/public/book.php?link=' . scalar_string($apt_type['unique_link']);
                 if ($html) {
                     $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #f59e0b; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📅 Book Appointment</a></p>';
                 } else {

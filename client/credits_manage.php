@@ -365,7 +365,7 @@ require_once '../backend/includes/header.php';
             </div>
 
             <?php if (isset($_SESSION['flash_message'])): ?>
-                <div class="alert alert-<?php echo $_SESSION['flash_type']; ?> alert-dismissible fade show">
+                <div class="alert alert-<?php echo scalar_string($_SESSION['flash_type'] ?? 'info'); ?> alert-dismissible fade show">
                     <?php 
                     echo escape($_SESSION['flash_message']);
                     unset($_SESSION['flash_message']);

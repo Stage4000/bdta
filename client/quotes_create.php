@@ -56,21 +56,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $total_amount = 0;
     
     if (isset($_POST['item_description']) && is_array($_POST['item_description'])) {
+        $item_quantities = is_array($_POST['item_quantity'] ?? null) ? $_POST['item_quantity'] : [];
+        $item_prices = is_array($_POST['item_price'] ?? null) ? $_POST['item_price'] : [];
+        $item_package_ids = is_array($_POST['item_package_id'] ?? null) ? $_POST['item_package_id'] : [];
+        $item_appointment_type_ids = is_array($_POST['item_appointment_type_id'] ?? null) ? $_POST['item_appointment_type_id'] : [];
         for ($i = 0; $i < count($_POST['item_description']); $i++) {
             $desc = trim(scalar_string($_POST['item_description'][$i] ?? ''));
-            $qty = max(1, safe_int($_POST['item_quantity'][$i] ?? 0));
-            $price = safe_float($_POST['item_price'][$i] ?? 0);
+            $qty = max(1, safe_int($item_quantities[$i] ?? 0));
+            $price = safe_float($item_prices[$i] ?? 0);
             $amount = $qty * $price;
             
             if ($desc && $price > 0) {
                 $item_type = 'custom';
                 $reference_id = null;
-                if (!empty($_POST['item_package_id'][$i])) {
+                if (!empty($item_package_ids[$i])) {
                     $item_type = 'package';
-                    $reference_id = safe_int($_POST['item_package_id'][$i]);
-                } elseif (!empty($_POST['item_appointment_type_id'][$i])) {
+                    $reference_id = safe_int($item_package_ids[$i]);
+                } elseif (!empty($item_appointment_type_ids[$i])) {
                     $item_type = 'appointment_type';
-                    $reference_id = safe_int($_POST['item_appointment_type_id'][$i]);
+                    $reference_id = safe_int($item_appointment_type_ids[$i]);
                 }
 
                 $line_items[] = [

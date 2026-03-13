@@ -90,7 +90,7 @@ $secret_key = STRIPE_SECRET_KEY;
 $ch = curl_init('https://api.stripe.com/v1/checkout/sessions/' . urlencode($session_id));
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_USERPWD        => $secret_key . ':',
+    CURLOPT_USERPWD        => scalar_string($secret_key) . ':',
 ]);
 $response = curl_exec($ch);
 if ($response === false) {

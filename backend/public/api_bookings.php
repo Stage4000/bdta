@@ -12,7 +12,7 @@ $method = scalar_string($_SERVER['REQUEST_METHOD'] ?? '');
  * @return array<string, mixed>
  */
 function api_booking_db_row(mixed $row): array {
-    return is_array($row) ? $row : [];
+    return assoc_row($row);
 }
 
 /**
@@ -25,25 +25,18 @@ function api_booking_assoc_rows(mixed $value): array {
     if (!is_array($value)) {
         return [];
     }
-
-    $rows = [];
-    foreach ($value as $item) {
-        if (is_array($item)) {
-            $rows[] = $item;
-        }
-    }
-    return $rows;
+    return assoc_rows($value);
 }
 
 /**
  * @return array<string, array<string, mixed>>
  */
 function api_booking_assoc_map(mixed $value): array {
-    $decoded = is_string($value) ? decode_json_assoc($value) : (is_array($value) ? $value : []);
+    $decoded = is_string($value) ? decode_json_assoc($value) : assoc_row($value);
     $rows = [];
     foreach ($decoded as $key => $item) {
         if (is_array($item)) {
-            $rows[(string)$key] = $item;
+            $rows[(string)$key] = assoc_row($item);
         }
     }
     return $rows;
@@ -547,7 +540,9 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $max_participants = 1;
     $buffer_before = 0; // minutes of buffer required before this appointment type
     $buffer_after  = 0; // minutes of buffer required after this appointment type
+    $appointment_type = [];
     
+    $custom_slot_configs = [];
     if ($appointment_type_id) {
         $stmt = $conn->prepare("
             SELECT available_days, available_start_time, available_end_time, time_slot_interval,
@@ -565,7 +560,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             
             // Handle specific date scheduling (single or multi-date)
             if ($schedule_type === 'specific_date') {
-                $custom_slot_configs = null; // null = use global times; array = per-timeslot config
+                    $custom_slot_configs = []; // [] = use global times; non-empty array = per-timeslot config
 
                 // Try new multi-date format first
                 $specific_dates_arr = api_booking_assoc_rows(array_string_value($appointment_type, 'specific_dates'));
@@ -640,7 +635,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         }
 
         // Apply per-day time overrides if configured
-        if (!empty($appointment_type['per_day_schedule'])) {
+        if (array_string_value($appointment_type, 'per_day_schedule') !== '') {
             $per_day = api_booking_assoc_map(array_string_value($appointment_type, 'per_day_schedule'));
             $day_key = (string)$day_of_week;
             foreach ($per_day as $config_key => $day_config) {
@@ -1166,8 +1161,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
 
                     $value = $responses[$fi] ?? null;
                     if ($value === null || $value === '') continue;
-                    if (is_array($value)) $value = implode(', ', $value);
-                    $value = (string)$value;
+                    if (is_array($value)) $value = implode(', ', string_list($value));
+                    $value = scalar_string($value);
 
                     if (strpos($mapping, 'client.') === 0) {
                         $attr = substr($mapping, 7);

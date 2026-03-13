@@ -160,7 +160,7 @@ include __DIR__ . '/../backend/includes/header.php';
         </div>
         <div class="card-body">
             <?php if (isset($error)): ?>
-                <div class="alert alert-danger"><?= $error ?></div>
+                <div class="alert alert-danger"><?= scalar_string($error) ?></div>
             <?php endif; ?>
 
             <form method="POST" action="">

@@ -38,15 +38,18 @@ class InvoiceReminderTask {
         ");
         
         $stmt->execute([$current_date, $reminder_threshold]);
-        $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $invoices = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
         $errors = [];
         
         foreach ($invoices as $invoice) {
             try {
-                if (empty($invoice['client_email'])) {
-                    $errors[] = "No email found for invoice #{$invoice['invoice_number']}";
+                $invoice_id = scalar_string($invoice['id'] ?? '');
+                $invoice_number = array_string_value($invoice, 'invoice_number');
+                $client_email = array_string_value($invoice, 'client_email');
+                if ($client_email === '') {
+                    $errors[] = "No email found for invoice #{$invoice_number}";
                     continue;
                 }
                 
@@ -56,14 +59,14 @@ class InvoiceReminderTask {
                 if ($result['success']) {
                     // Mark reminder as sent
                     $update = $this->conn->prepare("UPDATE invoices SET last_reminder_sent = ? WHERE id = ?");
-                    $update->execute([date('Y-m-d H:i:s'), $invoice['id']]);
+                    $update->execute([date('Y-m-d H:i:s'), $invoice_id]);
                     $sent_count++;
                 } else {
-                    $errors[] = "Failed to send to {$invoice['client_email']}: {$result['message']}";
+                    $errors[] = "Failed to send to {$client_email}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
-                $errors[] = "Error processing invoice #{$invoice['invoice_number']}: " . $e->getMessage();
+                $errors[] = "Error processing invoice #{$invoice_number}: " . $e->getMessage();
             }
         }
         

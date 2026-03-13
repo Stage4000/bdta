@@ -37,15 +37,17 @@ class ContractReminderTask {
         ");
         
         $stmt->execute([$reminder_threshold, $reminder_threshold]);
-        $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $contracts = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
         $errors = [];
         
         foreach ($contracts as $contract) {
             try {
-                if (empty($contract['client_email'])) {
-                    $errors[] = "No email found for contract #{$contract['id']}";
+                $contract_id = scalar_string($contract['id'] ?? '');
+                $client_email = array_string_value($contract, 'client_email');
+                if ($client_email === '') {
+                    $errors[] = "No email found for contract #{$contract_id}";
                     continue;
                 }
                 
@@ -55,14 +57,14 @@ class ContractReminderTask {
                 if ($result['success']) {
                     // Mark reminder as sent
                     $update = $this->conn->prepare("UPDATE contracts SET last_reminder_sent = ? WHERE id = ?");
-                    $update->execute([date('Y-m-d H:i:s'), $contract['id']]);
+                    $update->execute([date('Y-m-d H:i:s'), $contract_id]);
                     $sent_count++;
                 } else {
-                    $errors[] = "Failed to send to {$contract['client_email']}: {$result['message']}";
+                    $errors[] = "Failed to send to {$client_email}: {$result['message']}";
                 }
                 
             } catch (Exception $e) {
-                $errors[] = "Error processing contract #{$contract['id']}: " . $e->getMessage();
+                $errors[] = "Error processing contract #{$contract_id}: " . $e->getMessage();
             }
         }
         
