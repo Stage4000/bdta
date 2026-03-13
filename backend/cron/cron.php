@@ -147,7 +147,7 @@ class CronRunner {
                 throw new RuntimeException('Task id missing.');
             }
             $this->logTaskExecution($task_id, $task_name, $status, $message, $items_processed, $execution_time);
-            $log_prefix = $success ? '✓ Task completed' : '✗ Task reported failure';
+            $log_prefix = $success ? '✓ Task completed' : '✗ Task failed';
             $this->log("{$log_prefix}: {$message} ({$items_processed} items, {$execution_time}s)");
             
             // Update task's last_run and next_run times

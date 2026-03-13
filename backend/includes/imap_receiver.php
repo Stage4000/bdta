@@ -103,11 +103,16 @@ class ImapEmailReceiver {
             $sync_days = safe_int(Settings::get('imap_sync_days', 30));
             $since_date = date('d-M-Y', safe_timestamp(strtotime("-{$sync_days} days")));
             
+            $errors = [];
+            
             // Search for unread emails since the sync date
             // Note: imap_search returns false on *errors* as well as "no results".
             // To avoid silently succeeding on search errors (e.g. bad criteria, folder issues),
             // capture errors immediately after the call.
-            imap_errors(); // clear any previous IMAP errors before searching
+            $pre_search_errors = imap_errors() ?: []; // clear and capture any prior warnings
+            if (!empty($pre_search_errors)) {
+                $errors[] = 'Cleared IMAP warnings before search: ' . implode('; ', $pre_search_errors);
+            }
             $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
             $search_errors = imap_errors() ?: [];
             
@@ -133,7 +138,7 @@ class ImapEmailReceiver {
             }
             
             $processed_count = 0;
-            $errors = [];
+            $flag_queue = [];
             
             // Process each email
             foreach ($emails as $email_number_raw) {
@@ -144,16 +149,21 @@ class ImapEmailReceiver {
                         continue;
                     }
                     $this->processEmail($email_number);
-                    // Mark message as seen so we don't reprocess it
-                    imap_errors(); // clear before setting flags so we can detect failures
-                    imap_setflag_full($this->getImapConnection(), (string) $email_number, "\\Seen");
-                    $flag_errors = imap_errors() ?: [];
-                    if (!empty($flag_errors)) {
-                        $errors[] = "Email #{$email_number}: failed to mark as seen (" . implode('; ', $flag_errors) . ")";
-                    }
+                    // Queue message to be marked as seen after processing loop
+                    $flag_queue[] = (string) $email_number;
                     $processed_count++;
                 } catch (Exception $e) {
                     $errors[] = "Email #{$email_number}: " . $e->getMessage();
+                }
+            }
+            
+            // Mark all processed messages as seen in a single operation
+            if (!empty($flag_queue)) {
+                imap_errors(); // clear before setting flags so we can detect failures
+                imap_setflag_full($this->getImapConnection(), implode(',', $flag_queue), "\\Seen");
+                $flag_errors = imap_errors() ?: [];
+                if (!empty($flag_errors)) {
+                    $errors[] = 'Failed to mark one or more emails as seen: ' . implode('; ', $flag_errors);
                 }
             }
             
