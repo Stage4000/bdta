@@ -9,8 +9,8 @@ if (isPortalLoggedIn()) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email    = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $email    = trim(scalar_string($_POST['email'] ?? ''));
+    $password = scalar_string($_POST['password'] ?? '');
 
     if ($email && $password) {
         $db   = new Database();
@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$email]);
         $client = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($client && password_verify($password, $client['password_hash'])) {
+        if ($client && password_verify($password, array_string_value($client, 'password_hash'))) {
             $_SESSION['portal_client_id']    = $client['id'];
             $_SESSION['portal_client_name']  = $client['name'];
             $_SESSION['portal_client_email'] = $client['email'];

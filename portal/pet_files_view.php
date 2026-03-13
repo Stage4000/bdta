@@ -2,12 +2,12 @@
 require_once '../backend/includes/config.php';
 requirePortalLogin();
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 
 $db   = new Database();
 $conn = $db->getConnection();
 
-$file_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$file_id = safe_int($_GET['id'] ?? 0);
 if ($file_id <= 0) {
     http_response_code(400);
     die('Invalid file ID');

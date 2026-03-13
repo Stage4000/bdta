@@ -68,7 +68,7 @@ define('DEFAULT_LOCALHOST_URL', 'http://localhost:8000');
 define('PORTAL_URL', '/portal/');
 
 // Helper functions
-function redirect(string $url): void {
+function redirect(string $url): never {
     header("Location: $url");
     exit();
 }
@@ -118,6 +118,22 @@ function array_string_value(array $row, string|int $key, string $default = ''): 
  */
 function array_int_value(array $row, string|int $key, int $default = 0): int {
     return safe_int($row[$key] ?? $default);
+}
+
+/**
+ * @return list<string>
+ */
+function string_list(mixed $value): array {
+    if (!is_array($value)) {
+        return [];
+    }
+
+    $items = [];
+    foreach ($value as $item) {
+        $items[] = scalar_string($item);
+    }
+
+    return $items;
 }
 
 /**
@@ -216,6 +232,10 @@ function requirePortalLogin(): void {
     if (!isPortalLoggedIn()) {
         redirect(PORTAL_URL . 'login.php');
     }
+}
+
+function portalClientId(): int {
+    return safe_int($_SESSION['portal_client_id'] ?? 0);
 }
 
 function logClientActivity(int|string $client_id, string $action, string $description = '', ?PDO $conn = null): void {

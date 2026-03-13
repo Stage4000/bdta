@@ -2,7 +2,7 @@
 require_once '../backend/includes/config.php';
 requirePortalLogin();
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 $db   = new Database();
 $conn = $db->getConnection();
 
@@ -13,16 +13,19 @@ $success  = '';
 $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ?");
 $stmt->execute([$client_id]);
 $client = $stmt->fetch(PDO::FETCH_ASSOC);
+if (!$client) {
+    redirect(PORTAL_URL . 'logout.php');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name    = trim($_POST['name'] ?? '');
-    $email   = trim($_POST['email'] ?? '');
-    $phone   = trim($_POST['phone'] ?? '');
-    $address = trim($_POST['address'] ?? '');
+    $name    = trim(scalar_string($_POST['name'] ?? ''));
+    $email   = trim(scalar_string($_POST['email'] ?? ''));
+    $phone   = trim(scalar_string($_POST['phone'] ?? ''));
+    $address = trim(scalar_string($_POST['address'] ?? ''));
 
-    $new_password     = $_POST['new_password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
-    $current_password = $_POST['current_password'] ?? '';
+    $new_password     = scalar_string($_POST['new_password'] ?? '');
+    $confirm_password = scalar_string($_POST['confirm_password'] ?? '');
+    $current_password = scalar_string($_POST['current_password'] ?? '');
 
     // Validate
     if (empty($name))  $errors[] = 'Name is required.';
@@ -30,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
 
     // Check if email changed and is already taken by another client
-    if (empty($errors) && $email !== $client['email']) {
+    if (empty($errors) && $email !== array_string_value($client, 'email')) {
         $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ? AND id != ?");
         $stmt->execute([$email, $client_id]);
         if ($stmt->fetch()) {
@@ -42,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($change_password) {
         if (empty($current_password)) {
             $errors[] = 'Current password is required to change your password.';
-        } elseif (!password_verify($current_password, $client['password_hash'])) {
+        } elseif (!password_verify($current_password, array_string_value($client, 'password_hash'))) {
             $errors[] = 'Current password is incorrect.';
         } elseif (strlen($new_password) < 8) {
             $errors[] = 'New password must be at least 8 characters long.';
@@ -72,6 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ?");
         $stmt->execute([$client_id]);
         $client = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$client) {
+            redirect(PORTAL_URL . 'logout.php');
+        }
 
         $success = 'Profile updated successfully.';
     }

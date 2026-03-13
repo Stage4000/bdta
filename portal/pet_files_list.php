@@ -4,12 +4,12 @@ requirePortalLogin();
 
 header('Content-Type: application/json');
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 
 $db   = new Database();
 $conn = $db->getConnection();
 
-$pet_id = isset($_GET['pet_id']) ? intval($_GET['pet_id']) : 0;
+$pet_id = safe_int($_GET['pet_id'] ?? 0);
 if ($pet_id <= 0) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid pet ID']);

@@ -11,8 +11,8 @@ require_once '../backend/includes/config.php';
 $db   = new Database();
 $conn = $db->getConnection();
 
-$session_id = trim($_GET['session_id'] ?? '');
-$token      = trim($_GET['token'] ?? '');
+$session_id = trim(scalar_string($_GET['session_id'] ?? ''));
+$token      = trim(scalar_string($_GET['token'] ?? ''));
 
 if (empty($session_id)) {
     // No session_id — likely direct navigation, just redirect home
@@ -46,8 +46,8 @@ if (!empty($token)) {
     require_once '../backend/includes/config.php';
     requirePortalLogin();
 
-    $client_id = intval($_SESSION['portal_client_id']);
-    $id        = intval($_GET['id'] ?? 0);
+    $client_id = portalClientId();
+    $id        = safe_int($_GET['id'] ?? 0);
 
     if ($id <= 0) {
         redirect(PORTAL_URL . 'invoices.php');
@@ -104,7 +104,7 @@ if ($response === false) {
 $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-$session = json_decode(scalar_string($response), true);
+$session = decode_json_assoc(scalar_string($response));
 
 if ($http_code !== 200 || empty($session['id'])) {
     error_log("Stripe session retrieval failed for session $session_id (HTTP $http_code)");
@@ -113,7 +113,7 @@ if ($http_code !== 200 || empty($session['id'])) {
     exit;
 }
 
-if ($session['payment_status'] !== 'paid') {
+if (array_string_value($session, 'payment_status') !== 'paid') {
     // Payment not completed (e.g., user cancelled)
     setFlashMessage('Payment was not completed. You can try again below.', 'warning');
     header('Location: ' . $cancel_url);
@@ -121,13 +121,13 @@ if ($session['payment_status'] !== 'paid') {
 }
 
 // Payment confirmed — mark invoice as paid
-if (empty($session['payment_intent'])) {
+if (array_string_value($session, 'payment_intent') === '') {
     error_log("Stripe session $session_id has no payment_intent despite paid status");
     setFlashMessage('Could not verify payment details. If you were charged, please contact us.', 'danger');
     header('Location: ' . $cancel_url);
     exit;
 }
-$payment_intent_id = $session['payment_intent'];
+$payment_intent_id = array_string_value($session, 'payment_intent');
 
 $conn->prepare("
     UPDATE invoices
@@ -143,7 +143,7 @@ $conn->prepare("
 require_once '../backend/includes/email_service.php';
 $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
 $items_stmt->execute([$id]);
-$items = array_values($items_stmt->fetchAll(PDO::FETCH_ASSOC));
+$items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $email_service = new EmailService(null, $conn);
 $result = $email_service->sendPaymentReceipt($invoice, null, $items);

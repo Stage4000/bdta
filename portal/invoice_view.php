@@ -2,11 +2,11 @@
 require_once '../backend/includes/config.php';
 requirePortalLogin();
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 $db   = new Database();
 $conn = $db->getConnection();
 
-$id = intval($_GET['id'] ?? 0);
+$id = safe_int($_GET['id'] ?? 0);
 if ($id <= 0) {
     redirect(PORTAL_URL . 'invoices.php');
 }

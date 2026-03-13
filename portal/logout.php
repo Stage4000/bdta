@@ -7,7 +7,7 @@ if (!empty($_SESSION['portal_impersonating_admin_id'])) {
 }
 
 if (isPortalLoggedIn()) {
-    $client_id = intval($_SESSION['portal_client_id']);
+    $client_id = portalClientId();
     $db   = new Database();
     $conn = $db->getConnection();
     logClientActivity($client_id, 'logout', 'Client logged out', $conn);

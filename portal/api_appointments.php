@@ -15,7 +15,7 @@ if (!isPortalLoggedIn()) {
     exit;
 }
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 $db   = new Database();
 $conn = $db->getConnection();
 
@@ -87,7 +87,7 @@ $hours_until_apt = ($apt_datetime - time()) / 3600.0;
 
 // If appointment is in the past (or now), never allow modification
 if ($hours_until_apt <= 0) {
-    $business_email = Settings::get('business_email', '');
+    $business_email = scalar_string(Settings::get('business_email', ''));
     $msg = 'This appointment cannot be changed online. Please contact us directly.';
     if ($business_email) $msg .= " ({$business_email})";
     echo json_encode(['error' => 'restriction', 'message' => $msg]);
@@ -95,7 +95,7 @@ if ($hours_until_apt <= 0) {
 }
 
 if ($notice_hours > 0 && $hours_until_apt < $notice_hours) {
-    $business_email = Settings::get('business_email', '');
+    $business_email = scalar_string(Settings::get('business_email', ''));
     $msg = 'This appointment cannot be changed online. Please contact us directly.';
     if ($business_email) $msg .= " ({$business_email})";
     echo json_encode(['error' => 'restriction', 'message' => $msg]);
@@ -321,6 +321,10 @@ if ($action === 'reschedule') {
     $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
     $stmt->execute([$booking_id]);
     $updated_booking = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$updated_booking) {
+        echo json_encode(['error' => 'Updated booking could not be loaded.']);
+        exit;
+    }
 
     // Send emails
     $email_service = new EmailService(null, $conn);

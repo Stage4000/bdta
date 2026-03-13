@@ -4,7 +4,7 @@ requirePortalLogin();
 
 header('Content-Type: application/json');
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$pet_id = isset($_POST['pet_id']) ? intval($_POST['pet_id']) : 0;
+$pet_id = safe_int($_POST['pet_id'] ?? 0);
 if ($pet_id <= 0) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid pet ID']);
@@ -33,12 +33,14 @@ if (!$pet) {
     exit;
 }
 
-$description = trim($_POST['description'] ?? '');
+$description = trim(scalar_string($_POST['description'] ?? ''));
 
-if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+$uploaded_file = $_FILES['file'] ?? null;
+
+if (!is_array($uploaded_file) || !isset($uploaded_file['error']) || safe_int($uploaded_file['error']) !== UPLOAD_ERR_OK) {
     $error_message = 'No file uploaded';
-    if (isset($_FILES['file']['error'])) {
-        switch ($_FILES['file']['error']) {
+    if (is_array($uploaded_file) && isset($uploaded_file['error'])) {
+        switch (safe_int($uploaded_file['error'])) {
             case UPLOAD_ERR_INI_SIZE:
             case UPLOAD_ERR_FORM_SIZE:
                 $error_message = 'File is too large. Maximum size is 10MB'; break;
@@ -56,18 +58,18 @@ if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
 }
 
 $max_file_size = 10 * 1024 * 1024;
-if ($_FILES['file']['size'] > $max_file_size) {
+if (safe_int($uploaded_file['size'] ?? 0) > $max_file_size) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'File is too large. Maximum size is 10MB']);
     exit;
 }
 
-$original_name = basename($_FILES['file']['name']);
+$original_name = basename(scalar_string($uploaded_file['name'] ?? ''));
 $original_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $original_name) ?? $original_name;
 $original_name = str_replace(['/', '\\', '..'], '', $original_name);
 
-$file_size     = $_FILES['file']['size'];
-$tmp_name      = $_FILES['file']['tmp_name'];
+$file_size     = safe_int($uploaded_file['size'] ?? 0);
+$tmp_name      = scalar_string($uploaded_file['tmp_name'] ?? '');
 $finfo = finfo_open(FILEINFO_MIME_TYPE);
 if ($finfo === false) {
     http_response_code(500);

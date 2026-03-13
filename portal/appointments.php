@@ -2,7 +2,7 @@
 require_once '../backend/includes/config.php';
 requirePortalLogin();
 
-$client_id = intval($_SESSION['portal_client_id']);
+$client_id = portalClientId();
 $db   = new Database();
 $conn = $db->getConnection();
 
@@ -161,9 +161,9 @@ include '../portal/includes/header.php';
                 <tbody>
                 <?php foreach ($upcoming as $b): ?>
                     <tr>
-                        <td><?php echo escape(date('M j, Y', strtotime($b['appointment_date']))); ?></td>
-                        <td><?php echo escape(date('g:i A', strtotime($b['appointment_time']))); ?></td>
-                        <td><?php echo escape($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?></td>
+                        <td><?php echo escape(date('M j, Y', safe_timestamp(strtotime(array_string_value($b, 'appointment_date'))))); ?></td>
+                        <td><?php echo escape(date('g:i A', safe_timestamp(strtotime(array_string_value($b, 'appointment_time'))))); ?></td>
+                        <td><?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?></td>
                         <td>
                             <?php
                             $status = $b['status'] ?? 'pending';
@@ -173,15 +173,15 @@ include '../portal/includes/header.php';
                                 default     => 'bg-secondary',
                             };
                             ?>
-                            <span class="badge <?php echo $badge; ?>"><?php echo escape(ucfirst($status)); ?></span>
+                            <span class="badge <?php echo $badge; ?>"><?php echo escape(ucfirst(scalar_string($status))); ?></span>
                         </td>
                         <td class="text-muted small"><?php echo escape($b['notes'] ?? ''); ?></td>
                         <td>
                             <?php if ($b['_can_change']): ?>
                                 <button class="btn btn-sm btn-outline-danger me-1"
                                         data-booking-id="<?php echo intval($b['id']); ?>"
-                                        data-type-name="<?php echo escape($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?>"
-                                        data-datetime="<?php echo escape(date('M j, Y', strtotime($b['appointment_date'])) . ' at ' . date('g:i A', strtotime($b['appointment_time']))); ?>"
+                                        data-type-name="<?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?>"
+                                        data-datetime="<?php echo escape(date('M j, Y', safe_timestamp(strtotime(array_string_value($b, 'appointment_date')))) . ' at ' . date('g:i A', safe_timestamp(strtotime(array_string_value($b, 'appointment_time'))))); ?>"
                                         onclick="showCancelModal(this)">
                                     <i class="fas fa-times-circle me-1"></i>Cancel
                                 </button>
@@ -189,7 +189,7 @@ include '../portal/includes/header.php';
                                 <button class="btn btn-sm btn-outline-primary"
                                         data-booking-id="<?php echo intval($b['id']); ?>"
                                         data-type-id="<?php echo intval($b['appointment_type_id']); ?>"
-                                        data-type-name="<?php echo escape($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?>"
+                                        data-type-name="<?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?>"
                                         data-min-days="<?php echo intval($b['advance_booking_min_days'] ?? 1); ?>"
                                         onclick="showRescheduleModal(this)">
                                     <i class="fas fa-calendar-alt me-1"></i>Reschedule
@@ -230,9 +230,9 @@ include '../portal/includes/header.php';
                 <tbody>
                 <?php foreach ($past as $b): ?>
                     <tr>
-                        <td><?php echo escape(date('M j, Y', strtotime($b['appointment_date']))); ?></td>
-                        <td><?php echo escape(date('g:i A', strtotime($b['appointment_time']))); ?></td>
-                        <td><?php echo escape($b['apt_type_display_name'] ?: $b['service_type'] ?? ''); ?></td>
+                        <td><?php echo escape(date('M j, Y', safe_timestamp(strtotime(array_string_value($b, 'appointment_date'))))); ?></td>
+                        <td><?php echo escape(date('g:i A', safe_timestamp(strtotime(array_string_value($b, 'appointment_time'))))); ?></td>
+                        <td><?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?></td>
                         <td>
                             <?php
                             $status = $b['status'] ?? '';

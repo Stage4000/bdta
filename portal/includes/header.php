@@ -18,11 +18,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <?php
     $theme = Settings::getThemeColors();
-    $tc_primary       = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['primary']))          ? $theme['primary']          : '#9a0073';
-    $tc_primary_dark  = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['primary_dark']))     ? $theme['primary_dark']     : '#7a005a';
-    $tc_secondary     = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['secondary']))        ? $theme['secondary']        : '#0a9a9c';
-    $tc_sidebar_start = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['sidebar_bg_start'])) ? $theme['sidebar_bg_start'] : '#9a0073';
-    $tc_sidebar_end   = (preg_match('/^#[0-9A-Fa-f]{6}$/', $theme['sidebar_bg_end']))   ? $theme['sidebar_bg_end']   : '#7a005a';
+    $theme_primary = array_string_value($theme, 'primary', '#9a0073');
+    $theme_primary_dark = array_string_value($theme, 'primary_dark', '#7a005a');
+    $theme_secondary = array_string_value($theme, 'secondary', '#0a9a9c');
+    $theme_sidebar_start = array_string_value($theme, 'sidebar_bg_start', '#9a0073');
+    $theme_sidebar_end = array_string_value($theme, 'sidebar_bg_end', '#7a005a');
+    $tc_primary       = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary) === 1 ? $theme_primary : '#9a0073';
+    $tc_primary_dark  = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 ? $theme_primary_dark : '#7a005a';
+    $tc_secondary     = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_secondary) === 1 ? $theme_secondary : '#0a9a9c';
+    $tc_sidebar_start = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_sidebar_start) === 1 ? $theme_sidebar_start : '#9a0073';
+    $tc_sidebar_end   = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_sidebar_end) === 1 ? $theme_sidebar_end : '#7a005a';
+    $current_page = basename(scalar_string($_SERVER['PHP_SELF'] ?? ''));
     ?>
     <style>
         :root {
@@ -132,47 +138,47 @@
                     <?php endif; ?>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>index.php">
+                            <a class="nav-link <?php echo $current_page === 'index.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>index.php">
                                 <i class="fas fa-gauge me-2"></i> Home
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'invoices.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>invoices.php">
+                            <a class="nav-link <?php echo $current_page === 'invoices.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>invoices.php">
                                 <i class="fas fa-file-invoice me-2"></i> Invoices
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'appointments.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>appointments.php">
+                            <a class="nav-link <?php echo $current_page === 'appointments.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>appointments.php">
                                 <i class="fas fa-calendar-check me-2"></i> Appointments
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'credits.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>credits.php">
+                            <a class="nav-link <?php echo $current_page === 'credits.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>credits.php">
                                 <i class="fas fa-coins me-2"></i> Credits
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'agreements.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>agreements.php">
+                            <a class="nav-link <?php echo $current_page === 'agreements.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>agreements.php">
                                 <i class="fas fa-file-contract me-2"></i> Agreements
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'quotes.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>quotes.php">
+                            <a class="nav-link <?php echo $current_page === 'quotes.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>quotes.php">
                                 <i class="fas fa-file-invoice-dollar me-2"></i> Quotes
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'activity.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>activity.php">
+                            <a class="nav-link <?php echo $current_page === 'activity.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>activity.php">
                                 <i class="fas fa-list-ul me-2"></i> Activity
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'profile.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>profile.php">
+                            <a class="nav-link <?php echo $current_page === 'profile.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>profile.php">
                                 <i class="fas fa-user me-2"></i> Profile
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'pets.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>pets.php">
+                            <a class="nav-link <?php echo $current_page === 'pets.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>pets.php">
                                 <i class="fa-solid fa-dog me-2"></i> Pets
                             </a>
                         </li>
