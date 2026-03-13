@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $advance_booking_max_days = safe_int($_POST['advance_booking_max_days'] ?? 90);
     $cancellation_notice_hours = safe_int($_POST['cancellation_notice_hours'] ?? 0);
     $selected_form_ids = isset($_POST['form_ids']) && is_array($_POST['form_ids'])
-        ? array_map('intval', $_POST['form_ids'])
+        ? array_map(static fn(mixed $value): int => safe_int($value), $_POST['form_ids'])
         : [];
     $requires_forms = !empty($selected_form_ids) ? 1 : 0;
     $contract_template_id = !empty($_POST['contract_template_id']) ? safe_int($_POST['contract_template_id']) : null;
@@ -158,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Handle availability configuration
     $available_days = isset($_POST['available_days']) && is_array($_POST['available_days']) 
-        ? array_map('intval', $_POST['available_days']) 
+        ? array_map(static fn(mixed $value): int => safe_int($value), $_POST['available_days']) 
         : [0,1,2,3,4,5,6];
     $available_days_json = json_encode($available_days);
     $available_start_time = scalar_string($_POST['available_start_time'] ?? '09:00');
@@ -348,7 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Handle reminder rule sub-actions (add/delete/toggle) — must be editing an existing type
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sub_action']) && $is_edit) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_edit) {
     $sub_action = scalar_string($_POST['sub_action'] ?? '');
 
     if ($sub_action === 'add_rule') {
@@ -436,7 +436,7 @@ $type_advance_min_days = array_int_value($type_row, 'advance_booking_min_days', 
 $type_advance_max_days = array_int_value($type_row, 'advance_booking_max_days', 90);
 $type_cancellation_notice_hours = array_int_value($type_row, 'cancellation_notice_hours');
 $type_schedule = array_string_value($type_row, 'schedule_type', 'recurring');
-$type_available_days = array_map('intval', decode_json_assoc(array_string_value($type_row, 'available_days')));
+$type_available_days = array_map(static fn(mixed $value): int => safe_int($value), decode_json_assoc(array_string_value($type_row, 'available_days')));
 if ($type_available_days === []) {
     $type_available_days = [0, 1, 2, 3, 4, 5, 6];
 }
@@ -487,7 +487,7 @@ $selected_form_ids_current = [];
 if ($is_edit) {
     $stmt = $conn->prepare("SELECT form_template_id FROM appointment_type_forms WHERE appointment_type_id = ?");
     $stmt->execute([$id]);
-    $selected_form_ids_current = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    $selected_form_ids_current = array_map(static fn(mixed $value): int => safe_int($value), $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
 $page_title = $is_edit ? "Edit Appointment Type" : "Add Appointment Type";
@@ -694,7 +694,9 @@ include __DIR__ . '/../backend/includes/header.php';
                             <tbody>
                                 <?php foreach ($days as $index => $day): ?>
                                 <?php
-                                $per_day_row = isset($per_day_data[$index]) && is_array($per_day_data[$index]) ? $per_day_data[$index] : [];
+                                $per_day_key = (string) $index;
+                                $per_day_row_raw = array_key_exists($per_day_key, $per_day_data) ? $per_day_data[$per_day_key] : null;
+                                $per_day_row = is_array($per_day_row_raw) ? $per_day_row_raw : [];
                                 ?>
                                 <tr id="per_day_row_<?= $index ?>" style="display: <?= in_array($index, $available_days, true) ? 'table-row' : 'none' ?>;">
                                     <td><strong><?= $day ?></strong></td>
@@ -782,7 +784,7 @@ include __DIR__ . '/../backend/includes/header.php';
                             <?php
                             $schedule_type = $type_schedule;
                             if ($schedule_type === 'specific_date' && !empty($existing_specific_dates)) {
-                                $date_labels = array_map(static fn(array $e): string => date('F j, Y', strtotime(array_string_value($e, 'date'))), $existing_specific_dates);
+                                $date_labels = array_map(static fn(array $e): string => date('F j, Y', safe_timestamp(strtotime(array_string_value($e, 'date')))), $existing_specific_dates);
                                 echo 'This appointment will be available on <strong>' . implode(', ', $date_labels) . '</strong>';
                             } else {
                                 echo 'Based on your settings, appointment slots will be available ';

@@ -5,7 +5,7 @@ require_once '../backend/includes/email_signature_helper.php';
 
 requireLogin();
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = safe_int($_GET['id'] ?? 0);
 
 if (!$id) {
     die('Signature ID is required');
@@ -26,14 +26,15 @@ $sample_data = [
     'business_address' => 'Sebring, Florida'
 ];
 
-$rendered_html = EmailSignatureHelper::replaceCustomFields($signature['html_content'], $sample_data);
+$signature_row = $signature;
+$rendered_html = EmailSignatureHelper::replaceCustomFields(array_string_value($signature_row, 'html_content'), $sample_data);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Preview: <?= htmlspecialchars($signature['name']) ?></title>
+    <title>Preview: <?= htmlspecialchars(array_string_value($signature_row, 'name')) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
@@ -62,7 +63,7 @@ $rendered_html = EmailSignatureHelper::replaceCustomFields($signature['html_cont
         <div class="card">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">
-                    <i class="fas fa-eye"></i> Signature Preview: <?= htmlspecialchars($signature['name']) ?>
+                    <i class="fas fa-eye"></i> Signature Preview: <?= htmlspecialchars(array_string_value($signature_row, 'name')) ?>
                 </h5>
             </div>
             <div class="card-body">
@@ -81,11 +82,11 @@ $rendered_html = EmailSignatureHelper::replaceCustomFields($signature['html_cont
                 <div class="mt-4">
                     <h6>Signature Details:</h6>
                     <ul>
-                        <li><strong>Name:</strong> <?= htmlspecialchars($signature['name']) ?></li>
-                        <li><strong>Status:</strong> <?= $signature['is_active'] ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>' ?></li>
-                        <li><strong>Default:</strong> <?= $signature['is_default'] ? '<span class="badge bg-primary">Yes</span>' : '<span class="badge bg-secondary">No</span>' ?></li>
-                        <li><strong>Max Image Width:</strong> <?= htmlspecialchars($signature['max_image_width']) ?>px</li>
-                        <li><strong>Max Image Height:</strong> <?= htmlspecialchars($signature['max_image_height']) ?>px</li>
+                        <li><strong>Name:</strong> <?= htmlspecialchars(array_string_value($signature_row, 'name')) ?></li>
+                        <li><strong>Status:</strong> <?= array_int_value($signature_row, 'is_active') === 1 ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>' ?></li>
+                        <li><strong>Default:</strong> <?= array_int_value($signature_row, 'is_default') === 1 ? '<span class="badge bg-primary">Yes</span>' : '<span class="badge bg-secondary">No</span>' ?></li>
+                        <li><strong>Max Image Width:</strong> <?= array_int_value($signature_row, 'max_image_width') ?>px</li>
+                        <li><strong>Max Image Height:</strong> <?= array_int_value($signature_row, 'max_image_height') ?>px</li>
                     </ul>
                 </div>
                 
