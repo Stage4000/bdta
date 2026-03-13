@@ -109,10 +109,8 @@ class ImapEmailReceiver {
             // Note: imap_search returns false on *errors* as well as "no results".
             // To avoid silently succeeding on search errors (e.g. bad criteria, folder issues),
             // capture errors immediately after the call.
-            $pre_search_errors = imap_errors() ?: []; // clear and capture any prior warnings
-            if (!empty($pre_search_errors)) {
-                $errors[] = 'Cleared IMAP warnings before search: ' . implode('; ', $pre_search_errors);
-            }
+            // Clear any prior IMAP warnings before searching; errors from the search itself are handled below
+            imap_errors();
             $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
             $search_errors = imap_errors() ?: [];
             
@@ -159,7 +157,8 @@ class ImapEmailReceiver {
             
             // Mark all processed messages as seen in a single operation
             if (!empty($flag_queue)) {
-                imap_errors(); // clear before setting flags so we can detect failures
+                // Clear the IMAP error buffer so any issues setting flags are captured below
+                imap_errors();
                 imap_setflag_full($this->getImapConnection(), implode(',', $flag_queue), "\\Seen");
                 $flag_errors = imap_errors() ?: [];
                 if (!empty($flag_errors)) {
