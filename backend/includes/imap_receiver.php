@@ -85,7 +85,7 @@ class ImapEmailReceiver {
      * Fetch and process new emails
      */
     /**
-     * @return array{success: bool, message: string, emails_processed: int, errors?: list<string>}
+     * @return array{success: bool, message: string, emails_processed: int, items_processed: int, errors: list<string>}
      */
     public function fetchEmails(): array {
         try {
@@ -95,7 +95,8 @@ class ImapEmailReceiver {
                     'success' => false,
                     'message' => 'IMAP is not enabled',
                     'emails_processed' => 0,
-                    'items_processed' => 0
+                    'items_processed' => 0,
+                    'errors' => []
                 ];
             }
             
@@ -111,16 +112,27 @@ class ImapEmailReceiver {
             // Clear any prior IMAP errors before searching; errors from the search itself are handled below
             imap_errors();
             $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
-            $search_errors = imap_errors() ?: [];
+            $search_errors = array_values(array_map('scalar_string', imap_errors() ?: []));
             
             if ($emails === false) {
                 $this->disconnect();
-                $error_message = !empty($search_errors) ? implode('; ', $search_errors) : 'Unknown IMAP search error';
+                if (!empty($search_errors)) {
+                    return [
+                        'success' => false,
+                        'message' => 'IMAP search failed: ' . implode('; ', $search_errors),
+                        'emails_processed' => 0,
+                        'items_processed' => 0,
+                        'errors' => $search_errors
+                    ];
+                }
+                
+                // No results and no errors -> treat as no new mail
                 return [
-                    'success' => false,
-                    'message' => 'IMAP search failed: ' . $error_message,
+                    'success' => true,
+                    'message' => 'No new emails found',
                     'emails_processed' => 0,
-                    'items_processed' => 0
+                    'items_processed' => 0,
+                    'errors' => []
                 ];
             }
             
@@ -130,7 +142,8 @@ class ImapEmailReceiver {
                     'success' => true,
                     'message' => 'No new emails found',
                     'emails_processed' => 0,
-                    'items_processed' => 0
+                    'items_processed' => 0,
+                    'errors' => []
                 ];
             }
             
@@ -161,7 +174,7 @@ class ImapEmailReceiver {
                     // Clear the IMAP error buffer so any issues setting flags are captured below
                     imap_errors();
                     imap_setflag_full($this->getImapConnection(), implode(',', $flag_batch), "\\Seen");
-                    $batch_errors = imap_errors() ?: [];
+                    $batch_errors = array_map('scalar_string', imap_errors() ?: []);
                     if (!empty($batch_errors)) {
                         $flag_errors[] = implode('; ', $batch_errors);
                     }
@@ -187,7 +200,8 @@ class ImapEmailReceiver {
                 'success' => false,
                 'message' => $e->getMessage(),
                 'emails_processed' => 0,
-                'items_processed' => 0
+                'items_processed' => 0,
+                'errors' => [$e->getMessage()]
             ];
         }
     }

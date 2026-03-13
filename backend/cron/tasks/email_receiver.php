@@ -27,7 +27,7 @@ class EmailReceiverTask {
                 'success' => $result['success'],
                 'message' => $message,
                 'items_processed' => $result['emails_processed'],
-                'errors' => $result['errors'] ?? []
+                'errors' => $result['errors']
             ];
             
         } catch (Exception $e) {
