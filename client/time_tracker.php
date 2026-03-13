@@ -16,14 +16,14 @@ $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json');
     
-    $action = $_POST['action'] ?? '';
+    $action = scalar_string($_POST['action'] ?? '');
     
     if ($action === 'start') {
         $_SESSION['active_timer'] = [
             'start_time' => time(),
-            'client_id' => intval($_POST['client_id'] ?? 0),
-            'service_type' => trim($_POST['service_type'] ?? ''),
-            'description' => trim($_POST['description'] ?? '')
+            'client_id' => safe_int($_POST['client_id'] ?? 0),
+            'service_type' => trim(scalar_string($_POST['service_type'] ?? '')),
+            'description' => trim(scalar_string($_POST['description'] ?? ''))
         ];
         echo json_encode(['success' => true, 'start_time' => $_SESSION['active_timer']['start_time']]);
         exit;
@@ -31,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($action === 'stop') {
         if (isset($_SESSION['active_timer'])) {
-            $timer = $_SESSION['active_timer'];
-            $start_time = $timer['start_time'];
+            $timer = is_array($_SESSION['active_timer']) ? $_SESSION['active_timer'] : [];
+            $start_time = safe_int($timer['start_time'] ?? 0);
             $end_time = time();
             $duration_seconds = $end_time - $start_time;
             $duration_minutes = round($duration_seconds / 60);
@@ -54,9 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             ");
             $stmt->execute([
-                $timer['client_id'],
-                $timer['service_type'],
-                $timer['description'],
+                safe_int($timer['client_id'] ?? 0),
+                scalar_string($timer['service_type'] ?? ''),
+                scalar_string($timer['description'] ?? ''),
                 $date,
                 $start_time_str,
                 $end_time_str,
@@ -79,10 +79,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($action === 'status') {
         if (isset($_SESSION['active_timer'])) {
+            $active_timer = is_array($_SESSION['active_timer']) ? $_SESSION['active_timer'] : [];
+            $active_start_time = safe_int($active_timer['start_time'] ?? 0);
             echo json_encode([
                 'active' => true,
-                'start_time' => $_SESSION['active_timer']['start_time'],
-                'elapsed' => time() - $_SESSION['active_timer']['start_time']
+                'start_time' => $active_start_time,
+                'elapsed' => time() - $active_start_time
             ]);
         } else {
             echo json_encode(['active' => false]);

@@ -6,9 +6,9 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Date range handling
-$range = $_GET['range'] ?? 'this_month';
-$start_date = $_GET['start_date'] ?? '';
-$end_date = $_GET['end_date'] ?? '';
+$range = scalar_string($_GET['range'] ?? 'this_month');
+$start_date = scalar_string($_GET['start_date'] ?? '');
+$end_date = scalar_string($_GET['end_date'] ?? '');
 
 // Calculate date ranges
 switch ($range) {
@@ -137,6 +137,12 @@ foreach ($all_dates as $date) {
 $page_title = 'Financial Reports';
 require_once '../backend/includes/header.php';
 ?>
+<?php
+$export_query = http_build_query([
+    'start' => $start_date,
+    'end' => $end_date,
+]);
+?>
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -146,21 +152,21 @@ require_once '../backend/includes/header.php';
                 <i class="fas fa-download me-1"></i> Export
             </button>
             <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="reports_export.php?type=income_summary&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=income_summary&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Income Summary (CSV)
                 </a></li>
-                <li><a class="dropdown-item" href="reports_export.php?type=income_detail&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=income_detail&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Income Detail (CSV)
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="reports_export.php?type=expense_summary&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=expense_summary&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Expense Summary (CSV)
                 </a></li>
-                <li><a class="dropdown-item" href="reports_export.php?type=expense_detail&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=expense_detail&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Expense Detail (CSV)
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="reports_export.php?type=profit_loss&start=<?= $start_date ?>&end=<?= $end_date ?>">
+                <li><a class="dropdown-item" href="reports_export.php?type=profit_loss&<?= escape($export_query) ?>">
                     <i class="fas fa-file-csv me-1"></i> Profit/Loss Summary (CSV)
                 </a></li>
             </ul>

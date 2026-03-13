@@ -5,7 +5,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$id = safe_int($_GET['id'] ?? 0);
 $expense = null;
 
 if ($id > 0) {
@@ -18,31 +18,33 @@ $clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $client_id = !empty($_POST['client_id']) ? intval($_POST['client_id']) : null;
-    $category = trim($_POST['category'] ?? '');
-    $description = trim($_POST['description'] ?? '');
-    $amount = floatval($_POST['amount'] ?? 0);
-    $expense_date = trim($_POST['expense_date'] ?? '');
+    $client_id = !empty($_POST['client_id']) ? safe_int($_POST['client_id']) : null;
+    $category = trim(scalar_string($_POST['category'] ?? ''));
+    $description = trim(scalar_string($_POST['description'] ?? ''));
+    $amount = safe_float($_POST['amount'] ?? 0);
+    $expense_date = trim(scalar_string($_POST['expense_date'] ?? ''));
     $billable = isset($_POST['billable']) ? 1 : 0;
-    $notes = trim($_POST['notes'] ?? '');
+    $notes = trim(scalar_string($_POST['notes'] ?? ''));
     
     $receipt_file = null;
     
     // Handle file upload
-    if (isset($_FILES['receipt']) && $_FILES['receipt']['error'] === UPLOAD_ERR_OK) {
+    $receipt_upload = $_FILES['receipt'] ?? null;
+    if (is_array($receipt_upload) && ($receipt_upload['error'] ?? null) === UPLOAD_ERR_OK) {
         $upload_dir = __DIR__ . '/../uploads/receipts/';
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0755, true);
         }
         
-        $file_extension = strtolower(pathinfo($_FILES['receipt']['name'], PATHINFO_EXTENSION));
+        $file_extension = strtolower(pathinfo(scalar_string($receipt_upload['name'] ?? ''), PATHINFO_EXTENSION));
         $allowed_extensions = ['jpg', 'jpeg', 'png', 'pdf', 'gif'];
         
         if (in_array($file_extension, $allowed_extensions)) {
             $file_name = uniqid('receipt_') . '.' . $file_extension;
             $file_path = $upload_dir . $file_name;
             
-            if (move_uploaded_file($_FILES['receipt']['tmp_name'], $file_path)) {
+            $tmp_name = scalar_string($receipt_upload['tmp_name'] ?? '');
+            if ($tmp_name !== '' && move_uploaded_file($tmp_name, $file_path)) {
                 $receipt_file = $file_name;
             }
         }
@@ -53,8 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         if ($id > 0) {
             // If new file uploaded, delete old one
-            if ($receipt_file && $expense['receipt_file']) {
-                $old_file = __DIR__ . '/../uploads/receipts/' . $expense['receipt_file'];
+            if ($receipt_file && is_array($expense) && array_string_value($expense, 'receipt_file') !== '') {
+                $old_file = __DIR__ . '/../uploads/receipts/' . array_string_value($expense, 'receipt_file');
                 if (file_exists($old_file)) {
                     unlink($old_file);
                 }
@@ -67,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = ?
             ");
             $stmt->execute([$client_id, $category, $description, $amount, $expense_date, $billable, $notes, 
-                           $receipt_file ?: $expense['receipt_file'], $id]);
+                           $receipt_file ?: (is_array($expense) ? array_string_value($expense, 'receipt_file') : ''), $id]);
             setFlashMessage('Expense updated successfully!', 'success');
         } else {
             $stmt = $conn->prepare("
@@ -144,12 +146,13 @@ include '../backend/includes/header.php';
 
                         <div class="mb-3">
                             <label for="receipt" class="form-label">Receipt Upload</label>
-                            <?php if ($expense && $expense['receipt_file']): ?>
+                            <?php if (is_array($expense) && array_string_value($expense, 'receipt_file') !== ''): ?>
                                 <div class="mb-2">
                                     <p class="text-muted">Current receipt:</p>
                                     <?php
-                                    $ext = strtolower(pathinfo($expense['receipt_file'], PATHINFO_EXTENSION));
-                                    $receipt_path = '../uploads/receipts/' . $expense['receipt_file'];
+                                    $receipt_file_name = array_string_value($expense, 'receipt_file');
+                                    $ext = strtolower(pathinfo($receipt_file_name, PATHINFO_EXTENSION));
+                                    $receipt_path = '../uploads/receipts/' . $receipt_file_name;
                                     ?>
                                     <?php if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])): ?>
                                         <a href="<?= $receipt_path ?>" target="_blank">
