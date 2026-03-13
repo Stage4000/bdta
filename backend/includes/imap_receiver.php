@@ -164,7 +164,7 @@ class ImapEmailReceiver {
                 if (!$flag_set) {
                     $flag_errors[] = 'imap_setflag_full returned false';
                 }
-                if ($flag_errors !== []) {
+                if (!empty($flag_errors)) {
                     $errors[] = 'Failed to mark one or more emails as seen: ' . implode('; ', $flag_errors);
                 }
             }
