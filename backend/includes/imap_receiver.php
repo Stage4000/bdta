@@ -102,11 +102,25 @@ class ImapEmailReceiver {
             $sync_days = safe_int(Settings::get('imap_sync_days', 30));
             $since_date = date('d-M-Y', safe_timestamp(strtotime("-{$sync_days} days")));
             
-            // Search for emails since the sync date
-            $emails = imap_search($this->getImapConnection(), "SINCE \"{$since_date}\"");
+            // Search for unread emails since the sync date
+            // Note: imap_search returns false on *errors* as well as "no results".
+            // To avoid silently succeeding on search errors (e.g. bad criteria, folder issues),
+            // treat a false/empty response with an IMAP error present as a failure.
+            imap_errors(); // clear any previous IMAP errors before searching
+            $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
+            $imap_error = imap_last_error();
             
-            if (!$emails) {
+            if (empty($emails)) {
                 $this->disconnect();
+                
+                if (!empty($imap_error)) {
+                    return [
+                        'success' => false,
+                        'message' => 'IMAP search failed: ' . $imap_error,
+                        'emails_processed' => 0
+                    ];
+                }
+                
                 return [
                     'success' => true,
                     'message' => 'No new emails found',
@@ -126,6 +140,8 @@ class ImapEmailReceiver {
                         continue;
                     }
                     $this->processEmail($email_number);
+                    // Mark message as seen so we don't reprocess it
+                    @imap_setflag_full($this->getImapConnection(), (string) $email_number, "\\Seen");
                     $processed_count++;
                 } catch (Exception $e) {
                     $errors[] = "Email #{$email_number}: " . $e->getMessage();
