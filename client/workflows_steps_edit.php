@@ -258,8 +258,9 @@ include '../backend/includes/header.php';
                         <!-- Scheduled Date -->
                         <div class="mb-3" id="scheduled_date_group" style="display: none;">
                             <label for="scheduled_date" class="form-label">Scheduled Date</label>
+                            <?php $scheduled_date_value = is_array($step) ? array_string_value($step, 'scheduled_date') : ''; ?>
                             <input type="datetime-local" class="form-control" id="scheduled_date" name="scheduled_date" 
-                                   value="<?php echo is_array($step) && array_string_value($step, 'scheduled_date') !== '' ? date('Y-m-d\TH:i', safe_timestamp(strtotime(array_string_value($step, 'scheduled_date')))) : ''; ?>">
+                                   value="<?php echo $scheduled_date_value !== '' ? date('Y-m-d\TH:i', safe_timestamp(strtotime($scheduled_date_value))) : ''; ?>">
                         </div>
 
                         <hr class="my-4">

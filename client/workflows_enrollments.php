@@ -135,7 +135,8 @@ include '../backend/includes/header.php';
                                             </td>
                                             <td>
                                                 <small class="text-muted">
-                                                    <?php echo date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($enrollment, 'enrolled_at')))); ?>
+                                                    <?php $enrolled_at_timestamp = safe_timestamp(strtotime(array_string_value($enrollment, 'enrolled_at'))); ?>
+                                                    <?php echo date('M j, Y g:i A', $enrolled_at_timestamp); ?>
                                                 </small>
                                             </td>
                                             <td>

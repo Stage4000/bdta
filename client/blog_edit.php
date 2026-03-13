@@ -38,8 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($formats as $fmt) {
             $candidate = DateTime::createFromFormat($fmt, $publish_date_input);
             $errors = DateTime::getLastErrors();
-            $warning_count = is_array($errors) ? safe_int($errors['warning_count']) : 0;
-            $error_count = is_array($errors) ? safe_int($errors['error_count']) : 0;
+            $warning_count = is_array($errors) ? array_int_value($errors, 'warning_count') : 0;
+            $error_count = is_array($errors) ? array_int_value($errors, 'error_count') : 0;
             if ($candidate !== false && $warning_count === 0 && $error_count === 0) {
                 $dt = $candidate;
                 break;
