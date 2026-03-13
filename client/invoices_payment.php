@@ -6,17 +6,19 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = intval($_GET['id'] ?? 0);
-$installment_id = intval($_GET['installment_id'] ?? 0);
+$id = safe_int($_GET['id'] ?? 0);
+$installment_id = safe_int($_GET['installment_id'] ?? 0);
 
 $stmt = $conn->prepare("SELECT * FROM invoices WHERE id = ?");
 $stmt->execute([$id]);
 $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$invoice || $invoice['status'] === 'paid') {
+if (!$invoice || array_string_value($invoice, 'status') === 'paid') {
     setFlashMessage('Invoice not found or already paid!', 'danger');
     redirect('invoices_list.php');
 }
+/** @var array<string, mixed> $invoice */
+$invoice = $invoice;
 
 // If paying a specific installment, load it
 $installment = null;
@@ -41,6 +43,8 @@ function sendFullInvoiceReceipt(PDO $conn, int $invoice_id): void {
     $invoice_stmt->execute([$invoice_id]);
     $full_invoice = $invoice_stmt->fetch(PDO::FETCH_ASSOC);
     if (!$full_invoice) return;
+    /** @var array<string, mixed> $full_invoice */
+    $full_invoice = $full_invoice;
 
     $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
     $items_stmt->execute([$invoice_id]);
@@ -62,13 +66,15 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
     $package_items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($package_items as $item) {
-        $pkg_id = $item['reference_id'];
-        $qty    = max(1, intval($item['quantity']));
+        $pkg_id = array_int_value($item, 'reference_id');
+        $qty    = max(1, array_int_value($item, 'quantity', 1));
 
         $stmt = $conn->prepare("SELECT * FROM packages WHERE id = ? AND is_active = 1");
         $stmt->execute([$pkg_id]);
         $package = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$package) continue;
+        /** @var array<string, mixed> $package */
+        $package = $package;
 
         $stmt = $conn->prepare("SELECT * FROM package_items WHERE package_id = ?");
         $stmt->execute([$pkg_id]);
@@ -78,8 +84,9 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
         // For each unit quantity on the invoice line, assign one package instance
         for ($q = 0; $q < $qty; $q++) {
             $expires_at = null;
-            if ($package['expiration_days']) {
-                $expires_at = date('Y-m-d H:i:s', safe_timestamp(strtotime('+' . $package['expiration_days'] . ' days')));
+            $expiration_days = array_int_value($package, 'expiration_days');
+            if ($expiration_days > 0) {
+                $expires_at = date('Y-m-d H:i:s', safe_timestamp(strtotime('+' . $expiration_days . ' days')));
             }
 
             $stmt = $conn->prepare("
@@ -87,7 +94,8 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
                     (client_id, package_id, package_name, expires_at, is_active, notes, created_by)
                 VALUES (?, ?, ?, ?, 1, ?, ?)
             ");
-            $stmt->execute([$client_id, $pkg_id, $package['name'], $expires_at,
+            $package_name = array_string_value($package, 'name');
+            $stmt->execute([$client_id, $pkg_id, $package_name, $expires_at,
                 'Auto-applied from invoice payment', $admin_id]);
             $cp_id = $conn->lastInsertId();
 
@@ -110,9 +118,9 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
             ");
             foreach ($cred_stmt->fetchAll(PDO::FETCH_ASSOC) as $cred) {
                 $tx_stmt->execute([
-                    $cred['id'], $client_id, $cred['appointment_type_id'],
-                    $cred['total_credits'],
-                    "Package '{$package['name']}' from invoice payment",
+                    array_int_value($cred, 'id'), $client_id, array_int_value($cred, 'appointment_type_id'),
+                    array_int_value($cred, 'total_credits'),
+                    "Package '{$package_name}' from invoice payment",
                     $admin_id
                 ]);
             }
@@ -122,10 +130,10 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
 
 // Handle manual payment recording
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $payment_method = trim($_POST['payment_method'] ?? '');
-    $payment_date   = trim($_POST['payment_date'] ?? date('Y-m-d'));
+    $payment_method = trim(scalar_string($_POST['payment_method'] ?? ''));
+    $payment_date   = trim(scalar_string($_POST['payment_date'] ?? date('Y-m-d')));
 
-    if (!in_array($payment_method, ['cash', 'check', 'bank_transfer', 'other'])) {
+    if (!in_array($payment_method, ['cash', 'check', 'bank_transfer', 'other'], true)) {
         setFlashMessage('Invalid payment method!', 'danger');
     } elseif ($installment) {
         // Pay a single installment
@@ -139,10 +147,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE id = ?");
         $stmt->execute([$installment_id]);
         $installment = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$installment) {
+            setFlashMessage('Installment not found or already paid!', 'danger');
+            redirect('invoices_view.php?id=' . $id);
+        }
+        /** @var array<string, mixed> $installment */
+        $installment = $installment;
 
         // Fetch client info for receipt
         $client_stmt = $conn->prepare("SELECT name as client_name, email as client_email FROM clients WHERE id = ?");
-        $client_stmt->execute([$invoice['client_id']]);
+        $client_stmt->execute([array_int_value($invoice, 'client_id')]);
         $client = $client_stmt->fetch(PDO::FETCH_ASSOC);
         $invoice_for_receipt = array_merge($invoice, $client ?: []);
 
@@ -162,14 +176,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 UPDATE invoices SET status = 'paid', payment_method = ?, payment_date = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ")->execute([$payment_method, $payment_date, $id]);
-            applyPackageCredits($conn, $id, $invoice['client_id'], $_SESSION['admin_id']);
+            applyPackageCredits($conn, $id, array_int_value($invoice, 'client_id'), safe_int($_SESSION['admin_id'] ?? 0));
 
             // Send final invoice receipt and update audit timestamp
             sendFullInvoiceReceipt($conn, $id);
 
             setFlashMessage('Final installment paid! Invoice marked as paid and package credits applied.', 'success');
         } else {
-            setFlashMessage('Installment #' . $installment['installment_number'] . ' recorded as paid.', 'success');
+            setFlashMessage('Installment #' . array_string_value($installment, 'installment_number') . ' recorded as paid.', 'success');
         }
         redirect('invoices_view.php?id=' . $id);
     } else {
@@ -188,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ")->execute([$payment_method, $payment_date, $id]);
 
         // Auto-apply package credits
-        applyPackageCredits($conn, $id, $invoice['client_id'], $_SESSION['admin_id']);
+        applyPackageCredits($conn, $id, array_int_value($invoice, 'client_id'), safe_int($_SESSION['admin_id'] ?? 0));
 
         // Send payment receipt
         sendFullInvoiceReceipt($conn, $id);
@@ -208,7 +222,7 @@ include '../backend/includes/header.php';
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">
                         <?php if ($installment): ?>
-                            Record Installment Payment #<?= $installment['installment_number'] ?>
+                            Record Installment Payment #<?= escape(array_string_value($installment, 'installment_number')) ?>
                         <?php else: ?>
                             Record Payment
                         <?php endif; ?>
@@ -216,13 +230,13 @@ include '../backend/includes/header.php';
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">
-                        <strong>Invoice:</strong> <?= escape($invoice['invoice_number']) ?><br>
+                        <strong>Invoice:</strong> <?= escape(array_string_value($invoice, 'invoice_number')) ?><br>
                         <?php if ($installment): ?>
-                            <strong>Installment #<?= $installment['installment_number'] ?> Amount:</strong>
-                            $<?= number_format($installment['amount'], 2) ?><br>
-                            <strong>Due Date:</strong> <?= formatDate($installment['due_date']) ?>
+                            <strong>Installment #<?= escape(array_string_value($installment, 'installment_number')) ?> Amount:</strong>
+                            $<?= number_format(safe_float($installment['amount'] ?? 0), 2) ?><br>
+                            <strong>Due Date:</strong> <?= formatDate(array_string_value($installment, 'due_date')) ?>
                         <?php else: ?>
-                            <strong>Amount:</strong> $<?= number_format($invoice['total_amount'], 2) ?>
+                            <strong>Amount:</strong> $<?= number_format(safe_float($invoice['total_amount'] ?? 0), 2) ?>
                         <?php endif; ?>
                     </div>
                     
