@@ -71,7 +71,7 @@ class WorkflowProcessorTask {
         
         foreach ($executions as $execution) {
             try {
-                $execution_id = $execution['execution_id'] ?? ($execution['id'] ?? null);
+                $execution_id = $execution['execution_id'] ?? null;
                 $enrollment_id = $execution['enrollment_id'] ?? null;
                 $client_email = array_string_value($execution, 'client_email');
                 if (!is_int($execution_id) && !is_string($execution_id)) {
