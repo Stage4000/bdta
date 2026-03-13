@@ -1978,6 +1978,17 @@ class Database {
             } catch (PDOException $e) {
                 error_log("Migration: could not modify email_signature_templates.html_content - " . $e->getMessage());
             }
+            // Widen site_pages HTML/CSS columns so inline images (data URIs) do not overflow TEXT (~64 KB)
+            try {
+                $this->conn->exec("ALTER TABLE site_pages MODIFY COLUMN html_content MEDIUMTEXT");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify site_pages.html_content - " . $e->getMessage());
+            }
+            try {
+                $this->conn->exec("ALTER TABLE site_pages MODIFY COLUMN css_content MEDIUMTEXT");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify site_pages.css_content - " . $e->getMessage());
+            }
             // Widen blog_posts.content on MySQL installations where TEXT (~64 KB)
             // is too small for large rich-text blog post content.
             try {
