@@ -83,8 +83,7 @@ class ImapEmailReceiver {
     
     /**
      * Fetch and process new emails
-     */
-    /**
+     *
      * @return array{success: bool, message: string, emails_processed: int, items_processed: int, errors: list<string>}
      */
     public function fetchEmails(): array {
