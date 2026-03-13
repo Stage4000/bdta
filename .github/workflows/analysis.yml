@@ -1,0 +1,74 @@
+name: Static Analysis
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # -------------------------
+      # Node setup
+      # -------------------------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Node tools
+        run: |
+          npm install -g eslint
+          npm install -g stylelint stylelint-config-standard
+          npm install -g htmlhint
+          npm install -g semgrep
+
+      # -------------------------
+      # Run JS lint
+      # -------------------------
+      - name: Run ESLint
+        run: |
+          eslint . --ext .js,.jsx,.ts,.tsx
+
+      # -------------------------
+      # Run CSS lint
+      # -------------------------
+      - name: Run Stylelint
+        run: |
+          stylelint "**/*.{css,scss}"
+
+      # -------------------------
+      # Run HTML lint
+      # -------------------------
+      - name: Run HTMLHint
+        run: |
+          htmlhint "**/*.html"
+
+      # -------------------------
+      # Security scan
+      # -------------------------
+      - name: Run Semgrep
+        run: |
+          semgrep --config=auto
+
+      # -------------------------
+      # PHPStan
+      # -------------------------
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+
+      - name: Install Composer dependencies
+        run: |
+          composer install --no-progress --prefer-dist
+
+      - name: Run PHPStan
+        run: |
+          vendor/bin/phpstan analyse
