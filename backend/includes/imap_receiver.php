@@ -108,7 +108,7 @@ class ImapEmailReceiver {
             // Search for unread emails since the sync date
             // Note: imap_search returns false on *errors* as well as "no results".
             // We disambiguate by checking the IMAP error stack immediately after the call.
-            // Clear any prior IMAP errors and warnings before searching; errors from the search itself are handled below
+            // Clear any prior IMAP errors before searching; errors from the search itself are handled below
             imap_errors();
             $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
             $search_errors = imap_errors() ?: [];

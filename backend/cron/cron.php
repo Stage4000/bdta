@@ -166,9 +166,6 @@ class CronRunner {
     }
     
     /**
-     * Log task execution to database
-     */
-    /**
      * @param int|string $task_id
      * @param string $task_name
      * @param 'success'|'error' $status
