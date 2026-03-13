@@ -160,9 +160,20 @@ include '../portal/includes/header.php';
                 </thead>
                 <tbody>
                 <?php foreach ($upcoming as $b): ?>
+                    <?php
+                    $appointment_date = array_string_value($b, 'appointment_date');
+                    $appointment_time = array_string_value($b, 'appointment_time');
+                    $appointment_date_ts = strtotime($appointment_date);
+                    $appointment_time_ts = strtotime($appointment_time);
+                    $appointment_date_display = is_int($appointment_date_ts) ? date('M j, Y', $appointment_date_ts) : '—';
+                    $appointment_time_display = is_int($appointment_time_ts) ? date('g:i A', $appointment_time_ts) : '—';
+                    $appointment_datetime_display = ($appointment_date_display !== '—' && $appointment_time_display !== '—')
+                        ? $appointment_date_display . ' at ' . $appointment_time_display
+                        : '—';
+                    ?>
                     <tr>
-                        <td><?php echo escape(date('M j, Y', safe_timestamp(strtotime(array_string_value($b, 'appointment_date'))))); ?></td>
-                        <td><?php echo escape(date('g:i A', safe_timestamp(strtotime(array_string_value($b, 'appointment_time'))))); ?></td>
+                        <td><?php echo escape($appointment_date_display); ?></td>
+                        <td><?php echo escape($appointment_time_display); ?></td>
                         <td><?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?></td>
                         <td>
                             <?php
@@ -181,7 +192,7 @@ include '../portal/includes/header.php';
                                 <button class="btn btn-sm btn-outline-danger me-1"
                                         data-booking-id="<?php echo intval($b['id']); ?>"
                                         data-type-name="<?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?>"
-                                        data-datetime="<?php echo escape(date('M j, Y', safe_timestamp(strtotime(array_string_value($b, 'appointment_date')))) . ' at ' . date('g:i A', safe_timestamp(strtotime(array_string_value($b, 'appointment_time'))))); ?>"
+                                        data-datetime="<?php echo escape($appointment_datetime_display); ?>"
                                         onclick="showCancelModal(this)">
                                     <i class="fas fa-times-circle me-1"></i>Cancel
                                 </button>
@@ -229,9 +240,17 @@ include '../portal/includes/header.php';
                 <thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Status</th><th>Notes</th></tr></thead>
                 <tbody>
                 <?php foreach ($past as $b): ?>
+                    <?php
+                    $appointment_date = array_string_value($b, 'appointment_date');
+                    $appointment_time = array_string_value($b, 'appointment_time');
+                    $appointment_date_ts = strtotime($appointment_date);
+                    $appointment_time_ts = strtotime($appointment_time);
+                    $appointment_date_display = is_int($appointment_date_ts) ? date('M j, Y', $appointment_date_ts) : '—';
+                    $appointment_time_display = is_int($appointment_time_ts) ? date('g:i A', $appointment_time_ts) : '—';
+                    ?>
                     <tr>
-                        <td><?php echo escape(date('M j, Y', safe_timestamp(strtotime(array_string_value($b, 'appointment_date'))))); ?></td>
-                        <td><?php echo escape(date('g:i A', safe_timestamp(strtotime(array_string_value($b, 'appointment_time'))))); ?></td>
+                        <td><?php echo escape($appointment_date_display); ?></td>
+                        <td><?php echo escape($appointment_time_display); ?></td>
                         <td><?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?></td>
                         <td>
                             <?php
