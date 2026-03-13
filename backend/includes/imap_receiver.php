@@ -158,13 +158,13 @@ class ImapEmailReceiver {
             if (!empty($flag_queue)) {
                 // Clear the IMAP error buffer so any issues setting flags are captured below
                 imap_errors();
-                $flag_set = imap_setflag_full($this->getImapConnection(), implode(',', $flag_queue), "\\Seen");
                 /** @var bool $flag_set */
+                $flag_set = imap_setflag_full($this->getImapConnection(), implode(',', $flag_queue), "\\Seen");
                 $flag_errors = imap_errors() ?: [];
                 if (!$flag_set) {
                     $flag_errors[] = 'imap_setflag_full returned false';
                 }
-                if (!empty($flag_errors)) {
+                if ($flag_errors !== []) {
                     $errors[] = 'Failed to mark one or more emails as seen: ' . implode('; ', $flag_errors);
                 }
             }
