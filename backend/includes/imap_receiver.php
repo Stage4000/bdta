@@ -75,7 +75,7 @@ class ImapEmailReceiver {
 
     private function getImapConnection(): \IMAP\Connection {
         if (!$this->imap_connection instanceof \IMAP\Connection) {
-            throw new RuntimeException('IMAP connection is not available');
+            throw new RuntimeException('IMAP connection is not established or invalid');
         }
 
         return $this->imap_connection;

@@ -110,12 +110,12 @@ class WorkflowHelper {
             
             case 'after_enrollment':
                 // Delay from enrollment time
-                $delay_minutes = $this->parseDelayValue($this->getDelayValue($step));
+                $delay_minutes = $this->parseDelayValue($this->extractDelayValue($step));
                 return $enrollment_time + ($delay_minutes * 60);
             
             case 'after_previous':
                 // Delay from previous step
-                $delay_minutes = $this->parseDelayValue($this->getDelayValue($step));
+                $delay_minutes = $this->parseDelayValue($this->extractDelayValue($step));
                 $base_time = $previous_step_time ?? $enrollment_time;
                 return $base_time + ($delay_minutes * 60);
             
@@ -168,7 +168,7 @@ class WorkflowHelper {
     /**
      * @param array<string, mixed> $step
      */
-    private function getDelayValue(array $step): string|int|float|null {
+    private function extractDelayValue(array $step): string|int|float|null {
         $delay_value = $step['delay_value'] ?? null;
 
         return is_string($delay_value) || is_int($delay_value) || is_float($delay_value)
