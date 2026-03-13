@@ -41,7 +41,7 @@ if (empty($token)) {
                 // Update password and clear reset token
                 $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
                 $stmt = $conn->prepare("UPDATE clients SET password_hash = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?");
-                $stmt->execute([$password_hash, safe_int($client['id'] ?? 0)]);
+                $stmt->execute([$password_hash, array_int_value($client, 'id')]);
                 
                 $success = 'Your password has been reset successfully! You can now log in with your new password.';
             }
@@ -52,6 +52,7 @@ if (empty($token)) {
 }
 
 $page_title = 'Reset Password';
+$client_email = $valid_token && is_array($client) ? array_string_value($client, 'email') : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -127,7 +128,7 @@ $page_title = 'Reset Password';
                             </div>
                         <?php elseif ($valid_token): ?>
                             <p class="text-muted text-center mb-4">
-                                Enter your new password for <strong><?php echo escape(is_array($client) ? array_string_value($client, 'email') : ''); ?></strong>
+                                Enter your new password for <strong><?php echo escape($client_email); ?></strong>
                             </p>
                             
                             <form method="POST">
