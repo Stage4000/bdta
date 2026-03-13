@@ -172,8 +172,18 @@ class ImapEmailReceiver {
                 foreach (array_chunk($flag_queue, 100) as $flag_batch) {
                     // Clear the IMAP error buffer so any issues setting flags are captured below
                     imap_errors();
-                    imap_setflag_full($this->getImapConnection(), implode(',', $flag_batch), "\\Seen");
+                    $set_success = imap_setflag_full($this->getImapConnection(), implode(',', $flag_batch), "\\Seen");
                     $batch_errors = array_map('scalar_string', imap_errors() ?: []);
+                    // @phpstan-ignore-next-line imap_setflag_full returns true in stubs, but may return false at runtime
+                    if (!$set_success) {
+                        $last_error = imap_last_error();
+                        if ($last_error !== false) {
+                            $batch_errors[] = scalar_string($last_error);
+                        }
+                        if (empty($batch_errors)) {
+                            $batch_errors[] = 'Failed to mark messages as seen for batch: ' . implode(',', $flag_batch);
+                        }
+                    }
                     if (!empty($batch_errors)) {
                         $flag_errors[] = implode('; ', $batch_errors);
                     }
