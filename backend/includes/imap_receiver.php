@@ -94,7 +94,8 @@ class ImapEmailReceiver {
                 return [
                     'success' => false,
                     'message' => 'IMAP is not enabled',
-                    'emails_processed' => 0
+                    'emails_processed' => 0,
+                    'items_processed' => 0
                 ];
             }
             
@@ -116,7 +117,8 @@ class ImapEmailReceiver {
                 return [
                     'success' => false,
                     'message' => 'IMAP search failed: ' . $error_message,
-                    'emails_processed' => 0
+                    'emails_processed' => 0,
+                    'items_processed' => 0
                 ];
             }
             
@@ -125,7 +127,8 @@ class ImapEmailReceiver {
                 return [
                     'success' => true,
                     'message' => 'No new emails found',
-                    'emails_processed' => 0
+                    'emails_processed' => 0,
+                    'items_processed' => 0
                 ];
             }
             
@@ -142,14 +145,11 @@ class ImapEmailReceiver {
                     }
                     $this->processEmail($email_number);
                     // Mark message as seen so we don't reprocess it
-                    $marked_seen = imap_setflag_full($this->getImapConnection(), (string) $email_number, "\\Seen");
-                    // imap_setflag_full() typically returns true, but guard against failures for logging
-                    // @phpstan-ignore-next-line
-                    if ($marked_seen === false) {
-                        $flag_error = imap_last_error();
-                        if (!empty($flag_error)) {
-                            $errors[] = "Email #{$email_number}: failed to mark as seen ({$flag_error})";
-                        }
+                    imap_errors(); // clear before setting flags so we can detect failures
+                    imap_setflag_full($this->getImapConnection(), (string) $email_number, "\\Seen");
+                    $flag_errors = imap_errors() ?: [];
+                    if (!empty($flag_errors)) {
+                        $errors[] = "Email #{$email_number}: failed to mark as seen (" . implode('; ', $flag_errors) . ")";
                     }
                     $processed_count++;
                 } catch (Exception $e) {
@@ -163,6 +163,7 @@ class ImapEmailReceiver {
                 'success' => true,
                 'message' => "Processed {$processed_count} email(s)",
                 'emails_processed' => $processed_count,
+                'items_processed' => $processed_count,
                 'errors' => $errors
             ];
             
@@ -171,7 +172,8 @@ class ImapEmailReceiver {
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'emails_processed' => 0
+                'emails_processed' => 0,
+                'items_processed' => 0
             ];
         }
     }
