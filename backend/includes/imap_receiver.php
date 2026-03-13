@@ -105,22 +105,23 @@ class ImapEmailReceiver {
             // Search for unread emails since the sync date
             // Note: imap_search returns false on *errors* as well as "no results".
             // To avoid silently succeeding on search errors (e.g. bad criteria, folder issues),
-            // treat a false/empty response with an IMAP error present as a failure.
+            // capture errors immediately after the call.
             imap_errors(); // clear any previous IMAP errors before searching
             $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
-            $imap_error = imap_last_error();
+            $search_errors = imap_errors() ?: [];
+            
+            if ($emails === false) {
+                $this->disconnect();
+                $error_message = !empty($search_errors) ? implode('; ', $search_errors) : 'Unknown IMAP search error';
+                return [
+                    'success' => false,
+                    'message' => 'IMAP search failed: ' . $error_message,
+                    'emails_processed' => 0
+                ];
+            }
             
             if (empty($emails)) {
                 $this->disconnect();
-                
-                if (!empty($imap_error)) {
-                    return [
-                        'success' => false,
-                        'message' => 'IMAP search failed: ' . $imap_error,
-                        'emails_processed' => 0
-                    ];
-                }
-                
                 return [
                     'success' => true,
                     'message' => 'No new emails found',
@@ -141,7 +142,15 @@ class ImapEmailReceiver {
                     }
                     $this->processEmail($email_number);
                     // Mark message as seen so we don't reprocess it
-                    @imap_setflag_full($this->getImapConnection(), (string) $email_number, "\\Seen");
+                    $marked_seen = imap_setflag_full($this->getImapConnection(), (string) $email_number, "\\Seen");
+                    // imap_setflag_full() typically returns true, but guard against failures for logging
+                    // @phpstan-ignore-next-line
+                    if ($marked_seen === false) {
+                        $flag_error = imap_last_error();
+                        if (!empty($flag_error)) {
+                            $errors[] = "Email #{$email_number}: failed to mark as seen ({$flag_error})";
+                        }
+                    }
                     $processed_count++;
                 } catch (Exception $e) {
                     $errors[] = "Email #{$email_number}: " . $e->getMessage();
