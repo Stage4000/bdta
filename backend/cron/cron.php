@@ -168,7 +168,7 @@ class CronRunner {
     /**
      * @param int|string $task_id
      * @param string $task_name
-     * @param 'success'|'error' $status
+     * @param string $status success or error
      * @param string $message
      * @param int $items_processed
      * @param float $execution_time

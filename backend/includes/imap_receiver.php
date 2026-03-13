@@ -160,12 +160,8 @@ class ImapEmailReceiver {
                 foreach (array_chunk($flag_queue, 100) as $flag_batch) {
                     // Clear the IMAP error buffer so any issues setting flags are captured below
                     imap_errors();
-                    /** @var bool $flag_set */
-                    $flag_set = imap_setflag_full($this->getImapConnection(), implode(',', $flag_batch), "\\Seen");
+                    imap_setflag_full($this->getImapConnection(), implode(',', $flag_batch), "\\Seen");
                     $batch_errors = imap_errors() ?: [];
-                    if (!$flag_set) {
-                        $batch_errors[] = 'imap_setflag_full returned false';
-                    }
                     if (!empty($batch_errors)) {
                         $flag_errors[] = implode('; ', $batch_errors);
                     }
