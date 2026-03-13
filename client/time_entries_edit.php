@@ -5,9 +5,9 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$id = safe_int($_GET['id'] ?? 0);
 $entry = null;
-$preset_client_id = isset($_GET['client_id']) ? intval($_GET['client_id']) : 0;
+$preset_client_id = safe_int($_GET['client_id'] ?? 0);
 
 if ($id > 0) {
     $stmt = $conn->prepare("SELECT * FROM time_entries WHERE id = ?");
@@ -26,13 +26,13 @@ $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $client_id = intval($_POST['client_id'] ?? 0);
-    $service_type = trim($_POST['service_type'] ?? '');
-    $description = trim($_POST['description'] ?? '');
-    $date = trim($_POST['date'] ?? '');
-    $start_time = trim($_POST['start_time'] ?? '');
-    $end_time = trim($_POST['end_time'] ?? '');
-    $hourly_rate = floatval($_POST['hourly_rate'] ?? 0);
+    $client_id = safe_int($_POST['client_id'] ?? 0);
+    $service_type = trim(scalar_string($_POST['service_type'] ?? ''));
+    $description = trim(scalar_string($_POST['description'] ?? ''));
+    $date = trim(scalar_string($_POST['date'] ?? ''));
+    $start_time = trim(scalar_string($_POST['start_time'] ?? ''));
+    $end_time = trim(scalar_string($_POST['end_time'] ?? ''));
+    $hourly_rate = safe_float($_POST['hourly_rate'] ?? 0);
     $billable = isset($_POST['billable']) ? 1 : 0;
     
     if (empty($client_id) || empty($service_type) || empty($date) || empty($start_time) || empty($end_time)) {

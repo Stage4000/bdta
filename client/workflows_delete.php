@@ -8,7 +8,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 if (isset($_GET['id'])) {
-    $id = (int)$_GET['id'];
+    $id = safe_int($_GET['id']);
 
     try {
         // Verify the workflow exists

@@ -74,7 +74,7 @@ require_once '../backend/includes/header.php';
                                 </span>
                             </td>
                             <td class="small text-muted">
-                                <?php echo $p['updated_at'] ? date('Y-m-d H:i', strtotime($p['updated_at'])) : '—'; ?>
+                                <?php echo $p['updated_at'] ? date('Y-m-d H:i', safe_timestamp(strtotime($p['updated_at']))) : '—'; ?>
                             </td>
                             <td>
                                 <a href="site_editor.php?id=<?php echo intval($p['id']); ?>" class="btn btn-sm btn-outline-primary" title="Edit in visual editor">

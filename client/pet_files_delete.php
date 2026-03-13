@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Validate file_id
-$file_id = isset($_POST['file_id']) ? (int)$_POST['file_id'] : 0;
+$file_id = safe_int($_POST['file_id'] ?? 0);
 if ($file_id <= 0) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid file ID']);

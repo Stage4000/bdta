@@ -12,7 +12,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Validate pet_id
-$pet_id = isset($_GET['pet_id']) ? (int)$_GET['pet_id'] : 0;
+$pet_id = safe_int($_GET['pet_id'] ?? 0);
 if ($pet_id <= 0) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid pet ID']);

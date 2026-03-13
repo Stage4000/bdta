@@ -22,10 +22,10 @@ $conn = $db->getConnection();
 // Handle POST actions: add, update, delete, toggle
 // -------------------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
+    $action = scalar_string($_POST['action'] ?? '');
 
     if ($action === 'delete') {
-        $del_id = (int)($_POST['rule_id'] ?? 0);
+        $del_id = safe_int($_POST['rule_id'] ?? 0);
         if ($del_id > 0) {
             $conn->prepare("DELETE FROM booking_reminder_rules WHERE id = ? AND appointment_type_id IS NULL")->execute([$del_id]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Reminder rule deleted.'];
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'toggle') {
-        $tog_id = (int)($_POST['rule_id'] ?? 0);
+        $tog_id = safe_int($_POST['rule_id'] ?? 0);
         if ($tog_id > 0) {
             $conn->prepare("UPDATE booking_reminder_rules SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND appointment_type_id IS NULL")
                  ->execute([$tog_id]);
@@ -46,19 +46,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (in_array($action, ['add', 'update'], true)) {
-        $name        = trim($_POST['name'] ?? '');
-        $hours_before = (int)($_POST['hours_before'] ?? 0);
-        $template_id  = !empty($_POST['template_id']) ? (int)$_POST['template_id'] : null;
+        $name        = trim(scalar_string($_POST['name'] ?? ''));
+        $hours_before = safe_int($_POST['hours_before'] ?? 0);
+        $template_id  = !empty($_POST['template_id']) ? safe_int($_POST['template_id']) : null;
         $is_active    = isset($_POST['is_active']) ? 1 : 0;
 
         if ($name === '' || $hours_before < 1) {
             $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Name and hours before are required (minimum 1 hour).'];
-            header('Location: booking_reminder_rules.php' . ($action === 'update' ? '?edit=' . (int)$_POST['rule_id'] : ''));
+            header('Location: booking_reminder_rules.php' . ($action === 'update' ? '?edit=' . safe_int($_POST['rule_id'] ?? 0) : ''));
             exit;
         }
 
         if ($action === 'update') {
-            $rule_id = (int)$_POST['rule_id'];
+            $rule_id = safe_int($_POST['rule_id'] ?? 0);
             $conn->prepare("
                 UPDATE booking_reminder_rules
                 SET name = ?, hours_before = ?, template_id = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
@@ -97,7 +97,7 @@ $reminder_templates = $conn->query(
 $edit_rule = null;
 $editing   = false;
 if (isset($_GET['edit'])) {
-    $edit_id = (int)$_GET['edit'];
+    $edit_id = safe_int($_GET['edit']);
     $stmt    = $conn->prepare("SELECT * FROM booking_reminder_rules WHERE id = ? AND appointment_type_id IS NULL");
     $stmt->execute([$edit_id]);
     $edit_rule = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -157,7 +157,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <form method="POST">
                         <input type="hidden" name="action" value="<?= $editing ? 'update' : 'add' ?>">
                         <?php if ($editing): ?>
-                            <input type="hidden" name="rule_id" value="<?= (int)$edit_rule['id'] ?>">
+                            <input type="hidden" name="rule_id" value="<?= is_array($edit_rule) ? array_int_value($edit_rule, 'id') : 0 ?>">
                         <?php endif; ?>
 
                         <div class="row g-3">

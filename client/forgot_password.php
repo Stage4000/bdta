@@ -10,7 +10,7 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
+    $email = trim(scalar_string($_POST['email'] ?? ''));
     
     if (empty($email)) {
         $error = 'Email address is required.';
