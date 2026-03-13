@@ -189,7 +189,7 @@ include '../backend/includes/header.php';
                 <div class="col-md-3">
                     <div class="card text-center">
                         <div class="card-body">
-                            <h3 class="mb-0"><?php echo number_format(safe_float($stats['total_executions'])); ?></h3>
+                            <h3 class="mb-0"><?php echo number_format(array_int_value($stats, 'total_executions')); ?></h3>
                             <small class="text-muted">Total Executions</small>
                         </div>
                     </div>
@@ -197,7 +197,7 @@ include '../backend/includes/header.php';
                 <div class="col-md-3">
                     <div class="card text-center">
                         <div class="card-body">
-                            <h3 class="mb-0 text-success"><?php echo number_format(safe_float($stats['successful'])); ?></h3>
+                            <h3 class="mb-0 text-success"><?php echo number_format(array_int_value($stats, 'successful')); ?></h3>
                             <small class="text-muted">Successful</small>
                         </div>
                     </div>
@@ -205,7 +205,7 @@ include '../backend/includes/header.php';
                 <div class="col-md-3">
                     <div class="card text-center">
                         <div class="card-body">
-                            <h3 class="mb-0 text-danger"><?php echo number_format(safe_float($stats['errors'])); ?></h3>
+                            <h3 class="mb-0 text-danger"><?php echo number_format(array_int_value($stats, 'errors')); ?></h3>
                             <small class="text-muted">Errors</small>
                         </div>
                     </div>
@@ -213,7 +213,7 @@ include '../backend/includes/header.php';
                 <div class="col-md-3">
                     <div class="card text-center">
                         <div class="card-body">
-                            <h3 class="mb-0"><?php echo number_format(safe_float($stats['total_items'])); ?></h3>
+                            <h3 class="mb-0"><?php echo number_format(array_int_value($stats, 'total_items')); ?></h3>
                             <small class="text-muted">Items Processed</small>
                         </div>
                     </div>

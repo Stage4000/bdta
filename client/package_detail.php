@@ -58,6 +58,7 @@ try {
 
 $success = false;
 $error   = null;
+$package_price = safe_float($package['price'] ?? 0);
 
 // Handle purchase form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purchase') {
@@ -260,7 +261,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                         <div class="row g-3 text-center">
                             <div class="col-6">
                                 <div class="fs-4 fw-bold brand-purple">
-                                    <?= safe_float($package['price'] ?? 0) > 0 ? '$' . number_format(safe_float($package['price'] ?? 0), 2) : 'Contact Us' ?>
+                                    <?= $package_price > 0 ? '$' . number_format($package_price, 2) : 'Contact Us' ?>
                                 </div>
                                 <small class="text-muted">Package Price</small>
                             </div>
@@ -322,7 +323,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-brand btn-lg">
                                     <i class="fas fa-check-circle me-2"></i>
-                                    Purchase<?= safe_float($package['price'] ?? 0) > 0 ? ' – $' . number_format(safe_float($package['price'] ?? 0), 2) : '' ?>
+                                    Purchase<?= $package_price > 0 ? ' – $' . number_format($package_price, 2) : '' ?>
                                 </button>
                             </div>
                         </form>
