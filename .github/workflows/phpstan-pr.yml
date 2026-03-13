@@ -11,9 +11,12 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: phpstan-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   phpstan:
-    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
 
     steps:
