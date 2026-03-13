@@ -5,7 +5,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$id = safe_int($_GET['id'] ?? 0);
 $client = null;
 
 if ($id > 0) {
@@ -21,11 +21,11 @@ if ($id > 0) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
-    $address = trim($_POST['address'] ?? '');
-    $notes = trim($_POST['notes'] ?? '');
+    $name = trim(scalar_string($_POST['name'] ?? ''));
+    $email = trim(scalar_string($_POST['email'] ?? ''));
+    $phone = trim(scalar_string($_POST['phone'] ?? ''));
+    $address = trim(scalar_string($_POST['address'] ?? ''));
+    $notes = trim(scalar_string($_POST['notes'] ?? ''));
     $is_admin = isset($_POST['is_admin']) ? 1 : 0;
     
     if (empty($name) || empty($email)) {

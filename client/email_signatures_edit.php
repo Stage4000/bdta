@@ -7,7 +7,7 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = safe_int($_GET['id'] ?? 0);
 $signature = null;
 
 if ($id) {
@@ -21,13 +21,13 @@ if ($id) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name']);
-    $description = trim($_POST['description']);
-    $html_content = trim($_POST['html_content']);
+    $name = trim(scalar_string($_POST['name'] ?? ''));
+    $description = trim(scalar_string($_POST['description'] ?? ''));
+    $html_content = trim(scalar_string($_POST['html_content'] ?? ''));
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     $is_default = isset($_POST['is_default']) ? 1 : 0;
-    $max_image_width = (int)($_POST['max_image_width'] ?? 600);
-    $max_image_height = (int)($_POST['max_image_height'] ?? 200);
+    $max_image_width = safe_int($_POST['max_image_width'] ?? 600);
+    $max_image_height = safe_int($_POST['max_image_height'] ?? 200);
     
     // Sanitize HTML content
     require_once '../backend/includes/email_signature_helper.php';
