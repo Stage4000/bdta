@@ -273,6 +273,11 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
         <i class="fas fa-eye me-1"></i> Preview
     </button>
 
+    <!-- HTML / Code -->
+    <button class="btn-topbar" id="btn-html" title="Edit HTML/CSS">
+        <i class="fas fa-code me-1"></i> HTML
+    </button>
+
     <!-- View Live -->
     <?php if ($is_published): ?>
     <a href="<?php echo escape($view_url); ?>" target="_blank" class="btn-topbar" title="View live page">
@@ -302,6 +307,35 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
 
 <!-- Toast Container -->
 <div id="toast-container"></div>
+
+<!-- HTML / CSS Modal -->
+<div class="modal fade" id="htmlModal" tabindex="-1" aria-labelledby="htmlModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="htmlModalLabel"><i class="fas fa-code me-2"></i>Edit HTML / CSS</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="html-code-input">HTML</label>
+                    <textarea id="html-code-input" class="form-control" rows="12" spellcheck="false"
+                              style="font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="css-code-input">CSS</label>
+                    <textarea id="css-code-input" class="form-control" rows="8" spellcheck="false"
+                              style="font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"></textarea>
+                    <div class="form-text">Edits here replace the current page markup and styles in the canvas.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-apply-html">Apply Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Scripts -->
 <script src="https://unpkg.com/grapesjs@0.21.7/dist/grapes.min.js"></script>
@@ -334,6 +368,11 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
     // ------------------------------------------------------------------
     const savedHtml = <?php echo json_encode(array_string_value($page, 'html_content')); ?>;
     const savedCss  = <?php echo json_encode(array_string_value($page, 'css_content')); ?>;
+    const richTextActions = [
+        'bold', 'italic', 'underline', 'link',
+        'bdta-heading1', 'bdta-heading2', 'bdta-heading3', 'bdta-paragraph',
+        'bdta-ul', 'bdta-ol', 'bdta-open-code'
+    ];
 
     const editor = grapesjs.init({
         container: '#gjs',
@@ -345,6 +384,7 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
             'gjs-blocks-basic': { flexGrid: true },
             'gjs-preset-webpage': {}
         },
+        richTextEditor: { actions: richTextActions },
         canvas: {
             styles: [
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
@@ -391,6 +431,25 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
             ]
         }
     });
+
+    // Extend RTE with lists, headings, and HTML/code quick access
+    (function configureRTE() {
+        const rte = editor.RichTextEditor;
+        const addAction = function (name, icon, title, handler) {
+            rte.add(name, {
+                icon: icon,
+                attributes: { title: title },
+                result: handler
+            });
+        };
+        addAction('bdta-heading1', '<b>H1</b>', 'Heading 1', rte => rte.exec('formatBlock', '<h1>'));
+        addAction('bdta-heading2', '<b>H2</b>', 'Heading 2', rte => rte.exec('formatBlock', '<h2>'));
+        addAction('bdta-heading3', '<b>H3</b>', 'Heading 3', rte => rte.exec('formatBlock', '<h3>'));
+        addAction('bdta-paragraph', '<b>P</b>', 'Paragraph', rte => rte.exec('formatBlock', '<p>'));
+        addAction('bdta-ul', '<i class="fas fa-list-ul"></i>', 'Bulleted list', rte => rte.exec('insertUnorderedList'));
+        addAction('bdta-ol', '<i class="fas fa-list-ol"></i>', 'Numbered list', rte => rte.exec('insertOrderedList'));
+        addAction('bdta-open-code', '<i class="fas fa-code"></i>', 'Edit HTML / CSS', () => openHtmlModal());
+    }());
 
     // Set initial content
     if (savedHtml || savedCss) {
@@ -615,6 +674,7 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
 
     document.getElementById('btn-undo').addEventListener('click', function () { editor.UndoManager.undo(); });
     document.getElementById('btn-redo').addEventListener('click', function () { editor.UndoManager.redo(); });
+    document.getElementById('btn-html').addEventListener('click', function () { openHtmlModal(); });
 
     let previewing = false;
     document.getElementById('btn-preview').addEventListener('click', function () {
@@ -690,6 +750,31 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'z') { editor.UndoManager.undo(); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'y') { editor.UndoManager.redo(); }
+    });
+
+    // ------------------------------------------------------------------
+    // HTML / CSS modal
+    // ------------------------------------------------------------------
+    const htmlModalEl = document.getElementById('htmlModal');
+    const htmlModal   = new bootstrap.Modal(htmlModalEl);
+    const htmlInput   = document.getElementById('html-code-input');
+    const cssInput    = document.getElementById('css-code-input');
+
+    function openHtmlModal() {
+        htmlInput.value = editor.getHtml();
+        cssInput.value  = editor.getCss();
+        htmlModal.show();
+    }
+
+    document.getElementById('btn-apply-html').addEventListener('click', function () {
+        try {
+            editor.setComponents(htmlInput.value || '');
+            editor.setStyle(cssInput.value || '');
+            htmlModal.hide();
+            toast('HTML/CSS updated. Save to persist changes.', 'success');
+        } catch (e) {
+            toast('Failed to apply HTML/CSS.', 'error');
+        }
     });
 
 }());
