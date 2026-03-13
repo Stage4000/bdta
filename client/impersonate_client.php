@@ -22,7 +22,7 @@ if (!is_array($client)) {
     setFlashMessage('Client not found or cannot be impersonated.', 'danger');
     redirect('clients_list.php');
 }
-/** @var array<string, string> $client */
+/** @var array<string, mixed> $client */
 
 // Store the admin ID so we can return to admin mode later
 $_SESSION['portal_impersonating_admin_id'] = $_SESSION['admin_id'];

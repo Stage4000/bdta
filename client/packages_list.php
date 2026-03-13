@@ -84,8 +84,10 @@ include __DIR__ . '/../backend/includes/header.php';
 
     <?php if (isset($_SESSION['flash'])): ?>
         <?php $flash = is_array($_SESSION['flash']) ? $_SESSION['flash'] : []; ?>
-        <div class="alert alert-<?= htmlspecialchars(array_string_value($flash, 'type', 'info')) ?> alert-dismissible fade show">
-            <?= htmlspecialchars(array_string_value($flash, 'message')) ?>
+        <?php $flash_type = array_string_value($flash, 'type', 'info'); ?>
+        <?php if (!in_array($flash_type, ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'], true)) $flash_type = 'info'; ?>
+        <div class="alert alert-<?= htmlspecialchars($flash_type) ?> alert-dismissible fade show">
+            <?= htmlspecialchars(array_string_value($flash, 'message', '')) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['flash']); ?>
@@ -115,6 +117,7 @@ include __DIR__ . '/../backend/includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($packages as $pkg): ?>
+                                <?php $price = safe_float($pkg['price'] ?? 0); ?>
                                 <?php $share_url = getDynamicBaseUrl() . '/client/package_detail.php?token=' . ($pkg['share_token'] ?? ''); ?>
                                 <tr>
                                     <td>
@@ -135,7 +138,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                             <?php endforeach; ?>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= safe_float($pkg['price'] ?? 0) > 0 ? '$' . number_format(safe_float($pkg['price'] ?? 0), 2) : '<span class="text-muted">—</span>' ?></td>
+                                    <td><?= $price > 0 ? '$' . number_format($price, 2) : '<span class="text-muted">—</span>' ?></td>
                                     <td>
                                         <?php if ($pkg['expiration_days']): ?>
                                             <?= $pkg['expiration_days'] ?> days
