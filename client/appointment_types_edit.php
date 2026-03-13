@@ -348,8 +348,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Handle reminder rule sub-actions (add/delete/toggle) — must be editing an existing type
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_edit) {
-    $sub_action = scalar_string($_POST['sub_action'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sub_action']) && $is_edit) {
+    $sub_action = scalar_string($_POST['sub_action']);
 
     if ($sub_action === 'add_rule') {
         $rule_name    = trim(scalar_string($_POST['rule_name'] ?? ''));
@@ -464,7 +464,12 @@ $type_location_types = decode_json_assoc(array_string_value($type_row, 'location
 $type_unique_link = array_string_value($type_row, 'unique_link');
 $type_is_active = !isset($type) || array_int_value($type_row, 'is_active', 1) === 1;
 $type_portal_available = array_int_value($type_row, 'portal_available') === 1;
-$type_per_day_data = decode_json_assoc(array_string_value($type_row, 'per_day_schedule'));
+$type_per_day_data = [];
+foreach (decode_json_assoc(array_string_value($type_row, 'per_day_schedule')) as $day_key => $day_value) {
+    if (ctype_digit($day_key) && is_array($day_value)) {
+        $type_per_day_data[(int) $day_key] = $day_value;
+    }
+}
 $has_per_day = $type_per_day_data !== [];
 
 /**
@@ -694,9 +699,7 @@ include __DIR__ . '/../backend/includes/header.php';
                             <tbody>
                                 <?php foreach ($days as $index => $day): ?>
                                 <?php
-                                $per_day_key = (string) $index;
-                                $per_day_row_raw = array_key_exists($per_day_key, $per_day_data) ? $per_day_data[$per_day_key] : null;
-                                $per_day_row = is_array($per_day_row_raw) ? $per_day_row_raw : [];
+                                $per_day_row = isset($per_day_data[$index]) ? $per_day_data[$index] : [];
                                 ?>
                                 <tr id="per_day_row_<?= $index ?>" style="display: <?= in_array($index, $available_days, true) ? 'table-row' : 'none' ?>;">
                                     <td><strong><?= $day ?></strong></td>
