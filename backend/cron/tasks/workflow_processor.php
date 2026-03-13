@@ -26,8 +26,31 @@ class WorkflowProcessorTask {
         
         // Get pending workflow step executions that are due
         $stmt = $this->conn->prepare("
-            SELECT wse.*, ws.*, we.client_id, w.name as workflow_name,
-                   c.email as client_email, c.name as client_name
+            SELECT 
+                wse.id AS execution_id,
+                wse.enrollment_id,
+                wse.step_id,
+                wse.scheduled_for,
+                wse.status AS execution_status,
+                wse.error_message,
+                ws.step_order,
+                ws.step_name,
+                ws.email_subject,
+                ws.email_body_html,
+                ws.email_body_text,
+                ws.delay_type,
+                ws.delay_value,
+                ws.scheduled_date,
+                ws.attach_contract_id,
+                ws.attach_form_id,
+                ws.attach_quote_id,
+                ws.attach_invoice_id,
+                ws.include_appointment_link,
+                ws.appointment_type_id,
+                we.client_id, 
+                w.name as workflow_name,
+                c.email as client_email, 
+                c.name as client_name
             FROM workflow_step_executions wse
             JOIN workflow_steps ws ON wse.step_id = ws.id
             JOIN workflow_enrollments we ON wse.enrollment_id = we.id
@@ -48,7 +71,7 @@ class WorkflowProcessorTask {
         
         foreach ($executions as $execution) {
             try {
-                $execution_id = $execution['id'] ?? null;
+                $execution_id = $execution['execution_id'] ?? null;
                 $enrollment_id = $execution['enrollment_id'] ?? null;
                 $client_email = array_string_value($execution, 'client_email');
                 if (!is_int($execution_id) && !is_string($execution_id)) {
