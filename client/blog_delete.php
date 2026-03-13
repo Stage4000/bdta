@@ -6,7 +6,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect('blog_list.php');
 }
 
-if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
+$csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
     setFlashMessage('Invalid request.', 'danger');
     redirect('blog_list.php');
 }

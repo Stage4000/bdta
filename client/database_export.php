@@ -80,12 +80,15 @@ try {
             
             foreach ($rows as $row) {
                 $columns = array_keys($row);
-                $values = array_values($row);
                 
                 // Escape values
-                $escaped_values = array_map(function($val) use ($conn) {
-                    return $conn->quote(scalar_string($val));
-                }, $values);
+                $escaped_values = array_map(function($column) use ($conn, $row) {
+                    $value = $row[$column] ?? null;
+                    if ($value === null) {
+                        return 'NULL';
+                    }
+                    return $conn->quote(scalar_string($value));
+                }, $columns);
                 
                 echo "INSERT INTO `$table` (`" . implode('`, `', $columns) . "`) VALUES (";
                 echo implode(', ', $escaped_values);
