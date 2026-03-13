@@ -31,7 +31,7 @@ if ($method === 'GET') {
         
     } elseif ($action === 'get') {
         // Get a specific template
-        $template_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+        $template_id = safe_int($_GET['id'] ?? 0);
         
         if ($template_id <= 0) {
             http_response_code(400);
@@ -57,8 +57,8 @@ if ($method === 'GET') {
         
     } elseif ($action === 'preview') {
         // Preview a template with client data
-        $template_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-        $client_id = isset($_GET['client_id']) ? intval($_GET['client_id']) : 0;
+        $template_id = safe_int($_GET['id'] ?? 0);
+        $client_id = safe_int($_GET['client_id'] ?? 0);
         
         if ($template_id <= 0 || $client_id <= 0) {
             http_response_code(400);
@@ -135,8 +135,9 @@ if ($method === 'GET') {
     if ($action === 'preview_styled') {
         // Return the supplied HTML fragment wrapped in the standard email
         // container — used by the template editor for live preview.
-        $input     = json_decode(scalar_string(file_get_contents('php://input')), true) ?? [];
-        $body_html = $input['body_html'] ?? '';
+        $input_raw = json_decode(scalar_string(file_get_contents('php://input')), true);
+        $input = is_array($input_raw) ? $input_raw : [];
+        $body_html = scalar_string($input['body_html'] ?? '');
 
         $wrapped = EmailService::wrapEmailHtml($body_html);
 

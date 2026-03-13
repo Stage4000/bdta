@@ -10,7 +10,7 @@ requireLogin();
 $db   = new Database();
 $conn = $db->getConnection();
 
-$page_id = intval($_GET['id'] ?? 0);
+$page_id = safe_int($_GET['id'] ?? 0);
 if (!$page_id) {
     setFlashMessage('No page selected.', 'danger');
     redirect('site_pages_list.php');
@@ -20,7 +20,7 @@ $stmt = $conn->prepare("SELECT * FROM site_pages WHERE id = ?");
 $stmt->execute([$page_id]);
 $page = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$page) {
+if (!is_array($page)) {
     setFlashMessage('Page not found.', 'danger');
     redirect('site_pages_list.php');
 }
@@ -55,9 +55,10 @@ function makeHtmlPathsAbsolute(string $html): string {
     ) ?? $html;
     return $html;
 }
+/** @var array<string, mixed> $page */
 
 // If this is the homepage and html_content is empty, seed from index.html
-if ($page['is_homepage'] && trim($page['html_content']) === '') {
+if (array_int_value($page, 'is_homepage') === 1 && trim(array_string_value($page, 'html_content')) === '') {
     $index_file = dirname(__DIR__) . '/index.html';
     if (file_exists($index_file)) {
         $raw_html = scalar_string(file_get_contents($index_file));
@@ -88,7 +89,7 @@ if ($page['is_homepage'] && trim($page['html_content']) === '') {
 // site shell (navbar + placeholder content + footer) extracted from index.html.
 // Assumes index.html contains exactly one top-level <nav> and one <footer>
 // with no nested elements of the same type (matching the current site structure).
-if (!$page['is_homepage'] && trim($page['html_content']) === '') {
+if (array_int_value($page, 'is_homepage') !== 1 && trim(array_string_value($page, 'html_content')) === '') {
     $index_file = dirname(__DIR__) . '/index.html';
     if (file_exists($index_file)) {
         $raw_html = scalar_string(file_get_contents($index_file));
@@ -118,7 +119,7 @@ if (!$page['is_homepage'] && trim($page['html_content']) === '') {
             // Only seed when both structural elements are successfully extracted;
             // otherwise the editor opens with blank content for the user to build from scratch.
             if ($navbar && $footer) {
-                $page_heading = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
+                $page_heading = escape(array_string_value($page, 'title'));
                 $seed_html = $navbar . "\n"
                     . '<main style="padding-top: 80px; min-height: 60vh;">' . "\n"
                     . '<section class="py-5">' . "\n"
@@ -148,13 +149,13 @@ if (!$page['is_homepage'] && trim($page['html_content']) === '') {
 
 // Also fix any previously saved content that still has relative paths
 // (e.g. seeded before this fix was applied).  This is idempotent.
-$page['html_content'] = makeHtmlPathsAbsolute($page['html_content'] ?? '');
-$page['css_content']  = makeHtmlPathsAbsolute($page['css_content']  ?? '');
+$page['html_content'] = makeHtmlPathsAbsolute(array_string_value($page, 'html_content'));
+$page['css_content']  = makeHtmlPathsAbsolute(array_string_value($page, 'css_content'));
 
-$page_title = 'Edit: ' . $page['title'];
-$is_homepage  = (bool)$page['is_homepage'];
-$is_published = (bool)$page['is_published'];
-$view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($page['slug']);
+$page_title = 'Edit: ' . array_string_value($page, 'title');
+$is_homepage  = array_int_value($page, 'is_homepage') === 1;
+$is_published = array_int_value($page, 'is_published') === 1;
+$view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(array_string_value($page, 'slug'));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -253,8 +254,8 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
     </a>
     <div class="brand">
         <i class="fas fa-paw me-1"></i>
-        <span id="page-title-display" title="Click to rename"><?php echo escape($page['title']); ?></span>
-        <input type="text" id="page-title-input" value="<?php echo escape($page['title']); ?>" style="display:none">
+        <span id="page-title-display" title="Click to rename"><?php echo escape(array_string_value($page, 'title')); ?></span>
+        <input type="text" id="page-title-input" value="<?php echo escape(array_string_value($page, 'title')); ?>" style="display:none">
     </div>
     <div class="spacer"></div>
 
@@ -331,8 +332,8 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode($pag
     // ------------------------------------------------------------------
     // GrapesJS initialisation
     // ------------------------------------------------------------------
-    const savedHtml = <?php echo json_encode($page['html_content'] ?? ''); ?>;
-    const savedCss  = <?php echo json_encode($page['css_content']  ?? ''); ?>;
+    const savedHtml = <?php echo json_encode(array_string_value($page, 'html_content')); ?>;
+    const savedCss  = <?php echo json_encode(array_string_value($page, 'css_content')); ?>;
 
     const editor = grapesjs.init({
         container: '#gjs',

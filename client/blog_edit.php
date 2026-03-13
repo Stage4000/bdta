@@ -18,7 +18,7 @@ if ($post_id > 0) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token'] ?? ''))) {
+    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token']), scalar_string($_POST['csrf_token']))) {
         setFlashMessage('Invalid request.', 'error');
         redirect('blog_list.php');
     }
@@ -38,8 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($formats as $fmt) {
             $candidate = DateTime::createFromFormat($fmt, $publish_date_input);
             $errors = DateTime::getLastErrors();
-            $warning_count = is_array($errors) ? safe_int($errors['warning_count'] ?? 0) : 0;
-            $error_count = is_array($errors) ? safe_int($errors['error_count'] ?? 0) : 0;
+            $warning_count = is_array($errors) ? safe_int($errors['warning_count']) : 0;
+            $error_count = is_array($errors) ? safe_int($errors['error_count']) : 0;
             if ($candidate !== false && $warning_count === 0 && $error_count === 0) {
                 $dt = $candidate;
                 break;
@@ -86,7 +86,7 @@ $post_excerpt = $post ? array_string_value($post, 'excerpt') : '';
 $post_content = $post ? array_string_value($post, 'content') : '';
 $post_published = $post ? array_int_value($post, 'published') === 1 : false;
 $publish_date_value = $post ? array_string_value($post, 'publish_date', array_string_value($post, 'created_at', date('Y-m-d H:i:s'))) : date('Y-m-d H:i:s');
-$publish_date_value = date('Y-m-d\\TH:i', strtotime($publish_date_value));
+$publish_date_value = date('Y-m-d\\TH:i', safe_timestamp(strtotime($publish_date_value)));
 require_once '../backend/includes/header.php';
 ?>
 

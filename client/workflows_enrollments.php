@@ -9,18 +9,19 @@ $db = new Database();
 $conn = $db->getConnection();
 $workflow_helper = new WorkflowHelper($conn);
 
-$workflow_id = isset($_GET['workflow_id']) ? (int)$_GET['workflow_id'] : 0;
+$workflow_id = safe_int($_GET['workflow_id'] ?? 0);
 
 // Get workflow details
 $stmt = $conn->prepare("SELECT * FROM workflows WHERE id = ?");
 $stmt->execute([$workflow_id]);
 $workflow = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$workflow) {
+if (!is_array($workflow)) {
     $_SESSION['error'] = 'Workflow not found';
     header('Location: workflows_list.php');
     exit;
 }
+/** @var array<string, mixed> $workflow */
 
 // Handle cancellation
 if (isset($_GET['cancel']) && isset($_GET['enrollment_id'])) {
@@ -59,10 +60,10 @@ include '../backend/includes/header.php';
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h2 class="mb-1">
-                        Enrollments: <?php echo htmlspecialchars($workflow['name']); ?>
+                        Enrollments: <?php echo escape(array_string_value($workflow, 'name')); ?>
                     </h2>
-                    <?php if ($workflow['description']): ?>
-                        <p class="text-muted"><?php echo htmlspecialchars($workflow['description']); ?></p>
+                    <?php if (array_string_value($workflow, 'description') !== ''): ?>
+                        <p class="text-muted"><?php echo escape(array_string_value($workflow, 'description')); ?></p>
                     <?php endif; ?>
                 </div>
                 <a href="workflows_enroll.php?workflow_id=<?php echo $workflow_id; ?>" class="btn btn-primary">
@@ -72,7 +73,7 @@ include '../backend/includes/header.php';
 
             <?php if (isset($_SESSION['success'])): ?>
                 <div class="alert alert-success alert-dismissible fade show">
-                    <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+                    <?php echo escape($_SESSION['success']); unset($_SESSION['success']); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
@@ -116,8 +117,8 @@ include '../backend/includes/header.php';
                                         ?>
                                         <tr>
                                             <td>
-                                                <strong><?php echo htmlspecialchars($enrollment['client_name']); ?></strong><br>
-                                                <small class="text-muted"><?php echo htmlspecialchars($enrollment['client_email']); ?></small>
+                                                <strong><?php echo escape($enrollment['client_name']); ?></strong><br>
+                                                <small class="text-muted"><?php echo escape($enrollment['client_email']); ?></small>
                                             </td>
                                             <td>
                                                 <?php
@@ -134,20 +135,24 @@ include '../backend/includes/header.php';
                                             </td>
                                             <td>
                                                 <small class="text-muted">
-                                                    <?php echo date('M j, Y g:i A', strtotime($enrollment['enrolled_at'])); ?>
+                                                    <?php echo date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($enrollment, 'enrolled_at')))); ?>
                                                 </small>
                                             </td>
                                             <td>
-                                                <?php if ($progress['total_steps'] > 0): ?>
+                                                <?php $progress_row = is_array($progress) ? $progress : []; ?>
+                                                <?php $total_steps = array_int_value($progress_row, 'total_steps'); ?>
+                                                <?php $completed_steps = array_int_value($progress_row, 'completed_steps'); ?>
+                                                <?php $failed_steps = array_int_value($progress_row, 'failed_steps'); ?>
+                                                <?php if ($total_steps > 0): ?>
                                                     <div class="progress" style="height: 20px;">
                                                         <div class="progress-bar bg-success" role="progressbar" 
-                                                             style="width: <?php echo ($progress['completed_steps'] / $progress['total_steps'] * 100); ?>%">
-                                                            <?php echo $progress['completed_steps']; ?>/<?php echo $progress['total_steps']; ?>
+                                                             style="width: <?php echo ($completed_steps / $total_steps * 100); ?>%">
+                                                            <?php echo $completed_steps; ?>/<?php echo $total_steps; ?>
                                                         </div>
                                                     </div>
-                                                    <?php if ($progress['failed_steps'] > 0): ?>
+                                                    <?php if ($failed_steps > 0): ?>
                                                         <small class="text-danger">
-                                                            <?php echo $progress['failed_steps']; ?> failed
+                                                            <?php echo $failed_steps; ?> failed
                                                         </small>
                                                     <?php endif; ?>
                                                 <?php else: ?>
@@ -156,7 +161,7 @@ include '../backend/includes/header.php';
                                             </td>
                                             <td>
                                                 <small class="text-muted">
-                                                    <?php echo htmlspecialchars($enrollment['enrolled_by_name'] ?? 'System'); ?>
+                                                    <?php echo escape(array_string_value($enrollment, 'enrolled_by_name', 'System')); ?>
                                                 </small>
                                             </td>
                                             <td>
