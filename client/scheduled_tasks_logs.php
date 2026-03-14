@@ -40,6 +40,7 @@ if ($task_id) {
 }
 
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$system_timezone = getSystemTimezone();
 $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
@@ -95,9 +96,7 @@ include '../backend/includes/header.php';
                                             <td>
                                                 <small class="text-muted">
                                                     <?php 
-                                                    // Convert UTC timestamp to local timezone for display
-                                                    $datetime = new DateTime(array_string_value($log, 'executed_at'), new DateTimeZone('UTC'));
-                                                    $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                                    $datetime = new DateTime(array_string_value($log, 'executed_at'), new DateTimeZone($system_timezone));
                                                     echo $datetime->format('M j, Y g:i:s A');
                                                     ?>
                                                 </small>

@@ -16,6 +16,7 @@ $recent_logs = $conn->query("
     ORDER BY executed_at DESC 
     LIMIT 50
 ")->fetchAll(PDO::FETCH_ASSOC);
+$system_timezone = getSystemTimezone();
 
 include '../backend/includes/header.php';
 ?>
@@ -84,8 +85,7 @@ include '../backend/includes/header.php';
                                                 <?php if ($task['last_run']): ?>
                                                     <small class="text-muted">
                                                         <?php 
-                                                        $datetime = new DateTime($task['last_run'], new DateTimeZone('UTC'));
-                                                        $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                                        $datetime = new DateTime($task['last_run'], new DateTimeZone($system_timezone));
                                                         echo $datetime->format('M j, Y g:i A');
                                                         ?>
                                                     </small>
@@ -97,8 +97,7 @@ include '../backend/includes/header.php';
                                                 <?php if ($task['next_run']): ?>
                                                     <small class="text-muted">
                                                         <?php 
-                                                        $datetime = new DateTime($task['next_run'], new DateTimeZone('UTC'));
-                                                        $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                                        $datetime = new DateTime($task['next_run'], new DateTimeZone($system_timezone));
                                                         echo $datetime->format('M j, Y g:i A');
                                                         ?>
                                                     </small>
@@ -167,8 +166,7 @@ include '../backend/includes/header.php';
                                             <td>
                                                 <small class="text-muted">
                                                     <?php 
-                                                    $datetime = new DateTime($log['executed_at'], new DateTimeZone('UTC'));
-                                                    $datetime->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                                    $datetime = new DateTime($log['executed_at'], new DateTimeZone($system_timezone));
                                                     echo $datetime->format('M j, g:i A');
                                                     ?>
                                                 </small>
