@@ -32,7 +32,7 @@ require_once '../backend/includes/header.php';
                     <i class="fas fa-file-lines fs-1 text-primary"></i>
                     <h3 class="mt-2"><?php echo $total_posts; ?></h3>
                     <p class="text-muted mb-0">Total Posts</p>
-                    <small class="text-success"><?php echo $published_posts; ?> published</small>
+                    <small class="text-success-emphasis"><?php echo $published_posts; ?> published</small>
                 </div>
             </div>
         </div>
@@ -42,7 +42,7 @@ require_once '../backend/includes/header.php';
                     <i class="fas fa-calendar-check fs-1 text-success"></i>
                     <h3 class="mt-2"><?php echo $total_bookings; ?></h3>
                     <p class="text-muted mb-0">Total Bookings</p>
-                    <small class="text-warning"><?php echo $pending_bookings; ?> pending</small>
+                    <small class="text-warning-emphasis"><?php echo $pending_bookings; ?> pending</small>
                 </div>
             </div>
         </div>

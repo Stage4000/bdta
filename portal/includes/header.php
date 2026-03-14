@@ -106,12 +106,10 @@
                 padding: 1.5rem;
             }
         }
-        @media (prefers-color-scheme: dark) {
-            main.col-md-9,
-            main.col-md-10,
-            .main-content {
-                background-color: #111827;
-            }
+        [data-bs-theme="dark"] main.col-md-9,
+        [data-bs-theme="dark"] main.col-md-10,
+        [data-bs-theme="dark"] .main-content {
+            background-color: #111827;
         }
     </style>
 </head>
@@ -131,7 +129,7 @@
         <div class="toast show align-items-center text-white bg-<?php echo $flash['type'] === 'success' ? 'success' : ($flash['type'] === 'error' ? 'danger' : 'info'); ?> border-0" role="alert">
             <div class="d-flex">
                 <div class="toast-body"><?php echo escape($flash['message']); ?></div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close notification"></button>
             </div>
         </div>
     </div>

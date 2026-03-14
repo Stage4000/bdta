@@ -140,12 +140,10 @@
             }
         }
         /* Dark mode overrides for custom (non-Bootstrap) elements */
-        @media (prefers-color-scheme: dark) {
-            main.col-md-9,
-            main.col-md-10,
-            .main-content {
-                background-color: #111827;
-            }
+        [data-bs-theme="dark"] main.col-md-9,
+        [data-bs-theme="dark"] main.col-md-10,
+        [data-bs-theme="dark"] .main-content {
+            background-color: #111827;
         }
     </style>
     <script src="/client/pwa-register.js" defer></script>
@@ -157,7 +155,7 @@
         <div class="toast show align-items-center text-white bg-<?php echo $flash['type'] === 'success' ? 'success' : ($flash['type'] === 'error' ? 'danger' : 'info'); ?> border-0" role="alert">
             <div class="d-flex">
                 <div class="toast-body"><?php echo escape($flash['message']); ?></div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close notification"></button>
             </div>
         </div>
     </div>
@@ -233,7 +231,7 @@
                                 <a class="nav-link <?php echo $clientsOpen ? 'active' : ''; ?>" href="clients_list.php">
                                     <i class="fas fa-users me-2"></i> Clients
                                 </a>
-                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#clientsSubmenu" aria-expanded="<?php echo $clientsOpen ? 'true' : 'false'; ?>" aria-controls="clientsSubmenu">
+                                <button class="submenu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#clientsSubmenu" aria-expanded="<?php echo $clientsOpen ? 'true' : 'false'; ?>" aria-controls="clientsSubmenu" aria-label="Toggle Clients submenu">
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                             </div>
@@ -254,7 +252,7 @@
                                 <a class="nav-link <?php echo $bookingsOpen ? 'active' : ''; ?>" href="bookings_list.php">
                                     <i class="fas fa-calendar-check me-2"></i> Bookings
                                 </a>
-                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#bookingsSubmenu" aria-expanded="<?php echo $bookingsOpen ? 'true' : 'false'; ?>" aria-controls="bookingsSubmenu">
+                                <button class="submenu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#bookingsSubmenu" aria-expanded="<?php echo $bookingsOpen ? 'true' : 'false'; ?>" aria-controls="bookingsSubmenu" aria-label="Toggle Bookings submenu">
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                             </div>
@@ -292,7 +290,7 @@
                                 <a class="nav-link <?php echo $invoicesOpen ? 'active' : ''; ?>" href="invoices_list.php">
                                     <i class="fas fa-file-invoice me-2"></i> Invoices
                                 </a>
-                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#invoicesSubmenu" aria-expanded="<?php echo $invoicesOpen ? 'true' : 'false'; ?>" aria-controls="invoicesSubmenu">
+                                <button class="submenu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#invoicesSubmenu" aria-expanded="<?php echo $invoicesOpen ? 'true' : 'false'; ?>" aria-controls="invoicesSubmenu" aria-label="Toggle Invoices submenu">
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                             </div>
@@ -323,7 +321,7 @@
                                 <a class="nav-link <?php echo $contractsOpen ? 'active' : ''; ?>" href="contracts_list.php">
                                     <i class="fas fa-file-contract me-2"></i> Contracts
                                 </a>
-                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#contractsSubmenu" aria-expanded="<?php echo $contractsOpen ? 'true' : 'false'; ?>" aria-controls="contractsSubmenu">
+                                <button class="submenu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#contractsSubmenu" aria-expanded="<?php echo $contractsOpen ? 'true' : 'false'; ?>" aria-controls="contractsSubmenu" aria-label="Toggle Contracts submenu">
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                             </div>
@@ -365,7 +363,7 @@
                                 <a class="nav-link <?php echo $formTplsOpen ? 'active' : ''; ?>" href="form_templates_list.php">
                                     <i class="fas fa-file-lines me-2"></i> Form Templates
                                 </a>
-                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#formTplsSubmenu" aria-expanded="<?php echo $formTplsOpen ? 'true' : 'false'; ?>" aria-controls="formTplsSubmenu">
+                                <button class="submenu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#formTplsSubmenu" aria-expanded="<?php echo $formTplsOpen ? 'true' : 'false'; ?>" aria-controls="formTplsSubmenu" aria-label="Toggle Form Templates submenu">
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                             </div>
@@ -386,7 +384,7 @@
                                 <a class="nav-link <?php echo $unmatchedOpen ? 'active' : ''; ?>" href="unmatched_emails_list.php">
                                     <i class="fas fa-envelope-open-text me-2"></i> Unmatched Emails
                                 </a>
-                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#unmatchedSubmenu" aria-expanded="<?php echo $unmatchedOpen ? 'true' : 'false'; ?>" aria-controls="unmatchedSubmenu">
+                                <button class="submenu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#unmatchedSubmenu" aria-expanded="<?php echo $unmatchedOpen ? 'true' : 'false'; ?>" aria-controls="unmatchedSubmenu" aria-label="Toggle Unmatched Emails submenu">
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                             </div>
@@ -412,7 +410,7 @@
                                 <a class="nav-link <?php echo $workflowsOpen ? 'active' : ''; ?>" href="workflows_list.php">
                                     <i class="fas fa-diagram-project me-2"></i> Workflows
                                 </a>
-                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#workflowsSubmenu" aria-expanded="<?php echo $workflowsOpen ? 'true' : 'false'; ?>" aria-controls="workflowsSubmenu">
+                                <button class="submenu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#workflowsSubmenu" aria-expanded="<?php echo $workflowsOpen ? 'true' : 'false'; ?>" aria-controls="workflowsSubmenu" aria-label="Toggle Workflows submenu">
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                             </div>
@@ -436,7 +434,7 @@
                                 <a class="nav-link <?php echo $settingsOpen ? 'active' : ''; ?>" href="settings.php">
                                     <i class="fas fa-gear me-2"></i> Settings
                                 </a>
-                                <button class="submenu-toggle" data-bs-toggle="collapse" data-bs-target="#settingsSubmenu" aria-expanded="<?php echo $settingsOpen ? 'true' : 'false'; ?>" aria-controls="settingsSubmenu">
+                                <button class="submenu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#settingsSubmenu" aria-expanded="<?php echo $settingsOpen ? 'true' : 'false'; ?>" aria-controls="settingsSubmenu" aria-label="Toggle Settings submenu">
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                             </div>

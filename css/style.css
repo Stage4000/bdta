@@ -515,9 +515,84 @@ html {
     background-color: #1f2937 !important;
 }
 
+[data-bs-theme="dark"] .navbar-brand,
+[data-bs-theme="dark"] .navbar-nav .nav-link,
+[data-bs-theme="dark"] #darkModeLabel {
+    color: #e5e7eb !important;
+}
+
+[data-bs-theme="dark"] .navbar-nav .nav-link:hover,
+[data-bs-theme="dark"] .navbar-nav .nav-link.active {
+    color: #f5d0fe !important;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary {
+    border-color: #cbd5e1;
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary:hover,
+[data-bs-theme="dark"] .btn-outline-secondary:focus {
+    background-color: #f8fafc;
+    border-color: #f8fafc;
+    color: #111827;
+}
+
+[data-bs-theme="dark"] .btn-outline-primary {
+    border-color: #d8b4fe;
+    color: #f5d0fe;
+}
+
+[data-bs-theme="dark"] .btn-outline-primary:hover,
+[data-bs-theme="dark"] .btn-outline-primary:focus {
+    background-color: #d946ef;
+    border-color: #d946ef;
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .bg-light {
+    background-color: #111827 !important;
+}
+
+[data-bs-theme="dark"] .card {
+    background-color: #1f2937;
+    color: #e5e7eb;
+}
+
+[data-bs-theme="dark"] .text-muted,
+[data-bs-theme="dark"] .lead.text-muted,
+[data-bs-theme="dark"] .form-text,
+[data-bs-theme="dark"] small.text-muted {
+    color: #cbd5e1 !important;
+}
+
+[data-bs-theme="dark"] .about-image-wrapper::before {
+    border-color: #d946ef;
+}
+
+[data-bs-theme="dark"] .contact-info .contact-icon,
+[data-bs-theme="dark"] .feature-icon {
+    background-color: rgba(217, 70, 239, 0.18) !important;
+}
+
+[data-bs-theme="dark"] .testimonial-avatar {
+    background-color: rgba(217, 70, 239, 0.22) !important;
+}
+
+[data-bs-theme="dark"] .testimonial-avatar .text-primary {
+    color: #f5d0fe !important;
+}
+
 [data-bs-theme="dark"] #contactForm .form-control,
 [data-bs-theme="dark"] #contactForm .form-select {
     border-color: #374151;
+}
+
+[data-bs-theme="dark"] #contactForm .form-control,
+[data-bs-theme="dark"] #contactForm .form-select,
+[data-bs-theme="dark"] #contactForm textarea {
+    background-color: #111827;
+    color: #f8fafc;
 }
 
 [data-bs-theme="dark"] .alert-success-custom {

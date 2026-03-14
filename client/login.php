@@ -101,6 +101,33 @@ $page_title = 'Login';
         .login-theme-toggle {
             z-index: 1100;
         }
+        [data-bs-theme="dark"] body {
+            background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%);
+        }
+        [data-bs-theme="dark"] .login-card {
+            background-color: #1f2937;
+            color: #e5e7eb;
+        }
+        [data-bs-theme="dark"] .card-body {
+            background-color: #111827;
+            color: #e5e7eb;
+        }
+        [data-bs-theme="dark"] .form-control {
+            background-color: #111827;
+            border-color: #4b5563;
+            color: #f8fafc;
+        }
+        [data-bs-theme="dark"] .form-control::placeholder {
+            color: #9ca3af;
+        }
+        [data-bs-theme="dark"] .text-muted,
+        [data-bs-theme="dark"] .form-text,
+        [data-bs-theme="dark"] a:not(.btn) {
+            color: #d8b4fe !important;
+        }
+        [data-bs-theme="dark"] a:not(.btn):hover {
+            color: #f5d0fe !important;
+        }
     </style>
 </head>
 <body>
@@ -124,11 +151,11 @@ $page_title = 'Login';
                         <form method="POST">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" required autofocus>
+                                <input type="text" class="form-control" id="username" name="username" required autofocus autocomplete="username">
                             </div>
                             <div class="mb-3">
                                 <label for="password" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                                <input type="password" class="form-control" id="password" name="password" required autocomplete="current-password">
                             </div>
                             <button type="submit" class="btn btn-primary w-100">Login</button>
                         </form>

@@ -75,8 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             document.documentElement.setAttribute('data-bs-theme', theme);
         }());
     </script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous">
     <style>
         body {
             background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%);
@@ -88,23 +88,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .login-header { background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%); color: white; padding: 2rem; border-radius: 15px 15px 0 0; text-align: center; }
         .btn-primary { background-color: #9a0073; border-color: #9a0073; }
         .btn-primary:hover { background-color: #7a005a; border-color: #7a005a; }
+        .login-theme-toggle { z-index: 1100; }
+        [data-bs-theme="dark"] body { background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%); }
+        [data-bs-theme="dark"] .login-card { background-color: #1f2937; color: #e5e7eb; }
+        [data-bs-theme="dark"] .card-body { background-color: #111827; color: #e5e7eb; }
+        [data-bs-theme="dark"] .form-control { background-color: #111827; border-color: #4b5563; color: #f8fafc; }
+        [data-bs-theme="dark"] .form-control::placeholder { color: #9ca3af; }
+        [data-bs-theme="dark"] .text-muted,
+        [data-bs-theme="dark"] .form-text,
+        [data-bs-theme="dark"] a:not(.btn) { color: #d8b4fe !important; }
+        [data-bs-theme="dark"] a:not(.btn):hover { color: #f5d0fe !important; }
     </style>
 </head>
 <body>
     <!-- Dark mode toggle (floating) -->
-    <button id="darkModeToggle" class="btn btn-outline-light btn-sm position-fixed top-0 end-0 m-3" style="z-index:1100;" title="Toggle dark mode" aria-label="Toggle dark mode">
+    <button id="darkModeToggle" class="btn btn-outline-light btn-sm position-fixed top-0 end-0 m-3 login-theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
         <i class="fas fa-moon" id="darkModeIcon"></i>
     </button>
-    <div class="container">
+    <main class="container">
         <div class="row justify-content-center">
             <div class="col-md-5">
                 <div class="card login-card">
                     <div class="login-header">
-                        <h3 class="mb-0">BDTA Client Portal</h3>
+                        <h1 class="h3 mb-0">BDTA Client Portal</h1>
                         <small>Brook's Dog Training Academy</small>
                     </div>
                     <div class="card-body p-4">
-                        <h5 class="text-center mb-4">Forgot Password</h5>
+                        <h2 class="h5 text-center mb-4">Forgot Password</h2>
                         <p class="text-muted text-center mb-4">Enter your email address and we'll send you a link to reset your password.</p>
 
                         <?php if ($error): ?>
@@ -117,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <form method="POST">
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email Address</label>
-                                <input type="email" class="form-control" id="email" name="email" required autofocus>
+                                <input type="email" class="form-control" id="email" name="email" required autofocus autocomplete="username">
                             </div>
                             <button type="submit" class="btn btn-primary w-100 mb-3">Send Reset Link</button>
                         </form>
@@ -128,8 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
         </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
     <script>
     (function () {
         'use strict';
