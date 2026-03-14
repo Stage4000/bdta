@@ -25,13 +25,11 @@ $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
 // Get appointment types
+// nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- safe int-cast LIMIT/OFFSET via $db->buildLimitClause().
 $stmt = $conn->prepare("
     SELECT * FROM appointment_types
-    ORDER BY is_active DESC, name ASC
-    LIMIT :limit OFFSET :offset
-");
-$stmt->bindValue(':limit', $per_page, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    ORDER BY is_active DESC, name ASC" . $db->buildLimitClause($per_page, $offset)
+);
 $stmt->execute();
 $types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
