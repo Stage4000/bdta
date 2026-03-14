@@ -20,6 +20,7 @@ function renderPublicErrorPage(
     http_response_code($status);
     require __DIR__ . '/public_head.php';
     ?>
+    </head>
     <body class="bg-body-tertiary">
         <a href="#main-content" class="visually-hidden-focusable position-absolute top-0 start-0 m-3 px-3 py-2 bg-white text-dark rounded shadow-sm">
             Skip to main content
