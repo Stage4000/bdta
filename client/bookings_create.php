@@ -93,15 +93,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE atf.appointment_type_id = ?
             ");
             $stmt->execute([$apt_type['id']]);
-            $required_form_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $required_form_ids = array_map(static fn(mixed $value): int => safe_int($value), $stmt->fetchAll(PDO::FETCH_COLUMN));
             if (!empty($required_form_ids)) {
-                $placeholders = implode(',', array_fill(0, count($required_form_ids), '?'));
                 $stmt2 = $conn->prepare("
                     SELECT DISTINCT template_id FROM form_submissions
-                    WHERE client_id = ? AND status = 'submitted' AND template_id IN ($placeholders)
+                    WHERE client_id = ? AND status = 'submitted'
                 ");
-                $stmt2->execute(array_merge([$client_id], $required_form_ids));
-                $submitted_form_ids = $stmt2->fetchAll(PDO::FETCH_COLUMN);
+                $stmt2->execute([$client_id]);
+                $submitted_form_ids = array_map(static fn(mixed $value): int => safe_int($value), $stmt2->fetchAll(PDO::FETCH_COLUMN));
                 $missing = array_diff($required_form_ids, $submitted_form_ids);
                 if (!empty($missing)) {
                     $errors[] = "Client must submit required forms before booking (or override)";
@@ -333,10 +332,18 @@ if (isset($_GET['client_id']) && isset($_GET['ajax']) && $_GET['ajax'] === 'pets
 include '../backend/includes/header.php';
 ?>
 
+<style>
+    .booking-location-value,
+    .booking-override-field,
+    .booking-dynamic-panel {
+        display: none;
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
                 <h2 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Create Booking</h2>
                 <a href="bookings_list.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Back to Bookings
@@ -427,7 +434,7 @@ include '../backend/includes/header.php';
                             </div>
 
                             <!-- Location — rendered dynamically by JS based on appointment type config -->
-                            <div class="col-12 mb-3" id="locationSection" style="display:none;">
+                            <div class="col-12 mb-3 booking-dynamic-panel" id="locationSection">
                                 <div class="card border-primary">
                                     <div class="card-header bg-primary text-white py-2">
                                         <h6 class="mb-0"><i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>Appointment Location <span class="text-warning">*</span></h6>
@@ -439,7 +446,7 @@ include '../backend/includes/header.php';
                             </div>
 
                             <!-- Package Credits Selector -->
-                            <div class="col-12 mb-3" id="packageCreditsContainer" style="display:none;">
+                            <div class="col-12 mb-3 booking-dynamic-panel" id="packageCreditsContainer">
                                 <div class="card border-success">
                                     <div class="card-header bg-success text-white py-2">
                                         <h6 class="mb-0"><i class="fas fa-box-open me-2"></i>Package Credits</h6>
@@ -451,7 +458,7 @@ include '../backend/includes/header.php';
                                         <select name="package_credit_id" id="packageCreditSelect" class="form-select">
                                             <option value="0">— Use Legacy Credits —</option>
                                         </select>
-                                        <div id="noPkgCreditsMsg" class="text-muted small mt-2" style="display:none;">
+                                        <div id="noPkgCreditsMsg" class="text-muted small mt-2 booking-dynamic-panel">
                                             <i class="fas fa-info-circle"></i> No eligible package credits found for this client and appointment type.
                                         </div>
                                     </div>
@@ -465,7 +472,7 @@ include '../backend/includes/header.php';
                                         <h6 class="card-title">Admin Overrides</h6>
                                         <p class="text-muted small mb-3">Check these to bypass rule enforcement</p>
                                         
-                                        <div class="form-check mb-2" id="overrideFormsContainer" style="display:none;">
+                                        <div class="form-check mb-2 booking-override-field" id="overrideFormsContainer">
                                             <input type="checkbox" class="form-check-input" name="override_forms" id="overrideForms">
                                             <label class="form-check-label" for="overrideForms">
                                                 <strong>Override Required Forms</strong>
@@ -473,7 +480,7 @@ include '../backend/includes/header.php';
                                             </label>
                                         </div>
                                         
-                                        <div class="form-check mb-2" id="overrideContractContainer" style="display:none;">
+                                        <div class="form-check mb-2 booking-override-field" id="overrideContractContainer">
                                             <input type="checkbox" class="form-check-input" name="override_contract" id="overrideContract">
                                             <label class="form-check-label" for="overrideContract">
                                                 <strong>Override Required Contract</strong>
@@ -481,7 +488,7 @@ include '../backend/includes/header.php';
                                             </label>
                                         </div>
                                         
-                                        <div class="form-check mb-2" id="overrideCreditsContainer" style="display:none;">
+                                        <div class="form-check mb-2 booking-override-field" id="overrideCreditsContainer">
                                             <input type="checkbox" class="form-check-input" name="override_credits" id="overrideCredits">
                                             <label class="form-check-label" for="overrideCredits">
                                                 <strong>Override Credit Requirement</strong>
@@ -517,6 +524,12 @@ const LOC_TYPE_DEFS = {
     'webcall':        { label: 'Webcall (Zoom, Google Meet, etc.)',icon: 'fa-video',          needsValue: true,  valuePlaceholder: 'https://zoom.us/j/...', valueLabel: 'Webcall URL *',  valueType: 'url' },
 };
 
+function setHidden(element, hidden) {
+    if (element) {
+        element.style.display = hidden ? 'none' : 'block';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const clientSelect = document.getElementById('clientSelect');
     const appointmentTypeSelect = document.getElementById('appointmentTypeSelect');
@@ -531,7 +544,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Render location selector based on allowed types for the selected appointment type
     function renderLocationSelector(option) {
         if (!option || !option.value) {
-            locationSection.style.display = 'none';
+            setHidden(locationSection, true);
             locationCardBody.innerHTML = '';
             return;
         }
@@ -543,7 +556,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (isMini || isField || isGroup) {
             // Fixed location: display it prominently
-            locationSection.style.display = 'block';
+            setHidden(locationSection, false);
             locationCardBody.innerHTML = `
                 <p class="text-muted small mb-1">This appointment type has a fixed location:</p>
                 <p class="mb-0 fw-bold"><i class="fas fa-location-dot me-2 text-primary" aria-hidden="true"></i>${escapeHtml(fixedLoc || '(No location set)')}</p>
@@ -562,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function() {
             allowed = Object.keys(LOC_TYPE_DEFS); // Default: all types
         }
 
-        locationSection.style.display = 'block';
+        setHidden(locationSection, false);
 
         if (allowed.length === 1) {
             // Single option: display prominently without dropdown
@@ -593,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <select name="location_type" id="locationTypeSelect" class="form-select" required onchange="onLocationTypeChange(this)">
                     ${opts}
                 </select>
-                <div id="locationValueWrapper" class="mt-2" style="display:none;">
+                <div id="locationValueWrapper" class="mt-2 booking-location-value">
                     <label class="form-label" id="locationValueLabel">Value *</label>
                     <input type="text" name="location_value" id="locationValueInput" class="form-control" placeholder="">
                 </div>`;
@@ -607,20 +620,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const consumesCredits = option && option.dataset.consumesCredits === '1';
 
         if (!consumesCredits || !clientId || !typeId) {
-            packageCreditsContainer.style.display = 'none';
+            setHidden(packageCreditsContainer, true);
             return;
         }
 
-        packageCreditsContainer.style.display = 'block';
+        setHidden(packageCreditsContainer, false);
 
         fetch(`?ajax=credits&client_id=${clientId}&type_id=${typeId}`)
             .then(r => r.json())
             .then(credits => {
                 packageCreditSelect.innerHTML = '<option value="0">— Use Legacy Credits —</option>';
                 if (credits.length === 0) {
-                    noPkgCreditsMsg.style.display = 'block';
+                    setHidden(noPkgCreditsMsg, false);
                 } else {
-                    noPkgCreditsMsg.style.display = 'none';
+                    setHidden(noPkgCreditsMsg, true);
                     credits.forEach(c => {
                         const expiry = c.expires_at ? ` (expires ${c.expires_at.substring(0,10)})` : '';
                         const opt = document.createElement('option');
@@ -637,7 +650,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const clientId = this.value;
         if (!clientId) {
             petsContainer.innerHTML = '<p class="text-muted mb-0">Select a client to see their pets</p>';
-            packageCreditsContainer.style.display = 'none';
+            setHidden(packageCreditsContainer, true);
             return;
         }
         
@@ -671,11 +684,11 @@ document.addEventListener('DOMContentLoaded', function() {
         renderLocationSelector(option);
         if (!option.value) {
             typeInfo.textContent = '';
-            document.getElementById('noOverridesMsg').style.display = 'block';
-            document.getElementById('overrideFormsContainer').style.display = 'none';
-            document.getElementById('overrideContractContainer').style.display = 'none';
-            document.getElementById('overrideCreditsContainer').style.display = 'none';
-            packageCreditsContainer.style.display = 'none';
+            setHidden(document.getElementById('noOverridesMsg'), false);
+            setHidden(document.getElementById('overrideFormsContainer'), true);
+            setHidden(document.getElementById('overrideContractContainer'), true);
+            setHidden(document.getElementById('overrideCreditsContainer'), true);
+            setHidden(packageCreditsContainer, true);
             return;
         }
         
@@ -694,10 +707,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Show override checkboxes
         const anyOverrides = requiresForms || requiresContract || consumesCredits;
-        document.getElementById('noOverridesMsg').style.display = anyOverrides ? 'none' : 'block';
-        document.getElementById('overrideFormsContainer').style.display = requiresForms ? 'block' : 'none';
-        document.getElementById('overrideContractContainer').style.display = requiresContract ? 'block' : 'none';
-        document.getElementById('overrideCreditsContainer').style.display = consumesCredits ? 'block' : 'none';
+        setHidden(document.getElementById('noOverridesMsg'), anyOverrides);
+        setHidden(document.getElementById('overrideFormsContainer'), !requiresForms);
+        setHidden(document.getElementById('overrideContractContainer'), !requiresContract);
+        setHidden(document.getElementById('overrideCreditsContainer'), !consumesCredits);
 
         loadPkgCredits();
     });
@@ -712,7 +725,7 @@ function onLocationTypeChange(sel) {
     if (!wrapper) return;
     const def = LOC_TYPE_DEFS[type];
     if (def && def.needsValue) {
-        wrapper.style.display = 'block';
+        setHidden(wrapper, false);
         if (label) label.textContent = def.valueLabel;
         if (input) {
             input.placeholder = def.valuePlaceholder;
@@ -720,7 +733,7 @@ function onLocationTypeChange(sel) {
             input.required = true;
         }
     } else {
-        wrapper.style.display = 'none';
+        setHidden(wrapper, true);
         if (input) { input.required = false; input.value = ''; }
     }
 }

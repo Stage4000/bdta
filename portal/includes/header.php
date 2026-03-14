@@ -87,6 +87,25 @@
             border-top: 1px solid rgba(255,255,255,0.15);
             margin: 0.4rem 0.75rem;
         }
+        .app-admin-banner {
+            z-index: 1050;
+        }
+        .app-toast-container {
+            z-index: 11;
+        }
+        .app-mobile-navbar {
+            background: linear-gradient(135deg, var(--theme-sidebar-start) 0%, var(--theme-sidebar-end) 100%);
+        }
+        .app-main-content {
+            min-height: 100vh;
+            padding: 1rem;
+            padding-bottom: 2rem;
+        }
+        @media (min-width: 768px) {
+            .app-main-content {
+                padding: 1.5rem;
+            }
+        }
         @media (prefers-color-scheme: dark) {
             main.col-md-9,
             main.col-md-10,
@@ -98,7 +117,7 @@
 </head>
 <body>
     <?php if (!empty($_SESSION['portal_impersonating_admin_id'])): ?>
-    <div class="alert alert-warning mb-0 rounded-0 text-center py-2" style="z-index:1050;">
+    <div class="alert alert-warning mb-0 rounded-0 text-center py-2 app-admin-banner">
         <i class="fas fa-user-secret me-2"></i>
         <strong>Admin View:</strong> You are viewing the portal as <strong><?php echo escape($_SESSION['portal_client_name'] ?? 'this client'); ?></strong>.
         <a href="<?php echo PORTAL_URL; ?>stop_impersonation.php" class="btn btn-sm btn-dark ms-3">
@@ -108,7 +127,7 @@
     <?php endif; ?>
     <?php $flash = getFlashMessage(); ?>
     <?php if ($flash): ?>
-    <div class="position-fixed top-0 end-0 p-3" style="z-index: 11">
+    <div class="position-fixed top-0 end-0 p-3 app-toast-container">
         <div class="toast show align-items-center text-white bg-<?php echo $flash['type'] === 'success' ? 'success' : ($flash['type'] === 'error' ? 'danger' : 'info'); ?> border-0" role="alert">
             <div class="d-flex">
                 <div class="toast-body"><?php echo escape($flash['message']); ?></div>
@@ -121,9 +140,9 @@
     <div class="container-fluid">
         <div class="row">
             <!-- Mobile navbar -->
-            <nav class="navbar navbar-dark d-md-none" style="background: linear-gradient(135deg, <?= $tc_sidebar_start ?> 0%, <?= $tc_sidebar_end ?> 100%);">
+            <nav class="navbar navbar-dark d-md-none app-mobile-navbar">
                 <div class="container-fluid">
-                    <span class="navbar-brand">BDTA Client Portal</span>
+                    <span class="navbar-brand mb-0 h1 fs-6">BDTA Client Portal</span>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button>
@@ -198,7 +217,7 @@
                 </div>
             </nav>
 
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 pt-3">
+            <main class="col-md-9 ms-sm-auto col-lg-10 app-main-content">
 <!-- Dark mode toggle script -->
 <script>
 (function () {

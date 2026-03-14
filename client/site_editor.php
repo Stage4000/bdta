@@ -121,7 +121,7 @@ if (array_int_value($page, 'is_homepage') !== 1 && trim(array_string_value($page
             if ($navbar && $footer) {
                 $page_heading = escape(array_string_value($page, 'title'));
                 $seed_html = $navbar . "\n"
-                    . '<main style="padding-top: 80px; min-height: 60vh;">' . "\n"
+                    . '<main class="pt-5">' . "\n"
                     . '<section class="py-5">' . "\n"
                     . '<div class="container">' . "\n"
                     . '<h1 class="display-5 fw-bold mb-4">' . $page_heading . '</h1>' . "\n"
@@ -192,6 +192,9 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
             cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;
             transition: background .2s;
         }
+        #editor-topbar .btn-topbar.btn-topbar-icon {
+            padding: 5px 10px;
+        }
         #editor-topbar .btn-topbar:hover { background: rgba(255,255,255,.28); }
         #editor-topbar .btn-topbar.btn-publish {
             background: #198754; border-color: #198754;
@@ -243,19 +246,22 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
             background: transparent; border: none; border-bottom: 2px solid #fff;
             color: #fff; font-size: 14px; font-weight: 700; outline: none; width: 200px;
         }
+        .code-editor-textarea {
+            font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+        }
     </style>
 </head>
 <body>
 
 <!-- Top Bar -->
 <div id="editor-topbar">
-    <a href="site_pages_list.php" class="btn-topbar" title="Back to pages list" style="padding: 5px 10px;">
+    <a href="site_pages_list.php" class="btn-topbar btn-topbar-icon" title="Back to pages list">
         <i class="fas fa-arrow-left"></i>
     </a>
     <div class="brand">
         <i class="fas fa-paw me-1"></i>
         <span id="page-title-display" title="Click to rename"><?php echo escape(array_string_value($page, 'title')); ?></span>
-        <input type="text" id="page-title-input" value="<?php echo escape(array_string_value($page, 'title')); ?>" style="display:none">
+        <input type="text" id="page-title-input" class="d-none" value="<?php echo escape(array_string_value($page, 'title')); ?>">
     </div>
     <div class="spacer"></div>
 
@@ -319,13 +325,11 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="html-code-input">HTML</label>
-                    <textarea id="html-code-input" class="form-control" rows="12" spellcheck="false"
-                              style="font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"></textarea>
+                    <textarea id="html-code-input" class="form-control code-editor-textarea" rows="12" spellcheck="false"></textarea>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="css-code-input">CSS</label>
-                    <textarea id="css-code-input" class="form-control" rows="8" spellcheck="false"
-                              style="font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"></textarea>
+                    <textarea id="css-code-input" class="form-control code-editor-textarea" rows="8" spellcheck="false"></textarea>
                     <div class="form-text">Edits here replace the current page markup and styles in the canvas.</div>
                 </div>
             </div>
@@ -503,10 +507,12 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
         label: 'Hero Section',
         category: 'BDTA',
         content: `
-<section style="background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%); color: white; padding: 80px 20px; text-align: center;">
-  <h1 style="font-size: 2.5rem; font-weight: 700; margin-bottom: 16px;">Teaching Humans to Speak Dog</h1>
-  <p style="font-size: 1.2rem; margin-bottom: 32px; opacity: 0.9;">Professional dog training in Highlands County, Florida.</p>
-  <a href="#" style="background: white; color: #9a0073; padding: 14px 36px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 1rem;">Book Now</a>
+<section class="bdta-section-hero text-white text-center py-5">
+  <div class="container py-4 py-md-5">
+    <h1 class="display-5 fw-bold mb-3">Teaching Humans to Speak Dog</h1>
+    <p class="lead mb-4 mx-auto bdta-content-narrow">Professional dog training in Highlands County, Florida.</p>
+    <a href="#" class="btn btn-light btn-lg px-4 bdta-hero-button">Book Now</a>
+  </div>
 </section>`
     });
 
@@ -514,10 +520,12 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
         label: 'Call to Action',
         category: 'BDTA',
         content: `
-<section style="background: #f8f9fa; padding: 60px 20px; text-align: center;">
-  <h2 style="font-weight: 700; margin-bottom: 12px;">Ready to get started?</h2>
-  <p style="color: #666; margin-bottom: 24px;">Book a session with Brook today.</p>
-  <a href="/backend/public/book.php?type=1" style="background: #9a0073; color: white; padding: 14px 36px; border-radius: 6px; text-decoration: none; font-weight: 600;">Book Now</a>
+<section class="bg-light text-center py-5">
+  <div class="container py-4">
+    <h2 class="fw-bold mb-3">Ready to get started?</h2>
+    <p class="text-muted mb-4">Book a session with Brook today.</p>
+    <a href="/backend/public/book.php?type=1" class="btn btn-primary btn-lg px-4 bdta-cta-button">Book Now</a>
+  </div>
 </section>`
     });
 
@@ -525,43 +533,73 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
         label: '3-Column Cards',
         category: 'BDTA',
         content: `
-<div style="display: flex; gap: 24px; padding: 40px 20px; flex-wrap: wrap; justify-content: center;">
-  <div style="flex: 1; min-width: 220px; background: white; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,.08); text-align: center;">
-    <div style="font-size: 2rem; color: #9a0073; margin-bottom: 12px;">🐾</div>
-    <h4 style="margin-bottom: 8px;">Feature One</h4>
-    <p style="color: #666; margin: 0;">Short description of this feature or service.</p>
+<section class="py-5 bg-light">
+  <div class="container">
+    <div class="row g-4 justify-content-center">
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="card bdta-feature-card h-100 text-center">
+          <div class="card-body p-4">
+            <div class="bdta-feature-icon mb-3">🐾</div>
+            <h4 class="mb-2">Feature One</h4>
+            <p class="text-muted mb-0">Short description of this feature or service.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="card bdta-feature-card h-100 text-center">
+          <div class="card-body p-4">
+            <div class="bdta-feature-icon mb-3">⭐</div>
+            <h4 class="mb-2">Feature Two</h4>
+            <p class="text-muted mb-0">Short description of this feature or service.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="card bdta-feature-card h-100 text-center">
+          <div class="card-body p-4">
+            <div class="bdta-feature-icon mb-3">❤️</div>
+            <h4 class="mb-2">Feature Three</h4>
+            <p class="text-muted mb-0">Short description of this feature or service.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-  <div style="flex: 1; min-width: 220px; background: white; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,.08); text-align: center;">
-    <div style="font-size: 2rem; color: #9a0073; margin-bottom: 12px;">⭐</div>
-    <h4 style="margin-bottom: 8px;">Feature Two</h4>
-    <p style="color: #666; margin: 0;">Short description of this feature or service.</p>
-  </div>
-  <div style="flex: 1; min-width: 220px; background: white; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,.08); text-align: center;">
-    <div style="font-size: 2rem; color: #9a0073; margin-bottom: 12px;">❤️</div>
-    <h4 style="margin-bottom: 8px;">Feature Three</h4>
-    <p style="color: #666; margin: 0;">Short description of this feature or service.</p>
-  </div>
-</div>`
+</section>`
     });
 
     bm.add('bdta-testimonial', {
         label: 'Testimonial',
         category: 'BDTA',
         content: `
-<blockquote style="background: white; border-left: 4px solid #9a0073; border-radius: 8px; padding: 24px 28px; margin: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06);">
-  <p style="font-size: 1.05rem; font-style: italic; margin-bottom: 12px; color: #333;">"This training academy completely transformed our dog's behaviour. Highly recommended!"</p>
-  <footer style="font-weight: 600; color: #9a0073;">— Happy Client, Golden Retriever Owner</footer>
-</blockquote>`
+<section class="py-4">
+  <div class="container">
+    <blockquote class="bdta-testimonial bg-white p-4 p-md-5 mb-0">
+      <p class="fs-5 fst-italic mb-3">"This training academy completely transformed our dog's behaviour. Highly recommended!"</p>
+      <cite class="fw-semibold">— Happy Client, Golden Retriever Owner</cite>
+    </blockquote>
+  </div>
+</section>`
     });
 
     bm.add('bdta-contact', {
         label: 'Contact Bar',
         category: 'BDTA',
         content: `
-<div style="background: #2d2d2d; color: white; padding: 20px; text-align: center; font-size: 0.95rem;">
-  📍 Highlands County, FL &nbsp;|&nbsp; ✉️ bookings@brooksdogtrainingacademy.com &nbsp;|&nbsp;
-  <a href="https://www.facebook.com/BrooksDogTrainingAcademy" style="color: #9a0073;">Facebook</a> |
-  <a href="https://www.instagram.com/brooksdogtrainingacademy" style="color: #9a0073;">Instagram</a>
+<div class="bdta-contact-bar text-white py-3">
+  <div class="container">
+    <div class="d-flex flex-column flex-md-row justify-content-center align-items-center gap-2 text-center small">
+      <span>📍 Highlands County, FL</span>
+      <span class="d-none d-md-inline text-white-50">|</span>
+      <span>✉️ bookings@brooksdogtrainingacademy.com</span>
+      <span class="d-none d-md-inline text-white-50">|</span>
+      <div class="d-flex gap-2">
+        <a href="https://www.facebook.com/BrooksDogTrainingAcademy" class="bdta-contact-link">Facebook</a>
+        <span class="text-white-50">|</span>
+        <a href="https://www.instagram.com/brooksdogtrainingacademy" class="bdta-contact-link">Instagram</a>
+      </div>
+    </div>
+  </div>
 </div>`
     });
 
@@ -701,8 +739,8 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
 
     titleDisplay.addEventListener('click', function () {
         originalTitle = titleDisplay.textContent;
-        titleDisplay.style.display = 'none';
-        titleInput.style.display   = 'inline-block';
+        titleDisplay.classList.add('d-none');
+        titleInput.classList.remove('d-none');
         titleInput.focus();
         titleInput.select();
     });
@@ -710,8 +748,8 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
     async function commitRename() {
         const newTitle = titleInput.value.trim();
         titleDisplay.textContent = newTitle || originalTitle;
-        titleDisplay.style.display = 'inline';
-        titleInput.style.display   = 'none';
+        titleDisplay.classList.remove('d-none');
+        titleInput.classList.add('d-none');
         if (!newTitle || newTitle === originalTitle) return;
         originalTitle = newTitle;
 

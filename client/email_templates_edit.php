@@ -51,12 +51,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include '../backend/includes/header.php';
 ?>
 
+<style>
+    .email-template-code {
+        font-family: monospace;
+    }
+    .email-template-example-code {
+        font-size: 0.75rem;
+    }
+    .email-preview-frame {
+        width: 100%;
+        min-height: 20rem;
+        height: 60vh;
+        border: 0;
+    }
+    @media (min-width: 768px) {
+        .email-preview-frame {
+            min-height: 32rem;
+        }
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
                 <h2 class="mb-0"><i class="fas fa-envelope me-2"></i><?php echo $id ? 'Edit' : 'Create'; ?> Email Template</h2>
-                <div class="d-flex gap-2">
+                <div class="d-flex flex-column flex-sm-row gap-2">
                     <button type="button" class="btn btn-outline-secondary" id="previewBtn">
                         <i class="fas fa-eye"></i> Preview Email
                     </button>
@@ -110,15 +130,13 @@ include '../backend/includes/header.php';
 
                                 <div class="mb-3">
                                     <label class="form-label">Email Body (HTML) *</label>
-                                    <textarea name="body_html" id="body_html" class="form-control" rows="12" required 
-                                              style="font-family: monospace;"><?php echo htmlspecialchars(array_string_value($template ?? [], 'body_html')); ?></textarea>
+                                    <textarea name="body_html" id="body_html" class="form-control email-template-code" rows="12" required><?php echo htmlspecialchars(array_string_value($template ?? [], 'body_html')); ?></textarea>
                                     <small class="text-muted">HTML content with variable support</small>
                                 </div>
 
                                 <div class="mb-3">
                                     <label class="form-label">Plain Text Version</label>
-                                    <textarea name="body_text" class="form-control" rows="8" 
-                                              style="font-family: monospace;"><?php echo htmlspecialchars(array_string_value($template ?? [], 'body_text')); ?></textarea>
+                                    <textarea name="body_text" class="form-control email-template-code" rows="8"><?php echo htmlspecialchars(array_string_value($template ?? [], 'body_text')); ?></textarea>
                                     <small class="text-muted">Plain text fallback (optional, will use HTML if empty)</small>
                                 </div>
 
@@ -217,7 +235,7 @@ include '../backend/includes/header.php';
                                 professional email container matching the system default
                                 emails — no extra HTML or CSS required.
                             </p>
-                            <pre class="small" style="font-size: 11px;"><code>&lt;p&gt;Hi {{client_name}},&lt;/p&gt;
+                            <pre class="small email-template-example-code"><code>&lt;p&gt;Hi {{client_name}},&lt;/p&gt;
 
 &lt;p&gt;Your appointment is confirmed!&lt;/p&gt;
 
@@ -276,10 +294,7 @@ include '../backend/includes/header.php';
                     <p class="mt-2 text-muted">Rendering preview…</p>
                 </div>
                 <div id="previewError" class="alert alert-danger m-3 d-none"></div>
-                <iframe id="previewIframe"
-                        style="width:100%; height:600px; border:none;"
-                        title="Email preview"
-                        sandbox="allow-same-origin"></iframe>
+                <iframe id="previewIframe" class="email-preview-frame" title="Email preview" sandbox="allow-same-origin"></iframe>
             </div>
             <div class="modal-footer">
                 <small class="text-muted me-auto">

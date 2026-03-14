@@ -44,3 +44,70 @@ $sidebar_end     = sanitizeColor(array_string_value($theme, 'sidebar_bg_end', '#
     --secondary-color: <?= $secondary ?>;
     --accent-color:   <?= $accent ?>;
 }
+
+.bdta-section-hero {
+    background: linear-gradient(135deg, var(--theme-sidebar-start) 0%, var(--theme-sidebar-end) 100%);
+}
+
+.bdta-content-narrow {
+    max-width: 42rem;
+}
+
+.bdta-hero-button {
+    color: var(--theme-primary);
+}
+
+.bdta-hero-button:hover,
+.bdta-hero-button:focus {
+    color: var(--theme-primary-dark);
+}
+
+.bdta-cta-button,
+.bdta-cta-button:hover,
+.bdta-cta-button:focus {
+    color: #fff;
+}
+
+.bdta-feature-card {
+    border: 0;
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+}
+
+.bdta-feature-icon {
+    color: var(--theme-primary);
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.bdta-testimonial {
+    border-left: 4px solid var(--theme-primary);
+    border-radius: 0.75rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.06);
+}
+
+.bdta-testimonial cite {
+    color: var(--theme-primary);
+    font-style: normal;
+}
+
+.bdta-contact-bar {
+    background: #2d2d2d;
+}
+
+.bdta-contact-link {
+    color: var(--theme-secondary);
+    text-decoration: none;
+}
+
+.bdta-contact-link:hover,
+.bdta-contact-link:focus {
+    color: #fff;
+}
+
+@media (max-width: 767.98px) {
+    .bdta-section-hero .display-5,
+    .bdta-section-hero .display-4 {
+        font-size: 2.25rem;
+    }
+}

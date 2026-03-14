@@ -86,23 +86,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-color: #7a005a;
             border-color: #7a005a;
         }
+        .login-theme-toggle {
+            z-index: 1100;
+        }
     </style>
 </head>
 <body>
     <!-- Dark mode toggle (floating) -->
-    <button id="darkModeToggle" class="btn btn-outline-light btn-sm position-fixed top-0 end-0 m-3" style="z-index:1100;" title="Toggle dark mode" aria-label="Toggle dark mode">
+    <button id="darkModeToggle" class="btn btn-outline-light btn-sm position-fixed top-0 end-0 m-3 login-theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
         <i class="fas fa-moon" id="darkModeIcon"></i>
     </button>
-    <div class="container">
+    <main class="container">
         <div class="row justify-content-center">
             <div class="col-md-4">
                 <div class="card login-card">
                     <div class="login-header">
-                        <h3 class="mb-0">BDTA Client Portal</h3>
+                        <h1 class="h3 mb-0">BDTA Client Portal</h1>
                         <small>Brook's Dog Training Academy</small>
                     </div>
                     <div class="card-body p-4">
-                        <h5 class="text-center mb-4">Sign In</h5>
+                        <h2 class="h5 text-center mb-4">Sign In</h2>
                         <?php if ($error): ?>
                             <div class="alert alert-danger"><?php echo escape($error); ?></div>
                         <?php endif; ?>
@@ -128,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
         </div>
-    </div>
+    </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     (function () {
