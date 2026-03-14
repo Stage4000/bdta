@@ -11,15 +11,16 @@ header('Content-Type: application/json');
  */
 function respondWithError(string $logMessage, int $status = 500, string $publicMessage = 'An error occurred'): never {
     http_response_code($status);
-    $sanitizedLog = 'clients.php error (status ' . $status . '): ' . $publicMessage;
-    error_log($sanitizedLog);
+    $sanitizedLog = preg_replace('/[\r\n]+/', ' ', $logMessage);
+    error_log('clients.php error (status ' . $status . '): ' . $sanitizedLog);
     try {
         echo json_encode([
             'success' => false,
             'error' => $publicMessage,
         ], JSON_THROW_ON_ERROR);
     } catch (JsonException $e) {
-        error_log('clients.php: failed to encode error response: ' . $e->getMessage());
+        $sanitizedMessage = preg_replace('/[\r\n]+/', ' ', $e->getMessage());
+        error_log('clients.php: failed to encode error response: ' . $sanitizedMessage);
         echo '{"success":false,"error":"Failed to load clients"}';
     }
     exit;
