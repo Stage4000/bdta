@@ -1,6 +1,11 @@
 #!/usr/bin/env php
 <?php
 
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('This script can only be run from the command line.');
+}
+
 require_once __DIR__ . '/backend/includes/config.php';
 require_once __DIR__ . '/backend/includes/tawk_to.php';
 

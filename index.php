@@ -20,7 +20,18 @@ if (!$page || trim($page['html_content']) === '') {
     // Fall back to the static index.html
     $static = __DIR__ . '/index.html';
     if (file_exists($static)) {
-        $html = scalar_string(file_get_contents($static));
+        $html = file_get_contents($static);
+        if ($html === false) {
+            $last_error = error_get_last();
+            $read_error_message = is_array($last_error) ? scalar_string($last_error['message'] ?? 'unknown error') : 'unknown error';
+            error_log('Failed to read static homepage: ' . $read_error_message);
+            header('Content-Type: text/html; charset=UTF-8');
+            http_response_code(500);
+            echo '<h1>Site temporarily unavailable.</h1>';
+            exit;
+        }
+
+        $html = scalar_string($html);
         $widget = bdta_get_tawk_to_widget_script();
         if ($widget !== '') {
             $html = preg_replace('/<\/body>/i', $widget . "\n</body>", $html, 1) ?? $html;
