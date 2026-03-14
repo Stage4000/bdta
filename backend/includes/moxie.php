@@ -23,7 +23,12 @@ class MoxieClientSync {
     }
 
     public static function getConfiguredBaseUrl(): string {
-        return self::normalizeBaseUrl(scalar_string(Settings::get('moxie_base_url', '')));
+        try {
+            return self::normalizeBaseUrl(scalar_string(Settings::get('moxie_base_url', '')));
+        } catch (InvalidArgumentException $e) {
+            error_log('Invalid stored Moxie base URL ignored: ' . $e->getMessage());
+            return '';
+        }
     }
 
     public static function getConfiguredApiKey(): string {
@@ -36,11 +41,37 @@ class MoxieClientSync {
             return '';
         }
 
-        if (!preg_match('#^https?://#i', $base_url)) {
+        if (!str_contains($base_url, '://')) {
             $base_url = 'https://' . ltrim($base_url, '/');
         }
 
-        return rtrim($base_url, '/');
+        $parts = parse_url($base_url);
+        if (!is_array($parts)) {
+            throw new InvalidArgumentException('Enter a valid Moxie workspace URL.');
+        }
+
+        $scheme = strtolower(scalar_string($parts['scheme'] ?? ''));
+        $host = strtolower(scalar_string($parts['host'] ?? ''));
+        $path = trim(scalar_string($parts['path'] ?? ''));
+        $query = scalar_string($parts['query'] ?? '');
+        $fragment = scalar_string($parts['fragment'] ?? '');
+        $user = scalar_string($parts['user'] ?? '');
+        $pass = scalar_string($parts['pass'] ?? '');
+        $port = scalar_string($parts['port'] ?? '');
+
+        if ($scheme !== 'https' || $host === '') {
+            throw new InvalidArgumentException('Use an HTTPS Moxie workspace URL.');
+        }
+
+        if ($user !== '' || $pass !== '' || $port !== '' || $query !== '' || $fragment !== '' || ($path !== '' && $path !== '/')) {
+            throw new InvalidArgumentException('Use only the Moxie workspace origin, without paths, ports, query strings, or credentials.');
+        }
+
+        if (!self::isAllowedMoxieHost($host)) {
+            throw new InvalidArgumentException('Use a Moxie workspace host ending in withmoxie.dev or withmoxie.com.');
+        }
+
+        return 'https://' . $host;
     }
 
     /**
@@ -50,14 +81,15 @@ class MoxieClientSync {
         $log_file = self::getLogFilePath();
         $log_dir = dirname($log_file);
 
-        if (!is_dir($log_dir)) {
-            mkdir($log_dir, 0750, true);
+        if (!is_dir($log_dir) && !mkdir($log_dir, 0750, true) && !is_dir($log_dir)) {
+            throw new RuntimeException('Unable to create the Moxie log directory.');
         }
+        self::ensureLogDirectoryPermissions($log_dir);
 
-        if (!file_exists($log_file)) {
-            touch($log_file);
-            @chmod($log_file, 0600);
+        if (!file_exists($log_file) && @touch($log_file) === false) {
+            throw new RuntimeException('Unable to create the Moxie log file.');
         }
+        self::ensureLogFilePermissions($log_file);
 
         $line = '[' . gmdate('Y-m-d H:i:s') . " UTC] " . $message;
         if (!empty($context)) {
@@ -242,6 +274,14 @@ class MoxieClientSync {
             $next_url = $base_url . '/api/public/clients/list?start=' . $start . '&count=' . $page_size;
         }
 
+        if ($next_url !== '' && $page >= self::MAX_PAGES) {
+            self::log('Moxie client sync aborted after reaching the maximum page limit.', [
+                'max_pages' => self::MAX_PAGES,
+                'last_url' => $next_url,
+            ]);
+            throw new RuntimeException('Moxie client sync stopped after reaching the maximum page limit. Please narrow the import or increase the page limit in code.');
+        }
+
         return $clients;
     }
 
@@ -377,6 +417,8 @@ class MoxieClientSync {
      * @return array<string, mixed>
      */
     private function requestJson(string $url, string $api_key): array {
+        $this->assertAllowedRequestUrl($url);
+
         $ch = curl_init($url);
         if ($ch === false) {
             throw new RuntimeException('Unable to initialize cURL for Moxie request.');
@@ -447,6 +489,108 @@ class MoxieClientSync {
      */
     private static function stringValue(array $row, string $key): string {
         return scalar_string($row[$key] ?? '');
+    }
+
+    private static function isAllowedMoxieHost(string $host): bool {
+        $allowed_suffixes = ['withmoxie.dev', 'withmoxie.com'];
+        foreach ($allowed_suffixes as $suffix) {
+            if ($host === $suffix || str_ends_with($host, '.' . $suffix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function ensureLogDirectoryPermissions(string $path): void {
+        if (DIRECTORY_SEPARATOR !== '/') {
+            return;
+        }
+
+        if (self::directoryPermissionsAcceptable($path)) {
+            return;
+        }
+
+        if (!chmod($path, 0750)) {
+            if (!self::directoryPermissionsAcceptable($path)) {
+                throw new RuntimeException('Unable to secure the Moxie log directory permissions.');
+            }
+            return;
+        }
+
+        if (!self::directoryPermissionsAcceptable($path)) {
+            throw new RuntimeException('Unable to secure the Moxie log directory permissions.');
+        }
+    }
+
+    private static function ensureLogFilePermissions(string $path): void {
+        if (DIRECTORY_SEPARATOR !== '/') {
+            return;
+        }
+
+        if (self::filePermissionsAcceptable($path)) {
+            return;
+        }
+
+        if (!chmod($path, 0600)) {
+            if (!self::filePermissionsAcceptable($path)) {
+                throw new RuntimeException('Unable to secure the Moxie log file permissions.');
+            }
+            return;
+        }
+
+        if (!self::filePermissionsAcceptable($path)) {
+            throw new RuntimeException('Unable to secure the Moxie log file permissions.');
+        }
+    }
+
+    private static function directoryPermissionsAcceptable(string $path): bool {
+        $perms = self::readPermissions($path);
+        if ($perms === null) {
+            return false;
+        }
+
+        return ($perms & 0700) === 0700 && ($perms & 0020) === 0 && ($perms & 0007) === 0;
+    }
+
+    private static function filePermissionsAcceptable(string $path): bool {
+        $perms = self::readPermissions($path);
+        if ($perms === null) {
+            return false;
+        }
+
+        return ($perms & 0600) === 0600 && ($perms & 0077) === 0;
+    }
+
+    private static function readPermissions(string $path): ?int {
+        clearstatcache(true, $path);
+        $perms = fileperms($path);
+        if ($perms === false) {
+            return null;
+        }
+
+        return $perms & 0777;
+    }
+
+    private function assertAllowedRequestUrl(string $url): void {
+        $parts = parse_url($url);
+        if (!is_array($parts)) {
+            throw new RuntimeException('Moxie request URL is invalid.');
+        }
+
+        $scheme = strtolower(scalar_string($parts['scheme'] ?? ''));
+        $host = strtolower(scalar_string($parts['host'] ?? ''));
+        $user = scalar_string($parts['user'] ?? '');
+        $pass = scalar_string($parts['pass'] ?? '');
+        $port = scalar_string($parts['port'] ?? '');
+
+        if ($scheme !== 'https' || $host === '' || !self::isAllowedMoxieHost($host)) {
+            throw new RuntimeException('Moxie requests must use an allowed HTTPS Moxie host.');
+        }
+
+        if ($user !== '' || $pass !== '' || $port !== '') {
+            throw new RuntimeException('Moxie request URLs must not contain credentials or custom ports.');
+        }
     }
 
     private static function boolValue(mixed $value): bool {

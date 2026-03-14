@@ -16,12 +16,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('moxie_import.php');
     }
 
-    $submitted_base_url = MoxieClientSync::normalizeBaseUrl(scalar_string($_POST['moxie_base_url'] ?? ''));
+    $submitted_base_url = '';
+    $submitted_base_url_error = '';
+    try {
+        $submitted_base_url = MoxieClientSync::normalizeBaseUrl(scalar_string($_POST['moxie_base_url'] ?? ''));
+    } catch (InvalidArgumentException $e) {
+        $submitted_base_url_error = $e->getMessage();
+    }
     $submitted_api_key = trim(scalar_string($_POST['moxie_api_key'] ?? ''));
     $action = scalar_string($_POST['action'] ?? '');
 
     if ($action === 'save_credentials') {
-        if ($submitted_base_url === '') {
+        if ($submitted_base_url_error !== '') {
+            setFlashMessage($submitted_base_url_error, 'error');
+        } elseif ($submitted_base_url === '') {
             setFlashMessage('Please enter your Moxie workspace base URL.', 'error');
         } else {
             Settings::set('moxie_base_url', $submitted_base_url);
@@ -35,33 +43,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'run_sync') {
-        if ($submitted_base_url !== '') {
-            Settings::set('moxie_base_url', $submitted_base_url);
-            $base_url = $submitted_base_url;
-        }
+        if ($submitted_base_url_error !== '') {
+            setFlashMessage($submitted_base_url_error, 'error');
+        } else {
+            if ($submitted_base_url !== '') {
+                Settings::set('moxie_base_url', $submitted_base_url);
+                $base_url = $submitted_base_url;
+            }
 
-        if ($submitted_api_key !== '') {
-            Settings::set('moxie_api_key', $submitted_api_key);
-        }
+            if ($submitted_api_key !== '') {
+                Settings::set('moxie_api_key', $submitted_api_key);
+            }
 
-        $api_key = $submitted_api_key !== '' ? $submitted_api_key : MoxieClientSync::getConfiguredApiKey();
-        $base_url = $base_url !== '' ? $base_url : MoxieClientSync::getConfiguredBaseUrl();
+            $api_key = $submitted_api_key !== '' ? $submitted_api_key : MoxieClientSync::getConfiguredApiKey();
+            $base_url = $base_url !== '' ? $base_url : MoxieClientSync::getConfiguredBaseUrl();
 
-        try {
-            $sync = new MoxieClientSync();
-            $last_summary = $sync->sync($base_url, $api_key);
-            $api_key_saved = $api_key !== '';
-            setFlashMessage(
-                'Moxie sync complete. '
-                . $last_summary['created'] . ' created, '
-                . $last_summary['updated'] . ' updated, '
-                . $last_summary['unchanged'] . ' unchanged.',
-                'success'
-            );
-            MoxieClientSync::log('Moxie sync run from admin UI.', ['admin_id' => safe_int($_SESSION['admin_id'] ?? 0)] + $last_summary);
-        } catch (Throwable $e) {
-            MoxieClientSync::log('Moxie sync UI error.', ['error' => $e->getMessage()]);
-            setFlashMessage('Moxie sync failed: ' . $e->getMessage(), 'error');
+            try {
+                $sync = new MoxieClientSync();
+                $last_summary = $sync->sync($base_url, $api_key);
+                $api_key_saved = $api_key !== '';
+                setFlashMessage(
+                    'Moxie sync complete. '
+                    . $last_summary['created'] . ' created, '
+                    . $last_summary['updated'] . ' updated, '
+                    . $last_summary['unchanged'] . ' unchanged.',
+                    'success'
+                );
+                MoxieClientSync::log('Moxie sync run from admin UI.', ['admin_id' => safe_int($_SESSION['admin_id'] ?? 0)] + $last_summary);
+            } catch (Throwable $e) {
+                MoxieClientSync::log('Moxie sync UI error.', ['error' => $e->getMessage()]);
+                setFlashMessage('Moxie sync failed: ' . $e->getMessage(), 'error');
+            }
         }
     }
 }

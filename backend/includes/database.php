@@ -1363,18 +1363,44 @@ class Database {
         if (!in_array('password_reset_expires', $client_column_names)) {
             $this->execSQL("ALTER TABLE clients ADD COLUMN password_reset_expires TIMESTAMP");
         }
+        $added_moxie_client_id = false;
         if (!in_array('moxie_client_id', $client_column_names)) {
-            $this->execSQL("ALTER TABLE clients ADD COLUMN moxie_client_id TEXT");
+            if ($this->db_type === 'mysql') {
+                $this->execSQL("ALTER TABLE clients ADD COLUMN moxie_client_id VARCHAR(255) NULL");
+            } else {
+                $this->execSQL("ALTER TABLE clients ADD COLUMN moxie_client_id TEXT");
+            }
+            $added_moxie_client_id = true;
         }
-        try {
-            $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
-        } catch (PDOException $e) {
-            // Index might already exist, ignore
-        }
-        try {
-            $this->execSQL("CREATE INDEX idx_clients_name_phone ON clients(name, phone)");
-        } catch (PDOException $e) {
-            // Index might already exist, ignore
+        if ($this->db_type === 'mysql') {
+            if (!$added_moxie_client_id) {
+                try {
+                    $this->execSQL("ALTER TABLE clients MODIFY moxie_client_id VARCHAR(255) NULL");
+                } catch (PDOException $e) {
+                    // Column might already be the desired type, ignore
+                }
+            }
+            try {
+                $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
+            } catch (PDOException $e) {
+                // Index might already exist, ignore
+            }
+            try {
+                $this->execSQL("CREATE INDEX idx_clients_name_phone ON clients(name(191), phone(191))");
+            } catch (PDOException $e) {
+                // Index might already exist, ignore
+            }
+        } else {
+            try {
+                $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
+            } catch (PDOException $e) {
+                // Index might already exist, ignore
+            }
+            try {
+                $this->execSQL("CREATE INDEX idx_clients_name_phone ON clients(name, phone)");
+            } catch (PDOException $e) {
+                // Index might already exist, ignore
+            }
         }
         
         // Add unique_link column to appointment_types table
@@ -2119,7 +2145,7 @@ class Database {
 
     private function addMoxieSettings(): void {
         $moxie_settings = [
-            ['moxie_base_url', '', 'text', 'advanced', 'Moxie Base URL', 'Workspace base URL used for the Moxie public API client import tool (For example, https://pod00.withmoxie.dev).', 0],
+            ['moxie_base_url', '', 'url', 'advanced', 'Moxie Base URL', 'Workspace base URL used for the Moxie public API client import tool (for example, https://pod00.withmoxie.dev).', 0],
             ['moxie_api_key', '', 'password', 'advanced', 'Moxie API Key', 'Public API key for importing clients from Moxie.', 1],
         ];
 
@@ -2138,6 +2164,22 @@ class Database {
                     // Already exists, ignore
                 }
             }
+        }
+
+        try {
+            $this->conn->prepare("
+                UPDATE settings
+                SET setting_type = ?, label = ?, description = ?, is_secret = ?
+                WHERE setting_key = ?
+            ")->execute([
+                'url',
+                'Moxie Base URL',
+                'Workspace base URL used for the Moxie public API client import tool (for example, https://pod00.withmoxie.dev).',
+                0,
+                'moxie_base_url',
+            ]);
+        } catch (PDOException $e) {
+            // Setting may not exist yet, ignore
         }
     }
 
