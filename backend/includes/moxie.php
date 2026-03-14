@@ -51,11 +51,12 @@ class MoxieClientSync {
         $log_dir = dirname($log_file);
 
         if (!is_dir($log_dir)) {
-            mkdir($log_dir, 0775, true);
+            mkdir($log_dir, 0750, true);
         }
 
         if (!file_exists($log_file)) {
             touch($log_file);
+            @chmod($log_file, 0600);
         }
 
         $line = '[' . gmdate('Y-m-d H:i:s') . " UTC] " . $message;

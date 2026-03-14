@@ -1365,11 +1365,16 @@ class Database {
         }
         if (!in_array('moxie_client_id', $client_column_names)) {
             $this->execSQL("ALTER TABLE clients ADD COLUMN moxie_client_id TEXT");
-            try {
-                $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
-            } catch (PDOException $e) {
-                // Index might already exist, ignore
-            }
+        }
+        try {
+            $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
+        }
+        try {
+            $this->execSQL("CREATE INDEX idx_clients_name_phone ON clients(name, phone)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
         }
         
         // Add unique_link column to appointment_types table
@@ -2114,7 +2119,7 @@ class Database {
 
     private function addMoxieSettings(): void {
         $moxie_settings = [
-            ['moxie_base_url', '', 'text', 'advanced', 'Moxie Base URL', 'Workspace base URL used for the Moxie public API client import tool (for example https://pod00.withmoxie.dev).', 0],
+            ['moxie_base_url', '', 'text', 'advanced', 'Moxie Base URL', 'Workspace base URL used for the Moxie public API client import tool (For example, https://pod00.withmoxie.dev).', 0],
             ['moxie_api_key', '', 'password', 'advanced', 'Moxie API Key', 'Public API key for importing clients from Moxie.', 1],
         ];
 
