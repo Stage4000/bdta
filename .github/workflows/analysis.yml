@@ -66,7 +66,7 @@ jobs:
       # -------------------------
       - name: Run Semgrep
         run: |
-          semgrep --config=auto
+          semgrep --config=auto --error
 
       # -------------------------
       # PHPStan
