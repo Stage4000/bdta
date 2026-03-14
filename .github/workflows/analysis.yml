@@ -68,6 +68,6 @@ jobs:
       - name: Run PHPStan
         uses: php-actions/phpstan@v3
         with:
-          version: latest
+          version: 2.1.40
           php_version: 8.2
           configuration: phpstan.neon
