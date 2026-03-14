@@ -14,6 +14,7 @@
 
     const installNavItem = document.getElementById('pwaInstallNavItem');
     const installButton = document.getElementById('pwaInstallButton');
+    const hasInstallUi = installNavItem !== null && installButton !== null;
     let deferredInstallPrompt = null;
 
     function isStandaloneMode() {
@@ -31,12 +32,18 @@
     }
 
     window.addEventListener('beforeinstallprompt', function (event) {
+        if (!hasInstallUi) {
+            return;
+        }
         event.preventDefault();
         deferredInstallPrompt = event;
         updateInstallButton();
     });
 
     window.addEventListener('appinstalled', function () {
+        if (!hasInstallUi) {
+            return;
+        }
         deferredInstallPrompt = null;
         updateInstallButton();
     });
