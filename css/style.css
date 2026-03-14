@@ -196,6 +196,24 @@ section {
     scroll-margin-top: 80px;
 }
 
+.homepage-section {
+    background-color: #ffffff;
+}
+
+.homepage-section-alt {
+    background-color: var(--light-color);
+}
+
+.homepage-section-shell {
+    padding: 3rem 0;
+}
+
+.homepage-section-heading {
+    max-width: 42rem;
+    margin-right: auto;
+    margin-left: auto;
+}
+
 /* ==========================================
    About Section
    ========================================== */
@@ -507,8 +525,21 @@ html {
     --text-color: #d1d5db;
 }
 
+[data-bs-theme="dark"] body {
+    background-color: #0f172a;
+    color: #e5e7eb;
+}
+
 [data-bs-theme="dark"] .hero-section {
     background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%);
+}
+
+[data-bs-theme="dark"] .homepage-section {
+    background-color: #0f172a;
+}
+
+[data-bs-theme="dark"] .homepage-section-alt {
+    background-color: #111827;
 }
 
 [data-bs-theme="dark"] .navbar.bg-white {
