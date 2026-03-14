@@ -22,5 +22,9 @@
         }
     }());
     </script>
+    <?php
+    require_once dirname(__DIR__, 2) . '/backend/includes/tawk_to.php';
+    bdta_render_tawk_to_widget();
+    ?>
 </body>
 </html>

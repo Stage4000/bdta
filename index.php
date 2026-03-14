@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/backend/includes/config.php';
+require_once __DIR__ . '/backend/includes/tawk_to.php';
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -19,7 +20,12 @@ if (!$page || trim($page['html_content']) === '') {
     // Fall back to the static index.html
     $static = __DIR__ . '/index.html';
     if (file_exists($static)) {
-        readfile($static);
+        $html = scalar_string(file_get_contents($static));
+        $widget = bdta_get_tawk_to_widget_script();
+        if ($widget !== '') {
+            $html = preg_replace('/<\/body>/i', $widget . "\n</body>", $html, 1) ?? $html;
+        }
+        echo $html;
     } else {
         echo '<h1>Site coming soon.</h1>';
     }
@@ -100,5 +106,6 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     <script src="/js/script.js"></script>
     <!-- BDTA dynamic modules (Packages & Events blocks added via the site editor) -->
     <script src="/js/bdta-modules.js"></script>
+    <?php bdta_render_tawk_to_widget(); ?>
 </body>
 </html>

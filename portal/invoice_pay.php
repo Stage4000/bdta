@@ -292,5 +292,9 @@ body { background: #f8f9fa; }
     }
 }());
 </script>
+<?php
+require_once __DIR__ . '/../backend/includes/tawk_to.php';
+bdta_render_tawk_to_widget();
+?>
 </body>
 </html>
