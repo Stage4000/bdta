@@ -11,6 +11,7 @@ $original_values = [
     'tawk_to_property_id' => scalar_string(Settings::get('tawk_to_property_id', '')),
     'tawk_to_widget_id' => scalar_string(Settings::get('tawk_to_widget_id', 'default')),
 ];
+$original_impersonation = $_SESSION['portal_impersonating_admin_id'] ?? null;
 
 try {
     $advanced_settings = array_column(Settings::getCategory('advanced'), null, 'key');
@@ -45,6 +46,14 @@ try {
     }
     echo "✓ Invalid identifiers are rejected safely\n";
 
+    Settings::set('tawk_to_property_id', '0123456789abcdef01234567');
+    Settings::set('tawk_to_widget_id', 'default');
+    $_SESSION['portal_impersonating_admin_id'] = 1;
+    if (bdta_get_tawk_to_widget_script() !== '') {
+        throw new RuntimeException('Impersonating admins should not receive the widget on portal pages.');
+    }
+    echo "✓ Admin impersonation suppresses the portal widget\n";
+
     echo "\n=== All Tests Passed! ===\n";
 } catch (Throwable $e) {
     echo "✗ Error: " . $e->getMessage() . "\n";
@@ -54,5 +63,10 @@ try {
 } finally {
     foreach ($original_values as $key => $value) {
         Settings::set($key, $value);
+    }
+    if ($original_impersonation === null) {
+        unset($_SESSION['portal_impersonating_admin_id']);
+    } else {
+        $_SESSION['portal_impersonating_admin_id'] = $original_impersonation;
     }
 }

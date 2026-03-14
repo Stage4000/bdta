@@ -1,8 +1,20 @@
 <?php
 require_once __DIR__ . '/settings.php';
 
-function bdta_get_tawk_to_widget_script(): string {
+function bdta_should_render_tawk_to_widget(): bool {
     if (!Settings::get('tawk_to_enabled', false)) {
+        return false;
+    }
+
+    if (!empty($_SESSION['portal_impersonating_admin_id'])) {
+        return false;
+    }
+
+    return true;
+}
+
+function bdta_get_tawk_to_widget_script(): string {
+    if (!bdta_should_render_tawk_to_widget()) {
         return '';
     }
 
