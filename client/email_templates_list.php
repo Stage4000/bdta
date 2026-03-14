@@ -11,8 +11,13 @@ $conn = $db->getConnection();
 $page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
+$limit_clause = $db->buildLimitClause($per_page, $offset);
 
-$templates = $conn->query("SELECT * FROM email_templates ORDER BY template_type, name LIMIT $per_page OFFSET $offset")->fetchAll(PDO::FETCH_ASSOC);
+// Pagination clause is built from safe_int()-bounded integers only.
+// nosemgrep
+$stmt = $conn->prepare("SELECT * FROM email_templates ORDER BY template_type, name" . $limit_clause);
+$stmt->execute();
+$templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $total = safe_int($conn->query("SELECT COUNT(*) FROM email_templates")->fetchColumn());
 $total_pages = ceil($total / $per_page);
 

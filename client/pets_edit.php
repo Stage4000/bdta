@@ -149,12 +149,12 @@ include '../backend/includes/header.php';
 <div class="container-fluid">
     <div class="row mb-4">
         <div class="col-md-12">
-            <h2><i class="fa-solid fa-dog me-2"></i><?= htmlspecialchars($page_title) ?></h2>
+            <h2><i class="fas fa-dog me-2"></i><?= htmlspecialchars($page_title) ?></h2>
             <p class="text-muted">
                 <?php if ($client_id): ?>
-                    <a href="clients_view.php?id=<?= $client_id ?>">← Back to Client Profile</a>
+                    <a href="clients_view.php?id=<?= $client_id ?>"><i class="fas fa-arrow-left me-1"></i>Back to Client Profile</a>
                 <?php else: ?>
-                    <a href="pets_list.php">← Back to Pets List</a>
+                    <a href="pets_list.php"><i class="fas fa-arrow-left me-1"></i>Back to Pets List</a>
                 <?php endif; ?>
             </p>
         </div>

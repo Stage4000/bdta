@@ -53,6 +53,8 @@ try {
     // Fetch items for each package
     $package_ids  = array_column($packages, 'id');
     $placeholders = implode(',', array_fill(0, count($package_ids), '?'));
+    // Placeholder count is derived from trusted server-side package IDs and values stay bound.
+    // nosemgrep
     $items_stmt   = $conn->prepare("
         SELECT pi.package_id, pi.quantity, at.name AS apt_type_name
         FROM package_items pi

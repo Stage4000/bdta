@@ -21,6 +21,8 @@ $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
 $limit_clause = $db->buildLimitClause($per_page, $offset);
+// Pagination clause is built from safe_int()-bounded integers only.
+// nosemgrep
 $stmt = $conn->prepare("
     SELECT * FROM packages
     ORDER BY is_active DESC, name ASC" . $limit_clause . "
@@ -36,6 +38,8 @@ $package_ids = array_column($packages, 'id');
 $items_by_package = [];
 if (!empty($package_ids)) {
     $placeholders = implode(',', array_fill(0, count($package_ids), '?'));
+    // Placeholder count is generated from trusted package IDs and the values remain parameterized.
+    // nosemgrep
     $stmt = $conn->prepare("
         SELECT pi.*, at.name AS apt_type_name
         FROM package_items pi
@@ -53,6 +57,8 @@ if (!empty($package_ids)) {
 $link_stats = [];
 if (!empty($package_ids)) {
     $placeholders = implode(',', array_fill(0, count($package_ids), '?'));
+    // Placeholder count is generated from trusted package IDs and the values remain parameterized.
+    // nosemgrep
     $stmt = $conn->prepare("
         SELECT package_id,
                COUNT(*) AS views,

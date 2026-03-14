@@ -234,11 +234,19 @@ if (!empty($apt_type['is_mini_session'])) {
 $pet_ids_raw = $data['pet_ids'] ?? [];
 $pet_ids     = [];
 if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
-    // Verify all pet IDs belong to this client
-    $placeholders = implode(',', array_fill(0, count($pet_ids_raw), '?'));
-    $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND id IN ($placeholders) AND is_active = 1");
-    $stmt->execute(array_merge([$client_id], array_map('safe_int', $pet_ids_raw)));
-    $pet_ids = array_map('safe_int', array_column(assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)), 'id'));
+    $requested_pet_ids = array_values(array_filter(
+        array_unique(array_map('safe_int', $pet_ids_raw)),
+        static fn (int $pet_id): bool => $pet_id > 0
+    ));
+    $requested_pet_ids = array_slice($requested_pet_ids, 0, 100);
+
+    if (!empty($requested_pet_ids)) {
+        $placeholders = implode(', ', array_fill(0, count($requested_pet_ids), '?'));
+        // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- placeholder count comes from safe_int()-sanitized positive pet IDs and every value is bound separately.
+        $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND is_active = 1 AND id IN ($placeholders)");
+        $stmt->execute(array_merge([$client_id], $requested_pet_ids));
+        $pet_ids = array_map('safe_int', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+    }
 }
 
 // ── Insert booking ────────────────────────────────────────────────────────
@@ -298,26 +306,79 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
 }
 
 // ── Apply profile mappings from form responses ────────────────────────────
-// Explicit safe column name maps (not user-controlled — never interpolate raw input)
-$client_col_map = [
-    'name'    => 'name',
-    'email'   => 'email',
-    'phone'   => 'phone',
-    'address' => 'address',
-];
-$pet_col_map = [
-    'name'                     => 'name',
-    'species'                  => 'species',
-    'breed'                    => 'breed',
-    'date_of_birth'            => 'date_of_birth',
-    'source'                   => 'source',
-    'spayed_neutered'          => 'spayed_neutered',
-    'vaccines_current'         => 'vaccines_current',
-    'vaccine_notes'            => 'vaccine_notes',
-    'behavior_notes'           => 'behavior_notes',
-    'medical_notes'            => 'medical_notes',
-    'training_notes'           => 'training_notes',
-];
+function updateClientProfileField(PDO $conn, string $attr, string $value, int $client_id): bool {
+    switch ($attr) {
+        case 'name':
+            $conn->prepare("UPDATE clients SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $client_id]);
+            return true;
+        case 'email':
+            $conn->prepare("UPDATE clients SET email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $client_id]);
+            return true;
+        case 'phone':
+            $conn->prepare("UPDATE clients SET phone = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $client_id]);
+            return true;
+        case 'address':
+            $conn->prepare("UPDATE clients SET address = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $client_id]);
+            return true;
+        default:
+            return false;
+    }
+}
+
+function updatePetProfileField(PDO $conn, string $attr, string|int $value, int $pet_id): bool {
+    switch ($attr) {
+        case 'name':
+            $conn->prepare("UPDATE pets SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'species':
+            $conn->prepare("UPDATE pets SET species = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'breed':
+            $conn->prepare("UPDATE pets SET breed = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'date_of_birth':
+            $conn->prepare("UPDATE pets SET date_of_birth = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'source':
+            $conn->prepare("UPDATE pets SET source = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'spayed_neutered':
+            $conn->prepare("UPDATE pets SET spayed_neutered = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'vaccines_current':
+            $conn->prepare("UPDATE pets SET vaccines_current = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'vaccine_notes':
+            $conn->prepare("UPDATE pets SET vaccine_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'behavior_notes':
+            $conn->prepare("UPDATE pets SET behavior_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'medical_notes':
+            $conn->prepare("UPDATE pets SET medical_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'training_notes':
+            $conn->prepare("UPDATE pets SET training_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        default:
+            return false;
+    }
+}
 // Distinguish between three cases sent by the client:
 //   • overwrite_profile key absent  → modal was never shown (no detected conflict); always apply mapping
 //   • overwrite_profile: true       → user confirmed the overwrite prompt; always apply mapping
@@ -354,23 +415,19 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
 
             if (strpos($mapping, 'client.') === 0) {
                 $attr = substr($mapping, 7);
-                if (!isset($client_col_map[$attr])) continue;
                 if ($attr === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) continue;
 
                 // Only skip when the user explicitly declined the overwrite prompt
                 $existing = (string)($cur_client[$attr] ?? '');
                 if ($overwrite_declined && $existing !== '' && $existing !== $value) continue;
 
-                $safe_col = $client_col_map[$attr];
-                $conn->prepare("UPDATE clients SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-                     ->execute([$value, $client_id]);
+                if (!updateClientProfileField($conn, $attr, $value, $client_id)) continue;
                 logClientActivity($client_id, 'profile_update_from_form',
                     "Profile field '{$attr}' updated via form submission (booking #{$booking_id})", $conn);
 
             } elseif (preg_match('/^pet_([123])\.(.+)$/', $mapping, $m)) {
                 $pet_index = (int)$m[1] - 1;
                 $attr      = $m[2];
-                if (!isset($pet_col_map[$attr])) continue;
 
                 $pet_id = $booking_pet_ids[$pet_index] ?? null;
                 if (!$pet_id) continue;
@@ -396,9 +453,7 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
                 $existing_pet_val = (string)($cur_pet[$attr] ?? '');
                 if ($overwrite_declined && $existing_pet_val !== '' && (string)$existing_pet_val !== (string)$value) continue;
 
-                $safe_col = $pet_col_map[$attr];
-                $conn->prepare("UPDATE pets SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-                     ->execute([$value, $pet_id]);
+                if (!updatePetProfileField($conn, $attr, $value, $pet_id)) continue;
                 logClientActivity($client_id, 'pet_profile_update_from_form',
                     "Pet #{$pet_id} field '{$attr}' updated via form submission (booking #{$booking_id})", $conn);
             }

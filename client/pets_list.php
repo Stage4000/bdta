@@ -68,10 +68,10 @@ include '../backend/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-md-8">
-            <h2><i class="fa-solid fa-dog me-2"></i><?= htmlspecialchars($page_title) ?></h2>
+            <h2><i class="fas fa-dog me-2"></i><?= htmlspecialchars($page_title) ?></h2>
             <?php if ($client): ?>
                 <p class="text-muted">
-                    <a href="clients_view.php?id=<?= $client_id ?>">← Back to Client Profile</a>
+                    <a href="clients_view.php?id=<?= $client_id ?>"><i class="fas fa-arrow-left me-1"></i>Back to Client Profile</a>
                 </p>
             <?php endif; ?>
         </div>
@@ -102,7 +102,7 @@ include '../backend/includes/header.php';
         <div class="card-body">
             <?php if (empty($pets)): ?>
                 <p class="text-muted text-center py-5">
-                    <i class="fa-solid fa-dog" style="font-size: 3rem;"></i><br>
+                    <i class="fas fa-dog fs-1"></i><br>
                     No pets found. <a href="pets_edit.php?<?= $client_id ? 'client_id=' . $client_id : '' ?>">Add your first pet</a>
                 </p>
             <?php else: ?>

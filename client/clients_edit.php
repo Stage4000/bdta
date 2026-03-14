@@ -64,7 +64,7 @@ include '../backend/includes/header.php';
                 <div>
                     <?php if ($id > 0): ?>
                         <a href="pets_edit.php?client_id=<?= $id ?>" class="btn btn-success me-2">
-                            <i class="fa-solid fa-dog"></i> Add Pet
+                            <i class="fas fa-dog"></i> Add Pet
                         </a>
                         <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-info me-2">
                             <i class="fas fa-wallet"></i> Manage Credits

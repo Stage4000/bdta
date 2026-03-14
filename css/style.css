@@ -196,6 +196,24 @@ section {
     scroll-margin-top: 80px;
 }
 
+.homepage-section {
+    background-color: #ffffff;
+}
+
+.homepage-section-alt {
+    background-color: var(--light-color);
+}
+
+.homepage-section-shell {
+    padding: 3rem 0;
+}
+
+.homepage-section-heading {
+    max-width: 42rem;
+    margin-right: auto;
+    margin-left: auto;
+}
+
 /* ==========================================
    About Section
    ========================================== */
@@ -322,6 +340,26 @@ footer a:hover {
 
 #backToTop:hover {
     transform: translateY(-5px);
+}
+
+.circular-icon-button {
+    height: 3.125rem;
+    width: 3.125rem;
+}
+
+.circular-icon-button-sm {
+    height: 2.5rem;
+    width: 2.5rem;
+}
+
+.circular-icon-button-md {
+    height: 2.8125rem;
+    width: 2.8125rem;
+}
+
+.testimonial-avatar {
+    height: 3.125rem;
+    width: 3.125rem;
 }
 
 /* ==========================================
@@ -487,17 +525,105 @@ html {
     --text-color: #d1d5db;
 }
 
+[data-bs-theme="dark"] body {
+    background-color: #0f172a;
+    color: #e5e7eb;
+}
+
 [data-bs-theme="dark"] .hero-section {
     background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%);
+}
+
+[data-bs-theme="dark"] .homepage-section {
+    background-color: #0f172a;
+}
+
+[data-bs-theme="dark"] .homepage-section-alt {
+    background-color: #111827;
 }
 
 [data-bs-theme="dark"] .navbar.bg-white {
     background-color: #1f2937 !important;
 }
 
+[data-bs-theme="dark"] .navbar-brand,
+[data-bs-theme="dark"] .navbar-nav .nav-link,
+[data-bs-theme="dark"] #darkModeLabel {
+    color: #e5e7eb !important;
+}
+
+[data-bs-theme="dark"] .navbar-nav .nav-link:hover,
+[data-bs-theme="dark"] .navbar-nav .nav-link.active {
+    color: #f5d0fe !important;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary {
+    border-color: #cbd5e1;
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary:hover,
+[data-bs-theme="dark"] .btn-outline-secondary:focus {
+    background-color: #f8fafc;
+    border-color: #f8fafc;
+    color: #111827;
+}
+
+[data-bs-theme="dark"] .btn-outline-primary {
+    border-color: #d8b4fe;
+    color: #f5d0fe;
+}
+
+[data-bs-theme="dark"] .btn-outline-primary:hover,
+[data-bs-theme="dark"] .btn-outline-primary:focus {
+    background-color: #d946ef;
+    border-color: #d946ef;
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .bg-light {
+    background-color: #111827 !important;
+}
+
+[data-bs-theme="dark"] .card {
+    background-color: #1f2937;
+    color: #e5e7eb;
+}
+
+[data-bs-theme="dark"] .text-muted,
+[data-bs-theme="dark"] .lead.text-muted,
+[data-bs-theme="dark"] .form-text,
+[data-bs-theme="dark"] small.text-muted {
+    color: #cbd5e1 !important;
+}
+
+[data-bs-theme="dark"] .about-image-wrapper::before {
+    border-color: #d946ef;
+}
+
+[data-bs-theme="dark"] .contact-info .contact-icon,
+[data-bs-theme="dark"] .feature-icon {
+    background-color: rgba(217, 70, 239, 0.18) !important;
+}
+
+[data-bs-theme="dark"] .testimonial-avatar {
+    background-color: rgba(217, 70, 239, 0.22) !important;
+}
+
+[data-bs-theme="dark"] .testimonial-avatar .text-primary {
+    color: #f5d0fe !important;
+}
+
 [data-bs-theme="dark"] #contactForm .form-control,
 [data-bs-theme="dark"] #contactForm .form-select {
     border-color: #374151;
+}
+
+[data-bs-theme="dark"] #contactForm .form-control,
+[data-bs-theme="dark"] #contactForm .form-select,
+[data-bs-theme="dark"] #contactForm textarea {
+    background-color: #111827;
+    color: #f8fafc;
 }
 
 [data-bs-theme="dark"] .alert-success-custom {

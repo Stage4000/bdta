@@ -9,6 +9,7 @@
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
+require_once __DIR__ . '/includes/public_error_page.php';
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -27,7 +28,12 @@ $stmt->execute([$contract_id]);
 $contract = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$contract) {
-    die("Contract not found");
+    renderPublicErrorPage(
+        'Contract Not Found',
+        'Contract Not Found',
+        'The contract you are looking for does not exist or is no longer available.',
+        404
+    );
 }
 
 $contract_status = array_string_value($contract, 'status');

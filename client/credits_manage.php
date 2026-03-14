@@ -271,6 +271,8 @@ $total_pages = ceil($total_transactions / $per_page);
 
 // Build LIMIT clause that works with both MySQL and SQLite
 $limit_clause = $db->buildLimitClause($per_page, $offset);
+// Pagination clause is built from safe_int()-bounded integers only.
+// nosemgrep
 $stmt = $conn->prepare("
     SELECT pct.created_at, pct.transaction_type, pct.amount,
            pct.notes, au.username AS admin_username, pct.booking_id,
@@ -309,6 +311,8 @@ $pkg_ids = array_column($available_packages, 'id');
 $pkg_items_map = [];
 if (!empty($pkg_ids)) {
     $ph = implode(',', array_fill(0, count($pkg_ids), '?'));
+    // Placeholder count is generated from trusted package IDs and the values remain parameterized.
+    // nosemgrep
     $stmt = $conn->prepare("SELECT pi.*, at.name AS apt_type_name FROM package_items pi JOIN appointment_types at ON pi.appointment_type_id = at.id WHERE pi.package_id IN ($ph) ORDER BY at.name");
     $stmt->execute($pkg_ids);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
@@ -333,6 +337,8 @@ $cp_ids = array_column($client_packages, 'id');
 $pkg_credits_map = [];
 if (!empty($cp_ids)) {
     $ph = implode(',', array_fill(0, count($cp_ids), '?'));
+    // Placeholder count is generated from trusted purchased package IDs and the values remain parameterized.
+    // nosemgrep
     $stmt = $conn->prepare("
         SELECT cpc.*, at.name AS apt_type_name
         FROM client_package_credits cpc

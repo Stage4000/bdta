@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/backend/includes/config.php';
+require_once __DIR__ . '/backend/public/includes/public_error_page.php';
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -16,9 +17,12 @@ $slug = trim(scalar_string($_GET['slug'] ?? ''));
 $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($slug));
 
 if ($slug === '') {
-    http_response_code(404);
-    echo '<h1>404 Not Found</h1><p>No page slug specified.</p>';
-    exit;
+    renderPublicErrorPage(
+        'Page Not Found',
+        'Page Not Found',
+        'No page slug was specified for this page request.',
+        404
+    );
 }
 
 $stmt = $conn->prepare(
@@ -28,27 +32,12 @@ $stmt->execute([$slug]);
 $page = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$page) {
-    http_response_code(404);
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Page Not Found — Brook's Dog Training Academy</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="d-flex align-items-center justify-content-center min-vh-100 bg-light">
-    <div class="text-center">
-        <h1 class="display-1 fw-bold text-muted">404</h1>
-        <h2 class="mb-3">Page Not Found</h2>
-        <p class="text-muted mb-4">The page you're looking for doesn't exist or isn't published yet.</p>
-        <a href="/" class="btn btn-primary">Go Home</a>
-    </div>
-</body>
-</html>
-<?php
-    exit;
+    renderPublicErrorPage(
+        'Page Not Found',
+        'Page Not Found',
+        'The page you are looking for does not exist or is not published yet.',
+        404
+    );
 }
 
 $meta_desc    = htmlspecialchars($page['meta_description'] ?? '', ENT_QUOTES, 'UTF-8');

@@ -14,20 +14,17 @@
             document.documentElement.setAttribute('data-bs-theme', theme);
         }());
     </script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous">
+    <link rel="stylesheet" href="../assets/css/shared-ui.css">
     <?php
-    $theme = Settings::getThemeColors();
-    $theme_primary = array_string_value($theme, 'primary', '#9a0073');
-    $theme_primary_dark = array_string_value($theme, 'primary_dark', '#7a005a');
-    $theme_secondary = array_string_value($theme, 'secondary', '#0a9a9c');
-    $theme_sidebar_start = array_string_value($theme, 'sidebar_bg_start', '#9a0073');
-    $theme_sidebar_end = array_string_value($theme, 'sidebar_bg_end', '#7a005a');
-    $tc_primary       = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary) === 1 ? $theme_primary : '#9a0073';
-    $tc_primary_dark  = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 ? $theme_primary_dark : '#7a005a';
-    $tc_secondary     = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_secondary) === 1 ? $theme_secondary : '#0a9a9c';
-    $tc_sidebar_start = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_sidebar_start) === 1 ? $theme_sidebar_start : '#9a0073';
-    $tc_sidebar_end   = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_sidebar_end) === 1 ? $theme_sidebar_end : '#7a005a';
+    require_once dirname(__DIR__, 2) . '/backend/includes/theme_palette.php';
+    $theme_palette = bdta_get_theme_palette();
+    $tc_primary = $theme_palette['primary'];
+    $tc_primary_dark = $theme_palette['primary_dark'];
+    $tc_secondary = $theme_palette['secondary'];
+    $tc_sidebar_start = $theme_palette['sidebar_start'];
+    $tc_sidebar_end = $theme_palette['sidebar_end'];
     $current_page = basename(scalar_string($_SERVER['PHP_SELF'] ?? ''));
     ?>
     <style>
@@ -87,18 +84,35 @@
             border-top: 1px solid rgba(255,255,255,0.15);
             margin: 0.4rem 0.75rem;
         }
-        @media (prefers-color-scheme: dark) {
-            main.col-md-9,
-            main.col-md-10,
-            .main-content {
-                background-color: #111827;
+        .app-admin-banner {
+            z-index: 1050;
+        }
+        .app-toast-container {
+            z-index: 11;
+        }
+        .app-mobile-navbar {
+            background: linear-gradient(135deg, var(--theme-sidebar-start) 0%, var(--theme-sidebar-end) 100%);
+        }
+        .app-main-content {
+            min-height: 100vh;
+            padding: 1rem;
+            padding-bottom: 2rem;
+        }
+        @media (min-width: 768px) {
+            .app-main-content {
+                padding: 1.5rem;
             }
+        }
+        [data-bs-theme="dark"] main.col-md-9,
+        [data-bs-theme="dark"] main.col-md-10,
+        [data-bs-theme="dark"] .main-content {
+            background-color: #111827;
         }
     </style>
 </head>
 <body>
     <?php if (!empty($_SESSION['portal_impersonating_admin_id'])): ?>
-    <div class="alert alert-warning mb-0 rounded-0 text-center py-2" style="z-index:1050;">
+    <div class="alert alert-warning mb-0 rounded-0 text-center py-2 app-admin-banner">
         <i class="fas fa-user-secret me-2"></i>
         <strong>Admin View:</strong> You are viewing the portal as <strong><?php echo escape($_SESSION['portal_client_name'] ?? 'this client'); ?></strong>.
         <a href="<?php echo PORTAL_URL; ?>stop_impersonation.php" class="btn btn-sm btn-dark ms-3">
@@ -108,11 +122,11 @@
     <?php endif; ?>
     <?php $flash = getFlashMessage(); ?>
     <?php if ($flash): ?>
-    <div class="position-fixed top-0 end-0 p-3" style="z-index: 11">
+    <div class="position-fixed top-0 end-0 p-3 app-toast-container">
         <div class="toast show align-items-center text-white bg-<?php echo $flash['type'] === 'success' ? 'success' : ($flash['type'] === 'error' ? 'danger' : 'info'); ?> border-0" role="alert">
             <div class="d-flex">
                 <div class="toast-body"><?php echo escape($flash['message']); ?></div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close notification"></button>
             </div>
         </div>
     </div>
@@ -121,9 +135,9 @@
     <div class="container-fluid">
         <div class="row">
             <!-- Mobile navbar -->
-            <nav class="navbar navbar-dark d-md-none" style="background: linear-gradient(135deg, <?= $tc_sidebar_start ?> 0%, <?= $tc_sidebar_end ?> 100%);">
+            <nav class="navbar navbar-dark d-md-none app-mobile-navbar">
                 <div class="container-fluid">
-                    <span class="navbar-brand">BDTA Client Portal</span>
+                    <span class="navbar-brand mb-0 fs-6">BDTA Client Portal</span>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button>
@@ -179,7 +193,7 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <?php echo $current_page === 'pets.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>pets.php">
-                                <i class="fa-solid fa-dog me-2"></i> Pets
+                                <i class="fas fa-dog me-2"></i> Pets
                             </a>
                         </li>
                         <li class="nav-item mt-3">
@@ -198,7 +212,7 @@
                 </div>
             </nav>
 
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 pt-3">
+            <main class="col-md-9 ms-sm-auto col-lg-10 app-main-content">
 <!-- Dark mode toggle script -->
 <script>
 (function () {

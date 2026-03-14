@@ -25,12 +25,11 @@ $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
 // Get appointment types
-// Build LIMIT clause that works with both MySQL and SQLite
-$limit_clause = $db->buildLimitClause($per_page, $offset);
+// nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- safe int-cast LIMIT/OFFSET via $db->buildLimitClause().
 $stmt = $conn->prepare("
-    SELECT * FROM appointment_types 
-    ORDER BY is_active DESC, name ASC" . $limit_clause . "
-");
+    SELECT * FROM appointment_types
+    ORDER BY is_active DESC, name ASC" . $db->buildLimitClause($per_page, $offset)
+);
 $stmt->execute();
 $types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -219,7 +218,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                     </td>
                                     <td>
                                         <?php if ($unique_link !== ''): ?>
-                                            <button class="btn btn-sm btn-outline-primary" 
+                                            <button class="btn btn-sm btn-outline-primary table-action-btn" 
                                                     onclick="copyLink('<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $unique_link) ?>', this)"
                                                     title="Copy booking link">
                                                 <i class="fas fa-link"></i> Copy Link
@@ -229,16 +228,18 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <a href="appointment_types_edit.php?id=<?= $type_id ?>" 
-                                           class="btn btn-sm btn-outline-primary" title="Edit">
-                                            <i class="fas fa-pencil"></i>
-                                        </a>
-                                        <a href="appointment_types_delete.php?id=<?= $type_id ?>" 
-                                           class="btn btn-sm btn-outline-danger" 
-                                           onclick="return confirm('Are you sure you want to delete this appointment type?')"
-                                           title="Delete">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                                        <div class="table-action-buttons">
+                                            <a href="appointment_types_edit.php?id=<?= $type_id ?>" 
+                                               class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
+                                                <i class="fas fa-pencil"></i>
+                                            </a>
+                                            <a href="appointment_types_delete.php?id=<?= $type_id ?>" 
+                                               class="btn btn-sm btn-outline-danger table-action-btn" 
+                                               onclick="return confirm('Are you sure you want to delete this appointment type?')"
+                                               title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

@@ -499,6 +499,28 @@ $page_title = $is_edit ? "Edit Appointment Type" : "Add Appointment Type";
 include __DIR__ . '/../backend/includes/header.php';
 ?>
 
+<style>
+    .appointment-type-section {
+        display: none;
+    }
+    .appointment-type-scroll-panel {
+        max-height: 160px;
+        overflow-y: auto;
+    }
+    .appointment-type-day-column {
+        width: 35%;
+    }
+    .appointment-type-help-text {
+        font-size: 0.7rem;
+    }
+    .appointment-type-inline-field {
+        width: auto;
+    }
+    .timeslot-hidden {
+        display: none !important;
+    }
+</style>
+
 <div class="container-fluid py-4">
     <div class="mb-4">
         <a href="appointment_types_list.php" class="btn btn-outline-secondary btn-sm">
@@ -584,7 +606,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
                 
-                <div class="row mb-3" id="travel_time_section" style="display: none;">
+                <div class="row mb-3 appointment-type-section" id="travel_time_section">
                     <div class="col-md-6">
                         <label for="travel_time_minutes" class="form-label">Travel Time (minutes)</label>
                         <input type="number" class="form-control" id="travel_time_minutes" name="travel_time_minutes" 
@@ -687,11 +709,11 @@ include __DIR__ . '/../backend/includes/header.php';
                         </div>
                     </div>
 
-                    <div id="per_day_schedule_section" class="col-12 mt-2" style="display: <?= $has_per_day ? 'block' : 'none' ?>;">
+                    <div id="per_day_schedule_section" class="col-12 mt-2<?= $has_per_day ? '' : ' appointment-type-section' ?>">
                         <table class="table table-bordered table-sm align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width:35%">Day</th>
+                                    <th class="appointment-type-day-column">Day</th>
                                     <th>Start Time</th>
                                     <th>End Time</th>
                                 </tr>
@@ -701,7 +723,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <?php
                                 $per_day_row = isset($per_day_data[$index]) ? $per_day_data[$index] : [];
                                 ?>
-                                <tr id="per_day_row_<?= $index ?>" style="display: <?= in_array($index, $available_days, true) ? 'table-row' : 'none' ?>;">
+                                <tr id="per_day_row_<?= $index ?>"<?= in_array($index, $available_days, true) ? '' : ' class="appointment-type-section"' ?>>
                                     <td><strong><?= $day ?></strong></td>
                                     <td>
                                         <input type="time" class="form-control form-control-sm"
@@ -721,7 +743,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
 
-                <div id="specific_date_section" style="display: none;">
+                <div id="specific_date_section" class="appointment-type-section">
                     <div class="col-12 mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label class="form-label mb-0">
@@ -754,8 +776,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     $display_schedule_type = $type_schedule;
                     $show_global_times = ($display_schedule_type !== 'specific_date') && !$has_per_day;
                     ?>
-                    <div class="col-12" id="global_availability_times"
-                         style="display: <?= $show_global_times ? 'block' : 'none' ?>;">
+                    <div class="col-12<?= $show_global_times ? '' : ' appointment-type-section' ?>" id="global_availability_times">
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label for="available_start_time" class="form-label">Available Start Time</label>
@@ -833,7 +854,7 @@ include __DIR__ . '/../backend/includes/header.php';
                         <?php if (empty($all_forms)): ?>
                             <p class="text-muted small">No active form templates available. <a href="form_templates_edit.php">Create a form</a> first.</p>
                         <?php else: ?>
-                            <div class="border rounded p-2" style="max-height: 160px; overflow-y: auto;">
+                            <div class="border rounded p-2 appointment-type-scroll-panel">
                                 <?php foreach ($all_forms as $form): ?>
                                     <?php
                                     $form_id = array_int_value($form, 'id');
@@ -945,7 +966,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
 
-                <div id="group_class_fields" style="display: <?= $type_is_group_class ? 'block' : 'none' ?>;">
+                <div id="group_class_fields" class="<?= $type_is_group_class ? '' : 'appointment-type-section' ?>">
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">
                             <label for="group_class_location" class="form-label">Class Location <span class="text-danger">*</span></label>
@@ -980,7 +1001,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
                 
-                <div id="mini_session_fields" style="display: <?= $type_is_mini_session ? 'block' : 'none' ?>;">
+                <div id="mini_session_fields" class="<?= $type_is_mini_session ? '' : 'appointment-type-section' ?>">
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">
                             <label for="mini_session_location" class="form-label">Event Location <span class="text-danger">*</span></label>
@@ -1026,7 +1047,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
                 
-                <div id="field_rental_fields" style="display: <?= $type_is_field_rental ? 'block' : 'none' ?>;">
+                <div id="field_rental_fields" class="<?= $type_is_field_rental ? '' : 'appointment-type-section' ?>">
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">
                             <label for="field_rental_location" class="form-label">Field Location <span class="text-danger">*</span></label>
@@ -1051,7 +1072,7 @@ include __DIR__ . '/../backend/includes/header.php';
                 $is_fixed_type = $type_is_mini_session || $type_is_field_rental || $type_is_group_class;
                 ?>
 
-                <div id="locationTypesSection" style="display: <?= $is_fixed_type ? 'none' : 'block' ?>;">
+                <div id="locationTypesSection" class="<?= $is_fixed_type ? 'appointment-type-section' : '' ?>">
                     <h6 class="border-bottom pb-2 mb-3">Appointment Location Options</h6>
                     <p class="text-muted small mb-3">
                         Select which location options are available when booking this appointment type.
@@ -1289,7 +1310,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                             <label class="form-label form-label-sm">Hours Before <span class="text-danger">*</span></label>
                                             <input type="number" name="rule_hours_before" class="form-control form-control-sm"
                                                    min="1" step="1" value="24" required>
-                                            <div class="form-text" style="font-size:0.7rem">24=1d • 48=2d • 168=1w</div>
+                                            <div class="form-text appointment-type-help-text">24=1d • 48=2d • 168=1w</div>
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label form-label-sm">Email Template</label>
@@ -1330,6 +1351,12 @@ include __DIR__ . '/../backend/includes/header.php';
 /** In-memory representation of the configured specific dates. */
 let specificDatesData = [];
 
+function setSectionHidden(element, hidden, displayValue = 'block') {
+    if (element) {
+        element.style.display = hidden ? 'none' : displayValue;
+    }
+}
+
 try {
     const raw = document.getElementById('specific_dates_json').value;
     if (raw) specificDatesData = JSON.parse(raw) || [];
@@ -1344,19 +1371,19 @@ function buildTimeslotRow(slotIdx, slot) {
 
     return `
 <div class="timeslot-entry d-flex flex-wrap align-items-center gap-2 mb-2 p-2 border rounded bg-light">
-    <select class="form-select form-select-sm timeslot-type" style="width:auto;" onchange="onTimeslotTypeChange(this)" data-slot-idx="${slotIdx}">
+    <select class="form-select form-select-sm timeslot-type appointment-type-inline-field" onchange="onTimeslotTypeChange(this)" data-slot-idx="${slotIdx}">
         <option value="point"${type==='point'?' selected':''}>Specific time</option>
         <option value="range"${type==='range'?' selected':''}>Time range</option>
     </select>
-    <div class="timeslot-point-inputs d-flex align-items-center gap-1"${type==='range'?' style="display:none!important"':''}>
+    <div class="timeslot-point-inputs d-flex align-items-center gap-1${type==='range'?' timeslot-hidden':''}">
         <span class="text-muted small">at</span>
-        <input type="time" class="form-control form-control-sm timeslot-point-time" style="width:auto;" value="${pointVal}" onchange="serializeSpecificDates()">
+        <input type="time" class="form-control form-control-sm timeslot-point-time appointment-type-inline-field" value="${pointVal}" onchange="serializeSpecificDates()">
     </div>
-    <div class="timeslot-range-inputs d-flex align-items-center gap-1"${type==='point'?' style="display:none!important"':''}>
+    <div class="timeslot-range-inputs d-flex align-items-center gap-1${type==='point'?' timeslot-hidden':''}">
         <span class="text-muted small">from</span>
-        <input type="time" class="form-control form-control-sm timeslot-range-start" style="width:auto;" value="${rangeStart}" onchange="serializeSpecificDates()">
+        <input type="time" class="form-control form-control-sm timeslot-range-start appointment-type-inline-field" value="${rangeStart}" onchange="serializeSpecificDates()">
         <span class="text-muted small">to</span>
-        <input type="time" class="form-control form-control-sm timeslot-range-end" style="width:auto;" value="${rangeEnd}" onchange="serializeSpecificDates()">
+        <input type="time" class="form-control form-control-sm timeslot-range-end appointment-type-inline-field" value="${rangeEnd}" onchange="serializeSpecificDates()">
     </div>
     <button type="button" class="btn btn-outline-danger btn-sm ms-auto" onclick="removeTimeslotRow(this)" title="Remove timeslot">
         <i class="fas fa-times"></i>
@@ -1374,7 +1401,7 @@ function buildDateCard(dateIdx, entry) {
 <div class="specific-date-entry card mb-3 border-secondary" data-date-idx="${dateIdx}">
     <div class="card-header d-flex align-items-center gap-2 py-2">
         <i class="fas fa-calendar-day text-secondary"></i>
-        <input type="date" class="form-control form-control-sm sd-date-input" style="width:auto;" value="${dateVal}" onchange="serializeSpecificDates()">
+        <input type="date" class="form-control form-control-sm sd-date-input appointment-type-inline-field" value="${dateVal}" onchange="serializeSpecificDates()">
         <button type="button" class="btn btn-outline-danger btn-sm ms-auto" onclick="removeDateCard(this)" title="Remove this date">
             <i class="fas fa-trash me-1"></i>Remove Date
         </button>
@@ -1490,7 +1517,7 @@ function updateGlobalTimesVisibility() {
     const usePerDay = document.getElementById('use_per_day_schedule').checked;
     const section = document.getElementById('global_availability_times');
     if (section) {
-        section.style.display = (!isSpecificDate && !usePerDay) ? 'block' : 'none';
+        setSectionHidden(section, isSpecificDate || usePerDay);
     }
 }
 
@@ -1501,11 +1528,11 @@ function toggleScheduleType() {
     const specificDateSection = document.getElementById('specific_date_section');
     
     if (recurringRadio.checked) {
-        recurringSection.style.display = 'block';
-        specificDateSection.style.display = 'none';
+        setSectionHidden(recurringSection, false);
+        setSectionHidden(specificDateSection, true);
     } else {
-        recurringSection.style.display = 'none';
-        specificDateSection.style.display = 'block';
+        setSectionHidden(recurringSection, true);
+        setSectionHidden(specificDateSection, false);
         // Render date cards when section becomes visible
         renderSpecificDates();
     }
@@ -1518,7 +1545,7 @@ function toggleScheduleType() {
 function toggleTravelTime() {
     const checkbox = document.getElementById('use_travel_time_buffer');
     const section = document.getElementById('travel_time_section');
-    section.style.display = checkbox.checked ? 'block' : 'none';
+    setSectionHidden(section, !checkbox.checked);
 }
 
 // Toggle Mini Session fields
@@ -1528,10 +1555,10 @@ function toggleMiniSessionFields() {
     const locationInput = document.getElementById('mini_session_location');
     
     if (checkbox.checked) {
-        fieldsSection.style.display = 'block';
+        setSectionHidden(fieldsSection, false);
         locationInput.setAttribute('required', 'required');
     } else {
-        fieldsSection.style.display = 'none';
+        setSectionHidden(fieldsSection, true);
         locationInput.removeAttribute('required');
     }
     updateLocationTypesVisibility();
@@ -1544,10 +1571,10 @@ function toggleFieldRentalFields() {
     const locationInput = document.getElementById('field_rental_location');
     
     if (checkbox.checked) {
-        fieldsSection.style.display = 'block';
+        setSectionHidden(fieldsSection, false);
         locationInput.setAttribute('required', 'required');
     } else {
-        fieldsSection.style.display = 'none';
+        setSectionHidden(fieldsSection, true);
         locationInput.removeAttribute('required');
     }
     updateLocationTypesVisibility();
@@ -1560,10 +1587,10 @@ function toggleGroupClassFields() {
     const locationInput = document.getElementById('group_class_location');
 
     if (checkbox.checked) {
-        fieldsSection.style.display = 'block';
+        setSectionHidden(fieldsSection, false);
         locationInput.setAttribute('required', 'required');
     } else {
-        fieldsSection.style.display = 'none';
+        setSectionHidden(fieldsSection, true);
         locationInput.removeAttribute('required');
     }
     updateLocationTypesVisibility();
@@ -1576,7 +1603,7 @@ function updateLocationTypesVisibility() {
     const isGroup = document.getElementById('is_group_class').checked;
     const section = document.getElementById('locationTypesSection');
     if (section) {
-        section.style.display = (isMini || isField || isGroup) ? 'none' : 'block';
+        setSectionHidden(section, isMini || isField || isGroup);
     }
 }
 
@@ -1584,7 +1611,7 @@ function updateLocationTypesVisibility() {
 function togglePerDaySchedule() {
     const checkbox = document.getElementById('use_per_day_schedule');
     const section = document.getElementById('per_day_schedule_section');
-    section.style.display = checkbox.checked ? 'block' : 'none';
+    setSectionHidden(section, !checkbox.checked);
     updateGlobalTimesVisibility();
     updateAvailabilityPreview();
 }
@@ -1645,7 +1672,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Keep per-day row in sync with day selection
             const row = document.getElementById('per_day_row_' + checkbox.value);
             if (row) {
-                row.style.display = checkbox.checked ? 'table-row' : 'none';
+                setSectionHidden(row, !checkbox.checked, 'table-row');
             }
         });
     });

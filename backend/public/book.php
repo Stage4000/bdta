@@ -199,6 +199,10 @@ if (isset($error_mode) && $error_mode) {
             font-family: 'Montserrat', sans-serif;
             margin-bottom: 0.5rem;
         }
+
+        .booking-subtitle {
+            color: #4b5563;
+        }
         
         .booking-card {
             background: white;
@@ -529,6 +533,26 @@ if (isset($error_mode) && $error_mode) {
         [data-bs-theme="dark"] .bdta-cal-day.unavailable { color: #4b5563; }
         [data-bs-theme="dark"] .bdta-cal-footer { background: #111827; border-top-color: #374151; color: #9ca3af; }
         [data-bs-theme="dark"] .bdta-cal-selected-label { background: #052e16; border-color: #16a34a; color: #d1fae5; }
+        [data-bs-theme="dark"] body {
+            background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%);
+        }
+        [data-bs-theme="dark"] .booking-header,
+        [data-bs-theme="dark"] .booking-card {
+            background: #1f2937;
+            color: #e5e7eb;
+        }
+        [data-bs-theme="dark"] .booking-header h1 {
+            color: #f5d0fe;
+        }
+        [data-bs-theme="dark"] .booking-subtitle {
+            color: #d1d5db;
+        }
+        [data-bs-theme="dark"] .booking-header .text-muted,
+        [data-bs-theme="dark"] .booking-card .text-muted,
+        [data-bs-theme="dark"] .booking-header .form-text,
+        [data-bs-theme="dark"] .booking-card .form-text {
+            color: #cbd5e1 !important;
+        }
     </style>
 </head>
 <body>
@@ -536,10 +560,10 @@ if (isset($error_mode) && $error_mode) {
         <div class="booking-header">
             <?php if (isset($error_mode) && $error_mode): ?>
                 <h1><i class="fas fa-exclamation-circle me-2"></i>Invalid Booking Link</h1>
-                <p class="text-muted mb-0">Please use a valid appointment type link to book</p>
+                <p class="booking-subtitle mb-0">Please use a valid appointment type link to book</p>
             <?php elseif ($is_standalone && $selected_type): ?>
                 <h1><i class="fas fa-calendar-check me-2"></i>Book <?= escape(public_book_string($selected_type, 'name')) ?></h1>
-                <p class="text-muted mb-0"><?= escape(public_book_string($selected_type, 'description')) ?></p>
+                <p class="booking-subtitle mb-0"><?= escape(public_book_string($selected_type, 'description')) ?></p>
                 <?php if (!empty($selected_type['is_mini_session'])): ?>
                     <div class="alert alert-info mt-3 mb-0">
                         <div class="d-flex align-items-start">
@@ -596,7 +620,7 @@ if (isset($error_mode) && $error_mode) {
                 <?php endif; ?>
             <?php else: ?>
                 <h1><i class="fas fa-calendar-check me-2"></i>Book Your Appointment</h1>
-                <p class="text-muted mb-0">Schedule your dog training session with Brook's Dog Training Academy</p>
+                <p class="booking-subtitle mb-0">Schedule your dog training session with Brook's Dog Training Academy</p>
             <?php endif; ?>
         </div>
         
@@ -2117,7 +2141,7 @@ if (isset($error_mode) && $error_mode) {
                     listHtml += `<li class="mb-2">
                         <strong>${escapeHtml(c.label)}</strong><br>
                         <span class="text-muted small">Current:</span> <span class="text-danger small">${escapeHtml(c.oldValue)}</span>
-                        <span class="text-muted small ms-2">→ New:</span> <span class="text-success small">${escapeHtml(c.newValue)}</span>
+                        <span class="text-muted small ms-2"><i class="fas fa-arrow-right me-1" aria-hidden="true"></i>New:</span> <span class="text-success small">${escapeHtml(c.newValue)}</span>
                     </li>`;
                 });
                 listHtml += '</ul>';

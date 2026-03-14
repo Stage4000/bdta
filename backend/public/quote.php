@@ -4,6 +4,7 @@
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
+require_once __DIR__ . '/includes/public_error_page.php';
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -22,7 +23,12 @@ $stmt->execute([$quote_id]);
 $quote = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$quote) {
-    die("Quote not found");
+    renderPublicErrorPage(
+        'Quote Not Found',
+        'Quote Not Found',
+        'The quote you are looking for does not exist or is no longer available.',
+        404
+    );
 }
 
 $quote_status = array_string_value($quote, 'status');
