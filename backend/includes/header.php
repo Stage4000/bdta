@@ -443,7 +443,7 @@
                                         </a>
                                     </li>
                                     <li id="pwaInstallNavItem" class="nav-item d-none">
-                                        <button id="pwaInstallButton" class="nav-link text-start w-100 border-0 bg-transparent" type="button">
+                                        <button id="pwaInstallButton" class="nav-link text-start w-100 border-0 bg-transparent" type="button" aria-label="Install the BDTA admin app">
                                             <i class="fas fa-download me-2"></i> Install App
                                         </button>
                                     </li>
