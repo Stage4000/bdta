@@ -24,7 +24,7 @@ function bdta_should_render_tawk_to_widget(): bool {
         return false;
     }
 
-    return Settings::get('tawk_to_enabled', false);
+    return (bool) Settings::get('tawk_to_enabled', false);
 }
 
 function bdta_get_tawk_to_widget_script(): string {
