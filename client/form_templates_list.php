@@ -31,41 +31,60 @@ $page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
-// Build query
-$where_clause = "";
-if ($type_filter != 'all') {
-    if ($type_filter == 'client') {
-        $where_clause = "WHERE is_internal = 0";
-    } elseif ($type_filter == 'internal') {
-        $where_clause = "WHERE is_internal = 1";
-    } else {
-        $where_clause = "WHERE form_type = :form_type";
-    }
-}
+// Get total count and templates
+$limit_clause = $db->buildLimitClause($per_page, $offset);
 
-// Get total count
-$count_query = "SELECT COUNT(*) FROM form_templates $where_clause";
-$count_stmt = $conn->prepare($count_query);
-if ($type_filter != 'all' && $type_filter != 'client' && $type_filter != 'internal') {
+if ($type_filter === 'client') {
+    $count_stmt = $conn->prepare("SELECT COUNT(*) FROM form_templates WHERE is_internal = 0");
+    $count_stmt->execute();
+    $total_templates = safe_int($count_stmt->fetchColumn());
+
+    // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- fixed filter and safe_int()-bounded LIMIT/OFFSET literals via $db->buildLimitClause().
+    $stmt = $conn->prepare("
+        SELECT ft.*, at.name as appointment_type_name
+        FROM form_templates ft
+        LEFT JOIN appointment_types at ON ft.appointment_type_id = at.id
+        WHERE ft.is_internal = 0
+        ORDER BY ft.created_at DESC" . $limit_clause);
+} elseif ($type_filter === 'internal') {
+    $count_stmt = $conn->prepare("SELECT COUNT(*) FROM form_templates WHERE is_internal = 1");
+    $count_stmt->execute();
+    $total_templates = safe_int($count_stmt->fetchColumn());
+
+    // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- fixed filter and safe_int()-bounded LIMIT/OFFSET literals via $db->buildLimitClause().
+    $stmt = $conn->prepare("
+        SELECT ft.*, at.name as appointment_type_name
+        FROM form_templates ft
+        LEFT JOIN appointment_types at ON ft.appointment_type_id = at.id
+        WHERE ft.is_internal = 1
+        ORDER BY ft.created_at DESC" . $limit_clause);
+} elseif ($type_filter !== 'all') {
+    $count_stmt = $conn->prepare("SELECT COUNT(*) FROM form_templates WHERE form_type = :form_type");
     $count_stmt->bindParam(':form_type', $type_filter);
-}
-$count_stmt->execute();
-$total_templates = safe_int($count_stmt->fetchColumn());
-$total_pages = ceil($total_templates / $per_page);
+    $count_stmt->execute();
+    $total_templates = safe_int($count_stmt->fetchColumn());
 
-// Get templates
-$query = "
-    SELECT ft.*, at.name as appointment_type_name
-    FROM form_templates ft
-    LEFT JOIN appointment_types at ON ft.appointment_type_id = at.id
-    $where_clause
-    ORDER BY ft.created_at DESC" . $db->buildLimitClause($per_page, $offset);
-
-// nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- fixed-branch WHERE clause, bound form_type, int-cast LIMIT/OFFSET via $db->buildLimitClause().
-$stmt = $conn->prepare($query);
-if ($type_filter != 'all' && $type_filter != 'client' && $type_filter != 'internal') {
+    // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- bound form_type and safe_int()-bounded LIMIT/OFFSET literals via $db->buildLimitClause().
+    $stmt = $conn->prepare("
+        SELECT ft.*, at.name as appointment_type_name
+        FROM form_templates ft
+        LEFT JOIN appointment_types at ON ft.appointment_type_id = at.id
+        WHERE ft.form_type = :form_type
+        ORDER BY ft.created_at DESC" . $limit_clause);
     $stmt->bindParam(':form_type', $type_filter);
+} else {
+    $count_stmt = $conn->query("SELECT COUNT(*) FROM form_templates");
+    $total_templates = safe_int($count_stmt->fetchColumn());
+
+    // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- no user-controlled SQL fragments and safe_int()-bounded LIMIT/OFFSET literals via $db->buildLimitClause().
+    $stmt = $conn->prepare("
+        SELECT ft.*, at.name as appointment_type_name
+        FROM form_templates ft
+        LEFT JOIN appointment_types at ON ft.appointment_type_id = at.id
+        ORDER BY ft.created_at DESC" . $limit_clause);
 }
+
+$total_pages = ceil($total_templates / $per_page);
 $stmt->execute();
 $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
