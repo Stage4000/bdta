@@ -16,6 +16,7 @@ $original_timezone = scalar_string($stmt->fetchColumn() ?: 'America/New_York');
 $conn->prepare("UPDATE settings SET setting_value = ? WHERE setting_key = 'timezone'")->execute(['America/New_York']);
 
 require_once __DIR__ . '/backend/includes/config.php';
+define('BDTA_CRON_BOOTSTRAP_ONLY', true);
 require_once __DIR__ . '/backend/cron/cron.php';
 
 echo "=== Time Standardization Test ===\n\n";
@@ -39,7 +40,7 @@ function assertCronLocalTime(string $label, string $utcDatetime, int $expectedHo
     $actualMinute = (int) $local->format('i');
 
     if ($actualHour !== $expectedHour || $actualMinute !== $expectedMinute) {
-        throw new Exception($label . " expected local time {$expectedHour}:" . str_pad((string) $expectedMinute, 2, '0', STR_PAD_LEFT) . " but got " . $local->format('Y-m-d H:i:s'));
+        throw new Exception($label . " expected local time {$expectedHour}:" . sprintf('%02d', $expectedMinute) . " but got " . $local->format('Y-m-d H:i:s'));
     }
 
     echo "✓ {$label}: " . $local->format('Y-m-d H:i:s') . "\n";

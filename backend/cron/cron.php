@@ -346,8 +346,8 @@ class CronRunner {
     }
 }
 
-// Run the cron job when executed directly from CLI.
-if (PHP_SAPI === 'cli' && realpath(scalar_string($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
+// Allow tests to include this file without executing the runner.
+if (!defined('BDTA_CRON_BOOTSTRAP_ONLY')) {
     $cron = new CronRunner();
     $cron->run();
 }
