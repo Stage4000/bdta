@@ -27,7 +27,7 @@ try {
     error_log('clients.php: failed to load clients: ' . $e->getMessage());
     echo json_encode([
         'success' => false,
-        'error' => 'Failed to load clients: ' . $e->getMessage(),
+        'error' => 'Failed to load clients',
     ]);
 } catch (Throwable $e) {
     http_response_code(500);
