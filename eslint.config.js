@@ -8,7 +8,7 @@ module.exports = [
     files: ['**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
       ecmaVersion: 'latest',
-      sourceType: 'script'
+      sourceType: 'module'
     }
   }
 ];
