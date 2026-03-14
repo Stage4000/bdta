@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/tawk_to.php';
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -341,5 +342,6 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<?php bdta_render_tawk_to_widget(); ?>
 </body>
 </html>
