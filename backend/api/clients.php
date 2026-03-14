@@ -10,7 +10,7 @@ header('Content-Type: application/json');
 /**
  * @return never
  */
-function respond_client_error(string $log_message): never {
+function respond_with_error(string $log_message): never {
     http_response_code(500);
     error_log($log_message);
     echo json_encode([
@@ -35,9 +35,9 @@ try {
     echo json_encode([
         'success' => true,
         'clients' => $clients,
-    ], JSON_UNESCAPED_UNICODE);
+    ]);
 } catch (PDOException $e) {
-    respond_client_error('clients.php: failed to load clients: ' . $e->getMessage());
+    respond_with_error('clients.php: failed to load clients: ' . $e->getMessage());
 } catch (Throwable $e) {
-    respond_client_error('clients.php: unexpected error: ' . $e->getMessage());
+    respond_with_error('clients.php: unexpected error: ' . $e->getMessage());
 }
