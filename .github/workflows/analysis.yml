@@ -71,4 +71,3 @@ jobs:
           version: latest
           php_version: 8.2
           configuration: phpstan.neon
-          level: 9
