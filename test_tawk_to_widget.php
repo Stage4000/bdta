@@ -11,16 +11,16 @@ require_once __DIR__ . '/backend/includes/tawk_to.php';
 
 echo "=== Tawk.to Widget Test ===\n\n";
 
+$advanced_settings = array_column(Settings::getCategory('advanced'), null, 'key');
 $original_values = [
-    'tawk_to_enabled' => scalar_string(Settings::get('tawk_to_enabled', '0')),
-    'tawk_to_property_id' => scalar_string(Settings::get('tawk_to_property_id', '')),
-    'tawk_to_widget_id' => scalar_string(Settings::get('tawk_to_widget_id', 'default')),
+    'tawk_to_enabled' => scalar_string($advanced_settings['tawk_to_enabled']['actual_value'] ?? '0'),
+    'tawk_to_property_id' => scalar_string($advanced_settings['tawk_to_property_id']['actual_value'] ?? ''),
+    'tawk_to_widget_id' => scalar_string($advanced_settings['tawk_to_widget_id']['actual_value'] ?? 'default'),
 ];
 $original_admin_id = $_SESSION['admin_id'] ?? null;
 $original_impersonation = $_SESSION['portal_impersonating_admin_id'] ?? null;
 
 try {
-    $advanced_settings = array_column(Settings::getCategory('advanced'), null, 'key');
     foreach (['tawk_to_enabled', 'tawk_to_property_id', 'tawk_to_widget_id'] as $key) {
         if (!isset($advanced_settings[$key])) {
             throw new RuntimeException('Missing advanced setting: ' . $key);
