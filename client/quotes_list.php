@@ -19,7 +19,8 @@ $offset = ($page - 1) * $per_page;
 $limit_clause = $db->buildLimitClause($per_page, $offset);
 
 // Build query
-$client_filter_param = $client_filter !== '' ? safe_int($client_filter) : null;
+$client_filter_id = $client_filter !== '' ? safe_int($client_filter) : 0;
+$client_filter_param = $client_filter_id > 0 ? $client_filter_id : null;
 $status_filter_param = $status_filter !== '' ? $status_filter : null;
 $bind_nullable_param = static function (PDOStatement $stmt, int $position, mixed $value, int $type): void {
     $stmt->bindValue($position, $value, $value === null ? PDO::PARAM_NULL : $type);
