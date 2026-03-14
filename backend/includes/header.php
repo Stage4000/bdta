@@ -16,20 +16,17 @@
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous">
+    <link rel="stylesheet" href="../assets/css/shared-ui.css">
     <link rel="stylesheet" href="../assets/css/mobile.css">
     <link rel="manifest" href="/client/manifest.webmanifest">
     <?php
-    $theme = Settings::getThemeColors();
-    $theme_primary = scalar_string($theme['primary'] ?? '');
-    $theme_primary_dark = scalar_string($theme['primary_dark'] ?? '');
-    $theme_secondary = scalar_string($theme['secondary'] ?? '');
-    $theme_sidebar_start = scalar_string($theme['sidebar_bg_start'] ?? '');
-    $theme_sidebar_end = scalar_string($theme['sidebar_bg_end'] ?? '');
-    $tc_primary       = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary) === 1 ? $theme_primary : '#9a0073';
-    $tc_primary_dark  = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 ? $theme_primary_dark : '#7a005a';
-    $tc_secondary     = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_secondary) === 1 ? $theme_secondary : '#0a9a9c';
-    $tc_sidebar_start = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_sidebar_start) === 1 ? $theme_sidebar_start : '#9a0073';
-    $tc_sidebar_end   = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_sidebar_end) === 1 ? $theme_sidebar_end : '#7a005a';
+    require_once __DIR__ . '/theme_palette.php';
+    $theme_palette = bdta_get_theme_palette();
+    $tc_primary = $theme_palette['primary'];
+    $tc_primary_dark = $theme_palette['primary_dark'];
+    $tc_secondary = $theme_palette['secondary'];
+    $tc_sidebar_start = $theme_palette['sidebar_start'];
+    $tc_sidebar_end = $theme_palette['sidebar_end'];
     ?>
     <meta name="theme-color" content="<?= $tc_primary ?>">
     <style>
@@ -239,7 +236,7 @@
                                 <ul class="nav flex-column submenu">
                                     <li class="nav-item">
                                         <a class="nav-link <?php echo $isPets ? 'active' : ''; ?>" href="pets_list.php">
-                                            <i class="fa-solid fa-dog me-2"></i> Pets
+                                            <i class="fas fa-dog me-2"></i> Pets
                                         </a>
                                     </li>
                                 </ul>

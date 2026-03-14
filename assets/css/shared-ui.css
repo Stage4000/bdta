@@ -1,0 +1,58 @@
+/* Shared UI consistency helpers for admin and portal surfaces */
+
+.table td .btn,
+.table th .btn {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    line-height: 1.2;
+    vertical-align: middle;
+}
+
+.table td .btn.btn-sm,
+.table th .btn.btn-sm {
+    padding: 0.375rem 0.625rem;
+}
+
+.table td form.d-inline,
+.table th form.d-inline {
+    display: inline-flex;
+    margin-bottom: 0;
+    vertical-align: middle;
+}
+
+.table-action-buttons {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.table-action-btn {
+    min-width: 36px;
+    width: auto;
+}
+
+.table-action-dropdown .btn,
+.table-action-dropdown .dropdown-toggle {
+    min-width: 36px;
+    width: auto;
+}
+
+@media (max-width: 767.98px) {
+    .table-action-dropdown .btn,
+    .table-action-dropdown .dropdown-toggle {
+        display: inline-flex !important;
+        width: auto !important;
+        min-height: 36px;
+        padding: 0.375rem 0.625rem;
+        margin-bottom: 0;
+    }
+
+    .table-action-dropdown .dropdown-item {
+        padding: 10px 16px;
+        font-size: 15px;
+    }
+}

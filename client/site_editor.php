@@ -589,9 +589,9 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
 <div class="bdta-contact-bar text-white py-3">
   <div class="container">
     <div class="d-flex flex-column flex-md-row justify-content-center align-items-center gap-2 text-center small">
-      <span>📍 Highlands County, FL</span>
+      <span><i class="fas fa-location-dot me-1" aria-hidden="true"></i>Highlands County, FL</span>
       <span class="d-none d-md-inline text-white-50">|</span>
-      <span>✉️ bookings@brooksdogtrainingacademy.com</span>
+      <span><i class="fas fa-envelope me-1" aria-hidden="true"></i>bookings@brooksdogtrainingacademy.com</span>
       <span class="d-none d-md-inline text-white-50">|</span>
       <div class="d-flex gap-2">
         <a href="https://www.facebook.com/BrooksDogTrainingAcademy" class="bdta-contact-link" target="_blank" rel="noopener noreferrer" aria-label="Visit us on Facebook (opens in new tab)">Facebook</a>

@@ -81,21 +81,21 @@ include '../backend/includes/header.php';
                                     <td class="d-none d-lg-table-cell"><?= formatDate($client['created_at']) ?></td>
                                     <td class="text-nowrap">
                                         <!-- Desktop: individual icon buttons (hidden on mobile) -->
-                                        <div class="d-none d-md-inline-flex gap-1 client-action-btns">
-                                            <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" title="View Profile">
-                                                <i class="fa-solid fa-address-book"></i>
+                                        <div class="d-none d-md-inline-flex gap-1 client-action-btns table-action-buttons">
+                                            <a href="clients_view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info table-action-btn" title="View Profile">
+                                                <i class="fas fa-address-book"></i>
                                             </a>
-                                            <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
+                                            <a href="clients_edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
                                                 <i class="fas fa-pencil"></i>
                                             </a>
-                                            <a href="pets_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-success" title="View Pets">
-                                                <i class="fa-solid fa-dog"></i>
+                                            <a href="pets_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-success table-action-btn" title="View Pets">
+                                                <i class="fas fa-dog"></i>
                                             </a>
-                                            <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary" title="Time Entries">
+                                            <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary table-action-btn" title="Time Entries">
                                                 <i class="fas fa-clock"></i>
                                             </a>
                                             <?php if (empty($client['is_admin'])): ?>
-                                            <a href="impersonate_client.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-warning" title="View Portal as Client"
+                                            <a href="impersonate_client.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-warning table-action-btn" title="View Portal as Client"
                                                onclick="return confirm('View the client portal as this client?')">
                                                 <i class="fas fa-eye"></i>
                                             </a>
@@ -103,21 +103,21 @@ include '../backend/includes/header.php';
                                             <form method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this client? This cannot be undone.')">
                                                 <input type="hidden" name="delete_id" value="<?= $client['id'] ?>">
                                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </form>
                                         </div>
                                         <!-- Mobile: compact dropdown menu -->
-                                        <div class="d-md-none client-action-dropdown">
+                                        <div class="d-md-none client-action-dropdown table-action-dropdown">
                                             <div class="dropdown">
-                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                                     <i class="fas fa-ellipsis-v"></i>
                                                 </button>
                                                 <ul class="dropdown-menu dropdown-menu-end">
                                                     <li>
                                                         <a class="dropdown-item" href="clients_view.php?id=<?= $client['id'] ?>">
-                                                            <i class="fa-solid fa-address-book me-2 text-info"></i>View Profile
+                                                            <i class="fas fa-address-book me-2 text-info"></i>View Profile
                                                         </a>
                                                     </li>
                                                     <li>
@@ -127,7 +127,7 @@ include '../backend/includes/header.php';
                                                     </li>
                                                     <li>
                                                         <a class="dropdown-item" href="pets_list.php?client_id=<?= $client['id'] ?>">
-                                                            <i class="fa-solid fa-dog me-2 text-success"></i>View Pets
+                                                            <i class="fas fa-dog me-2 text-success"></i>View Pets
                                                         </a>
                                                     </li>
                                                     <li>

@@ -1355,7 +1355,7 @@ include '../portal/includes/header.php';
                 listHtml += `<li class="mb-2">
                     <strong>${escapeHtml(c.label)}</strong><br>
                     <span class="text-muted small">Current:</span> <span class="text-danger small">${escapeHtml(c.oldValue)}</span>
-                    <span class="text-muted small ms-2">→ New:</span> <span class="text-success small">${escapeHtml(c.newValue)}</span>
+                    <span class="text-muted small ms-2"><i class="fas fa-arrow-right me-1" aria-hidden="true"></i>New:</span> <span class="text-success small">${escapeHtml(c.newValue)}</span>
                 </li>`;
             });
             listHtml += '</ul>';

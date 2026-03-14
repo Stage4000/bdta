@@ -315,7 +315,9 @@ textarea:focus {
 
 /* Keep icon-only action buttons compact; do not override btn-sm in table cells globally */
 .client-action-btns .btn,
-.client-action-dropdown .btn {
+.client-action-dropdown .btn,
+.table-action-buttons .btn,
+.table-action-dropdown .btn {
     min-height: 36px;
     min-width: 36px;
     padding: 6px 10px;
@@ -329,7 +331,9 @@ textarea:focus {
 @media (max-width: 767.98px) {
     /* Prevent the general block-display override from affecting action dropdowns */
     .client-action-dropdown .btn,
-    .client-action-dropdown .dropdown-toggle {
+    .client-action-dropdown .dropdown-toggle,
+    .table-action-dropdown .btn,
+    .table-action-dropdown .dropdown-toggle {
         display: inline-flex !important;
         width: auto !important;
         min-width: 36px;
@@ -340,7 +344,8 @@ textarea:focus {
     }
 
     /* Ensure the dropdown menu items are comfortable to tap */
-    .client-action-dropdown .dropdown-item {
+    .client-action-dropdown .dropdown-item,
+    .table-action-dropdown .dropdown-item {
         padding: 10px 16px;
         font-size: 15px;
     }

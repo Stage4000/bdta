@@ -259,7 +259,7 @@ require_once '../backend/includes/header.php';
                                     <form method="post" class="d-inline" onsubmit="return confirm('Delete this booking?')">
                                         <input type="hidden" name="delete_id" value="<?php echo $booking['id']; ?>">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>
