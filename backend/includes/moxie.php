@@ -294,8 +294,9 @@ class MoxieClientSync {
             return self::listOfAssoc($payload);
         }
 
+        $embedded = self::arrayValue($payload, '_embedded');
         $candidates = [
-            $payload['_embedded']['clients'] ?? null,
+            is_array($embedded) ? ($embedded['clients'] ?? null) : null,
             $payload['clients'] ?? null,
             $payload['data'] ?? null,
             $payload['items'] ?? null,
@@ -314,7 +315,14 @@ class MoxieClientSync {
      * @param array<string, mixed> $payload
      */
     public static function extractNextUrl(array $payload, string $base_url): string {
-        $next = $payload['_links']['next']['href'] ?? ($payload['links']['next']['href'] ?? ($payload['next'] ?? ''));
+        $links = self::arrayValue($payload, '_links');
+        $legacy_links = self::arrayValue($payload, 'links');
+        $links_next = is_array($links) ? self::arrayValue($links, 'next') : null;
+        $legacy_links_next = is_array($legacy_links) ? self::arrayValue($legacy_links, 'next') : null;
+
+        $next = (is_array($links_next) ? ($links_next['href'] ?? null) : null)
+            ?? (is_array($legacy_links_next) ? ($legacy_links_next['href'] ?? null) : null)
+            ?? ($payload['next'] ?? '');
         $next = trim(is_string($next) ? $next : '');
 
         if ($next === '') {
@@ -489,6 +497,14 @@ class MoxieClientSync {
      */
     private static function stringValue(array $row, string $key): string {
         return scalar_string($row[$key] ?? '');
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function arrayValue(array $row, string $key): ?array {
+        $value = $row[$key] ?? null;
+        return is_array($value) ? $value : null;
     }
 
     private static function isAllowedMoxieHost(string $host): bool {
