@@ -1,0 +1,4 @@
+[2026-03-14 23:10:04 UTC] Created client from Moxie import. {"client_id":"1","moxie_client_id":"moxie-100","email":"jane.doe@acme.test"}
+[2026-03-14 23:10:04 UTC] Skipping archived Moxie client. {"moxie_client_id":"moxie-archived","name":"Archived Client"}
+[2026-03-14 23:10:04 UTC] Skipping Moxie client without email. {"moxie_client_id":"moxie-no-email","name":"No Email Client"}
+[2026-03-14 23:10:04 UTC] Updated existing client from Moxie import. {"client_id":"1","moxie_client_id":"moxie-100","email":"jane.doe@acme.test"}
