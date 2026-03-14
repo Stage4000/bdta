@@ -51,7 +51,7 @@ try {
         respondWithError('clients.php: failed to encode clients response: ' . $e->getMessage(), 500, 'Failed to load clients');
     }
 } catch (PDOException $e) {
-    respondWithError('clients.php: failed to load clients: ' . $e->getMessage());
+    respondWithError('clients.php: failed to load clients (PDO error)');
 } catch (Throwable $e) {
     respondWithError('clients.php: unexpected error: ' . $e->getMessage());
 }
