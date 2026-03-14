@@ -11,7 +11,7 @@ class EmailReceiverTask {
     }
     
     /**
-     * @return array{success: bool, message: string, items_processed: int, errors?: list<string>}
+     * @return array{success: bool, message: string, items_processed: int, errors: list<string>}
      */
     public function execute(): array {
         try {
@@ -26,15 +26,16 @@ class EmailReceiverTask {
             return [
                 'success' => $result['success'],
                 'message' => $message,
-                'items_processed' => $result['emails_processed'],
-                'errors' => $result['errors'] ?? []
+                'items_processed' => $result['items_processed'],
+                'errors' => $result['errors']
             ];
             
         } catch (Exception $e) {
             return [
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage(),
-                'items_processed' => 0
+                'items_processed' => 0,
+                'errors' => [$e->getMessage()]
             ];
         }
     }

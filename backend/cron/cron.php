@@ -136,16 +136,19 @@ class CronRunner {
                 throw new RuntimeException("Task handler returned invalid result: {$class_name}");
             }
             
-            // Log success
+            // Log based on handler result success flag
             $execution_time = round(microtime(true) - $task_start_time, 2);
             $items_processed = safe_int($result['items_processed'] ?? 0);
             $message = scalar_string($result['message'] ?? 'Task completed successfully');
+            $success = (bool)($result['success'] ?? true);
+            $status = $success ? 'success' : 'error';
             
             if (!is_int($task_id) && !is_string($task_id)) {
                 throw new RuntimeException('Task id missing.');
             }
-            $this->logTaskExecution($task_id, $task_name, 'success', $message, $items_processed, $execution_time);
-            $this->log("✓ Task completed: {$message} ({$items_processed} items, {$execution_time}s)");
+            $this->logTaskExecution($task_id, $task_name, $status, $message, $items_processed, $execution_time);
+            $log_prefix = $success ? '✓ Task completed' : '✗ Task completed with errors';
+            $this->log("{$log_prefix}: {$message} ({$items_processed} items, {$execution_time}s)");
             
             // Update task's last_run and next_run times
             $this->updateTaskSchedule($task);
@@ -163,7 +166,12 @@ class CronRunner {
     }
     
     /**
-     * Log task execution to database
+     * @param int|string $task_id
+     * @param string $task_name
+     * @param string $status success or error
+     * @param string $message
+     * @param int $items_processed
+     * @param float $execution_time
      */
     private function logTaskExecution(int|string $task_id, string $task_name, string $status, string $message, int $items_processed, float $execution_time): void {
         $stmt = $this->conn->prepare("

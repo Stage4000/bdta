@@ -83,9 +83,8 @@ class ImapEmailReceiver {
     
     /**
      * Fetch and process new emails
-     */
-    /**
-     * @return array{success: bool, message: string, emails_processed: int, errors?: list<string>}
+     *
+     * @return array{success: bool, message: string, emails_processed: int, items_processed: int, errors: list<string>}
      */
     public function fetchEmails(): array {
         try {
@@ -94,7 +93,9 @@ class ImapEmailReceiver {
                 return [
                     'success' => false,
                     'message' => 'IMAP is not enabled',
-                    'emails_processed' => 0
+                    'emails_processed' => 0,
+                    'items_processed' => 0,
+                    'errors' => []
                 ];
             }
             
@@ -102,20 +103,69 @@ class ImapEmailReceiver {
             $sync_days = safe_int(Settings::get('imap_sync_days', 30));
             $since_date = date('d-M-Y', safe_timestamp(strtotime("-{$sync_days} days")));
             
-            // Search for emails since the sync date
-            $emails = imap_search($this->getImapConnection(), "SINCE \"{$since_date}\"");
+            $errors = [];
             
-            if (!$emails) {
+            // Search for unread emails since the sync date
+            // Note: imap_search returns false on *errors* as well as "no results".
+            // We disambiguate by checking the IMAP error stack immediately after the call.
+            // Clear any prior IMAP errors before searching; errors from the search itself are handled below
+            imap_errors();
+            $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
+            $search_errors = array_values(array_map('scalar_string', imap_errors() ?: []));
+            
+            // If there are no unseen results and no errors, fall back to searching all mail since the sync window.
+            // This covers cases where another client has already marked the messages as seen before the cron task runs.
+            if (($emails === false || empty($emails)) && empty($search_errors)) {
+                imap_errors();
+                $emails = imap_search($this->getImapConnection(), "SINCE \"{$since_date}\"");
+                $fallback_errors = array_values(array_map('scalar_string', imap_errors() ?: []));
+                if ($emails === false && !empty($fallback_errors)) {
+                    $this->disconnect();
+                    return [
+                        'success' => false,
+                        'message' => 'IMAP search failed (fallback): ' . implode('; ', $fallback_errors),
+                        'emails_processed' => 0,
+                        'items_processed' => 0,
+                        'errors' => $fallback_errors
+                    ];
+                }
+            }
+            
+            if ($emails === false) {
+                $this->disconnect();
+                if (!empty($search_errors)) {
+                    return [
+                        'success' => false,
+                        'message' => 'IMAP search failed: ' . implode('; ', $search_errors),
+                        'emails_processed' => 0,
+                        'items_processed' => 0,
+                        'errors' => $search_errors
+                    ];
+                }
+                
+                // No results and no errors -> treat as no new mail
+                return [
+                    'success' => true,
+                    'message' => 'No new emails found',
+                    'emails_processed' => 0,
+                    'items_processed' => 0,
+                    'errors' => []
+                ];
+            }
+            
+            if (empty($emails)) {
                 $this->disconnect();
                 return [
                     'success' => true,
                     'message' => 'No new emails found',
-                    'emails_processed' => 0
+                    'emails_processed' => 0,
+                    'items_processed' => 0,
+                    'errors' => []
                 ];
             }
             
             $processed_count = 0;
-            $errors = [];
+            $flag_queue = [];
             
             // Process each email
             foreach ($emails as $email_number_raw) {
@@ -126,9 +176,38 @@ class ImapEmailReceiver {
                         continue;
                     }
                     $this->processEmail($email_number);
+                    // Queue message to be marked as seen after processing loop
+                    $flag_queue[] = (string) $email_number;
                     $processed_count++;
                 } catch (Exception $e) {
                     $errors[] = "Email #{$email_number}: " . $e->getMessage();
+                }
+            }
+            
+            // Mark all processed messages as seen in batches to avoid oversized IMAP commands
+            if (!empty($flag_queue)) {
+                $flag_errors = [];
+                foreach (array_chunk($flag_queue, 100) as $flag_batch) {
+                    // Clear the IMAP error buffer so any issues setting flags are captured below
+                    imap_errors();
+                    $set_success = imap_setflag_full($this->getImapConnection(), implode(',', $flag_batch), "\\Seen");
+                    $batch_errors = array_map('scalar_string', imap_errors() ?: []);
+                    // @phpstan-ignore-next-line imap_setflag_full returns true in stubs, but may return false at runtime
+                    if (!$set_success) {
+                        $last_error = imap_last_error();
+                        if ($last_error !== false) {
+                            $batch_errors[] = scalar_string($last_error);
+                        }
+                        if (empty($batch_errors)) {
+                            $batch_errors[] = 'Failed to mark messages as seen for batch: ' . implode(',', $flag_batch);
+                        }
+                    }
+                    if (!empty($batch_errors)) {
+                        $flag_errors[] = implode('; ', $batch_errors);
+                    }
+                }
+                if (!empty($flag_errors)) {
+                    $errors[] = 'Failed to mark one or more emails as seen: ' . implode(' | ', $flag_errors);
                 }
             }
             
@@ -138,6 +217,7 @@ class ImapEmailReceiver {
                 'success' => true,
                 'message' => "Processed {$processed_count} email(s)",
                 'emails_processed' => $processed_count,
+                'items_processed' => $processed_count,
                 'errors' => $errors
             ];
             
@@ -146,7 +226,9 @@ class ImapEmailReceiver {
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'emails_processed' => 0
+                'emails_processed' => 0,
+                'items_processed' => 0,
+                'errors' => [$e->getMessage()]
             ];
         }
     }
