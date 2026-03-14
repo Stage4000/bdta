@@ -234,12 +234,19 @@ if (!empty($apt_type['is_mini_session'])) {
 $pet_ids_raw = $data['pet_ids'] ?? [];
 $pet_ids     = [];
 if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
-    // Verify all pet IDs belong to this client without building a dynamic IN() clause.
-    $requested_pet_ids = array_values(array_unique(array_map('safe_int', $pet_ids_raw)));
-    $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND is_active = 1");
-    $stmt->execute([$client_id]);
-    $available_pet_ids = array_map('safe_int', array_column(assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)), 'id'));
-    $pet_ids = array_values(array_intersect($requested_pet_ids, $available_pet_ids));
+    $requested_pet_ids = array_values(array_filter(
+        array_unique(array_map('safe_int', $pet_ids_raw)),
+        static fn (int $pet_id): bool => $pet_id > 0
+    ));
+    $requested_pet_ids = array_slice($requested_pet_ids, 0, 100);
+
+    if (!empty($requested_pet_ids)) {
+        $placeholders = implode(', ', array_fill(0, count($requested_pet_ids), '?'));
+        // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- placeholder count comes from safe_int()-sanitized positive pet IDs and every value is bound separately.
+        $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND is_active = 1 AND id IN ($placeholders)");
+        $stmt->execute(array_merge([$client_id], $requested_pet_ids));
+        $pet_ids = array_map('safe_int', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+    }
 }
 
 // ── Insert booking ────────────────────────────────────────────────────────
