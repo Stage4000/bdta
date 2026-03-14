@@ -17,6 +17,7 @@ $original_values = [
     'tawk_to_property_id' => scalar_string($advanced_settings['tawk_to_property_id']['actual_value'] ?? ''),
     'tawk_to_widget_id' => scalar_string($advanced_settings['tawk_to_widget_id']['actual_value'] ?? 'default'),
 ];
+$original_request_uri = $_SERVER['REQUEST_URI'] ?? null;
 $original_admin_id = $_SESSION['admin_id'] ?? null;
 $original_impersonation = $_SESSION['portal_impersonating_admin_id'] ?? null;
 
@@ -54,6 +55,19 @@ try {
 
     Settings::set('tawk_to_property_id', '0123456789abcdef01234567');
     Settings::set('tawk_to_widget_id', 'default');
+    $_SERVER['REQUEST_URI'] = '/client/login.php';
+    if (bdta_get_tawk_to_widget_script() !== '') {
+        throw new RuntimeException('Anonymous admin-area requests should not receive the widget.');
+    }
+    echo "✓ Anonymous admin-area routes suppress the widget\n";
+
+    $_SERVER['REQUEST_URI'] = '/client/package_detail.php?token=demo';
+    if (!str_contains(bdta_get_tawk_to_widget_script(), 'https://embed.tawk.to/0123456789abcdef01234567/default')) {
+        throw new RuntimeException('Public client package detail pages should still receive the widget.');
+    }
+    echo "✓ Public client package detail pages still render the widget\n";
+
+    $_SERVER['REQUEST_URI'] = '/';
     $_SESSION['admin_id'] = 1;
     if (bdta_get_tawk_to_widget_script() !== '') {
         throw new RuntimeException('Authenticated admin sessions should not receive the widget.');
@@ -76,6 +90,11 @@ try {
 } finally {
     foreach ($original_values as $key => $value) {
         Settings::set($key, $value);
+    }
+    if ($original_request_uri === null) {
+        unset($_SERVER['REQUEST_URI']);
+    } else {
+        $_SERVER['REQUEST_URI'] = $original_request_uri;
     }
     if ($original_admin_id === null) {
         unset($_SESSION['admin_id']);

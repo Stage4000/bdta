@@ -23,7 +23,7 @@ if (!$page || trim($page['html_content']) === '') {
         $html = file_get_contents($static);
         if ($html === false) {
             $last_error = error_get_last();
-            $read_error_message = is_array($last_error) ? scalar_string($last_error['message'] ?? 'unknown error') : 'unknown error';
+            $read_error_message = is_array($last_error) ? scalar_string($last_error['message']) : 'unknown error';
             error_log('Failed to read static homepage: ' . $read_error_message);
             header('Content-Type: text/html; charset=UTF-8');
             http_response_code(500);

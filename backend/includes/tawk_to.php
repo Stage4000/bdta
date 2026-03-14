@@ -1,8 +1,18 @@
 <?php
 require_once __DIR__ . '/settings.php';
 
+function bdta_is_admin_area_tawk_request(): bool {
+    $request_uri = scalar_string($_SERVER['REQUEST_URI'] ?? '');
+    if ($request_uri === '' || !str_starts_with($request_uri, ADMIN_URL)) {
+        return false;
+    }
+
+    $request_path = scalar_string(parse_url($request_uri, PHP_URL_PATH) ?: $request_uri);
+    return $request_path !== ADMIN_URL . 'package_detail.php';
+}
+
 function bdta_should_render_tawk_to_widget(): bool {
-    if (!Settings::get('tawk_to_enabled', false)) {
+    if (bdta_is_admin_area_tawk_request()) {
         return false;
     }
 
@@ -14,7 +24,7 @@ function bdta_should_render_tawk_to_widget(): bool {
         return false;
     }
 
-    return true;
+    return Settings::get('tawk_to_enabled', false);
 }
 
 function bdta_get_tawk_to_widget_script(): string {
