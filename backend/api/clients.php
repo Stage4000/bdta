@@ -35,7 +35,7 @@ try {
     echo json_encode([
         'success' => true,
         'clients' => $clients,
-    ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    ], JSON_UNESCAPED_UNICODE);
 } catch (PDOException $e) {
     respond_client_error('clients.php: failed to load clients: ' . $e->getMessage());
 } catch (Throwable $e) {
