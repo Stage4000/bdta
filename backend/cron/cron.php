@@ -285,42 +285,37 @@ class CronRunner {
         }
         
         list($minute, $hour, $day, $month, $weekday) = $parts;
+        $now = new DateTimeImmutable('now', bdta_get_display_timezone());
         
         // Handle common interval patterns (e.g., */5 * * * * = every 5 minutes)
         if (preg_match('/^\*\/(\d+)$/', $minute, $matches) && $this->areAllWildcards([$hour, $day, $month, $weekday])) {
             $interval = intval($matches[1]);
-            return formatUtcTimestamp(safe_timestamp(strtotime("+{$interval} minutes")));
+            return $now->modify("+{$interval} minutes")->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
         }
         
         // Handle hourly at specific minute (e.g., 15 * * * * = every hour at minute 15)
         if (is_numeric($minute) && $this->areAllWildcards([$hour, $day, $month, $weekday])) {
-            $current_minute = intval(date('i'));
             $target_minute = intval($minute);
-            
-            if ($current_minute < $target_minute) {
-                // Later this hour
-                $next = mktime(intval(date('H')), $target_minute, 0);
-            } else {
-                // Next hour
-                $next = mktime(intval(date('H')) + 1, $target_minute, 0);
+
+            $next = $now->setTime((int) $now->format('H'), $target_minute, 0);
+            if ($next <= $now) {
+                $next = $next->modify('+1 hour');
             }
-            return formatUtcTimestamp(safe_timestamp($next));
+
+            return $next->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
         }
         
         // Handle daily at specific time (e.g., 0 9 * * * = daily at 9:00 AM)
         if (is_numeric($minute) && is_numeric($hour) && $this->areAllWildcards([$day, $month, $weekday])) {
             $target_hour = intval($hour);
             $target_minute = intval($minute);
-            $current_time = time();
-            $today_run = mktime($target_hour, $target_minute, 0);
-            
-            if ($today_run > $current_time) {
-                // Later today
-                return formatUtcTimestamp($today_run);
-            } else {
-                // Tomorrow at the same time
-                return formatUtcTimestamp(safe_timestamp(strtotime('+1 day', safe_timestamp($today_run))));
+
+            $next = $now->setTime($target_hour, $target_minute, 0);
+            if ($next <= $now) {
+                $next = $next->modify('+1 day');
             }
+
+            return $next->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
         }
         
         // Pattern not supported
@@ -351,7 +346,9 @@ class CronRunner {
     }
 }
 
-// Run the cron job
-$cron = new CronRunner();
-$cron->run();
+// Run the cron job when executed directly from CLI.
+if (PHP_SAPI === 'cli' && realpath(scalar_string($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
+    $cron = new CronRunner();
+    $cron->run();
+}
 ?>
