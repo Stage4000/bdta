@@ -1,5 +1,4 @@
 module.exports = {
-  ignoreFiles: ['client/js/ckeditor5/**'],
   rules: {
     'block-no-empty': true,
     'color-no-invalid-hex': true,
