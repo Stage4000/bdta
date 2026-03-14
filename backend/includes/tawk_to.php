@@ -6,6 +6,10 @@ function bdta_should_render_tawk_to_widget(): bool {
         return false;
     }
 
+    if (!empty($_SESSION['admin_id'])) {
+        return false;
+    }
+
     if (!empty($_SESSION['portal_impersonating_admin_id'])) {
         return false;
     }

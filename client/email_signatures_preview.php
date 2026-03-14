@@ -102,5 +102,9 @@ $rendered_html = EmailSignatureHelper::replaceCustomFields(array_string_value($s
             </div>
         </div>
     </div>
+    <?php
+    require_once '../backend/includes/tawk_to.php';
+    bdta_render_tawk_to_widget();
+    ?>
 </body>
 </html>

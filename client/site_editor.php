@@ -819,5 +819,9 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
 
 }());
 </script>
+<?php
+require_once '../backend/includes/tawk_to.php';
+bdta_render_tawk_to_widget();
+?>
 </body>
 </html>

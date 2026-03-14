@@ -11,6 +11,7 @@ $original_values = [
     'tawk_to_property_id' => scalar_string(Settings::get('tawk_to_property_id', '')),
     'tawk_to_widget_id' => scalar_string(Settings::get('tawk_to_widget_id', 'default')),
 ];
+$original_admin_id = $_SESSION['admin_id'] ?? null;
 $original_impersonation = $_SESSION['portal_impersonating_admin_id'] ?? null;
 
 try {
@@ -48,6 +49,13 @@ try {
 
     Settings::set('tawk_to_property_id', '0123456789abcdef01234567');
     Settings::set('tawk_to_widget_id', 'default');
+    $_SESSION['admin_id'] = 1;
+    if (bdta_get_tawk_to_widget_script() !== '') {
+        throw new RuntimeException('Authenticated admin sessions should not receive the widget.');
+    }
+    echo "✓ Authenticated admin sessions suppress the widget\n";
+
+    unset($_SESSION['admin_id']);
     $_SESSION['portal_impersonating_admin_id'] = 1;
     if (bdta_get_tawk_to_widget_script() !== '') {
         throw new RuntimeException('Impersonating admins should not receive the widget on portal pages.');
@@ -63,6 +71,11 @@ try {
 } finally {
     foreach ($original_values as $key => $value) {
         Settings::set($key, $value);
+    }
+    if ($original_admin_id === null) {
+        unset($_SESSION['admin_id']);
+    } else {
+        $_SESSION['admin_id'] = $original_admin_id;
     }
     if ($original_impersonation === null) {
         unset($_SESSION['portal_impersonating_admin_id']);
