@@ -112,6 +112,11 @@ if ($method === 'GET') {
         $status = $send_immediately ? 'pending' : 'scheduled';
         $scheduled_at_value = $send_immediately ? null : $scheduled_at;
         $template_id_value = $template_id > 0 ? $template_id : null;
+
+        if ($template_id_value !== null) {
+            require_once '../backend/includes/email_service.php';
+            $body_html = EmailService::wrapEmailHtml($body_html);
+        }
         
         $stmt->execute([
             $request_client_id,
