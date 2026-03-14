@@ -9,7 +9,7 @@ header('Content-Type: application/json');
 /**
  * @return never
  */
-function respondWithError(string $logMessage, int $status = 500, string $publicMessage = 'Failed to load clients'): never {
+function respond_with_error(string $logMessage, int $status = 500, string $publicMessage = 'Failed to load clients'): never {
     http_response_code($status);
     error_log($logMessage);
     try {
@@ -17,15 +17,15 @@ function respondWithError(string $logMessage, int $status = 500, string $publicM
             'success' => false,
             'error' => $publicMessage,
         ], JSON_THROW_ON_ERROR);
-    } catch (JsonException $je) {
-        error_log('clients.php: failed to encode error response: ' . $je->getMessage());
+    } catch (JsonException $jsonException) {
+        error_log('clients.php: failed to encode error response: ' . $jsonException->getMessage());
         echo '{"success":false,"error":"Failed to load clients"}';
     }
     exit;
 }
 
 if (!isLoggedIn()) {
-    respondWithError('clients.php: unauthorized access', 401, 'Unauthorized access');
+    respond_with_error('clients.php: unauthorized access', 401, 'Unauthorized access');
 }
 
 try {
@@ -46,10 +46,10 @@ try {
             'clients' => $clients,
         ], JSON_THROW_ON_ERROR);
     } catch (JsonException $e) {
-        respondWithError('clients.php: failed to encode clients response: ' . $e->getMessage(), 500, 'Failed to load clients');
+        respond_with_error('clients.php: failed to encode clients response: ' . $e->getMessage(), 500, 'Failed to load clients');
     }
 } catch (PDOException $e) {
-    respondWithError('clients.php: failed to load clients: ' . $e->getMessage());
+    respond_with_error('clients.php: failed to load clients: ' . $e->getMessage());
 } catch (Throwable $e) {
-    respondWithError('clients.php: unexpected error: ' . $e->getMessage());
+    respond_with_error('clients.php: unexpected error: ' . $e->getMessage());
 }
