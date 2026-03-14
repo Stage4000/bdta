@@ -18,6 +18,7 @@ $recent_logs = $conn->query("
 ")->fetchAll(PDO::FETCH_ASSOC);
 $system_timezone = getSystemTimezone();
 $display_timezone = new DateTimeZone($system_timezone);
+$utc_timezone = new DateTimeZone('UTC');
 
 include '../backend/includes/header.php';
 ?>
@@ -86,7 +87,8 @@ include '../backend/includes/header.php';
                                                 <?php if ($task['last_run']): ?>
                                                     <small class="text-muted">
                                                         <?php 
-                                                        $datetime = new DateTime($task['last_run'], $display_timezone);
+                                                        $datetime = new DateTime($task['last_run'], $utc_timezone);
+                                                        $datetime->setTimezone($display_timezone);
                                                         echo $datetime->format('M j, Y g:i A');
                                                         ?>
                                                     </small>
@@ -98,7 +100,8 @@ include '../backend/includes/header.php';
                                                 <?php if ($task['next_run']): ?>
                                                     <small class="text-muted">
                                                         <?php 
-                                                        $datetime = new DateTime($task['next_run'], $display_timezone);
+                                                        $datetime = new DateTime($task['next_run'], $utc_timezone);
+                                                        $datetime->setTimezone($display_timezone);
                                                         echo $datetime->format('M j, Y g:i A');
                                                         ?>
                                                     </small>
@@ -167,7 +170,8 @@ include '../backend/includes/header.php';
                                             <td>
                                                 <small class="text-muted">
                                                     <?php 
-                                                    $datetime = new DateTime($log['executed_at'], $display_timezone);
+                                                    $datetime = new DateTime($log['executed_at'], $utc_timezone);
+                                                    $datetime->setTimezone($display_timezone);
                                                     echo $datetime->format('M j, g:i A');
                                                     ?>
                                                 </small>
