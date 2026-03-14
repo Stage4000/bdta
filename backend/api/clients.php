@@ -9,9 +9,9 @@ header('Content-Type: application/json');
 /**
  * @return never
  */
-function respondWithError(string $log_message, int $status = 500, string $publicMessage = 'Failed to load clients'): never {
+function respondWithError(string $logMessage, int $status = 500, string $publicMessage = 'Failed to load clients'): never {
     http_response_code($status);
-    error_log($log_message);
+    error_log($logMessage);
     try {
         echo json_encode([
             'success' => false,
