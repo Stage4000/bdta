@@ -220,6 +220,10 @@ function currentUtcDateTime(string $format = 'Y-m-d H:i:s'): string {
     return gmdate($format);
 }
 
+function currentLocalDate(string $format = 'Y-m-d'): string {
+    return (new DateTimeImmutable('now', bdta_get_display_timezone()))->format($format);
+}
+
 function formatUtcTimestamp(int $timestamp, string $format = 'Y-m-d H:i:s'): string {
     return gmdate($format, $timestamp);
 }

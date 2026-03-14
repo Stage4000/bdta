@@ -35,7 +35,7 @@ $default_tasks = [
         'schedule_type' => 'daily',
         'schedule_value' => '10:00', // Daily at 10 AM
         'is_active' => 1,
-        'next_run' => localDateTimeToUtcString(date('Y-m-d') . ' 10:00:00')
+        'next_run' => localDateTimeToUtcString(currentLocalDate() . ' 10:00:00')
     ],
     [
         'task_name' => 'Send Form Reminders',
@@ -43,7 +43,7 @@ $default_tasks = [
         'schedule_type' => 'daily',
         'schedule_value' => '10:00', // Daily at 10 AM
         'is_active' => 1,
-        'next_run' => localDateTimeToUtcString(date('Y-m-d') . ' 10:00:00')
+        'next_run' => localDateTimeToUtcString(currentLocalDate() . ' 10:00:00')
     ],
     [
         'task_name' => 'Send Quote Reminders',
@@ -51,7 +51,7 @@ $default_tasks = [
         'schedule_type' => 'daily',
         'schedule_value' => '11:00', // Daily at 11 AM
         'is_active' => 1,
-        'next_run' => localDateTimeToUtcString(date('Y-m-d') . ' 11:00:00')
+        'next_run' => localDateTimeToUtcString(currentLocalDate() . ' 11:00:00')
     ],
     [
         'task_name' => 'Send Invoice Reminders',
@@ -59,7 +59,7 @@ $default_tasks = [
         'schedule_type' => 'daily',
         'schedule_value' => '09:00', // Daily at 9 AM
         'is_active' => 1,
-        'next_run' => localDateTimeToUtcString(date('Y-m-d') . ' 09:00:00')
+        'next_run' => localDateTimeToUtcString(currentLocalDate() . ' 09:00:00')
     ],
     [
         'task_name' => 'Process Workflow Steps',

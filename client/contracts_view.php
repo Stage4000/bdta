@@ -165,7 +165,7 @@ include '../backend/includes/header.php';
                                 </div>
                                 <p class="text-muted small mt-2">
                                     Style: <?= escape($font_labels[array_string_value($contract, 'signature_font')] ?? array_string_value($contract, 'signature_font')) ?><br>
-                                    Signed on <?= escape(formatDateTime($contract['signed_date'], 'F j, Y \a\t g:i A T')) ?>
+                                    Signed on <?= escape(formatDateTime($contract['signed_date'], 'F j, Y \a\t g:i A')) ?>
                                     &mdash; IP: <?= escape($contract['ip_address']) ?>
                                 </p>
                             <?php elseif ($contract['signature_data']): ?>
@@ -173,7 +173,7 @@ include '../backend/includes/header.php';
                                 <h5>Signature</h5>
                                 <img src="<?= escape($contract['signature_data']) ?>" alt="Signature" class="border p-2" style="max-width: 400px;">
                                 <p class="text-muted small mt-2">
-                                    Signed on <?= escape(formatDateTime($contract['signed_date'], 'F j, Y \a\t g:i A T')) ?> from IP: <?= escape($contract['ip_address']) ?>
+                                    Signed on <?= escape(formatDateTime($contract['signed_date'], 'F j, Y \a\t g:i A')) ?> from IP: <?= escape($contract['ip_address']) ?>
                                 </p>
                             <?php endif; ?>
                         </div>
@@ -237,7 +237,7 @@ include '../backend/includes/header.php';
                                     <div class="fw-semibold text-capitalize"><?= escape($entry['event_type']) ?></div>
                                     <div><?= escape($entry['details']) ?></div>
                                     <div class="text-muted">
-                                        <?= escape(formatDateTime($entry['created_at'], 'M j, Y g:i A T')) ?><br>
+                                        <?= escape(formatDateTime($entry['created_at'], 'M j, Y g:i A')) ?><br>
                                         IP: <?= escape($entry['ip_address']) ?>
                                     </div>
                                 </li>

@@ -210,31 +210,40 @@ class CronRunner {
         $schedule_type = scalar_string($task['schedule_type'] ?? '');
         $schedule_value = scalar_string($task['schedule_value'] ?? '');
         $task_name = scalar_string($task['task_name'] ?? '');
+        $now = new DateTimeImmutable('now', bdta_get_display_timezone());
         
         switch ($schedule_type) {
             case 'hourly':
-                return formatUtcTimestamp(safe_timestamp(strtotime('+1 hour')));
+                return $now->modify('+1 hour')->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
             
             case 'daily':
                 // Run at specific time (e.g., "09:00")
                 if ($schedule_value && !$this->isCronExpression($schedule_value)) {
-                    $next = strtotime('tomorrow ' . $schedule_value);
-                    return formatUtcTimestamp(safe_timestamp($next));
+                    if (preg_match('/^\d{1,2}:\d{2}$/', $schedule_value) === 1) {
+                        $next = new DateTimeImmutable('tomorrow ' . $schedule_value, bdta_get_display_timezone());
+                        return $next->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
+                    }
+
+                    $this->log("Warning: Invalid daily schedule '{$schedule_value}' for task '{$task_name}'. Defaulting to +1 day.");
                 }
-                return formatUtcTimestamp(safe_timestamp(strtotime('+1 day')));
+                return $now->modify('+1 day')->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
             
             case 'weekly':
                 // Run on specific day of week at specific time (e.g., "monday 09:00")
                 if ($schedule_value) {
-                    $next = strtotime('next ' . $schedule_value);
-                    return formatUtcTimestamp(safe_timestamp($next));
+                    if (preg_match('/^[a-z]+(?:\s+\d{1,2}:\d{2})?$/i', $schedule_value) === 1) {
+                        $next = new DateTimeImmutable('next ' . $schedule_value, bdta_get_display_timezone());
+                        return $next->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
+                    }
+
+                    $this->log("Warning: Invalid weekly schedule '{$schedule_value}' for task '{$task_name}'. Defaulting to +1 week.");
                 }
-                return formatUtcTimestamp(safe_timestamp(strtotime('+1 week')));
+                return $now->modify('+1 week')->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
             
             case 'interval':
                 // Run every X minutes (e.g., "15" for every 15 minutes)
                 $minutes = intval($schedule_value) ?: 60;
-                return formatUtcTimestamp(safe_timestamp(strtotime("+{$minutes} minutes")));
+                return $now->modify("+{$minutes} minutes")->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
             
             case 'custom':
                 // Custom schedule using cron expression
@@ -246,12 +255,12 @@ class CronRunner {
                     $this->log("Warning: Unsupported cron expression '{$schedule_value}' for task '{$task_name}'. Defaulting to +15 minutes.");
                 }
                 // Fallback to 15 minutes for custom schedules
-                return formatUtcTimestamp(safe_timestamp(strtotime('+15 minutes')));
+                return $now->modify('+15 minutes')->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
             
             default:
                 // Default to daily
                 $this->log("Warning: Unknown schedule_type '{$schedule_type}' for task '{$task_name}'. Defaulting to +1 day.");
-                return formatUtcTimestamp(safe_timestamp(strtotime('+1 day')));
+                return $now->modify('+1 day')->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
         }
     }
     
