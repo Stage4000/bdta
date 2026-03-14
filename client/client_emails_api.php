@@ -3,6 +3,7 @@
  * Client Emails API - CRUD operations for client email correspondence
  */
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/email_service.php';
 requireLogin();
 
 header('Content-Type: application/json');
@@ -111,12 +112,10 @@ if ($method === 'GET') {
         
         $status = $send_immediately ? 'pending' : 'scheduled';
         $scheduled_at_value = $send_immediately ? null : $scheduled_at;
-        $template_id_value = $template_id > 0 ? $template_id : null;
-
-        if ($template_id_value !== null) {
-            require_once '../backend/includes/email_service.php';
-            $body_html = EmailService::wrapEmailHtml($body_html);
-        }
+        $has_template = $template_id > 0;
+        $template_id_value = $has_template ? $template_id : null;
+        $email_body_html = $has_template ? EmailService::wrapEmailHtml($body_html) : $body_html;
+        $email_body_text = $body_text !== '' ? $body_text : strip_tags($email_body_html);
         
         $stmt->execute([
             $request_client_id,
@@ -125,8 +124,8 @@ if ($method === 'GET') {
             $from_email,
             array_string_value($client, 'email'),
             $subject,
-            $body_html,
-            $body_text !== '' ? $body_text : strip_tags($body_html),
+            $email_body_html,
+            $email_body_text,
             $template_id_value,
             $scheduled_at_value,
             $_SESSION['user_id'] ?? null
@@ -136,14 +135,13 @@ if ($method === 'GET') {
         
         // If sending immediately, send the email now
         if ($send_immediately) {
-            require_once '../backend/includes/email_service.php';
             $emailService = new EmailService();
             
             $result = $emailService->sendGenericEmail(
                 array_string_value($client, 'email'),
                 $subject,
-                $body_html,
-                $body_text,
+                $email_body_html,
+                $email_body_text,
                 EmailService::MAIL_TYPE_COMPOSE
             );
             
