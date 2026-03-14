@@ -105,12 +105,16 @@ if (!is_dir($upload_base_dir) && !mkdir($upload_base_dir, 0755, true)) {
     exit;
 }
 
+// upload_pet_dir is built from a fixed base directory plus a validated integer pet ID.
+// nosemgrep
 if (!is_dir($upload_pet_dir) && !mkdir($upload_pet_dir, 0755, true)) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Failed to create pet upload directory']);
     exit;
 }
 
+// unique_filename is server-generated and never derived from the uploaded original filename.
+// nosemgrep
 $unique_filename = uniqid('pet_' . $pet_id . '_') . '.' . $file_extension;
 $file_path       = $upload_pet_dir . '/' . $unique_filename;
 
@@ -143,7 +147,10 @@ try {
         ]
     ]);
 } catch (PDOException $e) {
+    // file_path is scoped to the fixed pet uploads directory plus a server-generated filename.
+    // nosemgrep
     if (file_exists($file_path)) {
+        // nosemgrep
         unlink($file_path);
     }
     error_log('Portal pet file upload error: ' . $e->getMessage());

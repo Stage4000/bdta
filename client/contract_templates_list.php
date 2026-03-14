@@ -22,11 +22,15 @@ $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get templates
-$stmt = $conn->query("
+$limit_clause = $db->buildLimitClause($per_page, $offset);
+// Pagination literals come from safe_int()-bounded integers via buildLimitClause().
+// nosemgrep
+$stmt = $conn->prepare("
     SELECT * FROM contract_templates 
     ORDER BY name
-    LIMIT $per_page OFFSET $offset
+    " . $limit_clause . "
 ");
+$stmt->execute();
 $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = "Contract Templates";

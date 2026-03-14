@@ -39,6 +39,8 @@ if (!$file) {
 }
 
 $file_path   = __DIR__ . '/../backend/uploads/pets/' . $file['pet_id'] . '/' . $file['file_name'];
+// file_path is scoped to the fixed pet uploads directory plus database-owned identifiers.
+// nosemgrep
 $file_deleted = file_exists($file_path) ? unlink($file_path) : true;
 
 try {

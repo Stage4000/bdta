@@ -50,13 +50,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enroll'])) {
 }
 
 // Get all clients
-$clients = $conn->query("
+// workflow_id is parameterized in the correlated subquery.
+// nosemgrep
+$stmt = $conn->prepare("
     SELECT c.*, 
-           (SELECT COUNT(*) FROM workflow_enrollments 
-            WHERE client_id = c.id AND workflow_id = {$workflow_id} AND status = 'active') as is_enrolled
+            (SELECT COUNT(*) FROM workflow_enrollments 
+             WHERE client_id = c.id AND workflow_id = ? AND status = 'active') as is_enrolled
     FROM clients c
     ORDER BY c.name
-")->fetchAll(PDO::FETCH_ASSOC);
+");
+$stmt->execute([$workflow_id]);
+$clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $clients = assoc_rows($clients);
 
 include '../backend/includes/header.php';

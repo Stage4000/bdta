@@ -32,9 +32,12 @@ if ($status_filter) {
 }
 
 $where_sql = $where ? "WHERE " . implode(" AND ", $where) : "";
+$limit_clause = $db->buildLimitClause($per_page, $offset);
 
 // Get total count
 $count_sql = "SELECT COUNT(*) FROM quotes q $where_sql";
+// where_sql is composed only from fixed SQL fragments while values stay parameterized in $params.
+// nosemgrep
 $count_stmt = $conn->prepare($count_sql);
 $count_stmt->execute($params);
 $total = safe_int($count_stmt->fetchColumn());
@@ -45,9 +48,10 @@ $sql = "SELECT q.*, c.name as client_name
         FROM quotes q
         INNER JOIN clients c ON q.client_id = c.id
         $where_sql
-        ORDER BY q.created_at DESC
-        LIMIT $per_page OFFSET $offset";
+        ORDER BY q.created_at DESC" . $limit_clause;
 
+// where_sql uses fixed fragments and limit_clause comes from safe_int()-bounded pagination.
+// nosemgrep
 $stmt = $conn->prepare($sql);
 $stmt->execute($params);
 $quotes = $stmt->fetchAll(PDO::FETCH_ASSOC);

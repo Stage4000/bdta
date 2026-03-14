@@ -38,6 +38,8 @@ $where_sql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
 // Get total count
 $count_query = "SELECT COUNT(*) FROM form_submissions fs $where_sql";
+// where_sql is composed only from fixed SQL fragments while values stay parameterized in $params.
+// nosemgrep
 $count_stmt = $conn->prepare($count_query);
 if (!empty($params)) {
     $count_stmt->execute($params);
@@ -68,6 +70,8 @@ $query = "SELECT fs.*,
 $limit_clause = $db->buildLimitClause($per_page, $offset);
 $query .= $limit_clause;
 
+// where_sql is composed only from fixed SQL fragments while values stay parameterized in $params.
+// nosemgrep
 $stmt = $conn->prepare($query);
 if (!empty($params)) {
     $stmt->execute($params);

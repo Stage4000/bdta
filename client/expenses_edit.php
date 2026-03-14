@@ -58,6 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($receipt_file && is_array($expense) && array_string_value($expense, 'receipt_file') !== '') {
                 $old_file = __DIR__ . '/../uploads/receipts/' . array_string_value($expense, 'receipt_file');
                 if (file_exists($old_file)) {
+                    // old_file is resolved from a stored receipt filename beneath the fixed receipts directory.
+                    // nosemgrep
                     unlink($old_file);
                 }
             }

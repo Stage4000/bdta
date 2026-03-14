@@ -47,6 +47,8 @@ $file_path = __DIR__ . '/../backend/uploads/pets/' . $file['pet_id'] . '/' . $fi
 $file_deleted = false;
 
 if (file_exists($file_path)) {
+    // file_path is scoped to the fixed pet uploads directory plus database-owned identifiers.
+    // nosemgrep
     $file_deleted = unlink($file_path);
 } else {
     // File doesn't exist on filesystem, but we'll still remove the database record

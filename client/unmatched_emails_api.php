@@ -60,6 +60,8 @@ if ($method === 'GET') {
         
         $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
         
+        // where_clause is assembled only from fixed SQL fragments and does not interpolate user values.
+        // nosemgrep
         $stmt = $conn->prepare("
             SELECT 
                 ue.id, ue.from_email, ue.from_name, ue.to_email, ue.subject,

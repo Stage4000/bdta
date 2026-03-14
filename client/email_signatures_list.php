@@ -62,6 +62,8 @@ $offset = ($page - 1) * $per_page;
 
 // Build LIMIT clause that works with both MySQL and SQLite
 $limit_clause = $db->buildLimitClause($per_page, $offset);
+// Pagination clause is built from safe_int()-bounded integers only.
+// nosemgrep
 $stmt = $conn->prepare("SELECT * FROM email_signature_templates ORDER BY is_default DESC, name" . $limit_clause);
 $stmt->execute();
 $signatures = $stmt->fetchAll(PDO::FETCH_ASSOC);

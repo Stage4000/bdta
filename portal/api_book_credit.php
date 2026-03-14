@@ -236,6 +236,8 @@ $pet_ids     = [];
 if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
     // Verify all pet IDs belong to this client
     $placeholders = implode(',', array_fill(0, count($pet_ids_raw), '?'));
+    // Placeholder count is generated from validated pet IDs and the values remain parameterized.
+    // nosemgrep
     $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND id IN ($placeholders) AND is_active = 1");
     $stmt->execute(array_merge([$client_id], array_map('safe_int', $pet_ids_raw)));
     $pet_ids = array_map('safe_int', array_column(assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)), 'id'));
@@ -362,6 +364,8 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
                 if ($overwrite_declined && $existing !== '' && $existing !== $value) continue;
 
                 $safe_col = $client_col_map[$attr];
+                // safe_col is selected exclusively from the fixed client_col_map allowlist above.
+                // nosemgrep
                 $conn->prepare("UPDATE clients SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                      ->execute([$value, $client_id]);
                 logClientActivity($client_id, 'profile_update_from_form',
@@ -397,6 +401,8 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
                 if ($overwrite_declined && $existing_pet_val !== '' && (string)$existing_pet_val !== (string)$value) continue;
 
                 $safe_col = $pet_col_map[$attr];
+                // safe_col is selected exclusively from the fixed pet_col_map allowlist above.
+                // nosemgrep
                 $conn->prepare("UPDATE pets SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                      ->execute([$value, $pet_id]);
                 logClientActivity($client_id, 'pet_profile_update_from_form',

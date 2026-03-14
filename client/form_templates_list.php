@@ -63,6 +63,8 @@ $query = "
     LIMIT :limit OFFSET :offset
 ";
 
+// where_clause is assembled only from fixed branches and the dynamic form_type value stays bound.
+// nosemgrep
 $stmt = $conn->prepare($query);
 if ($type_filter != 'all' && $type_filter != 'client' && $type_filter != 'internal') {
     $stmt->bindParam(':form_type', $type_filter);

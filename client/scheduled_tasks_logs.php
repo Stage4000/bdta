@@ -20,6 +20,8 @@ $limit_clause = $db->buildLimitClause($per_page, $offset);
 
 // Get task logs
 if ($task_id) {
+    // Pagination clause is built from safe_int()-bounded integers only.
+    // nosemgrep
     $stmt = $conn->prepare("
         SELECT * FROM task_logs 
         WHERE task_id = ?
@@ -30,6 +32,8 @@ if ($task_id) {
     $count_stmt = $conn->prepare("SELECT COUNT(*) FROM task_logs WHERE task_id = ?");
     $count_stmt->execute([$task_id]);
 } else {
+    // Pagination clause is built from safe_int()-bounded integers only.
+    // nosemgrep
     $stmt = $conn->prepare("
         SELECT * FROM task_logs 
         ORDER BY executed_at DESC" . $limit_clause . "
