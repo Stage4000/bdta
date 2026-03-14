@@ -1363,6 +1363,14 @@ class Database {
         if (!in_array('password_reset_expires', $client_column_names)) {
             $this->execSQL("ALTER TABLE clients ADD COLUMN password_reset_expires TIMESTAMP");
         }
+        if (!in_array('moxie_client_id', $client_column_names)) {
+            $this->execSQL("ALTER TABLE clients ADD COLUMN moxie_client_id TEXT");
+            try {
+                $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
+            } catch (PDOException $e) {
+                // Index might already exist, ignore
+            }
+        }
         
         // Add unique_link column to appointment_types table
         $apt_column_names = $this->getTableColumns('appointment_types');
@@ -1872,6 +1880,9 @@ class Database {
         // Add Google OAuth settings for existing installations
         $this->addGoogleOAuthSettings();
 
+        // Add Moxie settings for existing installations
+        $this->addMoxieSettings();
+
         // Add theme customization settings for existing installations
         $this->addThemeSettings();
 
@@ -2090,6 +2101,30 @@ class Database {
         ");
 
         foreach ($oauth_settings as $setting) {
+            $check->execute([$setting[0]]);
+            if ($check->fetchColumn() == 0) {
+                try {
+                    $insert->execute($setting);
+                } catch (PDOException $e) {
+                    // Already exists, ignore
+                }
+            }
+        }
+    }
+
+    private function addMoxieSettings(): void {
+        $moxie_settings = [
+            ['moxie_base_url', '', 'text', 'advanced', 'Moxie Base URL', 'Workspace base URL used for the Moxie public API client import tool (for example https://pod00.withmoxie.dev).', 0],
+            ['moxie_api_key', '', 'password', 'advanced', 'Moxie API Key', 'Public API key for importing clients from Moxie.', 1],
+        ];
+
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $insert = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($moxie_settings as $setting) {
             $check->execute([$setting[0]]);
             if ($check->fetchColumn() == 0) {
                 try {

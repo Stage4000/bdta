@@ -11,6 +11,9 @@ backup.sitebuilder
 
 # Logs
 *.log
+!backend/logs/
+!backend/logs/.gitignore
+!backend/logs/moxie.log
 
 # Database
 *.db

@@ -180,6 +180,7 @@
                         // Individual active states
                         $isClients        = strpos($currentPath, 'clients_') !== false;
                         $isPets           = strpos($currentPath, 'pets') !== false;
+                        $isMoxieImport    = $currentFile === 'moxie_import.php';
                         $isBookings       = strpos($currentPath, 'booking') !== false;
                         $isApptTypes      = strpos($currentPath, 'appointment_types') !== false;
                         $isPackages       = strpos($currentPath, 'packages') !== false;
@@ -204,7 +205,7 @@
                         $isSettings       = $currentFile === 'settings.php';
                         $isChangePwd      = $currentFile === 'change_password.php';
                         // Group active states (any child active → group open)
-                        $clientsOpen      = $isClients || $isPets;
+                        $clientsOpen      = $isClients || $isPets || $isMoxieImport;
                         $bookingsOpen     = $isBookings || $isApptTypes || $isPackages || $isTplDefaults;
                         $invoicesOpen     = $isInvoices || $isExpenses || $isQuotes || $isFinancial;
                         $contractsOpen    = $isContracts || $isContractTpls;
@@ -237,6 +238,11 @@
                                     <li class="nav-item">
                                         <a class="nav-link <?php echo $isPets ? 'active' : ''; ?>" href="pets_list.php">
                                             <i class="fas fa-dog me-2"></i> Pets
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isMoxieImport ? 'active' : ''; ?>" href="moxie_import.php">
+                                            <i class="fas fa-cloud-arrow-down me-2"></i> Import from Moxie
                                         </a>
                                     </li>
                                 </ul>
