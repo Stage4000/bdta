@@ -16,7 +16,7 @@ function renderPublicErrorPage(
     int $status = 404,
     string $action_href = '/',
     string $action_label = 'Go Home'
-): void {
+): never {
     http_response_code($status);
     require __DIR__ . '/public_head.php';
     ?>
