@@ -22,8 +22,16 @@ try {
         'success' => true,
         'clients' => $clients,
     ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-} catch (Exception $e) {
+} catch (PDOException $e) {
     http_response_code(500);
+    error_log('clients.php: failed to load clients: ' . $e->getMessage());
+    echo json_encode([
+        'success' => false,
+        'error' => 'Failed to load clients: ' . $e->getMessage(),
+    ]);
+} catch (Throwable $e) {
+    http_response_code(500);
+    error_log('clients.php: unexpected error: ' . $e->getMessage());
     echo json_encode([
         'success' => false,
         'error' => 'Failed to load clients',
