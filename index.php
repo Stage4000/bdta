@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/backend/includes/config.php';
+require_once __DIR__ . '/backend/includes/tawk_to.php';
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -19,7 +20,23 @@ if (!$page || trim($page['html_content']) === '') {
     // Fall back to the static index.html
     $static = __DIR__ . '/index.html';
     if (file_exists($static)) {
-        readfile($static);
+        $html = file_get_contents($static);
+        if ($html === false) {
+            $last_error = error_get_last();
+            $read_error_message = is_array($last_error) ? scalar_string($last_error['message']) : 'unknown error';
+            error_log('Failed to read static homepage: ' . $read_error_message);
+            header('Content-Type: text/html; charset=UTF-8');
+            http_response_code(500);
+            echo '<h1>Site temporarily unavailable.</h1>';
+            exit;
+        }
+
+        $html = scalar_string($html);
+        $widget = bdta_get_tawk_to_widget_script();
+        if ($widget !== '') {
+            $html = preg_replace('/<\/body>/i', $widget . "\n</body>", $html, 1) ?? $html;
+        }
+        echo $html;
     } else {
         echo '<h1>Site coming soon.</h1>';
     }
@@ -100,5 +117,6 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     <script src="/js/script.js"></script>
     <!-- BDTA dynamic modules (Packages & Events blocks added via the site editor) -->
     <script src="/js/bdta-modules.js"></script>
+    <?php bdta_render_tawk_to_widget(); ?>
 </body>
 </html>

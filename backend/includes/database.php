@@ -1125,6 +1125,9 @@ class Database {
             ['timezone', 'America/New_York', 'text', 'advanced', 'Timezone', 'Your local timezone', 0],
             ['date_format', 'Y-m-d', 'text', 'advanced', 'Date Format', 'PHP date format string', 0],
             ['time_format', 'H:i', 'text', 'advanced', 'Time Format', 'PHP time format string', 0],
+            ['tawk_to_enabled', '0', 'checkbox', 'advanced', 'Enable Tawk.to Chat', 'Load the Tawk.to chat widget on public-facing pages and the client portal. Admin pages remain excluded.', 0],
+            ['tawk_to_property_id', '', 'text', 'advanced', 'Tawk.to Property ID', 'Paste the property ID from your Tawk.to embed snippet.', 0],
+            ['tawk_to_widget_id', 'default', 'text', 'advanced', 'Tawk.to Widget ID', 'Optional widget ID from the Tawk.to embed snippet. Leave as "default" unless Tawk.to specifies another value.', 0],
             
             // Database Settings
             ['db_type', 'sqlite', 'select', 'database', 'Database Type', 'Database backend: mysql or sqlite', 0],
@@ -1871,6 +1874,9 @@ class Database {
         // Add theme customization settings for existing installations
         $this->addThemeSettings();
 
+        // Add Tawk.to chat widget settings for existing installations
+        $this->addTawkToSettings();
+
         // Add google_event_id column to bookings so cancelled bookings can be
         // removed from the connected Google Calendar
         $booking_col_names_gcal = $this->getTableColumns('bookings');
@@ -2111,6 +2117,31 @@ class Database {
         ");
 
         foreach ($theme_settings as $setting) {
+            $check->execute([$setting[0]]);
+            if ($check->fetchColumn() == 0) {
+                try {
+                    $insert->execute($setting);
+                } catch (PDOException $e) {
+                    // Already exists, ignore
+                }
+            }
+        }
+    }
+
+    private function addTawkToSettings(): void {
+        $tawk_settings = [
+            ['tawk_to_enabled', '0', 'checkbox', 'advanced', 'Enable Tawk.to Chat', 'Load the Tawk.to chat widget on public-facing pages and the client portal. Admin pages remain excluded.', 0],
+            ['tawk_to_property_id', '', 'text', 'advanced', 'Tawk.to Property ID', 'Paste the property ID from your Tawk.to embed snippet.', 0],
+            ['tawk_to_widget_id', 'default', 'text', 'advanced', 'Tawk.to Widget ID', 'Optional widget ID from the Tawk.to embed snippet. Leave as "default" unless Tawk.to specifies another value.', 0],
+        ];
+
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $insert = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($tawk_settings as $setting) {
             $check->execute([$setting[0]]);
             if ($check->fetchColumn() == 0) {
                 try {
