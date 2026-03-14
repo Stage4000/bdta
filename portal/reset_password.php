@@ -13,7 +13,7 @@ if (empty($token)) {
     $db   = new Database();
     $conn = $db->getConnection();
 
-    $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE password_reset_token = ? AND password_reset_expires > NOW() AND (is_admin = 0 OR is_admin IS NULL)");
+    $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE password_reset_token = ? AND password_reset_expires > CURRENT_TIMESTAMP AND (is_admin = 0 OR is_admin IS NULL)");
     $stmt->execute([$token]);
     $client = $stmt->fetch(PDO::FETCH_ASSOC);
 
