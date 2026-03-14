@@ -251,12 +251,12 @@ include '../backend/includes/header.php';
                     </div>
                     <div class="list-group-item">
                         <strong>Created:</strong><br>
-                        <?= date('M j, Y g:i A', safe_timestamp(strtotime($quote['created_at']))) ?>
+                        <?= escape(formatDateTime($quote['created_at'])) ?>
                     </div>
                     <?php if ($quote['expiration_date']): ?>
                         <div class="list-group-item">
                             <strong>Expiration:</strong><br>
-                            <?= date('M j, Y', safe_timestamp(strtotime($quote['expiration_date']))) ?>
+                            <?= escape(formatDate($quote['expiration_date'], 'M j, Y')) ?>
                             <?php if ($is_expired): ?>
                                 <span class="badge bg-warning ms-2">Expired</span>
                             <?php endif; ?>
@@ -265,19 +265,19 @@ include '../backend/includes/header.php';
                     <?php if ($quote['viewed_at']): ?>
                         <div class="list-group-item">
                             <strong>Viewed:</strong><br>
-                            <?= date('M j, Y g:i A', safe_timestamp(strtotime($quote['viewed_at']))) ?>
+                            <?= escape(formatDateTime($quote['viewed_at'])) ?>
                         </div>
                     <?php endif; ?>
                     <?php if ($quote['accepted_at']): ?>
                         <div class="list-group-item">
                             <strong>Accepted:</strong><br>
-                            <?= date('M j, Y g:i A', safe_timestamp(strtotime($quote['accepted_at']))) ?>
+                            <?= escape(formatDateTime($quote['accepted_at'])) ?>
                         </div>
                     <?php endif; ?>
                     <?php if ($quote['declined_at']): ?>
                         <div class="list-group-item">
                             <strong>Declined:</strong><br>
-                            <?= date('M j, Y g:i A', safe_timestamp(strtotime($quote['declined_at']))) ?>
+                            <?= escape(formatDateTime($quote['declined_at'])) ?>
                         </div>
                     <?php endif; ?>
                 </div>

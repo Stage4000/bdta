@@ -206,6 +206,32 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+const platformTimeZone = <?= json_encode(getSystemTimezone()) ?>;
+const platformDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: platformTimeZone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+});
+
+function parseUtcDate(dateStr) {
+    if (!dateStr) {
+        return null;
+    }
+
+    const normalized = String(dateStr).trim().replace(' ', 'T');
+    const utcValue = /(?:Z|[+-]\d{2}:\d{2})$/i.test(normalized) ? normalized : `${normalized}Z`;
+    const date = new Date(utcValue);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateTime(dateStr) {
+    const date = parseUtcDate(dateStr);
+    return date ? platformDateTimeFormatter.format(date) : '';
+}
+
 // Load emails based on filter
 async function loadEmails(filter) {
     let url = 'unmatched_emails_api.php?';
@@ -249,7 +275,7 @@ function displayEmails(emails, filter) {
     let html = '<div class="list-group">';
     
     emails.forEach(email => {
-        const date = new Date(email.received_at).toLocaleString();
+        const date = formatDateTime(email.received_at);
         const assignedBadge = email.is_assigned ? `<span class="badge bg-success">Assigned to ${escapeHtml(email.assigned_client_name)}</span>` : '';
         const archivedBadge = email.is_archived ? '<span class="badge bg-secondary">Archived</span>' : '';
         const isSent = email.direction === 'outgoing';
@@ -313,11 +339,11 @@ async function showEmailDetails(emailId) {
                     <dd class="col-sm-9">${escapeHtml(email.subject)}</dd>
                     
                     <dt class="col-sm-3">${dateLabel}</dt>
-                    <dd class="col-sm-9">${new Date(email.received_at).toLocaleString()}</dd>
+                    <dd class="col-sm-9">${formatDateTime(email.received_at)}</dd>
                     
                     ${email.is_assigned ? `
                         <dt class="col-sm-3">Assigned to:</dt>
-                        <dd class="col-sm-9">${escapeHtml(email.assigned_client_name)} (${new Date(email.assigned_at).toLocaleString()})</dd>
+                        <dd class="col-sm-9">${escapeHtml(email.assigned_client_name)} (${formatDateTime(email.assigned_at)})</dd>
                     ` : ''}
                 </dl>
                 
@@ -415,7 +441,7 @@ function openReplyModal() {
         tmp.innerHTML = currentEmailData.body_html;
         originalText = tmp.textContent || tmp.innerText || '';
     }
-    const date = currentEmailData.received_at ? new Date(currentEmailData.received_at).toLocaleString() : '';
+    const date = currentEmailData.received_at ? formatDateTime(currentEmailData.received_at) : '';
     const quoted = '\n\n---\nOn ' + date + ', ' + (currentEmailData.from_email || '') + ' wrote:\n' +
         originalText.split('\n').map(l => '> ' + l).join('\n');
     document.getElementById('replyBody').value = quoted;

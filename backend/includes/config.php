@@ -196,8 +196,89 @@ function decode_json_assoc_list(mixed $json): array {
     return $rows;
 }
 
-function formatDate(mixed $date): string {
-    return date('F j, Y', safe_timestamp(strtotime(scalar_string($date))));
+function bdta_get_display_timezone(): DateTimeZone {
+    static $timezone = null;
+    if ($timezone instanceof DateTimeZone) {
+        return $timezone;
+    }
+
+    $timezone = new DateTimeZone(getSystemTimezone());
+    return $timezone;
+}
+
+function bdta_get_utc_timezone(): DateTimeZone {
+    static $timezone = null;
+    if ($timezone instanceof DateTimeZone) {
+        return $timezone;
+    }
+
+    $timezone = new DateTimeZone('UTC');
+    return $timezone;
+}
+
+function currentUtcDateTime(string $format = 'Y-m-d H:i:s'): string {
+    return gmdate($format);
+}
+
+function formatUtcTimestamp(int $timestamp, string $format = 'Y-m-d H:i:s'): string {
+    return gmdate($format, $timestamp);
+}
+
+function bdta_parse_datetime_string(string $value, DateTimeZone $default_timezone): ?DateTimeImmutable {
+    try {
+        return new DateTimeImmutable($value, $default_timezone);
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+function formatDate(mixed $date, string $format = 'F j, Y'): string {
+    $value = trim(scalar_string($date));
+    if ($value === '') {
+        return '';
+    }
+
+    $display_timezone = bdta_get_display_timezone();
+
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1) {
+        $datetime = DateTimeImmutable::createFromFormat('!Y-m-d', $value, $display_timezone);
+        return $datetime instanceof DateTimeImmutable ? $datetime->format($format) : '';
+    }
+
+    $datetime = bdta_parse_datetime_string($value, bdta_get_utc_timezone());
+    if (!$datetime instanceof DateTimeImmutable) {
+        return '';
+    }
+
+    return $datetime->setTimezone($display_timezone)->format($format);
+}
+
+function formatDateTime(mixed $date_time, string $format = 'M j, Y g:i A'): string {
+    $value = trim(scalar_string($date_time));
+    if ($value === '') {
+        return '';
+    }
+
+    $datetime = bdta_parse_datetime_string($value, bdta_get_utc_timezone());
+    if (!$datetime instanceof DateTimeImmutable) {
+        return '';
+    }
+
+    return $datetime->setTimezone(bdta_get_display_timezone())->format($format);
+}
+
+function localDateTimeToUtcString(mixed $date_time, string $format = 'Y-m-d H:i:s'): string {
+    $value = trim(scalar_string($date_time));
+    if ($value === '') {
+        return '';
+    }
+
+    $datetime = bdta_parse_datetime_string($value, bdta_get_display_timezone());
+    if (!$datetime instanceof DateTimeImmutable) {
+        return '';
+    }
+
+    return $datetime->setTimezone(bdta_get_utc_timezone())->format($format);
 }
 
 /**

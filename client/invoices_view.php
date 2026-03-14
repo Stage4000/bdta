@@ -91,7 +91,7 @@ include '../backend/includes/header.php';
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="send_invoice" value="1">
                             <button type="submit" class="btn btn-primary"
-                                    title="<?= !empty($invoice['invoice_sent_at']) ? 'Last sent: ' . escape($invoice['invoice_sent_at']) : 'Invoice not yet sent' ?>">
+                                    title="<?= !empty($invoice['invoice_sent_at']) ? 'Last sent: ' . escape(formatDateTime($invoice['invoice_sent_at'], 'M j, Y g:i A T')) : 'Invoice not yet sent' ?>">
                                 <i class="fas fa-paper-plane"></i>
                                 <?= !empty($invoice['invoice_sent_at']) ? 'Resend Invoice' : 'Send Invoice' ?>
                             </button>
@@ -101,7 +101,7 @@ include '../backend/includes/header.php';
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="send_receipt" value="1">
                             <button type="submit" class="btn btn-outline-success"
-                                    title="<?= $invoice['receipt_sent_at'] ? 'Last sent: ' . escape($invoice['receipt_sent_at']) : 'No receipt sent yet' ?>">
+                                    title="<?= $invoice['receipt_sent_at'] ? 'Last sent: ' . escape(formatDateTime($invoice['receipt_sent_at'], 'M j, Y g:i A T')) : 'No receipt sent yet' ?>">
                                 <i class="fas fa-receipt"></i>
                                 <?= $invoice['receipt_sent_at'] ? 'Resend Receipt' : 'Send Receipt' ?>
                             </button>
@@ -133,7 +133,7 @@ include '../backend/includes/header.php';
                                 <span class="badge bg-<?= $color ?>"><?= strtoupper(array_string_value($invoice, 'status')) ?></span>
                             </p>
                             <?php if (!empty($invoice['invoice_sent_at'])): ?>
-                                <p><small><i class="fas fa-paper-plane"></i> Invoice sent: <?= escape($invoice['invoice_sent_at']) ?></small></p>
+                                <p><small><i class="fas fa-paper-plane"></i> Invoice sent: <?= escape(formatDateTime($invoice['invoice_sent_at'], 'M j, Y g:i A T')) ?></small></p>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -221,7 +221,7 @@ include '../backend/includes/header.php';
                                 <br><small>Stripe Payment ID: <?= escape($invoice['stripe_payment_intent_id']) ?></small>
                             <?php endif; ?>
                             <?php if ($invoice['receipt_sent_at']): ?>
-                                <br><small><i class="fas fa-receipt"></i> Receipt sent: <?= escape($invoice['receipt_sent_at']) ?></small>
+                                <br><small><i class="fas fa-receipt"></i> Receipt sent: <?= escape(formatDateTime($invoice['receipt_sent_at'], 'M j, Y g:i A T')) ?></small>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>

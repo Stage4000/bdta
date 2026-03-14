@@ -269,7 +269,7 @@ include '../backend/includes/header.php';
                     <div class="mb-3">
                         <label class="text-muted small">Submitted</label>
                         <div>
-                            <?= date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($submission, 'submitted_at')))) ?>
+                            <?= escape(formatDateTime(array_string_value($submission, 'submitted_at'))) ?>
                             <?php if (array_string_value($submission, 'submitted_by_name') !== ''): ?>
                                 <br><small>by <?= escape(array_string_value($submission, 'submitted_by_name')) ?></small>
                             <?php endif; ?>
@@ -279,11 +279,11 @@ include '../backend/includes/header.php';
                     <?php if (array_string_value($submission, 'reviewed_by_name') !== ''): ?>
                         <div class="mb-3">
                             <label class="text-muted small">Reviewed</label>
-                            <div>
-                                <?= date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($submission, 'reviewed_at')))) ?>
-                                <br><small>by <?= escape(array_string_value($submission, 'reviewed_by_name')) ?></small>
-                            </div>
+                        <div>
+                            <?= escape(formatDateTime(array_string_value($submission, 'reviewed_at'))) ?>
+                            <br><small>by <?= escape(array_string_value($submission, 'reviewed_by_name')) ?></small>
                         </div>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>

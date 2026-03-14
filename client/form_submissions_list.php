@@ -191,7 +191,7 @@ include '../backend/includes/header.php';
                                     </span>
                                 </td>
                                 <td>
-                                    <?= date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($sub, 'submitted_at')))) ?>
+                                    <?= escape(formatDateTime(array_string_value($sub, 'submitted_at'))) ?>
                                     <?php if (array_string_value($sub, 'submitted_by_name') !== ''): ?>
                                         <br><small class="text-muted">by <?= htmlspecialchars(array_string_value($sub, 'submitted_by_name')) ?></small>
                                     <?php endif; ?>
@@ -213,7 +213,7 @@ include '../backend/includes/header.php';
                                 <td>
                                     <?php if (array_string_value($sub, 'reviewed_by_name') !== ''): ?>
                                         <?= htmlspecialchars(array_string_value($sub, 'reviewed_by_name')) ?>
-                                        <br><small class="text-muted"><?= date('M j, Y', safe_timestamp(strtotime(array_string_value($sub, 'reviewed_at')))) ?></small>
+                                        <br><small class="text-muted"><?= escape(formatDate(array_string_value($sub, 'reviewed_at'), 'M j, Y')) ?></small>
                                     <?php else: ?>
                                         <span class="text-muted">-</span>
                                     <?php endif; ?>

@@ -152,7 +152,7 @@ if ($method === 'GET') {
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
                 $from_email_addr = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
                 $from_name_val = Settings::get('email_from_name', "Brook's Dog Training Academy");
-                $now = date('Y-m-d H:i:s');
+                $now = currentUtcDateTime();
                 $stmt = $conn->prepare("
                     INSERT INTO unmatched_emails
                         (from_email, from_name, to_email, subject, body_html, body_text, received_at, direction, created_at)
@@ -224,7 +224,7 @@ if ($method === 'GET') {
                     assigned_by = ?
                 WHERE id = ?
             ");
-            $stmt->execute([$client_id, date('Y-m-d H:i:s'), $_SESSION['user_id'], $email_id]);
+            $stmt->execute([$client_id, currentUtcDateTime(), $_SESSION['user_id'], $email_id]);
             
             // Optionally create client_email record
             if ($create_client_email) {
@@ -247,7 +247,7 @@ if ($method === 'GET') {
                     array_string_value($unmatched_email, 'body_text'),
                     array_string_value($unmatched_email, 'received_at'),
                     array_string_value($unmatched_email, 'received_at'),
-                    date('Y-m-d H:i:s')
+                    currentUtcDateTime()
                 ]);
             }
             
@@ -266,7 +266,7 @@ if ($method === 'GET') {
                     archived_at = ?
                 WHERE id = ?
             ");
-            $stmt->execute([date('Y-m-d H:i:s'), $email_id]);
+            $stmt->execute([currentUtcDateTime(), $email_id]);
             
             echo json_encode([
                 'success' => true,
@@ -336,7 +336,7 @@ if ($method === 'GET') {
                 // Record the sent reply in unmatched_emails so it appears in the list
                 $from_email_addr = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
                 $from_name_val = Settings::get('email_from_name', "Brook's Dog Training Academy");
-                $now = date('Y-m-d H:i:s');
+                $now = currentUtcDateTime();
                 $stmt = $conn->prepare("
                     INSERT INTO unmatched_emails
                         (from_email, from_name, to_email, subject, body_html, body_text, received_at, direction, created_at)

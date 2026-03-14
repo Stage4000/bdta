@@ -532,9 +532,9 @@ require_once '../backend/includes/header.php';
                                         <strong><?= htmlspecialchars($cp['package_name']) ?></strong>
                                         <span class="badge bg-<?= $status_class ?> ms-2"><?= $status_label ?></span>
                                         <small class="text-muted ms-2">
-                                            Assigned: <?= date('M j, Y', safe_timestamp(strtotime(array_string_value($cp, 'purchased_at')))) ?>
+                                            Assigned: <?= escape(formatDate(array_string_value($cp, 'purchased_at'), 'M j, Y')) ?>
                                             <?php if ($cp['expires_at']): ?>
-                                                | Expires: <?= date('M j, Y', safe_timestamp(strtotime(array_string_value($cp, 'expires_at')))) ?>
+                                                | Expires: <?= escape(formatDate(array_string_value($cp, 'expires_at'), 'M j, Y')) ?>
                                             <?php endif; ?>
                                         </small>
                                     </div>
@@ -606,7 +606,7 @@ require_once '../backend/includes/header.php';
                                 <tbody>
                                     <?php foreach ($transactions as $transaction): ?>
                                         <tr>
-                                            <td><?php echo date('M j, Y g:i A', safe_timestamp(strtotime(array_string_value($transaction, 'created_at')))); ?></td>
+                                            <td><?php echo escape(formatDateTime(array_string_value($transaction, 'created_at'))); ?></td>
                                             <td>
                                                 <?php
                                                 $type_badges = [

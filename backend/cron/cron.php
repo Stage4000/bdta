@@ -74,7 +74,7 @@ class CronRunner {
      * @return list<array<string, mixed>>
      */
     private function getDueTasks(): array {
-        $current_time = date('Y-m-d H:i:s');
+        $current_time = currentUtcDateTime();
         
         $stmt = $this->conn->prepare("
             SELECT * FROM scheduled_tasks 
@@ -188,7 +188,7 @@ class CronRunner {
      * @param array<string, mixed> $task
      */
     private function updateTaskSchedule(array $task): void {
-        $current_time = date('Y-m-d H:i:s');
+        $current_time = currentUtcDateTime();
         $next_run = $this->calculateNextRun($task);
         $task_id = $task['id'] ?? null;
         
@@ -213,29 +213,28 @@ class CronRunner {
         
         switch ($schedule_type) {
             case 'hourly':
-                return date('Y-m-d H:i:s', strtotime('+1 hour'));
+                return formatUtcTimestamp(safe_timestamp(strtotime('+1 hour')));
             
             case 'daily':
                 // Run at specific time (e.g., "09:00")
                 if ($schedule_value && !$this->isCronExpression($schedule_value)) {
-                    $time_parts = explode(':', $schedule_value);
                     $next = strtotime('tomorrow ' . $schedule_value);
-                    return date('Y-m-d H:i:s', safe_timestamp($next));
+                    return formatUtcTimestamp(safe_timestamp($next));
                 }
-                return date('Y-m-d H:i:s', strtotime('+1 day'));
+                return formatUtcTimestamp(safe_timestamp(strtotime('+1 day')));
             
             case 'weekly':
                 // Run on specific day of week at specific time (e.g., "monday 09:00")
                 if ($schedule_value) {
                     $next = strtotime('next ' . $schedule_value);
-                    return date('Y-m-d H:i:s', safe_timestamp($next));
+                    return formatUtcTimestamp(safe_timestamp($next));
                 }
-                return date('Y-m-d H:i:s', strtotime('+1 week'));
+                return formatUtcTimestamp(safe_timestamp(strtotime('+1 week')));
             
             case 'interval':
                 // Run every X minutes (e.g., "15" for every 15 minutes)
                 $minutes = intval($schedule_value) ?: 60;
-                return date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$minutes} minutes")));
+                return formatUtcTimestamp(safe_timestamp(strtotime("+{$minutes} minutes")));
             
             case 'custom':
                 // Custom schedule using cron expression
@@ -247,12 +246,12 @@ class CronRunner {
                     $this->log("Warning: Unsupported cron expression '{$schedule_value}' for task '{$task_name}'. Defaulting to +15 minutes.");
                 }
                 // Fallback to 15 minutes for custom schedules
-                return date('Y-m-d H:i:s', strtotime('+15 minutes'));
+                return formatUtcTimestamp(safe_timestamp(strtotime('+15 minutes')));
             
             default:
                 // Default to daily
                 $this->log("Warning: Unknown schedule_type '{$schedule_type}' for task '{$task_name}'. Defaulting to +1 day.");
-                return date('Y-m-d H:i:s', strtotime('+1 day'));
+                return formatUtcTimestamp(safe_timestamp(strtotime('+1 day')));
         }
     }
     
@@ -281,7 +280,7 @@ class CronRunner {
         // Handle common interval patterns (e.g., */5 * * * * = every 5 minutes)
         if (preg_match('/^\*\/(\d+)$/', $minute, $matches) && $this->areAllWildcards([$hour, $day, $month, $weekday])) {
             $interval = intval($matches[1]);
-            return date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$interval} minutes")));
+            return formatUtcTimestamp(safe_timestamp(strtotime("+{$interval} minutes")));
         }
         
         // Handle hourly at specific minute (e.g., 15 * * * * = every hour at minute 15)
@@ -296,7 +295,7 @@ class CronRunner {
                 // Next hour
                 $next = mktime(intval(date('H')) + 1, $target_minute, 0);
             }
-            return date('Y-m-d H:i:s', safe_timestamp($next));
+            return formatUtcTimestamp(safe_timestamp($next));
         }
         
         // Handle daily at specific time (e.g., 0 9 * * * = daily at 9:00 AM)
@@ -308,10 +307,10 @@ class CronRunner {
             
             if ($today_run > $current_time) {
                 // Later today
-                return date('Y-m-d H:i:s', $today_run);
+                return formatUtcTimestamp($today_run);
             } else {
                 // Tomorrow at the same time
-                return date('Y-m-d H:i:s', safe_timestamp(strtotime('+1 day', safe_timestamp($today_run))));
+                return formatUtcTimestamp(safe_timestamp(strtotime('+1 day', safe_timestamp($today_run))));
             }
         }
         
@@ -338,7 +337,7 @@ class CronRunner {
      * Log to console/file
      */
     private function log(string $message): void {
-        $timestamp = date('Y-m-d H:i:s');
+        $timestamp = currentUtcDateTime();
         echo "[{$timestamp}] {$message}\n";
     }
 }

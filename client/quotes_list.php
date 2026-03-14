@@ -151,9 +151,9 @@ include '../backend/includes/header.php';
                                     </span>
                                 </td>
                                 <td>
-                                    <?= $quote['expiration_date'] ? date('M j, Y', safe_timestamp(strtotime(array_string_value($quote, 'expiration_date')))) : 'No expiration' ?>
+                                    <?= $quote['expiration_date'] ? escape(formatDate(array_string_value($quote, 'expiration_date'), 'M j, Y')) : 'No expiration' ?>
                                 </td>
-                                <td><?= date('M j, Y', safe_timestamp(strtotime(array_string_value($quote, 'created_at')))) ?></td>
+                                <td><?= escape(formatDate(array_string_value($quote, 'created_at'), 'M j, Y')) ?></td>
                                 <td>
                                     <a href="quotes_view.php?id=<?= $quote['id'] ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i>
