@@ -164,11 +164,11 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo escape($page_title); ?> — BDTA Editor</title>
     <!-- GrapesJS -->
-    <link rel="stylesheet" href="https://unpkg.com/grapesjs@0.21.7/dist/css/grapes.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/grapesjs@0.21.7/dist/css/grapes.min.css" integrity="sha384-y+b/FrTlQekasqcb9/Bb93YxG8pk4fd3wznRwaLWipnsTBkfVB1UGYWX0nTgbNV8" crossorigin="anonymous">
     <!-- Bootstrap (for editor UI chrome only) -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous">
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; background: #1a1a2e; }
@@ -342,10 +342,10 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
 </div>
 
 <!-- Scripts -->
-<script src="https://unpkg.com/grapesjs@0.21.7/dist/grapes.min.js"></script>
-<script src="https://unpkg.com/grapesjs-blocks-basic@1.0.1/dist/index.js"></script>
-<script src="https://unpkg.com/grapesjs-preset-webpage@1.0.2/dist/index.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/grapesjs@0.21.7/dist/grapes.min.js" integrity="sha384-Ol8eSqsd+xNeTBzPS5Gfeegc/JOwF0cST9fnFnXtFWKHIkJLiH8CgM1jXSpH29la" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/grapesjs-blocks-basic@1.0.1/dist/index.js" integrity="sha384-SkIXug4RSsC5wFGGLiKysFuWYowk4PyiQkVvCeADdNWfOlNRdm5OODEneqIHKunq" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/grapesjs-preset-webpage@1.0.2/dist/index.js" integrity="sha384-MLuiMl6BIeFtU1LtLWxAIg/hFukQ3yG/4WBUVoGj5SPgNL8Q0vFxn46h2ZqSNc3n" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
 <script>
 (function () {
@@ -594,9 +594,9 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
       <span>✉️ bookings@brooksdogtrainingacademy.com</span>
       <span class="d-none d-md-inline text-white-50">|</span>
       <div class="d-flex gap-2">
-        <a href="https://www.facebook.com/BrooksDogTrainingAcademy" class="bdta-contact-link">Facebook</a>
+        <a href="https://www.facebook.com/BrooksDogTrainingAcademy" class="bdta-contact-link" target="_blank" rel="noopener noreferrer" aria-label="Visit us on Facebook (opens in new tab)">Facebook</a>
         <span class="text-white-50">|</span>
-        <a href="https://www.instagram.com/brooksdogtrainingacademy" class="bdta-contact-link">Instagram</a>
+        <a href="https://www.instagram.com/brooksdogtrainingacademy" class="bdta-contact-link" target="_blank" rel="noopener noreferrer" aria-label="Visit us on Instagram (opens in new tab)">Instagram</a>
       </div>
     </div>
   </div>

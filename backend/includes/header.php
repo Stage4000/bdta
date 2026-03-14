@@ -14,8 +14,8 @@
             document.documentElement.setAttribute('data-bs-theme', theme);
         }());
     </script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous">
     <link rel="stylesheet" href="../assets/css/mobile.css">
     <link rel="manifest" href="/client/manifest.webmanifest">
     <?php
@@ -169,7 +169,7 @@
             <!-- Mobile menu toggle button -->
             <nav class="navbar navbar-dark d-md-none app-mobile-navbar">
                 <div class="container-fluid">
-                    <span class="navbar-brand mb-0 h1 fs-6">BDTA Client Area</span>
+                    <span class="navbar-brand mb-0 fs-6">BDTA Client Area</span>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button>

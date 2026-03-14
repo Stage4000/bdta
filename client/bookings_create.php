@@ -93,14 +93,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE atf.appointment_type_id = ?
             ");
             $stmt->execute([$apt_type['id']]);
-            $required_form_ids = array_map(static fn(mixed $value): int => safe_int($value), $stmt->fetchAll(PDO::FETCH_COLUMN));
+            $required_form_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
             if (!empty($required_form_ids)) {
                 $stmt2 = $conn->prepare("
-                    SELECT DISTINCT template_id FROM form_submissions
-                    WHERE client_id = ? AND status = 'submitted'
+                    SELECT DISTINCT fs.template_id
+                    FROM form_submissions fs
+                    JOIN appointment_type_forms atf ON atf.form_template_id = fs.template_id
+                    WHERE fs.client_id = ? AND fs.status = 'submitted' AND atf.appointment_type_id = ?
                 ");
-                $stmt2->execute([$client_id]);
-                $submitted_form_ids = array_map(static fn(mixed $value): int => safe_int($value), $stmt2->fetchAll(PDO::FETCH_COLUMN));
+                $stmt2->execute([$client_id, $apt_type['id']]);
+                $submitted_form_ids = $stmt2->fetchAll(PDO::FETCH_COLUMN);
                 $missing = array_diff($required_form_ids, $submitted_form_ids);
                 if (!empty($missing)) {
                     $errors[] = "Client must submit required forms before booking (or override)";

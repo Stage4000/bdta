@@ -324,17 +324,17 @@ footer a:hover {
     transform: translateY(-5px);
 }
 
-.social-icon-button {
+.circular-icon-button {
     height: 3.125rem;
     width: 3.125rem;
 }
 
-.social-icon-button-sm {
+.circular-icon-button-sm {
     height: 2.5rem;
     width: 2.5rem;
 }
 
-.social-icon-button-md {
+.circular-icon-button-md {
     height: 2.8125rem;
     width: 2.8125rem;
 }
