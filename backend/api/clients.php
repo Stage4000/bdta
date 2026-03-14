@@ -3,15 +3,14 @@
  * List clients for assignment/selection
  */
 require_once __DIR__ . '/../includes/config.php';
-requireLogin();
 
 header('Content-Type: application/json');
 
 /**
  * @return never
  */
-function respond_with_error(string $log_message): never {
-    http_response_code(500);
+function respondWithError(string $log_message, int $status = 500): never {
+    http_response_code($status);
     error_log($log_message);
     try {
         echo json_encode([
@@ -23,6 +22,10 @@ function respond_with_error(string $log_message): never {
         echo '{"success":false,"error":"Failed to load clients"}';
     }
     exit;
+}
+
+if (!isLoggedIn()) {
+    respondWithError('clients.php: unauthorized access', 401);
 }
 
 try {
@@ -43,10 +46,10 @@ try {
             'clients' => $clients,
         ], JSON_THROW_ON_ERROR);
     } catch (JsonException $e) {
-        respond_with_error('clients.php: failed to encode clients response: ' . $e->getMessage());
+        respondWithError('clients.php: failed to encode clients response: ' . $e->getMessage());
     }
 } catch (PDOException $e) {
-    respond_with_error('clients.php: failed to load clients: ' . $e->getMessage());
+    respondWithError('clients.php: failed to load clients: ' . $e->getMessage());
 } catch (Throwable $e) {
-    respond_with_error('clients.php: unexpected error: ' . $e->getMessage());
+    respondWithError('clients.php: unexpected error: ' . $e->getMessage());
 }
