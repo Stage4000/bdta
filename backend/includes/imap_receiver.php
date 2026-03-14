@@ -113,6 +113,24 @@ class ImapEmailReceiver {
             $emails = imap_search($this->getImapConnection(), "UNSEEN SINCE \"{$since_date}\"");
             $search_errors = array_values(array_map('scalar_string', imap_errors() ?: []));
             
+            // If there are no unseen results and no errors, fall back to searching all mail since the sync window.
+            // This covers cases where another client has already marked the messages as seen before the cron task runs.
+            if (($emails === false || empty($emails)) && empty($search_errors)) {
+                imap_errors();
+                $emails = imap_search($this->getImapConnection(), "SINCE \"{$since_date}\"");
+                $fallback_errors = array_values(array_map('scalar_string', imap_errors() ?: []));
+                if ($emails === false && !empty($fallback_errors)) {
+                    $this->disconnect();
+                    return [
+                        'success' => false,
+                        'message' => 'IMAP search failed (fallback): ' . implode('; ', $fallback_errors),
+                        'emails_processed' => 0,
+                        'items_processed' => 0,
+                        'errors' => $fallback_errors
+                    ];
+                }
+            }
+            
             if ($emails === false) {
                 $this->disconnect();
                 if (!empty($search_errors)) {
