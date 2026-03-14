@@ -59,18 +59,13 @@ $query = "
     FROM form_templates ft
     LEFT JOIN appointment_types at ON ft.appointment_type_id = at.id
     $where_clause
-    ORDER BY ft.created_at DESC
-    LIMIT :limit OFFSET :offset
-";
+    ORDER BY ft.created_at DESC" . $db->buildLimitClause($per_page, $offset);
 
-// where_clause is assembled only from fixed branches and the dynamic form_type value stays bound.
-// nosemgrep
+// nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- fixed-branch WHERE clause, bound form_type, int-cast LIMIT/OFFSET via $db->buildLimitClause().
 $stmt = $conn->prepare($query);
 if ($type_filter != 'all' && $type_filter != 'client' && $type_filter != 'internal') {
     $stmt->bindParam(':form_type', $type_filter);
 }
-$stmt->bindParam(':limit', $per_page, PDO::PARAM_INT);
-$stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute();
 $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
