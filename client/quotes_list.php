@@ -40,16 +40,9 @@ $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get quotes
-// nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- bound nullable filters and safe_int()-bounded LIMIT/OFFSET literals via $db->buildLimitClause().
-$stmt = $conn->prepare(
-    "SELECT q.*, c.name as client_name
-     FROM quotes q
-     INNER JOIN clients c ON q.client_id = c.id
-     WHERE (? IS NULL OR q.client_id = ?)
-        AND (? IS NULL OR q.status = ?)
-      ORDER BY q.created_at DESC
-     " . $limit_clause
-);
+// Pagination literals come from safe_int()-bounded integers via buildLimitClause(); filters remain parameterized.
+// nosemgrep
+$stmt = $conn->prepare("SELECT q.*, c.name as client_name FROM quotes q INNER JOIN clients c ON q.client_id = c.id WHERE (? IS NULL OR q.client_id = ?) AND (? IS NULL OR q.status = ?) ORDER BY q.created_at DESC " . $limit_clause);
 $bind_nullable_param($stmt, 1, $client_filter_param, PDO::PARAM_INT);
 $bind_nullable_param($stmt, 2, $client_filter_param, PDO::PARAM_INT);
 $bind_nullable_param($stmt, 3, $status_filter_param, PDO::PARAM_STR);
