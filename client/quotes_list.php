@@ -18,42 +18,43 @@ $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
 // Build query
-$where = [];
-$params = [];
-
-if ($client_filter) {
-    $where[] = "q.client_id = ?";
-    $params[] = $client_filter;
-}
-
-if ($status_filter) {
-    $where[] = "q.status = ?";
-    $params[] = $status_filter;
-}
-
-$where_sql = $where ? "WHERE " . implode(" AND ", $where) : "";
-$limit_clause = $db->buildLimitClause($per_page, $offset);
+$client_filter_param = $client_filter !== '' ? safe_int($client_filter) : null;
+$status_filter_param = $status_filter !== '' ? $status_filter : null;
+$bind_nullable_param = static function (PDOStatement $stmt, int $position, mixed $value, int $type): void {
+    $stmt->bindValue($position, $value, $value === null ? PDO::PARAM_NULL : $type);
+};
 
 // Get total count
-$count_sql = "SELECT COUNT(*) FROM quotes q $where_sql";
-// where_sql is composed only from fixed SQL fragments while values stay parameterized in $params.
-// nosemgrep
+$count_sql = "SELECT COUNT(*)
+              FROM quotes q
+              WHERE (? IS NULL OR q.client_id = ?)
+                AND (? IS NULL OR q.status = ?)";
 $count_stmt = $conn->prepare($count_sql);
-$count_stmt->execute($params);
+$bind_nullable_param($count_stmt, 1, $client_filter_param, PDO::PARAM_INT);
+$bind_nullable_param($count_stmt, 2, $client_filter_param, PDO::PARAM_INT);
+$bind_nullable_param($count_stmt, 3, $status_filter_param, PDO::PARAM_STR);
+$bind_nullable_param($count_stmt, 4, $status_filter_param, PDO::PARAM_STR);
+$count_stmt->execute();
 $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get quotes
-$sql = "SELECT q.*, c.name as client_name 
-        FROM quotes q
-        INNER JOIN clients c ON q.client_id = c.id
-        $where_sql
-        ORDER BY q.created_at DESC" . $limit_clause;
-
-// where_sql uses fixed fragments and limit_clause comes from safe_int()-bounded pagination.
-// nosemgrep
-$stmt = $conn->prepare($sql);
-$stmt->execute($params);
+$stmt = $conn->prepare(
+    "SELECT q.*, c.name as client_name
+     FROM quotes q
+     INNER JOIN clients c ON q.client_id = c.id
+     WHERE (? IS NULL OR q.client_id = ?)
+       AND (? IS NULL OR q.status = ?)
+     ORDER BY q.created_at DESC
+     LIMIT ? OFFSET ?"
+);
+$bind_nullable_param($stmt, 1, $client_filter_param, PDO::PARAM_INT);
+$bind_nullable_param($stmt, 2, $client_filter_param, PDO::PARAM_INT);
+$bind_nullable_param($stmt, 3, $status_filter_param, PDO::PARAM_STR);
+$bind_nullable_param($stmt, 4, $status_filter_param, PDO::PARAM_STR);
+$stmt->bindValue(5, $per_page, PDO::PARAM_INT);
+$stmt->bindValue(6, $offset, PDO::PARAM_INT);
+$stmt->execute();
 $quotes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get clients for filter
