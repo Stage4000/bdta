@@ -66,39 +66,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
     <title>Forgot Password - BDTA Client Portal</title>
-    <!-- Dark mode: respect saved user preference, fall back to system preference -->
-    <script>
-        (function () {
-            'use strict';
-            var saved = localStorage.getItem('bdta-theme');
-            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        }());
-    </script>
+    <script src="/assets/js/theme-init.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous">
-    <style>
-        body {
-            background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-        }
-        .login-card { border: none; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        .login-header { background: linear-gradient(135deg, #9a0073 0%, #7a005a 100%); color: white; padding: 2rem; border-radius: 15px 15px 0 0; text-align: center; }
-        .btn-primary { background-color: #9a0073; border-color: #9a0073; }
-        .btn-primary:hover { background-color: #7a005a; border-color: #7a005a; }
-        .login-theme-toggle { z-index: 1100; }
-        [data-bs-theme="dark"] body { background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%); }
-        [data-bs-theme="dark"] .login-card { background-color: #1f2937; color: #e5e7eb; }
-        [data-bs-theme="dark"] .card-body { background-color: #111827; color: #e5e7eb; }
-        [data-bs-theme="dark"] .form-control { background-color: #111827; border-color: #4b5563; color: #f8fafc; }
-        [data-bs-theme="dark"] .form-control::placeholder { color: #9ca3af; }
-        [data-bs-theme="dark"] .text-muted,
-        [data-bs-theme="dark"] .form-text,
-        [data-bs-theme="dark"] a:not(.btn) { color: #d8b4fe !important; }
-        [data-bs-theme="dark"] a:not(.btn):hover { color: #f5d0fe !important; }
-    </style>
+    <link rel="stylesheet" href="/assets/css/auth-pages.css">
 </head>
 <body>
     <!-- Dark mode toggle (floating) -->
@@ -140,25 +111,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
-    <script>
-    (function () {
-        'use strict';
-        function updateIcon() {
-            var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-            var icon = document.getElementById('darkModeIcon');
-            if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
-        }
-        updateIcon();
-        var btn = document.getElementById('darkModeToggle');
-        if (btn) {
-            btn.addEventListener('click', function () {
-                var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-bs-theme', next);
-                localStorage.setItem('bdta-theme', next);
-                updateIcon();
-            });
-        }
-    }());
-    </script>
+    <script src="/assets/js/auth-theme-toggle.js"></script>
 </body>
 </html>
