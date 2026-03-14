@@ -11,7 +11,8 @@ header('Content-Type: application/json');
  */
 function respondWithError(string $logMessage, int $status = 500, string $publicMessage = 'An error occurred'): never {
     http_response_code($status);
-    error_log($logMessage);
+    $sanitizedLog = 'clients.php error (status ' . $status . '): ' . $publicMessage;
+    error_log($sanitizedLog);
     try {
         echo json_encode([
             'success' => false,
