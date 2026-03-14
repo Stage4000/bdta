@@ -25,7 +25,7 @@ jobs:
       - name: Install Node tools
         run: |
           npm install -g eslint
-          npm install -g stylelint stylelint-config-standard
+          npm install -g stylelint
           npm install -g htmlhint
           npm install -g semgrep
 
@@ -65,10 +65,10 @@ jobs:
         with:
           php-version: 8.2
 
-      - name: Install Composer dependencies
-        run: |
-          composer install --no-progress --prefer-dist
-
       - name: Run PHPStan
-        run: |
-          vendor/bin/phpstan analyse
+        uses: php-actions/phpstan@v3
+        with:
+          version: latest
+          php_version: 8.2
+          configuration: phpstan.neon
+          level: 9
