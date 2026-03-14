@@ -145,7 +145,7 @@ include '../backend/includes/header.php';
                                                     </a>
                                                 <?php endif; ?>
                                             </td>
-                                            <td><?= date('M j, Y', safe_timestamp(strtotime(array_string_value($sig, 'created_at')))) ?></td>
+                                            <td><?= escape(formatDate(array_string_value($sig, 'created_at'), 'M j, Y')) ?></td>
                                             <td>
                                                 <div class="btn-group btn-group-sm">
                                                     <a href="email_signatures_edit.php?id=<?= $sig['id'] ?>" 

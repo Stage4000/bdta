@@ -27,7 +27,7 @@ $default_tasks = [
         'schedule_type' => 'interval',
         'schedule_value' => '120', // Every 2 hours
         'is_active' => 1,
-        'next_run' => date('Y-m-d H:i:s')
+        'next_run' => currentUtcDateTime()
     ],
     [
         'task_name' => 'Send Contract Reminders',
@@ -35,7 +35,7 @@ $default_tasks = [
         'schedule_type' => 'daily',
         'schedule_value' => '10:00', // Daily at 10 AM
         'is_active' => 1,
-        'next_run' => date('Y-m-d 10:00:00')
+        'next_run' => localDateTimeToUtcString(currentLocalDate() . ' 10:00:00')
     ],
     [
         'task_name' => 'Send Form Reminders',
@@ -43,7 +43,7 @@ $default_tasks = [
         'schedule_type' => 'daily',
         'schedule_value' => '10:00', // Daily at 10 AM
         'is_active' => 1,
-        'next_run' => date('Y-m-d 10:00:00')
+        'next_run' => localDateTimeToUtcString(currentLocalDate() . ' 10:00:00')
     ],
     [
         'task_name' => 'Send Quote Reminders',
@@ -51,7 +51,7 @@ $default_tasks = [
         'schedule_type' => 'daily',
         'schedule_value' => '11:00', // Daily at 11 AM
         'is_active' => 1,
-        'next_run' => date('Y-m-d 11:00:00')
+        'next_run' => localDateTimeToUtcString(currentLocalDate() . ' 11:00:00')
     ],
     [
         'task_name' => 'Send Invoice Reminders',
@@ -59,7 +59,7 @@ $default_tasks = [
         'schedule_type' => 'daily',
         'schedule_value' => '09:00', // Daily at 9 AM
         'is_active' => 1,
-        'next_run' => date('Y-m-d 09:00:00')
+        'next_run' => localDateTimeToUtcString(currentLocalDate() . ' 09:00:00')
     ],
     [
         'task_name' => 'Process Workflow Steps',
@@ -67,7 +67,7 @@ $default_tasks = [
         'schedule_type' => 'interval',
         'schedule_value' => '60', // Every hour
         'is_active' => 1,
-        'next_run' => date('Y-m-d H:i:s')
+        'next_run' => currentUtcDateTime()
     ],
     [
         'task_name' => 'Send Scheduled Emails',
@@ -75,7 +75,7 @@ $default_tasks = [
         'schedule_type' => 'interval',
         'schedule_value' => '15', // Every 15 minutes
         'is_active' => 1,
-        'next_run' => date('Y-m-d H:i:s')
+        'next_run' => currentUtcDateTime()
     ],
     [
         'task_name' => 'Receive Emails (IMAP)',
@@ -83,7 +83,7 @@ $default_tasks = [
         'schedule_type' => 'interval',
         'schedule_value' => '15', // Every 15 minutes
         'is_active' => 1,
-        'next_run' => date('Y-m-d H:i:s')
+        'next_run' => currentUtcDateTime()
     ]
 ];
 

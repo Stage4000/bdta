@@ -845,16 +845,31 @@ function getEmailDateText(email) {
     }
 }
 
+const platformTimeZone = <?= json_encode(getSystemTimezone()) ?>;
+const platformDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: platformTimeZone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+});
+
+function parseUtcDate(dateStr) {
+    if (!dateStr) {
+        return null;
+    }
+
+    const normalized = String(dateStr).trim().replace(' ', 'T');
+    const utcValue = /(?:Z|[+-]\d{2}:\d{2})$/i.test(normalized) ? normalized : `${normalized}Z`;
+    const date = new Date(utcValue);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
 // Format date time
 function formatDateTime(dateStr) {
-    const date = new Date(dateStr);
-    return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-    });
+    const date = parseUtcDate(dateStr);
+    return date ? platformDateTimeFormatter.format(date) : '';
 }
 
 // Escape HTML

@@ -111,7 +111,15 @@ if ($method === 'GET') {
         ");
         
         $status = $send_immediately ? 'pending' : 'scheduled';
-        $scheduled_at_value = $send_immediately ? null : $scheduled_at;
+        $scheduled_at_value = null;
+        if (!$send_immediately) {
+            $scheduled_at_value = localDateTimeToUtcString($scheduled_at);
+            if ($scheduled_at_value === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'scheduled_at must be a valid date and time']);
+                exit;
+            }
+        }
         $has_template = $template_id > 0;
         $template_id_value = $has_template ? $template_id : null;
         $email_body_html = $has_template ? EmailService::wrapEmailHtml($body_html) : $body_html;

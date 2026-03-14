@@ -505,7 +505,7 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                                         <small class="text-muted">
                                             Syncing to calendar:
                                             <strong><?= escape($oauth_token_row['calendar_id'] ?? 'primary') ?></strong>
-                                            &mdash; connected <?= escape(date('M j, Y', safe_timestamp(strtotime(array_string_value($oauth_token_row, 'created_at'))))) ?>
+                                            &mdash; connected <?= escape(formatDate(array_string_value($oauth_token_row, 'created_at'), 'M j, Y')) ?>
                                         </small>
                                     </div>
 

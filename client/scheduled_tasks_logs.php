@@ -44,9 +44,6 @@ if ($task_id) {
 }
 
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$system_timezone = getSystemTimezone();
-$display_timezone = new DateTimeZone($system_timezone);
-$utc_timezone = new DateTimeZone('UTC');
 $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
@@ -101,11 +98,7 @@ include '../backend/includes/header.php';
                                         <tr class="<?php echo $log['status'] === 'error' ? 'table-danger' : ''; ?>">
                                             <td>
                                                 <small class="text-muted">
-                                                    <?php 
-                                                    $datetime = new DateTime(array_string_value($log, 'executed_at'), $utc_timezone);
-                                                    $datetime->setTimezone($display_timezone);
-                                                    echo $datetime->format('M j, Y g:i:s A');
-                                                    ?>
+                                                    <?= escape(formatDateTime(array_string_value($log, 'executed_at'), 'M j, Y g:i:s A')) ?>
                                                 </small>
                                             </td>
                                             <td>

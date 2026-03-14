@@ -133,8 +133,7 @@ include '../backend/includes/header.php';
                                             </td>
                                             <td>
                                                 <small class="text-muted">
-                                                    <?php $enrolled_at_timestamp = safe_timestamp(strtotime(array_string_value($enrollment, 'enrolled_at'))); ?>
-                                                    <?php echo date('M j, Y g:i A', $enrolled_at_timestamp); ?>
+                                                    <?php echo escape(formatDateTime(array_string_value($enrollment, 'enrolled_at'))); ?>
                                                 </small>
                                             </td>
                                             <td>

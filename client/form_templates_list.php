@@ -189,7 +189,7 @@ require_once '../backend/includes/header.php';
                                 <span class="badge bg-secondary">Inactive</span>
                                 <?php endif; ?>
                             </td>
-                            <td><?php echo date('M j, Y', safe_timestamp(strtotime(array_string_value($template, 'created_at')))); ?></td>
+                            <td><?php echo escape(formatDate(array_string_value($template, 'created_at'), 'M j, Y')); ?></td>
                             <td>
                                 <a href="form_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-primary">
                                     <i class="fas fa-pencil"></i>

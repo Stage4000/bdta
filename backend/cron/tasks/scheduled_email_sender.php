@@ -22,7 +22,7 @@ class ScheduledEmailSenderTask {
      */
     public function execute(): array {
         // Get emails that are scheduled to be sent now or in the past
-        $now = date('Y-m-d H:i:s');
+        $now = currentUtcDateTime();
         
         $stmt = $this->conn->prepare("
             SELECT ce.*, c.email as client_email, c.name as client_name

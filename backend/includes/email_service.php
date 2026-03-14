@@ -242,7 +242,7 @@ class EmailService {
                 return;
             }
 
-            $now    = date('Y-m-d H:i:s');
+            $now    = currentUtcDateTime();
             $status = $result['success'] ? 'sent' : 'failed';
             $stmt   = $this->conn->prepare("
                 INSERT INTO client_emails (
