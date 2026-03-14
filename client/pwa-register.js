@@ -3,6 +3,7 @@
     if (!('serviceWorker' in navigator)) {
         return;
     }
+
     // Register only for admin pages under /client/ to keep scope intentional.
     const ADMIN_PATH = '/client/';
     const currentPath = (window.location.pathname || '').toLowerCase();
@@ -10,7 +11,64 @@
     if (!currentPath.startsWith(normalizedAdminPath)) {
         return;
     }
+
+    const installNavItem = document.getElementById('pwaInstallNavItem');
+    const installButton = document.getElementById('pwaInstallButton');
+    const hasInstallUi = installNavItem !== null && installButton !== null;
+    let deferredInstallPrompt = null;
+
+    function isStandaloneMode() {
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function updateInstallButton() {
+        if (!installNavItem || !installButton) {
+            return;
+        }
+
+        const canInstall = deferredInstallPrompt !== null && !isStandaloneMode();
+        installNavItem.classList.toggle('d-none', !canInstall);
+        installButton.disabled = !canInstall;
+    }
+
+    window.addEventListener('beforeinstallprompt', function (event) {
+        if (!hasInstallUi) {
+            return;
+        }
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        updateInstallButton();
+    });
+
+    window.addEventListener('appinstalled', function () {
+        if (!hasInstallUi) {
+            return;
+        }
+        deferredInstallPrompt = null;
+        updateInstallButton();
+    });
+
+    if (installButton) {
+        installButton.addEventListener('click', async function () {
+            if (!deferredInstallPrompt) {
+                return;
+            }
+
+            deferredInstallPrompt.prompt();
+
+            try {
+                await deferredInstallPrompt.userChoice;
+            } catch (err) {
+                console.error('PWA install prompt failed:', err);
+            }
+
+            deferredInstallPrompt = null;
+            updateInstallButton();
+        });
+    }
+
     window.addEventListener('load', function () {
+        updateInstallButton();
         navigator.serviceWorker.register('/client/sw.js', { scope: ADMIN_PATH }).catch(function (err) {
             console.error('Service worker registration failed:', err);
             const note = document.createElement('div');
