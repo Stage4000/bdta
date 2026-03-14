@@ -121,7 +121,7 @@ if (array_int_value($page, 'is_homepage') !== 1 && trim(array_string_value($page
             if ($navbar && $footer) {
                 $page_heading = escape(array_string_value($page, 'title'));
                 $seed_html = $navbar . "\n"
-                    . '<main class="pt-5">' . "\n"
+                    . '<main class="bdta-seeded-page-main">' . "\n"
                     . '<section class="py-5">' . "\n"
                     . '<div class="container">' . "\n"
                     . '<h1 class="display-5 fw-bold mb-4">' . $page_heading . '</h1>' . "\n"
@@ -134,6 +134,7 @@ if (array_int_value($page, 'is_homepage') !== 1 && trim(array_string_value($page
         }
 
         if ($seed_html) {
+            $seed_css = trim($seed_css . "\n\n.bdta-seeded-page-main {\n    padding-top: 80px;\n    min-height: 60vh;\n}\n");
             $seed_html = makeHtmlPathsAbsolute($seed_html);
             $seed_css  = makeHtmlPathsAbsolute($seed_css);
 
