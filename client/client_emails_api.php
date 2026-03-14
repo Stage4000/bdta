@@ -115,7 +115,7 @@ if ($method === 'GET') {
         $has_template = $template_id > 0;
         $template_id_value = $has_template ? $template_id : null;
         $email_body_html = $has_template ? EmailService::wrapEmailHtml($body_html) : $body_html;
-        $email_body_text = $body_text !== '' ? $body_text : strip_tags($email_body_html);
+        $email_body_text = $body_text !== '' ? $body_text : strip_tags($body_html);
         
         $stmt->execute([
             $request_client_id,
