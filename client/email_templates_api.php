@@ -112,10 +112,6 @@ if ($method === 'GET') {
             }
         }
 
-        // Apply the standard styled wrapper so the preview matches what
-        // recipients actually see when the email is sent.
-        $body_html = EmailService::wrapEmailHtml($body_html);
-        
         echo json_encode([
             'success' => true,
             'preview' => [
