@@ -2,6 +2,7 @@
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/settings.php';
 
+/** @phpstan-type NormalizedClient array{name:string, email:string, phone:string, address:string, notes:string, moxie_client_id:string, archived:bool} */
 class MoxieClientSync {
     private const DEFAULT_PAGE_SIZE = 100;
     private const MAX_PAGES = 100;
@@ -94,7 +95,7 @@ class MoxieClientSync {
         $line = '[' . gmdate('Y-m-d H:i:s') . " UTC] " . $message;
         if (!empty($context)) {
             $context_json = json_encode($context, JSON_UNESCAPED_SLASHES);
-            if (is_string($context_json) && $context_json !== '') {
+            if ($context_json !== false) {
                 $line .= ' ' . $context_json;
             }
         }
@@ -189,7 +190,7 @@ class MoxieClientSync {
 
                 $merged = [
                     'name' => $client['name'] !== '' ? $client['name'] : self::stringValue($existing, 'name'),
-                    'email' => $client['email'] !== '' ? $client['email'] : self::stringValue($existing, 'email'),
+                    'email' => $client['email'],
                     'phone' => $client['phone'] !== '' ? $client['phone'] : self::stringValue($existing, 'phone'),
                     'address' => $client['address'] !== '' ? $client['address'] : self::stringValue($existing, 'address'),
                     'notes' => $client['notes'] !== '' ? $client['notes'] : self::stringValue($existing, 'notes'),
@@ -251,7 +252,7 @@ class MoxieClientSync {
         $page = 0;
         $start = 0;
 
-        while ($next_url !== '' && $page < self::MAX_PAGES) {
+        while ($page < self::MAX_PAGES) {
             $page++;
             self::log('Fetching Moxie client page.', ['url' => $next_url, 'page' => $page]);
             $response = $this->requestJson($next_url, $api_key);
@@ -267,6 +268,7 @@ class MoxieClientSync {
             }
 
             if (count($page_clients) < $page_size) {
+                $next_url = '';
                 break;
             }
 
@@ -286,7 +288,7 @@ class MoxieClientSync {
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param array<int|string, mixed> $payload
      * @return list<array<string, mixed>>
      */
     public static function extractClientRows(array $payload): array {
@@ -312,7 +314,7 @@ class MoxieClientSync {
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param array<int|string, mixed> $payload
      */
     public static function extractNextUrl(array $payload, string $base_url): string {
         $links = self::arrayValue($payload, '_links');
@@ -338,7 +340,7 @@ class MoxieClientSync {
 
     /**
      * @param array<string, mixed> $raw_client
-     * @return array{name:string, email:string, phone:string, address:string, notes:string, moxie_client_id:string, archived:bool}
+     * @return NormalizedClient
      */
     public static function normalizeClient(array $raw_client): array {
         $contacts = self::listOfAssoc($raw_client['contacts'] ?? []);
@@ -388,6 +390,7 @@ class MoxieClientSync {
     }
 
     /**
+     * @param NormalizedClient $client
      * @return array<string, mixed>|null
      */
     private function findExistingClient(array $client): ?array {
@@ -422,7 +425,7 @@ class MoxieClientSync {
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<int|string, mixed>
      */
     private function requestJson(string $url, string $api_key): array {
         $this->assertAllowedRequestUrl($url);
@@ -461,6 +464,7 @@ class MoxieClientSync {
             throw new RuntimeException('Moxie response could not be decoded as JSON.');
         }
 
+        /** @var array<int|string, mixed> $decoded */
         return $decoded;
     }
 
@@ -500,11 +504,23 @@ class MoxieClientSync {
     }
 
     /**
-     * @param array<string, mixed> $row
+     * @param array<int|string, mixed> $row
+     * @return array<int|string, mixed>|null
      */
     private static function arrayValue(array $row, string $key): ?array {
         $value = $row[$key] ?? null;
         return is_array($value) ? $value : null;
+    }
+
+    /**
+     * @param array<int|string, mixed> $value
+     */
+    private static function isListArray(array $value): bool {
+        if (function_exists('array_is_list')) {
+            return array_is_list($value);
+        }
+
+        return array_keys($value) === range(0, count($value) - 1);
     }
 
     private static function isAllowedMoxieHost(string $host): bool {
@@ -527,12 +543,7 @@ class MoxieClientSync {
             return;
         }
 
-        if (!chmod($path, 0750)) {
-            if (!self::directoryPermissionsAcceptable($path)) {
-                throw new RuntimeException('Unable to secure the Moxie log directory permissions.');
-            }
-            return;
-        }
+        chmod($path, 0750);
 
         if (!self::directoryPermissionsAcceptable($path)) {
             throw new RuntimeException('Unable to secure the Moxie log directory permissions.');
@@ -548,12 +559,7 @@ class MoxieClientSync {
             return;
         }
 
-        if (!chmod($path, 0600)) {
-            if (!self::filePermissionsAcceptable($path)) {
-                throw new RuntimeException('Unable to secure the Moxie log file permissions.');
-            }
-            return;
-        }
+        chmod($path, 0600);
 
         if (!self::filePermissionsAcceptable($path)) {
             throw new RuntimeException('Unable to secure the Moxie log file permissions.');
@@ -620,14 +626,6 @@ class MoxieClientSync {
 
         $normalized = strtolower(trim(scalar_string($value)));
         return in_array($normalized, ['1', 'true', 'yes', 'y'], true);
-    }
-
-    private static function isListArray(array $value): bool {
-        if (function_exists('array_is_list')) {
-            return array_is_list($value);
-        }
-
-        return array_keys($value) === range(0, count($value) - 1);
     }
 
     /**
