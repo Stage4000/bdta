@@ -188,9 +188,14 @@ class MoxieClientSync {
                     continue;
                 }
 
+                $email = $client['email'];
+                if ($email === '') {
+                    throw new LogicException('Normalized Moxie clients reaching merge/update must have a non-empty email address.');
+                }
+
                 $merged = [
                     'name' => $client['name'] !== '' ? $client['name'] : self::stringValue($existing, 'name'),
-                    'email' => $client['email'],
+                    'email' => $email,
                     'phone' => $client['phone'] !== '' ? $client['phone'] : self::stringValue($existing, 'phone'),
                     'address' => $client['address'] !== '' ? $client['address'] : self::stringValue($existing, 'address'),
                     'notes' => $client['notes'] !== '' ? $client['notes'] : self::stringValue($existing, 'notes'),
@@ -251,6 +256,7 @@ class MoxieClientSync {
         $next_url = $base_url . '/api/public/clients/list?start=0&count=' . $page_size;
         $page = 0;
         $start = 0;
+        $completed_pagination = false;
 
         while ($page < self::MAX_PAGES) {
             $page++;
@@ -268,7 +274,7 @@ class MoxieClientSync {
             }
 
             if (count($page_clients) < $page_size) {
-                $next_url = '';
+                $completed_pagination = true;
                 break;
             }
 
@@ -276,7 +282,7 @@ class MoxieClientSync {
             $next_url = $base_url . '/api/public/clients/list?start=' . $start . '&count=' . $page_size;
         }
 
-        if ($next_url !== '' && $page >= self::MAX_PAGES) {
+        if (!$completed_pagination && $page >= self::MAX_PAGES) {
             self::log('Moxie client sync aborted after reaching the maximum page limit.', [
                 'max_pages' => self::MAX_PAGES,
                 'last_url' => $next_url,
@@ -543,10 +549,12 @@ class MoxieClientSync {
             return;
         }
 
-        chmod($path, 0750);
+        $chmod_success = chmod($path, 0750);
 
         if (!self::directoryPermissionsAcceptable($path)) {
-            throw new RuntimeException('Unable to secure the Moxie log directory permissions.');
+            throw new RuntimeException($chmod_success
+                ? 'Unable to secure the Moxie log directory permissions even though chmod() reported success.'
+                : 'Unable to secure the Moxie log directory permissions because chmod() failed.');
         }
     }
 
@@ -559,10 +567,12 @@ class MoxieClientSync {
             return;
         }
 
-        chmod($path, 0600);
+        $chmod_success = chmod($path, 0600);
 
         if (!self::filePermissionsAcceptable($path)) {
-            throw new RuntimeException('Unable to secure the Moxie log file permissions.');
+            throw new RuntimeException($chmod_success
+                ? 'Unable to secure the Moxie log file permissions even though chmod() reported success.'
+                : 'Unable to secure the Moxie log file permissions because chmod() failed.');
         }
     }
 
