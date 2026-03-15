@@ -2213,6 +2213,22 @@ class Database {
         } catch (PDOException $e) {
             // Setting may not exist yet, ignore
         }
+
+        try {
+            $this->conn->prepare("
+                UPDATE settings
+                SET setting_type = ?, label = ?, description = ?, is_secret = ?
+                WHERE setting_key = ?
+            ")->execute([
+                'password',
+                'Moxie API Key',
+                'Public API key for importing clients from Moxie.',
+                1,
+                'moxie_api_key',
+            ]);
+        } catch (PDOException $e) {
+            // Setting may not exist yet, ignore
+        }
     }
 
     private function addThemeSettings(): void {

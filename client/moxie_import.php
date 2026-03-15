@@ -25,7 +25,7 @@ if (isset($_SESSION['moxie_import_last_summary']) && is_array($_SESSION['moxie_i
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
-        setFlashMessage('Invalid request.', 'error');
+        setFlashMessage('Invalid request.', 'danger');
         redirect('moxie_import.php');
     }
 
@@ -41,9 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_credentials') {
         if ($submitted_base_url_error !== '') {
-            setFlashMessage($submitted_base_url_error, 'error');
+            setFlashMessage($submitted_base_url_error, 'danger');
         } elseif ($submitted_base_url === '') {
-            setFlashMessage('Please enter your Moxie workspace base URL.', 'error');
+            setFlashMessage('Please enter your Moxie workspace base URL.', 'danger');
         } else {
             Settings::set('moxie_base_url', $submitted_base_url);
             if ($submitted_api_key !== '') {
@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'run_sync') {
         if ($submitted_base_url_error !== '') {
-            setFlashMessage($submitted_base_url_error, 'error');
+            setFlashMessage($submitted_base_url_error, 'danger');
         } else {
             if ($submitted_base_url !== '') {
                 Settings::set('moxie_base_url', $submitted_base_url);
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 MoxieClientSync::log('Moxie sync run from admin UI.', ['admin_id' => safe_int($_SESSION['admin_id'] ?? 0)] + $last_summary);
             } catch (Throwable $e) {
                 MoxieClientSync::log('Moxie sync UI error.', ['error' => $e->getMessage()]);
-                setFlashMessage('Moxie sync failed: ' . $e->getMessage(), 'error');
+                setFlashMessage('Moxie sync failed: ' . $e->getMessage(), 'danger');
             }
         }
 

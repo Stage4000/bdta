@@ -79,19 +79,6 @@ class MoxieClientSync {
      * @param array<string, mixed> $context
      */
     public static function log(string $message, array $context = []): void {
-        $log_file = self::getLogFilePath();
-        $log_dir = dirname($log_file);
-
-        if (!is_dir($log_dir) && !mkdir($log_dir, 0750, true) && !is_dir($log_dir)) {
-            throw new RuntimeException('Unable to create the Moxie log directory.');
-        }
-        self::ensureLogDirectoryPermissions($log_dir);
-
-        if (!file_exists($log_file) && @touch($log_file) === false) {
-            throw new RuntimeException('Unable to create the Moxie log file.');
-        }
-        self::ensureLogFilePermissions($log_file);
-
         $line = '[' . gmdate('Y-m-d H:i:s') . " UTC] " . $message;
         if (!empty($context)) {
             $context_json = json_encode($context, JSON_UNESCAPED_SLASHES);
@@ -100,7 +87,26 @@ class MoxieClientSync {
             }
         }
 
-        file_put_contents($log_file, $line . PHP_EOL, FILE_APPEND | LOCK_EX);
+        try {
+            $log_file = self::getLogFilePath();
+            $log_dir = dirname($log_file);
+
+            if (!is_dir($log_dir) && !mkdir($log_dir, 0750, true) && !is_dir($log_dir)) {
+                throw new RuntimeException('Unable to create the Moxie log directory.');
+            }
+            self::ensureLogDirectoryPermissions($log_dir);
+
+            if (!file_exists($log_file) && @touch($log_file) === false) {
+                throw new RuntimeException('Unable to create the Moxie log file.');
+            }
+            self::ensureLogFilePermissions($log_file);
+
+            if (file_put_contents($log_file, $line . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
+                throw new RuntimeException('Unable to write to the Moxie log file.');
+            }
+        } catch (Throwable $e) {
+            error_log($line . ' [moxie_log_error: ' . $e->getMessage() . ']');
+        }
     }
 
     /**
@@ -150,7 +156,6 @@ class MoxieClientSync {
                     $summary['skipped_archived']++;
                     self::log('Skipping archived Moxie client.', [
                         'moxie_client_id' => $client['moxie_client_id'],
-                        'name' => $client['name'],
                     ]);
                     continue;
                 }
@@ -159,7 +164,6 @@ class MoxieClientSync {
                     $summary['skipped_missing_email']++;
                     self::log('Skipping Moxie client without email.', [
                         'moxie_client_id' => $client['moxie_client_id'],
-                        'name' => $client['name'],
                     ]);
                     continue;
                 }
@@ -183,7 +187,6 @@ class MoxieClientSync {
                     self::log('Created client from Moxie import.', [
                         'client_id' => scalar_string($this->conn->lastInsertId()),
                         'moxie_client_id' => $client['moxie_client_id'],
-                        'email' => $client['email'],
                     ]);
                     continue;
                 }
@@ -232,7 +235,6 @@ class MoxieClientSync {
                 self::log('Updated existing client from Moxie import.', [
                     'client_id' => self::stringValue($existing, 'id'),
                     'moxie_client_id' => $merged['moxie_client_id'],
-                    'email' => $merged['email'],
                 ]);
             }
 
@@ -461,7 +463,7 @@ class MoxieClientSync {
         }
 
         if ($http_code < 200 || $http_code >= 300) {
-            self::log('Moxie returned non-success status.', ['status' => $http_code, 'body' => substr(scalar_string($response), 0, 500)]);
+            self::log('Moxie returned non-success status.', ['status' => $http_code, 'url' => $url]);
             throw new RuntimeException('Moxie request failed with HTTP status ' . $http_code . '.');
         }
 
