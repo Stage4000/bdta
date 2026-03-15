@@ -2178,7 +2178,7 @@ class Database {
     private function addMoxieSettings(): void {
         $moxie_settings = [
             ['moxie_base_url', '', 'url', 'advanced', 'Moxie Base URL', 'Workspace base URL used for the Moxie public API client import tool (for example, https://pod00.withmoxie.dev).', 0],
-            ['moxie_api_key', '', 'password', 'advanced', 'Moxie API Key', 'Public API key for importing clients from Moxie.', 1],
+            ['moxie_api_key', '', 'password', 'advanced', 'Moxie API Key', 'API key for importing clients from Moxie.', 1],
         ];
 
         $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
@@ -2222,7 +2222,7 @@ class Database {
             ")->execute([
                 'password',
                 'Moxie API Key',
-                'Public API key for importing clients from Moxie.',
+                'API key for importing clients from Moxie.',
                 1,
                 'moxie_api_key',
             ]);
