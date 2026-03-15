@@ -6,6 +6,11 @@ require_once __DIR__ . '/settings.php';
 class MoxieClientSync {
     private const DEFAULT_PAGE_SIZE = 100;
     private const MAX_PAGES = 100;
+    private const LOG_INIT_RETRY_INTERVAL = 60; // wait this long before retrying log setup after a failure
+
+    private static ?string $initializedLogFile = null;
+    private static ?int $lastLogInitializationFailureAt = null;
+    private static ?string $lastLogInitializationFailureMessage = null;
 
     private SafePDO $conn;
 
@@ -88,6 +93,34 @@ class MoxieClientSync {
         }
 
         try {
+            $log_file = self::getInitializedLogFile();
+            if ($log_file === null) {
+                $reason = self::$lastLogInitializationFailureMessage ?? 'Moxie log initialization failed and the retry interval has not elapsed.';
+                error_log($line . ' [moxie_log_error: ' . $reason . ']');
+                return;
+            }
+
+            if (file_put_contents($log_file, $line . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
+                throw new RuntimeException('Unable to write to the Moxie log file.');
+            }
+        } catch (Throwable $e) {
+            error_log($line . ' [moxie_log_error: ' . $e->getMessage() . ']');
+        }
+    }
+
+    private static function getInitializedLogFile(): ?string {
+        if (self::$initializedLogFile !== null) {
+            return self::$initializedLogFile;
+        }
+
+        if (
+            self::$lastLogInitializationFailureAt !== null
+            && (time() - self::$lastLogInitializationFailureAt) < self::LOG_INIT_RETRY_INTERVAL
+        ) {
+            return null;
+        }
+
+        try {
             $log_file = self::getLogFilePath();
             $log_dir = dirname($log_file);
 
@@ -101,12 +134,22 @@ class MoxieClientSync {
             }
             self::ensureLogFilePermissions($log_file);
 
-            if (file_put_contents($log_file, $line . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
-                throw new RuntimeException('Unable to write to the Moxie log file.');
-            }
+            self::$initializedLogFile = $log_file;
+            self::$lastLogInitializationFailureAt = null;
+            self::$lastLogInitializationFailureMessage = null;
         } catch (Throwable $e) {
-            error_log($line . ' [moxie_log_error: ' . $e->getMessage() . ']');
+            self::markLogInitializationFailed($e->getMessage());
+            error_log('Moxie log initialization failed: ' . $e->getMessage());
+            return null;
         }
+
+        return self::$initializedLogFile;
+    }
+
+    private static function markLogInitializationFailed(string $message): void {
+        self::$initializedLogFile = null;
+        self::$lastLogInitializationFailureAt = time();
+        self::$lastLogInitializationFailureMessage = $message;
     }
 
     /**
