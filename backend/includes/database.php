@@ -111,6 +111,8 @@ function safe_float(mixed $value): float {
 }
 
 class Database {
+    private const MYSQL_CLIENT_NAME_PHONE_INDEX_SQL = 'CREATE INDEX idx_clients_name_phone ON clients(name(128), phone(32))';
+
     private static ?SafePDO $sharedConnection = null;
     private static ?string $sharedDbType = null;
     private string $db_file;
@@ -322,6 +324,32 @@ class Database {
             $stmt->execute([$tableName]);
             return array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
         }
+    }
+
+    private function indexExists(string $tableName, string $indexName): bool {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
+            throw new InvalidArgumentException("Invalid table name: $tableName");
+        }
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $indexName)) {
+            throw new InvalidArgumentException("Invalid index name: $indexName");
+        }
+
+        if ($this->db_type === 'sqlite') {
+            $stmt = $this->conn->prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND name = ?");
+            $stmt->execute([$tableName, $indexName]);
+            return $stmt->fetchColumn() !== false;
+        }
+
+        $stmt = $this->conn->prepare("
+            SELECT INDEX_NAME
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = ?
+            AND INDEX_NAME = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$tableName, $indexName]);
+        return $stmt->fetchColumn() !== false;
     }
     
     /**
@@ -1380,15 +1408,19 @@ class Database {
                     // Column might already be the desired type, ignore
                 }
             }
-            try {
-                $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
-            } catch (PDOException $e) {
-                // Index might already exist, ignore
+            if (!$this->indexExists('clients', 'idx_clients_moxie_client_id')) {
+                try {
+                    $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
+                } catch (PDOException $e) {
+                    error_log("Migration: could not create clients moxie_client_id index - " . $e->getMessage());
+                }
             }
-            try {
-                $this->execSQL("CREATE INDEX idx_clients_name_phone ON clients(name(191), phone(191))");
-            } catch (PDOException $e) {
-                // Index might already exist, ignore
+            if (!$this->indexExists('clients', 'idx_clients_name_phone')) {
+                try {
+                    $this->execSQL(self::MYSQL_CLIENT_NAME_PHONE_INDEX_SQL);
+                } catch (PDOException $e) {
+                    error_log("Migration: could not create clients name/phone index - " . $e->getMessage());
+                }
             }
         } else {
             try {

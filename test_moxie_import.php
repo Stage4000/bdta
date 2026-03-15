@@ -138,11 +138,14 @@ try {
     exit(1);
 } finally {
     if (isset($conn) && $conn instanceof PDO) {
-        $cleanup = $conn->prepare("DELETE FROM clients WHERE moxie_client_id IN (?, ?, ?)");
-        $cleanup->execute([
+        $cleanup_ids = [
             $primary_client_id ?? '',
             $archived_client_id ?? '',
             $missing_email_client_id ?? '',
-        ]);
+        ];
+        if (!in_array('', $cleanup_ids, true)) {
+            $cleanup = $conn->prepare("DELETE FROM clients WHERE moxie_client_id IN (?, ?, ?)");
+            $cleanup->execute($cleanup_ids);
+        }
     }
 }

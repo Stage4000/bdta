@@ -10,6 +10,19 @@ $base_url = MoxieClientSync::getConfiguredBaseUrl();
 $api_key_saved = MoxieClientSync::getConfiguredApiKey() !== '';
 $last_summary = null;
 
+if (isset($_SESSION['moxie_import_last_summary']) && is_array($_SESSION['moxie_import_last_summary'])) {
+    $summary = $_SESSION['moxie_import_last_summary'];
+    $last_summary = [
+        'fetched' => safe_int($summary['fetched'] ?? 0),
+        'created' => safe_int($summary['created'] ?? 0),
+        'updated' => safe_int($summary['updated'] ?? 0),
+        'unchanged' => safe_int($summary['unchanged'] ?? 0),
+        'skipped_archived' => safe_int($summary['skipped_archived'] ?? 0),
+        'skipped_missing_email' => safe_int($summary['skipped_missing_email'] ?? 0),
+    ];
+    unset($_SESSION['moxie_import_last_summary']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
         setFlashMessage('Invalid request.', 'error');
@@ -62,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sync = new MoxieClientSync();
                 $last_summary = $sync->sync($base_url, $api_key);
                 $api_key_saved = $api_key !== '';
+                $_SESSION['moxie_import_last_summary'] = $last_summary;
                 setFlashMessage(
                     'Moxie sync complete. '
                     . $last_summary['created'] . ' created, '
@@ -75,6 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlashMessage('Moxie sync failed: ' . $e->getMessage(), 'error');
             }
         }
+
+        redirect('moxie_import.php');
     }
 }
 
