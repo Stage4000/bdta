@@ -94,6 +94,32 @@ try {
         }
     }
 
+    $absolute_next = MoxieClientSync::extractNextUrl([
+        '_links' => [
+            'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=100'],
+        ],
+    ], $normalized_base_url);
+    if ($absolute_next !== 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=100') {
+        throw new RuntimeException('Expected same-origin absolute pagination URL to be accepted.');
+    }
+
+    foreach ([
+        'http://pod00.withmoxie.dev/api/public/clients/list?start=100&count=100',
+        'https://pod01.withmoxie.dev/api/public/clients/list?start=100&count=100',
+        'http://pod01.withmoxie.dev/api/public/clients/list?start=100&count=100',
+    ] as $invalid_next_url) {
+        try {
+            MoxieClientSync::extractNextUrl([
+                '_links' => [
+                    'next' => ['href' => $invalid_next_url],
+                ],
+            ], $normalized_base_url);
+            throw new RuntimeException('Expected invalid absolute pagination URL to be rejected: ' . $invalid_next_url);
+        } catch (RuntimeException $e) {
+            // Expected path
+        }
+    }
+
     $second_pass = [
         [
             'id' => $primary_client_id,
@@ -131,6 +157,7 @@ try {
     echo "✓ Archived and missing-email clients are skipped\n";
     echo "✓ Existing clients update by Moxie client ID\n";
     echo "✓ Moxie base URL validation restricts allowed origins\n";
+    echo "✓ Absolute Moxie pagination URLs must stay on the configured HTTPS origin\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";
     echo "=== All Moxie Import Tests Passed! ===\n";
 } catch (Throwable $e) {

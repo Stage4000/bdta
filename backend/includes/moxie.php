@@ -188,10 +188,12 @@ class MoxieClientSync {
             'skipped_archived' => 0,
             'skipped_missing_email' => 0,
         ];
-
-        $this->conn->beginTransaction();
+        $started_transaction = false;
 
         try {
+            $this->conn->beginTransaction();
+            $started_transaction = true;
+
             foreach ($raw_clients as $raw_client) {
                 $client = self::normalizeClient($raw_client);
 
@@ -235,10 +237,6 @@ class MoxieClientSync {
                 }
 
                 $email = $client['email'];
-                if ($email === '') {
-                    throw new LogicException('Normalized Moxie clients reaching merge/update must have a non-empty email address.');
-                }
-
                 $merged = [
                     'name' => $client['name'] !== '' ? $client['name'] : self::stringValue($existing, 'name'),
                     'email' => $email,
@@ -284,7 +282,7 @@ class MoxieClientSync {
             $this->conn->commit();
             return $summary;
         } catch (Throwable $e) {
-            if ($this->conn->inTransaction()) {
+            if ($started_transaction && $this->conn->inTransaction()) {
                 $this->conn->rollBack();
             }
 
@@ -383,6 +381,30 @@ class MoxieClientSync {
         }
 
         if (preg_match('#^https?://#i', $next)) {
+            $base_parts = parse_url($base_url);
+            $next_parts = parse_url($next);
+
+            if (!is_array($base_parts) || !is_array($next_parts)) {
+                throw new RuntimeException('Moxie pagination returned an invalid next URL.');
+            }
+
+            $base_scheme = strtolower(scalar_string($base_parts['scheme'] ?? ''));
+            $base_host = strtolower(scalar_string($base_parts['host'] ?? ''));
+            $next_scheme = strtolower(scalar_string($next_parts['scheme'] ?? ''));
+            $next_host = strtolower(scalar_string($next_parts['host'] ?? ''));
+
+            if ($base_scheme !== 'https' || $base_host === '') {
+                throw new RuntimeException('Moxie pagination validation requires a valid HTTPS workspace origin.');
+            }
+
+            if ($next_host === '') {
+                throw new RuntimeException('Moxie pagination returned a next URL without a host.');
+            }
+
+            if ($next_scheme !== $base_scheme || $next_host !== $base_host) {
+                throw new RuntimeException('Moxie pagination returned a next URL outside the configured workspace origin.');
+            }
+
             return $next;
         }
 
@@ -590,13 +612,16 @@ class MoxieClientSync {
             return;
         }
 
-        if (self::directoryPermissionsAcceptable($path)) {
+        $permissions_acceptable = self::directoryPermissionsAcceptable($path);
+        if ($permissions_acceptable) {
             return;
         }
 
         $chmod_success = chmod($path, 0750);
+        clearstatcache(true, $path);
+        $permissions_acceptable = self::directoryPermissionsAcceptable($path);
 
-        if (!self::directoryPermissionsAcceptable($path)) {
+        if (!$permissions_acceptable) {
             throw new RuntimeException($chmod_success
                 ? 'Unable to secure the Moxie log directory permissions even though chmod() reported success.'
                 : 'Unable to secure the Moxie log directory permissions because chmod() failed.');
@@ -608,13 +633,16 @@ class MoxieClientSync {
             return;
         }
 
-        if (self::filePermissionsAcceptable($path)) {
+        $permissions_acceptable = self::filePermissionsAcceptable($path);
+        if ($permissions_acceptable) {
             return;
         }
 
         $chmod_success = chmod($path, 0600);
+        clearstatcache(true, $path);
+        $permissions_acceptable = self::filePermissionsAcceptable($path);
 
-        if (!self::filePermissionsAcceptable($path)) {
+        if (!$permissions_acceptable) {
             throw new RuntimeException($chmod_success
                 ? 'Unable to secure the Moxie log file permissions even though chmod() reported success.'
                 : 'Unable to secure the Moxie log file permissions because chmod() failed.');
