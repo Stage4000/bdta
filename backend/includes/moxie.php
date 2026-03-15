@@ -295,6 +295,15 @@ class MoxieClientSync {
      * @return list<array<string, mixed>>
      */
     public function fetchClients(string $base_url, string $api_key, int $page_size = self::DEFAULT_PAGE_SIZE): array {
+        $base_url = self::normalizeBaseUrl($base_url);
+        if ($base_url === '') {
+            throw new InvalidArgumentException('Moxie base URL is required.');
+        }
+
+        if ($page_size < 1) {
+            throw new InvalidArgumentException('Moxie page size must be at least 1.');
+        }
+
         $clients = [];
         $next_url = $base_url . '/api/public/clients/list?start=0&count=' . $page_size;
         $page = 0;

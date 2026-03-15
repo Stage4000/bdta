@@ -45,11 +45,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($submitted_base_url === '') {
             setFlashMessage('Please enter your Moxie workspace base URL.', 'danger');
         } else {
-            Settings::set('moxie_base_url', $submitted_base_url);
+            $saved_base_url = Settings::set('moxie_base_url', $submitted_base_url);
+            $saved_api_key = true;
             if ($submitted_api_key !== '') {
-                Settings::set('moxie_api_key', $submitted_api_key);
+                $saved_api_key = Settings::set('moxie_api_key', $submitted_api_key);
             }
-            setFlashMessage('Moxie credentials saved successfully.', 'success');
+
+            if ($saved_base_url && $saved_api_key) {
+                setFlashMessage('Moxie credentials saved successfully.', 'success');
+            } else {
+                setFlashMessage('Unable to save Moxie credentials. Please verify the settings are available and try again.', 'danger');
+            }
         }
 
         redirect('moxie_import.php');
@@ -59,13 +65,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($submitted_base_url_error !== '') {
             setFlashMessage($submitted_base_url_error, 'danger');
         } else {
+            $persist_errors = [];
             if ($submitted_base_url !== '') {
-                Settings::set('moxie_base_url', $submitted_base_url);
-                $base_url = $submitted_base_url;
+                if (Settings::set('moxie_base_url', $submitted_base_url)) {
+                    $base_url = $submitted_base_url;
+                } else {
+                    $persist_errors[] = 'workspace URL';
+                }
             }
 
             if ($submitted_api_key !== '') {
-                Settings::set('moxie_api_key', $submitted_api_key);
+                if (!Settings::set('moxie_api_key', $submitted_api_key)) {
+                    $persist_errors[] = 'API key';
+                }
+            }
+
+            if (!empty($persist_errors)) {
+                setFlashMessage('Unable to save Moxie settings (' . implode(' and ', $persist_errors) . '). Sync was not started.', 'danger');
+                redirect('moxie_import.php');
             }
 
             $api_key = $submitted_api_key !== '' ? $submitted_api_key : MoxieClientSync::getConfiguredApiKey();
@@ -120,16 +137,16 @@ include __DIR__ . '/../backend/includes/header.php';
                         <div class="mb-3">
                             <label for="moxie_base_url" class="form-label">Moxie Workspace Base URL</label>
                             <input
-                                type="url"
+                                type="text"
                                 class="form-control"
                                 id="moxie_base_url"
                                 name="moxie_base_url"
-                                placeholder="https://pod00.withmoxie.dev"
+                                placeholder="pod00.withmoxie.dev or https://pod00.withmoxie.dev"
                                 value="<?= escape($base_url) ?>"
                                 required
                             >
                             <div class="form-text">
-                                Example: <code>https://pod00.withmoxie.dev</code>. The importer calls <code>/api/public/clients/list</code> on this base URL.
+                                Example: <code>pod00.withmoxie.dev</code> or <code>https://pod00.withmoxie.dev</code>. The importer stores the HTTPS workspace origin and calls <code>/api/public/clients/list</code> on it.
                             </div>
                         </div>
 

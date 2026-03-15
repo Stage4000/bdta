@@ -94,6 +94,20 @@ try {
         }
     }
 
+    try {
+        $sync->fetchClients('', 'test-api-key');
+        throw new RuntimeException('Expected fetchClients() to reject an empty base URL.');
+    } catch (InvalidArgumentException $e) {
+        // Expected path
+    }
+
+    try {
+        $sync->fetchClients($normalized_base_url, 'test-api-key', 0);
+        throw new RuntimeException('Expected fetchClients() to reject a page size smaller than 1.');
+    } catch (InvalidArgumentException $e) {
+        // Expected path
+    }
+
     $absolute_next = MoxieClientSync::extractNextUrl([
         '_links' => [
             'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=100'],
@@ -157,6 +171,7 @@ try {
     echo "✓ Archived and missing-email clients are skipped\n";
     echo "✓ Existing clients update by Moxie client ID\n";
     echo "✓ Moxie base URL validation restricts allowed origins\n";
+    echo "✓ fetchClients validates required base URL and page size inputs\n";
     echo "✓ Absolute Moxie pagination URLs must stay on the configured HTTPS origin\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";
     echo "=== All Moxie Import Tests Passed! ===\n";
