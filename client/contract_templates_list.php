@@ -51,6 +51,9 @@ $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get templates
+// Build limit/offset clause (MySQL cannot reliably parameterize LIMIT/OFFSET)
+$limit_clause = $db->buildLimitClause($per_page, $offset); // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query,php.lang.security.injection.tainted-callable,php.lang.security.sql-injection,php.raw_sql_query.general -- LIMIT/OFFSET are validated integers (safe_int) and injected as literals due to MySQL parameterization limits
+
 if ($service_type_filter !== '') {
     $select_sql = "
         SELECT * FROM contract_templates
@@ -60,6 +63,7 @@ if ($service_type_filter !== '') {
             is_active DESC,
             service_type,
             name
+        {$limit_clause}
     ";
 } else {
     $select_sql = "
@@ -69,9 +73,9 @@ if ($service_type_filter !== '') {
             is_active DESC,
             service_type,
             name
+        {$limit_clause}
     ";
 }
-$select_sql .= $db->buildLimitClause($per_page, $offset); // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query,php.lang.security.injection.tainted-callable,php.lang.security.sql-injection,php.raw_sql_query.general -- SQL is assembled from static fragments plus validated ints; buildLimitClause safely injects LIMIT/OFFSET literals due to MySQL parameterization limits
 $stmt = $conn->prepare($select_sql);
 foreach ($select_params as $name => $value) {
     $stmt->bindValue($name, $value);
