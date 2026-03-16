@@ -59,7 +59,7 @@ jobs:
         if: ${{ always() }}
         continue-on-error: true
         run: |
-          eslint . --ext .js,.jsx,.ts,.tsx --config eslint.config.cjs
+          eslint . --config eslint.config.cjs
 
       # -------------------------
       # Run CSS lint
