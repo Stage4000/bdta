@@ -13,15 +13,17 @@ $conn = $db->getConnection();
 
 // Filters
 $service_type_filter = trim(scalar_string($_GET['service_type'] ?? ''));
+$service_type_label = 'Service Type';
 
 // Service type options for filter dropdown
-$service_types_stmt = $conn->query("
+$service_types_stmt = $conn->prepare("
     SELECT DISTINCT service_type 
     FROM contract_templates 
     WHERE service_type IS NOT NULL AND service_type <> '' 
     ORDER BY service_type
 ");
-$service_types = array_filter(array_map('scalar_string', $service_types_stmt->fetchAll(PDO::FETCH_COLUMN)));
+$service_types_stmt->execute();
+$service_types = $service_types_stmt->fetchAll(PDO::FETCH_COLUMN);
 
 // Pagination
 $page = max(1, safe_int($_GET['page'] ?? 1));
@@ -87,12 +89,12 @@ include '../backend/includes/header.php';
 
     <form method="get" class="row g-3 align-items-end mb-4">
         <div class="col-sm-6 col-md-4 col-lg-3">
-            <label for="service_type" class="form-label mb-1">Service Type</label>
+            <label for="service_type" class="form-label mb-1"><?= escape($service_type_label) ?></label>
             <select id="service_type" name="service_type" class="form-select">
                 <option value="">All service types</option>
                 <?php foreach ($service_types as $type): ?>
                     <option value="<?= escape($type) ?>" <?= $service_type_filter === $type ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($type) ?>
+                        <?= escape($type) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -108,17 +110,25 @@ include '../backend/includes/header.php';
     </form>
 
     <?php if (count($templates) > 0): ?>
+        <?php 
+            $previousServiceType = null;
+            $uncategorizedLabel = 'Uncategorized';
+            $serviceTypeHeading = $service_type_label;
+        ?>
         <div class="row">
-            <?php $currentServiceType = null; ?>
             <?php foreach ($templates as $template): ?>
                 <?php 
-                    $serviceLabel = $template['service_type'] ? htmlspecialchars($template['service_type']) : 'Uncategorized';
-                    if ($serviceLabel !== $currentServiceType):
-                        $currentServiceType = $serviceLabel;
+                    $sanitizedServiceType = scalar_string($template['service_type'] ?? '');
+                    $hasServiceType = $sanitizedServiceType !== '';
+                    // sanitized grouping key; escaped later for display
+                    $serviceTypeKey = $hasServiceType ? $sanitizedServiceType : $uncategorizedLabel;
+                    $serviceLabel = escape($serviceTypeKey);
+                    if ($serviceTypeKey !== $previousServiceType):
+                        $previousServiceType = $serviceTypeKey;
                 ?>
                     <div class="col-12 mb-2">
                         <div class="d-flex align-items-center">
-                            <span class="text-uppercase text-muted small fw-semibold">Service Type</span>
+                            <span class="text-uppercase text-muted small fw-semibold"><?= escape($serviceTypeHeading) ?>:</span>
                             <h6 class="mb-0 ms-2"><?= $serviceLabel ?></h6>
                         </div>
                         <hr class="mt-2 mb-3">
@@ -139,8 +149,8 @@ include '../backend/includes/header.php';
                             <?php endif; ?>
                             
                             <div class="mt-3">
-                                <?php if ($template['service_type']): ?>
-                                    <span class="badge bg-info me-2"><?= htmlspecialchars($template['service_type']) ?></span>
+                                <?php if ($hasServiceType): ?>
+                                    <span class="badge bg-info me-2"><?= escape($sanitizedServiceType) ?></span>
                                 <?php endif; ?>
                                 <span class="badge bg-secondary">Renews: <?= $template['renewal_period_months'] ?> months</span>
                             </div>
@@ -175,9 +185,19 @@ include '../backend/includes/header.php';
         <?php if ($total_pages > 1): ?>
             <nav class="mt-4">
                 <ul class="pagination justify-content-center">
+                    <?php
+                        $paginationBaseParams = [];
+                        if ($service_type_filter !== '') {
+                            $paginationBaseParams['service_type'] = $service_type_filter;
+                        }
+                    ?>
                     <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <?php 
+                            $page_query = array_merge($paginationBaseParams, ['page' => $i]);
+                            $page_href = '?' . http_build_query($page_query);
+                        ?>
                         <li class="page-item <?= $i == $page ? 'active' : '' ?>">
-                            <a class="page-link" href="?page=<?= $i ?><?= $service_type_filter !== '' ? '&amp;service_type=' . urlencode($service_type_filter) : '' ?>"><?= $i ?></a>
+                            <a class="page-link" href="<?= escape($page_href) ?>"><?= $i ?></a>
                         </li>
                     <?php endfor; ?>
                 </ul>
