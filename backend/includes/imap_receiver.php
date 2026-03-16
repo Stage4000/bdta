@@ -332,11 +332,7 @@ class ImapEmailReceiver {
                 LIMIT 1
             ");
             $stmt->execute([$message_id]);
-            if ($stmt->fetch()) {
-                return true;
-            }
-
-            return false;
+            return $stmt->fetch() !== false;
         }
 
         $stmt = $this->conn->prepare("

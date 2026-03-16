@@ -123,7 +123,7 @@ try {
         currentUtcDateTime()
     ]);
 
-    if ($duplicate_check->invoke($receiver, $collision_message_id, 'different.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at) !== true) {
+    if ($duplicate_check->invoke($receiver, $collision_message_id, 'collision.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at) !== true) {
         throw new RuntimeException('Expected existing client email message_id to still be treated as duplicate.');
     }
     if ($duplicate_check->invoke($receiver, '<new-message-id-' . $suffix . '@example.invalid>', 'different.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at) !== false) {

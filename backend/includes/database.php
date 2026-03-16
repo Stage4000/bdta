@@ -1991,15 +1991,19 @@ class Database {
                 }
             }
         } else {
-            try {
-                $this->execSQL("CREATE INDEX idx_client_emails_message_id ON client_emails(direction, message_id)");
-            } catch (PDOException $e) {
-                // Index might already exist, ignore
+            if (!$this->indexExists('client_emails', 'idx_client_emails_message_id')) {
+                try {
+                    $this->execSQL("CREATE INDEX idx_client_emails_message_id ON client_emails(direction, message_id)");
+                } catch (PDOException $e) {
+                    // Index might already exist, ignore
+                }
             }
-            try {
-                $this->execSQL("CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id)");
-            } catch (PDOException $e) {
-                // Index might already exist, ignore
+            if (!$this->indexExists('unmatched_emails', 'idx_unmatched_emails_message_id')) {
+                try {
+                    $this->execSQL("CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id)");
+                } catch (PDOException $e) {
+                    // Index might already exist, ignore
+                }
             }
         }
 
