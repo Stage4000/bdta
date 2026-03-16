@@ -27,6 +27,21 @@ function assertMailRouterTest(bool $condition, string $message): void {
     }
 }
 
+/**
+ * @return list<string>
+ */
+function mailRouterLogLinesContaining(string $log_contents, string $needle): array {
+    $matching_lines = [];
+
+    foreach (preg_split('/\r\n|\r|\n/', $log_contents) as $line) {
+        if ($line !== '' && strpos($line, $needle) !== false) {
+            $matching_lines[] = $line;
+        }
+    }
+
+    return $matching_lines;
+}
+
 $exit_code = 0;
 
 try {
@@ -58,6 +73,13 @@ try {
     assertMailRouterTest(strpos($mailrouter_log, $unique_token) !== false, 'MailRouter log file does not contain the expected routing entry.');
     assertMailRouterTest(strpos($mailrouter_log, '[MailRouter] FAILED') !== false, 'MailRouter log file does not contain the failed delivery entry.');
 
+    $initial_matching_lines = mailRouterLogLinesContaining($mailrouter_log, $unique_token);
+    assertMailRouterTest($initial_matching_lines !== [], 'MailRouter log file does not contain the expected tokenized entries.');
+    foreach ($initial_matching_lines as $line) {
+        assertMailRouterTest(strpos($line, '[MailRouter] ') === 0, 'MailRouter log entry did not keep the documented prefix.');
+        assertMailRouterTest(!preg_match('/^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC\]/', $line), 'MailRouter log entry unexpectedly includes a timestamp prefix.');
+    }
+
     $forged_subject_result = $email_service->sendGenericEmail(
         'client@example.com',
         "Forged Subject\r\nInjected-Header: " . $unique_token,
@@ -72,6 +94,9 @@ try {
     assertMailRouterTest(strpos($mailrouter_log, "Forged Subject\r") === false, 'MailRouter log contains a raw carriage return sequence.');
     assertMailRouterTest(strpos($mailrouter_log, "Forged Subject\n") === false, 'MailRouter log contains a raw newline sequence.');
     assertMailRouterTest(strpos($mailrouter_log, 'Injected-Header: ' . $unique_token) !== false, 'MailRouter log does not contain the sanitized forged-subject content.');
+    $forged_lines = mailRouterLogLinesContaining($mailrouter_log, 'Injected-Header: ' . $unique_token);
+    assertMailRouterTest(count($forged_lines) >= 1, 'MailRouter log does not contain the forged-subject log line.');
+    assertMailRouterTest(strpos($forged_lines[0], 'subject="Forged Subject Injected-Header: ' . $unique_token . '"') !== false, 'MailRouter log did not collapse the forged subject into a single sanitized line.');
 
     $error_log_contents = file_exists($error_log_path) ? file_get_contents($error_log_path) : '';
     assertMailRouterTest($error_log_contents === false || strpos($error_log_contents, '[MailRouter] ROUTING') === false, 'MailRouter routing entries still reached the PHP error log.');
