@@ -61,8 +61,8 @@ if ($service_type_filter !== '') {
         WHERE service_type = :service_type
         ORDER BY 
             CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
-            is_active DESC,
             service_type,
+            is_active DESC,
             name" . $limit_clause . "
     ";
 } else {
@@ -71,8 +71,8 @@ if ($service_type_filter !== '') {
         SELECT * FROM contract_templates
         ORDER BY 
             CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
-            is_active DESC,
             service_type,
+            is_active DESC,
             name" . $limit_clause . "
     ";
 }
