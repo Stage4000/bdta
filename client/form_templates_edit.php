@@ -20,6 +20,8 @@ $is_edit = $template_id !== null;
 $name = '';
 $description = '';
 $form_type = 'client_form';
+$is_internal = false;
+$is_active = true;
 /** @var list<array<string, mixed>> $fields */
 $fields = [];
 $required_frequency = '';
@@ -391,6 +393,45 @@ require_once '../backend/includes/header.php';
                     </div>
                 </div>
 
+                <?php if ($is_edit && $form_type === 'client_form'): ?>
+                    <?php if (!$is_internal && $is_active): ?>
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Shareable Form Link</h5>
+                        <span class="badge bg-secondary">External</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-2">
+                            Share this link so the form can be completed without logging into the admin panel.
+                        </p>
+                        <?php $share_url = getDynamicBaseUrl() . '/backend/public/form.php?template_id=' . (int) $template_id; ?>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="form_share_link" value="<?= htmlspecialchars($share_url) ?>" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyFormShareLink()">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                            <a href="<?= htmlspecialchars($share_url) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
+                                <i class="fas fa-up-right-from-square"></i> Open
+                            </a>
+                        </div>
+                        <div id="form_share_status" class="form-text text-success visually-hidden mt-1">Link copied!</div>
+                    </div>
+                </div>
+                    <?php else: ?>
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Shareable Form Link</h5>
+                        <span class="badge bg-secondary">Unavailable</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-0">
+                            This form cannot be shared publicly because it is either marked as internal or is not currently active.
+                        </p>
+                    </div>
+                </div>
+                    <?php endif; ?>
+                <?php endif; ?>
+
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-floppy-disk me-1"></i> Save Template
@@ -659,6 +700,36 @@ document.addEventListener('DOMContentLoaded', function() {
         reindexFields();
     });
 });
+
+function copyFormShareLink() {
+    const input = document.getElementById('form_share_link');
+    if (!input) return;
+
+    const link = input.value;
+    const status = document.getElementById('form_share_status');
+
+    const showStatus = () => {
+        if (!status) return;
+        status.classList.remove('visually-hidden');
+        status.classList.add('d-block');
+        setTimeout(() => {
+            status.classList.add('visually-hidden');
+            status.classList.remove('d-block');
+        }, 2000);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(showStatus).catch(() => {
+            input.select();
+            document.execCommand('copy');
+            showStatus();
+        });
+    } else {
+        input.select();
+        document.execCommand('copy');
+        showStatus();
+    }
+}
 </script>
 
 <style>
