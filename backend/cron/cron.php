@@ -360,7 +360,9 @@ class CronRunner {
     
     /**
      * Wrapper for currentUtcDateTime() to avoid fatal errors if the helper
-     * isn't available in the runtime.
+     * isn't available in the runtime. This safeguards CLI-only executions
+     * where config.php may not have loaded helper functions (e.g., mismatched
+     * deployments or partial includes) by falling back to gmdate().
      */
     private function getCurrentUtcDateTime(): string {
         if (function_exists('currentUtcDateTime')) {

@@ -37,6 +37,8 @@ $cron = new CronRunner();
 $cron_reflection = new ReflectionClass('CronRunner');
 $execute_task = $cron_reflection->getMethod('executeTask');
 $execute_task->setAccessible(true);
+// Call the single-task executor directly so we don't trigger real scheduled tasks
+// that may exist in the database during local runs.
 $execute_task->invoke($cron, $task);
 
 $next_stmt = $conn->prepare("SELECT next_run FROM scheduled_tasks WHERE id = ?");
