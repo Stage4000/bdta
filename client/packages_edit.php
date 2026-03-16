@@ -65,18 +65,15 @@ if ($is_edit) {
 }
 
 if ($is_edit && !empty($existing_items)) {
-    $included_appointment_type_ids = array_keys($existing_items);
-    $placeholders = implode(',', array_fill(0, count($included_appointment_type_ids), '?'));
-    // Placeholder count is generated from current package item IDs and the values remain parameterized.
-    // nosemgrep: php.lang.security.injection.sql-injection -- Dynamic placeholder count only; values are bound via prepared-statement parameters
     $stmt = $conn->prepare("
         SELECT at.id, at.name, at.is_active, at.contract_template_id, ct.name AS contract_template_name
         FROM appointment_types at
+        LEFT JOIN package_items pi ON pi.appointment_type_id = at.id AND pi.package_id = ?
         LEFT JOIN contract_templates ct ON at.contract_template_id = ct.id AND ct.is_active = 1
-        WHERE at.is_active = 1 OR at.id IN ($placeholders)
+        WHERE at.is_active = 1 OR pi.package_id IS NOT NULL
         ORDER BY at.name
     ");
-    $stmt->execute($included_appointment_type_ids);
+    $stmt->execute([$id]);
 } else {
     $stmt = $conn->query("
         SELECT at.id, at.name, at.is_active, at.contract_template_id, ct.name AS contract_template_name
