@@ -31,16 +31,18 @@ $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
 // Build filters/params
-$where_clauses = [];
 $params = [];
+$count_sql = 'SELECT COUNT(*) FROM contract_templates';
+$select_sql = 'SELECT * FROM contract_templates';
+
 if ($service_type_filter !== '') {
-    $where_clauses[] = 'service_type = ?';
+    $count_sql .= ' WHERE service_type = ?';
+    $select_sql .= ' WHERE service_type = ?';
     $params[] = $service_type_filter;
 }
-$where_sql = $where_clauses ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
 // Get total count
-$count_stmt = $conn->prepare("SELECT COUNT(*) FROM contract_templates $where_sql");
+$count_stmt = $conn->prepare($count_sql);
 $count_stmt->execute($params);
 $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
@@ -49,16 +51,14 @@ $total_pages = ceil($total / $per_page);
 $limit_clause = $db->buildLimitClause($per_page, $offset);
 // Pagination literals come from safe_int()-bounded integers via buildLimitClause().
 // nosemgrep
-$stmt = $conn->prepare("
-    SELECT * FROM contract_templates 
-    $where_sql
+$select_sql .= "
     ORDER BY 
         is_active DESC,
         CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
         service_type,
         name
-    " . $limit_clause
-);
+    " . $limit_clause;
+$stmt = $conn->prepare($select_sql);
 $stmt->execute($params);
 $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
