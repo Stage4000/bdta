@@ -104,7 +104,14 @@ body { background: #f8f9fa; }
 }
 @media print {
     .no-print { display: none !important; }
-    body { background: white; }
+    body,
+    [data-bs-theme="dark"] body {
+        background: white !important;
+        color: #000 !important;
+    }
+    [data-bs-theme="dark"] .invoice-wrapper {
+        color: #000 !important;
+    }
     .card { border: none !important; box-shadow: none !important; }
 }
 </style>
