@@ -210,7 +210,7 @@ require_once __DIR__ . '/includes/public_head.php';
 
 <div class="container form-card">
     <div class="text-center mb-4">
-        <h1 class="h3 mb-2"><i class="fas fa-clipboard-list-check me-2"></i><?= htmlspecialchars($template_name) ?></h1>
+        <h1 class="h3 mb-2"><i class="fas fa-clipboard-check me-2"></i><?= htmlspecialchars($template_name) ?></h1>
         <?php if ($template_description !== ''): ?>
             <p class="text-muted mb-0"><?= nl2br(htmlspecialchars($template_description)) ?></p>
         <?php endif; ?>

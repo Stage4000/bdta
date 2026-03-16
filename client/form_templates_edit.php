@@ -411,6 +411,7 @@ require_once '../backend/includes/header.php';
                                 <i class="fas fa-up-right-from-square"></i> Open
                             </a>
                         </div>
+                        <div id="form_share_status" class="form-text text-success visually-hidden mt-1">Link copied!</div>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -687,15 +688,30 @@ document.getElementById('templateForm').addEventListener('submit', function() {
 function copyFormShareLink() {
     const input = document.getElementById('form_share_link');
     if (!input) return;
-    input.select();
-    input.setSelectionRange(0, 99999);
-    try {
-        const ok = document.execCommand('copy');
-        if (ok) {
-            alert('Link copied to clipboard.');
-        }
-    } catch (e) {
-        console.error('Copy failed', e);
+
+    const link = input.value;
+    const status = document.getElementById('form_share_status');
+
+    const showStatus = () => {
+        if (!status) return;
+        status.classList.remove('visually-hidden');
+        status.classList.add('d-block');
+        setTimeout(() => {
+            status.classList.add('visually-hidden');
+            status.classList.remove('d-block');
+        }, 2000);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(showStatus).catch(() => {
+            input.select();
+            document.execCommand('copy');
+            showStatus();
+        });
+    } else {
+        input.select();
+        document.execCommand('copy');
+        showStatus();
     }
 }
 </script>
