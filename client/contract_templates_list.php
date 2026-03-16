@@ -60,14 +60,12 @@ $select_sql .= "
         CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
         service_type,
         name
-    LIMIT :limit OFFSET :offset
 ";
+$select_sql .= $db->buildLimitClause($per_page, $offset);
 $stmt = $conn->prepare($select_sql);
 foreach ($select_params as $name => $value) {
     $stmt->bindValue($name, $value);
 }
-$stmt->bindValue(':limit', (int) $per_page, PDO::PARAM_INT);
-$stmt->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
 $stmt->execute();
 $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
