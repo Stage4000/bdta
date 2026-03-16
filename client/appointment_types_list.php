@@ -41,6 +41,21 @@ $page_title = "Appointment Types";
 include __DIR__ . '/../backend/includes/header.php';
 ?>
 
+<style>
+    .appointment-type-description-preview {
+        display: block;
+        display: -webkit-box;
+        line-height: 1.4;
+        max-width: 16rem;
+        max-height: 2.8em;
+        overflow: hidden;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+</style>
+
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -115,7 +130,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                     <td>
                                         <strong><?= htmlspecialchars($type_name) ?></strong>
                                         <?php if ($type_description !== ''): ?>
-                                            <br><small class="text-muted"><?= htmlspecialchars($type_description) ?></small>
+                                            <br><small class="text-muted appointment-type-description-preview" title="<?= htmlspecialchars($type_description) ?>"><?= htmlspecialchars($type_description) ?></small>
                                         <?php endif; ?>
                                     </td>
                                     <td>
