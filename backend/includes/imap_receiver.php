@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/config.php';
 
 class ImapEmailReceiver {
     private Database $db;
@@ -248,7 +249,7 @@ class ImapEmailReceiver {
         $subject = $this->decodeHeader(scalar_string($header->subject ?? '(No Subject)'));
         $header_date = $header->date ?? null;
         $parsed_date = is_string($header_date) ? strtotime($header_date) : false;
-        $received_date = $parsed_date !== false ? date('Y-m-d H:i:s', $parsed_date) : date('Y-m-d H:i:s');
+        $received_date = $parsed_date !== false ? formatUtcTimestamp($parsed_date) : currentUtcDateTime();
 
         // Get from address (needed for duplicate check and storage)
         $from_email = '';
@@ -264,34 +265,10 @@ class ImapEmailReceiver {
         }
 
         // Get message ID to avoid duplicates
-        $message_id = isset($header->message_id) ? $header->message_id : null;
+        $message_id = trim(scalar_string($header->message_id ?? ''));
         
-        if ($message_id) {
-            // Check if this email already exists in client_emails
-            $stmt = $this->conn->prepare("
-                SELECT id FROM client_emails 
-                WHERE direction = 'incoming' AND subject = ? AND created_at = ?
-                LIMIT 1
-            ");
-            $stmt->execute([$subject, $received_date]);
-            
-            if ($stmt->fetch()) {
-                // Email already processed
-                return;
-            }
-
-            // Check if this email already exists in unmatched_emails
-            $stmt = $this->conn->prepare("
-                SELECT id FROM unmatched_emails 
-                WHERE from_email = ? AND subject = ? AND received_at = ?
-                LIMIT 1
-            ");
-            $stmt->execute([$from_email, $subject, $received_date]);
-
-            if ($stmt->fetch()) {
-                // Already stored as unmatched
-                return;
-            }
+        if ($this->isDuplicateEmail($message_id, $from_email, $subject, $received_date)) {
+            return;
         }
         
         // Get email body
@@ -310,21 +287,22 @@ class ImapEmailReceiver {
         
         if (!$client_id) {
             // No matching client found, store as unmatched email
-            $this->storeUnmatchedEmail($header, $from_email, $to_email, $subject, $body_html, $body_text, $received_date);
+            $this->storeUnmatchedEmail($header, $from_email, $to_email, $subject, $body_html, $body_text, $received_date, $message_id);
             return;
         }
         
         // Insert email into database
         $stmt = $this->conn->prepare("
             INSERT INTO client_emails (
-                client_id, direction, status, from_email, to_email,
+                client_id, direction, status, message_id, from_email, to_email,
                 subject, body_html, body_text,
                 sent_at, created_at, updated_at
-            ) VALUES (?, 'incoming', 'received', ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, 'incoming', 'received', ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
             $client_id,
+            $message_id !== '' ? $message_id : null,
             $from_email,
             $to_email,
             $subject,
@@ -332,8 +310,53 @@ class ImapEmailReceiver {
             $body_text ?: strip_tags($body_html),
             $received_date,
             $received_date,
-            date('Y-m-d H:i:s')
+            currentUtcDateTime()
         ]);
+    }
+
+    private function isDuplicateEmail(string $message_id, string $from_email, string $subject, string $received_date): bool {
+        if ($message_id !== '') {
+            $stmt = $this->conn->prepare("
+                SELECT id FROM client_emails
+                WHERE direction = 'incoming' AND message_id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$message_id]);
+            if ($stmt->fetch()) {
+                return true;
+            }
+
+            $stmt = $this->conn->prepare("
+                SELECT id FROM unmatched_emails
+                WHERE message_id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$message_id]);
+            if ($stmt->fetch()) {
+                return true;
+            }
+
+            return false;
+        }
+
+        $stmt = $this->conn->prepare("
+            SELECT id FROM client_emails
+            WHERE direction = 'incoming' AND subject = ? AND created_at = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$subject, $received_date]);
+        if ($stmt->fetch()) {
+            return true;
+        }
+
+        $stmt = $this->conn->prepare("
+            SELECT id FROM unmatched_emails
+            WHERE from_email = ? AND subject = ? AND received_at = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$from_email, $subject, $received_date]);
+
+        return $stmt->fetch() !== false;
     }
     
     /**
@@ -445,26 +468,32 @@ class ImapEmailReceiver {
     /**
      * Find client by email address
      */
-    private function findClientByEmail(string $email): ?string {
+    private function findClientByEmail(string $email): ?int {
         if (empty($email)) {
             return null;
         }
         
-        $stmt = $this->conn->prepare("SELECT id FROM clients WHERE email = ? LIMIT 1");
-        $stmt->execute([$email]);
+        $normalized_email = strtolower(trim($email));
+        if ($normalized_email === '') {
+            return null;
+        }
+
+        $stmt = $this->conn->prepare("SELECT id FROM clients WHERE LOWER(email) = ? LIMIT 1");
+        $stmt->execute([$normalized_email]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!is_array($result)) {
             return null;
         }
-        $client_id = $result['id'] ?? null;
-        return is_string($client_id) && $client_id !== '' ? $client_id : null;
+
+        $client_id = safe_int($result['id'] ?? 0);
+        return $client_id > 0 ? $client_id : null;
     }
     
     /**
      * Store unmatched email (from unknown sender)
      */
-    private function storeUnmatchedEmail(object $header, string $from_email, string $to_email, string $subject, string $body_html, string $body_text, string $received_date): void {
+    private function storeUnmatchedEmail(object $header, string $from_email, string $to_email, string $subject, string $body_html, string $body_text, string $received_date, string $message_id = ''): void {
         // Get from name
         $from_name = '';
         if (isset($header->from) && is_array($header->from) && count($header->from) > 0) {
@@ -474,28 +503,31 @@ class ImapEmailReceiver {
             }
         }
         
-        // Check if this unmatched email already exists
-        $stmt = $this->conn->prepare("
-            SELECT id FROM unmatched_emails 
-            WHERE from_email = ? AND subject = ? AND received_at = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$from_email, $subject, $received_date]);
-        
-        if ($stmt->fetch()) {
-            // Already exists, skip
-            return;
+        if ($message_id === '') {
+            // Check if this unmatched email already exists when the parsed message_id is empty
+            $stmt = $this->conn->prepare("
+                SELECT id FROM unmatched_emails 
+                WHERE from_email = ? AND subject = ? AND received_at = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$from_email, $subject, $received_date]);
+            
+            if ($stmt->fetch()) {
+                // Already exists, skip
+                return;
+            }
         }
         
         // Insert unmatched email
         $stmt = $this->conn->prepare("
             INSERT INTO unmatched_emails (
-                from_email, from_name, to_email, subject, 
+                message_id, from_email, from_name, to_email, subject,
                 body_html, body_text, received_at, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
+            $message_id !== '' ? $message_id : null,
             $from_email,
             $from_name,
             $to_email,
@@ -503,7 +535,7 @@ class ImapEmailReceiver {
             $body_html,
             $body_text,
             $received_date,
-            date('Y-m-d H:i:s')
+            currentUtcDateTime()
         ]);
     }
 }

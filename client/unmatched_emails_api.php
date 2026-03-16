@@ -232,14 +232,15 @@ if ($method === 'GET') {
                 $email_status = ($email_direction === 'outgoing') ? 'sent' : 'received';
                 $stmt = $conn->prepare("
                     INSERT INTO client_emails (
-                        client_id, direction, status, from_email, to_email,
+                        client_id, direction, status, message_id, from_email, to_email,
                         subject, body_html, body_text, sent_at, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([
                     $client_id,
                     $email_direction,
                     $email_status,
+                    array_string_value($unmatched_email, 'message_id') ?: null,
                     array_string_value($unmatched_email, 'from_email'),
                     array_string_value($unmatched_email, 'to_email'),
                     array_string_value($unmatched_email, 'subject'),

@@ -112,6 +112,8 @@ function safe_float(mixed $value): float {
 
 class Database {
     private const MYSQL_CLIENT_NAME_PHONE_INDEX_SQL = 'CREATE INDEX idx_clients_name_phone ON clients(name(128), phone(32))';
+    private const MYSQL_CLIENT_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_client_emails_message_id ON client_emails(direction, message_id(255))';
+    private const MYSQL_UNMATCHED_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id(255))';
 
     private static ?SafePDO $sharedConnection = null;
     private static ?string $sharedDbType = null;
@@ -986,6 +988,7 @@ class Database {
                     client_id INTEGER NOT NULL,
                     direction TEXT NOT NULL,
                     status TEXT NOT NULL,
+                    message_id TEXT,
                     from_email TEXT NOT NULL,
                     to_email TEXT NOT NULL,
                     subject TEXT NOT NULL,
@@ -1011,6 +1014,7 @@ class Database {
             $this->execSQL("
                 CREATE TABLE IF NOT EXISTS unmatched_emails (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    message_id TEXT,
                     from_email TEXT NOT NULL,
                     from_name TEXT,
                     to_email TEXT NOT NULL,
@@ -1963,6 +1967,44 @@ class Database {
         $client_emails_cols = $this->getTableColumns('client_emails');
         if (!in_array('mail_type', $client_emails_cols)) {
             $this->execSQL("ALTER TABLE client_emails ADD COLUMN mail_type TEXT DEFAULT NULL");
+        }
+        if (!in_array('message_id', $client_emails_cols)) {
+            $this->execSQL("ALTER TABLE client_emails ADD COLUMN message_id TEXT DEFAULT NULL");
+        }
+
+        if (!in_array('message_id', $unmatched_email_columns)) {
+            $this->execSQL("ALTER TABLE unmatched_emails ADD COLUMN message_id TEXT DEFAULT NULL");
+        }
+        if ($this->db_type === 'mysql') {
+            if (!$this->indexExists('client_emails', 'idx_client_emails_message_id')) {
+                try {
+                    $this->execSQL(self::MYSQL_CLIENT_EMAILS_MESSAGE_ID_INDEX_SQL);
+                } catch (PDOException $e) {
+                    error_log("Migration: could not create client_emails message_id index - " . $e->getMessage());
+                }
+            }
+            if (!$this->indexExists('unmatched_emails', 'idx_unmatched_emails_message_id')) {
+                try {
+                    $this->execSQL(self::MYSQL_UNMATCHED_EMAILS_MESSAGE_ID_INDEX_SQL);
+                } catch (PDOException $e) {
+                    error_log("Migration: could not create unmatched_emails message_id index - " . $e->getMessage());
+                }
+            }
+        } else {
+            if (!$this->indexExists('client_emails', 'idx_client_emails_message_id')) {
+                try {
+                    $this->execSQL("CREATE INDEX idx_client_emails_message_id ON client_emails(direction, message_id)");
+                } catch (PDOException $e) {
+                    error_log("Migration: could not create client_emails message_id index - " . $e->getMessage());
+                }
+            }
+            if (!$this->indexExists('unmatched_emails', 'idx_unmatched_emails_message_id')) {
+                try {
+                    $this->execSQL("CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id)");
+                } catch (PDOException $e) {
+                    error_log("Migration: could not create unmatched_emails message_id index - " . $e->getMessage());
+                }
+            }
         }
 
         // Add item_type and reference_id to quote_items to support package and appointment type line items
