@@ -95,6 +95,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $contact_email = trim(scalar_string($_POST['contact_email'] ?? ''));
         $contact_phone = trim(scalar_string($_POST['contact_phone'] ?? ''));
 
+        // Preserve user-entered contact info on re-render by updating prefill variables
+        $prefill_name = $contact_name;
+        $prefill_email = $contact_email;
+        $prefill_phone = $contact_phone;
+
         if ($contact_name === '' || $contact_email === '') {
             $errors[] = 'Name and email are required.';
         } elseif (!filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
