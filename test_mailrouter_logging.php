@@ -42,6 +42,48 @@ function mailRouterLogLinesContaining(string $log_contents, string $needle): arr
     return $matching_lines;
 }
 
+/**
+ * Deletes only test/runtime files that resolve inside the expected directory.
+ * Missing files are treated as a no-op so cleanup can safely run from finally blocks.
+ * When both basename filters are provided, both conditions must match.
+ */
+function deleteMailRouterTestFile(
+    string $path,
+    string $allowed_directory,
+    string $required_basename = '',
+    string $required_basename_prefix = ''
+): void {
+    if (str_contains($path, "\0") || str_contains($allowed_directory, "\0")) {
+        return;
+    }
+
+    $real_path = realpath($path);
+    $real_allowed_directory = realpath($allowed_directory);
+
+    if ($real_path === false || $real_allowed_directory === false) {
+        return;
+    }
+
+    if (!str_starts_with($real_path, $real_allowed_directory . DIRECTORY_SEPARATOR)) {
+        return;
+    }
+
+    if (dirname($real_path) !== $real_allowed_directory) {
+        return;
+    }
+
+    if ($required_basename !== '' && basename($real_path) !== $required_basename) {
+        return;
+    }
+
+    if ($required_basename_prefix !== '' && !str_starts_with(basename($real_path), $required_basename_prefix)) {
+        return;
+    }
+
+    // nosemgrep: php.lang.security.unlink-use.unlink-use
+    unlink($real_path);
+}
+
 $exit_code = 0;
 
 try {
@@ -111,12 +153,10 @@ try {
         Settings::set($key, $value);
     }
 
-    if (file_exists($error_log_path)) {
-        unlink($error_log_path);
-    }
+    deleteMailRouterTestFile($error_log_path, sys_get_temp_dir(), required_basename_prefix: 'test-mailrouter-error-');
 
     if (!$log_previously_existed && file_exists($log_path)) {
-        unlink($log_path);
+        deleteMailRouterTestFile($log_path, dirname($log_path), 'mailrouter.log');
     } elseif ($log_previously_existed && is_string($original_log_contents)) {
         file_put_contents($log_path, $original_log_contents, LOCK_EX);
     }
