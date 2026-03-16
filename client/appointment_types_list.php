@@ -50,7 +50,7 @@ include __DIR__ . '/../backend/includes/header.php';
         max-height: 2.8em;
         overflow: hidden;
         white-space: normal;
-        word-break: break-word;
+        overflow-wrap: anywhere;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
     }
