@@ -394,15 +394,19 @@ require_once '../backend/includes/header.php';
                 </div>
 
                 <?php if ($is_edit && $form_type === 'client_form'): ?>
-                    <?php if (!$is_internal && $is_active): ?>
+                    <?php if ($is_active): ?>
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Shareable Form Link</h5>
-                        <span class="badge bg-secondary">External</span>
+                        <h5 class="mb-0"><?php echo $is_internal ? 'Direct Form Link' : 'Shareable Form Link'; ?></h5>
+                        <span class="badge bg-secondary"><?php echo $is_internal ? 'Internal' : 'External'; ?></span>
                     </div>
                     <div class="card-body">
                         <p class="text-muted small mb-2">
-                            Share this link so the form can be completed without logging into the admin panel.
+                            <?php if ($is_internal): ?>
+                                Open this link while logged in as an admin/staff user to complete the internal form.
+                            <?php else: ?>
+                                Share this link so the form can be completed without requiring an admin/staff login.
+                            <?php endif; ?>
                         </p>
                         <?php $share_url = getDynamicBaseUrl() . '/backend/public/form.php?template_id=' . (int) $template_id; ?>
                         <div class="input-group">
@@ -420,12 +424,16 @@ require_once '../backend/includes/header.php';
                     <?php else: ?>
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Shareable Form Link</h5>
+                        <h5 class="mb-0"><?php echo $is_internal ? 'Direct Form Link' : 'Shareable Form Link'; ?></h5>
                         <span class="badge bg-secondary">Unavailable</span>
                     </div>
                     <div class="card-body">
                         <p class="text-muted small mb-0">
-                            This form cannot be shared publicly because it is either marked as internal or is not currently active.
+                            <?php if ($is_internal): ?>
+                                This form is not currently active. Internal forms can only be accessed while active.
+                            <?php else: ?>
+                                This form is not currently active, so its link is unavailable for sharing.
+                            <?php endif; ?>
                         </p>
                     </div>
                 </div>
