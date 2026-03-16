@@ -57,8 +57,8 @@ if ($service_type_filter !== '') {
 $select_sql .= "
     ORDER BY 
         CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
-        service_type,
         is_active DESC,
+        service_type,
         name
 ";
 $select_sql .= $db->buildLimitClause($per_page, $offset); // nosemgrep: php.lang.security.sql-injection,php.raw_sql_query.general -- LIMIT/OFFSET are validated integers (via safe_int) and safely appended as literals
