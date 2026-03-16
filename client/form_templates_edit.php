@@ -20,6 +20,8 @@ $is_edit = $template_id !== null;
 $name = '';
 $description = '';
 $form_type = 'client_form';
+$is_internal = false;
+$is_active = true;
 /** @var list<array<string, mixed>> $fields */
 $fields = [];
 $required_frequency = '';
@@ -392,6 +394,7 @@ require_once '../backend/includes/header.php';
                 </div>
 
                 <?php if ($is_edit && $form_type === 'client_form'): ?>
+                    <?php if (!$is_internal && $is_active): ?>
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Shareable Form Link</h5>
@@ -414,6 +417,19 @@ require_once '../backend/includes/header.php';
                         <div id="form_share_status" class="form-text text-success visually-hidden mt-1">Link copied!</div>
                     </div>
                 </div>
+                    <?php else: ?>
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Shareable Form Link</h5>
+                        <span class="badge bg-secondary">Unavailable</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-0">
+                            This form cannot be shared publicly because it is either marked as internal or is not currently active.
+                        </p>
+                    </div>
+                </div>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <div class="d-grid gap-2">
