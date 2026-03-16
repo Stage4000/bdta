@@ -3,7 +3,7 @@
 require_once __DIR__ . '/backend/includes/email_service.php';
 
 $log_path = __DIR__ . '/backend/logs/mailrouter.log';
-$error_log_path = sys_get_temp_dir() . '/bdta-mailrouter-error-' . uniqid('', true) . '.log';
+$error_log_path = sys_get_temp_dir() . '/test-mailrouter-error-' . uniqid('', true) . '.log';
 $unique_token = 'mailrouter-test-' . uniqid('', true);
 $log_previously_existed = file_exists($log_path);
 $original_log_contents = $log_previously_existed ? file_get_contents($log_path) : null;
@@ -39,7 +39,7 @@ try {
     );
 
     if ($result['success']) {
-        fwrite(STDERR, "Expected the email send to fail in the test environment.\n");
+        fwrite(STDERR, "Expected the email send to fail due to the invalid SMTP host configured by the test.\n");
         exit(1);
     }
 
@@ -90,6 +90,8 @@ try {
 
     if (!$log_previously_existed && file_exists($log_path)) {
         unlink($log_path);
+    } elseif ($log_previously_existed && is_string($original_log_contents)) {
+        file_put_contents($log_path, $original_log_contents, LOCK_EX);
     }
 }
 

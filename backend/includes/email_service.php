@@ -133,7 +133,7 @@ class EmailService {
             $log_file = self::getMailRouterLogFilePath();
             $log_dir = dirname($log_file);
 
-            if (!is_dir($log_dir) && !mkdir($log_dir, 0750, true) && !is_dir($log_dir)) {
+            if (!is_dir($log_dir) && @mkdir($log_dir, 0750, true) === false && !is_dir($log_dir)) {
                 throw new RuntimeException('Unable to create the MailRouter log directory.');
             }
 
