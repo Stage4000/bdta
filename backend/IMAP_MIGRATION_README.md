@@ -1,5 +1,7 @@
 # IMAP Settings Migration
 
+> Note: SQLite support has been removed. The sqlite3 commands below are only for exporting legacy data before importing into MySQL.
+
 ## Problem
 If you don't see IMAP email receiving settings in **Settings → Email**, your database may not have been updated with the new IMAP configuration fields.
 

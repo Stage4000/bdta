@@ -1,5 +1,7 @@
 # Fixing "Task Handler Not Found" Errors
 
+> Note: SQLite commands referenced in this guide are for legacy databases. Current deployments should use MySQL.
+
 ## Update (Fixed)
 
 **The `email.php` handler has been added** to provide backward compatibility for tasks with `task_type = 'email'`. 

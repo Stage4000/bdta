@@ -59,10 +59,6 @@ function getSelectOptions(string $key): array {
             '10' => '10 minutes',
             '15' => '15 minutes',
             '30' => '30 minutes'
-        ],
-        'db_type' => [
-            'sqlite' => 'SQLite (Development/Testing)',
-            'mysql' => 'MySQL (Production)'
         ]
     ];
     
@@ -91,13 +87,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         if ($current_category === 'database') {
             $env_updates = [];
             $env_key_map = [
-                'db_type' => 'DB_TYPE',
                 'db_host' => 'DB_HOST',
                 'db_port' => 'DB_PORT',
                 'db_name' => 'DB_NAME',
                 'db_user' => 'DB_USER',
                 'db_password' => 'DB_PASSWORD',
-                'sqlite_db_path' => 'SQLITE_DB_PATH'
             ];
             
             foreach ($_POST as $key => $value) {

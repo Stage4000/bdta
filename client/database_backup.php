@@ -17,34 +17,6 @@ $conn = $db->getConnection();
 $current_db_type = $db->getDatabaseType();
 
 switch ($action) {
-    case 'backup_sqlite':
-        if ($current_db_type !== 'sqlite') {
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Current database is not SQLite']);
-            exit;
-        }
-        
-        $sqlite_file = __DIR__ . '/../backend/bdta.db';
-        if (!file_exists($sqlite_file)) {
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'SQLite database file not found']);
-            exit;
-        }
-        
-        // Generate backup filename with timestamp
-        $backup_filename = 'bdta_backup_' . date('Y-m-d_H-i-s') . '.db';
-        
-        // Set headers for download
-        header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename="' . $backup_filename . '"');
-        header('Content-Length: ' . filesize($sqlite_file));
-        header('Cache-Control: no-cache, must-revalidate');
-        header('Pragma: public');
-        
-        // Output file
-        readfile($sqlite_file);
-        exit;
-        
     case 'backup_mysql':
         if ($current_db_type !== 'mysql') {
             header('Content-Type: application/json');

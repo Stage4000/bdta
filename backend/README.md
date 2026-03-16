@@ -1,6 +1,8 @@
 # Brook's Dog Training Academy - PHP Backend
 
-Complete backend system with **blog, booking calendar, client management, time tracking, expense tracking, invoicing with Stripe, contract management, and admin panel** using **PHP and SQLite**.
+Complete backend system with **blog, booking calendar, client management, time tracking, expense tracking, invoicing with Stripe, contract management, and admin panel** using **PHP and MySQL**.
+
+> **Important:** SQLite support has been removed. All deployments must use MySQL (or MariaDB). Any remaining references to SQLite are historical and will be cleaned up in future revisions.
 
 ## Features
 
@@ -72,11 +74,9 @@ Complete backend system with **blog, booking calendar, client management, time t
 - Booking management
 - Status updates across all modules
 
-### ✅ Database (MySQL/SQLite)
-- **MySQL support** for production environments
-- **SQLite fallback** for development and testing
+### ✅ Database (MySQL)
+- **MySQL support** for all environments
 - Automatic initialization and migration
-- Seamless switching via environment configuration
 - Tables for:
   - admin_users
   - clients
@@ -91,46 +91,25 @@ Complete backend system with **blog, booking calendar, client management, time t
 ## Requirements
 
 - PHP 7.4 or higher
-- **MySQL 5.7+** or **MariaDB 10.2+** for production (optional)
-- **SQLite3 PHP extension** for development/testing (usually included)
+- **MySQL 5.7+** or **MariaDB 10.2+**
 - **PDO MySQL extension** for MySQL support (usually included)
 - Web server (Apache, Nginx, or PHP built-in server)
 - (Optional) Composer for Google Calendar & Stripe integration
 
 ## Installation
 
-### 1. Database Configuration
+### 1. Database Configuration (MySQL only)
 
-The application supports both MySQL (recommended for production) and SQLite (for development/testing).
-
-#### Option A: SQLite (Quick Start - No Setup Required)
-
-SQLite works out of the box with zero configuration. Perfect for:
-- Local development
-- Testing
-- Small deployments
-- CI/CD pipelines
-
-No `.env` file needed - just start using the application!
-
-#### Option B: MySQL (Production)
-
-For production environments, configure MySQL by creating a `.env` file:
+Create a `.env` file:
 
 ```bash
-# Copy the example file
 cp .env.example .env
-
-# Edit .env with your MySQL credentials
 nano .env
 ```
 
 Example `.env` configuration:
 
 ```env
-# Database Configuration
-DB_TYPE=mysql
-
 # MySQL Connection Settings
 DB_HOST=localhost
 DB_PORT=3306
@@ -138,8 +117,6 @@ DB_NAME=bdta
 DB_USER=your_mysql_user
 DB_PASSWORD=your_mysql_password
 ```
-
-**Automatic Fallback:** If MySQL connection fails, the system automatically falls back to SQLite, ensuring your application stays online.
 
 #### Create MySQL Database
 
@@ -233,7 +210,6 @@ backend/
 │   ├── email_service.php    # Email confirmations
 │   ├── icalendar.php        # iCalendar generator
 │   └── google_calendar.php  # Google Calendar integration
-└── bdta.db                   # SQLite database (auto-created)
 ```
 
 ## Usage
@@ -354,7 +330,6 @@ Update `/backend/includes/email_service.php` accordingly.
 1. **Change Default Password** immediately
 2. **Environment File:** Never commit `.env` to version control (it's in `.gitignore`)
 3. **File Permissions:** 
-   - SQLite: Set proper permissions on bdta.db (660)
    - .env file: Restrict access (600)
 4. **HTTPS:** Always use HTTPS in production
 5. **Input Validation:** All inputs are validated and escaped
@@ -363,16 +338,10 @@ Update `/backend/includes/email_service.php` accordingly.
 8. **Never commit:**
    - `.env` file with credentials
    - `google-calendar-credentials.json`
-   - Database files (`.db`, `.sqlite`)
 
 ## Backup
 
 ### Backup Database
-
-**SQLite:**
-```bash
-cp backend/bdta.db backend/bdta_backup_$(date +%Y%m%d).db
-```
 
 **MySQL:**
 ```bash
@@ -380,11 +349,6 @@ mysqldump -u bdta_user -p bdta > bdta_backup_$(date +%Y%m%d).sql
 ```
 
 ### Restore Database
-
-**SQLite:**
-```bash
-cp backend/bdta_backup_20240115.db backend/bdta.db
-```
 
 **MySQL:**
 ```bash
@@ -396,7 +360,7 @@ mysql -u bdta_user -p bdta < bdta_backup_20240115.sql
 ### Database Issues
 
 #### MySQL Connection Failed
-If MySQL connection fails, the system automatically falls back to SQLite. Check:
+If MySQL connection fails, check:
 - MySQL server is running: `sudo systemctl status mysql`
 - Credentials in `.env` are correct
 - Database exists: `mysql -u root -p -e "SHOW DATABASES;"`
@@ -408,45 +372,10 @@ To test MySQL connection:
 php -r "new PDO('mysql:host=localhost;dbname=bdta', 'user', 'password');"
 ```
 
-#### Database Locked Error (SQLite)
-- Ensure proper file permissions: `chmod 660 backend/bdta.db`
-- Check directory permissions: `chmod 775 backend`
-- Restart PHP server
-- Only one process should write at a time
-
-#### Cannot Write to Database (SQLite)
-- Ensure SQLite extension is enabled: `php -m | grep sqlite`
-- Check file ownership: `ls -la backend/bdta.db`
-- Verify directory is writable
-
-#### Permission Denied
-- Check file permissions: `chmod 660 backend/bdta.db`
-- Check directory permissions: `chmod 775 backend`
-- Ensure web server user has access
-
 #### Tables Not Created
 - Check PHP error log for SQL errors
-- For MySQL: Verify user has CREATE TABLE permission
-- For SQLite: Ensure directory is writable
-
-### How to Switch Between MySQL and SQLite
-
-**To switch to MySQL:**
-1. Create/edit `.env` file
-2. Set `DB_TYPE=mysql`
-3. Configure MySQL credentials
-4. Restart application
-
-**To switch back to SQLite:**
-1. Edit `.env` file
-2. Set `DB_TYPE=sqlite`
-3. Or delete `.env` file entirely
-4. Restart application
-
-**To verify current database:**
-```bash
-php test_database.php
-```
+- Verify the MySQL user has CREATE TABLE permission
+- Confirm `.env` contains valid MySQL credentials
 
 ### Email Not Sending
 - Check PHP `mail()` configuration
@@ -458,17 +387,13 @@ php test_database.php
 
 ## Environment Variables Reference
 
-All environment variables are optional. The application works out-of-the-box with SQLite.
-
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_TYPE` | `sqlite` | Database type: `mysql` or `sqlite` |
 | `DB_HOST` | `localhost` | MySQL server hostname |
 | `DB_PORT` | `3306` | MySQL server port |
 | `DB_NAME` | `bdta` | MySQL database name |
 | `DB_USER` | `root` | MySQL username |
 | `DB_PASSWORD` | *(empty)* | MySQL password |
-| `SQLITE_DB_PATH` | `bdta.db` | SQLite database filename (relative to backend/) |
 
 ## License
 

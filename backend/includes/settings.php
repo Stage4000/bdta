@@ -122,15 +122,6 @@ class Settings {
         
         return [
             [
-                'key' => 'db_type',
-                'value' => EnvLoader::get('DB_TYPE', 'sqlite'),
-                'actual_value' => EnvLoader::get('DB_TYPE', 'sqlite'),
-                'type' => 'select',
-                'label' => 'Database Type',
-                'description' => 'Choose between SQLite (development) and MySQL (production)',
-                'is_secret' => false
-            ],
-            [
                 'key' => 'db_host',
                 'value' => EnvLoader::get('DB_HOST', 'localhost'),
                 'actual_value' => EnvLoader::get('DB_HOST', 'localhost'),
@@ -175,15 +166,6 @@ class Settings {
                 'description' => 'MySQL database password',
                 'is_secret' => true
             ],
-            [
-                'key' => 'sqlite_db_path',
-                'value' => EnvLoader::get('SQLITE_DB_PATH', 'bdta.db'),
-                'actual_value' => EnvLoader::get('SQLITE_DB_PATH', 'bdta.db'),
-                'type' => 'text',
-                'label' => 'SQLite Database Path',
-                'description' => 'Path to SQLite database file (relative to backend directory)',
-                'is_secret' => false
-            ]
         ];
     }
     

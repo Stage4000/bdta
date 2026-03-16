@@ -1,8 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * Test script for database connection
- * Tests both SQLite and MySQL (if configured)
+ * Test script for MySQL database connection
  */
 
 require_once __DIR__ . '/backend/includes/database.php';
@@ -15,15 +14,15 @@ try {
     $conn = $db->getConnection();
     $db_type = $db->getDatabaseType();
     
+    if ($db_type !== 'mysql') {
+        throw new Exception("Unexpected database type: $db_type (MySQL is required)");
+    }
+    
     echo "✓ Database connection successful!\n";
     echo "  Database type: " . strtoupper($db_type) . "\n\n";
     
     // Test table creation
-    if ($db_type === 'sqlite') {
-        $stmt = $conn->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
-    } else {
-        $stmt = $conn->query("SHOW TABLES");
-    }
+    $stmt = $conn->query("SHOW TABLES");
     
     $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
     echo "✓ Tables created successfully!\n";

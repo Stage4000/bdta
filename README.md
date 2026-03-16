@@ -29,10 +29,8 @@ This is a **complete business management system** combining a public-facing webs
 - **Smooth Animations**: AOS (Animate On Scroll) library integration
 - **SEO Optimized**: Proper meta tags and semantic HTML
 
-### 💼 Complete CRM Backend (PHP + MySQL/SQLite)
-- **🔄 Dual Database Support**: MySQL for production, SQLite for development
-- **🔧 Zero-Config Development**: Works out-of-the-box with SQLite
-- **⚡ Production-Ready**: MySQL support with automatic failover to SQLite
+### 💼 Complete CRM Backend (PHP + MySQL)
+- **⚡ Production-Ready**: MySQL support with automatic schema creation
 - **📦 Easy Migration**: Simple .env configuration switches databases
 
 - ✅ **Client Management**
@@ -139,7 +137,7 @@ This is a **complete business management system** combining a public-facing webs
 
 ### Backend
 - **PHP 7.4+** - Server-side language
-- **SQLite 3** - Embedded database (no external DB required)
+- **MySQL 5.7+ / MariaDB 10.2+** - Primary database
 - **PDO** - Database abstraction layer with prepared statements
 - **Sessions** - User authentication and state management
 - **File Uploads** - Receipt and document storage
@@ -184,22 +182,19 @@ Theme colors are stored in the database and apply instantly across:
 
 - **PHP**: 7.4 or higher
 - **PHP Extensions**:
-  - `pdo_sqlite` (for SQLite - usually included)
   - `pdo_mysql` (for MySQL - usually included)
   - `gd` or `imagick` (for image processing)
   - `mbstring` (for string handling)
   - `openssl` (for secure sessions)
-- **Database**: 
-  - **Development/Testing**: SQLite (no setup required)
-  - **Production (optional)**: MySQL 5.7+ or MariaDB 10.2+
+- **Database**: MySQL 5.7+ or MariaDB 10.2+
 - **Web Server**: Apache, Nginx, or PHP built-in server
 - **Optional**: Composer (for Stripe and Google Calendar integrations)
 
 ## Installation & Setup
 
-### Quick Start (Development)
+### Quick Start (MySQL)
 
-**SQLite is used by default - no database configuration needed!**
+MySQL is required for all environments.
 
 1. **Clone the repository**
    ```bash
@@ -207,27 +202,7 @@ Theme colors are stored in the database and apply instantly across:
    cd bdta
    ```
 
-2. **Start PHP built-in server**
-   ```bash
-   cd backend
-   php -S localhost:8000
-   ```
-
-3. **Access the application**
-   - **Main Website**: http://localhost:8000/../../index.html
-   - **Public Booking**: http://localhost:8000/public/book.php
-   - **Blog**: http://localhost:8000/public/blog.php
-   - **Admin Panel**: http://localhost:8000/client/login.php
-
-4. **Default Admin Credentials**
-   - Username: `admin`
-   - Password: `admin123`
-
-### Production Setup (MySQL)
-
-For production environments, configure MySQL:
-
-1. **Create MySQL database**
+2. **Create a MySQL database**
    ```sql
    CREATE DATABASE bdta CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    CREATE USER 'bdta_user'@'localhost' IDENTIFIED BY 'secure_password';
@@ -235,27 +210,29 @@ For production environments, configure MySQL:
    FLUSH PRIVILEGES;
    ```
 
-2. **Configure environment**
+3. **Configure environment**
    ```bash
    cp .env.example .env
    # Edit .env with your MySQL credentials
    ```
 
-3. **Tables auto-create on first run**
+4. **Start PHP built-in server**
+   ```bash
+   cd backend
+   php -S localhost:8000
+   ```
 
-📖 **See [backend/MYSQL_MIGRATION.md](backend/MYSQL_MIGRATION.md) for detailed setup and migration guide**
-   
-   ⚠️ **Change immediately after first login!**
+5. **Access the application**
+   - **Main Website**: http://localhost:8000/../../index.html
+   - **Public Booking**: http://localhost:8000/public/book.php
+   - **Blog**: http://localhost:8000/public/blog.php
+   - **Admin Panel**: http://localhost:8000/client/login.php
 
-### Database Initialization
+6. **Default Admin Credentials**
+   - Username: `admin`
+   - Password: `admin123`
 
-The SQLite database (`bdta.db`) is automatically created on first run with:
-- Admin user table (with default admin account)
-- All CRM tables (clients, pets, bookings, etc.)
-- Default settings
-- Sample appointment types
-
-No manual database setup required!
+Tables are auto-created on first run when connecting to MySQL.
 
 ### File Structure
 
@@ -302,7 +279,6 @@ bdta/
 │   ├── assets/
 │   │   └── css/
 │   │       └── mobile.css  # Mobile-optimized styles
-│   └── bdta.db             # SQLite database (auto-created)
 ├── README.md               # This file
 └── .gitignore
 ```
@@ -744,27 +720,13 @@ sudo systemctl start apache2
 
 ### Database Issues
 
-**Error: "Database is locked"**
+**Error: "Unable to connect to MySQL"**
 ```bash
-# Check file permissions
-ls -l backend/bdta.db
+# Verify MySQL is running
+sudo systemctl status mysql
 
-# Fix permissions
-chmod 660 backend/bdta.db
-chown www-data:www-data backend/bdta.db
-
-# Restart web server
-sudo systemctl restart apache2
-```
-
-**Error: "Unable to open database"**
-```bash
-# Verify SQLite extension
-php -m | grep sqlite
-
-# If missing, install
-sudo apt install php-sqlite3
-sudo systemctl restart apache2
+# Test credentials from .env
+mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "SHOW TABLES;"
 ```
 
 ### Email Not Sending
@@ -855,13 +817,7 @@ session_save_path('/var/www/bdta/backend/sessions');
    opcache.revalidate_freq=60
    ```
 
-2. **Database Optimization**
-   ```bash
-   # Vacuum SQLite database (reclaim space)
-   sqlite3 backend/bdta.db "VACUUM;"
-   ```
-
-3. **Enable Gzip Compression**
+2. **Enable Gzip Compression**
    ```apache
    # In .htaccess
    <IfModule mod_deflate.c>

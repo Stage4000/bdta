@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully implemented MySQL support for the Brook's Dog Training Academy backend while maintaining SQLite as a fallback for development and testing. This implementation addresses all requirements from the original issue.
+SQLite compatibility has been removed; MySQL is now the only supported database. Legacy conversion utilities remain to ease migration of existing SQLite-style schema definitions into MySQL.
 
 ## What Was Implemented
 
@@ -12,17 +12,16 @@ Successfully implemented MySQL support for the Brook's Dog Training Academy back
 - Added `.env.example` with all configuration options
 - Environment variables control database type and connection settings
 
-### 2. Dual Database Support
-- Refactored `Database` class to support both MySQL and SQLite
-- Automatic database type detection based on configuration
-- Seamless fallback from MySQL to SQLite on connection failure
-- SQL syntax conversion between database types
+### 2. MySQL Connection Handling
+- Refactored `Database` class to require MySQL
+- Removed database type detection and SQLite fallback
+- Retained SQL conversion helpers to normalize legacy schema definitions to MySQL
 
-### 3. Database-Agnostic Operations
-- Created helper methods for cross-database operations:
-  - `getTableColumns()` - Get column info (works with both databases)
+### 3. Schema Utilities
+- Helper methods for MySQL operations:
+  - `getTableColumns()` - Get column info via `INFORMATION_SCHEMA`
   - `tableExists()` - Check table existence
-  - `convertSQL()` - Convert SQLite SQL to MySQL SQL
+  - `convertSQL()` - Normalize legacy SQLite-style SQL to MySQL SQL
   - `execSQL()` - Execute with automatic conversion
 
 ### 4. SQL Compatibility Layer
@@ -40,11 +39,9 @@ Handles differences between SQLite and MySQL:
 
 ### 6. Testing Infrastructure
 Created three comprehensive test suites:
-- `test_database.php` - Basic connection and table creation test
+- `test_database.php` - Basic MySQL connection and table creation test
 - `test_crud.php` - Complete CRUD operations test
 - `test_integration.php` - Real application usage simulation
-
-All tests pass successfully with SQLite.
 
 ### 7. Documentation
 - **backend/README.md** - Updated with MySQL setup instructions
@@ -56,25 +53,11 @@ All tests pass successfully with SQLite.
 
 ## How It Works
 
-### Default Behavior (SQLite)
-1. No `.env` file exists
-2. System defaults to SQLite
-3. Database file created at `backend/bdta.db`
-4. Tables auto-created on first run
-5. Works immediately with zero configuration
-
-### MySQL Configuration
+### Default Behavior (MySQL)
 1. Create `.env` file from `.env.example`
-2. Set `DB_TYPE=mysql`
-3. Configure MySQL credentials
-4. System connects to MySQL
-5. Tables auto-created on first run
-
-### Fallback Mechanism
-1. If `DB_TYPE=mysql` in `.env`
-2. System attempts MySQL connection
-3. On failure, logs error and falls back to SQLite
-4. Application remains operational
+2. Configure MySQL credentials
+3. System connects to MySQL
+4. Tables auto-created on first run
 
 ## Files Modified
 
@@ -177,30 +160,22 @@ See `backend/MYSQL_MIGRATION.md` for detailed steps.
 - ✅ Supports larger datasets
 
 ### For Reliability
-- ✅ Automatic fallback ensures uptime
-- ✅ Graceful degradation on MySQL failure
-- ✅ No single point of failure
-- ✅ Easy to switch between databases
+- ✅ MySQL connection uses strict SQL mode and UTC time zone
+- ✅ Automatic schema migrations maintain data integrity
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_TYPE` | `sqlite` | Database type: `mysql` or `sqlite` |
 | `DB_HOST` | `localhost` | MySQL hostname |
 | `DB_PORT` | `3306` | MySQL port |
 | `DB_NAME` | `bdta` | MySQL database name |
 | `DB_USER` | `root` | MySQL username |
 | `DB_PASSWORD` | *(empty)* | MySQL password |
-| `SQLITE_DB_PATH` | `bdta.db` | SQLite filename |
 
 ## Backward Compatibility
 
-✅ **100% Backward Compatible**
-- Existing SQLite deployments continue to work
-- No changes required to existing installations
-- New features are opt-in via `.env` configuration
-- All existing functionality preserved
+Legacy SQLite compatibility has been removed. Migrate data into MySQL before upgrading.
 
 ## Future Enhancements
 

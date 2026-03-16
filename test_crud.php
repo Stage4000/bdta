@@ -1,8 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * Comprehensive database CRUD test
- * Tests Create, Read, Update, Delete operations on both MySQL and SQLite
+ * Comprehensive database CRUD test (MySQL only)
  */
 
 require_once __DIR__ . '/backend/includes/database.php';
@@ -13,6 +12,9 @@ try {
     $db = new Database();
     $conn = $db->getConnection();
     $db_type = $db->getDatabaseType();
+    if ($db_type !== 'mysql') {
+        throw new Exception("Unexpected database type: $db_type (MySQL is required)");
+    }
     
     echo "Testing with: " . strtoupper($db_type) . "\n";
     echo str_repeat('-', 50) . "\n\n";

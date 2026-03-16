@@ -1,18 +1,10 @@
 # MySQL Migration Guide
 
-This guide explains how to migrate from SQLite to MySQL or use both databases.
+This guide explains how to migrate legacy SQLite data into MySQL. SQLite is no longer supported at runtime.
 
 ## Overview
 
-The Brook's Dog Training Academy backend now supports both:
-- **MySQL** - Recommended for production environments
-- **SQLite** - Recommended for development, testing, and CI/CD
-
-The system automatically:
-- ✅ Detects which database to use based on `.env` configuration
-- ✅ Falls back to SQLite if MySQL connection fails
-- ✅ Creates all tables automatically on first run
-- ✅ Handles SQL syntax differences between databases
+The Brook's Dog Training Academy backend now requires **MySQL** (or MariaDB). Legacy conversion helpers remain to assist with migrating an existing SQLite database into MySQL.
 
 ## Quick Start
 
@@ -67,15 +59,14 @@ php -S localhost:8000
    nano .env
    ```
    
-   Update `.env`:
-   ```env
-   DB_TYPE=mysql
-   DB_HOST=localhost
-   DB_PORT=3306
-   DB_NAME=bdta
-   DB_USER=bdta_user
-   DB_PASSWORD=your_secure_password
-   ```
+Update `.env`:
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=bdta
+DB_USER=bdta_user
+DB_PASSWORD=your_secure_password
+```
 
 4. **Start the Application**
    ```bash
@@ -119,7 +110,7 @@ sed -i 's/INTEGER PRIMARY KEY AUTO_INCREMENT/INT AUTO_INCREMENT PRIMARY KEY/g' s
 
 ### Step 4: Setup MySQL (as shown above)
 
-Create the database and user, then configure `.env` with `DB_TYPE=mysql`.
+Create the database and user, then configure `.env` with your MySQL credentials.
 
 ### Step 5: Let Application Create Tables
 
@@ -157,33 +148,7 @@ mysql -u bdta_user -p bdta -e "SELECT COUNT(*) FROM bookings;"
 
 ## Testing Both Databases
 
-You can switch between databases easily:
-
-```bash
-# Test with SQLite
-echo "DB_TYPE=sqlite" > .env
-php test_database.php
-
-# Test with MySQL
-echo "DB_TYPE=mysql" > .env
-echo "DB_HOST=localhost" >> .env
-echo "DB_PORT=3306" >> .env
-echo "DB_NAME=bdta" >> .env
-echo "DB_USER=bdta_user" >> .env
-echo "DB_PASSWORD=your_password" >> .env
-php test_database.php
-```
-
-## Fallback Behavior
-
-The system automatically falls back to SQLite in these cases:
-
-1. **No .env file exists** → Uses SQLite
-2. **DB_TYPE=sqlite in .env** → Uses SQLite
-3. **DB_TYPE=mysql but connection fails** → Falls back to SQLite
-4. **Missing MySQL credentials** → Falls back to SQLite
-
-This ensures your application stays running even if MySQL is unavailable.
+MySQL is required; ensure `.env` contains valid connection details and run `php test_database.php` to verify connectivity.
 
 ## Production Deployment
 
