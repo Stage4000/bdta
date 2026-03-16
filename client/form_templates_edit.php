@@ -407,7 +407,7 @@ require_once '../backend/includes/header.php';
                             <button class="btn btn-outline-secondary" type="button" onclick="copyFormShareLink()">
                                 <i class="fas fa-copy"></i> Copy
                             </button>
-                            <a href="<?= htmlspecialchars($share_url) ?>" target="_blank" class="btn btn-outline-primary">
+                            <a href="<?= htmlspecialchars($share_url) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
                                 <i class="fas fa-up-right-from-square"></i> Open
                             </a>
                         </div>
