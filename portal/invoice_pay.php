@@ -88,6 +88,20 @@ body { background: #f8f9fa; }
     --bs-table-color: #f5d0fe;
     color: #f5d0fe;
 }
+[data-bs-theme="dark"] thead.table-light {
+    --bs-table-bg: #1f2937;
+    --bs-table-striped-bg: #273449;
+    --bs-table-active-bg: #2d3b52;
+    --bs-table-hover-bg: #273449;
+    --bs-table-border-color: #374151;
+    --bs-table-color: #e5e7eb;
+    color: #e5e7eb;
+}
+[data-bs-theme="dark"] thead.table-light th {
+    background-color: #1f2937;
+    border-bottom-color: #374151;
+    color: #e5e7eb;
+}
 @media print {
     .no-print { display: none !important; }
     body { background: white; }
