@@ -89,9 +89,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $contact_name = trim(scalar_string($_POST['contact_name'] ?? ''));
         $contact_email = trim(scalar_string($_POST['contact_email'] ?? ''));
         $contact_phone = trim(scalar_string($_POST['contact_phone'] ?? ''));
-        $prefill_name = $contact_name;
-        $prefill_email = $contact_email;
-        $prefill_phone = $contact_phone;
 
         if ($contact_name === '' || $contact_email === '') {
             $errors[] = 'Name and email are required.';
@@ -160,11 +157,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 // Update stored contact info for the known client
-                $conn->prepare("
+                $stmt_update = $conn->prepare("
                     UPDATE clients
                     SET name = ?, email = ?, phone = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
-                ")->execute([$contact_name, $contact_email, $contact_phone, $client_id]);
+                ");
+                $stmt_update->execute([$contact_name, $contact_email, $contact_phone, $client_id]);
             }
 
             // Save submission
