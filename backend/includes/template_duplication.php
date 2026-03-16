@@ -147,12 +147,30 @@ function duplicateAppointmentType(PDO $conn, int $appointment_type_id): int
 
 function duplicateNamedRecordLabel(PDO $conn, string $table, int $record_id): string
 {
-    $allowed_tables = ['email_templates', 'contract_templates', 'form_templates', 'appointment_types'];
-    if (!in_array($table, $allowed_tables, true)) {
+    $table_queries = [
+        'email_templates' => [
+            'select_name' => 'SELECT name FROM email_templates WHERE id = ?',
+            'name_exists' => 'SELECT COUNT(*) FROM email_templates WHERE name = ?',
+        ],
+        'contract_templates' => [
+            'select_name' => 'SELECT name FROM contract_templates WHERE id = ?',
+            'name_exists' => 'SELECT COUNT(*) FROM contract_templates WHERE name = ?',
+        ],
+        'form_templates' => [
+            'select_name' => 'SELECT name FROM form_templates WHERE id = ?',
+            'name_exists' => 'SELECT COUNT(*) FROM form_templates WHERE name = ?',
+        ],
+        'appointment_types' => [
+            'select_name' => 'SELECT name FROM appointment_types WHERE id = ?',
+            'name_exists' => 'SELECT COUNT(*) FROM appointment_types WHERE name = ?',
+        ],
+    ];
+
+    if (!isset($table_queries[$table])) {
         throw new InvalidArgumentException('Unsupported table for duplication.');
     }
 
-    $stmt = $conn->prepare("SELECT name FROM {$table} WHERE id = ?");
+    $stmt = $conn->prepare($table_queries[$table]['select_name']);
     $stmt->execute([$record_id]);
     $source_name = $stmt->fetchColumn();
 
@@ -166,9 +184,9 @@ function duplicateNamedRecordLabel(PDO $conn, string $table, int $record_id): st
     }
 
     $copy_index = 1;
-    $name_exists_stmt = $conn->prepare("SELECT COUNT(*) FROM {$table} WHERE name = ?");
+    $name_exists_stmt = $conn->prepare($table_queries[$table]['name_exists']);
 
-    while (true) {
+    while ($copy_index <= 1000) {
         $candidate = $source_name . ' (Copy' . ($copy_index > 1 ? ' ' . $copy_index : '') . ')';
         $name_exists_stmt->execute([$candidate]);
 
@@ -178,17 +196,25 @@ function duplicateNamedRecordLabel(PDO $conn, string $table, int $record_id): st
 
         $copy_index++;
     }
+
+    throw new RuntimeException('Unable to generate a unique duplicate name.');
 }
 
 function duplicateAppointmentTypeUniqueLink(PDO $conn): string
 {
     $check_stmt = $conn->prepare("SELECT COUNT(*) FROM appointment_types WHERE unique_link = ?");
+    $attempts = 0;
 
     do {
         $unique_link = bin2hex(random_bytes(16));
         $check_stmt->execute([$unique_link]);
         $exists = (int) $check_stmt->fetchColumn();
-    } while ($exists > 0);
+        $attempts++;
+    } while ($exists > 0 && $attempts < 100);
+
+    if ($exists > 0) {
+        throw new RuntimeException('Unable to generate a unique booking link for the duplicated appointment type.');
+    }
 
     return $unique_link;
 }
