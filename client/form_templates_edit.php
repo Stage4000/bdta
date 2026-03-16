@@ -696,9 +696,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Renumber field_required and field_mapping names before submit
-document.getElementById('templateForm').addEventListener('submit', function() {
-    reindexFields();
-});
+    document.getElementById('templateForm').addEventListener('submit', function() {
+        reindexFields();
+    });
 });
 
 function copyFormShareLink() {
