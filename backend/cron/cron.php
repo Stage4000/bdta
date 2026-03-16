@@ -74,7 +74,7 @@ class CronRunner {
      * @return list<array<string, mixed>>
      */
     private function getDueTasks(): array {
-        $current_time = currentUtcDateTime();
+        $current_time = $this->getCurrentUtcDateTime();
         
         $stmt = $this->conn->prepare("
             SELECT * FROM scheduled_tasks 
@@ -99,6 +99,8 @@ class CronRunner {
         $task_name = scalar_string($task['task_name'] ?? '');
         $task_type = scalar_string($task['task_type'] ?? '');
         $this->log("Executing task: {$task_name} (Type: {$task_type})");
+        $schedule_updated = false;
+        $has_valid_task_id = is_int($task_id) || is_string($task_id);
         
         try {
             // Load the task handler
@@ -152,16 +154,27 @@ class CronRunner {
             
             // Update task's last_run and next_run times
             $this->updateTaskSchedule($task);
+            $schedule_updated = true;
             
         } catch (Exception $e) {
             // Log failure
             $execution_time = round(microtime(true) - $task_start_time, 2);
             $error_message = $e->getMessage();
             
-            if (is_int($task_id) || is_string($task_id)) {
+            if ($has_valid_task_id) {
                 $this->logTaskExecution($task_id, $task_name, 'error', $error_message, 0, $execution_time);
             }
             $this->log("✗ Task failed: {$error_message}");
+        } finally {
+            // Even on failure, advance the schedule so a bad task doesn't thrash every minute
+            if (!$schedule_updated && $has_valid_task_id) {
+                try {
+                    $this->updateTaskSchedule($task);
+                    $this->log("Task rescheduled after failure: {$task_name}");
+                } catch (Exception $scheduleException) {
+                    $this->log("Failed to reschedule '{$task_name}' after error: " . $scheduleException->getMessage());
+                }
+            }
         }
     }
     
@@ -188,7 +201,7 @@ class CronRunner {
      * @param array<string, mixed> $task
      */
     private function updateTaskSchedule(array $task): void {
-        $current_time = currentUtcDateTime();
+        $current_time = $this->getCurrentUtcDateTime();
         $next_run = $this->calculateNextRun($task);
         $task_id = $task['id'] ?? null;
         
@@ -341,8 +354,20 @@ class CronRunner {
      * Log to console/file
      */
     private function log(string $message): void {
-        $timestamp = currentUtcDateTime();
+        $timestamp = $this->getCurrentUtcDateTime();
         echo "[{$timestamp}] {$message}\n";
+    }
+    
+    /**
+     * Wrapper for currentUtcDateTime() to avoid fatal errors if the helper
+     * isn't available in the runtime.
+     */
+    private function getCurrentUtcDateTime(): string {
+        if (function_exists('currentUtcDateTime')) {
+            return currentUtcDateTime();
+        }
+        
+        return gmdate('Y-m-d H:i:s');
     }
 }
 
