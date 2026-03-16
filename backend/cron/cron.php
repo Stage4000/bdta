@@ -174,7 +174,7 @@ class CronRunner {
                     $this->updateTaskSchedule($task);
                     $this->log("Task rescheduled after failure: {$task_name}");
                 } catch (Exception $scheduleException) {
-                    $this->log("Failed to reschedule task after failure. Task may be retried on next cron cycle: " . $scheduleException->getMessage());
+                    $this->log("Failed to reschedule task after failure; task will retry on next cron cycle: " . $scheduleException->getMessage());
                 }
             }
         }

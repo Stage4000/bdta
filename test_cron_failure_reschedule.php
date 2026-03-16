@@ -29,7 +29,13 @@ $now_utc = (string) $get_current_time->invoke($cron);
 $past_time = (new DateTimeImmutable($now_utc, new DateTimeZone('UTC')))
     ->modify('-1 hour')
     ->format('Y-m-d H:i:s');
-$insert->execute([$task_name, 'nonexistent_handler', 'hourly', '', $past_time]);
+$insert->execute([
+    $task_name,
+    'nonexistent_handler',
+    'hourly',
+    '', // hourly schedule_type ignores schedule_value
+    $past_time
+]);
 $task_id = (int) $conn->lastInsertId();
 
 $task_stmt = $conn->prepare("SELECT * FROM scheduled_tasks WHERE id = ?");
