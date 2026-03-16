@@ -13,9 +13,8 @@ require_once __DIR__ . '/backend/cron/cron.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$task_name = 'Test Reschedule After Failure';
-$cleanup_stmt = $conn->prepare("DELETE FROM scheduled_tasks WHERE task_name = ?");
-$cleanup_stmt->execute([$task_name]);
+$task_name = 'Test Reschedule After Failure ' . uniqid('', true);
+$cleanup_stmt = $conn->prepare("DELETE FROM scheduled_tasks WHERE id = ?");
 
 $insert = $conn->prepare("
     INSERT INTO scheduled_tasks (task_name, task_type, schedule_type, schedule_value, is_active, next_run, last_run)
@@ -38,6 +37,10 @@ $insert->execute([
 ]);
 $task_id = (int) $conn->lastInsertId();
 
+if ($task_id <= 0) {
+    throw new RuntimeException('Failed to determine inserted test task id.');
+}
+
 $task_stmt = $conn->prepare("SELECT * FROM scheduled_tasks WHERE id = ?");
 $task_stmt->execute([$task_id]);
 $task = $task_stmt->fetch(PDO::FETCH_ASSOC);
@@ -45,8 +48,6 @@ $task = $task_stmt->fetch(PDO::FETCH_ASSOC);
 if (!$task) {
     throw new RuntimeException('Failed to insert test task.');
 }
-
-$cleanup_done = false;
 
 try {
     $execute_task = $cron_reflection->getMethod('executeTask');
@@ -74,14 +75,9 @@ try {
         throw new RuntimeException('Task next_run did not advance after failure.');
     }
 
-    $cleanup_stmt->execute([$task_name]);
-    $cleanup_done = true;
-
     echo "=== Cron Failure Reschedule Test ===\n\n";
     echo "✓ Task failure rescheduled to future run time: {$updated_next_run}\n";
     echo "\nAll cron failure reschedule tests passed!\n";
 } finally {
-    if (!$cleanup_done) {
-        $cleanup_stmt->execute([$task_name]);
-    }
+    $cleanup_stmt->execute([$task_id]);
 }

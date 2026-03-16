@@ -206,6 +206,10 @@ class CronRunner {
         $current_time = $this->getCurrentUtcDateTime();
         $next_run = $this->calculateNextRun($task);
         $task_id = $task['id'] ?? null;
+
+        if (!is_int($task_id) && !is_string($task_id)) {
+            throw new RuntimeException('Task id missing for schedule update.');
+        }
         
         $stmt = $this->conn->prepare("
             UPDATE scheduled_tasks 
@@ -213,6 +217,15 @@ class CronRunner {
             WHERE id = ?
         ");
         $stmt->execute([$current_time, $next_run, $current_time, $task_id]);
+
+        if ($stmt->rowCount() === 0) {
+            $exists_stmt = $this->conn->prepare("SELECT 1 FROM scheduled_tasks WHERE id = ? LIMIT 1");
+            $exists_stmt->execute([$task_id]);
+
+            if ($exists_stmt->fetchColumn() === false) {
+                throw new RuntimeException("Failed to update schedule for task {$task_id}: task not found.");
+            }
+        }
         
         return $next_run;
     }
@@ -363,10 +376,9 @@ class CronRunner {
     }
     
     /**
-     * Wrapper for currentUtcDateTime() to avoid fatal errors if the helper
-     * isn't available in the runtime. This safeguards CLI-only executions
-     * where config.php may not have loaded helper functions (e.g., mismatched
-     * deployments or partial includes) by falling back to gmdate().
+     * Compatibility wrapper for currentUtcDateTime() so cron can still run
+     * against older or mismatched deployments where config.php is present but
+     * that specific helper has not been loaded yet, falling back to gmdate().
      */
     private function getCurrentUtcDateTime(): string {
         if (function_exists('currentUtcDateTime')) {
