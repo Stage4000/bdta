@@ -74,7 +74,7 @@ class CronRunner {
      * @return list<array<string, mixed>>
      */
     private function getDueTasks(): array {
-        $current_time = currentUtcDateTime();
+        $current_time = $this->getCurrentUtcDateTime();
         
         $stmt = $this->conn->prepare("
             SELECT * FROM scheduled_tasks 
@@ -96,9 +96,11 @@ class CronRunner {
     private function executeTask(array $task): void {
         $task_start_time = microtime(true);
         $task_id = $task['id'] ?? null;
+        $has_valid_task_id = is_int($task_id) || is_string($task_id);
         $task_name = scalar_string($task['task_name'] ?? '');
         $task_type = scalar_string($task['task_type'] ?? '');
         $this->log("Executing task: {$task_name} (Type: {$task_type})");
+        $schedule_updated = false;
         
         try {
             // Load the task handler
@@ -152,6 +154,7 @@ class CronRunner {
             
             // Update task's last_run and next_run times
             $this->updateTaskSchedule($task);
+            $schedule_updated = true;
             
         } catch (Exception $e) {
             // Log failure
@@ -162,6 +165,18 @@ class CronRunner {
                 $this->logTaskExecution($task_id, $task_name, 'error', $error_message, 0, $execution_time);
             }
             $this->log("✗ Task failed: {$error_message}");
+        } finally {
+            // Only reschedule here if the success path did not update the task;
+            // this keeps failed tasks from thrashing while avoiding a double-update
+            // when execute() already advanced the schedule.
+            if (!$schedule_updated && $has_valid_task_id) {
+                try {
+                    $next_run = $this->updateTaskSchedule($task);
+                    $this->log("Task rescheduled after failure to {$next_run}: {$task_name}");
+                } catch (Exception $scheduleException) {
+                    $this->log("Failed to reschedule task; next_run remains unchanged and task may retry immediately: " . $scheduleException->getMessage());
+                }
+            }
         }
     }
     
@@ -187,17 +202,38 @@ class CronRunner {
     /**
      * @param array<string, mixed> $task
      */
-    private function updateTaskSchedule(array $task): void {
-        $current_time = currentUtcDateTime();
+    private function updateTaskSchedule(array $task): string {
+        $current_time = $this->getCurrentUtcDateTime();
         $next_run = $this->calculateNextRun($task);
         $task_id = $task['id'] ?? null;
+
+        if (is_int($task_id)) {
+            $task_id_param = $task_id;
+        } elseif (is_string($task_id) && ctype_digit($task_id)) {
+            $task_id_param = (int) $task_id;
+        } else {
+            throw new RuntimeException('Invalid task id for schedule update; expected int or numeric string.');
+        }
         
         $stmt = $this->conn->prepare("
             UPDATE scheduled_tasks 
             SET last_run = ?, next_run = ?, updated_at = ?
             WHERE id = ?
         ");
-        $stmt->execute([$current_time, $next_run, $current_time, $task_id]);
+        $stmt->execute([$current_time, $next_run, $current_time, $task_id_param]);
+
+        if ($stmt->rowCount() === 0) {
+            $exists_stmt = $this->conn->prepare("SELECT 1 FROM scheduled_tasks WHERE id = ? LIMIT 1");
+            $exists_stmt->execute([$task_id_param]);
+
+            if ($exists_stmt->fetchColumn() === false) {
+                throw new RuntimeException("Failed to update schedule for task {$task_id_param}: task not found.");
+            }
+
+            $this->log("Warning: Task schedule update made no changes for task {$task_id_param}.");
+        }
+        
+        return $next_run;
     }
     
     /**
@@ -341,8 +377,27 @@ class CronRunner {
      * Log to console/file
      */
     private function log(string $message): void {
-        $timestamp = currentUtcDateTime();
+        $timestamp = $this->getCurrentUtcDateTime();
         echo "[{$timestamp}] {$message}\n";
+    }
+    
+    /**
+     * Compatibility wrapper for currentUtcDateTime() so cron can still run
+     * against older or mismatched deployments where config.php is present but
+     * that specific helper has not been loaded yet, falling back to gmdate().
+     */
+    private function getCurrentUtcDateTime(): string {
+        if (function_exists('currentUtcDateTime')) {
+            return currentUtcDateTime();
+        }
+        
+        static $warned = false;
+        if (!$warned) {
+            error_log('CronRunner: currentUtcDateTime() helper function not available, falling back to gmdate()');
+            $warned = true;
+        }
+        
+        return gmdate('Y-m-d H:i:s');
     }
 }
 
