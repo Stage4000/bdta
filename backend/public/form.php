@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (
             !$template
             || array_int_value($template, 'is_active') === 0
-            || (array_int_value($template, 'is_internal') === 1 && !isLoggedIn())
+            || (array_int_value($template, 'is_internal') !== 0 && !isLoggedIn())
         ) {
             $errors[] = 'This form is no longer available.';
         } else {
