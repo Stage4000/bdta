@@ -102,10 +102,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Re-load template to ensure current fields
+        $fields = [];
         $stmt_tpl = $conn->prepare("SELECT * FROM form_templates WHERE id = ?");
         $stmt_tpl->execute([$template_id]);
         $template = $stmt_tpl->fetch(PDO::FETCH_ASSOC);
-        if (!$template || array_int_value($template, 'is_active') === 0) {
+        if (
+            !$template
+            || array_int_value($template, 'is_active') === 0
+            || array_int_value($template, 'is_internal') === 1
+        ) {
             $errors[] = 'This form is no longer available.';
         } else {
             $fields = decode_json_assoc_list(array_string_value($template, 'fields'));
