@@ -31,35 +31,44 @@ $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
 // Build filters/params
-$params = [];
-$count_sql = 'SELECT COUNT(*) FROM contract_templates';
-$select_sql = 'SELECT * FROM contract_templates';
+$count_params = [];
+$select_params = [];
+$where_sql = '';
 
 if ($service_type_filter !== '') {
-    $count_sql .= ' WHERE service_type = ?';
-    $select_sql .= ' WHERE service_type = ?';
-    $params[] = $service_type_filter;
+    $where_sql = ' WHERE service_type = :service_type';
+    $count_params[':service_type'] = $service_type_filter;
+    $select_params[':service_type'] = $service_type_filter;
 }
 
 // Get total count
+$count_sql = 'SELECT COUNT(*) FROM contract_templates' . $where_sql;
 $count_stmt = $conn->prepare($count_sql);
-$count_stmt->execute($params);
+foreach ($count_params as $name => $value) {
+    $count_stmt->bindValue($name, $value);
+}
+$count_stmt->execute();
 $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get templates
-$limit_clause = $db->buildLimitClause($per_page, $offset);
-// Pagination literals come from safe_int()-bounded integers via buildLimitClause().
-// nosemgrep
-$select_sql .= "
+$select_sql = "
+    SELECT * FROM contract_templates
+    {$where_sql}
     ORDER BY 
         is_active DESC,
         CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
         service_type,
         name
-    " . $limit_clause;
+    LIMIT :limit OFFSET :offset
+";
 $stmt = $conn->prepare($select_sql);
-$stmt->execute($params);
+foreach ($select_params as $name => $value) {
+    $stmt->bindValue($name, $value);
+}
+$stmt->bindValue(':limit', (int) $per_page, PDO::PARAM_INT);
+$stmt->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
+$stmt->execute();
 $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = "Contract Templates";
