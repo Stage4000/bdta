@@ -16,9 +16,12 @@ $client_email = 'Case.Client.' . $suffix . '@example.invalid';
 $client_email_lower = strtolower($client_email);
 $message_id = '<imap-client-' . $suffix . '@example.invalid>';
 $unmatched_message_id = '<imap-unmatched-' . $suffix . '@example.invalid>';
+$collision_message_id = '<imap-collision-' . $suffix . '@example.invalid>';
+$collision_subject = 'IMAP collision ' . $suffix;
 $fallback_subject = 'IMAP fallback ' . $suffix;
 $fallback_received_at = '2026-03-16 14:30:00';
 $client_id = 0;
+$fallback_unmatched_email_id = 0;
 
 try {
     $db = new Database();
@@ -101,6 +104,33 @@ try {
     }
     echo "✓ Existing unmatched emails are deduplicated by message_id\n";
 
+    $stmt = $conn->prepare("
+        INSERT INTO client_emails (
+            client_id, direction, status, message_id, from_email, to_email,
+            subject, body_html, body_text, sent_at, created_at, updated_at
+        ) VALUES (?, 'incoming', 'received', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $client_id,
+        $collision_message_id,
+        'collision.' . $suffix . '@example.invalid',
+        Settings::get('imap_username', 'inbox@example.invalid'),
+        $collision_subject,
+        '<p>Body</p>',
+        'Body',
+        $fallback_received_at,
+        $fallback_received_at,
+        currentUtcDateTime()
+    ]);
+
+    if ($duplicate_check->invoke($receiver, $collision_message_id, 'different.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at) !== true) {
+        throw new RuntimeException('Expected existing client email message_id to still be treated as duplicate.');
+    }
+    if ($duplicate_check->invoke($receiver, '<new-message-id-' . $suffix . '@example.invalid>', 'different.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at) !== false) {
+        throw new RuntimeException('Expected message_id-based dedupe to ignore subject/date collisions when a new message_id is present.');
+    }
+    echo "✓ Message IDs take precedence over subject/date collisions\n";
+
     if ($duplicate_check->invoke($receiver, '', 'fallback.' . $suffix . '@example.invalid', $fallback_subject, $fallback_received_at) !== false) {
         throw new RuntimeException('Expected fallback duplicate check to ignore unmatched subjects before data exists.');
     }
@@ -121,6 +151,7 @@ try {
         $fallback_received_at,
         currentUtcDateTime()
     ]);
+    $fallback_unmatched_email_id = safe_int($conn->lastInsertId());
 
     if ($duplicate_check->invoke($receiver, '', 'fallback.' . $suffix . '@example.invalid', $fallback_subject, $fallback_received_at) !== true) {
         throw new RuntimeException('Expected subject/date fallback duplicate check to remain active when message_id is unavailable.');
@@ -138,11 +169,16 @@ try {
         $cleanup_client_email = $conn->prepare("DELETE FROM client_emails WHERE message_id = ?");
         $cleanup_client_email->execute([$message_id]);
 
+        $cleanup_collision_email = $conn->prepare("DELETE FROM client_emails WHERE message_id = ?");
+        $cleanup_collision_email->execute([$collision_message_id]);
+
         $cleanup_unmatched_email = $conn->prepare("DELETE FROM unmatched_emails WHERE message_id = ?");
         $cleanup_unmatched_email->execute([$unmatched_message_id]);
 
-        $cleanup_fallback = $conn->prepare("DELETE FROM unmatched_emails WHERE subject = ? OR from_email = ?");
-        $cleanup_fallback->execute([$fallback_subject, 'fallback.' . $suffix . '@example.invalid']);
+        if ($fallback_unmatched_email_id > 0) {
+            $cleanup_fallback = $conn->prepare("DELETE FROM unmatched_emails WHERE id = ?");
+            $cleanup_fallback->execute([$fallback_unmatched_email_id]);
+        }
 
         if ($client_id > 0) {
             $cleanup_client = $conn->prepare("DELETE FROM clients WHERE id = ?");

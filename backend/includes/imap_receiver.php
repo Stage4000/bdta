@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/config.php';
 
 class ImapEmailReceiver {
     private Database $db;
@@ -248,7 +249,7 @@ class ImapEmailReceiver {
         $subject = $this->decodeHeader(scalar_string($header->subject ?? '(No Subject)'));
         $header_date = $header->date ?? null;
         $parsed_date = is_string($header_date) ? strtotime($header_date) : false;
-        $received_date = $parsed_date !== false ? date('Y-m-d H:i:s', $parsed_date) : date('Y-m-d H:i:s');
+        $received_date = $parsed_date !== false ? formatUtcTimestamp($parsed_date) : currentUtcDateTime();
 
         // Get from address (needed for duplicate check and storage)
         $from_email = '';
@@ -309,7 +310,7 @@ class ImapEmailReceiver {
             $body_text ?: strip_tags($body_html),
             $received_date,
             $received_date,
-            date('Y-m-d H:i:s')
+            currentUtcDateTime()
         ]);
     }
 
@@ -334,6 +335,8 @@ class ImapEmailReceiver {
             if ($stmt->fetch()) {
                 return true;
             }
+
+            return false;
         }
 
         $stmt = $this->conn->prepare("
@@ -500,17 +503,19 @@ class ImapEmailReceiver {
             }
         }
         
-        // Check if this unmatched email already exists
-        $stmt = $this->conn->prepare("
-            SELECT id FROM unmatched_emails 
-            WHERE from_email = ? AND subject = ? AND received_at = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$from_email, $subject, $received_date]);
-        
-        if ($stmt->fetch()) {
-            // Already exists, skip
-            return;
+        if ($message_id === '') {
+            // Check if this unmatched email already exists when the mailbox does not provide a stable message_id
+            $stmt = $this->conn->prepare("
+                SELECT id FROM unmatched_emails 
+                WHERE from_email = ? AND subject = ? AND received_at = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$from_email, $subject, $received_date]);
+            
+            if ($stmt->fetch()) {
+                // Already exists, skip
+                return;
+            }
         }
         
         // Insert unmatched email
@@ -530,7 +535,7 @@ class ImapEmailReceiver {
             $body_html,
             $body_text,
             $received_date,
-            date('Y-m-d H:i:s')
+            currentUtcDateTime()
         ]);
     }
 }
