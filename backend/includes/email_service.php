@@ -122,6 +122,38 @@ class EmailService {
         return is_int($value) || is_string($value) ? $value : null;
     }
 
+    private static function getMailRouterLogFilePath(): string {
+        return dirname(__DIR__) . '/logs/mailrouter.log';
+    }
+
+    private static function sanitizeMailRouterLogMessage(string $message): string {
+        return trim(preg_replace('/[\r\n]+/', ' ', $message) ?? $message);
+    }
+
+    private static function logMailRouterMessage(string $message): void {
+        $line = self::sanitizeMailRouterLogMessage($message);
+
+        try {
+            $log_file = self::getMailRouterLogFilePath();
+            $log_dir = dirname($log_file);
+
+            if (!is_dir($log_dir) && @mkdir($log_dir, 0750, true) === false && !is_dir($log_dir)) {
+                throw new RuntimeException('Unable to create the MailRouter log directory.');
+            }
+
+            if (!file_exists($log_file) && @touch($log_file) === false) {
+                throw new RuntimeException('Unable to create the MailRouter log file.');
+            }
+            @chmod($log_file, 0640);
+
+            if (file_put_contents($log_file, $line . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
+                throw new RuntimeException('Unable to write to the MailRouter log file.');
+            }
+        } catch (Throwable $e) {
+            error_log($line . ' [mailrouter_log_error: ' . $e->getMessage() . ']');
+        }
+    }
+
     // =========================================================================
     // CENTRAL MAIL ROUTING
     // =========================================================================
@@ -192,16 +224,16 @@ class EmailService {
         if (!empty($context)) {
             $log_entry .= ' context=' . json_encode($context, JSON_UNESCAPED_SLASHES);
         }
-        error_log($log_entry);
+        self::logMailRouterMessage($log_entry);
 
         // ── Dispatch through the transport layer ──────────────────────────────
         $result = $this->sendEmail($to, $subject, $html_body, $text_body, $cc, $bcc);
 
         // ── Post-send log entry ───────────────────────────────────────────────
         if ($result['success']) {
-            error_log(sprintf('%s SENT    type=%s to=%s', $log_prefix, $mail_type, $to));
+            self::logMailRouterMessage(sprintf('%s SENT    type=%s to=%s', $log_prefix, $mail_type, $to));
         } else {
-            error_log(sprintf(
+            self::logMailRouterMessage(sprintf(
                 '%s FAILED  type=%s to=%s reason="%s"',
                 $log_prefix,
                 $mail_type,
