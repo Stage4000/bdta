@@ -242,9 +242,17 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="alert alert-warning">No active appointment types found. <a href="appointment_types_list.php">Create appointment types first.</a></div>
                 <?php else: ?>
                 <div class="row g-3 mb-4">
-                    <?php foreach ($appointment_types as $apt):
-                        $apt_id = array_int_value($apt, 'id');
-                        $qty = $existing_items[$apt_id] ?? safe_int($_POST['qty_' . $apt_id] ?? 0);
+                    <?php
+                        $is_post = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST');
+                        foreach ($appointment_types as $apt):
+                            $apt_id = array_int_value($apt, 'id');
+                            if ($is_post) {
+                                // On POST, prefer submitted quantity, then fall back to existing items, then 0
+                                $qty = safe_int($_POST['qty_' . $apt_id] ?? ($existing_items[$apt_id] ?? 0));
+                            } else {
+                                // On initial GET, show existing items (or 0 if none)
+                                $qty = $existing_items[$apt_id] ?? 0;
+                            }
                     ?>
                     <div class="col-md-3 col-sm-6">
                             <div class="card h-100 <?= $qty > 0 ? 'border-primary' : '' ?>" id="card_<?= $apt_id ?>">
