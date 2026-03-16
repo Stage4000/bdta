@@ -53,7 +53,7 @@ $template = $stmt_tpl->fetch(PDO::FETCH_ASSOC);
 if (
     !$template
     || array_int_value($template, 'is_active') === 0
-    || (array_int_value($template, 'is_internal') === 1 && !isLoggedIn())
+    || (array_int_value($template, 'is_internal') !== 0 && !isLoggedIn())
 ) {
     renderPublicErrorPage(
         'Form Unavailable',
