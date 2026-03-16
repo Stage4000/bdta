@@ -207,13 +207,13 @@ class CronRunner {
         $next_run = $this->calculateNextRun($task);
         $task_id = $task['id'] ?? null;
 
-        if (!is_int($task_id) && !is_string($task_id)) {
-            throw new RuntimeException('Invalid task id type for schedule update; expected int or string.');
+        if (is_int($task_id)) {
+            $task_id_param = $task_id;
+        } elseif (is_string($task_id) && ctype_digit($task_id)) {
+            $task_id_param = (int) $task_id;
+        } else {
+            throw new RuntimeException('Invalid task id for schedule update; expected int or numeric string.');
         }
-
-        $task_id_param = is_string($task_id) && ctype_digit($task_id)
-            ? (int) $task_id
-            : $task_id;
         
         $stmt = $this->conn->prepare("
             UPDATE scheduled_tasks 
