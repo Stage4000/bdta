@@ -56,9 +56,9 @@ if ($service_type_filter !== '') {
 }
 $select_sql .= "
     ORDER BY 
-        is_active DESC,
         CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
         service_type,
+        is_active DESC,
         name
 ";
 $select_sql .= $db->buildLimitClause($per_page, $offset);
