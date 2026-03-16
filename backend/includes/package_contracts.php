@@ -59,7 +59,7 @@ function bdta_get_package_contract_summaries(PDO $conn, array $package_ids): arr
 
     $placeholders = implode(',', array_fill(0, count($normalized_package_ids), '?'));
     // Placeholder count is generated from normalized package IDs and the values remain parameterized.
-    // nosemgrep
+    // nosemgrep: php.lang.security.sql-injection -- dynamic IN-clause placeholder list is constructed from normalized integers and all values remain parameterized.
     $stmt = $conn->prepare("
         SELECT pi.package_id,
                ct.id AS contract_template_id,
