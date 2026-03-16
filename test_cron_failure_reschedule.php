@@ -21,7 +21,10 @@ $insert = $conn->prepare("
     INSERT INTO scheduled_tasks (task_name, task_type, schedule_type, schedule_value, is_active, next_run, last_run)
     VALUES (?, ?, ?, ?, 1, ?, NULL)
 ");
-$past_time = gmdate('Y-m-d H:i:s', time() - 3600);
+$now_utc = function_exists('currentUtcDateTime') ? currentUtcDateTime() : gmdate('Y-m-d H:i:s');
+$past_time = (new DateTimeImmutable($now_utc, new DateTimeZone('UTC')))
+    ->modify('-1 hour')
+    ->format('Y-m-d H:i:s');
 $insert->execute([$task_name, 'nonexistent_handler', 'hourly', '', $past_time]);
 $task_id = (int) $conn->lastInsertId();
 

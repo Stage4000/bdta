@@ -370,6 +370,12 @@ class CronRunner {
             return currentUtcDateTime();
         }
         
+        static $warned = false;
+        if (!$warned) {
+            error_log('cron.php: currentUtcDateTime() helper missing; using gmdate() fallback');
+            $warned = true;
+        }
+        
         return gmdate('Y-m-d H:i:s');
     }
 }
