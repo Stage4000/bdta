@@ -20,22 +20,33 @@ jobs:
       # Node setup
       # -------------------------
       - name: Setup Node
+        id: setup_node
+        continue-on-error: true
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Setup Python
+        id: setup_python
+        if: ${{ always() }}
+        continue-on-error: true
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Install Node tools
+        id: install_node_tools
+        if: ${{ always() }}
+        continue-on-error: true
         run: |
           npm install -g eslint
           npm install -g stylelint
           npm install -g htmlhint
 
       - name: Install Semgrep
+        id: install_semgrep
+        if: ${{ always() }}
+        continue-on-error: true
         run: |
           python -m pip install --upgrade pip
           python -m pip install semgrep==1.155.0
@@ -44,41 +55,92 @@ jobs:
       # Run JS lint
       # -------------------------
       - name: Run ESLint
+        id: eslint
+        if: ${{ always() }}
+        continue-on-error: true
         run: |
-          eslint . --ext .js,.jsx,.ts,.tsx
+          eslint . --config eslint.config.cjs
 
       # -------------------------
       # Run CSS lint
       # -------------------------
       - name: Run Stylelint
+        id: stylelint
+        if: ${{ always() }}
+        continue-on-error: true
         run: |
-          stylelint "**/*.{css,scss}"
+          stylelint "**/*.{css,scss}" --config stylelint.config.cjs
 
       # -------------------------
       # Run HTML lint
       # -------------------------
       - name: Run HTMLHint
+        id: htmlhint
+        if: ${{ always() }}
+        continue-on-error: true
         run: |
-          htmlhint "**/*.html"
+          htmlhint "**/*.html" --config .htmlhintrc
 
       # -------------------------
       # Security scan
       # -------------------------
       - name: Run Semgrep
+        id: semgrep
+        if: ${{ always() }}
+        continue-on-error: true
         run: |
-          semgrep --config=auto --error
+          semgrep scan --config=auto --error
 
       # -------------------------
       # PHPStan
       # -------------------------
       - name: Setup PHP
+        id: setup_php
+        if: ${{ always() }}
+        continue-on-error: true
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
 
       - name: Run PHPStan
+        id: phpstan
+        if: ${{ always() }}
+        continue-on-error: true
         uses: php-actions/phpstan@v3
         with:
           version: 2.1.40
           php_version: ${{ env.PHP_VERSION }}
           configuration: phpstan.neon
+
+      - name: Summarize static analysis results
+        if: ${{ always() }}
+        run: |
+          failures=()
+
+          [ "${{ steps.setup_node.outcome }}" = "failure" ] && failures+=("Setup Node")
+          [ "${{ steps.setup_python.outcome }}" = "failure" ] && failures+=("Setup Python")
+          [ "${{ steps.install_node_tools.outcome }}" = "failure" ] && failures+=("Install Node tools")
+          [ "${{ steps.install_semgrep.outcome }}" = "failure" ] && failures+=("Install Semgrep")
+          [ "${{ steps.eslint.outcome }}" = "failure" ] && failures+=("ESLint")
+          [ "${{ steps.stylelint.outcome }}" = "failure" ] && failures+=("Stylelint")
+          [ "${{ steps.htmlhint.outcome }}" = "failure" ] && failures+=("HTMLHint")
+          [ "${{ steps.semgrep.outcome }}" = "failure" ] && failures+=("Semgrep")
+          [ "${{ steps.setup_php.outcome }}" = "failure" ] && failures+=("Setup PHP")
+          [ "${{ steps.phpstan.outcome }}" = "failure" ] && failures+=("PHPStan")
+
+          if [ ${#failures[@]} -eq 0 ]; then
+            echo "All static analysis steps completed successfully." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## Static analysis failures"
+            echo
+            for failure in "${failures[@]}"; do
+              echo "- ${failure}"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          printf 'Static analysis failures detected:\n' >&2
+          printf ' - %s\n' "${failures[@]}" >&2
+          exit 1
