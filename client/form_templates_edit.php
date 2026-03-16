@@ -391,6 +391,30 @@ require_once '../backend/includes/header.php';
                     </div>
                 </div>
 
+                <?php if ($is_edit): ?>
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Shareable Form Link</h5>
+                        <span class="badge bg-secondary">External</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-2">
+                            Share this link so the form can be completed without logging into the admin panel. Works for client and internal forms.
+                        </p>
+                        <?php $share_url = getDynamicBaseUrl() . '/backend/public/form.php?template_id=' . (int) $template_id; ?>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="form_share_link" value="<?= htmlspecialchars($share_url) ?>" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyFormShareLink()">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                            <a href="<?= htmlspecialchars($share_url) ?>" target="_blank" class="btn btn-outline-primary">
+                                <i class="fas fa-up-right-from-square"></i> Open
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-floppy-disk me-1"></i> Save Template
@@ -655,10 +679,25 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Renumber field_required and field_mapping names before submit
-    document.getElementById('templateForm').addEventListener('submit', function() {
-        reindexFields();
-    });
+document.getElementById('templateForm').addEventListener('submit', function() {
+    reindexFields();
 });
+});
+
+function copyFormShareLink() {
+    const input = document.getElementById('form_share_link');
+    if (!input) return;
+    input.select();
+    input.setSelectionRange(0, 99999);
+    try {
+        const ok = document.execCommand('copy');
+        if (ok) {
+            alert('Link copied to clipboard.');
+        }
+    } catch (e) {
+        console.error('Copy failed', e);
+    }
+}
 </script>
 
 <style>
