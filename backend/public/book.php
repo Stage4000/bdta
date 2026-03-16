@@ -504,27 +504,6 @@ if (isset($error_mode) && $error_mode) {
             margin-top: .6rem;
             display: none;
         }
-        /* Dark mode overrides */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background: linear-gradient(135deg, #1a1d23 0%, #0d1117 100%);
-            }
-            .booking-header,
-            .booking-card {
-                background: #1f2937;
-            }
-            .step-indicator::before {
-                background: #374151;
-            }
-            .bdta-calendar { border-color: #374151; box-shadow: none; }
-            .bdta-cal-grid { background: #1f2937; }
-            .bdta-cal-dow  { background: #111827; color: #9ca3af; border-bottom-color: #374151; }
-            .bdta-cal-day.available { background: #052e16; border-color: #16a34a; color: #d1fae5; }
-            .bdta-cal-day.available:hover { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
-            .bdta-cal-day.unavailable { color: #4b5563; }
-            .bdta-cal-footer { background: #111827; border-top-color: #374151; color: #9ca3af; }
-            .bdta-cal-selected-label { background: #052e16; border-color: #16a34a; color: #d1fae5; }
-        }
         [data-bs-theme="dark"] .bdta-calendar { border-color: #374151; box-shadow: none; }
         [data-bs-theme="dark"] .bdta-cal-grid { background: #1f2937; }
         [data-bs-theme="dark"] .bdta-cal-dow  { background: #111827; color: #9ca3af; border-bottom-color: #374151; }
@@ -546,6 +525,57 @@ if (isset($error_mode) && $error_mode) {
         }
         [data-bs-theme="dark"] .booking-subtitle {
             color: #d1d5db;
+        }
+        [data-bs-theme="dark"] .step-indicator::before {
+            background: #374151;
+        }
+        [data-bs-theme="dark"] .step-circle {
+            background: #374151;
+            color: #d1d5db;
+        }
+        [data-bs-theme="dark"] .step-label {
+            color: #9ca3af;
+        }
+        [data-bs-theme="dark"] .appointment-type-card {
+            border-color: #374151;
+            background: #111827;
+        }
+        [data-bs-theme="dark"] .appointment-type-card.selected {
+            background: rgba(154, 0, 115, 0.18);
+        }
+        [data-bs-theme="dark"] .time-slot {
+            background: #111827;
+            border-color: #374151;
+            color: #e5e7eb;
+        }
+        [data-bs-theme="dark"] .time-slot:hover {
+            background: rgba(154, 0, 115, 0.18);
+        }
+        [data-bs-theme="dark"] .time-slot.unavailable {
+            background: #1f2937;
+            color: #6b7280;
+        }
+        [data-bs-theme="dark"] .alert-info {
+            background: #172554;
+            border-color: #1d4ed8;
+            color: #bfdbfe;
+        }
+        [data-bs-theme="dark"] .sig-preview {
+            color: #e5e7eb;
+            border-bottom-color: #9ca3af;
+        }
+        [data-bs-theme="dark"] .font-option-btn {
+            background: #111827;
+            border-color: #374151;
+            color: #e5e7eb;
+        }
+        [data-bs-theme="dark"] .font-option-btn.selected,
+        [data-bs-theme="dark"] .font-option-btn:hover {
+            background: rgba(154, 0, 115, 0.18);
+        }
+        [data-bs-theme="dark"] .bdta-cal-legend-dot.unavail {
+            background: #374151;
+            border-color: #374151;
         }
         [data-bs-theme="dark"] .booking-header .text-muted,
         [data-bs-theme="dark"] .booking-card .text-muted,

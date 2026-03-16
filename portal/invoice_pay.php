@@ -68,9 +68,50 @@ $page_title    = 'Invoice ' . escape($invoice['invoice_number']);
 <style>
 body { background: #f8f9fa; }
 .invoice-wrapper { max-width: 760px; margin: 40px auto; padding: 0 16px 60px; }
+[data-bs-theme="dark"] body { background: #0f172a; }
+[data-bs-theme="dark"] .invoice-wrapper { color: #e5e7eb; }
+[data-bs-theme="dark"] .btn-outline-secondary {
+    border-color: #cbd5e1;
+    color: #f8fafc;
+}
+[data-bs-theme="dark"] .btn-outline-secondary:hover,
+[data-bs-theme="dark"] .btn-outline-secondary:focus {
+    background-color: #f8fafc;
+    border-color: #f8fafc;
+    color: #111827;
+}
+[data-bs-theme="dark"] .table-primary {
+    --bs-table-bg: rgba(154, 0, 115, 0.25);
+    --bs-table-striped-bg: rgba(154, 0, 115, 0.3);
+    --bs-table-active-bg: rgba(154, 0, 115, 0.35);
+    --bs-table-hover-bg: rgba(154, 0, 115, 0.3);
+    --bs-table-color: #f5d0fe;
+    color: #f5d0fe;
+}
+[data-bs-theme="dark"] thead.table-light {
+    --bs-table-bg: #1f2937;
+    --bs-table-striped-bg: #273449;
+    --bs-table-active-bg: #2d3b52;
+    --bs-table-hover-bg: #273449;
+    --bs-table-border-color: #374151;
+    --bs-table-color: #e5e7eb;
+    color: #e5e7eb;
+}
+[data-bs-theme="dark"] thead.table-light th {
+    background-color: #1f2937;
+    border-bottom-color: #374151;
+    color: #e5e7eb;
+}
 @media print {
     .no-print { display: none !important; }
-    body { background: white; }
+    body,
+    [data-bs-theme="dark"] body {
+        background: white !important;
+        color: #000 !important;
+    }
+    [data-bs-theme="dark"] .invoice-wrapper {
+        color: #000 !important;
+    }
     .card { border: none !important; box-shadow: none !important; }
 }
 </style>
