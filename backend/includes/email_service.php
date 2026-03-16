@@ -140,6 +140,7 @@ class EmailService {
             if (!file_exists($log_file) && @touch($log_file) === false) {
                 throw new RuntimeException('Unable to create the MailRouter log file.');
             }
+            @chmod($log_file, 0640);
 
             if (file_put_contents($log_file, $line . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
                 throw new RuntimeException('Unable to write to the MailRouter log file.');

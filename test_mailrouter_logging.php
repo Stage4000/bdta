@@ -5,7 +5,8 @@ require_once __DIR__ . '/backend/includes/email_service.php';
 $log_path = __DIR__ . '/backend/logs/mailrouter.log';
 $error_log_path = sys_get_temp_dir() . '/bdta-mailrouter-error-' . uniqid('', true) . '.log';
 $unique_token = 'mailrouter-test-' . uniqid('', true);
-$original_log_contents = file_exists($log_path) ? file_get_contents($log_path) : null;
+$log_previously_existed = file_exists($log_path);
+$original_log_contents = $log_previously_existed ? file_get_contents($log_path) : null;
 
 ini_set('log_errors', '1');
 ini_set('error_log', $error_log_path);
@@ -48,7 +49,12 @@ try {
     }
 
     $mailrouter_log = file_get_contents($log_path);
-    if ($mailrouter_log === false || strpos($mailrouter_log, $unique_token) === false) {
+    if ($mailrouter_log === false) {
+        fwrite(STDERR, "MailRouter log file could not be read.\n");
+        exit(1);
+    }
+
+    if (strpos($mailrouter_log, $unique_token) === false) {
         fwrite(STDERR, "MailRouter log file does not contain the expected routing entry.\n");
         exit(1);
     }
@@ -82,7 +88,7 @@ try {
         unlink($error_log_path);
     }
 
-    if ($original_log_contents === null && file_exists($log_path)) {
+    if (!$log_previously_existed && file_exists($log_path)) {
         unlink($log_path);
     }
 }
