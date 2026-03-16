@@ -212,21 +212,23 @@ $page_title = 'Contract ' . $contract_number;
             display: inline-block;
             padding-bottom: 0.2rem;
         }
-        /* Dark mode overrides */
-        @media (prefers-color-scheme: dark) {
-            .contract-content {
-                background: #1f2937;
-                border-color: #374151;
-                color: #e5e7eb;
-            }
-            .font-option-btn {
-                background: #1f2937;
-                border-color: #374151;
-            }
-            .font-option-btn.selected,
-            .font-option-btn:hover { background: #2a1f2d; }
-            .sig-preview,
-            .signed-sig { color: #e5e7eb; }
+        [data-bs-theme="dark"] body { background: #111827; }
+        [data-bs-theme="dark"] .contract-content {
+            background: #1f2937;
+            border-color: #374151;
+            color: #e5e7eb;
+        }
+        [data-bs-theme="dark"] .font-option-btn {
+            background: #111827;
+            border-color: #374151;
+            color: #e5e7eb;
+        }
+        [data-bs-theme="dark"] .font-option-btn.selected,
+        [data-bs-theme="dark"] .font-option-btn:hover { background: #2a1f2d; }
+        [data-bs-theme="dark"] .sig-preview,
+        [data-bs-theme="dark"] .signed-sig {
+            color: #e5e7eb;
+            border-bottom-color: #9ca3af;
         }
     </style>
 </head>

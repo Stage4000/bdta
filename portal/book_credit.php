@@ -233,6 +233,17 @@ include '../portal/includes/header.php';
     .bdta-cal-legend-dot.avail  { background: #86efac; border: 1px solid #86efac; }
     .bdta-cal-legend-dot.unavail { background: #e5e7eb; border: 1px solid #e5e7eb; }
     .bdta-cal-selected-label { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: .45rem .8rem; font-size: .88rem; color: #166534; margin-top: .6rem; display: none; }
+    [data-bs-theme="dark"] .step-indicator::before { background: #374151; }
+    [data-bs-theme="dark"] .step-circle { background: #374151; color: #d1d5db; }
+    [data-bs-theme="dark"] .step-label { color: #9ca3af; }
+    [data-bs-theme="dark"] .time-slot { background: #111827; border-color: #374151; color: #e5e7eb; }
+    [data-bs-theme="dark"] .time-slot:hover { background: rgba(154, 0, 115, 0.18); }
+    [data-bs-theme="dark"] .pet-option { border-color: #374151; background: #111827; color: #e5e7eb; }
+    [data-bs-theme="dark"] .pet-option.selected { background: rgba(154, 0, 115, 0.18); }
+    [data-bs-theme="dark"] .sig-preview { color: #e5e7eb; border-bottom-color: #9ca3af; }
+    [data-bs-theme="dark"] .font-option-btn { background: #111827; border-color: #374151; color: #e5e7eb; }
+    [data-bs-theme="dark"] .font-option-btn.selected,
+    [data-bs-theme="dark"] .font-option-btn:hover { background: rgba(154, 0, 115, 0.18); }
     [data-bs-theme="dark"] .bdta-calendar { border-color: #374151; box-shadow: none; }
     [data-bs-theme="dark"] .bdta-cal-grid { background: #1f2937; }
     [data-bs-theme="dark"] .bdta-cal-dow  { background: #111827; color: #9ca3af; border-bottom-color: #374151; }
