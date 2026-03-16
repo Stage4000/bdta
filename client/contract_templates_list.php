@@ -33,16 +33,14 @@ $offset = ($page - 1) * $per_page;
 // Build filters/params
 $count_params = [];
 $select_params = [];
-$where_sql = '';
 
+// Get total count
+$count_sql = 'SELECT COUNT(*) FROM contract_templates';
 if ($service_type_filter !== '') {
-    $where_sql = ' WHERE service_type = :service_type';
+    $count_sql .= ' WHERE service_type = :service_type';
     $count_params[':service_type'] = $service_type_filter;
     $select_params[':service_type'] = $service_type_filter;
 }
-
-// Get total count
-$count_sql = 'SELECT COUNT(*) FROM contract_templates' . $where_sql;
 $count_stmt = $conn->prepare($count_sql);
 foreach ($count_params as $name => $value) {
     $count_stmt->bindValue($name, $value);
@@ -52,9 +50,11 @@ $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get templates
-$select_sql = "
-    SELECT * FROM contract_templates
-    {$where_sql}
+$select_sql = 'SELECT * FROM contract_templates';
+if ($service_type_filter !== '') {
+    $select_sql .= ' WHERE service_type = :service_type';
+}
+$select_sql .= "
     ORDER BY 
         is_active DESC,
         CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
