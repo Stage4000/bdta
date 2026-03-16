@@ -429,7 +429,11 @@ require_once '../backend/includes/header.php';
                     </div>
                     <div class="card-body">
                         <p class="text-muted small mb-0">
-                            This form cannot be shared because it is not currently active.
+                            <?php if ($is_internal): ?>
+                                This form is not currently active. Internal forms can only be accessed while active.
+                            <?php else: ?>
+                                This form is not currently active, so its link is unavailable for sharing.
+                            <?php endif; ?>
                         </p>
                     </div>
                 </div>
