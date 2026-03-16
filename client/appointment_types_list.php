@@ -43,6 +43,7 @@ include __DIR__ . '/../backend/includes/header.php';
 
 <style>
     .appointment-type-description-preview {
+        display: block;
         display: -webkit-box;
         line-height: 1.4;
         max-width: 16rem;
