@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/package_contracts.php';
 
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -53,45 +54,7 @@ if (!empty($package_ids)) {
     }
 }
 
-// Fetch required contracts per package
-$contracts_by_package = [];
-if (!empty($package_ids)) {
-    $placeholders = implode(',', array_fill(0, count($package_ids), '?'));
-    // Placeholder count is generated from trusted package IDs and the values remain parameterized.
-    // nosemgrep
-    $stmt = $conn->prepare("
-        SELECT pi.package_id,
-               ct.id AS contract_template_id,
-               ct.name AS contract_name,
-               at.name AS apt_type_name
-        FROM package_items pi
-        JOIN appointment_types at ON pi.appointment_type_id = at.id
-        JOIN contract_templates ct ON at.contract_template_id = ct.id
-        WHERE pi.package_id IN ($placeholders)
-          AND ct.is_active = 1
-        ORDER BY ct.name, at.name
-    ");
-    $stmt->execute($package_ids);
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $package_id = array_int_value($row, 'package_id');
-        $contract_template_id = array_int_value($row, 'contract_template_id');
-        if ($package_id <= 0 || $contract_template_id <= 0) {
-            continue;
-        }
-
-        if (!isset($contracts_by_package[$package_id][$contract_template_id])) {
-            $contracts_by_package[$package_id][$contract_template_id] = [
-                'name' => array_string_value($row, 'contract_name'),
-                'appointment_types' => [],
-            ];
-        }
-
-        $appointment_type_name = array_string_value($row, 'apt_type_name');
-        if ($appointment_type_name !== '' && !in_array($appointment_type_name, $contracts_by_package[$package_id][$contract_template_id]['appointment_types'], true)) {
-            $contracts_by_package[$package_id][$contract_template_id]['appointment_types'][] = $appointment_type_name;
-        }
-    }
-}
+$contracts_by_package = bdta_get_package_contract_summaries($conn, $package_ids);
 
 // Fetch link analytics per package
 $link_stats = [];

@@ -3,7 +3,111 @@
  * Package contract disclosure helpers.
  */
 
-require_once __DIR__ . '/config.php';
+/**
+ * @param array<string|int, mixed> $row
+ */
+function bdta_package_contracts_array_string_value(array $row, string|int $key, string $default = ''): string {
+    $value = $row[$key] ?? $default;
+    if (is_string($value)) {
+        return $value;
+    }
+    if ($value === null) {
+        return $default;
+    }
+
+    return (string)$value;
+}
+
+/**
+ * @param array<string|int, mixed> $row
+ */
+function bdta_package_contracts_array_int_value(array $row, string|int $key, int $default = 0): int {
+    $value = $row[$key] ?? $default;
+    if (is_int($value)) {
+        return $value;
+    }
+    if ($value === null || $value === '') {
+        return $default;
+    }
+
+    return (int)$value;
+}
+
+/**
+ * @param list<int|string> $package_ids
+ * @return array<int, list<array{
+ *     id: int,
+ *     name: string,
+ *     template_text: string,
+ *     renewal_period_months: int,
+ *     appointment_types: list<string>
+ * }>>
+ */
+function bdta_get_package_contract_summaries(PDO $conn, array $package_ids): array {
+    $normalized_package_ids = [];
+    foreach ($package_ids as $package_id) {
+        $package_id = (int)$package_id;
+        if ($package_id > 0) {
+            $normalized_package_ids[$package_id] = $package_id;
+        }
+    }
+    $normalized_package_ids = array_values($normalized_package_ids);
+
+    if (empty($normalized_package_ids)) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($normalized_package_ids), '?'));
+    // Placeholder count is generated from normalized package IDs and the values remain parameterized.
+    // nosemgrep
+    $stmt = $conn->prepare("
+        SELECT pi.package_id,
+               ct.id AS contract_template_id,
+               ct.name AS contract_name,
+               ct.template_text,
+               ct.renewal_period_months,
+               at.name AS appointment_type_name
+        FROM package_items pi
+        JOIN appointment_types at ON pi.appointment_type_id = at.id
+        JOIN contract_templates ct ON at.contract_template_id = ct.id
+        WHERE pi.package_id IN ($placeholders)
+          AND ct.is_active = 1
+        ORDER BY pi.package_id, ct.name, at.name
+    ");
+    $stmt->execute($normalized_package_ids);
+
+    /** @var array<int, array<int, array{id: int, name: string, template_text: string, renewal_period_months: int, appointment_types: list<string>}>> $grouped */
+    $grouped = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $package_id = bdta_package_contracts_array_int_value($row, 'package_id');
+        $contract_id = bdta_package_contracts_array_int_value($row, 'contract_template_id');
+        if ($package_id <= 0 || $contract_id <= 0) {
+            continue;
+        }
+
+        if (!isset($grouped[$package_id][$contract_id])) {
+            $grouped[$package_id][$contract_id] = [
+                'id' => $contract_id,
+                'name' => bdta_package_contracts_array_string_value($row, 'contract_name'),
+                'template_text' => bdta_package_contracts_array_string_value($row, 'template_text'),
+                'renewal_period_months' => max(1, bdta_package_contracts_array_int_value($row, 'renewal_period_months', 12)),
+                'appointment_types' => [],
+            ];
+        }
+
+        $appointment_type_name = bdta_package_contracts_array_string_value($row, 'appointment_type_name');
+        if ($appointment_type_name !== '' && !in_array($appointment_type_name, $grouped[$package_id][$contract_id]['appointment_types'], true)) {
+            $grouped[$package_id][$contract_id]['appointment_types'][] = $appointment_type_name;
+        }
+    }
+
+    $summaries = [];
+    foreach ($normalized_package_ids as $package_id) {
+        $summaries[$package_id] = array_values($grouped[$package_id] ?? []);
+    }
+
+    return $summaries;
+}
 
 /**
  * Build a grouped list of required contracts for a package.
@@ -17,50 +121,13 @@ require_once __DIR__ . '/config.php';
  * }>
  */
 function bdta_get_package_contract_summary(PDO $conn, int $package_id): array {
+    $package_id = (int)$package_id;
     if ($package_id <= 0) {
         return [];
     }
 
-    $stmt = $conn->prepare("
-        SELECT ct.id AS contract_template_id,
-               ct.name AS contract_name,
-               ct.template_text,
-               ct.renewal_period_months,
-               at.name AS appointment_type_name
-        FROM package_items pi
-        JOIN appointment_types at ON pi.appointment_type_id = at.id
-        JOIN contract_templates ct ON at.contract_template_id = ct.id
-        WHERE pi.package_id = ?
-          AND ct.is_active = 1
-        ORDER BY ct.name, at.name
-    ");
-    $stmt->execute([$package_id]);
-
-    /** @var array<int, array{id: int, name: string, template_text: string, renewal_period_months: int, appointment_types: list<string>}> $grouped */
-    $grouped = [];
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $contract_id = array_int_value($row, 'contract_template_id');
-        if ($contract_id <= 0) {
-            continue;
-        }
-
-        if (!isset($grouped[$contract_id])) {
-            $grouped[$contract_id] = [
-                'id' => $contract_id,
-                'name' => array_string_value($row, 'contract_name'),
-                'template_text' => array_string_value($row, 'template_text'),
-                'renewal_period_months' => max(1, array_int_value($row, 'renewal_period_months', 12)),
-                'appointment_types' => [],
-            ];
-        }
-
-        $appointment_type_name = array_string_value($row, 'appointment_type_name');
-        if ($appointment_type_name !== '' && !in_array($appointment_type_name, $grouped[$contract_id]['appointment_types'], true)) {
-            $grouped[$contract_id]['appointment_types'][] = $appointment_type_name;
-        }
-    }
-
-    return array_values($grouped);
+    $summaries = bdta_get_package_contract_summaries($conn, [$package_id]);
+    return $summaries[$package_id] ?? [];
 }
 
 /**

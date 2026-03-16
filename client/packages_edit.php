@@ -53,15 +53,6 @@ if ($is_edit) {
     }
 }
 
-$stmt = $conn->query("
-    SELECT at.id, at.name, at.contract_template_id, ct.name AS contract_template_name
-    FROM appointment_types at
-    LEFT JOIN contract_templates ct ON at.contract_template_id = ct.id AND ct.is_active = 1
-    WHERE at.is_active = 1
-    ORDER BY at.name
-");
-$appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 // Map existing items by appointment_type_id for pre-fill on edit
 /** @var array<int, int> $existing_items */
 $existing_items = [];
@@ -72,6 +63,30 @@ if ($is_edit) {
         $existing_items[array_int_value($item, 'appointment_type_id')] = array_int_value($item, 'quantity');
     }
 }
+
+if ($is_edit && !empty($existing_items)) {
+    $included_appointment_type_ids = array_keys($existing_items);
+    $placeholders = implode(',', array_fill(0, count($included_appointment_type_ids), '?'));
+    // Placeholder count is generated from current package item IDs and the values remain parameterized.
+    // nosemgrep
+    $stmt = $conn->prepare("
+        SELECT at.id, at.name, at.is_active, at.contract_template_id, ct.name AS contract_template_name
+        FROM appointment_types at
+        LEFT JOIN contract_templates ct ON at.contract_template_id = ct.id AND ct.is_active = 1
+        WHERE at.is_active = 1 OR at.id IN ($placeholders)
+        ORDER BY at.name
+    ");
+    $stmt->execute($included_appointment_type_ids);
+} else {
+    $stmt = $conn->query("
+        SELECT at.id, at.name, at.is_active, at.contract_template_id, ct.name AS contract_template_name
+        FROM appointment_types at
+        LEFT JOIN contract_templates ct ON at.contract_template_id = ct.id AND ct.is_active = 1
+        WHERE at.is_active = 1
+        ORDER BY at.name
+    ");
+}
+$appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 /**
  * @param list<array<string, mixed>> $appointment_types_rows
@@ -246,19 +261,16 @@ include __DIR__ . '/../backend/includes/header.php';
                         $is_post = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST');
                         foreach ($appointment_types as $apt):
                             $apt_id = array_int_value($apt, 'id');
-                            if ($is_post) {
-                                // On POST, prefer submitted quantity, then fall back to existing items, then 0
-                                $qty = safe_int($_POST['qty_' . $apt_id] ?? ($existing_items[$apt_id] ?? 0));
-                            } else {
-                                // On initial GET, show existing items (or 0 if none)
-                                $qty = $existing_items[$apt_id] ?? 0;
-                            }
+                            $qty = $is_post ? safe_int($_POST['qty_' . $apt_id] ?? 0) : ($existing_items[$apt_id] ?? 0);
                     ?>
                     <div class="col-md-3 col-sm-6">
                             <div class="card h-100 <?= $qty > 0 ? 'border-primary' : '' ?>" id="card_<?= $apt_id ?>">
                             <div class="card-body text-center">
                                 <i class="fas fa-calendar-check fa-2x mb-2 text-muted"></i>
                                 <h6 class="card-title"><?= htmlspecialchars(array_string_value($apt, 'name')) ?></h6>
+                                <?php if (!array_int_value($apt, 'is_active', 1)): ?>
+                                    <div class="small text-muted mb-2">(inactive, still included in this package)</div>
+                                <?php endif; ?>
                                 <?php if (array_int_value($apt, 'contract_template_id') > 0 && array_string_value($apt, 'contract_template_name') !== ''): ?>
                                     <div class="small text-warning-emphasis mb-2">
                                         <i class="fas fa-file-signature me-1"></i><?= escape(array_string_value($apt, 'contract_template_name')) ?>

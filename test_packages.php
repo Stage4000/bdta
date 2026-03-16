@@ -112,7 +112,11 @@ try {
     echo "Test 2b: Package contract disclosure groups appointment types by contract template\n";
 
     $package_contracts = bdta_get_package_contract_summary($conn, (int)$package_id);
+    $package_contract_sets = bdta_get_package_contract_summaries($conn, [(int)$package_id, 999999]);
     assert(count($package_contracts) === 2, 'Expected 2 unique contract templates in package summary');
+    assert(isset($package_contract_sets[(int)$package_id]), 'Multi-package helper should include the created package');
+    assert($package_contract_sets[(int)$package_id] === $package_contracts, 'Single-package and multi-package summaries should match');
+    assert($package_contract_sets[999999] === [], 'Packages without items should return an empty contract summary');
     assert(!bdta_package_purchase_acknowledged([], $package_contracts), 'Acknowledgment should be required when package has contracts');
     assert(bdta_package_purchase_acknowledged(['contract_disclosure_acknowledged' => '1'], $package_contracts), 'Acknowledgment checkbox should satisfy purchase validation');
     assert(bdta_package_purchase_acknowledged([], []), 'Packages without contracts should not require acknowledgment');
@@ -125,7 +129,14 @@ try {
     assert(isset($contracts_by_name['Package Test Contract B']), 'Contract B should be present');
     assert($contracts_by_name['Package Test Contract A']['appointment_types'] === ['Test Group Class', 'Test Mini Session'], 'Shared contract should group both appointment types');
     assert($contracts_by_name['Package Test Contract B']['appointment_types'] === ['Test Field Rental'], 'Second contract should include only field rental');
-    echo "  ✓ Contract disclosure summary deduplicates shared templates and preserves covered types\n\n";
+    $conn->prepare("UPDATE appointment_types SET is_active = 0 WHERE id = ?")->execute([$mini_type_id]);
+    $package_contracts_with_inactive = bdta_get_package_contract_summary($conn, (int)$package_id);
+    $inactive_contracts_by_name = [];
+    foreach ($package_contracts_with_inactive as $package_contract) {
+        $inactive_contracts_by_name[$package_contract['name']] = $package_contract;
+    }
+    assert($inactive_contracts_by_name['Package Test Contract A']['appointment_types'] === ['Test Group Class', 'Test Mini Session'], 'Inactive included appointment types should remain in package contract summaries');
+    echo "  ✓ Contract disclosure summary deduplicates shared templates and preserves covered types, including inactive included types\n\n";
 
     // ------------------------------------------------------------------
     // Test 3: Create test client + assign package
