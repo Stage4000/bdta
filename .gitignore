@@ -11,6 +11,8 @@ backup.sitebuilder
 
 # Logs
 *.log
+!backend/logs/
+!backend/logs/.gitignore
 
 # Database
 *.db

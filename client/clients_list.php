@@ -28,9 +28,14 @@ include '../backend/includes/header.php';
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-users me-2"></i>Client Management</h2>
-        <a href="clients_edit.php" class="btn btn-primary">
-            <i class="fas fa-circle-plus"></i> Add New Client
-        </a>
+        <div class="d-flex gap-2">
+            <a href="moxie_import.php" class="btn btn-outline-primary">
+                <i class="fas fa-cloud-arrow-down"></i> Import from Moxie
+            </a>
+            <a href="clients_edit.php" class="btn btn-primary">
+                <i class="fas fa-circle-plus"></i> Add New Client
+            </a>
+        </div>
     </div>
 
     <?php
