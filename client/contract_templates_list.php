@@ -188,10 +188,10 @@ include '../backend/includes/header.php';
                         </div>
                         <div class="card-footer bg-transparent">
                             <div class="d-flex flex-wrap gap-2">
-                                <a href="contracts_create.php?template_id=<?= $template['id'] ?>" class="btn btn-sm btn-success flex-fill">
+                                <a href="contracts_create.php?template_id=<?= (int) $template['id'] ?>" class="btn btn-sm btn-success flex-fill">
                                     <i class="fas fa-circle-plus me-1"></i>Use Template
                                 </a>
-                                <a href="contract_templates_edit.php?id=<?= $template['id'] ?>" class="btn btn-sm btn-outline-primary flex-fill">
+                                <a href="contract_templates_edit.php?id=<?= (int) $template['id'] ?>" class="btn btn-sm btn-outline-primary flex-fill">
                                     <i class="fas fa-pencil me-1"></i>Edit
                                 </a>
                                 <form method="POST" action="contract_templates_duplicate.php" class="flex-fill">
