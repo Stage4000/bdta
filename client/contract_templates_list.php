@@ -113,7 +113,16 @@ include '../backend/includes/header.php';
         <div class="col-sm-6 col-md-4 col-lg-3">
             <label for="service_type" class="form-label mb-1"><?= escape($service_type_label) ?></label>
             <select id="service_type" name="service_type" class="form-select">
+                <?php
+                // Determine if the current filter value exists in the available service types
+                $has_current_service_type = ($service_type_filter !== '' && in_array($service_type_filter, $service_types, true));
+                ?>
                 <option value="">All service types</option>
+                <?php if ($service_type_filter !== '' && !$has_current_service_type): ?>
+                    <option value="<?= escape($service_type_filter) ?>" selected>
+                        <?= escape($service_type_filter) ?> (no longer available)
+                    </option>
+                <?php endif; ?>
                 <?php foreach ($service_types as $type): ?>
                     <option value="<?= escape($type) ?>" <?= $service_type_filter === $type ? 'selected' : '' ?>>
                         <?= escape($type) ?>
