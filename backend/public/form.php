@@ -186,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $conn->prepare("
                     UPDATE form_submissions
                     SET responses = ?, status = 'submitted', submitted_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
+                    WHERE id = ? AND status = 'pending'
                 ");
                 $stmt->execute([$json_responses, $submission_id]);
                 $new_submission_id = $submission_id;
