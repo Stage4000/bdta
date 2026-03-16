@@ -7,30 +7,37 @@
  * @param array<string|int, mixed> $row
  */
 function bdta_package_contracts_array_string_value(array $row, string|int $key, string $default = ''): string {
-    $value = $row[$key] ?? $default;
+    $value = $row[$key] ?? null;
     if (is_string($value)) {
         return $value;
     }
-    if ($value === null) {
-        return $default;
+    if (is_int($value) || is_float($value) || is_bool($value)) {
+        return (string)$value;
     }
 
-    return (string)$value;
+    return $default;
 }
 
 /**
  * @param array<string|int, mixed> $row
  */
 function bdta_package_contracts_array_int_value(array $row, string|int $key, int $default = 0): int {
-    $value = $row[$key] ?? $default;
+    $value = $row[$key] ?? null;
     if (is_int($value)) {
         return $value;
     }
-    if ($value === null || $value === '') {
-        return $default;
+    if (is_string($value)) {
+        if ($value === '') {
+            return $default;
+        }
+
+        return (int)$value;
+    }
+    if (is_float($value) || is_bool($value)) {
+        return (int)$value;
     }
 
-    return (int)$value;
+    return $default;
 }
 
 /**
