@@ -86,6 +86,13 @@ include '../backend/includes/header.php';
                             <a href="contract_templates_edit.php?id=<?= $template['id'] ?>" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-pencil me-1"></i>Edit
                             </a>
+                            <form method="POST" action="contract_templates_duplicate.php" class="d-inline">
+                                <input type="hidden" name="id" value="<?= (int) $template['id'] ?>">
+                                <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-copy me-1"></i>Duplicate
+                                </button>
+                            </form>
                             <a href="contracts_create.php?template_id=<?= $template['id'] ?>" class="btn btn-sm btn-success">
                                 <i class="fas fa-circle-plus me-1"></i>Use Template
                             </a>
