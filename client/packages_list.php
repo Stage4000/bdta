@@ -53,6 +53,46 @@ if (!empty($package_ids)) {
     }
 }
 
+// Fetch required contracts per package
+$contracts_by_package = [];
+if (!empty($package_ids)) {
+    $placeholders = implode(',', array_fill(0, count($package_ids), '?'));
+    // Placeholder count is generated from trusted package IDs and the values remain parameterized.
+    // nosemgrep
+    $stmt = $conn->prepare("
+        SELECT pi.package_id,
+               ct.id AS contract_template_id,
+               ct.name AS contract_name,
+               at.name AS apt_type_name
+        FROM package_items pi
+        JOIN appointment_types at ON pi.appointment_type_id = at.id
+        JOIN contract_templates ct ON at.contract_template_id = ct.id
+        WHERE pi.package_id IN ($placeholders)
+          AND ct.is_active = 1
+        ORDER BY ct.name, at.name
+    ");
+    $stmt->execute($package_ids);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $package_id = array_int_value($row, 'package_id');
+        $contract_template_id = array_int_value($row, 'contract_template_id');
+        if ($package_id <= 0 || $contract_template_id <= 0) {
+            continue;
+        }
+
+        if (!isset($contracts_by_package[$package_id][$contract_template_id])) {
+            $contracts_by_package[$package_id][$contract_template_id] = [
+                'name' => array_string_value($row, 'contract_name'),
+                'appointment_types' => [],
+            ];
+        }
+
+        $appointment_type_name = array_string_value($row, 'apt_type_name');
+        if ($appointment_type_name !== '' && !in_array($appointment_type_name, $contracts_by_package[$package_id][$contract_template_id]['appointment_types'], true)) {
+            $contracts_by_package[$package_id][$contract_template_id]['appointment_types'][] = $appointment_type_name;
+        }
+    }
+}
+
 // Fetch link analytics per package
 $link_stats = [];
 if (!empty($package_ids)) {
@@ -116,6 +156,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <th>Contents</th>
                                 <th>Price</th>
                                 <th>Expiration</th>
+                                <th>Requirements</th>
                                 <th>Status</th>
                                 <th>Link Stats</th>
                                 <th>Actions</th>
@@ -145,16 +186,29 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td><?= $price > 0 ? '$' . number_format($price, 2) : '<span class="text-muted">—</span>' ?></td>
-                                    <td>
-                                        <?php if ($pkg['expiration_days']): ?>
-                                            <?= $pkg['expiration_days'] ?> days
+                                     <td>
+                                         <?php if ($pkg['expiration_days']): ?>
+                                             <?= $pkg['expiration_days'] ?> days
                                         <?php else: ?>
                                             <span class="text-muted">Never</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <?php if ($pkg['is_active']): ?>
-                                            <span class="badge bg-success">Active</span>
+                                         <?php endif; ?>
+                                     </td>
+                                     <td>
+                                         <?php $pkg_contracts = $contracts_by_package[$pkg['id']] ?? []; ?>
+                                         <?php if (empty($pkg_contracts)): ?>
+                                             <span class="text-muted">No contract requirements</span>
+                                         <?php else: ?>
+                                             <?php foreach ($pkg_contracts as $contract): ?>
+                                                 <div class="small mb-2">
+                                                     <span class="badge text-bg-warning"><?= escape($contract['name']) ?></span>
+                                                     <div class="text-muted mt-1"><?= escape(implode(', ', $contract['appointment_types'])) ?></div>
+                                                 </div>
+                                             <?php endforeach; ?>
+                                         <?php endif; ?>
+                                     </td>
+                                     <td>
+                                         <?php if ($pkg['is_active']): ?>
+                                             <span class="badge bg-success">Active</span>
                                         <?php else: ?>
                                             <span class="badge bg-secondary">Inactive</span>
                                         <?php endif; ?>

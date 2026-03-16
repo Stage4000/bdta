@@ -53,7 +53,13 @@ if ($is_edit) {
     }
 }
 
-$stmt = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name");
+$stmt = $conn->query("
+    SELECT at.id, at.name, at.contract_template_id, ct.name AS contract_template_name
+    FROM appointment_types at
+    LEFT JOIN contract_templates ct ON at.contract_template_id = ct.id AND ct.is_active = 1
+    WHERE at.is_active = 1
+    ORDER BY at.name
+");
 $appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Map existing items by appointment_type_id for pre-fill on edit
@@ -65,6 +71,43 @@ if ($is_edit) {
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
         $existing_items[array_int_value($item, 'appointment_type_id')] = array_int_value($item, 'quantity');
     }
+}
+
+/**
+ * @param list<array<string, mixed>> $appointment_types_rows
+ * @param array<int, int> $selected_items
+ * @return list<array{id: int, name: string, appointment_types: list<string>}>
+ */
+function package_edit_contract_summary(array $appointment_types_rows, array $selected_items): array {
+    /** @var array<int, array{id: int, name: string, appointment_types: list<string>}> $grouped */
+    $grouped = [];
+    foreach ($appointment_types_rows as $appointment_type) {
+        $appointment_type_id = array_int_value($appointment_type, 'id');
+        if (($selected_items[$appointment_type_id] ?? 0) <= 0) {
+            continue;
+        }
+
+        $contract_template_id = array_int_value($appointment_type, 'contract_template_id');
+        $contract_template_name = array_string_value($appointment_type, 'contract_template_name');
+        if ($contract_template_id <= 0 || $contract_template_name === '') {
+            continue;
+        }
+
+        if (!isset($grouped[$contract_template_id])) {
+            $grouped[$contract_template_id] = [
+                'id' => $contract_template_id,
+                'name' => $contract_template_name,
+                'appointment_types' => [],
+            ];
+        }
+
+        $appointment_type_name = array_string_value($appointment_type, 'name');
+        if (!in_array($appointment_type_name, $grouped[$contract_template_id]['appointment_types'], true)) {
+            $grouped[$contract_template_id]['appointment_types'][] = $appointment_type_name;
+        }
+    }
+
+    return array_values($grouped);
 }
 
 // Handle form submission
@@ -143,6 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$selected_items_for_preview = $_SERVER['REQUEST_METHOD'] === 'POST' ? $items : $existing_items;
+$package_contracts_preview = package_edit_contract_summary($appointment_types, $selected_items_for_preview);
+
 $page_title = $is_edit ? 'Edit Package' : 'Add Package';
 include __DIR__ . '/../backend/includes/header.php';
 ?>
@@ -201,10 +247,15 @@ include __DIR__ . '/../backend/includes/header.php';
                         $qty = $existing_items[$apt_id] ?? safe_int($_POST['qty_' . $apt_id] ?? 0);
                     ?>
                     <div class="col-md-3 col-sm-6">
-                        <div class="card h-100 <?= $qty > 0 ? 'border-primary' : '' ?>" id="card_<?= $apt_id ?>">
+                            <div class="card h-100 <?= $qty > 0 ? 'border-primary' : '' ?>" id="card_<?= $apt_id ?>">
                             <div class="card-body text-center">
                                 <i class="fas fa-calendar-check fa-2x mb-2 text-muted"></i>
                                 <h6 class="card-title"><?= htmlspecialchars(array_string_value($apt, 'name')) ?></h6>
+                                <?php if (array_int_value($apt, 'contract_template_id') > 0 && array_string_value($apt, 'contract_template_name') !== ''): ?>
+                                    <div class="small text-warning-emphasis mb-2">
+                                        <i class="fas fa-file-signature me-1"></i><?= escape(array_string_value($apt, 'contract_template_name')) ?>
+                                    </div>
+                                <?php endif; ?>
                                 <input type="number" class="form-control form-control-lg text-center"
                                        id="qty_<?= $apt_id ?>" name="qty_<?= $apt_id ?>"
                                        value="<?= $qty ?>" min="0" max="100"
@@ -215,6 +266,21 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                     <?php endforeach; ?>
                 </div>
+                <?php endif; ?>
+
+                <h6 class="border-bottom pb-2 mb-3">Contract Disclosure Preview</h6>
+                <?php if (empty($package_contracts_preview)): ?>
+                    <div class="alert alert-light border mb-4">No required appointment-type contracts are currently included in this package selection.</div>
+                <?php else: ?>
+                    <div class="alert alert-warning mb-4">
+                        Clients will see these contract requirements before purchase, grouped by unique contract template.
+                        <?php foreach ($package_contracts_preview as $contract_preview): ?>
+                            <div class="mt-2">
+                                <strong><?= escape($contract_preview['name']) ?></strong>
+                                <span class="text-muted">— <?= escape(implode(', ', $contract_preview['appointment_types'])) ?></span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
 
                 <h6 class="border-bottom pb-2 mb-3">Status</h6>
