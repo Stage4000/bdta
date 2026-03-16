@@ -7,8 +7,13 @@
  */
 
 require_once __DIR__ . '/backend/includes/database.php';
+require_once __DIR__ . '/backend/includes/package_contracts.php';
 
 echo "=== Bundled Package System Test ===\n\n";
+
+$created_contract_template_ids = [];
+$created_appointment_type_ids = [];
+$exitCode = 0;
 
 try {
     $db = new Database();
@@ -36,28 +41,42 @@ try {
         $stmt = $conn->prepare("
             INSERT INTO appointment_types
                 (name, duration_minutes, consumes_credits, credit_count, is_active, unique_link,
-                 is_field_rental, field_rental_location)
-            VALUES (?,60,1,1,1,?,?,?)
+                 is_field_rental, field_rental_location, contract_template_id)
+            VALUES (?,60,1,1,1,?,?,?,?)
         ");
         $stmt->execute([
             $name, $link,
             $extra['is_field_rental'] ?? 0,
             $extra['field_rental_location'] ?? null,
+            $extra['contract_template_id'] ?? null,
         ]);
         return (int)$conn->lastInsertId();
     }
+
+    $conn->prepare("INSERT INTO contract_templates (name, description, template_text, renewal_period_months, is_active) VALUES (?,?,?,?,1)")
+         ->execute(['Package Test Contract A', 'Shared contract', 'Shared contract body', 12]);
+    $contract_a_id = (int)$conn->lastInsertId();
+    $created_contract_template_ids[] = $contract_a_id;
+    $conn->prepare("INSERT INTO contract_templates (name, description, template_text, renewal_period_months, is_active) VALUES (?,?,?,?,1)")
+         ->execute(['Package Test Contract B', 'Secondary contract', 'Secondary contract body', 6]);
+    $contract_b_id = (int)$conn->lastInsertId();
+    $created_contract_template_ids[] = $contract_b_id;
 
     // ------------------------------------------------------------------
     // Test 1: Field Rental appointment type
     // ------------------------------------------------------------------
     echo "Test 1: Create appointment types for package\n";
 
-    $group_type_id        = makeAptType($conn, 'Test Group Class');
-    $mini_type_id         = makeAptType($conn, 'Test Mini Session');
+    $group_type_id        = makeAptType($conn, 'Test Group Class', ['contract_template_id' => $contract_a_id]);
+    $created_appointment_type_ids[] = $group_type_id;
+    $mini_type_id         = makeAptType($conn, 'Test Mini Session', ['contract_template_id' => $contract_a_id]);
+    $created_appointment_type_ids[] = $mini_type_id;
     $field_rental_type_id = makeAptType($conn, 'Test Field Rental', [
         'is_field_rental'      => 1,
         'field_rental_location' => '123 Test Field Lane',
+        'contract_template_id' => $contract_b_id,
     ]);
+    $created_appointment_type_ids[] = $field_rental_type_id;
 
     $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE id = ?");
     $stmt->execute([$field_rental_type_id]);
@@ -95,6 +114,38 @@ try {
     assert($qtys[$mini_type_id]         == 2, 'mini qty mismatch');
     assert($qtys[$field_rental_type_id] == 3, 'field_rental qty mismatch');
     echo "  ✓ Package created with 1 group, 2 mini, 3 field_rental credits\n\n";
+
+    // ------------------------------------------------------------------
+    // Test 2b: Package contract disclosure groups shared templates
+    // ------------------------------------------------------------------
+    echo "Test 2b: Package contract disclosure groups appointment types by contract template\n";
+
+    $package_contracts = bdta_get_package_contract_summary($conn, (int)$package_id);
+    $package_contract_sets = bdta_get_package_contract_summaries($conn, [(int)$package_id, 999999]);
+    assert(count($package_contracts) === 2, 'Expected 2 unique contract templates in package summary');
+    assert(isset($package_contract_sets[(int)$package_id]), 'Multi-package helper should include the created package');
+    assert($package_contract_sets[(int)$package_id] === $package_contracts, 'Single-package and multi-package summaries should match');
+    assert($package_contract_sets[999999] === [], 'Packages without items should return an empty contract summary');
+    assert(!bdta_package_purchase_acknowledged([], $package_contracts), 'Acknowledgment should be required when package has contracts');
+    assert(bdta_package_purchase_acknowledged(['contract_disclosure_acknowledged' => '1'], $package_contracts), 'Acknowledgment checkbox should satisfy purchase validation');
+    assert(bdta_package_purchase_acknowledged([], []), 'Packages without contracts should not require acknowledgment');
+
+    $contracts_by_name = [];
+    foreach ($package_contracts as $package_contract) {
+        $contracts_by_name[$package_contract['name']] = $package_contract;
+    }
+    assert(isset($contracts_by_name['Package Test Contract A']), 'Shared contract A should be present');
+    assert(isset($contracts_by_name['Package Test Contract B']), 'Contract B should be present');
+    assert($contracts_by_name['Package Test Contract A']['appointment_types'] === ['Test Group Class', 'Test Mini Session'], 'Shared contract should group both appointment types');
+    assert($contracts_by_name['Package Test Contract B']['appointment_types'] === ['Test Field Rental'], 'Second contract should include only field rental');
+    $conn->prepare("UPDATE appointment_types SET is_active = 0 WHERE id = ?")->execute([$mini_type_id]);
+    $package_contracts_with_inactive = bdta_get_package_contract_summary($conn, (int)$package_id);
+    $inactive_contracts_by_name = [];
+    foreach ($package_contracts_with_inactive as $package_contract) {
+        $inactive_contracts_by_name[$package_contract['name']] = $package_contract;
+    }
+    assert($inactive_contracts_by_name['Package Test Contract A']['appointment_types'] === ['Test Group Class', 'Test Mini Session'], 'Inactive included appointment types should remain in package contract summaries');
+    echo "  ✓ Contract disclosure summary deduplicates shared templates and preserves covered types, including inactive included types\n\n";
 
     // ------------------------------------------------------------------
     // Test 3: Create test client + assign package
@@ -290,6 +341,7 @@ try {
     $conn->prepare("DELETE FROM package_items WHERE package_id = ?")->execute([$package_id]);
     $conn->prepare("DELETE FROM packages WHERE id = ?")->execute([$package_id]);
     $conn->prepare("DELETE FROM appointment_types WHERE id IN (?,?,?)")->execute([$group_type_id, $mini_type_id, $field_rental_type_id]);
+    $conn->prepare("DELETE FROM contract_templates WHERE id IN (?,?)")->execute([$contract_a_id, $contract_b_id]);
     echo "  ✓ Test data cleaned up\n\n";
 
     echo str_repeat('=', 50) . "\n";
@@ -302,5 +354,20 @@ try {
     echo "File: " . $e->getFile() . "\n";
     echo "Line: " . $e->getLine() . "\n";
     echo "\nStack trace:\n" . $e->getTraceAsString() . "\n";
-    exit(1);
+    $exitCode = 1;
+} finally {
+    if (isset($conn) && $conn instanceof PDO) {
+        if (!empty($created_appointment_type_ids)) {
+            $placeholders = implode(',', array_fill(0, count($created_appointment_type_ids), '?'));
+            $stmt = $conn->prepare("DELETE FROM appointment_types WHERE id IN ($placeholders)");
+            $stmt->execute($created_appointment_type_ids);
+        }
+        if (!empty($created_contract_template_ids)) {
+            $placeholders = implode(',', array_fill(0, count($created_contract_template_ids), '?'));
+            $stmt = $conn->prepare("DELETE FROM contract_templates WHERE id IN ($placeholders)");
+            $stmt->execute($created_contract_template_ids);
+        }
+    }
 }
+
+exit($exitCode);

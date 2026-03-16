@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/package_contracts.php';
 
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -52,6 +53,8 @@ if (!empty($package_ids)) {
         $items_by_package[$item['package_id']][] = $item;
     }
 }
+
+$contracts_by_package = bdta_get_package_contract_summaries($conn, $package_ids);
 
 // Fetch link analytics per package
 $link_stats = [];
@@ -116,6 +119,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <th>Contents</th>
                                 <th>Price</th>
                                 <th>Expiration</th>
+                                <th>Requirements</th>
                                 <th>Status</th>
                                 <th>Link Stats</th>
                                 <th>Actions</th>
@@ -145,16 +149,29 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td><?= $price > 0 ? '$' . number_format($price, 2) : '<span class="text-muted">—</span>' ?></td>
-                                    <td>
-                                        <?php if ($pkg['expiration_days']): ?>
-                                            <?= $pkg['expiration_days'] ?> days
+                                     <td>
+                                         <?php if ($pkg['expiration_days']): ?>
+                                             <?= $pkg['expiration_days'] ?> days
                                         <?php else: ?>
                                             <span class="text-muted">Never</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <?php if ($pkg['is_active']): ?>
-                                            <span class="badge bg-success">Active</span>
+                                         <?php endif; ?>
+                                     </td>
+                                     <td>
+                                         <?php $pkg_contracts = $contracts_by_package[$pkg['id']] ?? []; ?>
+                                         <?php if (empty($pkg_contracts)): ?>
+                                             <span class="text-muted">No contract requirements</span>
+                                         <?php else: ?>
+                                             <?php foreach ($pkg_contracts as $contract): ?>
+                                                 <div class="small mb-2">
+                                                     <span class="badge text-bg-warning"><?= escape($contract['name']) ?></span>
+                                                     <div class="text-muted mt-1"><?= escape(implode(', ', $contract['appointment_types'])) ?></div>
+                                                 </div>
+                                             <?php endforeach; ?>
+                                         <?php endif; ?>
+                                     </td>
+                                     <td>
+                                         <?php if ($pkg['is_active']): ?>
+                                             <span class="badge bg-success">Active</span>
                                         <?php else: ?>
                                             <span class="badge bg-secondary">Inactive</span>
                                         <?php endif; ?>

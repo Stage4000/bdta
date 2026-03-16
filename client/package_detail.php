@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/package_contracts.php';
 require_once __DIR__ . '/../backend/includes/tawk_to.php';
 
 $db = new Database();
@@ -44,6 +45,7 @@ $stmt = $conn->prepare("
 ");
 $stmt->execute([$package['id']]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$package_contracts = bdta_get_package_contract_summary($conn, array_int_value($package, 'id'));
 
 // Record page view (analytics)
 $ip = $_SERVER['REMOTE_ADDR'] ?? null;
@@ -73,6 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purch
         $error = 'Please enter a valid email address.';
     } elseif (empty($items)) {
         $error = 'This package has no credits configured. Please contact us.';
+    } elseif (!bdta_package_purchase_acknowledged($_POST, $package_contracts)) {
+        $error = 'Please review and acknowledge the required contract terms before purchasing this package.';
     } else {
         try {
             $conn->beginTransaction();
@@ -275,6 +279,36 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                         </div>
                     </div>
                 </div>
+
+                <?php if (!empty($package_contracts)): ?>
+                <div class="card shadow-sm mt-4 border-warning">
+                    <div class="card-header bg-warning-subtle border-bottom border-warning-subtle">
+                        <h5 class="mb-0"><i class="fas fa-file-signature me-2 text-warning-emphasis"></i>Contracts Required Before Booking</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning mb-4">
+                            Review these terms before purchase. You will still be asked to accept the applicable contract when you later book the covered appointment type.
+                        </div>
+                        <?php foreach ($package_contracts as $contract): ?>
+                            <div class="border rounded p-3 mb-3">
+                                <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-3">
+                                    <div>
+                                        <h6 class="mb-1"><?= escape($contract['name']) ?></h6>
+                                        <div class="small text-muted">
+                                            Applies to:
+                                            <?php foreach ($contract['appointment_types'] as $appointment_type_name): ?>
+                                                <span class="badge text-bg-light border me-1"><?= escape($appointment_type_name) ?></span>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                    <span class="badge text-bg-warning">Renews every <?= (int)$contract['renewal_period_months'] ?> month<?= (int)$contract['renewal_period_months'] === 1 ? '' : 's' ?></span>
+                                </div>
+                                <div class="border rounded p-3 bg-white" style="max-height: 220px; overflow-y: auto; font-size: 0.9rem;"><?= $contract['template_text'] ?></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
 
             <!-- Purchase form -->
@@ -320,6 +354,17 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                                     <?php endforeach; ?>
                                 </ul>
                             </div>
+
+                            <?php if (!empty($package_contracts)): ?>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox"
+                                       name="contract_disclosure_acknowledged" id="contractDisclosureAcknowledged"
+                                       value="1" <?= !empty($_POST['contract_disclosure_acknowledged']) ? 'checked' : '' ?> required>
+                                <label class="form-check-label small" for="contractDisclosureAcknowledged">
+                                    I have reviewed the package contract terms shown on this page and understand that the listed appointment types require those terms to be accepted before booking.
+                                </label>
+                            </div>
+                            <?php endif; ?>
 
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-brand btn-lg">
