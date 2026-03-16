@@ -391,7 +391,7 @@ require_once '../backend/includes/header.php';
                     </div>
                 </div>
 
-                <?php if ($is_edit): ?>
+                <?php if ($is_edit && $form_type === 'client_form'): ?>
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Shareable Form Link</h5>
@@ -399,7 +399,7 @@ require_once '../backend/includes/header.php';
                     </div>
                     <div class="card-body">
                         <p class="text-muted small mb-2">
-                            Share this link so the form can be completed without logging into the admin panel. Works for client and internal forms.
+                            Share this link so the form can be completed without logging into the admin panel.
                         </p>
                         <?php $share_url = getDynamicBaseUrl() . '/backend/public/form.php?template_id=' . (int) $template_id; ?>
                         <div class="input-group">
