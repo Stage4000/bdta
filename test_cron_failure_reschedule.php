@@ -21,7 +21,11 @@ $insert = $conn->prepare("
     INSERT INTO scheduled_tasks (task_name, task_type, schedule_type, schedule_value, is_active, next_run, last_run)
     VALUES (?, ?, ?, ?, 1, ?, NULL)
 ");
-$now_utc = function_exists('currentUtcDateTime') ? currentUtcDateTime() : gmdate('Y-m-d H:i:s');
+$cron = new CronRunner();
+$cron_reflection = new ReflectionClass('CronRunner');
+$get_current_time = $cron_reflection->getMethod('getCurrentUtcDateTime');
+$get_current_time->setAccessible(true);
+$now_utc = (string) $get_current_time->invoke($cron);
 $past_time = (new DateTimeImmutable($now_utc, new DateTimeZone('UTC')))
     ->modify('-1 hour')
     ->format('Y-m-d H:i:s');
@@ -39,8 +43,6 @@ if (!$task) {
 $cleanup_done = false;
 
 try {
-    $cron = new CronRunner();
-    $cron_reflection = new ReflectionClass('CronRunner');
     $execute_task = $cron_reflection->getMethod('executeTask');
     $execute_task->setAccessible(true);
     // Call the single-task executor directly so we don't trigger real scheduled tasks

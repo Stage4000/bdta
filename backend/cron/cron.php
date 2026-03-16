@@ -174,7 +174,7 @@ class CronRunner {
                     $this->updateTaskSchedule($task);
                     $this->log("Task rescheduled after failure: {$task_name}");
                 } catch (Exception $scheduleException) {
-                    $this->log("Failed to reschedule '{$task_name}' after error; task may retry on next cron run: " . $scheduleException->getMessage());
+                    $this->log("Unable to reschedule task '{$task_name}' after failure; may execute again on next cron cycle: " . $scheduleException->getMessage());
                 }
             }
         }
@@ -371,7 +371,11 @@ class CronRunner {
             return currentUtcDateTime();
         }
         
-        error_log('cron.php: currentUtcDateTime() helper missing; using gmdate() fallback');
+        static $warned = false;
+        if (!$warned) {
+            error_log('cron.php: currentUtcDateTime() helper missing; using gmdate() fallback');
+            $warned = true;
+        }
         
         return gmdate('Y-m-d H:i:s');
     }
