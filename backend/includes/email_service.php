@@ -126,8 +126,12 @@ class EmailService {
         return dirname(__DIR__) . '/logs/mailrouter.log';
     }
 
+    private static function sanitizeMailRouterLogMessage(string $message): string {
+        return trim(preg_replace('/[\r\n]+/', ' ', $message) ?? $message);
+    }
+
     private static function logMailRouterMessage(string $message): void {
-        $line = '[' . gmdate('Y-m-d H:i:s') . " UTC] " . $message;
+        $line = self::sanitizeMailRouterLogMessage($message);
 
         try {
             $log_file = self::getMailRouterLogFilePath();

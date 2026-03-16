@@ -21,9 +21,17 @@ $original_settings = [
     'smtp_password' => Settings::get('smtp_password', ''),
 ];
 
+function assertMailRouterTest(bool $condition, string $message): void {
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+$exit_code = 0;
+
 try {
     Settings::set('email_service', 'smtp');
-    Settings::set('smtp_host', 'invalid.invalid');
+    Settings::set('smtp_host', '');
     Settings::set('smtp_port', '587');
     Settings::set('smtp_encryption', 'tls');
     Settings::set('smtp_username', '');
@@ -39,46 +47,39 @@ try {
     );
 
     if ($result['success']) {
-        fwrite(STDERR, "Expected the email send to fail due to the invalid SMTP host configured by the test.\n");
-        exit(1);
+        throw new RuntimeException('Expected the email send to fail due to the missing SMTP host configured by the test.');
     }
 
-    if (!file_exists($log_path)) {
-        fwrite(STDERR, "MailRouter log file was not created.\n");
-        exit(1);
-    }
+    assertMailRouterTest(file_exists($log_path), 'MailRouter log file was not created.');
 
     $mailrouter_log = file_get_contents($log_path);
-    if ($mailrouter_log === false) {
-        fwrite(STDERR, "MailRouter log file could not be read.\n");
-        exit(1);
-    }
+    assertMailRouterTest($mailrouter_log !== false, 'MailRouter log file could not be read.');
+    assertMailRouterTest(strpos($mailrouter_log, '[MailRouter] ROUTING') !== false, 'MailRouter log file does not contain the routing entry.');
+    assertMailRouterTest(strpos($mailrouter_log, $unique_token) !== false, 'MailRouter log file does not contain the expected routing entry.');
+    assertMailRouterTest(strpos($mailrouter_log, '[MailRouter] FAILED') !== false, 'MailRouter log file does not contain the failed delivery entry.');
 
-    if (strpos($mailrouter_log, $unique_token) === false) {
-        fwrite(STDERR, "MailRouter log file does not contain the expected routing entry.\n");
-        exit(1);
-    }
+    $forged_subject_result = $email_service->sendGenericEmail(
+        'client@example.com',
+        "Forged Subject\r\nInjected-Header: " . $unique_token,
+        '<p>Hello</p>',
+        'Hello',
+        EmailService::MAIL_TYPE_GENERIC
+    );
+    assertMailRouterTest(!$forged_subject_result['success'], 'Expected the forged-subject email send to fail due to the missing SMTP host configured by the test.');
 
-    if (strpos($mailrouter_log, '[MailRouter] FAILED') === false) {
-        fwrite(STDERR, "MailRouter log file does not contain the failed delivery entry.\n");
-        exit(1);
-    }
+    $mailrouter_log = file_get_contents($log_path);
+    assertMailRouterTest($mailrouter_log !== false, 'MailRouter log file could not be re-read.');
+    assertMailRouterTest(strpos($mailrouter_log, "Forged Subject\r") === false, 'MailRouter log contains a raw carriage return sequence.');
+    assertMailRouterTest(strpos($mailrouter_log, "Forged Subject\n") === false, 'MailRouter log contains a raw newline sequence.');
+    assertMailRouterTest(strpos($mailrouter_log, 'Injected-Header: ' . $unique_token) !== false, 'MailRouter log does not contain the sanitized forged-subject content.');
 
     $error_log_contents = file_exists($error_log_path) ? file_get_contents($error_log_path) : '';
-    if ($error_log_contents !== false && strpos($error_log_contents, '[MailRouter] ROUTING') !== false) {
-        fwrite(STDERR, "MailRouter routing entries still reached the PHP error log.\n");
-        exit(1);
-    }
-
-    if ($error_log_contents !== false && strpos($error_log_contents, '[MailRouter] SENT') !== false) {
-        fwrite(STDERR, "MailRouter sent entries still reached the PHP error log.\n");
-        exit(1);
-    }
-
-    if ($error_log_contents !== false && strpos($error_log_contents, '[MailRouter] FAILED') !== false) {
-        fwrite(STDERR, "MailRouter failed entries still reached the PHP error log.\n");
-        exit(1);
-    }
+    assertMailRouterTest($error_log_contents === false || strpos($error_log_contents, '[MailRouter] ROUTING') === false, 'MailRouter routing entries still reached the PHP error log.');
+    assertMailRouterTest($error_log_contents === false || strpos($error_log_contents, '[MailRouter] SENT') === false, 'MailRouter sent entries still reached the PHP error log.');
+    assertMailRouterTest($error_log_contents === false || strpos($error_log_contents, '[MailRouter] FAILED') === false, 'MailRouter failed entries still reached the PHP error log.');
+} catch (Throwable $e) {
+    $exit_code = 1;
+    fwrite(STDERR, $e->getMessage() . PHP_EOL);
 } finally {
     foreach ($original_settings as $key => $value) {
         Settings::set($key, $value);
@@ -95,4 +96,8 @@ try {
     }
 }
 
-echo "MailRouter logging test passed.\n";
+if ($exit_code === 0) {
+    echo "MailRouter logging test passed.\n";
+}
+
+exit($exit_code);
