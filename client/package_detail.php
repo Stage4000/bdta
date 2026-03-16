@@ -303,7 +303,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                                     </div>
                                     <span class="badge text-bg-warning">Renews every <?= (int)$contract['renewal_period_months'] ?> month<?= (int)$contract['renewal_period_months'] === 1 ? '' : 's' ?></span>
                                 </div>
-                                <div class="border rounded p-3 bg-white" style="max-height: 220px; overflow-y: auto; font-size: 0.9rem;"><?= nl2br(escape($contract['template_text'])) ?></div>
+                                <div class="border rounded p-3 bg-white" style="max-height: 220px; overflow-y: auto; font-size: 0.9rem;"><?= $contract['template_text'] ?></div>
                             </div>
                         <?php endforeach; ?>
                     </div>
