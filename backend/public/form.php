@@ -1,7 +1,8 @@
 <?php
 /**
  * Public Form Submission Page
- * Allows clients to complete form templates outside the admin panel.
+ * Allows clients to complete public form templates outside the admin panel,
+ * and allows staff to open internal form templates directly while logged in.
  *
  * Supports two access patterns:
  *  - /backend/public/form.php?template_id=123  (start a new submission)
@@ -48,11 +49,11 @@ $stmt_tpl = $conn->prepare("SELECT * FROM form_templates WHERE id = ?");
 $stmt_tpl->execute([$template_id]);
 $template = $stmt_tpl->fetch(PDO::FETCH_ASSOC);
 
-// Block unavailable or internal templates from this public endpoint
+// Block unavailable templates and keep internal templates restricted to logged-in staff.
 if (
     !$template
     || array_int_value($template, 'is_active') === 0
-    || array_int_value($template, 'is_internal') !== 0
+    || (array_int_value($template, 'is_internal') !== 0 && !isLoggedIn())
 ) {
     renderPublicErrorPage(
         'Form Unavailable',
@@ -114,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (
             !$template
             || array_int_value($template, 'is_active') === 0
-            || array_int_value($template, 'is_internal') === 1
+            || (array_int_value($template, 'is_internal') === 1 && !isLoggedIn())
         ) {
             $errors[] = 'This form is no longer available.';
         } else {
