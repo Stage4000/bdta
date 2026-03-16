@@ -41,7 +41,11 @@ $execute_task->invoke($cron, $task);
 
 $next_stmt = $conn->prepare("SELECT next_run FROM scheduled_tasks WHERE id = ?");
 $next_stmt->execute([$task_id]);
-$updated_next_run = scalar_string($next_stmt->fetchColumn() ?: '');
+$next_value = $next_stmt->fetchColumn();
+if ($next_value === false) {
+    throw new RuntimeException('Failed to load updated next_run value.');
+}
+$updated_next_run = scalar_string($next_value);
 
 if ($updated_next_run === '') {
     throw new RuntimeException('Task next_run was not updated.');

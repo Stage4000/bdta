@@ -145,7 +145,7 @@ class CronRunner {
             $success = (bool)($result['success'] ?? true);
             $status = $success ? 'success' : 'error';
             
-            if (!is_int($task_id) && !is_string($task_id)) {
+            if (!$has_valid_task_id) {
                 throw new RuntimeException('Task id missing.');
             }
             $this->logTaskExecution($task_id, $task_name, $status, $message, $items_processed, $execution_time);
