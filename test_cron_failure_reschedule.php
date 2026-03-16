@@ -36,37 +36,46 @@ if (!$task) {
     throw new RuntimeException('Failed to insert test task.');
 }
 
-$cron = new CronRunner();
-$cron_reflection = new ReflectionClass('CronRunner');
-$execute_task = $cron_reflection->getMethod('executeTask');
-$execute_task->setAccessible(true);
-// Call the single-task executor directly so we don't trigger real scheduled tasks
-// that may exist in the database during local runs.
-$execute_task->invoke($cron, $task);
+$cleanup_done = false;
 
-$next_stmt = $conn->prepare("SELECT next_run FROM scheduled_tasks WHERE id = ?");
-$next_stmt->execute([$task_id]);
-$next_value = $next_stmt->fetchColumn();
-if ($next_value === false) {
-    throw new RuntimeException('Failed to load updated next_run value.');
+try {
+    $cron = new CronRunner();
+    $cron_reflection = new ReflectionClass('CronRunner');
+    $execute_task = $cron_reflection->getMethod('executeTask');
+    $execute_task->setAccessible(true);
+    // Call the single-task executor directly so we don't trigger real scheduled tasks
+    // that may exist in the database during local runs.
+    $execute_task->invoke($cron, $task);
+
+    $next_stmt = $conn->prepare("SELECT next_run FROM scheduled_tasks WHERE id = ?");
+    $next_stmt->execute([$task_id]);
+    $next_value = $next_stmt->fetchColumn();
+    if ($next_value === false) {
+        throw new RuntimeException('Failed to load updated next_run value.');
+    }
+    $updated_next_run = (string) $next_value;
+
+    if ($updated_next_run === '') {
+        throw new RuntimeException('Task next_run was not updated.');
+    }
+
+    $original_time = new DateTimeImmutable($past_time, new DateTimeZone('UTC'));
+    $updated_time = new DateTimeImmutable($updated_next_run, new DateTimeZone('UTC'));
+
+    if ($updated_time <= $original_time) {
+        throw new RuntimeException('Task next_run did not advance after failure.');
+    }
+
+    if ($cleanup_stmt->execute([$task_name]) === false) {
+        throw new RuntimeException('Failed to clean up test task.');
+    }
+    $cleanup_done = true;
+
+    echo "=== Cron Failure Reschedule Test ===\n\n";
+    echo "✓ Task failure rescheduled to future run time: {$updated_next_run}\n";
+    echo "\nAll cron failure reschedule tests passed!\n";
+} finally {
+    if (!$cleanup_done) {
+        $cleanup_stmt->execute([$task_name]);
+    }
 }
-$updated_next_run = (string) $next_value;
-
-if ($updated_next_run === '') {
-    throw new RuntimeException('Task next_run was not updated.');
-}
-
-$original_time = new DateTimeImmutable($past_time, new DateTimeZone('UTC'));
-$updated_time = new DateTimeImmutable($updated_next_run, new DateTimeZone('UTC'));
-
-if ($updated_time <= $original_time) {
-    throw new RuntimeException('Task next_run did not advance after failure.');
-}
-
-if ($cleanup_stmt->execute([$task_name]) === false) {
-    throw new RuntimeException('Failed to clean up test task.');
-}
-
-echo "=== Cron Failure Reschedule Test ===\n\n";
-echo "✓ Task failure rescheduled to future run time: {$updated_next_run}\n";
-echo "\nAll cron failure reschedule tests passed!\n";

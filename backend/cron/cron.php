@@ -166,7 +166,9 @@ class CronRunner {
             }
             $this->log("✗ Task failed: {$error_message}");
         } finally {
-            // Even on failure, advance the schedule so a bad task doesn't thrash every minute
+            // Only reschedule here if the success path did not update the task;
+            // this keeps failed tasks from thrashing while avoiding a double-update
+            // when execute() already advanced the schedule.
             if (!$schedule_updated && $has_valid_task_id) {
                 try {
                     $this->updateTaskSchedule($task);
