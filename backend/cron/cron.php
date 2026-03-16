@@ -153,7 +153,7 @@ class CronRunner {
             $this->log("{$log_prefix}: {$message} ({$items_processed} items, {$execution_time}s)");
             
             // Update task's last_run and next_run times
-            $this->updateTaskSchedule($task);
+            $next_run = $this->updateTaskSchedule($task);
             $schedule_updated = true;
             
         } catch (Exception $e) {
@@ -171,10 +171,10 @@ class CronRunner {
             // when execute() already advanced the schedule.
             if (!$schedule_updated && $has_valid_task_id) {
                 try {
-                    $this->updateTaskSchedule($task);
-                    $this->log("Task rescheduled after failure: {$task_name}");
+                    $next_run = $this->updateTaskSchedule($task);
+                    $this->log("Task rescheduled after failure to {$next_run}: {$task_name}");
                 } catch (Exception $scheduleException) {
-                    $this->log("Failed to reschedule task after failure; task will retry on next cron cycle: " . $scheduleException->getMessage());
+                    $this->log("Failed to reschedule task; next_run remains unchanged and task may retry immediately: " . $scheduleException->getMessage());
                 }
             }
         }
@@ -202,7 +202,7 @@ class CronRunner {
     /**
      * @param array<string, mixed> $task
      */
-    private function updateTaskSchedule(array $task): void {
+    private function updateTaskSchedule(array $task): string {
         $current_time = $this->getCurrentUtcDateTime();
         $next_run = $this->calculateNextRun($task);
         $task_id = $task['id'] ?? null;
@@ -213,6 +213,8 @@ class CronRunner {
             WHERE id = ?
         ");
         $stmt->execute([$current_time, $next_run, $current_time, $task_id]);
+        
+        return $next_run;
     }
     
     /**
