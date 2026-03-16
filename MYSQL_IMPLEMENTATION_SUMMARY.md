@@ -10,7 +10,7 @@ SQLite compatibility has been removed; MySQL is now the only supported database.
 - Created `.env` file support for database configuration
 - Developed `env_loader.php` for loading environment variables
 - Added `.env.example` with all configuration options
-- Environment variables control database type and connection settings
+- Environment variables control MySQL connection settings
 
 ### 2. MySQL Connection Handling
 - Refactored `Database` class to require MySQL

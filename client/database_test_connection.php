@@ -35,12 +35,13 @@ try {
     ];
 } catch (Exception $e) {
     $response['success'] = false;
+    error_log('MySQL connection test failed: ' . $e->getMessage());
     $response['tests'][] = [
         'type' => 'mysql',
         'status' => 'error',
         'message' => 'MySQL connection failed',
         'details' => [
-            'error' => $e->getMessage(),
+            'error' => 'Unable to connect. Check server logs for details.',
         ],
     ];
 }

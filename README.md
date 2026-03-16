@@ -31,7 +31,7 @@ This is a **complete business management system** combining a public-facing webs
 
 ### 💼 Complete CRM Backend (PHP + MySQL)
 - **⚡ Production-Ready**: MySQL support with automatic schema creation
-- **📦 Easy Migration**: Simple .env configuration switches databases
+- **📦 Easy Setup**: Configure MySQL credentials via `.env`
 
 - ✅ **Client Management**
   - Comprehensive client profiles with all related data

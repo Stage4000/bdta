@@ -162,7 +162,8 @@ class Database {
             // Use modern SQL mode for MySQL 5.7+
             $this->conn->exec("SET sql_mode='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
         } catch(PDOException $e) {
-            throw new RuntimeException("Database connection failed: " . $e->getMessage(), 0, $e);
+            error_log('Database connection failed: ' . $e->getMessage());
+            throw new RuntimeException("Database connection failed. Please verify MySQL credentials and availability.", 0, $e);
         }
     }
     
@@ -308,7 +309,7 @@ class Database {
         try {
             $stmt = $this->conn->prepare("SHOW TABLES LIKE ?");
             $stmt->execute([$tableName]);
-            return $stmt->rowCount() > 0;
+            return $stmt->fetchColumn() !== false;
         } catch (PDOException $e) {
             return false;
         }
