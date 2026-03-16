@@ -248,6 +248,13 @@ include __DIR__ . '/../backend/includes/header.php';
                                                class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
                                                 <i class="fas fa-pencil"></i>
                                             </a>
+                                            <form method="POST" action="appointment_types_duplicate.php" class="d-inline">
+                                                <input type="hidden" name="id" value="<?= $type_id ?>">
+                                                <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary table-action-btn" title="Duplicate">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </form>
                                             <a href="appointment_types_delete.php?id=<?= $type_id ?>" 
                                                class="btn btn-sm btn-outline-danger table-action-btn" 
                                                onclick="return confirm('Are you sure you want to delete this appointment type?')"

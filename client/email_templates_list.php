@@ -41,6 +41,13 @@ include '../backend/includes/header.php';
                 </div>
             <?php endif; ?>
 
+            <?php if (isset($_SESSION['error'])): ?>
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <?php echo escape($_SESSION['error']); unset($_SESSION['error']); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+
             <?php if (empty($templates)): ?>
                 <div class="alert alert-info">
                     <i class="fas fa-circle-info"></i>
@@ -92,10 +99,17 @@ include '../backend/includes/header.php';
                                         </p>
                                     <?php endif; ?>
                                     
-                                    <div class="d-flex gap-2">
+                                    <div class="d-flex gap-2 flex-wrap">
                                         <a href="email_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-outline-primary flex-fill">
                                             <i class="fas fa-pencil"></i> Edit
                                         </a>
+                                        <form method="POST" action="email_templates_duplicate.php" class="flex-fill">
+                                            <input type="hidden" name="id" value="<?php echo (int) $template['id']; ?>">
+                                            <input type="hidden" name="csrf_token" value="<?php echo escape($_SESSION['csrf_token'] ?? ''); ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                                <i class="fas fa-copy"></i> Duplicate
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </div>

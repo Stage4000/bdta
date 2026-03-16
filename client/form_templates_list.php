@@ -194,6 +194,13 @@ require_once '../backend/includes/header.php';
                                 <a href="form_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-primary">
                                     <i class="fas fa-pencil"></i>
                                 </a>
+                                <form method="POST" action="form_templates_duplicate.php" class="d-inline">
+                                    <input type="hidden" name="id" value="<?php echo (int) $template['id']; ?>">
+                                    <input type="hidden" name="csrf_token" value="<?php echo escape($_SESSION['csrf_token'] ?? ''); ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </form>
                                 <a href="form_templates_delete.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-danger" 
                                    onclick="return confirm('Are you sure you want to delete this template?');">
                                     <i class="fas fa-trash"></i>
