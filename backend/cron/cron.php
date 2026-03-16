@@ -208,7 +208,7 @@ class CronRunner {
         $task_id = $task['id'] ?? null;
 
         if (!is_int($task_id) && !is_string($task_id)) {
-            throw new RuntimeException('Task id missing for schedule update.');
+            throw new RuntimeException('Invalid task id type for schedule update; expected int or string.');
         }
         
         $stmt = $this->conn->prepare("
