@@ -332,7 +332,11 @@ class ImapEmailReceiver {
                 LIMIT 1
             ");
             $stmt->execute([$message_id]);
-            return $stmt->fetch() !== false;
+            if ($stmt->fetch()) {
+                return true;
+            }
+
+            return false;
         }
 
         $stmt = $this->conn->prepare("
@@ -500,7 +504,7 @@ class ImapEmailReceiver {
         }
         
         if ($message_id === '') {
-            // Check if this unmatched email already exists when the mailbox does not provide a stable message_id
+            // Check if this unmatched email already exists when the parsed message_id is empty
             $stmt = $this->conn->prepare("
                 SELECT id FROM unmatched_emails 
                 WHERE from_email = ? AND subject = ? AND received_at = ?

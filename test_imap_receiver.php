@@ -127,7 +127,7 @@ try {
         throw new RuntimeException('Expected existing client email message_id to still be treated as duplicate.');
     }
     if ($duplicate_check->invoke($receiver, '<new-message-id-' . $suffix . '@example.invalid>', 'different.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at) !== false) {
-        throw new RuntimeException('Expected message_id-based dedupe to ignore subject/date collisions when a new message_id is present.');
+        throw new RuntimeException('Expected new message_id to not be treated as duplicate despite matching subject/date.');
     }
     echo "✓ Message IDs take precedence over subject/date collisions\n";
 
