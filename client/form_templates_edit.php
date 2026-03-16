@@ -424,7 +424,7 @@ require_once '../backend/includes/header.php';
                     <?php else: ?>
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Shareable Form Link</h5>
+                        <h5 class="mb-0"><?php echo $is_internal ? 'Direct Form Link' : 'Shareable Form Link'; ?></h5>
                         <span class="badge bg-secondary">Unavailable</span>
                     </div>
                     <div class="card-body">
