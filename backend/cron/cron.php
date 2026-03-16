@@ -210,21 +210,27 @@ class CronRunner {
         if (!is_int($task_id) && !is_string($task_id)) {
             throw new RuntimeException('Invalid task id type for schedule update; expected int or string.');
         }
+
+        $task_id_param = is_string($task_id) && ctype_digit($task_id)
+            ? (int) $task_id
+            : $task_id;
         
         $stmt = $this->conn->prepare("
             UPDATE scheduled_tasks 
             SET last_run = ?, next_run = ?, updated_at = ?
             WHERE id = ?
         ");
-        $stmt->execute([$current_time, $next_run, $current_time, $task_id]);
+        $stmt->execute([$current_time, $next_run, $current_time, $task_id_param]);
 
         if ($stmt->rowCount() === 0) {
             $exists_stmt = $this->conn->prepare("SELECT 1 FROM scheduled_tasks WHERE id = ? LIMIT 1");
-            $exists_stmt->execute([$task_id]);
+            $exists_stmt->execute([$task_id_param]);
 
             if ($exists_stmt->fetchColumn() === false) {
-                throw new RuntimeException("Failed to update schedule for task {$task_id}: task not found.");
+                throw new RuntimeException("Failed to update schedule for task {$task_id_param}: task not found.");
             }
+
+            $this->log("Warning: Task schedule update made no changes for task {$task_id_param}.");
         }
         
         return $next_run;

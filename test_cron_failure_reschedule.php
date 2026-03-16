@@ -13,7 +13,7 @@ require_once __DIR__ . '/backend/cron/cron.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$task_name = 'Test Reschedule After Failure ' . uniqid('', true);
+$task_name = 'Test Reschedule After Failure ' . str_replace('.', '_', uniqid('', true));
 $cleanup_stmt = $conn->prepare("DELETE FROM scheduled_tasks WHERE id = ?");
 
 $insert = $conn->prepare("
