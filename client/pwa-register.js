@@ -1,11 +1,9 @@
 (function () {
     'use strict';
-    if (!('serviceWorker' in navigator)) {
-        return;
-    }
 
     // Register only for admin pages under /client/ to keep scope intentional.
     const ADMIN_PATH = '/client/';
+    const canRegisterServiceWorker = 'serviceWorker' in navigator;
     const currentPath = (window.location.pathname || '').toLowerCase();
     const normalizedAdminPath = ADMIN_PATH.toLowerCase();
     if (!currentPath.startsWith(normalizedAdminPath)) {
@@ -30,6 +28,7 @@
         const canInstall = deferredInstallPrompt !== null && !inStandaloneMode;
         installNavItem.classList.toggle('d-none', inStandaloneMode);
         installButton.disabled = !canInstall;
+        installButton.classList.toggle('disabled', !canInstall);
     }
 
     window.addEventListener('beforeinstallprompt', function (event) {
@@ -70,6 +69,10 @@
 
     window.addEventListener('load', function () {
         updateInstallButton();
+        if (!canRegisterServiceWorker) {
+            return;
+        }
+
         navigator.serviceWorker.register('/client/sw.js', { scope: ADMIN_PATH }).catch(function (err) {
             console.error('Service worker registration failed:', err);
             const note = document.createElement('div');
