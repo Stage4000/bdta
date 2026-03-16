@@ -45,6 +45,14 @@
             color: rgba(255,255,255,0.8);
             padding: 0.75rem 1rem;
         }
+        .sidebar .nav-link.disabled,
+        .sidebar .nav-link:disabled {
+            color: rgba(255,255,255,0.45);
+            opacity: 0.65;
+            background: transparent;
+            cursor: default;
+            pointer-events: none;
+        }
         .sidebar .nav-link:hover,
         .sidebar .nav-link.active {
             color: #fff;
@@ -448,8 +456,8 @@
                                             <i class="fas fa-key me-2"></i> Change Password
                                         </a>
                                     </li>
-                                    <li id="pwaInstallNavItem" class="nav-item d-none">
-                                        <button id="pwaInstallButton" class="nav-link text-start w-100 border-0 bg-transparent" type="button" aria-label="Install the BDTA admin app">
+                                    <li id="pwaInstallNavItem" class="nav-item">
+                                        <button id="pwaInstallButton" class="nav-link disabled text-start w-100 border-0 bg-transparent" type="button" aria-label="Install the BDTA admin app" disabled>
                                             <i class="fas fa-download me-2"></i> Install App
                                         </button>
                                     </li>
