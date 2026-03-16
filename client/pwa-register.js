@@ -30,7 +30,6 @@
         const canInstall = deferredInstallPrompt !== null && !inStandaloneMode;
         installNavItem.classList.toggle('d-none', inStandaloneMode);
         installButton.disabled = !canInstall;
-        installButton.setAttribute('aria-disabled', String(!canInstall));
     }
 
     window.addEventListener('beforeinstallprompt', function (event) {
