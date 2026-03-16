@@ -11,6 +11,10 @@ require_once __DIR__ . '/backend/includes/package_contracts.php';
 
 echo "=== Bundled Package System Test ===\n\n";
 
+$created_contract_template_ids = [];
+$created_appointment_type_ids = [];
+$exitCode = 0;
+
 try {
     $db = new Database();
     $conn = $db->getConnection();
@@ -52,9 +56,11 @@ try {
     $conn->prepare("INSERT INTO contract_templates (name, description, template_text, renewal_period_months, is_active) VALUES (?,?,?,?,1)")
          ->execute(['Package Test Contract A', 'Shared contract', 'Shared contract body', 12]);
     $contract_a_id = (int)$conn->lastInsertId();
+    $created_contract_template_ids[] = $contract_a_id;
     $conn->prepare("INSERT INTO contract_templates (name, description, template_text, renewal_period_months, is_active) VALUES (?,?,?,?,1)")
          ->execute(['Package Test Contract B', 'Secondary contract', 'Secondary contract body', 6]);
     $contract_b_id = (int)$conn->lastInsertId();
+    $created_contract_template_ids[] = $contract_b_id;
 
     // ------------------------------------------------------------------
     // Test 1: Field Rental appointment type
@@ -62,12 +68,15 @@ try {
     echo "Test 1: Create appointment types for package\n";
 
     $group_type_id        = makeAptType($conn, 'Test Group Class', ['contract_template_id' => $contract_a_id]);
+    $created_appointment_type_ids[] = $group_type_id;
     $mini_type_id         = makeAptType($conn, 'Test Mini Session', ['contract_template_id' => $contract_a_id]);
+    $created_appointment_type_ids[] = $mini_type_id;
     $field_rental_type_id = makeAptType($conn, 'Test Field Rental', [
         'is_field_rental'      => 1,
         'field_rental_location' => '123 Test Field Lane',
         'contract_template_id' => $contract_b_id,
     ]);
+    $created_appointment_type_ids[] = $field_rental_type_id;
 
     $stmt = $conn->prepare("SELECT * FROM appointment_types WHERE id = ?");
     $stmt->execute([$field_rental_type_id]);
@@ -345,5 +354,20 @@ try {
     echo "File: " . $e->getFile() . "\n";
     echo "Line: " . $e->getLine() . "\n";
     echo "\nStack trace:\n" . $e->getTraceAsString() . "\n";
-    exit(1);
+    $exitCode = 1;
+} finally {
+    if (isset($conn) && $conn instanceof PDO) {
+        if (!empty($created_appointment_type_ids)) {
+            $placeholders = implode(',', array_fill(0, count($created_appointment_type_ids), '?'));
+            $stmt = $conn->prepare("DELETE FROM appointment_types WHERE id IN ($placeholders)");
+            $stmt->execute($created_appointment_type_ids);
+        }
+        if (!empty($created_contract_template_ids)) {
+            $placeholders = implode(',', array_fill(0, count($created_contract_template_ids), '?'));
+            $stmt = $conn->prepare("DELETE FROM contract_templates WHERE id IN ($placeholders)");
+            $stmt->execute($created_contract_template_ids);
+        }
+    }
 }
+
+exit($exitCode);
