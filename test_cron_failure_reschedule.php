@@ -63,7 +63,9 @@ if ($updated_time <= $original_time) {
     throw new RuntimeException('Task next_run did not advance after failure.');
 }
 
-$cleanup_stmt->execute([$task_name]);
+if ($cleanup_stmt->execute([$task_name]) === false) {
+    throw new RuntimeException('Failed to clean up test task.');
+}
 
 echo "=== Cron Failure Reschedule Test ===\n\n";
 echo "✓ Task failure rescheduled to future run time: {$updated_next_run}\n";

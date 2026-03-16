@@ -95,9 +95,8 @@ class CronRunner {
      */
     private function executeTask(array $task): void {
         $task_start_time = microtime(true);
-        $task_id_raw = $task['id'] ?? null;
-        $has_valid_task_id = is_int($task_id_raw) || is_string($task_id_raw);
-        $task_id = $has_valid_task_id ? $task_id_raw : null;
+        $task_id = $task['id'] ?? null;
+        $has_valid_task_id = is_int($task_id) || is_string($task_id);
         $task_name = scalar_string($task['task_name'] ?? '');
         $task_type = scalar_string($task['task_type'] ?? '');
         $this->log("Executing task: {$task_name} (Type: {$task_type})");
@@ -370,6 +369,7 @@ class CronRunner {
             return currentUtcDateTime();
         }
         
+        // Warn once per process to avoid flooding logs while still surfacing misconfiguration
         static $warned = false;
         if (!$warned) {
             error_log('cron.php: currentUtcDateTime() helper missing; using gmdate() fallback');
