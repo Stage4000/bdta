@@ -28,7 +28,7 @@ if ($submission_id > 0) {
         FROM form_submissions fs
         JOIN form_templates ft ON fs.template_id = ft.id
         LEFT JOIN clients c ON fs.client_id = c.id
-        WHERE fs.id = ?
+        WHERE fs.id = ? AND fs.status = 'pending'
     ");
     $stmt->execute([$submission_id]);
     $submission_row = $stmt->fetch(PDO::FETCH_ASSOC);
