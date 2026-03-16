@@ -986,6 +986,7 @@ class Database {
                     client_id INTEGER NOT NULL,
                     direction TEXT NOT NULL,
                     status TEXT NOT NULL,
+                    message_id TEXT,
                     from_email TEXT NOT NULL,
                     to_email TEXT NOT NULL,
                     subject TEXT NOT NULL,
@@ -1011,6 +1012,7 @@ class Database {
             $this->execSQL("
                 CREATE TABLE IF NOT EXISTS unmatched_emails (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    message_id TEXT,
                     from_email TEXT NOT NULL,
                     from_name TEXT,
                     to_email TEXT NOT NULL,
@@ -1963,6 +1965,13 @@ class Database {
         $client_emails_cols = $this->getTableColumns('client_emails');
         if (!in_array('mail_type', $client_emails_cols)) {
             $this->execSQL("ALTER TABLE client_emails ADD COLUMN mail_type TEXT DEFAULT NULL");
+        }
+        if (!in_array('message_id', $client_emails_cols)) {
+            $this->execSQL("ALTER TABLE client_emails ADD COLUMN message_id TEXT DEFAULT NULL");
+        }
+
+        if (!in_array('message_id', $unmatched_email_columns)) {
+            $this->execSQL("ALTER TABLE unmatched_emails ADD COLUMN message_id TEXT DEFAULT NULL");
         }
 
         // Add item_type and reference_id to quote_items to support package and appointment type line items
