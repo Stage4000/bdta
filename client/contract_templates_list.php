@@ -35,11 +35,12 @@ $count_params = [];
 $select_params = [];
 
 // Get total count
-$count_sql = 'SELECT COUNT(*) FROM contract_templates';
 if ($service_type_filter !== '') {
-    $count_sql .= ' WHERE service_type = :service_type';
+    $count_sql = 'SELECT COUNT(*) FROM contract_templates WHERE service_type = :service_type';
     $count_params[':service_type'] = $service_type_filter;
     $select_params[':service_type'] = $service_type_filter;
+} else {
+    $count_sql = 'SELECT COUNT(*) FROM contract_templates';
 }
 $count_stmt = $conn->prepare($count_sql);
 foreach ($count_params as $name => $value) {
@@ -50,18 +51,27 @@ $total = safe_int($count_stmt->fetchColumn());
 $total_pages = ceil($total / $per_page);
 
 // Get templates
-$select_sql = 'SELECT * FROM contract_templates';
 if ($service_type_filter !== '') {
-    $select_sql .= ' WHERE service_type = :service_type';
+    $select_sql = "
+        SELECT * FROM contract_templates
+        WHERE service_type = :service_type
+        ORDER BY 
+            CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
+            is_active DESC,
+            service_type,
+            name
+    ";
+} else {
+    $select_sql = "
+        SELECT * FROM contract_templates
+        ORDER BY 
+            CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
+            is_active DESC,
+            service_type,
+            name
+    ";
 }
-$select_sql .= "
-    ORDER BY 
-        CASE WHEN service_type IS NULL OR service_type = '' THEN 1 ELSE 0 END,
-        is_active DESC,
-        service_type,
-        name
-";
-$select_sql .= $db->buildLimitClause($per_page, $offset); // nosemgrep: php.lang.security.sql-injection,php.raw_sql_query.general -- LIMIT/OFFSET are validated integers (via safe_int) and safely appended as literals
+$select_sql .= $db->buildLimitClause($per_page, $offset); // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query,php.lang.security.injection.tainted-callable,php.lang.security.sql-injection,php.raw_sql_query.general -- SQL is assembled from static fragments plus validated ints; buildLimitClause safely injects LIMIT/OFFSET literals due to MySQL parameterization limits
 $stmt = $conn->prepare($select_sql);
 foreach ($select_params as $name => $value) {
     $stmt->bindValue($name, $value);
