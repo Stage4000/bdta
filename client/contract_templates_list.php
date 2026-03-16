@@ -76,7 +76,7 @@ if ($service_type_filter !== '') {
             name" . $limit_clause . "
     ";
 }
-// nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query,php.lang.security.injection.tainted-callable -- SQL text is static aside from validated LIMIT/OFFSET literals from buildLimitClause; parameters are bound via PDO
+// nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query,php.lang.security.injection.tainted-callable -- Semgrep flags this PDO prepare due to the concatenated LIMIT/OFFSET literals (validated ints from buildLimitClause); query text is otherwise static and parameters are bound
 $stmt = $conn->prepare($select_sql);
 foreach ($select_params as $name => $value) {
     $stmt->bindValue($name, $value);
