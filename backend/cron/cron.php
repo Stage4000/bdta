@@ -153,7 +153,7 @@ class CronRunner {
             $this->log("{$log_prefix}: {$message} ({$items_processed} items, {$execution_time}s)");
             
             // Update task's last_run and next_run times
-            $next_run = $this->updateTaskSchedule($task);
+            $this->updateTaskSchedule($task);
             $schedule_updated = true;
             
         } catch (Exception $e) {
