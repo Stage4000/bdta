@@ -68,7 +68,7 @@ if ($is_edit && !empty($existing_items)) {
     $included_appointment_type_ids = array_keys($existing_items);
     $placeholders = implode(',', array_fill(0, count($included_appointment_type_ids), '?'));
     // Placeholder count is generated from current package item IDs and the values remain parameterized.
-    // nosemgrep
+    // nosemgrep: php.lang.security.injection.sql-injection -- Dynamic placeholder count only; values are bound via prepared-statement parameters
     $stmt = $conn->prepare("
         SELECT at.id, at.name, at.is_active, at.contract_template_id, ct.name AS contract_template_name
         FROM appointment_types at
