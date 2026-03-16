@@ -145,7 +145,7 @@ class CronRunner {
             $success = (bool)($result['success'] ?? true);
             $status = $success ? 'success' : 'error';
             
-            if (!$has_valid_task_id) {
+            if (!is_int($task_id) && !is_string($task_id)) {
                 throw new RuntimeException('Task id missing.');
             }
             $this->logTaskExecution($task_id, $task_name, $status, $message, $items_processed, $execution_time);
@@ -161,7 +161,7 @@ class CronRunner {
             $execution_time = round(microtime(true) - $task_start_time, 2);
             $error_message = $e->getMessage();
             
-            if ($has_valid_task_id) {
+            if (is_int($task_id) || is_string($task_id)) {
                 $this->logTaskExecution($task_id, $task_name, 'error', $error_message, 0, $execution_time);
             }
             $this->log("✗ Task failed: {$error_message}");
