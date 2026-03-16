@@ -7,7 +7,7 @@ requireLogin();
 
 $page_title = 'Import Clients from Moxie';
 $base_url = MoxieClientSync::getConfiguredBaseUrl();
-$api_key_saved = MoxieClientSync::getConfiguredApiKey() !== '';
+$has_saved_api_key = MoxieClientSync::getConfiguredApiKey() !== '';
 $last_summary = null;
 
 if (isset($_SESSION['moxie_import_last_summary']) && is_array($_SESSION['moxie_import_last_summary'])) {
@@ -52,7 +52,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($saved_base_url && $saved_api_key) {
-                setFlashMessage('Moxie credentials saved successfully.', 'success');
+                $api_key_message = 'API key unchanged.';
+                if ($submitted_api_key !== '') {
+                    $api_key_message = 'API key saved.';
+                } elseif (!$has_saved_api_key) {
+                    $api_key_message = 'No API key saved yet.';
+                }
+                setFlashMessage('Moxie workspace URL saved successfully. ' . $api_key_message, 'success');
             } else {
                 setFlashMessage('Unable to save Moxie credentials. Please verify the settings are available and try again.', 'danger');
             }
@@ -91,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $sync = new MoxieClientSync();
                 $last_summary = $sync->sync($base_url, $api_key);
-                $api_key_saved = $api_key !== '';
+                $has_saved_api_key = $api_key !== '';
                 $_SESSION['moxie_import_last_summary'] = $last_summary;
                 setFlashMessage(
                     'Moxie sync complete. '
@@ -158,10 +164,10 @@ include __DIR__ . '/../backend/includes/header.php';
                                 id="moxie_api_key"
                                 name="moxie_api_key"
                                 autocomplete="new-password"
-                                placeholder="<?= $api_key_saved ? 'Leave blank to keep the saved API key' : 'Paste your Moxie API key' ?>"
+                                placeholder="<?= $has_saved_api_key ? 'Leave blank to keep the saved API key' : 'Paste your Moxie API key' ?>"
                             >
                             <div class="form-text">
-                                <?= $api_key_saved ? 'An API key is already saved. Leave this blank to reuse it.' : 'The API key will be saved in BDTA settings for future syncs.' ?>
+                                <?= $has_saved_api_key ? 'An API key is already saved. Leave this blank to reuse it.' : 'The API key will be saved in BDTA settings for future syncs.' ?>
                             </div>
                         </div>
 
