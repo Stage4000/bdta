@@ -45,14 +45,14 @@ $next_value = $next_stmt->fetchColumn();
 if ($next_value === false) {
     throw new RuntimeException('Failed to load updated next_run value.');
 }
-$updated_next_run = scalar_string($next_value);
+$updated_next_run = (string) $next_value;
 
 if ($updated_next_run === '') {
     throw new RuntimeException('Task next_run was not updated.');
 }
 
-$original_time = new DateTimeImmutable($past_time, bdta_get_utc_timezone());
-$updated_time = new DateTimeImmutable($updated_next_run, bdta_get_utc_timezone());
+$original_time = new DateTimeImmutable($past_time, new DateTimeZone('UTC'));
+$updated_time = new DateTimeImmutable($updated_next_run, new DateTimeZone('UTC'));
 
 if ($updated_time <= $original_time) {
     throw new RuntimeException('Task next_run did not advance after failure.');
