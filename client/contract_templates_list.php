@@ -52,10 +52,9 @@ $total_pages = ceil($total / $per_page);
 
 // Get templates
 // Build limit/offset clause (MySQL cannot reliably parameterize LIMIT/OFFSET)
-$limit_clause = $db->buildLimitClause($per_page, $offset); // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query,php.lang.security.injection.tainted-callable,php.lang.security.sql-injection,php.raw_sql_query.general -- LIMIT/OFFSET are validated integers (safe_int) and injected as literals due to MySQL parameterization limits
+$limit_clause = $db->buildLimitClause($per_page, $offset);
 
 if ($service_type_filter !== '') {
-    // nosemgrep: php.lang.security.injection.tainted-sql-string.tainted-sql-string -- LIMIT clause appended from validated ints via buildLimitClause
     $select_sql = "
         SELECT * FROM contract_templates
         WHERE service_type = :service_type
@@ -66,7 +65,6 @@ if ($service_type_filter !== '') {
             name" . $limit_clause . "
     ";
 } else {
-    // nosemgrep: php.lang.security.injection.tainted-sql-string.tainted-sql-string -- LIMIT clause appended from validated ints via buildLimitClause
     $select_sql = "
         SELECT * FROM contract_templates
         ORDER BY 
@@ -76,7 +74,7 @@ if ($service_type_filter !== '') {
             name" . $limit_clause . "
     ";
 }
-// nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable -- SQL is static plus validated LIMIT/OFFSET literals; parameters are bound separately
+// nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query,php.lang.security.injection.tainted-callable,php.lang.security.sql-injection,php.raw_sql_query.general,php.lang.security.injection.tainted-sql-string.tainted-sql-string -- SQL is static plus validated LIMIT/OFFSET literals (safe_int via buildLimitClause); parameters are bound separately
 $stmt = $conn->prepare($select_sql);
 foreach ($select_params as $name => $value) {
     $stmt->bindValue($name, $value);
