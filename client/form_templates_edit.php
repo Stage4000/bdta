@@ -403,9 +403,9 @@ require_once '../backend/includes/header.php';
                     <div class="card-body">
                         <p class="text-muted small mb-2">
                             <?php if ($is_internal): ?>
-                                Open this link while logged into the admin panel to complete the internal form.
+                                Open this link while logged in as an admin/staff user to complete the internal form.
                             <?php else: ?>
-                                Share this link so the form can be completed without logging into the admin panel.
+                                Share this link so the form can be completed without requiring an admin/staff login.
                             <?php endif; ?>
                         </p>
                         <?php $share_url = getDynamicBaseUrl() . '/backend/public/form.php?template_id=' . (int) $template_id; ?>
