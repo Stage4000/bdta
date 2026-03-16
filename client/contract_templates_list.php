@@ -55,7 +55,7 @@ $total_pages = ceil($total / $per_page);
 $limit_clause = $db->buildLimitClause($per_page, $offset);
 
 if ($service_type_filter !== '') {
-    // nosemgrep: php.lang.security.injection.tainted-sql-string.tainted-sql-string -- LIMIT/OFFSET literals come from validated safe_int via buildLimitClause
+    // nosemgrep: php.lang.security.injection.tainted-sql-string.tainted-sql-string -- LIMIT/OFFSET literals are validated integers produced by buildLimitClause
     $select_sql = "
         SELECT * FROM contract_templates
         WHERE service_type = :service_type
@@ -66,7 +66,7 @@ if ($service_type_filter !== '') {
             name" . $limit_clause . "
     ";
 } else {
-    // nosemgrep: php.lang.security.injection.tainted-sql-string.tainted-sql-string -- LIMIT/OFFSET literals come from validated safe_int via buildLimitClause
+    // nosemgrep: php.lang.security.injection.tainted-sql-string.tainted-sql-string -- LIMIT/OFFSET literals are validated integers produced by buildLimitClause
     $select_sql = "
         SELECT * FROM contract_templates
         ORDER BY 
