@@ -12,11 +12,11 @@ All outgoing email flows through a single entry point:
 ```
 EmailService::routeMail()
         │
-        ├─ logs  "[MailRouter] ROUTING type=… to=… subject=…"
+        ├─ logs to backend/logs/mailrouter.log  "[MailRouter] ROUTING type=… to=… subject=…"
         │
         ├─ calls  EmailService::sendEmail()  (PHPMailer transport)
         │
-        └─ logs  "[MailRouter] SENT …"  or  "[MailRouter] FAILED …"
+        └─ logs to backend/logs/mailrouter.log  "[MailRouter] SENT …"  or  "[MailRouter] FAILED …"
 ```
 
 Every public send-method in `EmailService` (`sendBookingConfirmation`,
@@ -129,8 +129,8 @@ No other changes are needed; the routing function handles the new type automatic
 
 ## Log Format
 
-Every email attempt is written to the PHP error log (visible in Apache/Nginx/PHP-FPM
-logs) in the following format:
+Every email attempt is written to `backend/logs/mailrouter.log` in the following
+format:
 
 ```
 [MailRouter] ROUTING type=booking_confirmation to=client@example.com subject="Booking Confirmed"
@@ -161,6 +161,11 @@ setup instructions.
 `routeMail()` always calls `sendEmail()` (the internal PHPMailer wrapper), so
 changing the transport setting affects every mail type simultaneously — no per-type
 transport changes are required.
+
+MailRouter routing audit lines are kept out of the PHP/Apache error log unless the
+application cannot write to `backend/logs/mailrouter.log`, in which case the logger
+falls back to `error_log()` with a `mailrouter_log_error` suffix so the write issue
+is still visible.
 
 ---
 
