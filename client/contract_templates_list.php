@@ -61,7 +61,7 @@ $select_sql .= "
         is_active DESC,
         name
 ";
-$select_sql .= $db->buildLimitClause($per_page, $offset);
+$select_sql .= $db->buildLimitClause($per_page, $offset); // nosemgrep: php.lang.security.sql-injection,php.raw_sql_query.general -- LIMIT/OFFSET are validated integers (via safe_int) and safely appended as literals
 $stmt = $conn->prepare($select_sql);
 foreach ($select_params as $name => $value) {
     $stmt->bindValue($name, $value);
