@@ -64,9 +64,11 @@ include '../backend/includes/header.php';
                                     <span class="badge bg-<?= $color ?>"><?= strtoupper($contract['status']) ?></span>
                                 </td>
                                 <td>
-                                    <a href="contracts_view.php?id=<?= $contract['id'] ?>" class="btn btn-sm btn-outline-info">
-                                        <i class="fas fa-eye"></i> View
-                                    </a>
+                                    <div class="table-action-buttons">
+                                        <a href="contracts_view.php?id=<?= $contract['id'] ?>" class="btn btn-sm btn-outline-info table-action-btn" title="View" aria-label="View">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; endif; ?>
