@@ -263,9 +263,8 @@ function htmlToPlainText(html) {
         return '';
     }
 
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || '';
+    const doc = new DOMParser().parseFromString(String(html), 'text/html');
+    return doc.body.textContent || '';
 }
 
 // Load emails based on filter
