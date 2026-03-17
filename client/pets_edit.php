@@ -38,10 +38,14 @@ function pets_edit_return_url(string $url): string {
 
     // If a scheme or host is present, only allow same-origin URLs under ADMIN_URL.
     if (isset($parts['scheme']) || isset($parts['host'])) {
-        $currentHost = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
+        $currentHost = scalar_string($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? ''));
         // Strip an optional port and normalize case for comparison.
-        $currentHost = strtolower(preg_replace('/:\d+$/', '', (string) $currentHost));
-        $targetHost  = strtolower((string) ($parts['host'] ?? ''));
+        $currentHost = preg_replace('/:\d+$/', '', $currentHost);
+        if ($currentHost === null) {
+            return $fallback;
+        }
+        $currentHost = strtolower($currentHost);
+        $targetHost  = strtolower(scalar_string($parts['host'] ?? ''));
 
         if ($currentHost === '' || $targetHost === '' || $currentHost !== $targetHost) {
             return $fallback;
