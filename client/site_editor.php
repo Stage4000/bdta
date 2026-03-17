@@ -276,35 +276,35 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
     <button class="btn-topbar" id="btn-redo" title="Redo"><i class="fas fa-redo"></i></button>
 
     <!-- Preview -->
-    <button class="btn-topbar" id="btn-preview" title="Toggle preview">
-        <i class="fas fa-eye me-1"></i> Preview
+    <button class="btn-topbar btn-topbar-icon" id="btn-preview" title="Toggle preview" aria-label="Toggle preview">
+        <i class="fas fa-eye"></i>
     </button>
 
     <!-- HTML / Code -->
-    <button class="btn-topbar" id="btn-html" title="Edit HTML/CSS">
-        <i class="fas fa-code me-1"></i> HTML
+    <button class="btn-topbar btn-topbar-icon" id="btn-html" title="Edit HTML/CSS" aria-label="Edit HTML and CSS">
+        <i class="fas fa-code"></i>
     </button>
 
     <!-- View Live -->
     <?php if ($is_published): ?>
-    <a href="<?php echo escape($view_url); ?>" target="_blank" class="btn-topbar" title="View live page">
-        <i class="fas fa-external-link-alt me-1"></i> View Live
+    <a href="<?php echo escape($view_url); ?>" target="_blank" class="btn-topbar btn-topbar-icon" title="View live page" aria-label="View live page">
+        <i class="fas fa-external-link-alt"></i>
     </a>
     <?php endif; ?>
 
     <!-- Save Draft -->
-    <button class="btn-topbar" id="btn-save" title="Save draft">
-        <i class="fas fa-floppy-disk me-1"></i> Save
+    <button class="btn-topbar btn-topbar-icon" id="btn-save" title="Save draft" aria-label="Save draft">
+        <i class="fas fa-floppy-disk"></i>
     </button>
 
     <!-- Publish / Unpublish -->
     <?php if ($is_published): ?>
-    <button class="btn-topbar btn-unpublish" id="btn-publish" title="Unpublish page">
-        <i class="fas fa-eye-slash me-1"></i> Unpublish
+    <button class="btn-topbar btn-topbar-icon btn-unpublish" id="btn-publish" title="Unpublish page" aria-label="Unpublish page">
+        <i class="fas fa-eye-slash"></i>
     </button>
     <?php else: ?>
-    <button class="btn-topbar btn-publish" id="btn-publish" title="Save &amp; Publish">
-        <i class="fas fa-rocket me-1"></i> Publish
+    <button class="btn-topbar btn-topbar-icon btn-publish" id="btn-publish" title="Save &amp; Publish" aria-label="Save and publish">
+        <i class="fas fa-rocket"></i>
     </button>
     <?php endif; ?>
 </div>
@@ -693,13 +693,17 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
         if (isPublished) {
             badge.className = 'status-badge published';
             badge.innerHTML = '&#9679; Published';
-            btn.className   = 'btn-topbar btn-unpublish';
-            btn.innerHTML   = '<i class="fas fa-eye-slash me-1"></i> Unpublish';
+            btn.className   = 'btn-topbar btn-topbar-icon btn-unpublish';
+            btn.innerHTML   = '<i class="fas fa-eye-slash"></i>';
+            btn.title       = 'Unpublish page';
+            btn.setAttribute('aria-label', 'Unpublish page');
         } else {
             badge.className = 'status-badge';
             badge.innerHTML = '&#9675; Draft';
-            btn.className   = 'btn-topbar btn-publish';
-            btn.innerHTML   = '<i class="fas fa-rocket me-1"></i> Publish';
+            btn.className   = 'btn-topbar btn-topbar-icon btn-publish';
+            btn.innerHTML   = '<i class="fas fa-rocket"></i>';
+            btn.title       = 'Save and publish';
+            btn.setAttribute('aria-label', 'Save and publish');
         }
     }
 
@@ -727,8 +731,10 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
             editor.stopCommand('core:preview');
         }
         this.innerHTML = previewing
-            ? '<i class="fas fa-edit me-1"></i> Edit'
-            : '<i class="fas fa-eye me-1"></i> Preview';
+            ? '<i class="fas fa-edit"></i>'
+            : '<i class="fas fa-eye"></i>';
+        this.title = previewing ? 'Exit preview' : 'Toggle preview';
+        this.setAttribute('aria-label', previewing ? 'Exit preview' : 'Toggle preview');
     });
 
     // ------------------------------------------------------------------

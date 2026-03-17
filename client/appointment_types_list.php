@@ -97,7 +97,6 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <th>Requirements</th>
                                 <th>Behavior</th>
                                 <th>Status</th>
-                                <th>Booking Link</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -232,33 +231,31 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if ($unique_link !== ''): ?>
-                                            <button class="btn btn-sm btn-outline-primary table-action-btn" 
-                                                    onclick="copyLink('<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $unique_link) ?>', this)"
-                                                    title="Copy booking link">
-                                                <i class="fas fa-link"></i> Copy Link
-                                            </button>
-                                        <?php else: ?>
-                                            <span class="text-muted small">No link</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
                                         <div class="table-action-buttons">
+                                            <?php if ($unique_link !== ''): ?>
+                                                <button class="btn btn-sm btn-outline-info table-action-btn"
+                                                        onclick="copyLink('<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $unique_link) ?>', this)"
+                                                        title="Copy booking link"
+                                                        aria-label="Copy booking link">
+                                                    <i class="fas fa-link"></i>
+                                                </button>
+                                            <?php endif; ?>
                                             <a href="appointment_types_edit.php?id=<?= $type_id ?>" 
-                                               class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
+                                               class="btn btn-sm btn-outline-primary table-action-btn" title="Edit" aria-label="Edit">
                                                 <i class="fas fa-pencil"></i>
                                             </a>
                                             <form method="POST" action="appointment_types_duplicate.php" class="d-inline">
                                                 <input type="hidden" name="id" value="<?= $type_id ?>">
                                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-secondary table-action-btn" title="Duplicate">
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary table-action-btn" title="Duplicate" aria-label="Duplicate">
                                                     <i class="fas fa-copy"></i>
                                                 </button>
                                             </form>
                                             <a href="appointment_types_delete.php?id=<?= $type_id ?>" 
                                                class="btn btn-sm btn-outline-danger table-action-btn" 
                                                onclick="return confirm('Are you sure you want to delete this appointment type?')"
-                                               title="Delete">
+                                               title="Delete"
+                                               aria-label="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </a>
                                         </div>
@@ -290,7 +287,7 @@ function copyLink(link, button) {
     navigator.clipboard.writeText(link).then(function() {
         // Show success feedback
         const originalHTML = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        button.innerHTML = '<i class="fas fa-check"></i>';
         button.classList.remove('btn-outline-primary');
         button.classList.add('btn-success');
         

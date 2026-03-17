@@ -10,6 +10,31 @@ $page_title = 'Unmatched Emails';
 include __DIR__ . '/../backend/includes/header.php';
 ?>
 
+<style>
+    .unmatched-email-table .subject-link {
+        color: inherit;
+        font-weight: 600;
+        text-align: left;
+        text-decoration: none;
+    }
+    .unmatched-email-table .subject-link:hover,
+    .unmatched-email-table .subject-link:focus {
+        color: var(--bs-primary);
+    }
+    .unmatched-email-table .email-contact {
+        display: block;
+        max-width: 24rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .unmatched-email-status {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+</style>
+
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -191,6 +216,7 @@ include __DIR__ . '/../backend/includes/header.php';
 <script>
 let currentEmailId = null;
 let currentEmailData = null;
+let currentEmailFilter = 'unassigned';
 
 // Load emails on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -233,7 +259,10 @@ function formatDateTime(dateStr) {
 }
 
 // Load emails based on filter
-async function loadEmails(filter) {
+async function loadEmails(filter, preserveCurrentFilter = false) {
+    if (!preserveCurrentFilter) {
+        currentEmailFilter = filter;
+    }
     let url = 'unmatched_emails_api.php?';
     
     if (filter === 'assigned') {
@@ -262,6 +291,29 @@ async function loadEmails(filter) {
     }
 }
 
+async function fetchEmailDetails(emailId, filter = currentEmailFilter) {
+    currentEmailId = emailId;
+    currentEmailFilter = filter;
+
+    const response = await fetch(`unmatched_emails_api.php?id=${emailId}`);
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || 'Failed to load email details');
+    }
+
+    currentEmailData = data.email;
+    return data.email;
+}
+
+function reloadCurrentEmailFilter() {
+    const activeFilter = currentEmailFilter;
+    loadEmails(activeFilter);
+    if (activeFilter !== 'unassigned') {
+        loadEmails('unassigned', true);
+    }
+}
+
 // Display emails in the list
 function displayEmails(emails, filter) {
     const containerId = filter + 'Emails';
@@ -272,7 +324,22 @@ function displayEmails(emails, filter) {
         return;
     }
     
-    let html = '<div class="list-group">';
+    let html = `
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 unmatched-email-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Subject</th>
+                            <th>Contact</th>
+                            <th>Direction</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
     
     emails.forEach(email => {
         const date = formatDateTime(email.received_at);
@@ -285,114 +352,178 @@ function displayEmails(emails, filter) {
         const contactLine = isSent
             ? `To: ${escapeHtml(email.to_email)}`
             : `From: ${escapeHtml(email.from_name || email.from_email)}${email.from_name ? ` &lt;${escapeHtml(email.from_email)}&gt;` : ''}`;
+        const replyAction = isSent
+            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Compose to recipient" aria-label="Compose to recipient" onclick="quickCompose(${email.id}, '${filter}')"><i class="fas fa-pen"></i></button>`
+            : `<button type="button" class="btn btn-sm btn-outline-primary table-action-btn" title="Reply" aria-label="Reply" onclick="quickReply(${email.id}, '${filter}')"><i class="fas fa-reply"></i></button>`;
+        const assignAction = !email.is_assigned
+            ? `<button type="button" class="btn btn-sm btn-outline-success table-action-btn" title="Assign to client" aria-label="Assign to client" onclick="quickAssign(${email.id}, '${filter}')"><i class="fas fa-user-check"></i></button>`
+            : '';
+        const archiveAction = email.is_archived
+            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Unarchive" aria-label="Unarchive" onclick="quickUnarchive(${email.id}, '${filter}')"><i class="fas fa-box-open"></i></button>`
+            : `<button type="button" class="btn btn-sm btn-outline-warning table-action-btn" title="Archive" aria-label="Archive" onclick="quickArchive(${email.id}, '${filter}')"><i class="fas fa-box-archive"></i></button>`;
         
         html += `
-            <div class="list-group-item list-group-item-action" onclick="showEmailDetails(${email.id})">
-                <div class="d-flex w-100 justify-content-between">
-                    <div>
-                        <h6 class="mb-1">${escapeHtml(email.subject)}</h6>
-                        <p class="mb-1 text-muted small">${contactLine}</p>
-                        ${directionBadge} ${assignedBadge} ${archivedBadge}
+            <tr>
+                <td>
+                    <button type="button" class="btn btn-link btn-sm p-0 subject-link" onclick="showEmailDetails(${email.id}, '${filter}')">
+                        ${escapeHtml(email.subject)}
+                    </button>
+                </td>
+                <td><small class="text-muted email-contact">${contactLine}</small></td>
+                <td>${directionBadge}</td>
+                <td><div class="unmatched-email-status">${assignedBadge}${archivedBadge || '<span class="badge bg-secondary-subtle text-body-secondary border">Open</span>'}</div></td>
+                <td><small class="text-muted">${date || 'Missing timestamp'}</small></td>
+                <td>
+                    <div class="table-action-buttons table-action-buttons-nowrap">
+                        <button type="button" class="btn btn-sm btn-outline-secondary table-action-btn" title="View details" aria-label="View details" onclick="showEmailDetails(${email.id}, '${filter}')"><i class="fas fa-eye"></i></button>
+                        ${replyAction}
+                        ${assignAction}
+                        ${archiveAction}
+                        <button type="button" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete" aria-label="Delete" onclick="quickDelete(${email.id}, '${filter}')"><i class="fas fa-trash"></i></button>
                     </div>
-                    <small class="text-muted">${date}</small>
-                </div>
-            </div>
+                </td>
+            </tr>
         `;
     });
     
-    html += '</div>';
+    html += `
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
     container.innerHTML = html;
 }
 
 // Show email details in modal
-async function showEmailDetails(emailId) {
-    currentEmailId = emailId;
-    
+async function showEmailDetails(emailId, filter = currentEmailFilter) {
     try {
-        const response = await fetch(`unmatched_emails_api.php?id=${emailId}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            const email = data.email;
-            currentEmailData = email;
-            const modal = new bootstrap.Modal(document.getElementById('emailDetailsModal'));
-            
-            const isSent = email.direction === 'outgoing';
-            const directionBadge = isSent
-                ? '<span class="badge bg-primary"><i class="fas fa-paper-plane"></i> Sent</span>'
-                : '<span class="badge bg-info text-dark"><i class="fas fa-inbox"></i> Received</span>';
-            const dateLabel = isSent ? 'Sent:' : 'Received:';
-            
-            const body = document.getElementById('emailDetailsBody');
-            body.innerHTML = `
-                <dl class="row">
-                    <dt class="col-sm-3">Direction:</dt>
-                    <dd class="col-sm-9">${directionBadge}</dd>
-                    
-                    <dt class="col-sm-3">From:</dt>
-                    <dd class="col-sm-9">${escapeHtml(email.from_name || email.from_email)} ${email.from_name ? `&lt;${escapeHtml(email.from_email)}&gt;` : ''}</dd>
-                    
-                    <dt class="col-sm-3">To:</dt>
-                    <dd class="col-sm-9">${escapeHtml(email.to_email)}</dd>
-                    
-                    <dt class="col-sm-3">Subject:</dt>
-                    <dd class="col-sm-9">${escapeHtml(email.subject)}</dd>
-                    
-                    <dt class="col-sm-3">${dateLabel}</dt>
-                    <dd class="col-sm-9">${formatDateTime(email.received_at)}</dd>
-                    
-                    ${email.is_assigned ? `
-                        <dt class="col-sm-3">Assigned to:</dt>
-                        <dd class="col-sm-9">${escapeHtml(email.assigned_client_name)} (${formatDateTime(email.assigned_at)})</dd>
-                    ` : ''}
-                </dl>
-                
-                <hr>
-                
-                <h6>Message</h6>
-                <div class="border p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
-                    ${email.body_html || escapeHtml(email.body_text)}
-                </div>
-            `;
-            
-            // Show action buttons
-            const footer = document.getElementById('emailDetailsFooter');
-            footer.innerHTML = '';
-            
-            if (isSent) {
-                // For sent emails: offer composing a new email to same recipient
-                const recipientEmail = email.to_email || '';
-                footer.innerHTML += `<button type="button" class="btn btn-info" id="composeToRecipientBtn"><i class="fas fa-pen"></i> Compose to Recipient</button>`;
-                document.getElementById('composeToRecipientBtn').addEventListener('click', function() {
-                    openComposeModal({ to: recipientEmail });
-                });
-            } else {
-                // For received emails: offer reply and compose
-                if (email.from_email) {
-                    footer.innerHTML += `<button type="button" class="btn btn-primary" onclick="openReplyModal()"><i class="fas fa-reply"></i> Reply</button>`;
-                    footer.innerHTML += `<button type="button" class="btn btn-info" onclick="openComposeFromEmail()"><i class="fas fa-pen"></i> Compose</button>`;
-                }
+        const email = await fetchEmailDetails(emailId, filter);
+        const modal = new bootstrap.Modal(document.getElementById('emailDetailsModal'));
+
+        const isSent = email.direction === 'outgoing';
+        const directionBadge = isSent
+            ? '<span class="badge bg-primary"><i class="fas fa-paper-plane"></i> Sent</span>'
+            : '<span class="badge bg-info text-dark"><i class="fas fa-inbox"></i> Received</span>';
+        const dateLabel = isSent ? 'Sent:' : 'Received:';
+
+        const body = document.getElementById('emailDetailsBody');
+        body.innerHTML = `
+            <dl class="row">
+                <dt class="col-sm-3">Direction:</dt>
+                <dd class="col-sm-9">${directionBadge}</dd>
+
+                <dt class="col-sm-3">From:</dt>
+                <dd class="col-sm-9">${escapeHtml(email.from_name || email.from_email)} ${email.from_name ? `&lt;${escapeHtml(email.from_email)}&gt;` : ''}</dd>
+
+                <dt class="col-sm-3">To:</dt>
+                <dd class="col-sm-9">${escapeHtml(email.to_email)}</dd>
+
+                <dt class="col-sm-3">Subject:</dt>
+                <dd class="col-sm-9">${escapeHtml(email.subject)}</dd>
+
+                <dt class="col-sm-3">${dateLabel}</dt>
+                <dd class="col-sm-9">${formatDateTime(email.received_at)}</dd>
+
+                ${email.is_assigned ? `
+                    <dt class="col-sm-3">Assigned to:</dt>
+                    <dd class="col-sm-9">${escapeHtml(email.assigned_client_name)} (${formatDateTime(email.assigned_at)})</dd>
+                ` : ''}
+            </dl>
+
+            <hr>
+
+            <h6>Message</h6>
+            <div class="border p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
+                ${email.body_html || escapeHtml(email.body_text)}
+            </div>
+        `;
+
+        // Show action buttons
+        const footer = document.getElementById('emailDetailsFooter');
+        footer.innerHTML = '';
+
+        if (isSent) {
+            // For sent emails: offer composing a new email to same recipient
+            const recipientEmail = email.to_email || '';
+            footer.innerHTML += `<button type="button" class="btn btn-info" id="composeToRecipientBtn"><i class="fas fa-pen"></i> Compose to Recipient</button>`;
+            document.getElementById('composeToRecipientBtn').addEventListener('click', function() {
+                openComposeModal({ to: recipientEmail });
+            });
+        } else {
+            // For received emails: offer reply and compose
+            if (email.from_email) {
+                footer.innerHTML += `<button type="button" class="btn btn-primary" onclick="openReplyModal()"><i class="fas fa-reply"></i> Reply</button>`;
+                footer.innerHTML += `<button type="button" class="btn btn-info" onclick="openComposeFromEmail()"><i class="fas fa-pen"></i> Compose</button>`;
             }
-            
-            if (!email.is_assigned) {
-                footer.innerHTML += '<button type="button" class="btn btn-success" onclick="openAssignModal()">Assign to Client</button>';
-            }
-            
-            if (!email.is_archived) {
-                footer.innerHTML += '<button type="button" class="btn btn-warning" onclick="archiveEmail()">Archive</button>';
-            } else {
-                footer.innerHTML += '<button type="button" class="btn btn-info" onclick="unarchiveEmail()">Unarchive</button>';
-            }
-            
-            footer.innerHTML += '<button type="button" class="btn btn-danger" onclick="deleteEmail()">Delete</button>';
-            footer.innerHTML += '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>';
-            
-            modal.show();
         }
+
+        if (!email.is_assigned) {
+            footer.innerHTML += '<button type="button" class="btn btn-success" onclick="openAssignModal()">Assign to Client</button>';
+        }
+
+        if (!email.is_archived) {
+            footer.innerHTML += '<button type="button" class="btn btn-warning" onclick="archiveEmail()">Archive</button>';
+        } else {
+            footer.innerHTML += '<button type="button" class="btn btn-info" onclick="unarchiveEmail()">Unarchive</button>';
+        }
+
+        footer.innerHTML += '<button type="button" class="btn btn-danger" onclick="deleteEmail()">Delete</button>';
+        footer.innerHTML += '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>';
+
+        modal.show();
     } catch (error) {
         console.error('Error loading email details:', error);
         alert('Error loading email details');
     }
+}
+
+async function quickAssign(emailId, filter) {
+    try {
+        await fetchEmailDetails(emailId, filter);
+        openAssignModal();
+    } catch (error) {
+        console.error('Error opening assign modal:', error);
+        alert('Error loading email details');
+    }
+}
+
+async function quickReply(emailId, filter) {
+    try {
+        await fetchEmailDetails(emailId, filter);
+        openReplyModal();
+    } catch (error) {
+        console.error('Error opening reply modal:', error);
+        alert('Error loading email details');
+    }
+}
+
+async function quickCompose(emailId, filter) {
+    try {
+        const email = await fetchEmailDetails(emailId, filter);
+        openComposeModal({ to: email.to_email || '' });
+    } catch (error) {
+        console.error('Error opening compose modal:', error);
+        alert('Error loading email details');
+    }
+}
+
+function quickArchive(emailId, filter) {
+    currentEmailId = emailId;
+    currentEmailFilter = filter;
+    archiveEmail();
+}
+
+function quickUnarchive(emailId, filter) {
+    currentEmailId = emailId;
+    currentEmailFilter = filter;
+    unarchiveEmail();
+}
+
+function quickDelete(emailId, filter) {
+    currentEmailId = emailId;
+    currentEmailFilter = filter;
+    deleteEmail();
 }
 
 // Load clients for assignment dropdown
@@ -420,7 +551,9 @@ function openAssignModal() {
     document.getElementById('assignEmailId').value = currentEmailId;
     const assignModal = new bootstrap.Modal(document.getElementById('assignModal'));
     const detailsModal = bootstrap.Modal.getInstance(document.getElementById('emailDetailsModal'));
-    detailsModal.hide();
+    if (detailsModal) {
+        detailsModal.hide();
+    }
     assignModal.show();
 }
 
@@ -449,7 +582,9 @@ function openReplyModal() {
     document.getElementById('replyFormAlert').className = 'alert d-none';
 
     const detailsModal = bootstrap.Modal.getInstance(document.getElementById('emailDetailsModal'));
-    detailsModal.hide();
+    if (detailsModal) {
+        detailsModal.hide();
+    }
     const replyModal = new bootstrap.Modal(document.getElementById('replyModal'));
     replyModal.show();
 }
@@ -536,7 +671,7 @@ async function assignEmail() {
             alert('Email assigned successfully!');
             const assignModal = bootstrap.Modal.getInstance(document.getElementById('assignModal'));
             assignModal.hide();
-            loadEmails('unassigned');
+            reloadCurrentEmailFilter();
         } else {
             alert('Error: ' + data.error);
         }
@@ -565,8 +700,10 @@ async function archiveEmail() {
         if (data.success) {
             alert('Email archived');
             const modal = bootstrap.Modal.getInstance(document.getElementById('emailDetailsModal'));
-            modal.hide();
-            loadEmails('unassigned');
+            if (modal) {
+                modal.hide();
+            }
+            reloadCurrentEmailFilter();
         }
     } catch (error) {
         console.error('Error archiving email:', error);
@@ -591,8 +728,10 @@ async function unarchiveEmail() {
         if (data.success) {
             alert('Email unarchived');
             const modal = bootstrap.Modal.getInstance(document.getElementById('emailDetailsModal'));
-            modal.hide();
-            loadEmails('archived');
+            if (modal) {
+                modal.hide();
+            }
+            reloadCurrentEmailFilter();
         }
     } catch (error) {
         console.error('Error unarchiving email:', error);
@@ -614,8 +753,10 @@ async function deleteEmail() {
         if (data.success) {
             alert('Email deleted');
             const modal = bootstrap.Modal.getInstance(document.getElementById('emailDetailsModal'));
-            modal.hide();
-            loadEmails('unassigned');
+            if (modal) {
+                modal.hide();
+            }
+            reloadCurrentEmailFilter();
         }
     } catch (error) {
         console.error('Error deleting email:', error);

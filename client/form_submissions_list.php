@@ -219,9 +219,11 @@ include '../backend/includes/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a href="form_submissions_view.php?id=<?= array_int_value($sub, 'id') ?>" class="btn btn-sm btn-outline-primary" title="View">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
+                                    <div class="table-action-buttons">
+                                        <a href="form_submissions_view.php?id=<?= array_int_value($sub, 'id') ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="View" aria-label="View">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

@@ -84,6 +84,14 @@ $default_tasks = [
         'schedule_value' => '15', // Every 15 minutes
         'is_active' => 1,
         'next_run' => currentUtcDateTime()
+    ],
+    [
+        'task_name' => 'Clean Invalid Unmatched Emails',
+        'task_type' => 'unmatched_email_cleaner',
+        'schedule_type' => 'interval',
+        'schedule_value' => '60', // Every hour
+        'is_active' => 1,
+        'next_run' => currentUtcDateTime()
     ]
 ];
 

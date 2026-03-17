@@ -114,19 +114,21 @@ include '../backend/includes/header.php';
                                     <span class="badge bg-<?= $color ?>"><?= strtoupper($invoice['status']) ?></span>
                                 </td>
                                 <td>
-                                    <a href="invoices_view.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-info">
-                                        <i class="fas fa-eye"></i> View
-                                    </a>
-                                    <?php if ($invoice['status'] === 'draft'): ?>
-                                        <a href="invoices_create.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-pencil"></i> Edit
+                                    <div class="table-action-buttons">
+                                        <a href="invoices_view.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-info table-action-btn" title="View" aria-label="View">
+                                            <i class="fas fa-eye"></i>
                                         </a>
-                                    <?php endif; ?>
-                                    <?php if ($invoice['status'] !== 'paid'): ?>
-                                        <a href="invoices_payment.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-success">
-                                            <i class="fas fa-credit-card"></i> Pay
-                                        </a>
-                                    <?php endif; ?>
+                                        <?php if ($invoice['status'] === 'draft'): ?>
+                                            <a href="invoices_create.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit" aria-label="Edit">
+                                                <i class="fas fa-pencil"></i>
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if ($invoice['status'] !== 'paid'): ?>
+                                            <a href="invoices_payment.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-success table-action-btn" title="Pay" aria-label="Pay">
+                                                <i class="fas fa-credit-card"></i>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; endif; ?>
