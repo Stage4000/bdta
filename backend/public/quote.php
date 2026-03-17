@@ -82,6 +82,15 @@ $page_title = 'Quote ' . $quote_quote_number;
     $tc_secondary = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_secondary) ? $theme_secondary : '#0a9a9c';
     ?>
     <style>
+        body.quote-page {
+            background-color: #f8f9fa;
+            color: #212529;
+            min-height: 100vh;
+        }
+        [data-bs-theme="dark"] body.quote-page {
+            background-color: #111827;
+            color: #e5e7eb;
+        }
         .bg-primary {
             background-color: <?= $tc_primary ?> !important;
         }
@@ -98,7 +107,7 @@ $page_title = 'Quote ' . $quote_quote_number;
         }
     </style>
 </head>
-<body class="bg-light">
+<body class="quote-page">
     <div class="container py-5">
         <div class="row justify-content-center">
             <div class="col-lg-8">
