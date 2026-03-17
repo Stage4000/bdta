@@ -209,11 +209,15 @@ if ($method === 'GET') {
         $result = $task->execute();
 
         if (!$result['success']) {
-            $logged_errors = array_map(
-                fn(mixed $error): string => sanitizeLogLine(scalar_string($error)),
-                $result['errors'] ?? []
-            );
-            $log_details = implode('; ', array_filter($logged_errors, static fn(string $error): bool => $error !== ''));
+            $logged_errors = [];
+            foreach (($result['errors'] ?? []) as $error) {
+                $sanitized_error = sanitizeLogLine(scalar_string($error));
+                if ($sanitized_error !== '') {
+                    $logged_errors[] = $sanitized_error;
+                }
+            }
+
+            $log_details = implode('; ', $logged_errors);
 
             if ($log_details === '') {
                 $log_details = sanitizeLogLine(array_string_value($result, 'message', 'Unknown cleanup failure'));
