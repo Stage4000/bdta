@@ -54,7 +54,7 @@ include '../backend/includes/header.php';
             <form method="GET" class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Filter by Client</label>
-                    <select class="form-select" name="client_id" onchange="this.form.submit()">
+                    <select class="form-select" name="client_id" onchange="this.form.submit()" data-searchable-select="client" data-search-placeholder="Search clients...">
                         <option value="">All Clients</option>
                         <?php foreach ($clients as $client): ?>
                             <option value="<?= $client['id'] ?>" <?= $client_filter == $client['id'] ? 'selected' : '' ?>>

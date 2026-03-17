@@ -130,7 +130,7 @@ include '../backend/includes/header.php';
             <form method="GET" class="row g-3">
                 <div class="col-md-4">
                     <label for="client_filter" class="form-label">Filter by Client</label>
-                    <select class="form-select" id="client_filter" name="client_id" onchange="this.form.submit()">
+                    <select class="form-select" id="client_filter" name="client_id" onchange="this.form.submit()" data-searchable-select="client" data-search-placeholder="Search clients...">
                         <option value="">All Clients</option>
                         <?php foreach ($clients as $client): ?>
                             <option value="<?= $client['id'] ?>" <?= $client_filter == $client['id'] ? 'selected' : '' ?>>
@@ -195,12 +195,17 @@ include '../backend/includes/header.php';
                                             <span class="badge bg-warning">Non-Billable</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td>
-                                        <a href="time_entries_edit.php?id=<?= $entry['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-pencil"></i>
-                                        </a>
-                                        <form method="post" class="d-inline" onsubmit="return confirm('Delete this time entry?')">
-                                            <input type="hidden" name="delete_id" value="<?= $entry['id'] ?>">
+                                     <td>
+                                         <a href="time_entries_edit.php?id=<?= $entry['id'] ?>" class="btn btn-sm btn-outline-primary">
+                                             <i class="fas fa-pencil"></i>
+                                         </a>
+                                         <?php if (!$entry['invoiced'] && $entry['billable']): ?>
+                                         <a href="invoices_create.php?client_id=<?= safe_int($entry['client_id'] ?? 0) ?>&amp;time_entry_ids[]=<?= $entry['id'] ?>" class="btn btn-sm btn-outline-success" title="Convert to invoice">
+                                             <i class="fas fa-file-invoice-dollar"></i>
+                                         </a>
+                                         <?php endif; ?>
+                                         <form method="post" class="d-inline" onsubmit="return confirm('Delete this time entry?')">
+                                             <input type="hidden" name="delete_id" value="<?= $entry['id'] ?>">
                                             <?php if ($client_filter > 0): ?>
                                             <input type="hidden" name="client_id" value="<?= $client_filter ?>">
                                             <?php endif; ?>

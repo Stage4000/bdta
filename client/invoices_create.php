@@ -1,9 +1,14 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/invoice_time_entries.php';
 requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
+
+$preset_client_id = safe_int($_GET['client_id'] ?? $_POST['client_id'] ?? 0);
+$requested_time_entry_ids = bdta_parse_time_entry_ids($_GET['time_entry_ids'] ?? ($_POST['item_time_entry_id'] ?? []));
+$requested_time_entries = bdta_get_invoiceable_time_entries($conn, $requested_time_entry_ids, $preset_client_id);
 
 $clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -38,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $posted_item_rate = $_POST['item_rate'] ?? [];
     $posted_item_package_id = $_POST['item_package_id'] ?? [];
     $posted_item_appointment_type_id = $_POST['item_appointment_type_id'] ?? [];
+    $posted_item_time_entry_id = $_POST['item_time_entry_id'] ?? [];
     if (!is_array($posted_item_desc)) {
         $posted_item_desc = [];
     }
@@ -53,6 +59,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!is_array($posted_item_appointment_type_id)) {
         $posted_item_appointment_type_id = [];
     }
+    if (!is_array($posted_item_time_entry_id)) {
+        $posted_item_time_entry_id = [];
+    }
+
+    $valid_time_entries = bdta_get_invoiceable_time_entries(
+        $conn,
+        bdta_parse_time_entry_ids($posted_item_time_entry_id),
+        $client_id
+    );
+    $valid_time_entry_ids = [];
+    foreach ($valid_time_entries as $valid_time_entry) {
+        $valid_time_entry_ids[safe_int($valid_time_entry['id'] ?? 0)] = true;
+    }
+
+    $time_entry_ids_to_mark = [];
 
     if ($posted_item_desc !== []) {
         foreach ($posted_item_desc as $index => $desc) {
@@ -71,6 +92,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } elseif (!empty($posted_item_appointment_type_id[$index])) {
                     $item_type = 'appointment_type';
                     $reference_id = safe_int($posted_item_appointment_type_id[$index]);
+                } elseif (!empty($posted_item_time_entry_id[$index])) {
+                    $time_entry_id = safe_int($posted_item_time_entry_id[$index]);
+                    if (isset($valid_time_entry_ids[$time_entry_id])) {
+                        $item_type = 'time_entry';
+                        $reference_id = $time_entry_id;
+                        $time_entry_ids_to_mark[$time_entry_id] = $time_entry_id;
+                    }
                 }
 
                 $items[] = [
@@ -108,6 +136,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $item_stmt->execute([$invoice_id, $item['item_type'], $item['reference_id'], $item['description'], $item['quantity'], $item['rate'], $item['amount']]);
         }
 
+        bdta_mark_time_entries_invoiced($conn, array_values($time_entry_ids_to_mark), $client_id);
+
         // Insert installments if enabled
         if ($use_installments) {
             $inst_amount = round($total_amount / $installment_count, 2);
@@ -130,6 +160,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$form_items = [];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $posted_item_desc = is_array($_POST['item_desc'] ?? null) ? $_POST['item_desc'] : [];
+    foreach ($posted_item_desc as $index => $description) {
+        $form_items[] = [
+            'description' => scalar_string($description),
+            'quantity' => scalar_string($_POST['item_qty'][$index] ?? '1'),
+            'rate' => scalar_string($_POST['item_rate'][$index] ?? ''),
+            'package_id' => scalar_string($_POST['item_package_id'][$index] ?? ''),
+            'appointment_type_id' => scalar_string($_POST['item_appointment_type_id'][$index] ?? ''),
+            'time_entry_id' => scalar_string($_POST['item_time_entry_id'][$index] ?? ''),
+        ];
+    }
+} elseif ($requested_time_entries !== []) {
+    foreach ($requested_time_entries as $time_entry) {
+        $hours = number_format(safe_float($time_entry['duration_minutes'] ?? 0) / 60, 2, '.', '');
+        $form_items[] = [
+            'description' => bdta_build_time_entry_invoice_description($time_entry),
+            'quantity' => $hours,
+            'rate' => number_format(safe_float($time_entry['hourly_rate'] ?? 0), 2, '.', ''),
+            'package_id' => '',
+            'appointment_type_id' => '',
+            'time_entry_id' => (string) safe_int($time_entry['id'] ?? 0),
+        ];
+    }
+}
+
+if ($form_items === []) {
+    $form_items[] = [
+        'description' => '',
+        'quantity' => '1',
+        'rate' => '',
+        'package_id' => '',
+        'appointment_type_id' => '',
+        'time_entry_id' => '',
+    ];
+}
+
 include '../backend/includes/header.php';
 ?>
 
@@ -147,7 +215,7 @@ include '../backend/includes/header.php';
                                 <select class="form-select" name="client_id" required>
                                     <option value="">Select Client</option>
                                     <?php foreach ($clients as $client): ?>
-                                        <option value="<?= $client['id'] ?>"><?= escape($client['name']) ?></option>
+                                        <option value="<?= $client['id'] ?>" <?= $preset_client_id === safe_int($client['id']) ? 'selected' : '' ?>><?= escape($client['name']) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -160,6 +228,13 @@ include '../backend/includes/header.php';
                                 <input type="date" class="form-control" name="due_date" id="dueDate" value="<?= date('Y-m-d', strtotime('+30 days')) ?>" required>
                             </div>
                         </div>
+
+                        <?php if ($requested_time_entries !== []): ?>
+                        <div class="alert alert-info">
+                            <i class="fas fa-file-invoice-dollar me-1"></i>
+                            Invoice will include <?= count($requested_time_entries) ?> selected billable time entr<?= count($requested_time_entries) === 1 ? 'y' : 'ies' ?>.
+                        </div>
+                        <?php endif; ?>
 
                         <!-- Package Selector -->
                         <?php if (!empty($packages)): ?>
@@ -209,17 +284,19 @@ include '../backend/includes/header.php';
                         
                         <h5 class="mt-4 mb-3">Line Items</h5>
                         <div id="lineItems">
+                            <?php foreach ($form_items as $form_item): ?>
                             <div class="row mb-2 line-item">
                                 <div class="col-md-5">
-                                    <input type="text" class="form-control" name="item_desc[]" placeholder="Description" required>
-                                    <input type="hidden" name="item_package_id[]" value="">
-                                    <input type="hidden" name="item_appointment_type_id[]" value="">
+                                    <input type="text" class="form-control" name="item_desc[]" placeholder="Description" value="<?= escape($form_item['description']) ?>" required>
+                                    <input type="hidden" name="item_package_id[]" value="<?= escape($form_item['package_id']) ?>">
+                                    <input type="hidden" name="item_appointment_type_id[]" value="<?= escape($form_item['appointment_type_id']) ?>">
+                                    <input type="hidden" name="item_time_entry_id[]" value="<?= escape($form_item['time_entry_id']) ?>">
                                 </div>
                                 <div class="col-md-2">
-                                    <input type="number" step="0.01" class="form-control item-qty" name="item_qty[]" placeholder="Qty" value="1" required>
+                                    <input type="number" step="0.01" class="form-control item-qty" name="item_qty[]" placeholder="Qty" value="<?= escape($form_item['quantity']) ?>" required>
                                 </div>
                                 <div class="col-md-2">
-                                    <input type="number" step="0.01" class="form-control item-rate" name="item_rate[]" placeholder="Rate" required>
+                                    <input type="number" step="0.01" class="form-control item-rate" name="item_rate[]" placeholder="Rate" value="<?= escape($form_item['rate']) ?>" required>
                                 </div>
                                 <div class="col-md-2">
                                     <input type="text" class="form-control item-amount" placeholder="Amount" readonly>
@@ -228,6 +305,7 @@ include '../backend/includes/header.php';
                                     <button type="button" class="btn btn-danger btn-sm remove-item">×</button>
                                 </div>
                             </div>
+                            <?php endforeach; ?>
                         </div>
                         
                         <button type="button" class="btn btn-secondary btn-sm mb-3" id="addItem">
@@ -380,6 +458,7 @@ document.addEventListener('DOMContentLoaded', function() {
             newItem.querySelector('.item-rate').value = price.toFixed(2);
             newItem.querySelector('input[name="item_package_id[]"]').value = pkgId;
             newItem.querySelector('input[name="item_appointment_type_id[]"]').value = '';
+            newItem.querySelector('input[name="item_time_entry_id[]"]').value = '';
             lineItems.appendChild(newItem);
             packageSelector.selectedIndex = 0;
             calculateTotals();
@@ -403,6 +482,7 @@ document.addEventListener('DOMContentLoaded', function() {
             newItem.querySelector('.item-rate').value = price.toFixed(2);
             newItem.querySelector('input[name="item_package_id[]"]').value = '';
             newItem.querySelector('input[name="item_appointment_type_id[]"]').value = atId;
+            newItem.querySelector('input[name="item_time_entry_id[]"]').value = '';
             lineItems.appendChild(newItem);
             apptTypeSelector.selectedIndex = 0;
             calculateTotals();
@@ -446,6 +526,8 @@ document.addEventListener('DOMContentLoaded', function() {
         rows += '</tbody></table>';
         document.getElementById('installmentPreview').innerHTML = rows;
     });
+
+    calculateTotals();
 });
 </script>
 
