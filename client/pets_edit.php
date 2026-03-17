@@ -31,8 +31,26 @@ function pets_edit_return_url(string $url): string {
         return $fallback;
     }
 
-    if (isset($parts['scheme']) || isset($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])) {
+    // Reject any URL that contains credentials or a fragment.
+    if (isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])) {
         return $fallback;
+    }
+
+    // If a scheme or host is present, only allow same-origin URLs under ADMIN_URL.
+    if (isset($parts['scheme']) || isset($parts['host'])) {
+        $currentHost = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
+        // Strip an optional port and normalize case for comparison.
+        $currentHost = strtolower(preg_replace('/:\d+$/', '', (string) $currentHost));
+        $targetHost  = strtolower((string) ($parts['host'] ?? ''));
+
+        if ($currentHost === '' || $targetHost === '' || $currentHost !== $targetHost) {
+            return $fallback;
+        }
+
+        $absolutePath = scalar_string($parts['path'] ?? '');
+        if ($absolutePath === '' || strpos($absolutePath, ADMIN_URL) !== 0) {
+            return $fallback;
+        }
     }
 
     $path = scalar_string($parts['path'] ?? '');
