@@ -7,6 +7,10 @@ requireLogin();
 
 header('Content-Type: application/json');
 
+function sanitizeLogLine(string $message): string {
+    return preg_replace('/[\r\n]+/', ' ', $message);
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -181,7 +185,16 @@ if ($method === 'GET') {
         $csrf_token = array_string_value($data, 'csrf_token');
         $session_csrf_token = scalar_string($_SESSION['csrf_token'] ?? '');
 
-        if ($csrf_token === '' || $session_csrf_token === '' || !hash_equals($session_csrf_token, $csrf_token)) {
+        if ($csrf_token === '' || $session_csrf_token === '') {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Invalid request'
+            ]);
+            exit;
+        }
+
+        if (!hash_equals($session_csrf_token, $csrf_token)) {
             http_response_code(403);
             echo json_encode([
                 'success' => false,
@@ -197,13 +210,13 @@ if ($method === 'GET') {
 
         if (!$result['success']) {
             $logged_errors = array_map(
-                static fn(mixed $error): string => preg_replace('/[\r\n]+/', ' ', scalar_string($error)),
+                static fn(mixed $error): string => sanitizeLogLine(scalar_string($error)),
                 $result['errors'] ?? []
             );
             $log_details = implode('; ', array_filter($logged_errors, static fn(string $error): bool => $error !== ''));
 
             if ($log_details === '') {
-                $log_details = preg_replace('/[\r\n]+/', ' ', array_string_value($result, 'message', 'Unknown cleanup failure'));
+                $log_details = sanitizeLogLine(array_string_value($result, 'message', 'Unknown cleanup failure'));
             }
 
             error_log('unmatched_emails_api cleanup_missing_timestamps failed: ' . $log_details);
