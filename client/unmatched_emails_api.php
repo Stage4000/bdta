@@ -210,7 +210,7 @@ if ($method === 'GET') {
 
         if (!$result['success']) {
             $logged_errors = array_map(
-                static fn(mixed $error): string => sanitizeLogLine(scalar_string($error)),
+                fn(mixed $error): string => sanitizeLogLine(scalar_string($error)),
                 $result['errors'] ?? []
             );
             $log_details = implode('; ', array_filter($logged_errors, static fn(string $error): bool => $error !== ''));
