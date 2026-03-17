@@ -13,7 +13,7 @@ echo "=== Unmatched Email Cleaner Test ===\n\n";
 
 $suffix = bin2hex(random_bytes(4));
 $valid_id = 0;
-$invalid_id = 0;
+$invalid_ids = [];
 
 try {
     $db = new Database();
@@ -48,7 +48,19 @@ try {
         null,
         currentUtcDateTime()
     ]);
-    $invalid_id = safe_int($conn->lastInsertId());
+    $invalid_ids[] = safe_int($conn->lastInsertId());
+
+    $insert->execute([
+        'blank.' . $suffix . '@example.invalid',
+        'Blank Timestamp Sender',
+        'inbox@example.invalid',
+        'Blank timestamp email ' . $suffix,
+        '<p>Blank timestamp</p>',
+        'Blank timestamp',
+        '',
+        currentUtcDateTime()
+    ]);
+    $invalid_ids[] = safe_int($conn->lastInsertId());
 
     $task = new UnmatchedEmailCleanerTask();
     $result = $task->execute();
@@ -56,12 +68,13 @@ try {
     if (!$result['success']) {
         throw new RuntimeException('Cleaner task did not report success.');
     }
-    if (($result['items_processed'] ?? 0) < 1) {
-        throw new RuntimeException('Cleaner task did not delete the malformed email.');
+    if (($result['items_processed'] ?? 0) < count($invalid_ids)) {
+        throw new RuntimeException('Cleaner task did not delete all malformed emails.');
     }
 
-    $check = $conn->prepare("SELECT id, received_at FROM unmatched_emails WHERE id IN (?, ?) ORDER BY id ASC");
-    $check->execute([$valid_id, $invalid_id]);
+    $placeholders = implode(', ', array_fill(0, count($invalid_ids) + 1, '?'));
+    $check = $conn->prepare("SELECT id, received_at FROM unmatched_emails WHERE id IN ($placeholders) ORDER BY id ASC");
+    $check->execute(array_merge([$valid_id], $invalid_ids));
     $rows = $check->fetchAll(PDO::FETCH_ASSOC);
 
     $remaining_ids = array_map(static fn(array $row): int => safe_int($row['id'] ?? 0), $rows);
@@ -69,8 +82,10 @@ try {
     if (!in_array($valid_id, $remaining_ids, true)) {
         throw new RuntimeException('Cleaner task deleted a valid unmatched email.');
     }
-    if (in_array($invalid_id, $remaining_ids, true)) {
-        throw new RuntimeException('Cleaner task failed to delete the unmatched email without a timestamp.');
+    foreach ($invalid_ids as $invalid_id) {
+        if (in_array($invalid_id, $remaining_ids, true)) {
+            throw new RuntimeException('Cleaner task failed to delete an unmatched email without a timestamp.');
+        }
     }
 
     echo "✓ Cleaner task removes unmatched emails without timestamps\n";
@@ -82,7 +97,10 @@ try {
     exit(1);
 } finally {
     if (isset($conn) && $conn instanceof PDO) {
-        if ($invalid_id > 0) {
+        foreach ($invalid_ids as $invalid_id) {
+            if ($invalid_id <= 0) {
+                continue;
+            }
             $cleanup_invalid = $conn->prepare("DELETE FROM unmatched_emails WHERE id = ?");
             $cleanup_invalid->execute([$invalid_id]);
         }

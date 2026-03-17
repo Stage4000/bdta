@@ -176,7 +176,21 @@ if ($method === 'GET') {
         }
         exit;
     }
-    
+
+    if ($action === 'cleanup_missing_timestamps') {
+        require_once __DIR__ . '/../backend/cron/tasks/unmatched_email_cleaner.php';
+
+        $task = new UnmatchedEmailCleanerTask();
+        $result = $task->execute();
+
+        if (!$result['success']) {
+            http_response_code(500);
+        }
+
+        echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+    }
+     
     $email_id = array_int_value($data, 'id');
     if ($email_id <= 0) {
         http_response_code(400);
