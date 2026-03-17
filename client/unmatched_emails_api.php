@@ -11,6 +11,15 @@ function sanitizeLogLine(string $message): string {
     return preg_replace('/[\r\n]+/', ' ', $message);
 }
 
+function sanitizeLogValue(mixed $value): string {
+    if (is_scalar($value) || $value === null) {
+        return sanitizeLogLine(scalar_string($value));
+    }
+
+    $json_value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    return sanitizeLogLine($json_value === false ? '[unloggable error detail]' : $json_value);
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -210,8 +219,10 @@ if ($method === 'GET') {
 
         if (!$result['success']) {
             $logged_errors = [];
-            foreach (($result['errors'] ?? []) as $error) {
-                $sanitized_error = sanitizeLogLine(scalar_string($error));
+            $raw_errors = is_array($result['errors'] ?? null) ? $result['errors'] : [];
+
+            foreach ($raw_errors as $error) {
+                $sanitized_error = sanitizeLogValue($error);
                 if ($sanitized_error !== '') {
                     $logged_errors[] = $sanitized_error;
                 }
@@ -220,7 +231,11 @@ if ($method === 'GET') {
             $log_details = implode('; ', $logged_errors);
 
             if ($log_details === '') {
-                $log_details = sanitizeLogLine(array_string_value($result, 'message', 'Unknown cleanup failure'));
+                if ($raw_errors !== []) {
+                    $log_details = 'Cleanup task returned error entries without loggable details';
+                } else {
+                    $log_details = sanitizeLogLine(array_string_value($result, 'message', 'Unknown cleanup failure'));
+                }
             }
 
             error_log('unmatched_emails_api cleanup_missing_timestamps failed: ' . $log_details);
