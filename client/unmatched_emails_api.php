@@ -178,16 +178,48 @@ if ($method === 'GET') {
     }
 
     if ($action === 'cleanup_missing_timestamps') {
+        $csrf_token = array_string_value($data, 'csrf_token');
+        $session_csrf_token = scalar_string($_SESSION['csrf_token'] ?? '');
+
+        if ($csrf_token === '' || $session_csrf_token === '' || !hash_equals($session_csrf_token, $csrf_token)) {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Invalid request'
+            ]);
+            exit;
+        }
+
         require_once __DIR__ . '/../backend/cron/tasks/unmatched_email_cleaner.php';
 
         $task = new UnmatchedEmailCleanerTask();
         $result = $task->execute();
 
         if (!$result['success']) {
+            $logged_errors = array_map(
+                static fn(mixed $error): string => preg_replace('/[\r\n]+/', ' ', scalar_string($error)) ?? '',
+                $result['errors'] ?? []
+            );
+            $log_details = implode('; ', array_filter($logged_errors, static fn(string $error): bool => $error !== ''));
+
+            if ($log_details === '') {
+                $log_details = preg_replace('/[\r\n]+/', ' ', array_string_value($result, 'message', 'Unknown cleanup failure')) ?? 'Unknown cleanup failure';
+            }
+
+            error_log('unmatched_emails_api cleanup_missing_timestamps failed: ' . $log_details);
             http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Failed to clean unmatched emails. Please try again later.'
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            exit;
         }
 
-        echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        echo json_encode([
+            'success' => true,
+            'message' => array_string_value($result, 'message'),
+            'items_processed' => array_int_value($result, 'items_processed')
+        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         exit;
     }
      

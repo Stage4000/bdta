@@ -250,6 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 const platformTimeZone = <?= json_encode(getSystemTimezone()) ?>;
+const cleanupCsrfToken = <?= json_encode(scalar_string($_SESSION['csrf_token'] ?? '')) ?>;
 const platformDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: platformTimeZone,
     month: 'short',
@@ -814,7 +815,8 @@ async function cleanupMissingTimestampEmails() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                action: 'cleanup_missing_timestamps'
+                action: 'cleanup_missing_timestamps',
+                csrf_token: cleanupCsrfToken
             })
         });
 
