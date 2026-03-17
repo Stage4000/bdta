@@ -7,6 +7,20 @@ requireLogin();
 
 header('Content-Type: application/json');
 
+function sanitizeLogLine(string $message): string {
+    $sanitized = preg_replace('/[\r\n]+/', ' ', $message);
+    return $sanitized === null ? $message : $sanitized;
+}
+
+function sanitizeLogValue(mixed $value): string {
+    if (is_scalar($value) || $value === null) {
+        return sanitizeLogLine(scalar_string($value));
+    }
+
+    $json_value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    return sanitizeLogLine($json_value === false ? '[unloggable error detail]' : $json_value);
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -176,7 +190,74 @@ if ($method === 'GET') {
         }
         exit;
     }
-    
+
+    if ($action === 'cleanup_missing_timestamps') {
+        $csrf_token = array_string_value($data, 'csrf_token');
+        $session_csrf_token = scalar_string($_SESSION['csrf_token'] ?? '');
+
+        if ($csrf_token === '' || $session_csrf_token === '') {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Invalid request'
+            ]);
+            exit;
+        }
+
+        if (!hash_equals($session_csrf_token, $csrf_token)) {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Invalid request'
+            ]);
+            exit;
+        }
+
+        require_once __DIR__ . '/../backend/cron/tasks/unmatched_email_cleaner.php';
+
+        $task = new UnmatchedEmailCleanerTask();
+        $result = $task->execute();
+
+        if (!$result['success']) {
+            $logged_errors = [];
+            /** @var mixed $raw_errors_source */
+            $raw_errors_source = $result['errors'];
+            $raw_errors = is_array($raw_errors_source) ? $raw_errors_source : [];
+
+            foreach ($raw_errors as $error) {
+                $sanitized_error = sanitizeLogValue($error);
+                if ($sanitized_error !== '') {
+                    $logged_errors[] = $sanitized_error;
+                }
+            }
+
+            $log_details = implode('; ', $logged_errors);
+
+            if ($log_details === '') {
+                if ($raw_errors !== []) {
+                    $log_details = 'Cleanup task returned error entries without loggable details';
+                } else {
+                    $log_details = sanitizeLogLine(array_string_value($result, 'message', 'Unknown cleanup failure'));
+                }
+            }
+
+            error_log('unmatched_emails_api cleanup_missing_timestamps failed: ' . $log_details);
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Failed to clean unmatched emails. Please try again later.'
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            exit;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => array_string_value($result, 'message'),
+            'items_processed' => array_int_value($result, 'items_processed')
+        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+    }
+     
     $email_id = array_int_value($data, 'id');
     if ($email_id <= 0) {
         http_response_code(400);

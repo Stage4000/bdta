@@ -137,6 +137,7 @@ php /path/to/backend/add_imap_settings.php
    - **Compose to Recipient** (sent emails): Compose a new email to the same recipient
    - **Assign to Client**: Link the email to an existing client
    - **Archive**: Mark as archived (no action needed)
+   - **Clean Missing Timestamps**: Delete malformed unmatched email records that do not have a received timestamp
    - **Delete**: Permanently remove the email
 
 **Assigning to a Client:**

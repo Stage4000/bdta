@@ -11,7 +11,12 @@ include __DIR__ . '/../backend/includes/header.php';
 ?>
 
 <style>
+    .unmatched-email-toolbar {
+        gap: 0.75rem;
+    }
     .unmatched-email-table .subject-link {
+        display: inline-flex;
+        max-width: 100%;
         color: inherit;
         font-weight: 600;
         text-align: left;
@@ -20,6 +25,13 @@ include __DIR__ . '/../backend/includes/header.php';
     .unmatched-email-table .subject-link:hover,
     .unmatched-email-table .subject-link:focus {
         color: var(--bs-primary);
+    }
+    .unmatched-email-table .subject-text {
+        display: inline-block;
+        max-width: min(32rem, 45vw);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     .unmatched-email-table .email-contact {
         display: block;
@@ -41,12 +53,17 @@ include __DIR__ . '/../backend/includes/header.php';
             <h2><i class="fas fa-inbox"></i> Unmatched Emails</h2>
             <p class="text-muted">Manage emails from senders not in your client database</p>
         </div>
-        <div>
-            <button type="button" class="btn btn-primary me-2" onclick="openComposeModal()">
+        <div class="d-flex align-items-center flex-wrap unmatched-email-toolbar">
+            <button type="button" class="btn btn-outline-secondary" id="cleanupEmailsBtn" onclick="cleanupMissingTimestampEmails()">
+                <i class="fas fa-broom"></i> Clean Missing Timestamps
+            </button>
+            <button type="button" class="btn btn-primary" onclick="openComposeModal()">
                 <i class="fas fa-pen"></i> Compose Email
             </button>
-            <span class="badge bg-warning fs-5" id="unassignedCount">0</span>
-            <span class="text-muted ms-2">Unassigned</span>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-warning fs-5" id="unassignedCount">0</span>
+                <span class="text-muted ms-2">Unassigned</span>
+            </div>
         </div>
     </div>
 
@@ -233,6 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 const platformTimeZone = <?= json_encode(getSystemTimezone()) ?>;
+const cleanupCsrfToken = <?= json_encode(scalar_string($_SESSION['csrf_token'] ?? '')) ?>;
 const platformDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: platformTimeZone,
     month: 'short',
@@ -340,6 +358,7 @@ function reloadCurrentEmailFilter() {
 function displayEmails(emails, filter) {
     const containerId = filter + 'Emails';
     const container = document.getElementById(containerId);
+    const safeFilterArg = JSON.stringify(String(filter));
     
     if (emails.length === 0) {
         container.innerHTML = '<div class="alert alert-info">No emails found.</div>';
@@ -348,19 +367,20 @@ function displayEmails(emails, filter) {
     
     let html = `
         <div class="card">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 unmatched-email-table">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Subject</th>
-                            <th>Contact</th>
-                            <th>Direction</th>
-                            <th>Status</th>
-                            <th>Timestamp</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 unmatched-email-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Subject</th>
+                                <th>Contact</th>
+                                <th>Direction</th>
+                                <th>Status</th>
+                                <th>Timestamp</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
     `;
     
     emails.forEach(email => {
@@ -375,20 +395,20 @@ function displayEmails(emails, filter) {
             ? `To: ${escapeHtml(email.to_email)}`
             : `From: ${escapeHtml(email.from_name || email.from_email)}${email.from_name ? ` &lt;${escapeHtml(email.from_email)}&gt;` : ''}`;
         const replyAction = isSent
-            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Compose to recipient" aria-label="Compose to recipient" onclick="quickCompose(${email.id}, '${filter}')"><i class="fas fa-pen"></i></button>`
-            : `<button type="button" class="btn btn-sm btn-outline-primary table-action-btn" title="Reply" aria-label="Reply" onclick="quickReply(${email.id}, '${filter}')"><i class="fas fa-reply"></i></button>`;
+            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Compose to recipient" aria-label="Compose to recipient" onclick="quickCompose(${email.id}, ${safeFilterArg})"><i class="fas fa-pen"></i></button>`
+            : `<button type="button" class="btn btn-sm btn-outline-primary table-action-btn" title="Reply" aria-label="Reply" onclick="quickReply(${email.id}, ${safeFilterArg})"><i class="fas fa-reply"></i></button>`;
         const assignAction = !email.is_assigned
-            ? `<button type="button" class="btn btn-sm btn-outline-success table-action-btn" title="Assign to client" aria-label="Assign to client" onclick="quickAssign(${email.id}, '${filter}')"><i class="fas fa-user-check"></i></button>`
+            ? `<button type="button" class="btn btn-sm btn-outline-success table-action-btn" title="Assign to client" aria-label="Assign to client" onclick="quickAssign(${email.id}, ${safeFilterArg})"><i class="fas fa-user-check"></i></button>`
             : '';
         const archiveAction = email.is_archived
-            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Unarchive" aria-label="Unarchive" onclick="quickUnarchive(${email.id}, '${filter}')"><i class="fas fa-box-open"></i></button>`
-            : `<button type="button" class="btn btn-sm btn-outline-warning table-action-btn" title="Archive" aria-label="Archive" onclick="quickArchive(${email.id}, '${filter}')"><i class="fas fa-box-archive"></i></button>`;
+            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Unarchive" aria-label="Unarchive" onclick="quickUnarchive(${email.id}, ${safeFilterArg})"><i class="fas fa-box-open"></i></button>`
+            : `<button type="button" class="btn btn-sm btn-outline-warning table-action-btn" title="Archive" aria-label="Archive" onclick="quickArchive(${email.id}, ${safeFilterArg})"><i class="fas fa-box-archive"></i></button>`;
         
         html += `
             <tr>
                 <td>
-                    <button type="button" class="btn btn-link btn-sm p-0 subject-link" onclick="showEmailDetails(${email.id}, '${filter}')">
-                        ${escapeHtml(email.subject)}
+                    <button type="button" class="btn btn-link btn-sm p-0 subject-link" title="${escapeHtml(email.subject)}" onclick="showEmailDetails(${email.id}, ${safeFilterArg})">
+                        <span class="subject-text">${escapeHtml(email.subject)}</span>
                     </button>
                 </td>
                 <td><small class="text-muted email-contact">${contactLine}</small></td>
@@ -397,11 +417,11 @@ function displayEmails(emails, filter) {
                 <td><small class="text-muted">${date || 'Missing timestamp'}</small></td>
                 <td>
                     <div class="table-action-buttons table-action-buttons-nowrap">
-                        <button type="button" class="btn btn-sm btn-outline-secondary table-action-btn" title="View details" aria-label="View details" onclick="showEmailDetails(${email.id}, '${filter}')"><i class="fas fa-eye"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary table-action-btn" title="View details" aria-label="View details" onclick="showEmailDetails(${email.id}, ${safeFilterArg})"><i class="fas fa-eye"></i></button>
                         ${replyAction}
                         ${assignAction}
                         ${archiveAction}
-                        <button type="button" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete" aria-label="Delete" onclick="quickDelete(${email.id}, '${filter}')"><i class="fas fa-trash"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete" aria-label="Delete" onclick="quickDelete(${email.id}, ${safeFilterArg})"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             </tr>
@@ -409,8 +429,9 @@ function displayEmails(emails, filter) {
     });
     
     html += `
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     `;
@@ -778,6 +799,41 @@ async function deleteEmail() {
     } catch (error) {
         console.error('Error deleting email:', error);
         alert('Error deleting email');
+    }
+}
+
+async function cleanupMissingTimestampEmails() {
+    if (!confirm('Permanently delete all unmatched emails that are missing timestamps? This action cannot be undone.')) return;
+
+    const btn = document.getElementById('cleanupEmailsBtn');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cleaning...';
+
+    try {
+        const response = await fetch('unmatched_emails_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'cleanup_missing_timestamps',
+                csrf_token: cleanupCsrfToken
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.message || data.error || 'Failed to clean unmatched emails');
+        }
+
+        alert(data.message || 'Cleanup completed.');
+        reloadCurrentEmailFilter();
+    } catch (error) {
+        console.error('Error cleaning unmatched emails:', error);
+        alert('Error cleaning unmatched emails: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
     }
 }
 
