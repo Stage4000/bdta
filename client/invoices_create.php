@@ -201,14 +201,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $form_items = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $posted_item_desc = is_array($_POST['item_desc'] ?? null) ? $_POST['item_desc'] : [];
+    $posted_item_qty = is_array($_POST['item_qty'] ?? null) ? $_POST['item_qty'] : [];
+    $posted_item_rate = is_array($_POST['item_rate'] ?? null) ? $_POST['item_rate'] : [];
+    $posted_item_package_id = is_array($_POST['item_package_id'] ?? null) ? $_POST['item_package_id'] : [];
+    $posted_item_appointment_type_id = is_array($_POST['item_appointment_type_id'] ?? null) ? $_POST['item_appointment_type_id'] : [];
+    $posted_item_time_entry_id = is_array($_POST['item_time_entry_id'] ?? null) ? $_POST['item_time_entry_id'] : [];
     foreach ($posted_item_desc as $index => $description) {
         $form_items[] = [
             'description' => scalar_string($description),
-            'quantity' => scalar_string($_POST['item_qty'][$index] ?? '1'),
-            'rate' => scalar_string($_POST['item_rate'][$index] ?? ''),
-            'package_id' => scalar_string($_POST['item_package_id'][$index] ?? ''),
-            'appointment_type_id' => scalar_string($_POST['item_appointment_type_id'][$index] ?? ''),
-            'time_entry_id' => scalar_string($_POST['item_time_entry_id'][$index] ?? ''),
+            'quantity' => scalar_string($posted_item_qty[$index] ?? '1'),
+            'rate' => scalar_string($posted_item_rate[$index] ?? ''),
+            'package_id' => scalar_string($posted_item_package_id[$index] ?? ''),
+            'appointment_type_id' => scalar_string($posted_item_appointment_type_id[$index] ?? ''),
+            'time_entry_id' => scalar_string($posted_item_time_entry_id[$index] ?? ''),
         ];
     }
 } elseif ($requested_time_entries !== []) {
