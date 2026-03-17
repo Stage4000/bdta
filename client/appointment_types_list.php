@@ -293,6 +293,8 @@ function copyLink(link, button) {
     navigator.clipboard.writeText(link).then(function() {
         // Show success feedback
         const originalHTML = button.innerHTML;
+        const hadTitle = button.hasAttribute('title');
+        const hadAriaLabel = button.hasAttribute('aria-label');
         const originalTitle = button.getAttribute('title') || '';
         const originalAriaLabel = button.getAttribute('aria-label') || '';
         button.innerHTML = '<i class="fas fa-check"></i>';
@@ -306,8 +308,16 @@ function copyLink(link, button) {
             button.innerHTML = originalHTML;
             button.classList.remove('btn-success');
             button.classList.add('btn-outline-info');
-            button.setAttribute('title', originalTitle);
-            button.setAttribute('aria-label', originalAriaLabel);
+            if (hadTitle) {
+                button.setAttribute('title', originalTitle);
+            } else {
+                button.removeAttribute('title');
+            }
+            if (hadAriaLabel) {
+                button.setAttribute('aria-label', originalAriaLabel);
+            } else {
+                button.removeAttribute('aria-label');
+            }
             copyLinkAnnouncement.textContent = '';
         }, 2000);
     }).catch(function(err) {

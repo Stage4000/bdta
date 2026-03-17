@@ -263,8 +263,21 @@ function htmlToPlainText(html) {
         return '';
     }
 
+    // Parse into a detached document and read only textContent; nothing is inserted into the live DOM.
     const doc = new DOMParser().parseFromString(String(html), 'text/html');
     return doc.body.textContent || '';
+}
+
+function getEmailMessageText(email) {
+    if (email && email.body_text) {
+        return email.body_text;
+    }
+
+    if (email && email.body_html) {
+        return htmlToPlainText(email.body_html);
+    }
+
+    return '';
 }
 
 // Load emails based on filter
@@ -444,7 +457,7 @@ async function showEmailDetails(emailId, filter = currentEmailFilter) {
 
             <h6>Message</h6>
             <div class="border p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
-                ${escapeHtml(email.body_text || htmlToPlainText(email.body_html))}
+                ${escapeHtml(getEmailMessageText(email))}
             </div>
         `;
 
@@ -577,7 +590,7 @@ function openReplyModal() {
     document.getElementById('replySubject').value = subject.startsWith('Re: ') ? subject : 'Re: ' + subject;
 
     // Quote original message
-    const originalText = currentEmailData.body_text || htmlToPlainText(currentEmailData.body_html);
+    const originalText = getEmailMessageText(currentEmailData);
     const date = currentEmailData.received_at ? formatDateTime(currentEmailData.received_at) : '';
     const quoted = '\n\n---\nOn ' + date + ', ' + (currentEmailData.from_email || '') + ' wrote:\n' +
         originalText.split('\n').map(l => '> ' + l).join('\n');
