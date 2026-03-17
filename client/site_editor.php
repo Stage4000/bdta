@@ -287,7 +287,7 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
 
     <!-- View Live -->
     <?php if ($is_published): ?>
-    <a href="<?php echo escape($view_url); ?>" target="_blank" class="btn-topbar btn-topbar-icon" title="View live page" aria-label="View live page">
+    <a href="<?php echo escape($view_url); ?>" target="_blank" rel="noopener noreferrer" class="btn-topbar btn-topbar-icon" title="View live page" aria-label="View live page">
         <i class="fas fa-external-link-alt"></i>
     </a>
     <?php endif; ?>

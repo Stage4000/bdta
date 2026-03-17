@@ -258,6 +258,16 @@ function formatDateTime(dateStr) {
     return date ? platformDateTimeFormatter.format(date) : '';
 }
 
+function htmlToPlainText(html) {
+    if (!html) {
+        return '';
+    }
+
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+}
+
 // Load emails based on filter
 async function loadEmails(filter, preserveCurrentFilter = false) {
     if (!preserveCurrentFilter) {
@@ -435,7 +445,7 @@ async function showEmailDetails(emailId, filter = currentEmailFilter) {
 
             <h6>Message</h6>
             <div class="border p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
-                ${email.body_html || escapeHtml(email.body_text)}
+                ${escapeHtml(email.body_text || htmlToPlainText(email.body_html))}
             </div>
         `;
 
@@ -568,12 +578,7 @@ function openReplyModal() {
     document.getElementById('replySubject').value = subject.startsWith('Re: ') ? subject : 'Re: ' + subject;
 
     // Quote original message
-    let originalText = currentEmailData.body_text || '';
-    if (!originalText && currentEmailData.body_html) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = currentEmailData.body_html;
-        originalText = tmp.textContent || tmp.innerText || '';
-    }
+    const originalText = currentEmailData.body_text || htmlToPlainText(currentEmailData.body_html);
     const date = currentEmailData.received_at ? formatDateTime(currentEmailData.received_at) : '';
     const quoted = '\n\n---\nOn ' + date + ', ' + (currentEmailData.from_email || '') + ' wrote:\n' +
         originalText.split('\n').map(l => '> ' + l).join('\n');

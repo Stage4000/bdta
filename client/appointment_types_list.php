@@ -283,18 +283,32 @@ include __DIR__ . '/../backend/includes/header.php';
 </div>
 
 <script>
+const copyLinkAnnouncement = document.createElement('div');
+copyLinkAnnouncement.className = 'visually-hidden';
+copyLinkAnnouncement.setAttribute('aria-live', 'polite');
+copyLinkAnnouncement.setAttribute('aria-atomic', 'true');
+document.body.appendChild(copyLinkAnnouncement);
+
 function copyLink(link, button) {
     navigator.clipboard.writeText(link).then(function() {
         // Show success feedback
         const originalHTML = button.innerHTML;
+        const originalTitle = button.getAttribute('title') || '';
+        const originalAriaLabel = button.getAttribute('aria-label') || '';
         button.innerHTML = '<i class="fas fa-check"></i>';
-        button.classList.remove('btn-outline-primary');
+        button.classList.remove('btn-outline-info');
         button.classList.add('btn-success');
+        button.setAttribute('title', 'Copied');
+        button.setAttribute('aria-label', 'Copied');
+        copyLinkAnnouncement.textContent = 'Booking link copied.';
         
         setTimeout(function() {
             button.innerHTML = originalHTML;
             button.classList.remove('btn-success');
-            button.classList.add('btn-outline-primary');
+            button.classList.add('btn-outline-info');
+            button.setAttribute('title', originalTitle);
+            button.setAttribute('aria-label', originalAriaLabel);
+            copyLinkAnnouncement.textContent = '';
         }, 2000);
     }).catch(function(err) {
         // Fallback: show a simple prompt with the link
