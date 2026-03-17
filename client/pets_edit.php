@@ -19,6 +19,40 @@ $client_id = $client_id_value > 0 ? $client_id_value : null;
 $pet = null;
 $clients = [];
 
+function pets_edit_return_url(string $url): string {
+    $fallback = 'pets_list.php';
+    $url = trim($url);
+    if ($url === '') {
+        return $fallback;
+    }
+
+    $parts = parse_url($url);
+    if (!is_array($parts)) {
+        return $fallback;
+    }
+
+    if (isset($parts['scheme']) || isset($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])) {
+        return $fallback;
+    }
+
+    $path = scalar_string($parts['path'] ?? '');
+    if ($path === '') {
+        return $fallback;
+    }
+
+    if (strpos($path, '/') === 0 && strpos($path, ADMIN_URL) !== 0) {
+        return $fallback;
+    }
+
+    $basename = basename($path);
+    if (!preg_match('/^[A-Za-z0-9_-]+\.php$/', $basename)) {
+        return $fallback;
+    }
+
+    $query = scalar_string($parts['query'] ?? '');
+    return $query !== '' ? $basename . '?' . $query : $basename;
+}
+
 // Get all clients for dropdown
 $stmt = $conn->query("SELECT id, name, email FROM clients ORDER BY name");
 $clients = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -129,8 +163,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // Redirect back to client profile or pets list
-            $return_url = scalar_string($_POST['return_to'] ?? 'pets_list.php');
-            header("Location: $return_url");
+            $return_url = pets_edit_return_url(scalar_string($_POST['return_to'] ?? ''));
+            redirect($return_url);
             exit;
             
         } catch (PDOException $e) {
@@ -172,7 +206,7 @@ include '../backend/includes/header.php';
 
     <div class="row">
         <div class="col-lg-8">
-            <form method="POST" class="card">
+            <form method="POST" action="" class="card">
                 <div class="card-body">
                     <h5 class="card-title mb-4">Basic Information</h5>
                     
@@ -353,7 +387,7 @@ include '../backend/includes/header.php';
                 </div>
 
                 <div class="card-footer">
-                    <input type="hidden" name="return_to" value="<?= htmlspecialchars(scalar_string($_SERVER['HTTP_REFERER'] ?? 'pets_list.php')) ?>">
+                    <input type="hidden" name="return_to" value="<?= htmlspecialchars(pets_edit_return_url(scalar_string($_SERVER['HTTP_REFERER'] ?? ''))) ?>">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-check-circle"></i> <?= $pet_id ? 'Update' : 'Add' ?> Pet
                     </button>
