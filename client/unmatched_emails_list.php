@@ -357,6 +357,7 @@ function reloadCurrentEmailFilter() {
 function displayEmails(emails, filter) {
     const containerId = filter + 'Emails';
     const container = document.getElementById(containerId);
+    const safeFilterArg = JSON.stringify(String(filter));
     
     if (emails.length === 0) {
         container.innerHTML = '<div class="alert alert-info">No emails found.</div>';
@@ -393,19 +394,19 @@ function displayEmails(emails, filter) {
             ? `To: ${escapeHtml(email.to_email)}`
             : `From: ${escapeHtml(email.from_name || email.from_email)}${email.from_name ? ` &lt;${escapeHtml(email.from_email)}&gt;` : ''}`;
         const replyAction = isSent
-            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Compose to recipient" aria-label="Compose to recipient" onclick="quickCompose(${email.id}, '${filter}')"><i class="fas fa-pen"></i></button>`
-            : `<button type="button" class="btn btn-sm btn-outline-primary table-action-btn" title="Reply" aria-label="Reply" onclick="quickReply(${email.id}, '${filter}')"><i class="fas fa-reply"></i></button>`;
+            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Compose to recipient" aria-label="Compose to recipient" onclick="quickCompose(${email.id}, ${safeFilterArg})"><i class="fas fa-pen"></i></button>`
+            : `<button type="button" class="btn btn-sm btn-outline-primary table-action-btn" title="Reply" aria-label="Reply" onclick="quickReply(${email.id}, ${safeFilterArg})"><i class="fas fa-reply"></i></button>`;
         const assignAction = !email.is_assigned
-            ? `<button type="button" class="btn btn-sm btn-outline-success table-action-btn" title="Assign to client" aria-label="Assign to client" onclick="quickAssign(${email.id}, '${filter}')"><i class="fas fa-user-check"></i></button>`
+            ? `<button type="button" class="btn btn-sm btn-outline-success table-action-btn" title="Assign to client" aria-label="Assign to client" onclick="quickAssign(${email.id}, ${safeFilterArg})"><i class="fas fa-user-check"></i></button>`
             : '';
         const archiveAction = email.is_archived
-            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Unarchive" aria-label="Unarchive" onclick="quickUnarchive(${email.id}, '${filter}')"><i class="fas fa-box-open"></i></button>`
-            : `<button type="button" class="btn btn-sm btn-outline-warning table-action-btn" title="Archive" aria-label="Archive" onclick="quickArchive(${email.id}, '${filter}')"><i class="fas fa-box-archive"></i></button>`;
+            ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Unarchive" aria-label="Unarchive" onclick="quickUnarchive(${email.id}, ${safeFilterArg})"><i class="fas fa-box-open"></i></button>`
+            : `<button type="button" class="btn btn-sm btn-outline-warning table-action-btn" title="Archive" aria-label="Archive" onclick="quickArchive(${email.id}, ${safeFilterArg})"><i class="fas fa-box-archive"></i></button>`;
         
         html += `
             <tr>
                 <td>
-                    <button type="button" class="btn btn-link btn-sm p-0 subject-link" title="${escapeHtml(email.subject)}" onclick="showEmailDetails(${email.id}, '${filter}')">
+                    <button type="button" class="btn btn-link btn-sm p-0 subject-link" title="${escapeHtml(email.subject)}" onclick="showEmailDetails(${email.id}, ${safeFilterArg})">
                         <span class="subject-text">${escapeHtml(email.subject)}</span>
                     </button>
                 </td>
@@ -415,11 +416,11 @@ function displayEmails(emails, filter) {
                 <td><small class="text-muted">${date || 'Missing timestamp'}</small></td>
                 <td>
                     <div class="table-action-buttons table-action-buttons-nowrap">
-                        <button type="button" class="btn btn-sm btn-outline-secondary table-action-btn" title="View details" aria-label="View details" onclick="showEmailDetails(${email.id}, '${filter}')"><i class="fas fa-eye"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary table-action-btn" title="View details" aria-label="View details" onclick="showEmailDetails(${email.id}, ${safeFilterArg})"><i class="fas fa-eye"></i></button>
                         ${replyAction}
                         ${assignAction}
                         ${archiveAction}
-                        <button type="button" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete" aria-label="Delete" onclick="quickDelete(${email.id}, '${filter}')"><i class="fas fa-trash"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete" aria-label="Delete" onclick="quickDelete(${email.id}, ${safeFilterArg})"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             </tr>
@@ -801,7 +802,7 @@ async function deleteEmail() {
 }
 
 async function cleanupMissingTimestampEmails() {
-    if (!confirm('Delete unmatched emails that are missing timestamps?')) return;
+    if (!confirm('Permanently delete all unmatched emails that are missing timestamps? This action cannot be undone.')) return;
 
     const btn = document.getElementById('cleanupEmailsBtn');
     const originalHtml = btn.innerHTML;
