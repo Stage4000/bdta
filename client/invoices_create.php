@@ -8,7 +8,15 @@ $conn = $db->getConnection();
 
 $preset_client_id = safe_int($_GET['client_id'] ?? $_POST['client_id'] ?? 0);
 $requested_time_entry_ids = bdta_parse_time_entry_ids($_GET['time_entry_ids'] ?? ($_POST['item_time_entry_id'] ?? []));
-$requested_time_entries = bdta_get_invoiceable_time_entries($conn, $requested_time_entry_ids, $preset_client_id);
+$requested_time_entries = [];
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($requested_time_entry_ids)) {
+    if ($preset_client_id <= 0) {
+        setFlashMessage('Please select a client before converting time entries into an invoice. Start from the time entries list or choose a client first.', 'danger');
+        redirect('invoices_create.php');
+    }
+
+    $requested_time_entries = bdta_get_invoiceable_time_entries($conn, $requested_time_entry_ids, $preset_client_id);
+}
 $issue_date_value = scalar_string($_POST['issue_date'] ?? date('Y-m-d'));
 $due_date_value = scalar_string($_POST['due_date'] ?? date('Y-m-d', strtotime('+30 days')));
 $tax_rate_value = scalar_string($_POST['tax_rate'] ?? '0');
@@ -88,8 +96,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $valid_time_entry_ids[safe_int($valid_time_entry['id'] ?? 0)] = true;
         }
 
+        $seen_time_entry_ids = [];
         $time_entry_ids_to_mark = [];
         $invalid_time_entry_ids = [];
+        $duplicate_time_entry_ids = [];
 
         if ($posted_item_desc !== []) {
             foreach ($posted_item_desc as $index => $desc) {
@@ -110,14 +120,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $reference_id = safe_int($posted_item_appointment_type_id[$index]);
                     } elseif (!empty($posted_item_time_entry_id[$index])) {
                         $time_entry_id = safe_int($posted_item_time_entry_id[$index]);
-                    if (isset($valid_time_entry_ids[$time_entry_id])) {
-                        $item_type = 'time_entry';
-                        $reference_id = $time_entry_id;
-                        $time_entry_ids_to_mark[$time_entry_id] = $time_entry_id;
-                    } else {
-                        $invalid_time_entry_ids[$time_entry_id] = $time_entry_id;
+                        if (isset($valid_time_entry_ids[$time_entry_id])) {
+                            if (isset($seen_time_entry_ids[$time_entry_id])) {
+                                $duplicate_time_entry_ids[$time_entry_id] = true;
+                            } else {
+                                $seen_time_entry_ids[$time_entry_id] = true;
+                                $item_type = 'time_entry';
+                                $reference_id = $time_entry_id;
+                                $time_entry_ids_to_mark[$time_entry_id] = $time_entry_id;
+                            }
+                        } else {
+                            $invalid_time_entry_ids[$time_entry_id] = $time_entry_id;
+                        }
                     }
-                }
 
                     $items[] = [
                         'description' => $description,
@@ -134,7 +149,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tax_amount = $subtotal * ($tax_rate / 100);
         $total_amount = $subtotal + $tax_amount;
 
-        if ($invalid_time_entry_ids !== []) {
+        if ($duplicate_time_entry_ids !== []) {
+            setFlashMessage('The same time entry cannot be added more than once. Please remove duplicate rows and try again.', 'danger');
+        } elseif ($invalid_time_entry_ids !== []) {
             setFlashMessage('One or more selected time entries are no longer invoiceable. Please refresh and try again.', 'danger');
         } elseif ($client_id && !empty($items)) {
             $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
