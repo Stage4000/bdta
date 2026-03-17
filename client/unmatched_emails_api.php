@@ -12,6 +12,15 @@ function sanitizeLogLine(string $message): string {
     return $sanitized === null ? $message : $sanitized;
 }
 
+function sanitizeLogValue(mixed $value): string {
+    if (is_scalar($value) || $value === null) {
+        return sanitizeLogLine(scalar_string($value));
+    }
+
+    $json_value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    return sanitizeLogLine($json_value === false ? '[unloggable error detail]' : $json_value);
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -211,10 +220,12 @@ if ($method === 'GET') {
 
         if (!$result['success']) {
             $logged_errors = [];
-            $raw_errors = $result['errors'];
+            /** @var mixed $raw_errors_source */
+            $raw_errors_source = $result['errors'];
+            $raw_errors = is_array($raw_errors_source) ? $raw_errors_source : [];
 
             foreach ($raw_errors as $error) {
-                $sanitized_error = sanitizeLogLine($error);
+                $sanitized_error = sanitizeLogValue($error);
                 if ($sanitized_error !== '') {
                     $logged_errors[] = $sanitized_error;
                 }
