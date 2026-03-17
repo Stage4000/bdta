@@ -9,6 +9,16 @@ $conn = $db->getConnection();
 $preset_client_id = safe_int($_GET['client_id'] ?? $_POST['client_id'] ?? 0);
 $requested_time_entry_ids = bdta_parse_time_entry_ids($_GET['time_entry_ids'] ?? ($_POST['item_time_entry_id'] ?? []));
 $requested_time_entries = bdta_get_invoiceable_time_entries($conn, $requested_time_entry_ids, $preset_client_id);
+$issue_date_value = scalar_string($_POST['issue_date'] ?? date('Y-m-d'));
+$due_date_value = scalar_string($_POST['due_date'] ?? date('Y-m-d', strtotime('+30 days')));
+$tax_rate_value = scalar_string($_POST['tax_rate'] ?? '0');
+$notes_value = trim(scalar_string($_POST['notes'] ?? ''));
+$use_installments_checked = !empty($_POST['use_installments']);
+$installment_count_value = max(2, safe_int($_POST['installment_count'] ?? 2));
+$installment_interval_value_form = max(1, safe_int($_POST['installment_interval_value'] ?? 1));
+$installment_interval_type_value = in_array($_POST['installment_interval_type'] ?? '', ['days', 'weeks', 'months'], true)
+    ? scalar_string($_POST['installment_interval_type'])
+    : 'months';
 
 $clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -22,141 +32,169 @@ $appt_types_stmt = $conn->query("SELECT id, name, default_amount FROM appointmen
 $appt_types = $appt_types_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $client_id = safe_int($_POST['client_id'] ?? 0);
-    $issue_date = scalar_string($_POST['issue_date'] ?? date('Y-m-d'));
-    $due_date = scalar_string($_POST['due_date'] ?? date('Y-m-d', strtotime('+30 days')));
-    $tax_rate = safe_float($_POST['tax_rate'] ?? 0);
-    $notes = trim(scalar_string($_POST['notes'] ?? ''));
+    $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+    if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
+        setFlashMessage('Invalid request.', 'danger');
+    } else {
+        $client_id = safe_int($_POST['client_id'] ?? 0);
+        $issue_date = scalar_string($_POST['issue_date'] ?? date('Y-m-d'));
+        $due_date = scalar_string($_POST['due_date'] ?? date('Y-m-d', strtotime('+30 days')));
+        $tax_rate = safe_float($_POST['tax_rate'] ?? 0);
+        $notes = trim(scalar_string($_POST['notes'] ?? ''));
 
-    // Installment configuration
-    $use_installments = !empty($_POST['use_installments']);
-    $installment_count = max(2, safe_int($_POST['installment_count'] ?? 2));
-    $installment_interval_value = max(1, safe_int($_POST['installment_interval_value'] ?? 1));
-    $installment_interval_type = in_array($_POST['installment_interval_type'] ?? '', ['days', 'weeks', 'months'])
-        ? $_POST['installment_interval_type'] : 'months';
+        // Installment configuration
+        $use_installments = !empty($_POST['use_installments']);
+        $installment_count = max(2, safe_int($_POST['installment_count'] ?? 2));
+        $installment_interval_value = max(1, safe_int($_POST['installment_interval_value'] ?? 1));
+        $installment_interval_type = in_array($_POST['installment_interval_type'] ?? '', ['days', 'weeks', 'months'], true)
+            ? scalar_string($_POST['installment_interval_type'])
+            : 'months';
 
-    // Calculate totals from posted items
-    $subtotal = 0;
-    $items = [];
-    $posted_item_desc = $_POST['item_desc'] ?? [];
-    $posted_item_qty = $_POST['item_qty'] ?? [];
-    $posted_item_rate = $_POST['item_rate'] ?? [];
-    $posted_item_package_id = $_POST['item_package_id'] ?? [];
-    $posted_item_appointment_type_id = $_POST['item_appointment_type_id'] ?? [];
-    $posted_item_time_entry_id = $_POST['item_time_entry_id'] ?? [];
-    if (!is_array($posted_item_desc)) {
-        $posted_item_desc = [];
-    }
-    if (!is_array($posted_item_qty)) {
-        $posted_item_qty = [];
-    }
-    if (!is_array($posted_item_rate)) {
-        $posted_item_rate = [];
-    }
-    if (!is_array($posted_item_package_id)) {
-        $posted_item_package_id = [];
-    }
-    if (!is_array($posted_item_appointment_type_id)) {
-        $posted_item_appointment_type_id = [];
-    }
-    if (!is_array($posted_item_time_entry_id)) {
-        $posted_item_time_entry_id = [];
-    }
+        // Calculate totals from posted items
+        $subtotal = 0;
+        $items = [];
+        $posted_item_desc = $_POST['item_desc'] ?? [];
+        $posted_item_qty = $_POST['item_qty'] ?? [];
+        $posted_item_rate = $_POST['item_rate'] ?? [];
+        $posted_item_package_id = $_POST['item_package_id'] ?? [];
+        $posted_item_appointment_type_id = $_POST['item_appointment_type_id'] ?? [];
+        $posted_item_time_entry_id = $_POST['item_time_entry_id'] ?? [];
+        if (!is_array($posted_item_desc)) {
+            $posted_item_desc = [];
+        }
+        if (!is_array($posted_item_qty)) {
+            $posted_item_qty = [];
+        }
+        if (!is_array($posted_item_rate)) {
+            $posted_item_rate = [];
+        }
+        if (!is_array($posted_item_package_id)) {
+            $posted_item_package_id = [];
+        }
+        if (!is_array($posted_item_appointment_type_id)) {
+            $posted_item_appointment_type_id = [];
+        }
+        if (!is_array($posted_item_time_entry_id)) {
+            $posted_item_time_entry_id = [];
+        }
 
-    $valid_time_entries = bdta_get_invoiceable_time_entries(
-        $conn,
-        bdta_parse_time_entry_ids($posted_item_time_entry_id),
-        $client_id
-    );
-    $valid_time_entry_ids = [];
-    foreach ($valid_time_entries as $valid_time_entry) {
-        $valid_time_entry_ids[safe_int($valid_time_entry['id'] ?? 0)] = true;
-    }
+        $valid_time_entries = bdta_get_invoiceable_time_entries(
+            $conn,
+            bdta_parse_time_entry_ids($posted_item_time_entry_id),
+            $client_id
+        );
+        $valid_time_entry_ids = [];
+        foreach ($valid_time_entries as $valid_time_entry) {
+            $valid_time_entry_ids[safe_int($valid_time_entry['id'] ?? 0)] = true;
+        }
 
-    $time_entry_ids_to_mark = [];
+        $time_entry_ids_to_mark = [];
+        $invalid_time_entry_ids = [];
 
-    if ($posted_item_desc !== []) {
-        foreach ($posted_item_desc as $index => $desc) {
-            $description = scalar_string($desc);
-            if ($description !== '') {
-                $qty = safe_float($posted_item_qty[$index] ?? 1);
-                $rate = safe_float($posted_item_rate[$index] ?? 0);
-                $amount = $qty * $rate;
-                $subtotal += $amount;
+        if ($posted_item_desc !== []) {
+            foreach ($posted_item_desc as $index => $desc) {
+                $description = scalar_string($desc);
+                if ($description !== '') {
+                    $qty = safe_float($posted_item_qty[$index] ?? 1);
+                    $rate = safe_float($posted_item_rate[$index] ?? 0);
+                    $amount = $qty * $rate;
+                    $subtotal += $amount;
 
-                $item_type = 'custom';
-                $reference_id = null;
-                if (!empty($posted_item_package_id[$index])) {
-                    $item_type = 'package';
-                    $reference_id = safe_int($posted_item_package_id[$index]);
-                } elseif (!empty($posted_item_appointment_type_id[$index])) {
-                    $item_type = 'appointment_type';
-                    $reference_id = safe_int($posted_item_appointment_type_id[$index]);
-                } elseif (!empty($posted_item_time_entry_id[$index])) {
-                    $time_entry_id = safe_int($posted_item_time_entry_id[$index]);
+                    $item_type = 'custom';
+                    $reference_id = null;
+                    if (!empty($posted_item_package_id[$index])) {
+                        $item_type = 'package';
+                        $reference_id = safe_int($posted_item_package_id[$index]);
+                    } elseif (!empty($posted_item_appointment_type_id[$index])) {
+                        $item_type = 'appointment_type';
+                        $reference_id = safe_int($posted_item_appointment_type_id[$index]);
+                    } elseif (!empty($posted_item_time_entry_id[$index])) {
+                        $time_entry_id = safe_int($posted_item_time_entry_id[$index]);
                     if (isset($valid_time_entry_ids[$time_entry_id])) {
                         $item_type = 'time_entry';
                         $reference_id = $time_entry_id;
                         $time_entry_ids_to_mark[$time_entry_id] = $time_entry_id;
+                    } else {
+                        $invalid_time_entry_ids[$time_entry_id] = $time_entry_id;
                     }
                 }
 
-                $items[] = [
-                    'description' => $description,
-                    'quantity'    => $qty,
-                    'rate'        => $rate,
-                    'amount'      => $amount,
-                    'item_type'   => $item_type,
-                    'reference_id'=> $reference_id,
-                ];
-            }
-        }
-    }
-
-    $tax_amount = $subtotal * ($tax_rate / 100);
-    $total_amount = $subtotal + $tax_amount;
-
-    if ($client_id && !empty($items)) {
-        $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT);
-
-        // Insert invoice
-        $stmt = $conn->prepare("
-            INSERT INTO invoices (invoice_number, client_id, issue_date, due_date, subtotal, tax_rate, tax_amount, total_amount, notes, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
-        ");
-        $stmt->execute([$invoice_number, $client_id, $issue_date, $due_date, $subtotal, $tax_rate, $tax_amount, $total_amount, $notes]);
-        $invoice_id = $conn->lastInsertId();
-
-        // Insert invoice items
-        $item_stmt = $conn->prepare("
-            INSERT INTO invoice_items (invoice_id, item_type, reference_id, description, quantity, rate, amount)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ");
-        foreach ($items as $item) {
-            $item_stmt->execute([$invoice_id, $item['item_type'], $item['reference_id'], $item['description'], $item['quantity'], $item['rate'], $item['amount']]);
-        }
-
-        bdta_mark_time_entries_invoiced($conn, array_values($time_entry_ids_to_mark), $client_id);
-
-        // Insert installments if enabled
-        if ($use_installments) {
-            $inst_amount = round($total_amount / $installment_count, 2);
-            // Correct for rounding on last installment
-            $last_amount = $total_amount - ($inst_amount * ($installment_count - 1));
-            $inst_stmt = $conn->prepare("
-                INSERT INTO invoice_installments (invoice_id, installment_number, amount, due_date, status)
-                VALUES (?, ?, ?, ?, 'unpaid')
-            ");
-            for ($i = 1; $i <= $installment_count; $i++) {
-                $interval = (($i - 1) * $installment_interval_value) . ' ' . scalar_string($installment_interval_type);
-                $inst_due = date('Y-m-d', safe_timestamp(strtotime($due_date . ' +' . $interval)));
-                $amt = ($i === $installment_count) ? $last_amount : $inst_amount;
-                $inst_stmt->execute([$invoice_id, $i, $amt, $inst_due]);
+                    $items[] = [
+                        'description' => $description,
+                        'quantity'    => $qty,
+                        'rate'        => $rate,
+                        'amount'      => $amount,
+                        'item_type'   => $item_type,
+                        'reference_id'=> $reference_id,
+                    ];
+                }
             }
         }
 
-        setFlashMessage('Invoice created successfully!', 'success');
-        redirect('invoices_view.php?id=' . $invoice_id);
+        $tax_amount = $subtotal * ($tax_rate / 100);
+        $total_amount = $subtotal + $tax_amount;
+
+        if ($invalid_time_entry_ids !== []) {
+            setFlashMessage('One or more selected time entries are no longer invoiceable. Please refresh and try again.', 'danger');
+        } elseif ($client_id && !empty($items)) {
+            $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+            $invoice_id = null;
+
+            try {
+                $conn->beginTransaction();
+
+                // Insert invoice
+                $stmt = $conn->prepare("
+                    INSERT INTO invoices (invoice_number, client_id, issue_date, due_date, subtotal, tax_rate, tax_amount, total_amount, notes, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
+                ");
+                $stmt->execute([$invoice_number, $client_id, $issue_date, $due_date, $subtotal, $tax_rate, $tax_amount, $total_amount, $notes]);
+                $invoice_id = $conn->lastInsertId();
+
+                // Insert invoice items
+                $item_stmt = $conn->prepare("
+                    INSERT INTO invoice_items (invoice_id, item_type, reference_id, description, quantity, rate, amount)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ");
+                foreach ($items as $item) {
+                    $item_stmt->execute([$invoice_id, $item['item_type'], $item['reference_id'], $item['description'], $item['quantity'], $item['rate'], $item['amount']]);
+                }
+
+                bdta_mark_time_entries_invoiced($conn, array_values($time_entry_ids_to_mark), $client_id);
+
+                // Insert installments if enabled
+                if ($use_installments) {
+                    $inst_amount = round($total_amount / $installment_count, 2);
+                    // Correct for rounding on last installment
+                    $last_amount = $total_amount - ($inst_amount * ($installment_count - 1));
+                    $inst_stmt = $conn->prepare("
+                        INSERT INTO invoice_installments (invoice_id, installment_number, amount, due_date, status)
+                        VALUES (?, ?, ?, ?, 'unpaid')
+                    ");
+                    for ($i = 1; $i <= $installment_count; $i++) {
+                        $interval = (($i - 1) * $installment_interval_value) . ' ' . $installment_interval_type;
+                        $inst_due = date('Y-m-d', safe_timestamp(strtotime($due_date . ' +' . $interval)));
+                        $amt = ($i === $installment_count) ? $last_amount : $inst_amount;
+                        $inst_stmt->execute([$invoice_id, $i, $amt, $inst_due]);
+                    }
+                }
+
+                $conn->commit();
+            } catch (Throwable $e) {
+                $invoice_id = null;
+                if ($conn->inTransaction()) {
+                    $conn->rollBack();
+                }
+                setFlashMessage('Error creating invoice: ' . $e->getMessage(), 'danger');
+            }
+
+            if ($invoice_id !== null) {
+                setFlashMessage('Invoice created successfully!', 'success');
+                redirect('invoices_view.php?id=' . $invoice_id);
+            }
+        } elseif ($client_id === 0 || $items === []) {
+            setFlashMessage('Please select a client and add at least one invoice item.', 'danger');
+        }
     }
 }
 
@@ -209,6 +247,7 @@ include '../backend/includes/header.php';
             <div class="card">
                 <div class="card-body">
                     <form method="POST" id="invoiceForm">
+                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Client *</label>
@@ -221,11 +260,11 @@ include '../backend/includes/header.php';
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label">Issue Date *</label>
-                                <input type="date" class="form-control" name="issue_date" value="<?= date('Y-m-d') ?>" required>
+                                <input type="date" class="form-control" name="issue_date" value="<?= escape($issue_date_value) ?>" required>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label">Due Date *</label>
-                                <input type="date" class="form-control" name="due_date" id="dueDate" value="<?= date('Y-m-d', strtotime('+30 days')) ?>" required>
+                                <input type="date" class="form-control" name="due_date" id="dueDate" value="<?= escape($due_date_value) ?>" required>
                             </div>
                         </div>
 
@@ -315,12 +354,12 @@ include '../backend/includes/header.php';
                         <div class="row mt-4">
                             <div class="col-md-6">
                                 <label class="form-label">Notes</label>
-                                <textarea class="form-control" name="notes" rows="3"></textarea>
+                                <textarea class="form-control" name="notes" rows="3"><?= escape($notes_value) ?></textarea>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-2">
                                     <label class="form-label">Tax Rate (%)</label>
-                                    <input type="number" step="0.01" class="form-control" name="tax_rate" id="taxRate" value="0">
+                                    <input type="number" step="0.01" class="form-control" name="tax_rate" id="taxRate" value="<?= escape($tax_rate_value) ?>">
                                 </div>
                                 <div class="card">
                                     <div class="card-body">
@@ -346,28 +385,28 @@ include '../backend/includes/header.php';
                         <div class="card mt-4">
                             <div class="card-header">
                                 <div class="form-check mb-0">
-                                    <input class="form-check-input" type="checkbox" name="use_installments" id="useInstallments" value="1">
+                                    <input class="form-check-input" type="checkbox" name="use_installments" id="useInstallments" value="1" <?= $use_installments_checked ? 'checked' : '' ?>>
                                     <label class="form-check-label fw-semibold" for="useInstallments">
                                         <i class="fas fa-calendar-check me-1"></i> Enable Installment Payments
                                     </label>
                                 </div>
                             </div>
-                            <div class="card-body d-none" id="installmentOptions">
+                            <div class="card-body <?= $use_installments_checked ? '' : 'd-none' ?>" id="installmentOptions">
                                 <div class="row g-3 align-items-end">
                                     <div class="col-md-3">
                                         <label class="form-label">Number of Installments</label>
-                                        <input type="number" class="form-control" name="installment_count" id="installmentCount" value="2" min="2" max="60">
+                                        <input type="number" class="form-control" name="installment_count" id="installmentCount" value="<?= $installment_count_value ?>" min="2" max="60">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Interval</label>
-                                        <input type="number" class="form-control" name="installment_interval_value" id="installmentIntervalValue" value="1" min="1" max="365">
+                                        <input type="number" class="form-control" name="installment_interval_value" id="installmentIntervalValue" value="<?= $installment_interval_value_form ?>" min="1" max="365">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Interval Type</label>
                                         <select class="form-select" name="installment_interval_type" id="installmentIntervalType">
-                                            <option value="months">Month(s)</option>
-                                            <option value="weeks">Week(s)</option>
-                                            <option value="days">Day(s)</option>
+                                            <option value="months" <?= $installment_interval_type_value === 'months' ? 'selected' : '' ?>>Month(s)</option>
+                                            <option value="weeks" <?= $installment_interval_type_value === 'weeks' ? 'selected' : '' ?>>Week(s)</option>
+                                            <option value="days" <?= $installment_interval_type_value === 'days' ? 'selected' : '' ?>>Day(s)</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3">

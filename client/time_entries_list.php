@@ -200,7 +200,7 @@ include '../backend/includes/header.php';
                                              <i class="fas fa-pencil"></i>
                                          </a>
                                          <?php if (!$entry['invoiced'] && $entry['billable']): ?>
-                                         <a href="invoices_create.php?client_id=<?= safe_int($entry['client_id'] ?? 0) ?>&amp;time_entry_ids[]=<?= $entry['id'] ?>" class="btn btn-sm btn-outline-success" title="Convert to invoice">
+                                         <a href="invoices_create.php?client_id=<?= safe_int($entry['client_id'] ?? 0) ?>&amp;time_entry_ids[]=<?= safe_int($entry['id'] ?? 0) ?>" class="btn btn-sm btn-outline-success" title="Convert to invoice">
                                              <i class="fas fa-file-invoice-dollar"></i>
                                          </a>
                                          <?php endif; ?>
