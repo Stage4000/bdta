@@ -8,16 +8,8 @@ requireLogin();
 header('Content-Type: application/json');
 
 function sanitizeLogLine(string $message): string {
-    return preg_replace('/[\r\n]+/', ' ', $message);
-}
-
-function sanitizeLogValue(mixed $value): string {
-    if (is_scalar($value) || $value === null) {
-        return sanitizeLogLine(scalar_string($value));
-    }
-
-    $json_value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-    return sanitizeLogLine($json_value === false ? '[unloggable error detail]' : $json_value);
+    $sanitized = preg_replace('/[\r\n]+/', ' ', $message);
+    return $sanitized === null ? $message : $sanitized;
 }
 
 $db = new Database();
@@ -219,10 +211,10 @@ if ($method === 'GET') {
 
         if (!$result['success']) {
             $logged_errors = [];
-            $raw_errors = is_array($result['errors'] ?? null) ? $result['errors'] : [];
+            $raw_errors = $result['errors'];
 
             foreach ($raw_errors as $error) {
-                $sanitized_error = sanitizeLogValue($error);
+                $sanitized_error = sanitizeLogLine($error);
                 if ($sanitized_error !== '') {
                     $logged_errors[] = $sanitized_error;
                 }
