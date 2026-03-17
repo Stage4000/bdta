@@ -197,13 +197,13 @@ if ($method === 'GET') {
 
         if (!$result['success']) {
             $logged_errors = array_map(
-                static fn(mixed $error): string => preg_replace('/[\r\n]+/', ' ', scalar_string($error)) ?? '',
+                static fn(mixed $error): string => preg_replace('/[\r\n]+/', ' ', scalar_string($error)),
                 $result['errors'] ?? []
             );
             $log_details = implode('; ', array_filter($logged_errors, static fn(string $error): bool => $error !== ''));
 
             if ($log_details === '') {
-                $log_details = preg_replace('/[\r\n]+/', ' ', array_string_value($result, 'message', 'Unknown cleanup failure')) ?? 'Unknown cleanup failure';
+                $log_details = preg_replace('/[\r\n]+/', ' ', array_string_value($result, 'message', 'Unknown cleanup failure'));
             }
 
             error_log('unmatched_emails_api cleanup_missing_timestamps failed: ' . $log_details);
