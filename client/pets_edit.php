@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Redirect back to client profile or pets list
             $return_url = pets_edit_return_url(scalar_string($_POST['return_to'] ?? ''));
             redirect($return_url);
-            exit;
+            
             
         } catch (PDOException $e) {
             $errors[] = "Database error: " . $e->getMessage();
