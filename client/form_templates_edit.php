@@ -158,12 +158,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $stmt = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name");
 $appointment_types = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 $form_type_options = bdta_get_form_type_options();
-$form_access_label = $is_internal ? 'Admin only' : 'Client facing';
-$form_access_help = $is_internal
-    ? 'This form type is completed by admin/staff users only.'
-    : 'This form type is completed by clients, either during booking or via a shared link.';
+$form_access_label = bdta_get_form_access_label($form_type);
+$form_access_help = bdta_get_form_access_help($form_type);
 $show_direct_link_card = $is_edit && bdta_form_type_allows_direct_link($form_type);
 $direct_link_is_public = bdta_form_type_allows_public_submission($form_type);
+$form_type_js_meta = [];
+foreach ($form_type_options as $type_key => $definition) {
+    $form_type_js_meta[$type_key] = [
+        'description' => scalar_string($definition['description'] ?? ''),
+        'accessLabel' => bdta_get_form_access_label($type_key),
+        'accessHelp' => bdta_get_form_access_help($type_key),
+    ];
+}
+$form_type_js_meta_json = json_encode($form_type_js_meta, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+if ($form_type_js_meta_json === false) {
+    $form_type_js_meta_json = '{}';
+}
+$default_form_access = [
+    'description' => '',
+    'accessLabel' => bdta_get_form_access_label('client_form'),
+    'accessHelp' => bdta_get_form_access_help('client_form'),
+];
+$default_form_access_json = json_encode($default_form_access, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+if ($default_form_access_json === false) {
+    $default_form_access_json = '{"description":"","accessLabel":"Client facing","accessHelp":"This form type is completed by clients, either during booking or via a shared link."}';
+}
 
 require_once '../backend/includes/header.php';
 ?>
@@ -461,15 +480,8 @@ require_once '../backend/includes/header.php';
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
 <script>
 let fieldIndex = <?php echo count($fields); ?>;
-const formTypeMeta = <?= json_encode(array_map(static function ($definition) {
-    return [
-        'description' => scalar_string($definition['description'] ?? ''),
-        'accessLabel' => !empty($definition['force_internal']) ? 'Admin only' : 'Client facing',
-        'accessHelp' => !empty($definition['force_internal'])
-            ? 'This form type is completed by admin/staff users only.'
-            : 'This form type is completed by clients, either during booking or via a shared link.',
-    ];
-}, $form_type_options), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+const formTypeMeta = <?= $form_type_js_meta_json ?>;
+const defaultFormAccess = <?= $default_form_access_json ?>;
 
 function syncFormTypeDetails() {
     const formTypeSelect = document.getElementById('form_type');
@@ -481,11 +493,7 @@ function syncFormTypeDetails() {
         return;
     }
 
-    const meta = formTypeMeta[formTypeSelect.value] || {
-        description: '',
-        accessLabel: 'Client facing',
-        accessHelp: 'This form type is completed by clients, either during booking or via a shared link.',
-    };
+    const meta = formTypeMeta[formTypeSelect.value] || defaultFormAccess;
 
     description.textContent = meta.description || '';
     accessLabel.textContent = meta.accessLabel || 'Client facing';

@@ -2,7 +2,7 @@
 /**
  * Helpers for classifying form templates by their funnel/category.
  *
- * Canonical form types are the issue-defined categories. Legacy values are
+ * Canonical form types are the application-defined categories. Legacy values are
  * retained here so older records can still be displayed consistently.
  *
  * @return array<string, array<string, mixed>>
@@ -95,7 +95,7 @@ function bdta_get_form_type_options(): array
 {
     return array_filter(
         bdta_get_form_type_definitions(),
-        static fn (array $definition): bool => empty($definition['legacy'])
+        static fn ($definition): bool => is_array($definition) && empty($definition['legacy'])
     );
 }
 
@@ -123,13 +123,17 @@ function bdta_get_form_type_meta(string $form_type): array
 function bdta_normalize_form_type(string $form_type, string $default = 'client_form'): string
 {
     $form_type = trim($form_type);
+    $options = bdta_get_form_type_options();
+    if (!isset($options[$default])) {
+        $default = 'client_form';
+    }
+
     if ($form_type === '') {
         return $default;
     }
 
     $meta = bdta_get_form_type_meta($form_type);
     $canonical = isset($meta['canonical']) ? (string) $meta['canonical'] : $form_type;
-    $options = bdta_get_form_type_options();
 
     return isset($options[$canonical]) ? $canonical : $default;
 }
@@ -147,6 +151,18 @@ function bdta_get_form_type_description(string $form_type): string
 function bdta_get_form_type_badge_class(string $form_type): string
 {
     return (string) (bdta_get_form_type_meta($form_type)['badge'] ?? 'bg-secondary');
+}
+
+function bdta_get_form_access_label(string $form_type): string
+{
+    return bdta_form_type_forced_internal($form_type) === 1 ? 'Admin only' : 'Client facing';
+}
+
+function bdta_get_form_access_help(string $form_type): string
+{
+    return bdta_form_type_forced_internal($form_type) === 1
+        ? 'This form type is completed by admin/staff users only.'
+        : 'This form type is completed by clients, either during booking or via a shared link.';
 }
 
 function bdta_form_type_allows_direct_link(string $form_type): bool

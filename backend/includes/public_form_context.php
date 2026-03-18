@@ -2,7 +2,7 @@
 /**
  * Resolve optional existing-client / appointment context for public form links.
  *
- * @return array{client_id:int, booking_id:int, contact_name:string, contact_email:string, contact_phone:string, errors:list<string>}
+ * @return array{client_id:int, booking_id:int, contact_name:string, contact_email:string, contact_phone:string, errors:string[]}
  */
 function bdta_resolve_public_form_context(PDO $conn, int $client_id = 0, int $booking_id = 0): array
 {
@@ -61,6 +61,9 @@ function bdta_resolve_public_form_context(PDO $conn, int $client_id = 0, int $bo
         }
 
         $context['client_id'] = (int) ($client_row['id'] ?? 0);
+        // Prefer the canonical client profile details, but preserve booking values
+        // as a fallback when legacy bookings carry contact data that is not yet on
+        // the linked client record.
         $context['contact_name'] = (string) ($client_row['name'] ?? $context['contact_name']);
         $context['contact_email'] = (string) ($client_row['email'] ?? $context['contact_email']);
         $context['contact_phone'] = (string) ($client_row['phone'] ?? $context['contact_phone']);

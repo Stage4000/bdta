@@ -34,8 +34,12 @@ try {
         throw new RuntimeException('Booking forms should only run inside the booking flow.');
     }
 
-    if (!bdta_form_type_allows_public_submission('survey_form') || bdta_form_type_forced_internal('pet_form') !== 1) {
-        throw new RuntimeException('Survey and pet form funnel rules are incorrect.');
+    if (!bdta_form_type_allows_public_submission('survey_form')) {
+        throw new RuntimeException('Survey forms should remain publicly completable.');
+    }
+
+    if (bdta_form_type_forced_internal('pet_form') !== 1) {
+        throw new RuntimeException('Pet forms should remain admin-only.');
     }
 
     echo "✓ Canonical form categories and legacy mappings are correct\n";
@@ -86,7 +90,16 @@ try {
         throw new RuntimeException('Appointment-linked form links should resolve both client and booking context.');
     }
 
-    $mismatch_context = bdta_resolve_public_form_context($conn, $client_id + 999999, $booking_id);
+    $missing_client_id = (int) $conn->query("SELECT COALESCE(MAX(id), 0) FROM clients")->fetchColumn() + 1;
+    $exists_stmt = $conn->prepare("SELECT COUNT(*) FROM clients WHERE id = ?");
+    while (true) {
+        $exists_stmt->execute([$missing_client_id]);
+        if ((int) $exists_stmt->fetchColumn() === 0) {
+            break;
+        }
+        $missing_client_id++;
+    }
+    $mismatch_context = bdta_resolve_public_form_context($conn, $missing_client_id, $booking_id);
     if ($mismatch_context['errors'] === []) {
         throw new RuntimeException('Mismatched client/booking combinations should be rejected.');
     }
