@@ -4,7 +4,17 @@
  *
  * Canonical form types are the application-defined categories. Legacy values are
  * retained here so older records can still be displayed consistently.
- *
+ */
+/**
+ * @param array<string, mixed> $meta
+ */
+function bdta_form_type_meta_string(array $meta, string $key, string $default = ''): string
+{
+    $value = $meta[$key] ?? $default;
+    return is_string($value) ? $value : $default;
+}
+
+/**
  * @return array<string, array<string, mixed>>
  */
 function bdta_get_form_type_definitions(): array
@@ -95,7 +105,7 @@ function bdta_get_form_type_options(): array
 {
     return array_filter(
         bdta_get_form_type_definitions(),
-        static fn ($definition): bool => is_array($definition) && empty($definition['legacy'])
+        static fn (array $definition): bool => empty($definition['legacy'])
     );
 }
 
@@ -108,11 +118,11 @@ function bdta_get_form_type_db_values(string $form_type): array
     $values = [$normalized];
 
     foreach (bdta_get_form_type_definitions() as $type_key => $definition) {
-        if (!is_array($definition) || empty($definition['legacy'])) {
+        if (empty($definition['legacy'])) {
             continue;
         }
 
-        $canonical = scalar_string($definition['canonical'] ?? '');
+        $canonical = bdta_form_type_meta_string($definition, 'canonical');
         if ($canonical === $normalized) {
             $values[] = $type_key;
         }
@@ -155,24 +165,28 @@ function bdta_normalize_form_type(string $form_type, string $default = 'client_f
     }
 
     $meta = bdta_get_form_type_meta($form_type);
-    $canonical = isset($meta['canonical']) ? (string) $meta['canonical'] : $form_type;
+    $canonical = bdta_form_type_meta_string($meta, 'canonical', $form_type);
 
     return isset($options[$canonical]) ? $canonical : $default;
 }
 
 function bdta_get_form_type_label(string $form_type): string
 {
-    return (string) (bdta_get_form_type_meta($form_type)['label'] ?? ucwords(str_replace('_', ' ', $form_type)));
+    return bdta_form_type_meta_string(
+        bdta_get_form_type_meta($form_type),
+        'label',
+        ucwords(str_replace('_', ' ', $form_type))
+    );
 }
 
 function bdta_get_form_type_description(string $form_type): string
 {
-    return (string) (bdta_get_form_type_meta($form_type)['description'] ?? '');
+    return bdta_form_type_meta_string(bdta_get_form_type_meta($form_type), 'description');
 }
 
 function bdta_get_form_type_badge_class(string $form_type): string
 {
-    return (string) (bdta_get_form_type_meta($form_type)['badge'] ?? 'bg-secondary');
+    return bdta_form_type_meta_string(bdta_get_form_type_meta($form_type), 'badge', 'bg-secondary');
 }
 
 function bdta_get_form_access_label(string $form_type): string

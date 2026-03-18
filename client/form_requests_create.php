@@ -9,12 +9,13 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$form_type = bdta_normalize_form_type(scalar_string($_REQUEST['form_type'] ?? 'client_form'));
-$client_id = safe_int($_REQUEST['client_id'] ?? 0);
-$booking_id = safe_int($_REQUEST['booking_id'] ?? 0);
-$pet_id = safe_int($_REQUEST['pet_id'] ?? 0);
-$appointment_type_id = safe_int($_REQUEST['appointment_type_id'] ?? 0);
-$template_id = safe_int($_REQUEST['template_id'] ?? 0);
+$request_data = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
+$form_type = bdta_normalize_form_type(scalar_string($request_data['form_type'] ?? 'client_form'));
+$client_id = safe_int($request_data['client_id'] ?? 0);
+$booking_id = safe_int($request_data['booking_id'] ?? 0);
+$pet_id = safe_int($request_data['pet_id'] ?? 0);
+$appointment_type_id = safe_int($request_data['appointment_type_id'] ?? 0);
+$template_id = safe_int($request_data['template_id'] ?? 0);
 
 $client = [];
 $booking = [];
@@ -82,16 +83,22 @@ if ($form_type === 'booking_form') {
 }
 
 if ($form_type !== 'booking_form') {
-    $db_values = bdta_get_form_type_db_values($form_type);
-    $placeholders = implode(', ', array_fill(0, count($db_values), '?'));
+    $db_values = array_slice(bdta_get_form_type_db_values($form_type), 0, 3);
+    $primary_type = $db_values[0] ?? '';
+    $secondary_type = $db_values[1] ?? null;
+    $tertiary_type = $db_values[2] ?? null;
     $stmt = $conn->prepare("
         SELECT id, name, description, form_type
         FROM form_templates
         WHERE is_active = 1
-          AND form_type IN ($placeholders)
+          AND (
+              form_type = ?
+              OR (? IS NOT NULL AND form_type = ?)
+              OR (? IS NOT NULL AND form_type = ?)
+          )
         ORDER BY name
     ");
-    $stmt->execute($db_values);
+    $stmt->execute([$primary_type, $secondary_type, $secondary_type, $tertiary_type, $tertiary_type]);
     $templates = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
@@ -145,6 +152,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'send' && $client === []) {
             $errors[] = 'A client with an email address is required to send this link.';
+        }
+
+        if ($action === 'send' && bdta_form_type_forced_internal($form_type)) {
+            $errors[] = 'This form type cannot be emailed because it is for admin use only.';
         }
 
         if (empty($errors)) {

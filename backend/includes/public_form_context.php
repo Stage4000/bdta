@@ -30,13 +30,13 @@ function bdta_resolve_public_form_context(PDO $conn, int $client_id = 0, int $bo
             return $context;
         }
 
-        $booking_client_id = (int) ($booking_row['client_id'] ?? 0);
+        $booking_client_id = safe_int($booking_row['client_id'] ?? 0);
         if ($client_id > 0 && $booking_client_id > 0 && $booking_client_id !== $client_id) {
             $context['errors'][] = 'The requested client does not match the selected appointment.';
             return $context;
         }
 
-        $context['booking_id'] = (int) ($booking_row['id'] ?? 0);
+        $context['booking_id'] = safe_int($booking_row['id'] ?? 0);
         if ($client_id === 0) {
             $client_id = $booking_client_id;
         }
@@ -60,13 +60,22 @@ function bdta_resolve_public_form_context(PDO $conn, int $client_id = 0, int $bo
             return $context;
         }
 
-        $context['client_id'] = (int) ($client_row['id'] ?? 0);
+        $context['client_id'] = safe_int($client_row['id'] ?? 0);
         // Prefer the canonical client profile details, but preserve booking values
         // as a fallback when legacy bookings carry contact data that is not yet on
         // the linked client record.
-        $context['contact_name'] = (string) ($client_row['name'] ?? $context['contact_name']);
-        $context['contact_email'] = (string) ($client_row['email'] ?? $context['contact_email']);
-        $context['contact_phone'] = (string) ($client_row['phone'] ?? $context['contact_phone']);
+        $client_name = scalar_string($client_row['name'] ?? '');
+        $client_email = scalar_string($client_row['email'] ?? '');
+        $client_phone = scalar_string($client_row['phone'] ?? '');
+        if ($client_name !== '') {
+            $context['contact_name'] = $client_name;
+        }
+        if ($client_email !== '') {
+            $context['contact_email'] = $client_email;
+        }
+        if ($client_phone !== '') {
+            $context['contact_phone'] = $client_phone;
+        }
     }
 
     return $context;

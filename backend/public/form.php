@@ -23,9 +23,6 @@ $template_id = safe_int($_GET['template_id'] ?? ($_GET['template'] ?? 0));
 $requested_client_id = safe_int($_GET['client_id'] ?? 0);
 $requested_booking_id = safe_int($_GET['booking_id'] ?? 0);
 $submission_row = null;
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
-}
 $context_signing_secret = scalar_string($_SESSION['csrf_token']);
 $build_context_signature = static function (int $template_id, int $client_id, int $booking_id, string $secret): string {
     if ($client_id <= 0 && $booking_id <= 0) {
@@ -113,7 +110,7 @@ if (is_array($submission_row)) {
 $context_signature = $build_context_signature($template_id, $client_id, $booking_id, $context_signing_secret);
 
 $errors = [];
-foreach ((array) ($context['errors'] ?? []) as $context_error) {
+foreach ($context['errors'] as $context_error) {
     $errors[] = scalar_string($context_error);
 }
 $success_message = '';
@@ -172,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $context = bdta_resolve_public_form_context($conn, $client_id, $booking_id);
             $client_id = array_int_value($context, 'client_id');
             $booking_id = array_int_value($context, 'booking_id');
-            foreach ((array) ($context['errors'] ?? []) as $context_error) {
+            foreach ($context['errors'] as $context_error) {
                 $errors[] = scalar_string($context_error);
             }
             $context_signature = $build_context_signature($template_id, $client_id, $booking_id, $context_signing_secret);
