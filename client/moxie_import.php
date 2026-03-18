@@ -152,7 +152,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 required
                             >
                             <div class="form-text">
-                                Example: <code>pod00.withmoxie.dev</code> or <code>https://pod00.withmoxie.dev</code>. The importer stores the HTTPS workspace origin and sends JSON pagination requests to <code>/api/public/clients/list</code>.
+                                Example: <code>pod00.withmoxie.dev</code> or <code>https://pod00.withmoxie.dev</code>. The importer stores the HTTPS workspace origin and sends JSON pagination requests to <code>/action/clients/list</code>.
                             </div>
                         </div>
 

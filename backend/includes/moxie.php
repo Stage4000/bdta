@@ -305,7 +305,7 @@ class MoxieClientSync {
         }
 
         $clients = [];
-        $list_url = $base_url . '/api/public/clients/list';
+        $list_url = $base_url . '/action/clients/list';
         $page = 0;
         $start = 0;
         $count = $page_size;

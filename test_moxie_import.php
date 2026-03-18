@@ -110,17 +110,17 @@ try {
 
     $absolute_next = MoxieClientSync::extractNextUrl([
         '_links' => [
-            'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=100'],
+            'next' => ['href' => 'https://pod00.withmoxie.dev/action/clients/list?start=100&count=100'],
         ],
     ], $normalized_base_url);
-    if ($absolute_next !== 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=100') {
+    if ($absolute_next !== 'https://pod00.withmoxie.dev/action/clients/list?start=100&count=100') {
         throw new RuntimeException('Expected same-origin absolute pagination URL to be accepted.');
     }
 
     foreach ([
-        'http://pod00.withmoxie.dev/api/public/clients/list?start=100&count=100',
-        'https://pod01.withmoxie.dev/api/public/clients/list?start=100&count=100',
-        'http://pod01.withmoxie.dev/api/public/clients/list?start=100&count=100',
+        'http://pod00.withmoxie.dev/action/clients/list?start=100&count=100',
+        'https://pod01.withmoxie.dev/action/clients/list?start=100&count=100',
+        'http://pod01.withmoxie.dev/action/clients/list?start=100&count=100',
     ] as $invalid_next_url) {
         try {
             MoxieClientSync::extractNextUrl([
@@ -197,7 +197,7 @@ try {
                         ['id' => 'page-1'],
                     ],
                     '_links' => [
-                        'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=25'],
+                        'next' => ['href' => 'https://pod00.withmoxie.dev/action/clients/list?start=100&count=25'],
                     ],
                 ];
             }
@@ -217,12 +217,12 @@ try {
 
     if ($request_calls !== [
         [
-            'url' => 'https://pod00.withmoxie.dev/api/public/clients/list',
+            'url' => 'https://pod00.withmoxie.dev/action/clients/list',
             'api_key' => 'test-api-key',
             'payload' => ['start' => 0, 'count' => 100],
         ],
         [
-            'url' => 'https://pod00.withmoxie.dev/api/public/clients/list',
+            'url' => 'https://pod00.withmoxie.dev/action/clients/list',
             'api_key' => 'test-api-key',
             'payload' => ['start' => 100, 'count' => 25],
         ],
