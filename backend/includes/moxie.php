@@ -7,6 +7,10 @@ class MoxieClientSync {
     private const DEFAULT_PAGE_SIZE = 100;
     private const MAX_PAGES = 100;
     private const LOG_INIT_RETRY_INTERVAL = 60; // wait this long before retrying log setup after a failure
+    private const CLIENT_LIST_PATHS = [
+        '/api/public/client/list',
+        '/api/public/clients/list',
+    ];
 
     private static ?string $initializedLogFile = null;
     private static ?int $lastLogInitializationFailureAt = null;
@@ -304,56 +308,81 @@ class MoxieClientSync {
             throw new InvalidArgumentException('Moxie page size must be at least 1.');
         }
 
-        $clients = [];
-        $list_url = $base_url . '/api/public/clients/list';
-        $page = 0;
-        $start = 0;
-        $count = $page_size;
-        $completed_pagination = false;
+        $list_paths = array_values(array_unique(self::CLIENT_LIST_PATHS));
+        $path_count = count($list_paths);
+        $last_exception = null;
 
-        while ($page < self::MAX_PAGES) {
-            $page++;
-            self::log('Fetching Moxie client page.', [
-                'url' => $list_url,
-                'page' => $page,
-                'start' => $start,
-                'count' => $count,
-            ]);
-            $response = $this->requestJson($list_url, $api_key, [
-                'start' => $start,
-                'count' => $count,
-            ]);
-            $page_clients = self::extractClientRows($response);
-            foreach ($page_clients as $page_client) {
-                $clients[] = $page_client;
-            }
+        foreach ($list_paths as $path_index => $list_path) {
+            $list_url = $base_url . $list_path;
+            $clients = [];
+            $page = 0;
+            $start = 0;
+            $count = $page_size;
+            $completed_pagination = false;
 
-            $response_next = self::extractNextUrl($response, $base_url);
-            if ($response_next !== '') {
-                ['start' => $start, 'count' => $count] = self::extractNextPageRequest($response_next, $start + $count, $page_size);
-                continue;
-            }
+            try {
+                while ($page < self::MAX_PAGES) {
+                    $page++;
+                    self::log('Fetching Moxie client page.', [
+                        'url' => $list_url,
+                        'page' => $page,
+                        'start' => $start,
+                        'count' => $count,
+                    ]);
+                    $response = $this->requestJson($list_url, $api_key, [
+                        'start' => $start,
+                        'count' => $count,
+                    ]);
+                    $page_clients = self::extractClientRows($response);
+                    foreach ($page_clients as $page_client) {
+                        $clients[] = $page_client;
+                    }
 
-            if (count($page_clients) < $count) {
-                $completed_pagination = true;
+                    $response_next = self::extractNextUrl($response, $base_url);
+                    if ($response_next !== '') {
+                        ['start' => $start, 'count' => $count] = self::extractNextPageRequest($response_next, $start + $count, $page_size);
+                        continue;
+                    }
+
+                    if (count($page_clients) < $count) {
+                        $completed_pagination = true;
+                        break;
+                    }
+
+                    $start += $count;
+                    $count = $page_size;
+                }
+            } catch (RuntimeException $e) {
+                if ($path_index < ($path_count - 1) && $page === 1 && self::isHttpStatusException($e, 404)) {
+                    self::log('Moxie client list endpoint returned 404; retrying alternate endpoint.', [
+                        'failed_url' => $list_url,
+                        'retry_url' => $base_url . $list_paths[$path_index + 1],
+                    ]);
+                    continue;
+                }
+
+                $last_exception = $e;
                 break;
             }
 
-            $start += $count;
-            $count = $page_size;
+            if (!$completed_pagination && $page >= self::MAX_PAGES) {
+                self::log('Moxie client sync aborted after reaching the maximum page limit.', [
+                    'max_pages' => self::MAX_PAGES,
+                    'last_url' => $list_url,
+                    'start' => $start,
+                    'count' => $count,
+                ]);
+                throw new RuntimeException('Moxie client sync stopped after reaching the maximum page limit. Please narrow the import or increase the page limit in code.');
+            }
+
+            return $clients;
         }
 
-        if (!$completed_pagination && $page >= self::MAX_PAGES) {
-            self::log('Moxie client sync aborted after reaching the maximum page limit.', [
-                'max_pages' => self::MAX_PAGES,
-                'last_url' => $list_url,
-                'start' => $start,
-                'count' => $count,
-            ]);
-            throw new RuntimeException('Moxie client sync stopped after reaching the maximum page limit. Please narrow the import or increase the page limit in code.');
+        if ($last_exception instanceof RuntimeException) {
+            throw $last_exception;
         }
 
-        return $clients;
+        return [];
     }
 
     /**
@@ -668,6 +697,11 @@ class MoxieClientSync {
         }
 
         return array_keys($value) === range(0, count($value) - 1);
+    }
+
+    private static function isHttpStatusException(Throwable $exception, int $status): bool {
+        return preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) === 1
+            && safe_int($matches[1] ?? 0) === $status;
     }
 
     private static function isAllowedMoxieHost(string $host): bool {

@@ -217,17 +217,73 @@ try {
 
     if ($request_calls !== [
         [
-            'url' => 'https://pod00.withmoxie.dev/api/public/clients/list',
+            'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
+            'api_key' => 'test-api-key',
+            'payload' => ['start' => 0, 'count' => 100],
+        ],
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
+            'api_key' => 'test-api-key',
+            'payload' => ['start' => 100, 'count' => 25],
+        ],
+    ]) {
+        throw new RuntimeException('Expected fetchClients() to POST JSON pagination payloads to the list endpoint: ' . json_encode($request_calls));
+    }
+
+    $fallback_request_calls = [];
+    $fallback_test_sync = new class($conn, $fallback_request_calls) extends MoxieClientSync {
+        /** @var array<int, array{url:string, api_key:string, payload:array<string, int>|null}> */
+        private array $captured_calls;
+
+        /**
+         * @param array<int, array{url:string, api_key:string, payload:array<string, int>|null}> $captured_calls
+         */
+        public function __construct(SafePDO $conn, array &$captured_calls) {
+            parent::__construct($conn);
+            $this->captured_calls = &$captured_calls;
+        }
+
+        /**
+         * @param array<string, int>|null $payload
+         * @return array<int|string, mixed>
+         */
+        protected function requestJson(string $url, string $api_key, ?array $payload = null): array {
+            $this->captured_calls[] = [
+                'url' => $url,
+                'api_key' => $api_key,
+                'payload' => $payload,
+            ];
+
+            if (count($this->captured_calls) === 1) {
+                throw new RuntimeException('Moxie request failed with HTTP status 404.');
+            }
+
+            return [
+                'clients' => [
+                    ['id' => 'fallback-page-1'],
+                ],
+            ];
+        }
+    };
+
+    $fallback_clients = $fallback_test_sync->fetchClients($normalized_base_url, 'test-api-key', 100);
+    if (count($fallback_clients) !== 1) {
+        throw new RuntimeException('Expected fetchClients() to retry an alternate endpoint after a 404.');
+    }
+
+    if ($fallback_request_calls !== [
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
             'api_key' => 'test-api-key',
             'payload' => ['start' => 0, 'count' => 100],
         ],
         [
             'url' => 'https://pod00.withmoxie.dev/api/public/clients/list',
             'api_key' => 'test-api-key',
-            'payload' => ['start' => 100, 'count' => 25],
+            'payload' => ['start' => 0, 'count' => 100],
         ],
     ]) {
-        throw new RuntimeException('Expected fetchClients() to POST JSON pagination payloads to the list endpoint: ' . json_encode($request_calls));
+        throw new RuntimeException('Expected fetchClients() to retry the legacy list endpoint after a 404: ' . json_encode($fallback_request_calls));
     }
 
     echo "✓ Moxie import client creation works\n";
@@ -237,6 +293,7 @@ try {
     echo "✓ fetchClients validates required base URL and page size inputs\n";
     echo "✓ Absolute Moxie pagination URLs must stay on the configured HTTPS origin\n";
     echo "✓ fetchClients posts JSON pagination payloads to the client list endpoint\n";
+    echo "✓ fetchClients retries the legacy list endpoint when the primary endpoint returns 404\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";
     echo "=== All Moxie Import Tests Passed! ===\n";
 } catch (Throwable $e) {
