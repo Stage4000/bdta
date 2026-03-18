@@ -10,6 +10,8 @@
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
+require_once '../includes/form_types.php';
+require_once '../includes/public_form_context.php';
 require_once '../includes/workflow_helper.php';
 require_once __DIR__ . '/includes/public_error_page.php';
 
@@ -18,6 +20,9 @@ $conn = $db->getConnection();
 
 $submission_id = safe_int($_GET['id'] ?? 0);
 $template_id = safe_int($_GET['template_id'] ?? ($_GET['template'] ?? 0));
+$can_apply_query_context = $submission_id === 0 && isLoggedIn();
+$requested_client_id = $can_apply_query_context ? safe_int($_GET['client_id'] ?? 0) : 0;
+$requested_booking_id = $can_apply_query_context ? safe_int($_GET['booking_id'] ?? 0) : 0;
 $submission_row = null;
 
 // If a submission ID is provided, load it (includes template + client info for prefill)
@@ -48,12 +53,15 @@ if ($submission_id > 0) {
 $stmt_tpl = $conn->prepare("SELECT * FROM form_templates WHERE id = ?");
 $stmt_tpl->execute([$template_id]);
 $template = $stmt_tpl->fetch(PDO::FETCH_ASSOC);
+$template_form_type = array_string_value(is_array($template) ? $template : [], 'form_type', 'client_form');
+$requires_staff_login = !bdta_form_type_allows_public_submission($template_form_type)
+    || array_int_value(is_array($template) ? $template : [], 'is_internal') !== 0;
 
-// Block unavailable templates and keep internal templates restricted to logged-in staff.
+// Block unavailable templates and keep non-client-facing forms restricted to logged-in staff.
 if (
     !$template
     || array_int_value($template, 'is_active') === 0
-    || (array_int_value($template, 'is_internal') !== 0 && !isLoggedIn())
+    || ($requires_staff_login && !isLoggedIn())
 ) {
     renderPublicErrorPage(
         'Form Unavailable',
@@ -73,6 +81,8 @@ $prefill_name = '';
 $prefill_email = '';
 $prefill_phone = '';
 $client_id = 0;
+$booking_id = 0;
+$context = ['errors' => []];
 
 if (is_array($submission_row)) {
     $prefill_responses = decode_json_assoc(array_string_value($submission_row, 'responses'));
@@ -80,9 +90,20 @@ if (is_array($submission_row)) {
     $prefill_email = array_string_value($submission_row, 'client_email');
     $prefill_phone = array_string_value($submission_row, 'client_phone');
     $client_id = array_int_value($submission_row, 'client_id');
+    $booking_id = array_int_value($submission_row, 'booking_id');
+} else {
+    $context = bdta_resolve_public_form_context($conn, $requested_client_id, $requested_booking_id);
+    $prefill_name = array_string_value($context, 'contact_name');
+    $prefill_email = array_string_value($context, 'contact_email');
+    $prefill_phone = array_string_value($context, 'contact_phone');
+    $client_id = array_int_value($context, 'client_id');
+    $booking_id = array_int_value($context, 'booking_id');
 }
 
 $errors = [];
+foreach ($context['errors'] as $context_error) {
+    $errors[] = scalar_string($context_error);
+}
 $success_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -91,6 +112,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $submission_id = safe_int($_POST['submission_id'] ?? 0);
         $template_id = safe_int($_POST['template_id'] ?? 0);
+        $allow_posted_context = $submission_id === 0 && isLoggedIn();
+        $client_id = $allow_posted_context ? safe_int($_POST['client_id'] ?? 0) : 0;
+        $booking_id = $allow_posted_context ? safe_int($_POST['booking_id'] ?? 0) : 0;
 
         $contact_name = trim(scalar_string($_POST['contact_name'] ?? ''));
         $contact_email = trim(scalar_string($_POST['contact_email'] ?? ''));
@@ -112,14 +136,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_tpl = $conn->prepare("SELECT * FROM form_templates WHERE id = ?");
         $stmt_tpl->execute([$template_id]);
         $template = $stmt_tpl->fetch(PDO::FETCH_ASSOC);
+        $template_form_type = array_string_value(is_array($template) ? $template : [], 'form_type', 'client_form');
+        $requires_staff_login = !bdta_form_type_allows_public_submission($template_form_type)
+            || array_int_value(is_array($template) ? $template : [], 'is_internal') !== 0;
         if (
             !$template
             || array_int_value($template, 'is_active') === 0
-            || (array_int_value($template, 'is_internal') !== 0 && !isLoggedIn())
+            || ($requires_staff_login && !isLoggedIn())
         ) {
             $errors[] = 'This form is no longer available.';
         } else {
             $fields = decode_json_assoc_list(array_string_value($template, 'fields'));
+        }
+
+        if ($submission_id === 0) {
+            $context = bdta_resolve_public_form_context($conn, $client_id, $booking_id);
+            $client_id = array_int_value($context, 'client_id');
+            $booking_id = array_int_value($context, 'booking_id');
+            foreach ($context['errors'] as $context_error) {
+                $errors[] = scalar_string($context_error);
+            }
         }
 
         // Collect form responses
@@ -151,9 +187,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Persist when no validation errors
         if (empty($errors)) {
             // Resolve or create client
-            $client_id = 0;
             if ($submission_id > 0 && is_array($submission_row)) {
                 $client_id = array_int_value($submission_row, 'client_id');
+                $booking_id = array_int_value($submission_row, 'booking_id');
             }
 
             if ($client_id === 0) {
@@ -194,9 +230,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $stmt = $conn->prepare("
                     INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at)
-                    VALUES (?, ?, NULL, ?, 'submitted', CURRENT_TIMESTAMP)
+                    VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)
                 ");
-                $stmt->execute([$client_id, $template_id, $json_responses]);
+                $stmt->execute([$client_id, $template_id, $booking_id > 0 ? $booking_id : null, $json_responses]);
                 $new_submission_id = (int) $conn->lastInsertId();
             }
 
@@ -251,6 +287,12 @@ require_once __DIR__ . '/includes/public_head.php';
             <form method="POST" class="needs-validation" novalidate>
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="template_id" value="<?= (int) $template_id ?>">
+                <?php if ($client_id > 0): ?>
+                    <input type="hidden" name="client_id" value="<?= (int) $client_id ?>">
+                <?php endif; ?>
+                <?php if ($booking_id > 0): ?>
+                    <input type="hidden" name="booking_id" value="<?= (int) $booking_id ?>">
+                <?php endif; ?>
                 <?php if ($submission_id > 0): ?>
                     <input type="hidden" name="submission_id" value="<?= (int) $submission_id ?>">
                 <?php endif; ?>

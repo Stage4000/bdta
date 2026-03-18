@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/form_types.php';
 requireLogin();
 
 $db = new Database();
@@ -54,12 +55,15 @@ $query = "SELECT fs.*,
           c.name as client_name,
           ft.name as form_name,
           ft.form_type,
+          p.name as pet_name,
           CONCAT(b.appointment_date, ' ', b.appointment_time) as appointment_datetime,
+          b.service_type,
           au.username as submitted_by_name,
           au2.username as reviewed_by_name
           FROM form_submissions fs
           LEFT JOIN clients c ON fs.client_id = c.id
           LEFT JOIN form_templates ft ON fs.template_id = ft.id
+          LEFT JOIN pets p ON fs.pet_id = p.id
           LEFT JOIN bookings b ON fs.booking_id = b.id
           LEFT JOIN admin_users au ON fs.submitted_by = au.id
           LEFT JOIN admin_users au2 ON fs.reviewed_by = au2.id
@@ -164,9 +168,14 @@ include '../backend/includes/header.php';
                             <tr>
                                 <td>
                                     <strong><?= htmlspecialchars(array_string_value($sub, 'form_name')) ?></strong>
+                                    <?php if (array_string_value($sub, 'pet_name') !== ''): ?>
+                                        <br><small class="text-muted">
+                                            <i class="fas fa-dog"></i> <?= htmlspecialchars(array_string_value($sub, 'pet_name')) ?>
+                                        </small>
+                                    <?php endif; ?>
                                     <?php if (array_int_value($sub, 'booking_id') !== 0): ?>
                                         <br><small class="text-muted">
-                                            <i class="fas fa-calendar"></i> <?= htmlspecialchars(array_string_value($sub, 'appointment_datetime')) ?>
+                                            <i class="fas fa-calendar"></i> <?= htmlspecialchars(array_string_value($sub, 'service_type')) ?> — <?= htmlspecialchars(array_string_value($sub, 'appointment_datetime')) ?>
                                         </small>
                                     <?php endif; ?>
                                 </td>
@@ -177,17 +186,11 @@ include '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <?php
-                                    $type_badges = [
-                                        'client_form' => 'bg-primary',
-                                        'session_note' => 'bg-info',
-                                        'behavior_assessment' => 'bg-warning',
-                                        'training_plan' => 'bg-success'
-                                    ];
                                     $form_type = array_string_value($sub, 'form_type');
-                                    $badge = $type_badges[$form_type] ?? 'bg-secondary';
+                                    $badge = bdta_get_form_type_badge_class($form_type);
                                     ?>
                                     <span class="badge <?= $badge ?>">
-                                        <?= ucwords(str_replace('_', ' ', $form_type)) ?>
+                                        <?= htmlspecialchars(bdta_get_form_type_label($form_type)) ?>
                                     </span>
                                 </td>
                                 <td>

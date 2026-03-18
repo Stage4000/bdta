@@ -361,6 +361,15 @@ include '../backend/includes/header.php';
 
                     <?php if ($pet_id): ?>
                         <hr class="my-4">
+                        <h5 class="card-title mb-3">Pet Forms</h5>
+                        <p class="text-muted">Generate an object-linked pet form for <?= htmlspecialchars(array_string_value($pet_row, 'name'), ENT_QUOTES, 'UTF-8') ?>.</p>
+                        <p>
+                            <a href="form_requests_create.php?form_type=pet_form&amp;pet_id=<?= (int) $pet_id ?>" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-file-medical me-1"></i> Pet Form Link
+                            </a>
+                        </p>
+
+                        <hr class="my-4">
                         <h5 class="card-title mb-4">Documents & Photos</h5>
                         
                         <div id="pet-files-section" class="mb-4">

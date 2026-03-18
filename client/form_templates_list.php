@@ -6,6 +6,7 @@
 
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
+require_once '../backend/includes/form_types.php';
 
 // Check if user is logged in
 requireLogin();
@@ -158,15 +159,7 @@ require_once '../backend/includes/header.php';
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php 
-                                $type_labels = [
-                                    'client_form' => 'Client Form',
-                                    'session_note' => 'Session Note',
-                                    'behavior_assessment' => 'Behavior Assessment',
-                                    'training_plan' => 'Training Plan'
-                                ];
-                                echo $type_labels[$template['form_type']] ?? $template['form_type'];
-                                ?>
+                                <?php echo htmlspecialchars(bdta_get_form_type_label(array_string_value($template, 'form_type'))); ?>
                                 <?php if ($template['is_internal']): ?>
                                 <br><span class="badge bg-warning">Internal</span>
                                 <?php endif; ?>

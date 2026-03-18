@@ -767,6 +767,7 @@ class Database {
                     client_id INTEGER NOT NULL,
                     template_id INTEGER NOT NULL,
                     booking_id INTEGER,
+                    pet_id INTEGER,
                     responses MEDIUMTEXT NOT NULL,
                     status TEXT DEFAULT 'submitted',
                     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -777,6 +778,7 @@ class Database {
                     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
                     FOREIGN KEY (template_id) REFERENCES form_templates(id) ON DELETE CASCADE,
                     FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
+                    FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE SET NULL,
                     FOREIGN KEY (submitted_by) REFERENCES admin_users(id) ON DELETE SET NULL,
                     FOREIGN KEY (reviewed_by) REFERENCES admin_users(id) ON DELETE SET NULL
                 )
@@ -1335,6 +1337,10 @@ class Database {
         
         if (!in_array('last_reminder_sent', $form_column_names)) {
             $this->execSQL("ALTER TABLE form_submissions ADD COLUMN last_reminder_sent TIMESTAMP");
+        }
+
+        if (!in_array('pet_id', $form_column_names)) {
+            $this->execSQL("ALTER TABLE form_submissions ADD COLUMN pet_id INTEGER");
         }
         
         // Update quotes table to add reminder tracking

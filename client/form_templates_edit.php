@@ -6,6 +6,7 @@
 
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
+require_once '../backend/includes/form_types.php';
 
 // Check if user is logged in
 requireLogin();
@@ -20,8 +21,6 @@ $is_edit = $template_id !== null;
 $name = '';
 $description = '';
 $form_type = 'client_form';
-$is_internal = false;
-$is_active = true;
 /** @var list<array<string, mixed>> $fields */
 $fields = [];
 $required_frequency = '';
@@ -38,11 +37,13 @@ if ($is_edit) {
     if ($template) {
         $name = array_string_value($template, 'name');
         $description = array_string_value($template, 'description');
-        $form_type = array_string_value($template, 'form_type', 'client_form');
+        $form_type = bdta_normalize_form_type(array_string_value($template, 'form_type', 'client_form'));
         $fields = decode_json_assoc_list(array_string_value($template, 'fields'));
         $required_frequency = array_string_value($template, 'required_frequency');
         $appointment_type_id = array_int_value($template, 'appointment_type_id');
-        $is_internal = array_int_value($template, 'is_internal');
+        $is_internal = bdta_form_type_forced_internal($form_type) === 1
+            ? 1
+            : array_int_value($template, 'is_internal');
         $is_active = array_int_value($template, 'is_active');
     }
 }
@@ -56,8 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     $name = trim(scalar_string($_POST['name'] ?? ''));
     $description = trim(scalar_string($_POST['description'] ?? ''));
-    $form_type = scalar_string($_POST['form_type'] ?? 'client_form');
-    $is_internal = isset($_POST['is_internal']) ? 1 : 0;
+    $form_type = bdta_normalize_form_type(scalar_string($_POST['form_type'] ?? 'client_form'));
+    $is_internal = bdta_form_type_forced_internal($form_type) === 1
+        ? 1
+        : safe_int($_POST['is_internal'] ?? $is_internal);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     $required_frequency = scalar_string($_POST['required_frequency'] ?? '');
     $appointment_type_id = !empty($_POST['appointment_type_id']) ? safe_int($_POST['appointment_type_id']) : null;
@@ -156,6 +159,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 // Get appointment types for dropdown
 $stmt = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name");
 $appointment_types = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+$form_type_options = bdta_get_form_type_options();
+$effective_is_internal = $is_internal === 1 || bdta_form_type_forced_internal($form_type) === 1;
+$form_access_label = $effective_is_internal ? 'Admin only' : 'Client facing';
+$form_access_help = $effective_is_internal
+    ? 'This template currently requires an admin/staff login to complete.'
+    : 'This template can be completed by clients, either during booking or via a shared link.';
+$show_direct_link_card = $is_edit && bdta_form_type_allows_direct_link($form_type);
+$direct_link_is_public = bdta_form_type_allows_public_submission($form_type) && !$effective_is_internal;
+$form_type_js_meta = [];
+foreach ($form_type_options as $type_key => $definition) {
+    $type_forces_internal = bdta_form_type_forced_internal($type_key) === 1;
+    $form_type_js_meta[$type_key] = [
+        'description' => scalar_string($definition['description'] ?? ''),
+        'forceInternal' => $type_forces_internal,
+        'accessLabel' => $type_forces_internal ? 'Admin only' : 'Client facing',
+        'accessHelp' => $type_forces_internal
+            ? 'This template currently requires an admin/staff login to complete.'
+            : 'This template can be completed by clients, either during booking or via a shared link.',
+    ];
+}
+$form_type_js_meta_json = json_encode($form_type_js_meta, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+if ($form_type_js_meta_json === false) {
+    $form_type_js_meta_json = '{}';
+}
+$default_form_access = [
+    'description' => '',
+    'accessLabel' => bdta_get_form_access_label('client_form'),
+    'accessHelp' => bdta_get_form_access_help('client_form'),
+];
+$default_form_access_json = json_encode($default_form_access, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+if ($default_form_access_json === false) {
+    $default_form_access_json = '{"description":"","accessLabel":"Client facing","accessHelp":"This form type is completed by clients, either during booking or via a shared link."}';
+}
 
 require_once '../backend/includes/header.php';
 ?>
@@ -179,6 +215,7 @@ require_once '../backend/includes/header.php';
 
     <form method="POST" id="templateForm">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="is_internal" value="<?= (int) $is_internal ?>">
         <div class="row">
             <div class="col-md-8">
                 <div class="card mb-4">
@@ -198,14 +235,14 @@ require_once '../backend/includes/header.php';
                         
                         <div class="mb-3">
                             <label class="form-label">Form Type *</label>
-                            <select name="form_type" class="form-select" required>
-                                <option value="booking_form" <?php echo $form_type == 'booking_form' ? 'selected' : ''; ?>>Booking Intake Form</option>
-                                <option value="client_form" <?php echo $form_type == 'client_form' ? 'selected' : ''; ?>>Client Form</option>
-                                <option value="session_note" <?php echo $form_type == 'session_note' ? 'selected' : ''; ?>>Session Note</option>
-                                <option value="behavior_assessment" <?php echo $form_type == 'behavior_assessment' ? 'selected' : ''; ?>>Behavior Assessment</option>
-                                <option value="training_plan" <?php echo $form_type == 'training_plan' ? 'selected' : ''; ?>>Training Plan</option>
+                            <select name="form_type" id="form_type" class="form-select" required>
+                                <?php foreach ($form_type_options as $type_key => $type_option): ?>
+                                <option value="<?php echo htmlspecialchars($type_key); ?>" <?php echo $form_type === $type_key ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(scalar_string($type_option['label'] ?? $type_key)); ?>
+                                </option>
+                                <?php endforeach; ?>
                             </select>
-                            <div class="form-text">Use <strong>Booking Intake Form</strong> to customize the public booking page fields (name, email, phone, pet name, notes). Configure the active form under Settings → Booking.</div>
+                            <div class="form-text" id="form_type_description"><?php echo htmlspecialchars(bdta_get_form_type_description($form_type)); ?></div>
                         </div>
                     </div>
                 </div>
@@ -367,18 +404,15 @@ require_once '../backend/includes/header.php';
                                 </option>
                                 <?php endforeach; ?>
                             </select>
-                            <small class="form-text text-muted">Link to a specific appointment type</small>
+                            <small class="form-text text-muted">Use this when the form belongs to a booking or appointment-specific workflow.</small>
                         </div>
-                        
+
                         <div class="mb-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="is_internal" class="form-check-input" 
-                                       id="is_internal" <?php echo $is_internal ? 'checked' : ''; ?>>
-                                <label class="form-check-label" for="is_internal">
-                                    Internal Form
-                                </label>
+                            <label class="form-label">Access</label>
+                            <div class="border rounded px-3 py-2 bg-light">
+                                <div class="fw-semibold" id="form_access_label"><?php echo htmlspecialchars($form_access_label); ?></div>
+                                <small class="text-muted d-block" id="form_access_help"><?php echo htmlspecialchars($form_access_help); ?></small>
                             </div>
-                            <small class="form-text text-muted">Admin-only forms (not for clients)</small>
                         </div>
                         
                         <div class="mb-3">
@@ -393,16 +427,16 @@ require_once '../backend/includes/header.php';
                     </div>
                 </div>
 
-                <?php if ($is_edit && $form_type === 'client_form'): ?>
+                <?php if ($show_direct_link_card): ?>
                     <?php if ($is_active): ?>
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><?php echo $is_internal ? 'Direct Form Link' : 'Shareable Form Link'; ?></h5>
-                        <span class="badge bg-secondary"><?php echo $is_internal ? 'Internal' : 'External'; ?></span>
+                        <h5 class="mb-0"><?php echo $direct_link_is_public ? 'Shareable Form Link' : 'Direct Form Link'; ?></h5>
+                        <span class="badge bg-secondary"><?php echo $direct_link_is_public ? 'Client facing' : 'Admin only'; ?></span>
                     </div>
                     <div class="card-body">
                         <p class="text-muted small mb-2">
-                            <?php if ($is_internal): ?>
+                            <?php if (!$direct_link_is_public): ?>
                                 Open this link while logged in as an admin/staff user to complete the internal form.
                             <?php else: ?>
                                 Share this link so the form can be completed without requiring an admin/staff login.
@@ -424,12 +458,12 @@ require_once '../backend/includes/header.php';
                     <?php else: ?>
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><?php echo $is_internal ? 'Direct Form Link' : 'Shareable Form Link'; ?></h5>
+                        <h5 class="mb-0"><?php echo $direct_link_is_public ? 'Shareable Form Link' : 'Direct Form Link'; ?></h5>
                         <span class="badge bg-secondary">Unavailable</span>
                     </div>
                     <div class="card-body">
                         <p class="text-muted small mb-0">
-                            <?php if ($is_internal): ?>
+                            <?php if (!$direct_link_is_public): ?>
                                 This form is not currently active. Internal forms can only be accessed while active.
                             <?php else: ?>
                                 This form is not currently active, so its link is unavailable for sharing.
@@ -456,6 +490,32 @@ require_once '../backend/includes/header.php';
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
 <script>
 let fieldIndex = <?php echo count($fields); ?>;
+const formTypeMeta = <?= $form_type_js_meta_json ?>;
+const defaultFormAccess = <?= $default_form_access_json ?>;
+
+function syncFormTypeDetails() {
+    const formTypeSelect = document.getElementById('form_type');
+    const isInternalInput = document.querySelector('input[name="is_internal"]');
+    const description = document.getElementById('form_type_description');
+    const accessLabel = document.getElementById('form_access_label');
+    const accessHelp = document.getElementById('form_access_help');
+
+    if (!formTypeSelect || !description || !accessLabel || !accessHelp) {
+        return;
+    }
+
+    const meta = formTypeMeta[formTypeSelect.value] || defaultFormAccess;
+    const isInternal = meta.forceInternal || (isInternalInput && isInternalInput.value === '1');
+
+    description.textContent = meta.description || '';
+    accessLabel.textContent = isInternal ? 'Admin only' : (meta.accessLabel || 'Client facing');
+    accessHelp.textContent = isInternal
+        ? 'This template currently requires an admin/staff login to complete.'
+        : (meta.accessHelp || '');
+}
+
+document.getElementById('form_type')?.addEventListener('change', syncFormTypeDetails);
+syncFormTypeDetails();
 
 function addField() {
     const container = document.getElementById('fieldsContainer');

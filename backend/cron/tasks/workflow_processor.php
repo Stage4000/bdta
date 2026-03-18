@@ -5,6 +5,7 @@
  */
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
+require_once dirname(dirname(__DIR__)) . '/includes/form_link_requests.php';
 
 /**
  * @phpstan-type WorkflowExecutionRow array<string, mixed>
@@ -197,7 +198,13 @@ class WorkflowProcessorTask {
         
         // Form link
         if (!empty($attach_form_id)) {
-            $link = $base_url . '/backend/public/form.php?template_id=' . scalar_string($attach_form_id) . '&client_id=' . $client_id;
+            $link = $base_url . '/backend/public/form.php?template_id=' . scalar_string($attach_form_id);
+            $form_template_id = safe_int($attach_form_id);
+            $form_client_id = safe_int($client_id);
+            if ($form_template_id > 0 && $form_client_id > 0) {
+                $request = bdta_create_form_request($this->conn, $form_template_id, $form_client_id);
+                $link = array_string_value($request, 'url', $link);
+            }
             if ($html) {
                 $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #8b5cf6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📋 Complete Form</a></p>';
             } else {
