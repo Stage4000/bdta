@@ -312,9 +312,6 @@ class MoxieClientSync {
 
         $list_paths = self::CLIENT_LIST_PATHS;
         $path_count = count($list_paths);
-        if ($path_count < 1) {
-            throw new RuntimeException('No Moxie client list endpoints are configured.');
-        }
         $last_exception = null;
 
         foreach ($list_paths as $path_index => $list_path) {
@@ -706,7 +703,7 @@ class MoxieClientSync {
 
     private static function isHttpStatusException(Throwable $exception, int $status): bool {
         return preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) === 1
-            && safe_int($matches[1] ?? 0) === $status;
+            && safe_int($matches[1]) === $status;
     }
 
     private static function isAllowedMoxieHost(string $host): bool {
