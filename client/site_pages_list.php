@@ -77,26 +77,68 @@ require_once '../backend/includes/header.php';
                                 <?php echo $p['updated_at'] ? escape(formatDateTime($p['updated_at'], 'Y-m-d H:i')) : '—'; ?>
                             </td>
                             <td>
-                                <a href="site_editor.php?id=<?php echo intval($p['id']); ?>" class="btn btn-sm btn-outline-primary" title="Edit in visual editor">
-                                    <i class="fas fa-pencil me-1"></i> Edit
-                                </a>
-                                <button class="btn btn-sm btn-outline-info btn-seo" title="SEO settings">
-                                    <i class="fas fa-magnifying-glass me-1"></i> SEO
-                                </button>
-                                <?php if ($p['is_published'] && $p['is_homepage']): ?>
-                                <a href="../index.php" target="_blank" class="btn btn-sm btn-outline-secondary" title="View live page">
-                                    <i class="fas fa-eye me-1"></i> View
-                                </a>
-                                <?php elseif ($p['is_published']): ?>
-                                <a href="../page.php?slug=<?php echo escape($p['slug']); ?>" target="_blank" class="btn btn-sm btn-outline-secondary" title="View live page">
-                                    <i class="fas fa-eye me-1"></i> View
-                                </a>
-                                <?php endif; ?>
-                                <?php if (!$p['is_homepage']): ?>
-                                <button class="btn btn-sm btn-outline-danger btn-delete" title="Delete page">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                                <?php endif; ?>
+                                <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                    <a href="site_editor.php?id=<?php echo intval($p['id']); ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit in visual editor">
+                                        <i class="fas fa-pencil me-1"></i> Edit
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-info table-action-btn btn-seo" title="SEO settings">
+                                        <i class="fas fa-magnifying-glass me-1"></i> SEO
+                                    </button>
+                                    <?php if ($p['is_published'] && $p['is_homepage']): ?>
+                                    <a href="../index.php" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary table-action-btn" title="View live page">
+                                        <i class="fas fa-eye me-1"></i> View
+                                    </a>
+                                    <?php elseif ($p['is_published']): ?>
+                                    <a href="../page.php?slug=<?php echo escape($p['slug']); ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary table-action-btn" title="View live page">
+                                        <i class="fas fa-eye me-1"></i> View
+                                    </a>
+                                    <?php endif; ?>
+                                    <?php if (!$p['is_homepage']): ?>
+                                    <button class="btn btn-sm btn-outline-danger table-action-btn btn-delete" title="Delete page">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="d-md-none table-action-dropdown">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="site_editor.php?id=<?php echo intval($p['id']); ?>">
+                                                    <i class="fas fa-pencil me-2 text-primary"></i>Edit in Visual Editor
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent btn-seo">
+                                                    <i class="fas fa-magnifying-glass me-2 text-info"></i>SEO Settings
+                                                </button>
+                                            </li>
+                                            <?php if ($p['is_published'] && $p['is_homepage']): ?>
+                                            <li>
+                                                <a class="dropdown-item" href="../index.php" target="_blank" rel="noopener noreferrer">
+                                                    <i class="fas fa-eye me-2 text-secondary"></i>View Live Page
+                                                </a>
+                                            </li>
+                                            <?php elseif ($p['is_published']): ?>
+                                            <li>
+                                                <a class="dropdown-item" href="../page.php?slug=<?php echo escape($p['slug']); ?>" target="_blank" rel="noopener noreferrer">
+                                                    <i class="fas fa-eye me-2 text-secondary"></i>View Live Page
+                                                </a>
+                                            </li>
+                                            <?php endif; ?>
+                                            <?php if (!$p['is_homepage']): ?>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <button type="button" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent btn-delete">
+                                                    <i class="fas fa-trash me-2"></i>Delete Page
+                                                </button>
+                                            </li>
+                                            <?php endif; ?>
+                                        </ul>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                         <?php endforeach; ?>

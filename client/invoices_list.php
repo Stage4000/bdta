@@ -114,7 +114,7 @@ include '../backend/includes/header.php';
                                     <span class="badge bg-<?= $color ?>"><?= strtoupper($invoice['status']) ?></span>
                                 </td>
                                 <td>
-                                    <div class="table-action-buttons">
+                                    <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
                                         <a href="invoices_view.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-info table-action-btn" title="View" aria-label="View">
                                             <i class="fas fa-eye"></i>
                                         </a>
@@ -128,6 +128,34 @@ include '../backend/includes/header.php';
                                                 <i class="fas fa-credit-card"></i>
                                             </a>
                                         <?php endif; ?>
+                                    </div>
+                                    <div class="d-md-none table-action-dropdown">
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a class="dropdown-item" href="invoices_view.php?id=<?= $invoice['id'] ?>">
+                                                        <i class="fas fa-eye me-2 text-info"></i>View
+                                                    </a>
+                                                </li>
+                                                <?php if ($invoice['status'] === 'draft'): ?>
+                                                    <li>
+                                                        <a class="dropdown-item" href="invoices_create.php?id=<?= $invoice['id'] ?>">
+                                                            <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                        </a>
+                                                    </li>
+                                                <?php endif; ?>
+                                                <?php if ($invoice['status'] !== 'paid'): ?>
+                                                    <li>
+                                                        <a class="dropdown-item" href="invoices_payment.php?id=<?= $invoice['id'] ?>">
+                                                            <i class="fas fa-credit-card me-2 text-success"></i>Pay
+                                                        </a>
+                                                    </li>
+                                                <?php endif; ?>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>

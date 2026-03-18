@@ -256,13 +256,33 @@ require_once '../backend/includes/header.php';
                                     </form>
                                 </td>
                                 <td>
-                                    <form method="post" class="d-inline" onsubmit="return confirm('Delete this booking?')">
-                                        <input type="hidden" name="delete_id" value="<?php echo $booking['id']; ?>">
-                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
+                                    <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                        <form method="post" class="d-inline" onsubmit="return confirm('Delete this booking?')">
+                                            <input type="hidden" name="delete_id" value="<?php echo $booking['id']; ?>">
+                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <div class="d-md-none table-action-dropdown">
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <form method="post" onsubmit="return confirm('Delete this booking?')">
+                                                        <input type="hidden" name="delete_id" value="<?php echo $booking['id']; ?>">
+                                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                        <button type="submit" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent">
+                                                            <i class="fas fa-trash me-2"></i>Delete
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

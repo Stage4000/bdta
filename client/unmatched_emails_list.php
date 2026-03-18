@@ -403,6 +403,15 @@ function displayEmails(emails, filter) {
         const archiveAction = email.is_archived
             ? `<button type="button" class="btn btn-sm btn-outline-info table-action-btn" title="Unarchive" aria-label="Unarchive" onclick="quickUnarchive(${email.id}, ${safeFilterArg})"><i class="fas fa-box-open"></i></button>`
             : `<button type="button" class="btn btn-sm btn-outline-warning table-action-btn" title="Archive" aria-label="Archive" onclick="quickArchive(${email.id}, ${safeFilterArg})"><i class="fas fa-box-archive"></i></button>`;
+        const replyActionMobile = isSent
+            ? `<button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent" onclick="quickCompose(${email.id}, ${safeFilterArg})"><i class="fas fa-pen me-2 text-info"></i>Compose to recipient</button>`
+            : `<button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent" onclick="quickReply(${email.id}, ${safeFilterArg})"><i class="fas fa-reply me-2 text-primary"></i>Reply</button>`;
+        const assignActionMobile = !email.is_assigned
+            ? `<li><button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent" onclick="quickAssign(${email.id}, ${safeFilterArg})"><i class="fas fa-user-check me-2 text-success"></i>Assign to client</button></li>`
+            : '';
+        const archiveActionMobile = email.is_archived
+            ? `<button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent" onclick="quickUnarchive(${email.id}, ${safeFilterArg})"><i class="fas fa-box-open me-2 text-info"></i>Unarchive</button>`
+            : `<button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent" onclick="quickArchive(${email.id}, ${safeFilterArg})"><i class="fas fa-box-archive me-2 text-warning"></i>Archive</button>`;
         
         html += `
             <tr>
@@ -416,12 +425,27 @@ function displayEmails(emails, filter) {
                 <td><div class="unmatched-email-status">${assignedBadge}${archivedBadge || '<span class="badge bg-secondary-subtle text-body-secondary border">Open</span>'}</div></td>
                 <td><small class="text-muted">${date || 'Missing timestamp'}</small></td>
                 <td>
-                    <div class="table-action-buttons table-action-buttons-nowrap">
+                    <div class="d-none d-md-inline-flex table-action-buttons table-action-buttons-nowrap">
                         <button type="button" class="btn btn-sm btn-outline-secondary table-action-btn" title="View details" aria-label="View details" onclick="showEmailDetails(${email.id}, ${safeFilterArg})"><i class="fas fa-eye"></i></button>
                         ${replyAction}
                         ${assignAction}
                         ${archiveAction}
                         <button type="button" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete" aria-label="Delete" onclick="quickDelete(${email.id}, ${safeFilterArg})"><i class="fas fa-trash"></i></button>
+                    </div>
+                    <div class="d-md-none table-action-dropdown">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent" onclick="showEmailDetails(${email.id}, ${safeFilterArg})"><i class="fas fa-eye me-2 text-secondary"></i>View details</button></li>
+                                <li>${replyActionMobile}</li>
+                                ${assignActionMobile}
+                                <li>${archiveActionMobile}</li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><button type="button" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent" onclick="quickDelete(${email.id}, ${safeFilterArg})"><i class="fas fa-trash me-2"></i>Delete</button></li>
+                            </ul>
+                        </div>
                     </div>
                 </td>
             </tr>

@@ -106,15 +106,34 @@ include '../backend/includes/header.php';
                                                 <?php endif; ?>
                                             </td>
                                             <td>
-                                                <div class="btn-group btn-group-sm">
+                                                <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
                                                     <a href="scheduled_tasks_edit.php?id=<?php echo $task['id']; ?>" 
-                                                       class="btn btn-outline-primary" title="Edit">
+                                                       class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
                                                         <i class="fas fa-pencil"></i>
                                                     </a>
                                                     <a href="scheduled_tasks_logs.php?task_id=<?php echo $task['id']; ?>" 
-                                                       class="btn btn-outline-info" title="View Logs">
+                                                       class="btn btn-sm btn-outline-info table-action-btn" title="View Logs">
                                                         <i class="fas fa-list"></i>
                                                     </a>
+                                                </div>
+                                                <div class="d-md-none table-action-dropdown">
+                                                    <div class="dropdown">
+                                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            <i class="fas fa-ellipsis-v"></i>
+                                                        </button>
+                                                        <ul class="dropdown-menu dropdown-menu-end">
+                                                            <li>
+                                                                <a class="dropdown-item" href="scheduled_tasks_edit.php?id=<?php echo $task['id']; ?>">
+                                                                    <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                                </a>
+                                                            </li>
+                                                            <li>
+                                                                <a class="dropdown-item" href="scheduled_tasks_logs.php?task_id=<?php echo $task['id']; ?>">
+                                                                    <i class="fas fa-list me-2 text-info"></i>View Logs
+                                                                </a>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>

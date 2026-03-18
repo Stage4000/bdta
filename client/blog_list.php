@@ -57,16 +57,42 @@ require_once '../backend/includes/header.php';
                                 </td>
                                 <td><?php echo date('Y-m-d', safe_timestamp(strtotime($effective_date))); ?></td>
                                 <td>
-                                    <a href="blog_edit.php?id=<?php echo $post_id; ?>" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-pencil"></i>
-                                    </a>
-                                    <form method="POST" action="blog_delete.php" class="d-inline" onsubmit="return confirm('Delete this post?')">
-                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                                        <input type="hidden" name="id" value="<?php echo $post_id; ?>">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
+                                    <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                        <a href="blog_edit.php?id=<?php echo $post_id; ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
+                                            <i class="fas fa-pencil"></i>
+                                        </a>
+                                        <form method="POST" action="blog_delete.php" class="d-inline" onsubmit="return confirm('Delete this post?')">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="id" value="<?php echo $post_id; ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <div class="d-md-none table-action-dropdown">
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a class="dropdown-item" href="blog_edit.php?id=<?php echo $post_id; ?>">
+                                                        <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                    </a>
+                                                </li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <form method="POST" action="blog_delete.php" onsubmit="return confirm('Delete this post?')">
+                                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                                        <input type="hidden" name="id" value="<?php echo $post_id; ?>">
+                                                        <button type="submit" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent">
+                                                            <i class="fas fa-trash me-2"></i>Delete
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

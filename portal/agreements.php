@@ -62,10 +62,26 @@ include '../portal/includes/header.php';
                     <td><?php echo escape($c['created_at'] ?? ''); ?></td>
                     <td>
                         <?php if ($can_view): ?>
-                            <a href="<?php echo $base_url; ?>/backend/public/contract.php?id=<?php echo intval($c['id']); ?>"
-                               class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-eye me-1"></i><?php echo $status === 'signed' ? 'View' : 'View &amp; Sign'; ?>
-                            </a>
+                            <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                <a href="<?php echo $base_url; ?>/backend/public/contract.php?id=<?php echo intval($c['id']); ?>"
+                                   class="btn btn-sm btn-outline-primary table-action-btn">
+                                    <i class="fas fa-eye me-1"></i><?php echo $status === 'signed' ? 'View' : 'View &amp; Sign'; ?>
+                                </a>
+                            </div>
+                            <div class="d-md-none table-action-dropdown">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item" href="<?php echo $base_url; ?>/backend/public/contract.php?id=<?php echo intval($c['id']); ?>">
+                                                <i class="fas fa-eye me-2 text-primary"></i><?php echo $status === 'signed' ? 'View' : 'View &amp; Sign'; ?>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
                         <?php endif; ?>
                     </td>
                 </tr>

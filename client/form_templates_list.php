@@ -191,20 +191,52 @@ require_once '../backend/includes/header.php';
                             </td>
                             <td><?php echo escape(formatDate(array_string_value($template, 'created_at'), 'M j, Y')); ?></td>
                             <td>
-                                <a href="form_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-primary">
-                                    <i class="fas fa-pencil"></i>
-                                </a>
-                                <form method="POST" action="form_templates_duplicate.php" class="d-inline">
-                                    <input type="hidden" name="id" value="<?php echo (int) $template['id']; ?>">
-                                    <input type="hidden" name="csrf_token" value="<?php echo escape($_SESSION['csrf_token'] ?? ''); ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                        <i class="fas fa-copy"></i>
-                                    </button>
-                                </form>
-                                <a href="form_templates_delete.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-danger" 
-                                   onclick="return confirm('Are you sure you want to delete this template?');">
-                                    <i class="fas fa-trash"></i>
-                                </a>
+                                <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                    <a href="form_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-primary table-action-btn" title="Edit">
+                                        <i class="fas fa-pencil"></i>
+                                    </a>
+                                    <form method="POST" action="form_templates_duplicate.php" class="d-inline">
+                                        <input type="hidden" name="id" value="<?php echo (int) $template['id']; ?>">
+                                        <input type="hidden" name="csrf_token" value="<?php echo escape($_SESSION['csrf_token'] ?? ''); ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary table-action-btn" title="Duplicate">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </form>
+                                    <a href="form_templates_delete.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-danger table-action-btn" 
+                                       onclick="return confirm('Are you sure you want to delete this template?');"
+                                       title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                                <div class="d-md-none table-action-dropdown">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="form_templates_edit.php?id=<?php echo $template['id']; ?>">
+                                                    <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <form method="POST" action="form_templates_duplicate.php">
+                                                    <input type="hidden" name="id" value="<?php echo (int) $template['id']; ?>">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo escape($_SESSION['csrf_token'] ?? ''); ?>">
+                                                    <button type="submit" class="dropdown-item w-100 text-start border-0 bg-transparent">
+                                                        <i class="fas fa-copy me-2 text-secondary"></i>Duplicate
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="form_templates_delete.php?id=<?php echo $template['id']; ?>" onclick="return confirm('Are you sure you want to delete this template?');">
+                                                    <i class="fas fa-trash me-2"></i>Delete
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                         <?php endforeach; ?>

@@ -164,11 +164,27 @@ include '../backend/includes/header.php';
                                             </td>
                                             <td>
                                                 <?php if ($enrollment['status'] === 'active'): ?>
-                                                    <a href="?workflow_id=<?php echo $workflow_id; ?>&cancel=1&enrollment_id=<?php echo $enrollment['id']; ?>" 
-                                                       class="btn btn-sm btn-outline-danger"
-                                                       onclick="return confirm('Are you sure you want to cancel this enrollment?')">
-                                                        <i class="fas fa-stop"></i> Cancel
-                                                    </a>
+                                                    <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                                        <a href="?workflow_id=<?php echo $workflow_id; ?>&cancel=1&enrollment_id=<?php echo $enrollment['id']; ?>" 
+                                                           class="btn btn-sm btn-outline-danger table-action-btn"
+                                                           onclick="return confirm('Are you sure you want to cancel this enrollment?')">
+                                                            <i class="fas fa-stop"></i> Cancel
+                                                        </a>
+                                                    </div>
+                                                    <div class="d-md-none table-action-dropdown">
+                                                        <div class="dropdown">
+                                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                <i class="fas fa-ellipsis-v"></i>
+                                                            </button>
+                                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                                                                    <a class="dropdown-item text-danger" href="?workflow_id=<?php echo $workflow_id; ?>&cancel=1&enrollment_id=<?php echo $enrollment['id']; ?>" onclick="return confirm('Are you sure you want to cancel this enrollment?')">
+                                                                        <i class="fas fa-stop me-2"></i>Cancel
+                                                                    </a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
