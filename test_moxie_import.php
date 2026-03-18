@@ -167,12 +167,76 @@ try {
         throw new RuntimeException('Expected unchanged client on identical sync: ' . json_encode($result));
     }
 
+    $request_calls = [];
+    $fetch_test_sync = new class($conn, $request_calls) extends MoxieClientSync {
+        /** @var array<int, array{url:string, api_key:string, payload:array<string, int>|null}> */
+        private array $captured_calls;
+
+        /**
+         * @param array<int, array{url:string, api_key:string, payload:array<string, int>|null}> $captured_calls
+         */
+        public function __construct(SafePDO $conn, array &$captured_calls) {
+            parent::__construct($conn);
+            $this->captured_calls = &$captured_calls;
+        }
+
+        /**
+         * @param array<string, int>|null $payload
+         * @return array<int|string, mixed>
+         */
+        protected function requestJson(string $url, string $api_key, ?array $payload = null): array {
+            $this->captured_calls[] = [
+                'url' => $url,
+                'api_key' => $api_key,
+                'payload' => $payload,
+            ];
+
+            if (count($this->captured_calls) === 1) {
+                return [
+                    'clients' => [
+                        ['id' => 'page-1'],
+                    ],
+                    '_links' => [
+                        'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=25'],
+                    ],
+                ];
+            }
+
+            return [
+                'clients' => [
+                    ['id' => 'page-2'],
+                ],
+            ];
+        }
+    };
+
+    $fetched_clients = $fetch_test_sync->fetchClients($normalized_base_url, 'test-api-key', 100);
+    if (count($fetched_clients) !== 2) {
+        throw new RuntimeException('Expected fetchClients() to aggregate both mocked pages.');
+    }
+
+    if ($request_calls !== [
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/clients/list',
+            'api_key' => 'test-api-key',
+            'payload' => ['start' => 0, 'count' => 100],
+        ],
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/clients/list',
+            'api_key' => 'test-api-key',
+            'payload' => ['start' => 100, 'count' => 25],
+        ],
+    ]) {
+        throw new RuntimeException('Expected fetchClients() to POST JSON pagination payloads to the list endpoint: ' . json_encode($request_calls));
+    }
+
     echo "✓ Moxie import client creation works\n";
     echo "✓ Archived and missing-email clients are skipped\n";
     echo "✓ Existing clients update by Moxie client ID\n";
     echo "✓ Moxie base URL validation restricts allowed origins\n";
     echo "✓ fetchClients validates required base URL and page size inputs\n";
     echo "✓ Absolute Moxie pagination URLs must stay on the configured HTTPS origin\n";
+    echo "✓ fetchClients posts JSON pagination payloads to the client list endpoint\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";
     echo "=== All Moxie Import Tests Passed! ===\n";
 } catch (Throwable $e) {
