@@ -449,8 +449,8 @@ class MoxieClientSync {
         }
 
         parse_str($query, $params);
-        $start = $params['start'] ?? null;
-        $count = $params['count'] ?? null;
+        $start = scalar_string($params['start'] ?? '');
+        $count = scalar_string($params['count'] ?? '');
 
         $validated_start = filter_var($start, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
         if ($validated_start === false) {
@@ -555,6 +555,7 @@ class MoxieClientSync {
     }
 
     /**
+     * @param array<string, mixed>|null $payload
      * @return array<int|string, mixed>
      */
     protected function requestJson(string $url, string $api_key, ?array $payload = null): array {
