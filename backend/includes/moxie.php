@@ -7,8 +7,9 @@ class MoxieClientSync {
     private const DEFAULT_PAGE_SIZE = 100;
     private const MAX_PAGES = 100;
     private const LOG_INIT_RETRY_INTERVAL = 60; // wait this long before retrying log setup after a failure
-    /** @var list<string> Endpoint order: /client/list first, /clients/list as fallback for legacy workspaces. */
+    /** @var list<string> Endpoint order: /action/clients/list first, then legacy fallback paths. */
     private const CLIENT_LIST_PATHS = [
+        '/api/public/action/clients/list',
         '/api/public/client/list',
         '/api/public/clients/list',
     ];

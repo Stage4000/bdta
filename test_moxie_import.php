@@ -217,12 +217,12 @@ try {
 
     if ($request_calls !== [
         [
-            'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
             'api_key' => 'test-api-key',
             'payload' => ['start' => 0, 'count' => 100],
         ],
         [
-            'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
             'api_key' => 'test-api-key',
             'payload' => ['start' => 100, 'count' => 25],
         ],
@@ -264,7 +264,7 @@ try {
                         ['id' => 'fallback-page-1'],
                     ],
                     '_links' => [
-                        'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=50'],
+                        'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/client/list?start=100&count=50'],
                     ],
                 ];
             }
@@ -284,22 +284,22 @@ try {
 
     if ($fallback_request_calls !== [
         [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
+            'api_key' => 'test-api-key',
+            'payload' => ['start' => 0, 'count' => 100],
+        ],
+        [
             'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
             'api_key' => 'test-api-key',
             'payload' => ['start' => 0, 'count' => 100],
         ],
         [
-            'url' => 'https://pod00.withmoxie.dev/api/public/clients/list',
-            'api_key' => 'test-api-key',
-            'payload' => ['start' => 0, 'count' => 100],
-        ],
-        [
-            'url' => 'https://pod00.withmoxie.dev/api/public/clients/list',
+            'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
             'api_key' => 'test-api-key',
             'payload' => ['start' => 100, 'count' => 50],
         ],
     ]) {
-        throw new RuntimeException('Expected fetchClients() to retry and continue using the legacy list endpoint after a 404: ' . json_encode($fallback_request_calls));
+        throw new RuntimeException('Expected fetchClients() to retry and continue using the first legacy list endpoint after a 404: ' . json_encode($fallback_request_calls));
     }
 
     echo "✓ Moxie import client creation works\n";
