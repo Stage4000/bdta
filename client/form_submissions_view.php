@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/form_types.php';
 requireLogin();
 
 $db = new Database();
@@ -244,7 +245,7 @@ include '../backend/includes/header.php';
 
                     <div class="mb-3">
                         <label class="text-muted small">Form Type</label>
-                        <div><?= ucwords(str_replace('_', ' ', array_string_value($submission, 'form_type'))) ?></div>
+                        <div><?= escape(bdta_get_form_type_label(array_string_value($submission, 'form_type'))) ?></div>
                     </div>
 
                     <div class="mb-3">

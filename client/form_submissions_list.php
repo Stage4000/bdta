@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/form_types.php';
 requireLogin();
 
 $db = new Database();
@@ -177,17 +178,11 @@ include '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <?php
-                                    $type_badges = [
-                                        'client_form' => 'bg-primary',
-                                        'session_note' => 'bg-info',
-                                        'behavior_assessment' => 'bg-warning',
-                                        'training_plan' => 'bg-success'
-                                    ];
                                     $form_type = array_string_value($sub, 'form_type');
-                                    $badge = $type_badges[$form_type] ?? 'bg-secondary';
+                                    $badge = bdta_get_form_type_badge_class($form_type);
                                     ?>
                                     <span class="badge <?= $badge ?>">
-                                        <?= ucwords(str_replace('_', ' ', $form_type)) ?>
+                                        <?= htmlspecialchars(bdta_get_form_type_label($form_type)) ?>
                                     </span>
                                 </td>
                                 <td>
