@@ -100,6 +100,28 @@ function bdta_get_form_type_options(): array
 }
 
 /**
+ * @return list<string>
+ */
+function bdta_get_form_type_db_values(string $form_type): array
+{
+    $normalized = bdta_normalize_form_type($form_type);
+    $values = [$normalized];
+
+    foreach (bdta_get_form_type_definitions() as $type_key => $definition) {
+        if (!is_array($definition) || empty($definition['legacy'])) {
+            continue;
+        }
+
+        $canonical = scalar_string($definition['canonical'] ?? '');
+        if ($canonical === $normalized) {
+            $values[] = $type_key;
+        }
+    }
+
+    return array_values(array_unique(array_map('scalar_string', $values)));
+}
+
+/**
  * @return array<string, mixed>
  */
 function bdta_get_form_type_meta(string $form_type): array

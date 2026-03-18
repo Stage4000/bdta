@@ -5,6 +5,7 @@
 
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
+require_once '../backend/includes/form_types.php';
 
 // Check if user is logged in
 requireLogin();
@@ -360,6 +361,15 @@ include '../backend/includes/header.php';
                     </div>
 
                     <?php if ($pet_id): ?>
+                        <hr class="my-4">
+                        <h5 class="card-title mb-3">Pet Forms</h5>
+                        <p class="text-muted">Generate an object-linked pet form for <?= htmlspecialchars(array_string_value($pet_row, 'name'), ENT_QUOTES, 'UTF-8') ?>.</p>
+                        <p>
+                            <a href="form_requests_create.php?form_type=pet_form&amp;pet_id=<?= (int) $pet_id ?>" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-file-medical me-1"></i> Pet Form Link
+                            </a>
+                        </p>
+
                         <hr class="my-4">
                         <h5 class="card-title mb-4">Documents & Photos</h5>
                         

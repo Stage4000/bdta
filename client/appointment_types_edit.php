@@ -548,6 +548,9 @@ include __DIR__ . '/../backend/includes/header.php';
                         <button class="btn btn-outline-secondary" type="button" onclick="copyBookingLink(event)">
                             <i class="fas fa-copy"></i> Copy
                         </button>
+                        <a href="form_requests_create.php?form_type=booking_form&amp;appointment_type_id=<?= (int) $id ?>" class="btn btn-outline-primary">
+                            <i class="fas fa-paper-plane"></i> Generate / Send
+                        </a>
                     </div>
                     <small class="text-muted">This link was automatically generated and is unique to this appointment type.</small>
                 </div>

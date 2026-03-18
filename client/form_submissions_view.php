@@ -63,6 +63,7 @@ $query = "SELECT fs.*,
           ft.name as form_name,
           ft.form_type,
           ft.fields,
+          p.name as pet_name,
           CONCAT(b.appointment_date, ' ', b.appointment_time) as appointment_datetime,
           b.service_type,
           au.username as submitted_by_name,
@@ -70,6 +71,7 @@ $query = "SELECT fs.*,
           FROM form_submissions fs
           LEFT JOIN clients c ON fs.client_id = c.id
           LEFT JOIN form_templates ft ON fs.template_id = ft.id
+          LEFT JOIN pets p ON fs.pet_id = p.id
           LEFT JOIN bookings b ON fs.booking_id = b.id
           LEFT JOIN admin_users au ON fs.submitted_by = au.id
           LEFT JOIN admin_users au2 ON fs.reviewed_by = au2.id
@@ -264,6 +266,13 @@ include '../backend/includes/header.php';
                                 <?= escape(array_string_value($submission, 'service_type')) ?><br>
                                 <small><?= escape(array_string_value($submission, 'appointment_datetime')) ?></small>
                             </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (array_string_value($submission, 'pet_name') !== ''): ?>
+                        <div class="mb-3">
+                            <label class="text-muted small">Pet</label>
+                            <div><?= escape(array_string_value($submission, 'pet_name')) ?></div>
                         </div>
                     <?php endif; ?>
 

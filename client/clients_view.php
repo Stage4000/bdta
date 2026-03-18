@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/form_types.php';
 requireLogin();
 
 $db = new Database();
@@ -64,9 +65,15 @@ $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get forms
 $stmt = $conn->prepare("
-    SELECT fs.*, ft.name as form_name
+    SELECT fs.*, ft.name as form_name, ft.form_type,
+           p.name AS pet_name,
+           b.appointment_date,
+           b.appointment_time,
+           b.service_type
     FROM form_submissions fs
     JOIN form_templates ft ON fs.template_id = ft.id
+    LEFT JOIN pets p ON fs.pet_id = p.id
+    LEFT JOIN bookings b ON fs.booking_id = b.id
     WHERE fs.client_id = ?
     ORDER BY fs.submitted_at DESC
 ");
@@ -274,6 +281,9 @@ include '../backend/includes/header.php';
                                 <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-xs btn-outline-secondary mt-1">
                                     <i class="fas fa-pencil"></i> Edit
                                 </a>
+                                <a href="form_requests_create.php?form_type=pet_form&amp;pet_id=<?= (int) $pet['id'] ?>" class="btn btn-xs btn-outline-success mt-1">
+                                    <i class="fas fa-file-medical"></i> Pet Form
+                                </a>
                             </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -337,6 +347,7 @@ include '../backend/includes/header.php';
                                         <th>Time</th>
                                         <th>Service</th>
                                         <th>Status</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -346,6 +357,7 @@ include '../backend/includes/header.php';
                                             <td><?= date('g:i A', safe_timestamp(strtotime($apt['appointment_time']))) ?></td>
                                             <td><?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?></td>
                                             <td><span class="badge bg-info"><?= escape($apt['status']) ?></span></td>
+                                            <td><span class="text-muted small">—</span></td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -365,6 +377,7 @@ include '../backend/includes/header.php';
                                         <th>Time</th>
                                         <th>Service</th>
                                         <th>Status</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -374,6 +387,11 @@ include '../backend/includes/header.php';
                                             <td><?= date('g:i A', safe_timestamp(strtotime($apt['appointment_time']))) ?></td>
                                             <td><?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?></td>
                                             <td><span class="badge bg-secondary"><?= escape($apt['status']) ?></span></td>
+                                            <td>
+                                                <a href="form_requests_create.php?form_type=follow_up_note&amp;booking_id=<?= (int) $apt['id'] ?>" class="btn btn-xs btn-outline-secondary">
+                                                    <i class="fas fa-note-sticky"></i> Follow-up Form
+                                                </a>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -435,7 +453,17 @@ include '../backend/includes/header.php';
 
                 <!-- Forms Tab -->
                 <div id="forms" class="tab-pane fade">
-                    <h5>Form Submissions</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Form Submissions</h5>
+                        <div class="d-flex gap-2">
+                            <a href="form_requests_create.php?form_type=client_form&amp;client_id=<?= $id ?>" class="btn btn-sm btn-primary">
+                                <i class="fas fa-paper-plane"></i> Send Client Form
+                            </a>
+                            <a href="form_requests_create.php?form_type=survey_form&amp;client_id=<?= $id ?>" class="btn btn-sm btn-outline-warning">
+                                <i class="fas fa-square-poll-vertical"></i> Send Survey
+                            </a>
+                        </div>
+                    </div>
                     <?php if (empty($forms)): ?>
                         <p class="text-muted">No forms submitted</p>
                     <?php else: ?>
@@ -444,6 +472,8 @@ include '../backend/includes/header.php';
                                 <thead>
                                     <tr>
                                         <th>Form Name</th>
+                                        <th>Type</th>
+                                        <th>Context</th>
                                         <th>Submitted</th>
                                         <th>Status</th>
                                         <th>Actions</th>
@@ -453,6 +483,23 @@ include '../backend/includes/header.php';
                                     <?php foreach ($forms as $form): ?>
                                         <tr>
                                             <td><?= escape($form['form_name']) ?></td>
+                                            <td>
+                                                <span class="badge <?= escape(bdta_get_form_type_badge_class(array_string_value($form, 'form_type'))) ?>">
+                                                    <?= escape(bdta_get_form_type_label(array_string_value($form, 'form_type'))) ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <?php if (array_string_value($form, 'pet_name') !== ''): ?>
+                                                    <small class="text-muted d-block">Pet: <?= escape(array_string_value($form, 'pet_name')) ?></small>
+                                                <?php endif; ?>
+                                                <?php if (array_int_value($form, 'booking_id') > 0): ?>
+                                                    <small class="text-muted">
+                                                        <?= escape(array_string_value($form, 'service_type')) ?> · <?= escape(array_string_value($form, 'appointment_date')) ?>
+                                                    </small>
+                                                <?php elseif (array_string_value($form, 'pet_name') === ''): ?>
+                                                    <span class="text-muted small">Client profile</span>
+                                                <?php endif; ?>
+                                            </td>
                                             <td><?= formatDate($form['submitted_at']) ?></td>
                                             <td><span class="badge bg-info"><?= escape($form['status']) ?></span></td>
                                             <td>

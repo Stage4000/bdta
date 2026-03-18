@@ -55,12 +55,15 @@ $query = "SELECT fs.*,
           c.name as client_name,
           ft.name as form_name,
           ft.form_type,
+          p.name as pet_name,
           CONCAT(b.appointment_date, ' ', b.appointment_time) as appointment_datetime,
+          b.service_type,
           au.username as submitted_by_name,
           au2.username as reviewed_by_name
           FROM form_submissions fs
           LEFT JOIN clients c ON fs.client_id = c.id
           LEFT JOIN form_templates ft ON fs.template_id = ft.id
+          LEFT JOIN pets p ON fs.pet_id = p.id
           LEFT JOIN bookings b ON fs.booking_id = b.id
           LEFT JOIN admin_users au ON fs.submitted_by = au.id
           LEFT JOIN admin_users au2 ON fs.reviewed_by = au2.id
@@ -165,9 +168,14 @@ include '../backend/includes/header.php';
                             <tr>
                                 <td>
                                     <strong><?= htmlspecialchars(array_string_value($sub, 'form_name')) ?></strong>
+                                    <?php if (array_string_value($sub, 'pet_name') !== ''): ?>
+                                        <br><small class="text-muted">
+                                            <i class="fas fa-dog"></i> <?= htmlspecialchars(array_string_value($sub, 'pet_name')) ?>
+                                        </small>
+                                    <?php endif; ?>
                                     <?php if (array_int_value($sub, 'booking_id') !== 0): ?>
                                         <br><small class="text-muted">
-                                            <i class="fas fa-calendar"></i> <?= htmlspecialchars(array_string_value($sub, 'appointment_datetime')) ?>
+                                            <i class="fas fa-calendar"></i> <?= htmlspecialchars(array_string_value($sub, 'service_type')) ?> — <?= htmlspecialchars(array_string_value($sub, 'appointment_datetime')) ?>
                                         </small>
                                     <?php endif; ?>
                                 </td>
