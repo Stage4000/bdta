@@ -305,15 +305,24 @@ class MoxieClientSync {
         }
 
         $clients = [];
-        $next_url = $base_url . '/api/public/clients/list?start=0&count=' . $page_size;
+        $list_url = $base_url . '/api/public/clients/list';
         $page = 0;
         $start = 0;
+        $count = $page_size;
         $completed_pagination = false;
 
         while ($page < self::MAX_PAGES) {
             $page++;
-            self::log('Fetching Moxie client page.', ['url' => $next_url, 'page' => $page]);
-            $response = $this->requestJson($next_url, $api_key);
+            self::log('Fetching Moxie client page.', [
+                'url' => $list_url,
+                'page' => $page,
+                'start' => $start,
+                'count' => $count,
+            ]);
+            $response = $this->requestJson($list_url, $api_key, [
+                'start' => $start,
+                'count' => $count,
+            ]);
             $page_clients = self::extractClientRows($response);
             foreach ($page_clients as $page_client) {
                 $clients[] = $page_client;
@@ -321,23 +330,25 @@ class MoxieClientSync {
 
             $response_next = self::extractNextUrl($response, $base_url);
             if ($response_next !== '') {
-                $next_url = $response_next;
+                ['start' => $start, 'count' => $count] = self::extractNextPageRequest($response_next, $start + $count, $page_size);
                 continue;
             }
 
-            if (count($page_clients) < $page_size) {
+            if (count($page_clients) < $count) {
                 $completed_pagination = true;
                 break;
             }
 
-            $start += $page_size;
-            $next_url = $base_url . '/api/public/clients/list?start=' . $start . '&count=' . $page_size;
+            $start += $count;
+            $count = $page_size;
         }
 
         if (!$completed_pagination && $page >= self::MAX_PAGES) {
             self::log('Moxie client sync aborted after reaching the maximum page limit.', [
                 'max_pages' => self::MAX_PAGES,
-                'last_url' => $next_url,
+                'last_url' => $list_url,
+                'start' => $start,
+                'count' => $count,
             ]);
             throw new RuntimeException('Moxie client sync stopped after reaching the maximum page limit. Please narrow the import or increase the page limit in code.');
         }
@@ -418,6 +429,43 @@ class MoxieClientSync {
         }
 
         return rtrim($base_url, '/') . '/' . ltrim($next, '/');
+    }
+
+    /**
+     * @return array{start:int, count:int}
+     */
+    private static function extractNextPageRequest(string $next_url, int $fallback_start, int $fallback_count): array {
+        $parts = parse_url($next_url);
+        if (!is_array($parts)) {
+            throw new RuntimeException('Moxie pagination returned an invalid next URL.');
+        }
+
+        $query = scalar_string($parts['query'] ?? '');
+        if ($query === '') {
+            return [
+                'start' => $fallback_start,
+                'count' => $fallback_count,
+            ];
+        }
+
+        parse_str($query, $params);
+        $start = scalar_string($params['start'] ?? '');
+        $count = scalar_string($params['count'] ?? '');
+
+        $validated_start = filter_var($start, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        if ($validated_start === false) {
+            throw new RuntimeException('Moxie pagination returned an invalid next start offset.');
+        }
+
+        $validated_count = filter_var($count, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($validated_count === false) {
+            throw new RuntimeException('Moxie pagination returned an invalid next page size.');
+        }
+
+        return [
+            'start' => $validated_start,
+            'count' => $validated_count,
+        ];
     }
 
     /**
@@ -507,9 +555,10 @@ class MoxieClientSync {
     }
 
     /**
+     * @param array<string, mixed>|null $payload
      * @return array<int|string, mixed>
      */
-    private function requestJson(string $url, string $api_key): array {
+    protected function requestJson(string $url, string $api_key, ?array $payload = null): array {
         $this->assertAllowedRequestUrl($url);
 
         $ch = curl_init($url);
@@ -517,15 +566,31 @@ class MoxieClientSync {
             throw new RuntimeException('Unable to initialize cURL for Moxie request.');
         }
 
+        $headers = [
+            'Accept: application/json',
+            'X-API-KEY: ' . $api_key,
+        ];
+        $encoded_payload = null;
+        if ($payload !== null) {
+            $encoded_payload = json_encode($payload, JSON_UNESCAPED_SLASHES);
+            if ($encoded_payload === false) {
+                throw new RuntimeException('Unable to encode the Moxie request payload as JSON.');
+            }
+
+            $headers[] = 'Content-Type: application/json';
+        }
+
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 30,
             CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_HTTPHEADER => [
-                'Accept: application/json',
-                'X-API-KEY: ' . $api_key,
-            ],
+            CURLOPT_HTTPHEADER => $headers,
         ]);
+
+        if ($encoded_payload !== null) {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $encoded_payload);
+        }
 
         $response = curl_exec($ch);
         $curl_error = curl_error($ch);
