@@ -24,6 +24,7 @@ class QuoteReminderTask {
     public function execute(): array {
         // Get quotes that have been sent but not approved for 3+ days
         $reminder_threshold = date('Y-m-d H:i:s', strtotime('-3 days'));
+        $current_date = date('Y-m-d');
         
         $stmt = $this->conn->prepare("
             SELECT q.*, c.email as client_email, c.name as client_name
@@ -34,11 +35,11 @@ class QuoteReminderTask {
             AND (q.last_reminder_sent IS NULL OR q.last_reminder_sent < ?)
             AND q.accepted_at IS NULL
             AND q.declined_at IS NULL
-            AND (q.expiration_date IS NULL OR q.expiration_date > date('now'))
+            AND (q.expiration_date IS NULL OR q.expiration_date > ?)
             ORDER BY q.created_at
         ");
         
-        $stmt->execute([$reminder_threshold, $reminder_threshold]);
+        $stmt->execute([$reminder_threshold, $reminder_threshold, $current_date]);
         $quotes = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
         
         $sent_count = 0;
