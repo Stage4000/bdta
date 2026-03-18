@@ -358,7 +358,7 @@ function reloadCurrentEmailFilter() {
 function displayEmails(emails, filter) {
     const containerId = filter + 'Emails';
     const container = document.getElementById(containerId);
-    const safeFilterArg = JSON.stringify(String(filter));
+    const safeFilterArg = JSON.stringify(String(filter)).replace(/"/g, '&quot;');
     
     if (emails.length === 0) {
         container.innerHTML = '<div class="alert alert-info">No emails found.</div>';
