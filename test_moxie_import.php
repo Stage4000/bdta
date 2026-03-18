@@ -227,7 +227,7 @@ try {
             'payload' => ['start' => 100, 'count' => 25],
         ],
     ]) {
-        throw new RuntimeException('Expected fetchClients() to POST JSON pagination payloads to the list endpoint: ' . json_encode($request_calls));
+        throw new RuntimeException('Expected fetchClients() to POST JSON pagination payloads to the primary client list endpoint: ' . json_encode($request_calls));
     }
 
     $fallback_request_calls = [];
@@ -258,17 +258,28 @@ try {
                 throw new RuntimeException('Moxie request failed with HTTP status 404.');
             }
 
+            if (count($this->captured_calls) === 2) {
+                return [
+                    'clients' => [
+                        ['id' => 'fallback-page-1'],
+                    ],
+                    '_links' => [
+                        'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=50'],
+                    ],
+                ];
+            }
+
             return [
                 'clients' => [
-                    ['id' => 'fallback-page-1'],
+                    ['id' => 'fallback-page-2'],
                 ],
             ];
         }
     };
 
     $fallback_clients = $fallback_test_sync->fetchClients($normalized_base_url, 'test-api-key', 100);
-    if (count($fallback_clients) !== 1) {
-        throw new RuntimeException('Expected fetchClients() to retry an alternate endpoint after a 404.');
+    if (count($fallback_clients) !== 2) {
+        throw new RuntimeException('Expected fetchClients() to retry an alternate endpoint after a 404 and continue fallback pagination.');
     }
 
     if ($fallback_request_calls !== [
@@ -282,8 +293,13 @@ try {
             'api_key' => 'test-api-key',
             'payload' => ['start' => 0, 'count' => 100],
         ],
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/clients/list',
+            'api_key' => 'test-api-key',
+            'payload' => ['start' => 100, 'count' => 50],
+        ],
     ]) {
-        throw new RuntimeException('Expected fetchClients() to retry the legacy list endpoint after a 404: ' . json_encode($fallback_request_calls));
+        throw new RuntimeException('Expected fetchClients() to retry and continue using the legacy list endpoint after a 404: ' . json_encode($fallback_request_calls));
     }
 
     echo "✓ Moxie import client creation works\n";

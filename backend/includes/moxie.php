@@ -7,6 +7,7 @@ class MoxieClientSync {
     private const DEFAULT_PAGE_SIZE = 100;
     private const MAX_PAGES = 100;
     private const LOG_INIT_RETRY_INTERVAL = 60; // wait this long before retrying log setup after a failure
+    /** @var list<string> Endpoint order: /client/list first, /clients/list as fallback for legacy workspaces. */
     private const CLIENT_LIST_PATHS = [
         '/api/public/client/list',
         '/api/public/clients/list',
@@ -308,8 +309,11 @@ class MoxieClientSync {
             throw new InvalidArgumentException('Moxie page size must be at least 1.');
         }
 
-        $list_paths = array_values(array_unique(self::CLIENT_LIST_PATHS));
+        $list_paths = self::CLIENT_LIST_PATHS;
         $path_count = count($list_paths);
+        if ($path_count < 1) {
+            throw new RuntimeException('No Moxie client list endpoints are configured.');
+        }
         $last_exception = null;
 
         foreach ($list_paths as $path_index => $list_path) {
@@ -353,7 +357,7 @@ class MoxieClientSync {
                     $count = $page_size;
                 }
             } catch (RuntimeException $e) {
-                if ($path_index < ($path_count - 1) && $page === 1 && self::isHttpStatusException($e, 404)) {
+                if ($path_index < $path_count - 1 && $page === 1 && self::isHttpStatusException($e, 404)) {
                     self::log('Moxie client list endpoint returned 404; retrying alternate endpoint.', [
                         'failed_url' => $list_url,
                         'retry_url' => $base_url . $list_paths[$path_index + 1],
@@ -378,11 +382,11 @@ class MoxieClientSync {
             return $clients;
         }
 
-        if ($last_exception instanceof RuntimeException) {
+        if ($last_exception !== null) {
             throw $last_exception;
         }
 
-        return [];
+        throw new RuntimeException('Moxie client sync failed before any pages could be fetched.');
     }
 
     /**
