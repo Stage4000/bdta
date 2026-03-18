@@ -257,11 +257,14 @@ include __DIR__ . '/../backend/includes/header.php';
 function copyLink(url, btn) {
     navigator.clipboard.writeText(url).then(function() {
         const orig = btn.innerHTML;
+        const origClassName = btn.className;
         btn.innerHTML = '<i class="fas fa-check"></i>';
-        btn.classList.replace('btn-outline-success', 'btn-success');
+        if (btn.classList.contains('btn')) {
+            btn.classList.replace('btn-outline-success', 'btn-success');
+        }
         setTimeout(function() {
             btn.innerHTML = orig;
-            btn.classList.replace('btn-success', 'btn-outline-success');
+            btn.className = origClassName;
         }, 2000);
     }).catch(function() {
         prompt('Copy this link:', url);

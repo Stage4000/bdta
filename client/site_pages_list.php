@@ -85,11 +85,11 @@ require_once '../backend/includes/header.php';
                                         <i class="fas fa-magnifying-glass me-1"></i> SEO
                                     </button>
                                     <?php if ($p['is_published'] && $p['is_homepage']): ?>
-                                    <a href="../index.php" target="_blank" class="btn btn-sm btn-outline-secondary table-action-btn" title="View live page">
+                                    <a href="../index.php" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary table-action-btn" title="View live page">
                                         <i class="fas fa-eye me-1"></i> View
                                     </a>
                                     <?php elseif ($p['is_published']): ?>
-                                    <a href="../page.php?slug=<?php echo escape($p['slug']); ?>" target="_blank" class="btn btn-sm btn-outline-secondary table-action-btn" title="View live page">
+                                    <a href="../page.php?slug=<?php echo escape($p['slug']); ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary table-action-btn" title="View live page">
                                         <i class="fas fa-eye me-1"></i> View
                                     </a>
                                     <?php endif; ?>
@@ -117,13 +117,13 @@ require_once '../backend/includes/header.php';
                                             </li>
                                             <?php if ($p['is_published'] && $p['is_homepage']): ?>
                                             <li>
-                                                <a class="dropdown-item" href="../index.php" target="_blank">
+                                                <a class="dropdown-item" href="../index.php" target="_blank" rel="noopener noreferrer">
                                                     <i class="fas fa-eye me-2 text-secondary"></i>View Live Page
                                                 </a>
                                             </li>
                                             <?php elseif ($p['is_published']): ?>
                                             <li>
-                                                <a class="dropdown-item" href="../page.php?slug=<?php echo escape($p['slug']); ?>" target="_blank">
+                                                <a class="dropdown-item" href="../page.php?slug=<?php echo escape($p['slug']); ?>" target="_blank" rel="noopener noreferrer">
                                                     <i class="fas fa-eye me-2 text-secondary"></i>View Live Page
                                                 </a>
                                             </li>

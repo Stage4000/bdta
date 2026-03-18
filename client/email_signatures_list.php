@@ -156,7 +156,8 @@ include '../backend/includes/header.php';
                                                     <a href="email_signatures_preview.php?id=<?= $sig['id'] ?>" 
                                                        class="btn btn-sm btn-outline-info table-action-btn" 
                                                        title="Preview"
-                                                       target="_blank">
+                                                       target="_blank"
+                                                       rel="noopener noreferrer">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                     <?php if (!$sig['is_default']): ?>
@@ -181,7 +182,7 @@ include '../backend/includes/header.php';
                                                                 </a>
                                                             </li>
                                                             <li>
-                                                                <a class="dropdown-item" href="email_signatures_preview.php?id=<?= $sig['id'] ?>" target="_blank">
+                                                                <a class="dropdown-item" href="email_signatures_preview.php?id=<?= $sig['id'] ?>" target="_blank" rel="noopener noreferrer">
                                                                     <i class="fas fa-eye me-2 text-info"></i>Preview
                                                                 </a>
                                                             </li>
