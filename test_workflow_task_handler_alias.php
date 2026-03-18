@@ -27,7 +27,7 @@ if (!is_subclass_of('WorkflowTask', 'WorkflowProcessorTask')) {
 $reflection = new ReflectionClass('WorkflowTask');
 $constructor = $reflection->getConstructor();
 
-if (!$constructor instanceof ReflectionMethod) {
+if ($constructor === null) {
     throw new RuntimeException('WorkflowTask constructor is missing.');
 }
 
