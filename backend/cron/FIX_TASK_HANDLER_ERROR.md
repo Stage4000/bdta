@@ -2,16 +2,17 @@
 
 ## Update (Fixed)
 
-**The `email.php` handler has been added** to provide backward compatibility for tasks with `task_type = 'email'`. 
+**The `email.php` and `workflow.php` handlers have been added** to provide backward compatibility for tasks with `task_type = 'email'` and `task_type = 'workflow'`. 
 
 If you previously saw the error:
 ```
 Task handler not found: /var/www/.../backend/cron/tasks/email.php
+Task handler not found: /var/www/.../backend/cron/tasks/workflow.php
 ```
 
-This error should now be **resolved automatically**. The `email` task type is now valid and will delegate to the scheduled email sender.
+These errors should now be **resolved automatically**. The `email` task type delegates to the scheduled email sender, and the legacy `workflow` task type delegates to `workflow_processor.php`.
 
-For `reminder` and `workflow` errors, continue reading below for the solution.
+For `reminder` errors, continue reading below for the solution. Updating old `workflow` rows to `workflow_processor` is still recommended for clarity.
 
 ---
 
