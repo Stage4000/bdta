@@ -20,17 +20,10 @@ $conn = $db->getConnection();
 
 $submission_id = safe_int($_GET['id'] ?? 0);
 $template_id = safe_int($_GET['template_id'] ?? ($_GET['template'] ?? 0));
-$requested_client_id = safe_int($_GET['client_id'] ?? 0);
-$requested_booking_id = safe_int($_GET['booking_id'] ?? 0);
+$can_apply_query_context = $submission_id === 0 && isLoggedIn();
+$requested_client_id = $can_apply_query_context ? safe_int($_GET['client_id'] ?? 0) : 0;
+$requested_booking_id = $can_apply_query_context ? safe_int($_GET['booking_id'] ?? 0) : 0;
 $submission_row = null;
-$context_signing_secret = scalar_string($_SESSION['csrf_token']);
-$build_context_signature = static function (int $template_id, int $client_id, int $booking_id, string $secret): string {
-    if ($client_id <= 0 && $booking_id <= 0) {
-        return '';
-    }
-
-    return hash_hmac('sha256', $template_id . ':' . $client_id . ':' . $booking_id, $secret);
-};
 
 // If a submission ID is provided, load it (includes template + client info for prefill)
 if ($submission_id > 0) {
@@ -90,7 +83,6 @@ $prefill_phone = '';
 $client_id = 0;
 $booking_id = 0;
 $context = ['errors' => []];
-$context_signature = '';
 
 if (is_array($submission_row)) {
     $prefill_responses = decode_json_assoc(array_string_value($submission_row, 'responses'));
@@ -107,7 +99,6 @@ if (is_array($submission_row)) {
     $client_id = array_int_value($context, 'client_id');
     $booking_id = array_int_value($context, 'booking_id');
 }
-$context_signature = $build_context_signature($template_id, $client_id, $booking_id, $context_signing_secret);
 
 $errors = [];
 foreach ($context['errors'] as $context_error) {
@@ -121,9 +112,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $submission_id = safe_int($_POST['submission_id'] ?? 0);
         $template_id = safe_int($_POST['template_id'] ?? 0);
-        $client_id = safe_int($_POST['client_id'] ?? 0);
-        $booking_id = safe_int($_POST['booking_id'] ?? 0);
-        $submitted_context_signature = scalar_string($_POST['context_signature'] ?? '');
+        $allow_posted_context = $submission_id === 0 && isLoggedIn();
+        $client_id = $allow_posted_context ? safe_int($_POST['client_id'] ?? 0) : 0;
+        $booking_id = $allow_posted_context ? safe_int($_POST['booking_id'] ?? 0) : 0;
 
         $contact_name = trim(scalar_string($_POST['contact_name'] ?? ''));
         $contact_email = trim(scalar_string($_POST['contact_email'] ?? ''));
@@ -159,20 +150,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($submission_id === 0) {
-            $expected_context_signature = $build_context_signature($template_id, $client_id, $booking_id, $context_signing_secret);
-            if (($submitted_context_signature !== '' || $client_id > 0 || $booking_id > 0)
-                && ($expected_context_signature === '' || !hash_equals($expected_context_signature, $submitted_context_signature))
-            ) {
-                $errors[] = 'The form link is no longer valid. Please reopen the original link and try again.';
-            }
-
             $context = bdta_resolve_public_form_context($conn, $client_id, $booking_id);
             $client_id = array_int_value($context, 'client_id');
             $booking_id = array_int_value($context, 'booking_id');
             foreach ($context['errors'] as $context_error) {
                 $errors[] = scalar_string($context_error);
             }
-            $context_signature = $build_context_signature($template_id, $client_id, $booking_id, $context_signing_secret);
         }
 
         // Collect form responses
@@ -309,9 +292,6 @@ require_once __DIR__ . '/includes/public_head.php';
                 <?php endif; ?>
                 <?php if ($booking_id > 0): ?>
                     <input type="hidden" name="booking_id" value="<?= (int) $booking_id ?>">
-                <?php endif; ?>
-                <?php if ($context_signature !== ''): ?>
-                    <input type="hidden" name="context_signature" value="<?= htmlspecialchars($context_signature, ENT_QUOTES, 'UTF-8') ?>">
                 <?php endif; ?>
                 <?php if ($submission_id > 0): ?>
                     <input type="hidden" name="submission_id" value="<?= (int) $submission_id ?>">

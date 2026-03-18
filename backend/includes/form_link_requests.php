@@ -85,7 +85,7 @@ function bdta_send_client_form_link_email(
         $subject,
         $html_body,
         $body_text,
-        $_SESSION['user_id'] ?? null,
+        $_SESSION['admin_id'] ?? null,
     ]);
 
     $email_id = (int) $conn->lastInsertId();
@@ -108,13 +108,13 @@ function bdta_send_client_form_link_email(
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         ")->execute([
-            scalar_string($result['message'] ?? 'Unable to send email.'),
+            scalar_string($result['message']),
             $email_id,
         ]);
 
         return [
             'success' => false,
-            'message' => scalar_string($result['message'] ?? 'Unable to send email.'),
+            'message' => scalar_string($result['message']),
             'email_id' => $email_id,
         ];
     }

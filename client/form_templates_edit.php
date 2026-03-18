@@ -160,16 +160,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $stmt = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name");
 $appointment_types = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 $form_type_options = bdta_get_form_type_options();
-$form_access_label = bdta_get_form_access_label($form_type);
-$form_access_help = bdta_get_form_access_help($form_type);
+$effective_is_internal = $is_internal === 1 || bdta_form_type_forced_internal($form_type) === 1;
+$form_access_label = $effective_is_internal ? 'Admin only' : 'Client facing';
+$form_access_help = $effective_is_internal
+    ? 'This template currently requires an admin/staff login to complete.'
+    : 'This template can be completed by clients, either during booking or via a shared link.';
 $show_direct_link_card = $is_edit && bdta_form_type_allows_direct_link($form_type);
-$direct_link_is_public = bdta_form_type_allows_public_submission($form_type);
+$direct_link_is_public = bdta_form_type_allows_public_submission($form_type) && !$effective_is_internal;
 $form_type_js_meta = [];
 foreach ($form_type_options as $type_key => $definition) {
+    $type_forces_internal = bdta_form_type_forced_internal($type_key) === 1;
     $form_type_js_meta[$type_key] = [
         'description' => scalar_string($definition['description'] ?? ''),
-        'accessLabel' => bdta_get_form_access_label($type_key),
-        'accessHelp' => bdta_get_form_access_help($type_key),
+        'forceInternal' => $type_forces_internal,
+        'accessLabel' => $type_forces_internal ? 'Admin only' : 'Client facing',
+        'accessHelp' => $type_forces_internal
+            ? 'This template currently requires an admin/staff login to complete.'
+            : 'This template can be completed by clients, either during booking or via a shared link.',
     ];
 }
 $form_type_js_meta_json = json_encode($form_type_js_meta, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
@@ -488,6 +495,7 @@ const defaultFormAccess = <?= $default_form_access_json ?>;
 
 function syncFormTypeDetails() {
     const formTypeSelect = document.getElementById('form_type');
+    const isInternalInput = document.querySelector('input[name="is_internal"]');
     const description = document.getElementById('form_type_description');
     const accessLabel = document.getElementById('form_access_label');
     const accessHelp = document.getElementById('form_access_help');
@@ -497,10 +505,13 @@ function syncFormTypeDetails() {
     }
 
     const meta = formTypeMeta[formTypeSelect.value] || defaultFormAccess;
+    const isInternal = meta.forceInternal || (isInternalInput && isInternalInput.value === '1');
 
     description.textContent = meta.description || '';
-    accessLabel.textContent = meta.accessLabel || 'Client facing';
-    accessHelp.textContent = meta.accessHelp || '';
+    accessLabel.textContent = isInternal ? 'Admin only' : (meta.accessLabel || 'Client facing');
+    accessHelp.textContent = isInternal
+        ? 'This template currently requires an admin/staff login to complete.'
+        : (meta.accessHelp || '');
 }
 
 document.getElementById('form_type')?.addEventListener('change', syncFormTypeDetails);
