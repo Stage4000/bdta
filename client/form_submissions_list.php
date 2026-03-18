@@ -219,10 +219,24 @@ include '../backend/includes/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div class="table-action-buttons">
-                                        <a href="form_submissions_view.php?id=<?= array_int_value($sub, 'id') ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="View" aria-label="View">
+                                    <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                        <a href="form_submissions_view.php?id=<?= array_int_value($sub, 'id') ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="View Submission" aria-label="View Submission">
                                             <i class="fas fa-eye"></i>
                                         </a>
+                                    </div>
+                                    <div class="d-md-none table-action-dropdown">
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a class="dropdown-item" href="form_submissions_view.php?id=<?= array_int_value($sub, 'id') ?>">
+                                                        <i class="fas fa-eye me-2 text-primary"></i>View Submission
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>

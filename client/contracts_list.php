@@ -64,10 +64,24 @@ include '../backend/includes/header.php';
                                     <span class="badge bg-<?= $color ?>"><?= strtoupper($contract['status']) ?></span>
                                 </td>
                                 <td>
-                                    <div class="table-action-buttons">
-                                        <a href="contracts_view.php?id=<?= $contract['id'] ?>" class="btn btn-sm btn-outline-info table-action-btn" title="View" aria-label="View">
+                                    <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                        <a href="contracts_view.php?id=<?= $contract['id'] ?>" class="btn btn-sm btn-outline-info table-action-btn" title="View Contract" aria-label="View Contract">
                                             <i class="fas fa-eye"></i>
                                         </a>
+                                    </div>
+                                    <div class="d-md-none table-action-dropdown">
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a class="dropdown-item" href="contracts_view.php?id=<?= $contract['id'] ?>">
+                                                        <i class="fas fa-eye me-2 text-info"></i>View Contract
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>

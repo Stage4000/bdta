@@ -178,15 +178,37 @@ include '../backend/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
-                                            <i class="fas fa-pencil"></i>
-                                        </a>
-                                        <a href="pets_delete.php?id=<?= $pet['id'] ?><?= $client_id ? '&client_id=' . $client_id : '' ?>" 
-                                           class="btn btn-sm btn-outline-danger" 
-                                           onclick="return confirm('Are you sure you want to delete this pet?')" 
-                                           title="Delete">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                                        <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                            <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
+                                                <i class="fas fa-pencil"></i>
+                                            </a>
+                                            <a href="pets_delete.php?id=<?= $pet['id'] ?><?= $client_id ? '&client_id=' . $client_id : '' ?>" 
+                                               class="btn btn-sm btn-outline-danger table-action-btn" 
+                                               onclick="return confirm('Are you sure you want to delete this pet?')" 
+                                               title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                        <div class="d-md-none table-action-dropdown">
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li>
+                                                        <a class="dropdown-item" href="pets_edit.php?id=<?= $pet['id'] ?>">
+                                                            <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                        </a>
+                                                    </li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <a class="dropdown-item text-danger" href="pets_delete.php?id=<?= $pet['id'] ?><?= $client_id ? '&client_id=' . $client_id : '' ?>" onclick="return confirm('Are you sure you want to delete this pet?')">
+                                                            <i class="fas fa-trash me-2"></i>Delete
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

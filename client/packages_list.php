@@ -185,22 +185,51 @@ include __DIR__ . '/../backend/includes/header.php';
                                         </small>
                                     </td>
                                     <td>
-                                        <a href="packages_edit.php?id=<?= $pkg['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
-                                            <i class="fas fa-pencil"></i>
-                                        </a>
-                                        <?php if (!empty($pkg['share_token'])): ?>
-                                        <button type="button" class="btn btn-sm btn-outline-success"
-                                                title="Copy shareable link"
-                                                onclick="copyLink(<?= htmlspecialchars(scalar_string(json_encode($share_url))) ?>, this)">
-                                            <i class="fas fa-share-nodes"></i>
-                                        </button>
-                                        <?php endif; ?>
-                                        <a href="packages_edit.php?id=<?= $pkg['id'] ?>&delete=1"
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Delete this package? This cannot be undone if clients have purchased it.')"
-                                           title="Delete">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                                        <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                            <a href="packages_edit.php?id=<?= $pkg['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
+                                                <i class="fas fa-pencil"></i>
+                                            </a>
+                                            <?php if (!empty($pkg['share_token'])): ?>
+                                            <button type="button" class="btn btn-sm btn-outline-success table-action-btn"
+                                                    title="Copy shareable link"
+                                                    onclick="copyLink(<?= htmlspecialchars(scalar_string(json_encode($share_url))) ?>, this)">
+                                                <i class="fas fa-share-nodes"></i>
+                                            </button>
+                                            <?php endif; ?>
+                                            <a href="packages_edit.php?id=<?= $pkg['id'] ?>&delete=1"
+                                               class="btn btn-sm btn-outline-danger table-action-btn"
+                                               onclick="return confirm('Delete this package? This cannot be undone if clients have purchased it.')"
+                                               title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                        <div class="d-md-none table-action-dropdown">
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li>
+                                                        <a class="dropdown-item" href="packages_edit.php?id=<?= $pkg['id'] ?>">
+                                                            <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                        </a>
+                                                    </li>
+                                                    <?php if (!empty($pkg['share_token'])): ?>
+                                                    <li>
+                                                        <button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent" onclick="copyLink(<?= htmlspecialchars(scalar_string(json_encode($share_url))) ?>, this)">
+                                                            <i class="fas fa-share-nodes me-2 text-success"></i>Copy Shareable Link
+                                                        </button>
+                                                    </li>
+                                                    <?php endif; ?>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <a class="dropdown-item text-danger" href="packages_edit.php?id=<?= $pkg['id'] ?>&delete=1" onclick="return confirm('Delete this package? This cannot be undone if clients have purchased it.')">
+                                                            <i class="fas fa-trash me-2"></i>Delete
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

@@ -231,7 +231,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="table-action-buttons">
+                                        <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
                                             <?php if ($unique_link !== ''): ?>
                                                 <button class="btn btn-sm btn-outline-info table-action-btn"
                                                         onclick="copyLink('<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $unique_link) ?>', this)"
@@ -255,9 +255,45 @@ include __DIR__ . '/../backend/includes/header.php';
                                                class="btn btn-sm btn-outline-danger table-action-btn" 
                                                onclick="return confirm('Are you sure you want to delete this appointment type?')"
                                                title="Delete"
-                                               aria-label="Delete">
+                                                aria-label="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </a>
+                                        </div>
+                                        <div class="d-md-none table-action-dropdown">
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <?php if ($unique_link !== ''): ?>
+                                                        <li>
+                                                            <button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent" onclick="copyLink('<?= htmlspecialchars($base_url . '/backend/public/book.php?link=' . $unique_link) ?>', this)">
+                                                                <i class="fas fa-link me-2 text-info"></i>Copy Booking Link
+                                                            </button>
+                                                        </li>
+                                                    <?php endif; ?>
+                                                    <li>
+                                                        <a class="dropdown-item" href="appointment_types_edit.php?id=<?= $type_id ?>">
+                                                            <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <form method="POST" action="appointment_types_duplicate.php">
+                                                            <input type="hidden" name="id" value="<?= $type_id ?>">
+                                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
+                                                            <button type="submit" class="dropdown-item w-100 text-start border-0 bg-transparent">
+                                                                <i class="fas fa-copy me-2 text-secondary"></i>Duplicate
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <a class="dropdown-item text-danger" href="appointment_types_delete.php?id=<?= $type_id ?>" onclick="return confirm('Are you sure you want to delete this appointment type?')">
+                                                            <i class="fas fa-trash me-2"></i>Delete
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>

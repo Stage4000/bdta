@@ -147,14 +147,14 @@ include '../backend/includes/header.php';
                                             </td>
                                             <td><?= escape(formatDate(array_string_value($sig, 'created_at'), 'M j, Y')) ?></td>
                                             <td>
-                                                <div class="btn-group btn-group-sm">
+                                                <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
                                                     <a href="email_signatures_edit.php?id=<?= $sig['id'] ?>" 
-                                                       class="btn btn-outline-primary" 
+                                                       class="btn btn-sm btn-outline-primary table-action-btn" 
                                                        title="Edit">
                                                         <i class="fas fa-pencil"></i>
                                                     </a>
                                                     <a href="email_signatures_preview.php?id=<?= $sig['id'] ?>" 
-                                                       class="btn btn-outline-info" 
+                                                       class="btn btn-sm btn-outline-info table-action-btn" 
                                                        title="Preview"
                                                        target="_blank">
                                                         <i class="fas fa-eye"></i>
@@ -163,11 +163,42 @@ include '../backend/includes/header.php';
                                                         <form method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this signature?')">
                                                             <input type="hidden" name="delete_id" value="<?= $sig['id'] ?>">
                                                             <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                                            <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
                                                                 <i class="fas fa-trash"></i>
                                                             </button>
                                                         </form>
                                                     <?php endif; ?>
+                                                </div>
+                                                <div class="d-md-none table-action-dropdown">
+                                                    <div class="dropdown">
+                                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            <i class="fas fa-ellipsis-v"></i>
+                                                        </button>
+                                                        <ul class="dropdown-menu dropdown-menu-end">
+                                                            <li>
+                                                                <a class="dropdown-item" href="email_signatures_edit.php?id=<?= $sig['id'] ?>">
+                                                                    <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                                </a>
+                                                            </li>
+                                                            <li>
+                                                                <a class="dropdown-item" href="email_signatures_preview.php?id=<?= $sig['id'] ?>" target="_blank">
+                                                                    <i class="fas fa-eye me-2 text-info"></i>Preview
+                                                                </a>
+                                                            </li>
+                                                            <?php if (!$sig['is_default']): ?>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                <li>
+                                                                    <form method="post" onsubmit="return confirm('Are you sure you want to delete this signature?')">
+                                                                        <input type="hidden" name="delete_id" value="<?= $sig['id'] ?>">
+                                                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                                        <button type="submit" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent">
+                                                                            <i class="fas fa-trash me-2"></i>Delete
+                                                                        </button>
+                                                                    </form>
+                                                                </li>
+                                                            <?php endif; ?>
+                                                        </ul>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>

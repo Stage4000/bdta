@@ -189,23 +189,55 @@ include '../portal/includes/header.php';
                         <td class="text-muted small"><?php echo escape($b['notes'] ?? ''); ?></td>
                         <td>
                             <?php if ($b['_can_change']): ?>
-                                <button class="btn btn-sm btn-outline-danger me-1"
-                                        data-booking-id="<?php echo intval($b['id']); ?>"
-                                        data-type-name="<?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?>"
-                                        data-datetime="<?php echo escape($appointment_datetime_display); ?>"
-                                        onclick="showCancelModal(this)">
-                                    <i class="fas fa-times-circle me-1"></i>Cancel
-                                </button>
-                                <?php if ($b['_can_reschedule']): ?>
-                                <button class="btn btn-sm btn-outline-primary"
-                                        data-booking-id="<?php echo intval($b['id']); ?>"
-                                        data-type-id="<?php echo intval($b['appointment_type_id']); ?>"
-                                        data-type-name="<?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?>"
-                                        data-min-days="<?php echo intval($b['advance_booking_min_days'] ?? 1); ?>"
-                                        onclick="showRescheduleModal(this)">
-                                    <i class="fas fa-calendar-alt me-1"></i>Reschedule
-                                </button>
-                                <?php endif; ?>
+                                <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                    <button class="btn btn-sm btn-outline-danger table-action-btn"
+                                            data-booking-id="<?php echo intval($b['id']); ?>"
+                                            data-type-name="<?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?>"
+                                            data-datetime="<?php echo escape($appointment_datetime_display); ?>"
+                                            onclick="showCancelModal(this)">
+                                        <i class="fas fa-times-circle me-1"></i>Cancel
+                                    </button>
+                                    <?php if ($b['_can_reschedule']): ?>
+                                    <button class="btn btn-sm btn-outline-primary table-action-btn"
+                                            data-booking-id="<?php echo intval($b['id']); ?>"
+                                            data-type-id="<?php echo intval($b['appointment_type_id']); ?>"
+                                            data-type-name="<?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?>"
+                                            data-min-days="<?php echo intval($b['advance_booking_min_days'] ?? 1); ?>"
+                                            onclick="showRescheduleModal(this)">
+                                        <i class="fas fa-calendar-alt me-1"></i>Reschedule
+                                    </button>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="d-md-none table-action-dropdown">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent"
+                                                        data-booking-id="<?php echo intval($b['id']); ?>"
+                                                        data-type-name="<?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?>"
+                                                        data-datetime="<?php echo escape($appointment_datetime_display); ?>"
+                                                        onclick="showCancelModal(this)">
+                                                    <i class="fas fa-times-circle me-2 text-danger"></i>Cancel
+                                                </button>
+                                            </li>
+                                            <?php if ($b['_can_reschedule']): ?>
+                                            <li>
+                                                <button type="button" class="dropdown-item w-100 text-start border-0 bg-transparent"
+                                                        data-booking-id="<?php echo intval($b['id']); ?>"
+                                                        data-type-id="<?php echo intval($b['appointment_type_id']); ?>"
+                                                        data-type-name="<?php echo escape(array_string_value($b, 'apt_type_display_name', array_string_value($b, 'service_type'))); ?>"
+                                                        data-min-days="<?php echo intval($b['advance_booking_min_days'] ?? 1); ?>"
+                                                        onclick="showRescheduleModal(this)">
+                                                    <i class="fas fa-calendar-alt me-2 text-primary"></i>Reschedule
+                                                </button>
+                                            </li>
+                                            <?php endif; ?>
+                                        </ul>
+                                    </div>
+                                </div>
                                 <?php if ($b['_notice_hours'] > 0): ?>
                                     <div class="text-muted small mt-1">
                                         <i class="fas fa-info-circle"></i>

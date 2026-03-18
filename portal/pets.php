@@ -189,12 +189,38 @@ include '../portal/includes/header.php';
                     <td><?php echo escape($pet['breed'] ?? ''); ?></td>
                     <td><?php echo escape($pet['date_of_birth'] ?? ''); ?></td>
                     <td>
-                        <a href="pets.php?edit=<?php echo intval($pet['id']); ?>" class="btn btn-sm btn-outline-primary">Edit</a>
-                        <form method="POST" class="d-inline" onsubmit="return confirm('Remove this pet?');">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="pet_id" value="<?php echo intval($pet['id']); ?>">
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-                        </form>
+                        <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                            <a href="pets.php?edit=<?php echo intval($pet['id']); ?>" class="btn btn-sm btn-outline-primary table-action-btn">Edit</a>
+                            <form method="POST" class="d-inline" onsubmit="return confirm('Remove this pet?');">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="pet_id" value="<?php echo intval($pet['id']); ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn">Remove</button>
+                            </form>
+                        </div>
+                        <div class="d-md-none table-action-dropdown">
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="pets.php?edit=<?php echo intval($pet['id']); ?>">
+                                            <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form method="POST" onsubmit="return confirm('Remove this pet?');">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="pet_id" value="<?php echo intval($pet['id']); ?>">
+                                            <button type="submit" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent">
+                                                <i class="fas fa-trash me-2"></i>Remove
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>

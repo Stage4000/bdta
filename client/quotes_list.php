@@ -155,9 +155,25 @@ include '../backend/includes/header.php';
                                 </td>
                                 <td><?= escape(formatDate(array_string_value($quote, 'created_at'), 'M j, Y')) ?></td>
                                 <td>
-                                    <a href="quotes_view.php?id=<?= $quote['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
+                                    <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                        <a href="quotes_view.php?id=<?= $quote['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="View Quote">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
+                                    <div class="d-md-none table-action-dropdown">
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a class="dropdown-item" href="quotes_view.php?id=<?= $quote['id'] ?>">
+                                                        <i class="fas fa-eye me-2 text-primary"></i>View Quote
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

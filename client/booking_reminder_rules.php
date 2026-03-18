@@ -273,15 +273,15 @@ include __DIR__ . '/../backend/includes/header.php';
                                                 <?php endif; ?>
                                             </td>
                                             <td>
-                                                <div class="btn-group btn-group-sm">
+                                                <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
                                                     <a href="booking_reminder_rules.php?edit=<?= (int)$rule['id'] ?>"
-                                                       class="btn btn-outline-primary" title="Edit">
+                                                       class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
                                                         <i class="fas fa-pencil"></i>
                                                     </a>
                                                     <form method="POST" class="d-inline">
                                                         <input type="hidden" name="action"  value="toggle">
                                                         <input type="hidden" name="rule_id" value="<?= (int)$rule['id'] ?>">
-                                                        <button type="submit" class="btn btn-outline-secondary"
+                                                        <button type="submit" class="btn btn-sm btn-outline-secondary table-action-btn"
                                                                 title="<?= $rule['is_active'] ? 'Deactivate' : 'Activate' ?>">
                                                             <i class="fas fa-<?= $rule['is_active'] ? 'pause' : 'play' ?>"></i>
                                                         </button>
@@ -290,10 +290,43 @@ include __DIR__ . '/../backend/includes/header.php';
                                                           onsubmit="return confirm('Delete this reminder rule?')">
                                                         <input type="hidden" name="action"  value="delete">
                                                         <input type="hidden" name="rule_id" value="<?= (int)$rule['id'] ?>">
-                                                        <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
                                                     </form>
+                                                </div>
+                                                <div class="d-md-none table-action-dropdown">
+                                                    <div class="dropdown">
+                                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            <i class="fas fa-ellipsis-v"></i>
+                                                        </button>
+                                                        <ul class="dropdown-menu dropdown-menu-end">
+                                                            <li>
+                                                                <a class="dropdown-item" href="booking_reminder_rules.php?edit=<?= (int)$rule['id'] ?>">
+                                                                    <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                                </a>
+                                                            </li>
+                                                            <li>
+                                                                <form method="POST">
+                                                                    <input type="hidden" name="action"  value="toggle">
+                                                                    <input type="hidden" name="rule_id" value="<?= (int)$rule['id'] ?>">
+                                                                    <button type="submit" class="dropdown-item w-100 text-start border-0 bg-transparent">
+                                                                        <i class="fas fa-<?= $rule['is_active'] ? 'pause' : 'play' ?> me-2 text-secondary"></i><?= $rule['is_active'] ? 'Deactivate' : 'Activate' ?>
+                                                                    </button>
+                                                                </form>
+                                                            </li>
+                                                            <li><hr class="dropdown-divider"></li>
+                                                            <li>
+                                                                <form method="POST" onsubmit="return confirm('Delete this reminder rule?')">
+                                                                    <input type="hidden" name="action"  value="delete">
+                                                                    <input type="hidden" name="rule_id" value="<?= (int)$rule['id'] ?>">
+                                                                    <button type="submit" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent">
+                                                                        <i class="fas fa-trash me-2"></i>Delete
+                                                                    </button>
+                                                                </form>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
