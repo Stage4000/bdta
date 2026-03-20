@@ -242,6 +242,28 @@ try {
         echo "  ✗ Contract skip FAILED for cross-appointment-type check\n"; exit(1);
     }
 
+    // ── Test 11: profile.php includes Additional Contacts management UI ─────
+    echo "\nTest 11: profile.php exposes Additional Contacts management UI\n";
+    $profile_php = scalar_string(file_get_contents(__DIR__ . '/portal/profile.php'));
+    if (strpos($profile_php, 'Additional Contacts') !== false
+        && strpos($profile_php, 'client_contacts_api.php?action=add') !== false
+        && strpos($profile_php, 'saveContact()') !== false) {
+        echo "  ✓ profile.php includes additional contacts add/edit/delete UI wiring\n";
+    } else {
+        echo "  ✗ profile.php missing additional contacts management UI\n"; exit(1);
+    }
+
+    // ── Test 12: Portal contacts API enforces client ownership checks ───────
+    echo "\nTest 12: portal contact API scopes mutations to logged-in client\n";
+    $contacts_api_php = scalar_string(file_get_contents(__DIR__ . '/portal/client_contacts_api.php'));
+    if (strpos($contacts_api_php, 'portalClientId()') !== false
+        && strpos($contacts_api_php, 'WHERE id = ? AND client_id = ?') !== false
+        && strpos($contacts_api_php, 'DELETE FROM client_contacts WHERE id = ? AND client_id = ?') !== false) {
+        echo "  ✓ Portal contact API includes client ownership constraints\n";
+    } else {
+        echo "  ✗ Portal contact API is missing required client ownership constraints\n"; exit(1);
+    }
+
     // ── Cleanup ────────────────────────────────────────────────────────────
     echo "\nCleanup…\n";
     $conn->prepare("DELETE FROM form_submissions WHERE client_id = ?")->execute([$client_id]);
