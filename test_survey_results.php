@@ -12,7 +12,7 @@ function survey_test_path_segments(string $path): array
     $normalized_path = str_replace('\\', '/', $path);
     $trimmed_path = trim($normalized_path, '/');
     $segments = explode('/', $trimmed_path);
-    $non_empty_segments = array_filter($segments, static fn (string $segment): bool => $segment !== '');
+    $non_empty_segments = array_filter($segments, 'strlen');
 
     return array_values($non_empty_segments);
 }
@@ -44,15 +44,15 @@ function survey_test_relative_path(string $from_directory, string $to_directory)
 }
 
 $backend_directory = __DIR__ . '/backend';
-$temporary_directory = realpath(sys_get_temp_dir());
+$resolved_temp_directory = realpath(sys_get_temp_dir());
 
-if (!is_dir($backend_directory) || $temporary_directory === false) {
+if (!is_dir($backend_directory) || $resolved_temp_directory === false) {
     throw new RuntimeException('Unable to resolve filesystem paths for survey test database.');
 }
 
 // Database prepends SQLITE_DB_PATH from the backend directory, so the test
 // needs a relative path from backend/ to the system temp directory.
-$temporary_directory_relative_path = rtrim(survey_test_relative_path($backend_directory, $temporary_directory), '/');
+$temporary_directory_relative_path = rtrim(survey_test_relative_path($backend_directory, $resolved_temp_directory), '/');
 $sqlite_db_path = ($temporary_directory_relative_path !== '' ? $temporary_directory_relative_path . '/' : '')
     . 'test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
 
