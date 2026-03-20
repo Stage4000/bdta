@@ -18,10 +18,11 @@ $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Form submissions
 $stmt = $conn->prepare("
-    SELECT fs.*, ft.name as form_title
+    SELECT fs.*, ft.name as form_title, ft.form_type
     FROM form_submissions fs
     LEFT JOIN form_templates ft ON fs.template_id = ft.id
     WHERE fs.client_id = ?
+      AND COALESCE(ft.is_internal, 0) = 0
     ORDER BY fs.submitted_at DESC
 ");
 $stmt->execute([$client_id]);
@@ -100,13 +101,35 @@ include '../portal/includes/header.php';
     <?php else: ?>
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Form</th><th>Submitted</th><th>Status</th></tr></thead>
+            <thead><tr><th>Form</th><th>Submitted</th><th>Status</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($submissions as $fs): ?>
                 <tr>
                     <td><?php echo escape($fs['form_title'] ?? 'Unknown Form'); ?></td>
                     <td><?php echo escape($fs['submitted_at'] ?? ''); ?></td>
                     <td><?php echo escape($fs['status'] ?? ''); ?></td>
+                    <td>
+                        <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                            <a href="<?php echo PORTAL_URL; ?>form_view.php?id=<?php echo (int) ($fs['id'] ?? 0); ?>"
+                               class="btn btn-sm btn-outline-primary table-action-btn">
+                                <i class="fas fa-eye me-1"></i>View
+                            </a>
+                        </div>
+                        <div class="d-md-none table-action-dropdown">
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="<?php echo PORTAL_URL; ?>form_view.php?id=<?php echo (int) ($fs['id'] ?? 0); ?>">
+                                            <i class="fas fa-eye me-2 text-primary"></i>View
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </td>
                 </tr>
             <?php endforeach; ?>
             </tbody>

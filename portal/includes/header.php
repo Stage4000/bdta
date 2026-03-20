@@ -172,8 +172,8 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo $current_page === 'agreements.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>agreements.php">
-                                <i class="fas fa-file-contract me-2"></i> Agreements
+                            <a class="nav-link <?php echo in_array($current_page, ['agreements.php', 'form_view.php'], true) ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>agreements.php">
+                                <i class="fas fa-file-contract me-2"></i> Agreements &amp; Forms
                             </a>
                         </li>
                         <li class="nav-item">
