@@ -48,7 +48,7 @@ try {
             ]),
         ],
         [
-            'client_name' => 'Morgan',
+            'client_name' => '',
             'submitted_at' => '2026-03-18 15:45:00',
             'responses' => json_encode([
                 '0' => 'Great',
@@ -100,6 +100,9 @@ try {
     }
     if (array_string_value($recent_responses[0] ?? [], 'client_name') !== 'Alex') {
         throw new RuntimeException('Expected recent responses to preserve submission order.');
+    }
+    if (array_string_value($recent_responses[1] ?? [], 'client_name', 'Unknown client') !== 'Unknown client') {
+        throw new RuntimeException('Expected missing client names to fall back to "Unknown client".');
     }
 
     echo "✓ Survey answer choices aggregate into visualization data\n";

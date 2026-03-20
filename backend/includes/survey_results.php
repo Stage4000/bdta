@@ -37,6 +37,31 @@ function bdta_survey_submission_responses(array $submission): array
 }
 
 /**
+ * @param list<array<string, mixed>> $submissions
+ * @return list<array<string, mixed>>
+ */
+function bdta_prepare_survey_submissions(array $submissions): array
+{
+    $prepared_submissions = [];
+
+    foreach ($submissions as $submission) {
+        $prepared_submission = $submission;
+        $prepared_submission['decoded_responses'] = bdta_survey_submission_responses($submission);
+
+        $client_name = trim(array_string_value($submission, 'client_name'));
+        if ($client_name !== '') {
+            $prepared_submission['client_name'] = $client_name;
+        } else {
+            unset($prepared_submission['client_name']);
+        }
+
+        $prepared_submissions[] = $prepared_submission;
+    }
+
+    return $prepared_submissions;
+}
+
+/**
  * @param list<array<string, mixed>> $fields
  * @param list<array<string, mixed>> $submissions
  * @return array{
@@ -50,6 +75,7 @@ function bdta_build_survey_results(array $fields, array $submissions): array
     $field_summaries = [];
     $visualized_field_count = 0;
     $total_submissions = count($submissions);
+    $prepared_submissions = bdta_prepare_survey_submissions($submissions);
 
     foreach ($fields as $index => $field) {
         $type = array_string_value($field, 'type');
@@ -64,8 +90,8 @@ function bdta_build_survey_results(array $fields, array $submissions): array
         $response_count = 0;
         $recent_responses = [];
 
-        foreach ($submissions as $submission) {
-            $responses = bdta_survey_submission_responses($submission);
+        foreach ($prepared_submissions as $submission) {
+            $responses = assoc_row($submission['decoded_responses'] ?? []);
             $response = $responses[(string) $index] ?? null;
 
             if ($supports_visualization) {
@@ -98,11 +124,17 @@ function bdta_build_survey_results(array $fields, array $submissions): array
 
             $response_count++;
             if (count($recent_responses) < 5) {
-                $recent_responses[] = [
+                $recent_response = [
                     'value' => $response_text,
-                    'client_name' => array_string_value($submission, 'client_name'),
                     'submitted_at' => array_string_value($submission, 'submitted_at'),
                 ];
+
+                $client_name = trim(array_string_value($submission, 'client_name'));
+                if ($client_name !== '') {
+                    $recent_response['client_name'] = $client_name;
+                }
+
+                $recent_responses[] = $recent_response;
             }
         }
 
