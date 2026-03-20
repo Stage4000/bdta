@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 
-$sqlite_relative_path = 'test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
+$sqlite_relative_path = '../../../../../../tmp/test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
 putenv('DB_TYPE=sqlite');
 putenv('SQLITE_DB_PATH=' . $sqlite_relative_path);
 
@@ -111,9 +111,4 @@ try {
 } catch (Throwable $e) {
     echo "✗ Error: " . $e->getMessage() . "\n";
     exit(1);
-} finally {
-    $sqlite_absolute_path = __DIR__ . '/backend/' . $sqlite_relative_path;
-    if (file_exists($sqlite_absolute_path)) {
-        unlink($sqlite_absolute_path);
-    }
 }

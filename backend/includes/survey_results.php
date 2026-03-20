@@ -36,6 +36,9 @@ function bdta_survey_submission_responses(array $submission): array
     return decode_json_assoc($responses);
 }
 
+/**
+ * @param array<string, mixed> $submission
+ */
 function bdta_survey_submission_client_name(array $submission): string
 {
     return trim(array_string_value($submission, 'client_name'));
