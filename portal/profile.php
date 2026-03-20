@@ -8,6 +8,7 @@ $conn = $db->getConnection();
 
 $errors   = [];
 $success  = '';
+$csrf_token = scalar_string($_SESSION['csrf_token'] ?? '');
 
 // Fetch current client data
 $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ?");
@@ -200,12 +201,16 @@ include '../portal/includes/header.php';
                                     data-contact-name="<?php echo escape($contact['name']); ?>"
                                     data-contact-email="<?php echo escape($contact['email']); ?>"
                                     data-contact-phone="<?php echo escape($contact['phone']); ?>"
-                                    data-contact-primary="<?php echo !empty($contact['is_primary']) ? 1 : 0; ?>">
+                                    data-contact-primary="<?php echo !empty($contact['is_primary']) ? 1 : 0; ?>"
+                                    aria-label="Edit contact <?php echo escape($contact['name']); ?>"
+                                    title="Edit contact <?php echo escape($contact['name']); ?>">
                                 <i class="fas fa-pencil"></i>
                             </button>
                             <button type="button" class="btn btn-outline-danger delete-contact-btn"
                                     data-contact-id="<?php echo (int)$contact['id']; ?>"
-                                    data-contact-name="<?php echo escape($contact['name']); ?>">
+                                    data-contact-name="<?php echo escape($contact['name']); ?>"
+                                    aria-label="Delete contact <?php echo escape($contact['name']); ?>"
+                                    title="Delete contact <?php echo escape($contact['name']); ?>">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -220,7 +225,7 @@ include '../portal/includes/header.php';
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="contactModalLabel" aria-live="polite"><i class="fas fa-user-plus" aria-hidden="true"></i> Add Contact</h5>
+                <h5 class="modal-title" id="contactModalLabel"><i class="fas fa-user-plus" aria-hidden="true"></i> <span id="contactModalLabelText" aria-live="polite">Add Contact</span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -253,6 +258,7 @@ include '../portal/includes/header.php';
 
 <script>
 let editingContactId = null;
+const contactCsrfToken = <?php echo json_encode($csrf_token); ?>;
 
 document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(e) {
@@ -276,17 +282,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function showAddContactModal() {
     editingContactId = null;
-    document.getElementById('contactModalLabel').textContent = 'Add Contact';
+    setContactModalTitle('Add Contact');
     document.getElementById('contactForm').reset();
 }
 
 function editContact(id, name, email, phone, isPrimary) {
     editingContactId = id;
-    document.getElementById('contactModalLabel').textContent = 'Edit Contact';
+    setContactModalTitle('Edit Contact');
     document.getElementById('contactName').value = name;
     document.getElementById('contactEmail').value = email;
     document.getElementById('contactPhone').value = phone;
     document.getElementById('contactPrimary').checked = isPrimary == 1;
+}
+
+function setContactModalTitle(text) {
+    const titleText = document.getElementById('contactModalLabelText');
+    if (titleText) {
+        titleText.textContent = text;
+    }
 }
 
 function saveContact() {
@@ -313,7 +326,8 @@ function saveContact() {
             name: name,
             email: email,
             phone: phone,
-            is_primary: isPrimary
+            is_primary: isPrimary,
+            csrf_token: contactCsrfToken
         })
     })
     .then(response => response.json())
@@ -335,7 +349,13 @@ function deleteContact(id, name) {
     }
 
     fetch(`client_contacts_api.php?action=delete&id=${id}`, {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            csrf_token: contactCsrfToken
+        })
     })
     .then(response => response.json())
     .then(data => {

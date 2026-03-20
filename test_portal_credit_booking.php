@@ -247,7 +247,11 @@ try {
     $profile_php = scalar_string(file_get_contents(__DIR__ . '/portal/profile.php'));
     if (strpos($profile_php, 'Additional Contacts') !== false
         && strpos($profile_php, 'client_contacts_api.php?action=add') !== false
-        && strpos($profile_php, 'saveContact()') !== false) {
+        && strpos($profile_php, 'saveContact()') !== false
+        && strpos($profile_php, 'contactCsrfToken') !== false
+        && strpos($profile_php, 'setContactModalTitle') !== false
+        && strpos($profile_php, 'aria-label="Edit contact') !== false
+        && strpos($profile_php, 'aria-label="Delete contact') !== false) {
         echo "  ✓ profile.php includes additional contacts add/edit/delete UI wiring\n";
     } else {
         echo "  ✗ profile.php missing additional contacts management UI\n"; exit(1);
@@ -258,7 +262,10 @@ try {
     $contacts_api_php = scalar_string(file_get_contents(__DIR__ . '/portal/client_contacts_api.php'));
     if (strpos($contacts_api_php, 'portalClientId()') !== false
         && strpos($contacts_api_php, 'WHERE id = ? AND client_id = ?') !== false
-        && strpos($contacts_api_php, 'DELETE FROM client_contacts WHERE id = ? AND client_id = ?') !== false) {
+        && strpos($contacts_api_php, 'DELETE FROM client_contacts WHERE id = ? AND client_id = ?') !== false
+        && strpos($contacts_api_php, 'validatePortalCsrf') !== false
+        && strpos($contacts_api_php, 'hash_equals') !== false
+        && strpos($contacts_api_php, '$conn->inTransaction()') !== false) {
         echo "  ✓ Portal contact API includes client ownership constraints\n";
     } else {
         echo "  ✗ Portal contact API is missing required client ownership constraints\n"; exit(1);

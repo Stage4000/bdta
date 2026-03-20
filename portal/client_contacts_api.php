@@ -16,6 +16,17 @@ $conn = $db->getConnection();
 $action = scalar_string($_GET['action'] ?? '');
 $contact_id = safe_int($_GET['id'] ?? 0);
 
+/**
+ * @param array<string, mixed> $payload
+ */
+function validatePortalCsrf(array $payload): void {
+    $sessionToken = scalar_string($_SESSION['csrf_token'] ?? '');
+    $requestToken = trim(array_string_value($payload, 'csrf_token'));
+    if ($sessionToken === '' || $requestToken === '' || !hash_equals($sessionToken, $requestToken)) {
+        throw new Exception('Invalid request.');
+    }
+}
+
 try {
     switch ($action) {
         case 'list':
@@ -37,6 +48,7 @@ try {
             }
 
             $data = decode_json_assoc(file_get_contents('php://input'));
+            validatePortalCsrf($data);
             $name = trim(array_string_value($data, 'name'));
             $email = trim(array_string_value($data, 'email'));
             $phone = trim(array_string_value($data, 'phone'));
@@ -70,11 +82,17 @@ try {
                 $new_id = (int)$conn->lastInsertId();
 
                 $conn->commit();
-                logClientActivity($client_id, 'contact_add', 'Added additional contact: ' . $name, $conn);
+                try {
+                    logClientActivity($client_id, 'contact_add', 'Added additional contact: ' . $name, $conn);
+                } catch (Exception $logEx) {
+                    error_log('portal/client_contacts_api.php contact_add log failure: ' . $logEx->getMessage());
+                }
 
                 echo json_encode(['success' => true, 'id' => $new_id, 'message' => 'Contact added successfully']);
             } catch (Exception $e) {
-                $conn->rollBack();
+                if ($conn->inTransaction()) {
+                    $conn->rollBack();
+                }
                 throw $e;
             }
             break;
@@ -94,6 +112,7 @@ try {
             }
 
             $data = decode_json_assoc(file_get_contents('php://input'));
+            validatePortalCsrf($data);
             $name = trim(array_string_value($data, 'name'));
             $email = trim(array_string_value($data, 'email'));
             $phone = trim(array_string_value($data, 'phone'));
@@ -127,11 +146,17 @@ try {
                 $stmt->execute([$name, $email, $phone, $is_primary ? 1 : 0, $contact_id, $client_id]);
 
                 $conn->commit();
-                logClientActivity($client_id, 'contact_update', 'Updated additional contact: ' . $name, $conn);
+                try {
+                    logClientActivity($client_id, 'contact_update', 'Updated additional contact: ' . $name, $conn);
+                } catch (Exception $logEx) {
+                    error_log('portal/client_contacts_api.php contact_update log failure: ' . $logEx->getMessage());
+                }
 
                 echo json_encode(['success' => true, 'message' => 'Contact updated successfully']);
             } catch (Exception $e) {
-                $conn->rollBack();
+                if ($conn->inTransaction()) {
+                    $conn->rollBack();
+                }
                 throw $e;
             }
             break;
@@ -143,6 +168,8 @@ try {
             if ($contact_id <= 0) {
                 throw new Exception('Contact ID is required');
             }
+            $data = decode_json_assoc(file_get_contents('php://input'));
+            validatePortalCsrf($data);
 
             $stmt = $conn->prepare("SELECT name FROM client_contacts WHERE id = ? AND client_id = ?");
             $stmt->execute([$contact_id, $client_id]);
@@ -154,7 +181,11 @@ try {
             $stmt = $conn->prepare("DELETE FROM client_contacts WHERE id = ? AND client_id = ?");
             $stmt->execute([$contact_id, $client_id]);
 
-            logClientActivity($client_id, 'contact_delete', 'Deleted additional contact: ' . array_string_value($contact, 'name'), $conn);
+            try {
+                logClientActivity($client_id, 'contact_delete', 'Deleted additional contact: ' . array_string_value($contact, 'name'), $conn);
+            } catch (Exception $logEx) {
+                error_log('portal/client_contacts_api.php contact_delete log failure: ' . $logEx->getMessage());
+            }
             echo json_encode(['success' => true, 'message' => 'Contact deleted successfully']);
             break;
 
