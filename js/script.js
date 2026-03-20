@@ -167,7 +167,6 @@ function initContactForm() {
             return;
         }
         
-        // Simulate form submission (in production, send to backend)
         const submitBtn = contactForm.querySelector('button[type="submit"]');
         const originalButtonHTML = submitBtn.innerHTML;
         // This fixed template does not interpolate user-controlled values.
@@ -175,30 +174,49 @@ function initContactForm() {
         submitBtn.innerHTML = '<span class="loading"></span> Sending...';
         submitBtn.disabled = true;
         
-        // Simulate API call
-        setTimeout(function() {
-            // Reset form
-            contactForm.reset();
-            
-            // Show success message
-            showFormMessage('Thank you for contacting us! We\'ll get back to you within 24 hours.', 'success');
-            
-            // Reset button
-            // Restoring the original static button markup captured before the loading state.
-            // nosemgrep
-            submitBtn.innerHTML = originalButtonHTML;
-            submitBtn.disabled = false;
-            
-            // Log form data (in production, this would be sent to server)
-            console.log('Form submitted:', {
+        fetch('/backend/public/api_contact.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
                 name: name,
                 email: email,
                 phone: phone,
                 service: service,
-                message: message,
-                timestamp: new Date().toISOString()
+                message: message
+            })
+        })
+            .then(response => {
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+                if (!isJson) {
+                    throw new Error('Unable to send message right now. Please try again.');
+                }
+                return response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Unable to send message right now. Please try again.');
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.error || 'Unable to send message.');
+                }
+
+                contactForm.reset();
+                showFormMessage('Thank you for contacting us! We\'ll get back to you within 24 hours.', 'success');
+            })
+            .catch(error => {
+                showFormMessage(error.message || 'Unable to send message right now. Please try again.', 'error');
+            })
+            .finally(() => {
+                // Restoring the original static button markup captured before the loading state.
+                // nosemgrep
+                submitBtn.innerHTML = originalButtonHTML;
+                submitBtn.disabled = false;
             });
-        }, 2000);
     });
 }
 
