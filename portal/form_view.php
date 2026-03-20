@@ -41,9 +41,18 @@ if (!$submission) {
 
 $fields = decode_json_assoc_list(array_string_value($submission, 'fields'));
 $responses = decode_json_assoc(array_string_value($submission, 'responses'));
+$decode_warning = '';
+$raw_fields = array_string_value($submission, 'fields');
+$raw_responses = array_string_value($submission, 'responses');
+if (
+    ($raw_fields !== '' && !is_array(json_decode($raw_fields, true)))
+    || ($raw_responses !== '' && !is_array(json_decode($raw_responses, true)))
+) {
+    $decode_warning = 'Some saved form data could not be parsed and may not display completely.';
+}
 
 $page_title = 'View Form';
-include '../portal/includes/header.php';
+include 'includes/header.php';
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -52,6 +61,10 @@ include '../portal/includes/header.php';
         <i class="fas fa-arrow-left me-1"></i>Back
     </a>
 </div>
+
+<?php if ($decode_warning !== ''): ?>
+<div class="alert alert-warning"><?php echo escape($decode_warning); ?></div>
+<?php endif; ?>
 
 <div class="card mb-4">
     <div class="card-body">
@@ -135,4 +148,4 @@ include '../portal/includes/header.php';
     </div>
 </div>
 
-<?php include '../portal/includes/footer.php'; ?>
+<?php include 'includes/footer.php'; ?>

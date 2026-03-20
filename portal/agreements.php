@@ -101,7 +101,7 @@ include '../portal/includes/header.php';
     <?php else: ?>
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Form</th><th>Submitted</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Form</th><th>Submitted</th><th>Status</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
             <?php foreach ($submissions as $fs): ?>
                 <tr>
