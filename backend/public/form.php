@@ -13,6 +13,7 @@ require_once '../includes/database.php';
 require_once '../includes/form_types.php';
 require_once '../includes/public_form_context.php';
 require_once '../includes/workflow_helper.php';
+require_once '../includes/follow_up_notes.php';
 require_once __DIR__ . '/includes/public_error_page.php';
 
 $db = new Database();
@@ -219,20 +220,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Save submission
             $json_responses = json_encode($responses);
+            $submitted_by = isLoggedIn() ? safe_int($_SESSION['admin_id'] ?? 0) : 0;
             if ($submission_id > 0 && is_array($submission_row)) {
                 $stmt = $conn->prepare("
                     UPDATE form_submissions
-                    SET responses = ?, status = 'submitted', submitted_at = CURRENT_TIMESTAMP
+                    SET responses = ?, status = 'submitted', submitted_at = CURRENT_TIMESTAMP, submitted_by = ?
                     WHERE id = ? AND status = 'pending'
                 ");
-                $stmt->execute([$json_responses, $submission_id]);
+                $stmt->execute([$json_responses, $submitted_by > 0 ? $submitted_by : null, $submission_id]);
                 $new_submission_id = $submission_id;
             } else {
                 $stmt = $conn->prepare("
-                    INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at)
-                    VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)
+                    INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at, submitted_by)
+                    VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP, ?)
                 ");
-                $stmt->execute([$client_id, $template_id, $booking_id > 0 ? $booking_id : null, $json_responses]);
+                $stmt->execute([
+                    $client_id,
+                    $template_id,
+                    $booking_id > 0 ? $booking_id : null,
+                    $json_responses,
+                    $submitted_by > 0 ? $submitted_by : null,
+                ]);
                 $new_submission_id = (int) $conn->lastInsertId();
             }
 
@@ -245,6 +253,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $success_message = 'Thank you! Your form has been submitted successfully.';
+            if ($submitted_by > 0 && bdta_form_submission_requires_client_review($template_form_type)) {
+                $notification_result = bdta_notify_follow_up_note_completed($conn, $new_submission_id);
+                if ($notification_result['success']) {
+                    $success_message .= ' The client has been notified to review it in the portal.';
+                } else {
+                    $success_message .= ' The follow-up note was saved, but the client email could not be sent: '
+                        . scalar_string($notification_result['message']);
+                }
+            }
         }
     }
 }

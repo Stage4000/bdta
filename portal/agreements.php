@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/follow_up_notes.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -18,7 +19,7 @@ $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Form submissions
 $stmt = $conn->prepare("
-    SELECT fs.*, ft.name as form_title
+    SELECT fs.*, ft.name as form_title, ft.form_type
     FROM form_submissions fs
     LEFT JOIN form_templates ft ON fs.template_id = ft.id
     WHERE fs.client_id = ?
@@ -100,13 +101,23 @@ include '../portal/includes/header.php';
     <?php else: ?>
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Form</th><th>Submitted</th><th>Status</th></tr></thead>
+            <thead><tr><th>Form</th><th>Submitted</th><th>Status</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($submissions as $fs): ?>
+                <?php $client_review_submission = bdta_form_submission_requires_client_review(scalar_string($fs['form_type'] ?? '')); ?>
                 <tr>
                     <td><?php echo escape($fs['form_title'] ?? 'Unknown Form'); ?></td>
                     <td><?php echo escape($fs['submitted_at'] ?? ''); ?></td>
                     <td><?php echo escape($fs['status'] ?? ''); ?></td>
+                    <td class="text-end">
+                        <?php if ($client_review_submission): ?>
+                            <a href="form_submission_view.php?id=<?php echo intval($fs['id'] ?? 0); ?>" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i><?php echo scalar_string($fs['status'] ?? '') === 'reviewed' ? 'View' : 'Review'; ?>
+                            </a>
+                        <?php else: ?>
+                            <span class="text-muted">—</span>
+                        <?php endif; ?>
+                    </td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
