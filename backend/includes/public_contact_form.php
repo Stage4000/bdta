@@ -9,7 +9,7 @@
  */
 function bdta_handle_public_contact_submission(PDO $conn, array $payload): array {
     $name = trim(array_string_value($payload, 'name'));
-    $email = trim(array_string_value($payload, 'email'));
+    $email = strtolower(trim(array_string_value($payload, 'email')));
     $phone = trim(array_string_value($payload, 'phone'));
     $message = trim(array_string_value($payload, 'message'));
     $service = trim(array_string_value($payload, 'service'));
@@ -31,7 +31,13 @@ function bdta_handle_public_contact_submission(PDO $conn, array $payload): array
     $notes_parts[] = 'Message: ' . $message;
     $contact_note = implode("\n", $notes_parts);
 
-    $stmt = $conn->prepare("SELECT id, notes FROM clients WHERE email = ?");
+    $stmt = $conn->prepare("
+        SELECT id, notes
+        FROM clients
+        WHERE email = ?
+        ORDER BY updated_at DESC, created_at DESC, id DESC
+        LIMIT 1
+    ");
     $stmt->execute([$email]);
     $existing = $stmt->fetch(PDO::FETCH_ASSOC);
     $existing_row = assoc_row($existing);
@@ -45,10 +51,10 @@ function bdta_handle_public_contact_submission(PDO $conn, array $payload): array
 
         $stmt = $conn->prepare("
             UPDATE clients
-            SET name = ?, phone = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+            SET notes = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         ");
-        $stmt->execute([$name, $phone, $merged_notes, $client_id]);
+        $stmt->execute([$merged_notes, $client_id]);
 
         return ['success' => true, 'client_id' => $client_id];
     }

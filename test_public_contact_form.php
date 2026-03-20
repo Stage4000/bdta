@@ -11,13 +11,14 @@ $conn = $db->getConnection();
 
 $created_client_id = 0;
 $existing_client_id = 0;
+$duplicate_client_id = 0;
 
 try {
     $suffix = bin2hex(random_bytes(4));
 
     $new_payload = [
         'name' => 'Contact New ' . $suffix,
-        'email' => 'contact-new-' . $suffix . '@example.com',
+        'email' => 'Contact-New-' . $suffix . '@Example.com',
         'phone' => '555-1100',
         'service' => 'pet-sitting',
         'message' => 'Need help with training basics.',
@@ -39,7 +40,7 @@ try {
 
     if (
         array_string_value($created_client, 'name') !== $new_payload['name']
-        || array_string_value($created_client, 'email') !== $new_payload['email']
+        || array_string_value($created_client, 'email') !== strtolower($new_payload['email'])
         || array_string_value($created_client, 'phone') !== $new_payload['phone']
         || strpos(array_string_value($created_client, 'notes'), 'Message: ' . $new_payload['message']) === false
     ) {
@@ -49,6 +50,13 @@ try {
     echo "✓ New contact form submission creates a client with message in notes\n";
 
     $existing_email = 'contact-existing-' . $suffix . '@example.com';
+    $duplicate_stmt = $conn->prepare("
+        INSERT INTO clients (name, email, phone, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ");
+    $duplicate_stmt->execute(['Older Duplicate', $existing_email, '555-9999', 'Old duplicate note']);
+    $duplicate_client_id = safe_int($conn->lastInsertId());
+
     $seed_stmt = $conn->prepare("
         INSERT INTO clients (name, email, phone, notes, created_at, updated_at)
         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -57,8 +65,8 @@ try {
     $existing_client_id = safe_int($conn->lastInsertId());
 
     $existing_payload = [
-        'name' => 'Updated Name ' . $suffix,
-        'email' => $existing_email,
+        'name' => 'Attempted Update Name ' . $suffix,
+        'email' => strtoupper($existing_email),
         'phone' => '555-2200',
         'service' => 'walking',
         'message' => 'Second message from existing contact.',
@@ -77,15 +85,21 @@ try {
 
     $updated_notes = array_string_value($updated_client, 'notes');
     if (
-        array_string_value($updated_client, 'name') !== $existing_payload['name']
-        || array_string_value($updated_client, 'phone') !== $existing_payload['phone']
+        array_string_value($updated_client, 'name') !== 'Old Name'
+        || array_string_value($updated_client, 'phone') !== '555-0000'
         || strpos($updated_notes, 'Existing note') === false
         || strpos($updated_notes, 'Message: ' . $existing_payload['message']) === false
     ) {
         throw new RuntimeException('Existing client update did not preserve/append notes correctly.');
     }
 
-    echo "✓ Existing client is updated and contact message is appended to notes\n";
+    $stmt->execute([$duplicate_client_id]);
+    $duplicate_client = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+    if (strpos(array_string_value($duplicate_client, 'notes'), 'Second message from existing contact.') !== false) {
+        throw new RuntimeException('Only the most recent duplicate email record should be updated.');
+    }
+
+    echo "✓ Existing client lookup is case-insensitive, deterministic, and only appends notes\n";
 
     $invalid_result = bdta_handle_public_contact_submission($conn, [
         'name' => '',
@@ -102,7 +116,7 @@ try {
     echo "\n✗ Test failed: " . $e->getMessage() . "\n";
     exit(1);
 } finally {
-    foreach ([$created_client_id, $existing_client_id] as $client_id) {
+    foreach ([$created_client_id, $existing_client_id, $duplicate_client_id] as $client_id) {
         if ($client_id > 0) {
             $cleanup_stmt = $conn->prepare("DELETE FROM clients WHERE id = ?");
             $cleanup_stmt->execute([$client_id]);

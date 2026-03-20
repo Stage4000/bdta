@@ -187,7 +187,19 @@ function initContactForm() {
                 message: message
             })
         })
-            .then(response => response.json())
+            .then(response => {
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+                if (!isJson) {
+                    throw new Error('Unable to send message right now. Please try again.');
+                }
+                return response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Unable to send message right now. Please try again.');
+                    }
+                    return data;
+                });
+            })
             .then(data => {
                 if (!data.success) {
                     throw new Error(data.error || 'Unable to send message.');
