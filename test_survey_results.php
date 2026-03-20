@@ -2,6 +2,9 @@
 <?php
 
 /**
+ * Normalize a filesystem path and split it into non-empty segments.
+ *
+ * @param string $path
  * @return list<string>
  */
 function bdta_path_segments(string $path): array
@@ -14,6 +17,13 @@ function bdta_path_segments(string $path): array
     return array_values($non_empty_segments);
 }
 
+/**
+ * Compute a relative path from one directory to another directory.
+ *
+ * @param string $from_directory
+ * @param string $to_directory
+ * @return string
+ */
 function bdta_relative_path(string $from_directory, string $to_directory): string
 {
     $from_segments = bdta_path_segments($from_directory);
