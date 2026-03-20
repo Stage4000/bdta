@@ -153,7 +153,7 @@ include '../portal/includes/header.php';
                     </form>
                 <?php else: ?>
                     <div class="alert alert-success mb-0">
-                        <i class="fas fa-check-circle me-1"></i>You have reviewed this follow-up note.
+                        <i class="fas fa-check-circle me-1"></i> You have reviewed this follow-up note.
                     </div>
                 <?php endif; ?>
             </div>

@@ -82,7 +82,8 @@ function bdta_notify_follow_up_note_completed(PDO $conn, int $submission_id): ar
     }
 
     $review_url = bdta_get_follow_up_review_url($submission_id);
-    $client_name = escape(array_string_value($submission, 'client_name'));
+    $client_name_raw = array_string_value($submission, 'client_name');
+    $client_name = escape($client_name_raw);
     $form_name = escape(array_string_value($submission, 'form_name'));
     $appointment_summary = trim(
         array_string_value($submission, 'service_type') . ' ' .
@@ -97,7 +98,7 @@ function bdta_notify_follow_up_note_completed(PDO $conn, int $submission_id): ar
             ? '<p>Appointment: <strong>' . escape($appointment_summary) . '</strong></p>'
             : '')
         . '<p>Please review it here: <a href="' . escape($review_url) . '">Review Follow-up Note</a></p>';
-    $text_body = "Hello " . array_string_value($submission, 'client_name') . ",\n\n"
+    $text_body = "Hello " . $client_name_raw . ",\n\n"
         . "Your " . array_string_value($submission, 'form_name') . " has been completed by our team.\n"
         . ($appointment_summary !== '' ? "Appointment: " . $appointment_summary . "\n" : '')
         . "Please review it here:\n" . $review_url;
