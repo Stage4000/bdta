@@ -85,6 +85,18 @@ if ($is_edit && !empty($existing_items)) {
 }
 $appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$package_form_template_id = $is_edit ? safe_int($package['form_template_id'] ?? 0) : 0;
+$package_form_query = "SELECT id, name FROM form_templates WHERE COALESCE(is_internal, 0) = 0 AND is_active = 1";
+$package_form_params = [];
+if ($package_form_template_id > 0) {
+    $package_form_query = "SELECT id, name FROM form_templates WHERE (COALESCE(is_internal, 0) = 0 AND is_active = 1) OR id = ?";
+    $package_form_params[] = $package_form_template_id;
+}
+$package_form_query .= " ORDER BY name";
+$stmt = $conn->prepare($package_form_query);
+$stmt->execute($package_form_params);
+$available_package_forms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 /**
  * @param list<array<string, mixed>> $appointment_types_rows
  * @param array<int, int> $selected_items
@@ -129,6 +141,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $price           = safe_float($_POST['price'] ?? 0);
     $expiration_days = !empty($_POST['expiration_days']) ? safe_int($_POST['expiration_days']) : null;
     $is_active       = isset($_POST['is_active']) ? 1 : 0;
+    $form_template_id_value = safe_int($_POST['form_template_id'] ?? 0);
+    $form_template_id = $form_template_id_value > 0 ? $form_template_id_value : null;
 
     // Validate
     $errors = [];
@@ -148,6 +162,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($items)) {
         $errors[] = 'At least one appointment type must have a quantity greater than zero.';
     }
+    if ($form_template_id !== null) {
+        $form_is_allowed = false;
+        foreach ($available_package_forms as $available_package_form) {
+            if (safe_int($available_package_form['id'] ?? 0) === $form_template_id) {
+                $form_is_allowed = true;
+                break;
+            }
+        }
+        if (!$form_is_allowed) {
+            $errors[] = 'Please choose a valid client-facing form template.';
+        }
+    }
 
     if (empty($errors)) {
         try {
@@ -155,10 +181,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($is_edit) {
                 $stmt = $conn->prepare("
-                    UPDATE packages SET name=?, description=?, price=?, expiration_days=?, is_active=?,
+                    UPDATE packages SET name=?, description=?, price=?, expiration_days=?, is_active=?, form_template_id=?,
                     updated_at=CURRENT_TIMESTAMP WHERE id=?
                 ");
-                $stmt->execute([$name, $description, $price, $expiration_days, $is_active, $id]);
+                $stmt->execute([$name, $description, $price, $expiration_days, $is_active, $form_template_id, $id]);
                 // Replace items
                 $conn->prepare("DELETE FROM package_items WHERE package_id = ?")->execute([$id]);
                 // Regenerate share token if requested
@@ -170,10 +196,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $share_token = bin2hex(random_bytes(16));
                 $stmt = $conn->prepare("
-                    INSERT INTO packages (name, description, price, expiration_days, is_active, share_token)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO packages (name, description, price, expiration_days, is_active, share_token, form_template_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$name, $description, $price, $expiration_days, $is_active, $share_token]);
+                $stmt->execute([$name, $description, $price, $expiration_days, $is_active, $share_token, $form_template_id]);
                 $id = $conn->lastInsertId();
                 $_SESSION['flash'] = ['type' => 'success', 'message' => 'Package created successfully!'];
             }
@@ -245,6 +271,20 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-12">
                         <label for="description" class="form-label">Description</label>
                         <textarea class="form-control" id="description" name="description" rows="2"><?= htmlspecialchars($package['description'] ?? '') ?></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="form_template_id" class="form-label">Attached Checkout Form</label>
+                        <select class="form-select" id="form_template_id" name="form_template_id">
+                            <option value="">— None —</option>
+                            <?php foreach ($available_package_forms as $available_package_form): ?>
+                                <?php $available_form_id = safe_int($available_package_form['id'] ?? 0); ?>
+                                <option value="<?= $available_form_id ?>"
+                                    <?= safe_int($_POST['form_template_id'] ?? ($package['form_template_id'] ?? 0)) === $available_form_id ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars(array_string_value($available_package_form, 'name')) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Optionally require a client-facing form during package checkout.</div>
                     </div>
                 </div>
 

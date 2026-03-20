@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
 require_once __DIR__ . '/../backend/includes/package_contracts.php';
+require_once __DIR__ . '/../backend/includes/package_checkout.php';
 require_once __DIR__ . '/../backend/includes/tawk_to.php';
 
 $db = new Database();
@@ -46,6 +47,8 @@ $stmt = $conn->prepare("
 $stmt->execute([$package['id']]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $package_contracts = bdta_get_package_contract_summary($conn, array_int_value($package, 'id'));
+$attached_form = bdta_get_package_attached_form($conn, safe_int($package['form_template_id'] ?? 0));
+$attached_form_posted_values = [];
 
 // Record page view (analytics)
 $ip = $_SERVER['REMOTE_ADDR'] ?? null;
@@ -61,13 +64,122 @@ try {
 
 $success = false;
 $error   = null;
+$info_message = null;
 $package_price = safe_float($package['price'] ?? 0);
+$payment_required = $package_price > 0;
+$session_id = trim(scalar_string($_GET['session_id'] ?? ''));
+$purchase_status = trim(scalar_string($_GET['purchase'] ?? ''));
+
+if (!isset($_SESSION['pending_package_purchases']) || !is_array($_SESSION['pending_package_purchases'])) {
+    $_SESSION['pending_package_purchases'] = [];
+}
+if (!isset($_SESSION['package_purchase_success']) || !is_array($_SESSION['package_purchase_success'])) {
+    $_SESSION['package_purchase_success'] = [];
+}
+
+/** @var array<string, mixed>|null $pending_purchase_prefill */
+$pending_purchase_prefill = $_SESSION['pending_package_purchases'][$token] ?? null;
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && is_array($pending_purchase_prefill) && is_array($pending_purchase_prefill['form_responses'] ?? null)) {
+    $attached_form_posted_values = $pending_purchase_prefill['form_responses'];
+}
+
+if ($purchase_status === 'success' && !empty($_SESSION['package_purchase_success'][$token])) {
+    $success = true;
+    unset($_SESSION['package_purchase_success'][$token]);
+}
+
+if (!$success && $session_id !== '') {
+    $existing_purchase_stmt = $conn->prepare("
+        SELECT id
+        FROM client_packages
+        WHERE package_id = ? AND stripe_checkout_session_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $existing_purchase_stmt->execute([$package['id'], $session_id]);
+    $existing_purchase = $existing_purchase_stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (is_array($existing_purchase)) {
+        $_SESSION['package_purchase_success'][$token] = 1;
+        header('Location: package_detail.php?token=' . urlencode($token) . '&purchase=success');
+        exit;
+    }
+
+    /** @var array<string, mixed>|null $pending_purchase */
+    $pending_purchase = $_SESSION['pending_package_purchases'][$token] ?? null;
+    if (!is_array($pending_purchase) || safe_int($pending_purchase['package_id'] ?? 0) !== safe_int($package['id'] ?? 0)) {
+        $error = 'We could not recover your checkout details to finish this purchase. Please try again or contact us if your card was charged.';
+    } else {
+        require_once __DIR__ . '/../backend/includes/stripe_config.php';
+
+        if (!isStripeEnabled()) {
+            $error = 'Online payments are not currently available. Please contact us to complete this purchase.';
+        } else {
+            $ch = curl_init('https://api.stripe.com/v1/checkout/sessions/' . urlencode($session_id));
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
+            ]);
+            $response = curl_exec($ch);
+            if ($response === false) {
+                $curl_error = curl_error($ch);
+                curl_close($ch);
+                error_log("Package Stripe session retrieval curl failed: $curl_error");
+                $error = 'Could not verify your payment. If you were charged, please contact us.';
+            } else {
+                $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                $session = decode_json_assoc(scalar_string($response));
+
+                if ($http_code !== 200 || array_string_value($session, 'id') === '') {
+                    error_log("Package Stripe session retrieval failed for session $session_id (HTTP $http_code)");
+                    $error = 'Could not verify your payment. If you were charged, please contact us.';
+                } elseif (array_string_value($session, 'payment_status') !== 'paid') {
+                    $info_message = 'Payment was not completed. You can review the package details and try again below.';
+                } elseif (safe_int($session['amount_total'] ?? 0) !== (int) round($package_price * 100, 0)) {
+                    $error = 'The payment amount did not match this package. Please contact us if you were charged.';
+                } elseif (safe_int($session['metadata']['package_id'] ?? 0) !== safe_int($package['id'] ?? 0)) {
+                    $error = 'The payment confirmation did not match this package. Please contact us if you were charged.';
+                } else {
+                    try {
+                        bdta_finalize_package_purchase(
+                            $conn,
+                            $package,
+                            $items,
+                            scalar_string($pending_purchase['buyer_name'] ?? ''),
+                            scalar_string($pending_purchase['buyer_email'] ?? ''),
+                            scalar_string($pending_purchase['buyer_phone'] ?? ''),
+                            scalar_string($pending_purchase['notes'] ?? ''),
+                            $attached_form,
+                            is_array($pending_purchase['form_responses'] ?? null) ? $pending_purchase['form_responses'] : [],
+                            safe_int($pending_purchase['view_id'] ?? 0),
+                            'credit_card',
+                            $session_id
+                        );
+                        unset($_SESSION['pending_package_purchases'][$token]);
+                        $_SESSION['package_purchase_success'][$token] = 1;
+                        header('Location: package_detail.php?token=' . urlencode($token) . '&purchase=success');
+                        exit;
+                    } catch (Throwable $e) {
+                        error_log('Package purchase finalization failed: ' . $e->getMessage());
+                        $error = 'Your payment was received, but we could not finish issuing the package automatically. Please contact us so we can help right away.';
+                    }
+                }
+            }
+        }
+    }
+}
 
 // Handle purchase form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purchase') {
+if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purchase') {
     $buyer_name  = trim(scalar_string($_POST['buyer_name'] ?? ''));
     $buyer_email = trim(scalar_string($_POST['buyer_email'] ?? ''));
+    $buyer_phone = trim(scalar_string($_POST['buyer_phone'] ?? ''));
     $notes       = trim(scalar_string($_POST['notes'] ?? ''));
+    $attached_form_posted_values = is_array($_POST['package_form'][$attached_form['id'] ?? 0] ?? null)
+        ? $_POST['package_form'][$attached_form['id']]
+        : [];
+    $form_validation = bdta_validate_package_form_submission($attached_form, is_array($attached_form_posted_values) ? $attached_form_posted_values : []);
 
     if ($buyer_name === '' || $buyer_email === '') {
         $error = 'Please enter your name and email address.';
@@ -77,76 +189,107 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purch
         $error = 'This package has no credits configured. Please contact us.';
     } elseif (!bdta_package_purchase_acknowledged($_POST, $package_contracts)) {
         $error = 'Please review and acknowledge the required contract terms before purchasing this package.';
+    } elseif (!empty($form_validation['errors'])) {
+        $error = implode(' ', $form_validation['errors']);
     } else {
-        try {
-            $conn->beginTransaction();
+        if ($payment_required) {
+            require_once __DIR__ . '/../backend/includes/stripe_config.php';
 
-            // Find or create client by email
-            $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
-            $stmt->execute([$buyer_email]);
-            $existing_client = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($existing_client) {
-                $client_id = $existing_client['id'];
+            if (!isStripeEnabled()) {
+                $error = 'Online payments are not currently available. Please contact us to complete this purchase.';
             } else {
-                $stmt = $conn->prepare("INSERT INTO clients (name, email) VALUES (?, ?)");
-                $stmt->execute([$buyer_name, $buyer_email]);
-                $client_id = $conn->lastInsertId();
+                $amount_cents = (int) round($package_price * 100, 0);
+                if ($amount_cents < 50) {
+                    $error = 'This package amount is too low for online card checkout. Please contact us to complete the purchase.';
+                } else {
+                    $_SESSION['pending_package_purchases'][$token] = [
+                        'package_id' => safe_int($package['id'] ?? 0),
+                        'buyer_name' => $buyer_name,
+                        'buyer_email' => strtolower($buyer_email),
+                        'buyer_phone' => $buyer_phone,
+                        'notes' => $notes,
+                        'form_responses' => $form_validation['responses'],
+                        'view_id' => $view_id,
+                    ];
+
+                    $base_url = getDynamicBaseUrl();
+                    $success_url = $base_url . '/client/package_detail.php?token=' . urlencode($token) . '&session_id={CHECKOUT_SESSION_ID}';
+                    $cancel_url = $base_url . '/client/package_detail.php?token=' . urlencode($token);
+
+                    $post_data = http_build_query([
+                        'mode' => 'payment',
+                        'success_url' => $success_url,
+                        'cancel_url' => $cancel_url,
+                        'customer_email' => strtolower($buyer_email),
+                        'line_items[0][quantity]' => 1,
+                        'line_items[0][price_data][currency]' => STRIPE_CURRENCY,
+                        'line_items[0][price_data][unit_amount]' => $amount_cents,
+                        'line_items[0][price_data][product_data][name]' => scalar_string($package['name'] ?? 'Package Purchase'),
+                        'line_items[0][price_data][product_data][description]' => 'Package purchase for ' . scalar_string($package['name'] ?? ''),
+                        'metadata[package_id]' => safe_int($package['id'] ?? 0),
+                        'metadata[package_token]' => $token,
+                        'payment_intent_data[metadata][package_id]' => safe_int($package['id'] ?? 0),
+                        'payment_intent_data[metadata][package_token]' => $token,
+                        'payment_intent_data[description]' => scalar_string($package['name'] ?? 'Package Purchase') . ' — ' . $buyer_name,
+                    ]);
+
+                    $ch = curl_init('https://api.stripe.com/v1/checkout/sessions');
+                    curl_setopt_array($ch, [
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_POST => true,
+                        CURLOPT_POSTFIELDS => $post_data,
+                        CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
+                        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+                    ]);
+                    $response = curl_exec($ch);
+                    if ($response === false) {
+                        $curl_error = curl_error($ch);
+                        curl_close($ch);
+                        error_log("Package Stripe checkout session creation failed (curl): $curl_error");
+                        $error = 'Could not initiate online payment. Please try again or contact us.';
+                    } else {
+                        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        curl_close($ch);
+                        $session = decode_json_assoc(scalar_string($response));
+                        if ($http_code !== 200 || array_string_value($session, 'url') === '') {
+                            $session_error = is_array($session['error'] ?? null) ? $session['error'] : [];
+                            error_log(
+                                'Package Stripe Checkout Session creation failed [' .
+                                array_string_value($session_error, 'type', 'unknown') . '/' .
+                                array_string_value($session_error, 'code') . ']: ' .
+                                array_string_value($session_error, 'message', 'Unknown error') .
+                                " (HTTP $http_code)"
+                            );
+                            $error = 'Could not initiate online payment. Please try again or contact us.';
+                        } else {
+                            header('Location: ' . array_string_value($session, 'url'));
+                            exit;
+                        }
+                    }
+                }
             }
-
-            // Calculate expiry
-            $expires_at = null;
-            if ($package['expiration_days']) {
-                $expires_at = date('Y-m-d H:i:s', safe_timestamp(strtotime('+' . $package['expiration_days'] . ' days')));
+        } else {
+            try {
+                bdta_finalize_package_purchase(
+                    $conn,
+                    $package,
+                    $items,
+                    $buyer_name,
+                    $buyer_email,
+                    $buyer_phone,
+                    $notes,
+                    $attached_form,
+                    $form_validation['responses'],
+                    $view_id,
+                    'offline'
+                );
+                $_SESSION['package_purchase_success'][$token] = 1;
+                header('Location: package_detail.php?token=' . urlencode($token) . '&purchase=success');
+                exit;
+            } catch (Throwable $e) {
+                error_log('Package purchase failed: ' . $e->getMessage());
+                $error = 'An error occurred while processing your purchase. Please try again or contact us.';
             }
-
-            // Create client_packages record
-            $note_text = $notes !== '' ? $notes : 'Self-serve purchase via shareable link';
-            $stmt = $conn->prepare("
-                INSERT INTO client_packages
-                    (client_id, package_id, package_name, expires_at, is_active, notes, created_by)
-                VALUES (?, ?, ?, ?, 1, ?, NULL)
-            ");
-            $stmt->execute([$client_id, $package['id'], $package['name'], $expires_at, $note_text]);
-            $cp_id = $conn->lastInsertId();
-
-            // Create per-type credit rows
-            $credit_stmt = $conn->prepare("
-                INSERT INTO client_package_credits
-                    (client_package_id, client_id, appointment_type_id, total_credits, used_credits)
-                VALUES (?, ?, ?, ?, 0)
-            ");
-            foreach ($items as $item) {
-                $credit_stmt->execute([$cp_id, $client_id, $item['appointment_type_id'], $item['quantity']]);
-            }
-
-            // Log transactions
-            $cred_stmt = $conn->prepare("SELECT * FROM client_package_credits WHERE client_package_id = ?");
-            $cred_stmt->execute([$cp_id]);
-            $tx_stmt = $conn->prepare("
-                INSERT INTO package_credit_transactions
-                    (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, notes, created_by)
-                VALUES (?, ?, ?, 'purchase', ?, ?, NULL)
-            ");
-            foreach ($cred_stmt->fetchAll(PDO::FETCH_ASSOC) as $cred) {
-                $tx_stmt->execute([
-                    $cred['id'], $client_id, $cred['appointment_type_id'],
-                    $cred['total_credits'],
-                    "Package '{$package['name']}' purchased via shareable link",
-                ]);
-            }
-
-            // Mark this view as a purchase in analytics
-            if ($view_id) {
-                $conn->prepare("UPDATE package_link_views SET purchased=1, client_id=? WHERE id=?")
-                     ->execute([$client_id, $view_id]);
-            }
-
-            $conn->commit();
-            $success = true;
-        } catch (PDOException $e) {
-            if ($conn->inTransaction()) $conn->rollBack();
-            $error = 'An error occurred while processing your purchase. Please try again or contact us.';
         }
     }
 }
@@ -215,7 +358,8 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                     <div class="card-body text-center py-5">
                         <i class="fas fa-circle-check fa-4x text-success mb-3"></i>
                         <h3 class="text-success">Purchase Confirmed!</h3>
-                        <p class="text-muted">Thank you! Your credits for <strong><?= htmlspecialchars($package['name']) ?></strong> have been issued. We'll be in touch shortly.</p>
+                        <p class="text-muted mb-2">Thank you! Your credits for <strong><?= htmlspecialchars($package['name']) ?></strong> have been issued.</p>
+                        <p class="small text-muted mb-4">To use them, sign in to the client portal and book the appointment types included in this package. If you do not have a portal password yet, use the same email address you purchased with to get started.</p>
                         <hr>
                         <h6 class="mb-3">Credits Issued:</h6>
                         <div class="row g-2 justify-content-center">
@@ -228,6 +372,14 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                                 </div>
                             </div>
                             <?php endforeach; ?>
+                        </div>
+                        <div class="d-flex flex-column flex-sm-row justify-content-center gap-2 mt-4">
+                            <a href="<?= htmlspecialchars(getDynamicBaseUrl() . '/portal/login.php') ?>" class="btn btn-brand">
+                                <i class="fas fa-right-to-bracket me-2"></i>Go to Client Portal
+                            </a>
+                            <a href="<?= htmlspecialchars(getDynamicBaseUrl()) ?>" class="btn btn-outline-secondary">
+                                <i class="fas fa-house me-2"></i>Return to Main Website
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -318,6 +470,9 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                         <h5 class="mb-0"><i class="fas fa-shopping-cart me-2 brand-purple"></i>Purchase This Package</h5>
                     </div>
                     <div class="card-body">
+                        <?php if ($info_message): ?>
+                            <div class="alert alert-warning"><?= htmlspecialchars($info_message) ?></div>
+                        <?php endif; ?>
                         <?php if ($error): ?>
                             <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
                         <?php endif; ?>
@@ -327,33 +482,131 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                             <div class="mb-3">
                                 <label for="buyer_name" class="form-label">Your Name <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="buyer_name" name="buyer_name"
-                                       value="<?= htmlspecialchars(scalar_string($_POST['buyer_name'] ?? '')) ?>"
+                                       value="<?= htmlspecialchars(scalar_string($_POST['buyer_name'] ?? ($pending_purchase_prefill['buyer_name'] ?? ''))) ?>"
                                        placeholder="Jane Smith" required>
                             </div>
 
                             <div class="mb-3">
                                 <label for="buyer_email" class="form-label">Email Address <span class="text-danger">*</span></label>
                                 <input type="email" class="form-control" id="buyer_email" name="buyer_email"
-                                       value="<?= htmlspecialchars(scalar_string($_POST['buyer_email'] ?? '')) ?>"
+                                       value="<?= htmlspecialchars(scalar_string($_POST['buyer_email'] ?? ($pending_purchase_prefill['buyer_email'] ?? ''))) ?>"
                                        placeholder="you@example.com" required>
                                 <div class="form-text">We'll use this to look up or create your account.</div>
                             </div>
 
                             <div class="mb-3">
+                                <label for="buyer_phone" class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" id="buyer_phone" name="buyer_phone"
+                                       value="<?= htmlspecialchars(scalar_string($_POST['buyer_phone'] ?? ($pending_purchase_prefill['buyer_phone'] ?? ''))) ?>"
+                                       placeholder="(555) 123-4567">
+                            </div>
+
+                            <div class="mb-3">
                                 <label for="notes" class="form-label">Notes <small class="text-muted">(optional)</small></label>
                                 <textarea class="form-control" id="notes" name="notes" rows="2"
-                                           placeholder="Any questions or special requests?"><?= htmlspecialchars(scalar_string($_POST['notes'] ?? '')) ?></textarea>
+                                            placeholder="Any questions or special requests?"><?= htmlspecialchars(scalar_string($_POST['notes'] ?? ($pending_purchase_prefill['notes'] ?? ''))) ?></textarea>
                             </div>
 
                             <div class="alert alert-info py-2 small">
                                 <i class="fas fa-info-circle me-1"></i>
                                 On purchase, the following credits will be issued to your account:
-                                <ul class="mb-0 mt-1">
-                                    <?php foreach ($items as $item): ?>
-                                    <li><strong><?= $item['quantity'] ?>× <?= htmlspecialchars($item['apt_type_name']) ?></strong> credit<?= $item['quantity'] != 1 ? 's' : '' ?></li>
-                                    <?php endforeach; ?>
-                                </ul>
+                                 <ul class="mb-0 mt-1">
+                                     <?php foreach ($items as $item): ?>
+                                     <li><strong><?= $item['quantity'] ?>× <?= htmlspecialchars($item['apt_type_name']) ?></strong> credit<?= $item['quantity'] != 1 ? 's' : '' ?></li>
+                                     <?php endforeach; ?>
+                                 </ul>
+                                 <?php if ($payment_required): ?>
+                                     <div class="mt-2">A secure card payment is required to complete this purchase.</div>
+                                 <?php endif; ?>
+                             </div>
+
+                            <?php if ($attached_form): ?>
+                            <?php $attached_form_id = safe_int($attached_form['id'] ?? 0); ?>
+                            <?php $attached_form_fields = bdta_package_checkout_fields($attached_form['fields'] ?? []); ?>
+                            <div class="border rounded p-3 mb-3">
+                                <h6 class="mb-1"><i class="fas fa-file-lines me-2 brand-purple"></i><?= escape(array_string_value($attached_form, 'name')) ?></h6>
+                                <?php if (array_string_value($attached_form, 'description') !== ''): ?>
+                                    <p class="text-muted small mb-3"><?= escape(array_string_value($attached_form, 'description')) ?></p>
+                                <?php else: ?>
+                                    <p class="text-muted small mb-3">Please complete this form as part of your checkout.</p>
+                                <?php endif; ?>
+                                <?php foreach ($attached_form_fields as $field_index => $field): ?>
+                                    <?php
+                                    $field_label = array_string_value($field, 'label', 'Field ' . ($field_index + 1));
+                                    $field_description = array_string_value($field, 'description');
+                                    $field_type = array_string_value($field, 'type', 'text');
+                                    $field_options = is_array($field['options'] ?? null) ? $field['options'] : [];
+                                    $field_placeholder = array_string_value($field, 'placeholder');
+                                    $field_required = !empty($field['required']);
+                                    $field_value = $attached_form_posted_values[$field_index] ?? ($_POST['package_form'][$attached_form_id][$field_index] ?? null);
+                                    ?>
+                                    <div class="mb-3">
+                                        <label class="form-label">
+                                            <?= escape($field_label) ?>
+                                            <?php if ($field_required): ?><span class="text-danger">*</span><?php endif; ?>
+                                        </label>
+                                        <?php if ($field_description !== ''): ?>
+                                            <div class="form-text text-muted mb-1"><?= escape($field_description) ?></div>
+                                        <?php endif; ?>
+                                        <?php if ($field_type === 'textarea'): ?>
+                                            <textarea class="form-control"
+                                                      name="package_form[<?= $attached_form_id ?>][<?= $field_index ?>]"
+                                                      placeholder="<?= escape($field_placeholder) ?>"
+                                                      <?= $field_required ? 'required' : '' ?>><?= htmlspecialchars(is_scalar($field_value) ? scalar_string($field_value) : '') ?></textarea>
+                                        <?php elseif ($field_type === 'select'): ?>
+                                            <select class="form-select"
+                                                    name="package_form[<?= $attached_form_id ?>][<?= $field_index ?>]"
+                                                    <?= $field_required ? 'required' : '' ?>>
+                                                <option value="">— Select —</option>
+                                                <?php foreach ($field_options as $option): ?>
+                                                    <?php $option_value = scalar_string($option); ?>
+                                                    <option value="<?= escape($option_value) ?>" <?= scalar_string($field_value ?? '') === $option_value ? 'selected' : '' ?>>
+                                                        <?= escape($option_value) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        <?php elseif ($field_type === 'radio'): ?>
+                                            <?php foreach ($field_options as $option_index => $option): ?>
+                                                <?php $option_value = scalar_string($option); ?>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio"
+                                                           id="package_form_<?= $attached_form_id ?>_<?= $field_index ?>_<?= $option_index ?>"
+                                                           name="package_form[<?= $attached_form_id ?>][<?= $field_index ?>]"
+                                                           value="<?= escape($option_value) ?>"
+                                                           <?= scalar_string($field_value ?? '') === $option_value ? 'checked' : '' ?>
+                                                           <?= $field_required && $option_index === 0 ? 'required' : '' ?>>
+                                                    <label class="form-check-label" for="package_form_<?= $attached_form_id ?>_<?= $field_index ?>_<?= $option_index ?>">
+                                                        <?= escape($option_value) ?>
+                                                    </label>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php elseif ($field_type === 'checkbox'): ?>
+                                            <?php $selected_values = is_array($field_value) ? array_map('scalar_string', $field_value) : []; ?>
+                                            <?php foreach ($field_options as $option_index => $option): ?>
+                                                <?php $option_value = scalar_string($option); ?>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           id="package_form_<?= $attached_form_id ?>_<?= $field_index ?>_<?= $option_index ?>"
+                                                           name="package_form[<?= $attached_form_id ?>][<?= $field_index ?>][]"
+                                                           value="<?= escape($option_value) ?>"
+                                                           <?= in_array($option_value, $selected_values, true) ? 'checked' : '' ?>>
+                                                    <label class="form-check-label" for="package_form_<?= $attached_form_id ?>_<?= $field_index ?>_<?= $option_index ?>">
+                                                        <?= escape($option_value) ?>
+                                                    </label>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <input type="<?= escape($field_type) ?>"
+                                                   class="form-control"
+                                                   name="package_form[<?= $attached_form_id ?>][<?= $field_index ?>]"
+                                                   value="<?= htmlspecialchars(is_scalar($field_value) ? scalar_string($field_value) : '') ?>"
+                                                   placeholder="<?= escape($field_placeholder) ?>"
+                                                   <?= $field_required ? 'required' : '' ?>>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
                             </div>
+                            <?php endif; ?>
 
                             <?php if (!empty($package_contracts)): ?>
                             <div class="form-check mb-3">
@@ -368,8 +621,8 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
 
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-brand btn-lg">
-                                    <i class="fas fa-check-circle me-2"></i>
-                                    Purchase<?= $package_price > 0 ? ' – $' . number_format($package_price, 2) : '' ?>
+                                    <i class="fas <?= $payment_required ? 'fa-credit-card' : 'fa-check-circle' ?> me-2"></i>
+                                    <?= $payment_required ? 'Continue to Payment' : 'Purchase' ?><?= $package_price > 0 ? ' – $' . number_format($package_price, 2) : '' ?>
                                 </button>
                             </div>
                         </form>

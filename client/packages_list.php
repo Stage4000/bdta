@@ -25,8 +25,10 @@ $limit_clause = $db->buildLimitClause($per_page, $offset);
 // Pagination clause is built from safe_int()-bounded integers only.
 // nosemgrep
 $stmt = $conn->prepare("
-    SELECT * FROM packages
-    ORDER BY is_active DESC, name ASC" . $limit_clause . "
+    SELECT p.*, ft.name AS attached_form_name
+    FROM packages p
+    LEFT JOIN form_templates ft ON p.form_template_id = ft.id
+    ORDER BY p.is_active DESC, p.name ASC" . $limit_clause . "
 ");
 $stmt->execute();
 $packages = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -158,12 +160,19 @@ include __DIR__ . '/../backend/includes/header.php';
                                      </td>
                                      <td>
                                          <?php $pkg_contracts = $contracts_by_package[$pkg['id']] ?? []; ?>
-                                         <?php if (empty($pkg_contracts)): ?>
-                                             <span class="text-muted">No contract requirements</span>
-                                         <?php else: ?>
-                                             <?php foreach ($pkg_contracts as $contract): ?>
-                                                 <div class="small mb-2">
-                                                     <span class="badge text-bg-warning"><?= escape($contract['name']) ?></span>
+                                          <?php $attached_form_name = array_string_value($pkg, 'attached_form_name'); ?>
+                                          <?php if (empty($pkg_contracts) && $attached_form_name === ''): ?>
+                                              <span class="text-muted">No checkout requirements</span>
+                                          <?php else: ?>
+                                              <?php if ($attached_form_name !== ''): ?>
+                                                  <div class="small mb-2">
+                                                      <span class="badge text-bg-info">Form</span>
+                                                      <div class="text-muted mt-1"><?= escape($attached_form_name) ?></div>
+                                                  </div>
+                                              <?php endif; ?>
+                                              <?php foreach ($pkg_contracts as $contract): ?>
+                                                  <div class="small mb-2">
+                                                      <span class="badge text-bg-warning"><?= escape($contract['name']) ?></span>
                                                      <div class="text-muted mt-1"><?= escape(implode(', ', $contract['appointment_types'])) ?></div>
                                                  </div>
                                              <?php endforeach; ?>

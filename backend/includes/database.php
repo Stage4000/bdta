@@ -1619,6 +1619,8 @@ class Database {
                 price REAL DEFAULT 0,
                 expiration_days INTEGER,
                 is_active INTEGER DEFAULT 1,
+                share_token TEXT,
+                form_template_id INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -1660,6 +1662,8 @@ class Database {
                 expires_at TIMESTAMP,
                 is_active INTEGER DEFAULT 1,
                 notes TEXT,
+                payment_method TEXT,
+                stripe_checkout_session_id TEXT,
                 created_by INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
@@ -1741,6 +1745,17 @@ class Database {
         $pkg_column_names = $this->getTableColumns('packages');
         if (!in_array('share_token', $pkg_column_names)) {
             $this->execSQL("ALTER TABLE packages ADD COLUMN share_token TEXT");
+        }
+        if (!in_array('form_template_id', $pkg_column_names)) {
+            $this->execSQL("ALTER TABLE packages ADD COLUMN form_template_id INTEGER");
+        }
+
+        $client_package_column_names = $this->getTableColumns('client_packages');
+        if (!in_array('payment_method', $client_package_column_names)) {
+            $this->execSQL("ALTER TABLE client_packages ADD COLUMN payment_method TEXT");
+        }
+        if (!in_array('stripe_checkout_session_id', $client_package_column_names)) {
+            $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id TEXT");
         }
 
         // Create package_link_views table for analytics
