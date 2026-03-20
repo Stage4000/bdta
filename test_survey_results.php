@@ -7,7 +7,11 @@
 function bdta_path_segments(string $path): array
 {
     $normalized_path = str_replace('\\', '/', $path);
-    return array_values(array_filter(explode('/', trim($normalized_path, '/')), static fn (string $segment): bool => $segment !== ''));
+    $trimmed_path = trim($normalized_path, '/');
+    $segments = explode('/', $trimmed_path);
+    $non_empty_segments = array_filter($segments, static fn (string $segment): bool => $segment !== '');
+
+    return array_values($non_empty_segments);
 }
 
 function bdta_relative_path(string $from_directory, string $to_directory): string
@@ -32,6 +36,9 @@ if ($backend_directory === false || $temporary_directory === false) {
 
 $sqlite_db_path = bdta_relative_path($backend_directory, $temporary_directory)
     . '/test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
+
+// Keep the temporary SQLite file under the system temp directory and let the
+// environment clean it up instead of deleting a computed path in the test.
 putenv('DB_TYPE=sqlite');
 putenv('SQLITE_DB_PATH=' . $sqlite_db_path);
 
