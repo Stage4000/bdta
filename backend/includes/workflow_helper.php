@@ -4,6 +4,95 @@
  * Provides methods for managing workflows and enrollments
  */
 
+/**
+ * Parse delay value (e.g., "3 days", "2 hours", "30 minutes") into minutes.
+ */
+function bdta_parse_workflow_delay_to_minutes(string|int|float|null $delay_value): int {
+    if (empty($delay_value)) {
+        return 0;
+    }
+
+    // Parse format like "3 days", "2 hours", "30 minutes"
+    if (preg_match('/(\d+)\s*(minute|hour|day|week)s?/i', scalar_string($delay_value), $matches)) {
+        $amount = intval($matches[1]);
+        $unit = strtolower($matches[2]);
+
+        switch ($unit) {
+            case 'minute':
+                return $amount;
+            case 'hour':
+                return $amount * 60;
+            case 'day':
+                return $amount * 60 * 24;
+            case 'week':
+                return $amount * 60 * 24 * 7;
+        }
+    }
+
+    // If just a number, assume minutes
+    if (is_numeric($delay_value)) {
+        return intval($delay_value);
+    }
+
+    return 0;
+}
+
+/**
+ * Get the minimum cadence (in minutes) for active workflow processor tasks.
+ */
+function bdta_get_workflow_processor_interval_minutes(PDO $conn): int {
+    $stmt = $conn->prepare("
+        SELECT schedule_type, schedule_value
+        FROM scheduled_tasks
+        WHERE is_active = 1
+        AND task_type IN ('workflow_processor', 'workflow')
+    ");
+    $stmt->execute();
+    $tasks = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+
+    if ($tasks === []) {
+        return 60;
+    }
+
+    $interval_minutes = [];
+    foreach ($tasks as $task) {
+        $schedule_type = array_string_value($task, 'schedule_type');
+        $schedule_value = trim(array_string_value($task, 'schedule_value'));
+
+        switch ($schedule_type) {
+            case 'interval':
+                $interval_minutes[] = max(1, intval($schedule_value) ?: 60);
+                break;
+            case 'hourly':
+                $interval_minutes[] = 60;
+                break;
+            case 'daily':
+                $interval_minutes[] = 60 * 24;
+                break;
+            case 'weekly':
+                $interval_minutes[] = 60 * 24 * 7;
+                break;
+            case 'monthly':
+                $interval_minutes[] = 60 * 24 * 30;
+                break;
+            case 'custom':
+                // Support */N * * * * cadence
+                if (preg_match('/^\*\/(\d+)\s+\*\s+\*\s+\*\s+\*$/', $schedule_value, $matches)) {
+                    $interval_minutes[] = max(1, intval($matches[1]));
+                } else {
+                    $interval_minutes[] = 60;
+                }
+                break;
+            default:
+                $interval_minutes[] = 60;
+                break;
+        }
+    }
+
+    $min_interval = min($interval_minutes);
+    return $min_interval > 0 ? $min_interval : 60;
+}
+
 class WorkflowHelper {
     private SafePDO $conn;
     
@@ -136,33 +225,7 @@ class WorkflowHelper {
      * Parse delay value (e.g., "3 days", "2 hours", "30 minutes")
      */
     private function parseDelayValue(string|int|float|null $delay_value): int {
-        if (empty($delay_value)) {
-            return 0;
-        }
-        
-        // Parse format like "3 days", "2 hours", "30 minutes"
-        if (preg_match('/(\d+)\s*(minute|hour|day|week)s?/i', scalar_string($delay_value), $matches)) {
-            $amount = intval($matches[1]);
-            $unit = strtolower($matches[2]);
-            
-            switch ($unit) {
-                case 'minute':
-                    return $amount;
-                case 'hour':
-                    return $amount * 60;
-                case 'day':
-                    return $amount * 60 * 24;
-                case 'week':
-                    return $amount * 60 * 24 * 7;
-            }
-        }
-        
-        // If just a number, assume minutes
-        if (is_numeric($delay_value)) {
-            return intval($delay_value);
-        }
-        
-        return 0;
+        return bdta_parse_workflow_delay_to_minutes($delay_value);
     }
 
     /**
