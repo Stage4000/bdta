@@ -97,8 +97,7 @@ function bdta_get_workflow_processor_interval_minutes(PDO $conn): int {
         }
     }
 
-    $min_interval = min($interval_minutes);
-    return $min_interval > 0 ? $min_interval : BDTA_DEFAULT_WORKFLOW_PROCESSOR_INTERVAL_MINUTES;
+    return min($interval_minutes);
 }
 
 class WorkflowHelper {
