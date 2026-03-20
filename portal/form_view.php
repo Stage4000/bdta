@@ -29,12 +29,16 @@ $stmt = $conn->prepare("
     WHERE fs.id = ?
       AND fs.client_id = ?
       AND COALESCE(ft.is_internal, 0) = 0
+      AND fs.status IN ('submitted', 'reviewed')
     LIMIT 1
 ");
 $stmt->execute([$submission_id, $client_id]);
 $submission = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$submission) {
+if (
+    !$submission
+    || bdta_form_type_forced_internal(array_string_value($submission, 'form_type')) === 1
+) {
     setFlashMessage('Form submission not found.', 'error');
     redirect(PORTAL_URL . 'agreements.php');
 }

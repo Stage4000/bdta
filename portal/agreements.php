@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/form_types.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -23,10 +24,14 @@ $stmt = $conn->prepare("
     LEFT JOIN form_templates ft ON fs.template_id = ft.id
     WHERE fs.client_id = ?
       AND COALESCE(ft.is_internal, 0) = 0
+      AND fs.status IN ('submitted', 'reviewed')
     ORDER BY fs.submitted_at DESC
 ");
 $stmt->execute([$client_id]);
-$submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$submissions = array_values(array_filter(
+    $stmt->fetchAll(PDO::FETCH_ASSOC),
+    static fn (array $submission): bool => bdta_form_type_forced_internal(array_string_value($submission, 'form_type')) === 0
+));
 
 $page_title = 'Agreements';
 include '../portal/includes/header.php';
@@ -117,7 +122,7 @@ include '../portal/includes/header.php';
                         </div>
                         <div class="d-md-none table-action-dropdown">
                             <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
