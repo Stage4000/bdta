@@ -14,9 +14,9 @@ function assertWorkflowIntervalTest(bool $condition, string $message): void {
     }
 }
 
-$sqlite_test_file = 'bdta_workflow_interval_' . uniqid('', true) . '.db';
-putenv('SQLITE_DB_PATH=' . $sqlite_test_file);
-$db_file_path = __DIR__ . '/backend/' . $sqlite_test_file;
+$sqlite_test_filename = 'bdta_workflow_interval_' . uniqid('', true) . '.db';
+putenv('SQLITE_DB_PATH=' . $sqlite_test_filename);
+$db_file_path = __DIR__ . '/backend/' . $sqlite_test_filename;
 
 $exit_code = 0;
 $db = null;

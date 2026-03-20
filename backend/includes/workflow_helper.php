@@ -4,6 +4,8 @@
  * Provides methods for managing workflows and enrollments
  */
 
+const BDTA_DEFAULT_WORKFLOW_PROCESSOR_INTERVAL_MINUTES = 60;
+
 /**
  * Parse delay value (e.g., "3 days", "2 hours", "30 minutes") into minutes.
  */
@@ -12,8 +14,10 @@ function bdta_parse_workflow_delay_to_minutes(string|int|float|null $delay_value
         return 0;
     }
 
+    $normalized_delay_value = trim(scalar_string($delay_value));
+
     // Parse format like "3 days", "2 hours", "30 minutes"
-    if (preg_match('/(\d+)\s*(minute|hour|day|week)s?/i', scalar_string($delay_value), $matches)) {
+    if (preg_match('/^(\d+)\s*(minute|hour|day|week)s?$/i', $normalized_delay_value, $matches)) {
         $amount = intval($matches[1]);
         $unit = strtolower($matches[2]);
 
@@ -30,8 +34,8 @@ function bdta_parse_workflow_delay_to_minutes(string|int|float|null $delay_value
     }
 
     // If just a number, assume minutes
-    if (is_numeric($delay_value)) {
-        return intval($delay_value);
+    if (is_numeric($normalized_delay_value)) {
+        return intval($normalized_delay_value);
     }
 
     return 0;
@@ -51,7 +55,7 @@ function bdta_get_workflow_processor_interval_minutes(PDO $conn): int {
     $tasks = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 
     if ($tasks === []) {
-        return 60;
+        return BDTA_DEFAULT_WORKFLOW_PROCESSOR_INTERVAL_MINUTES;
     }
 
     $interval_minutes = [];
@@ -76,21 +80,22 @@ function bdta_get_workflow_processor_interval_minutes(PDO $conn): int {
                 $interval_minutes[] = 60 * 24 * 30;
                 break;
             case 'custom':
-                // Support */N * * * * cadence
+                // Only */N * * * * cadence is parsed for interval extraction.
+                // Other custom cron formats fall back to the default interval.
                 if (preg_match('/^\*\/(\d+)\s+\*\s+\*\s+\*\s+\*$/', $schedule_value, $matches)) {
                     $interval_minutes[] = max(1, intval($matches[1]));
                 } else {
-                    $interval_minutes[] = 60;
+                    $interval_minutes[] = BDTA_DEFAULT_WORKFLOW_PROCESSOR_INTERVAL_MINUTES;
                 }
                 break;
             default:
-                $interval_minutes[] = 60;
+                $interval_minutes[] = BDTA_DEFAULT_WORKFLOW_PROCESSOR_INTERVAL_MINUTES;
                 break;
         }
     }
 
     $min_interval = min($interval_minutes);
-    return $min_interval > 0 ? $min_interval : 60;
+    return $min_interval > 0 ? $min_interval : BDTA_DEFAULT_WORKFLOW_PROCESSOR_INTERVAL_MINUTES;
 }
 
 class WorkflowHelper {
