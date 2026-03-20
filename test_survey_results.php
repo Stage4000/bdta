@@ -1,9 +1,39 @@
 #!/usr/bin/env php
 <?php
 
-$sqlite_relative_path = '../../../../../../tmp/test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
+/**
+ * @return list<string>
+ */
+function bdta_path_segments(string $path): array
+{
+    $normalized_path = str_replace('\\', '/', $path);
+    return array_values(array_filter(explode('/', trim($normalized_path, '/')), static fn (string $segment): bool => $segment !== ''));
+}
+
+function bdta_relative_path(string $from_directory, string $to_directory): string
+{
+    $from_segments = bdta_path_segments($from_directory);
+    $to_segments = bdta_path_segments($to_directory);
+
+    while ($from_segments !== [] && $to_segments !== [] && $from_segments[0] === $to_segments[0]) {
+        array_shift($from_segments);
+        array_shift($to_segments);
+    }
+
+    return str_repeat('../', count($from_segments)) . implode('/', $to_segments);
+}
+
+$backend_directory = realpath(__DIR__ . '/backend');
+$temporary_directory = realpath(sys_get_temp_dir());
+
+if ($backend_directory === false || $temporary_directory === false) {
+    throw new RuntimeException('Unable to resolve filesystem paths for survey test database.');
+}
+
+$sqlite_db_path = bdta_relative_path($backend_directory, $temporary_directory)
+    . '/test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
 putenv('DB_TYPE=sqlite');
-putenv('SQLITE_DB_PATH=' . $sqlite_relative_path);
+putenv('SQLITE_DB_PATH=' . $sqlite_db_path);
 
 require_once __DIR__ . '/backend/includes/config.php';
 require_once __DIR__ . '/backend/includes/survey_results.php';
