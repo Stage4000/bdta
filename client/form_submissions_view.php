@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/form_types.php';
+require_once '../backend/includes/follow_up_notes.php';
 requireLogin();
 
 $db = new Database();
@@ -90,6 +91,7 @@ if (!$submission) {
 
 /** @var array<string, mixed> $submission */
 $submission = $submission;
+$client_review_submission = bdta_form_submission_requires_client_review(array_string_value($submission, 'form_type'));
 
 // Decode JSON fields
 $fields = decode_json_assoc_list(array_string_value($submission, 'fields'));
@@ -293,12 +295,20 @@ include '../backend/includes/header.php';
                         </div>
                     </div>
 
-                    <?php if (array_string_value($submission, 'reviewed_by_name') !== ''): ?>
+                    <?php if (array_string_value($submission, 'reviewed_at') !== ''): ?>
                         <div class="mb-3">
                             <label class="text-muted small">Reviewed</label>
                         <div>
                             <?= escape(formatDateTime(array_string_value($submission, 'reviewed_at'))) ?>
-                            <br><small>by <?= escape(array_string_value($submission, 'reviewed_by_name')) ?></small>
+                            <br><small>
+                                <?php if (array_string_value($submission, 'reviewed_by_name') !== ''): ?>
+                                    by <?= escape(array_string_value($submission, 'reviewed_by_name')) ?>
+                                <?php elseif ($client_review_submission): ?>
+                                    by client in the portal
+                                <?php else: ?>
+                                    Review recorded
+                                <?php endif; ?>
+                            </small>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -311,7 +321,12 @@ include '../backend/includes/header.php';
                     <h5 class="mb-0">Actions</h5>
                 </div>
                 <div class="card-body">
-                    <?php if (array_string_value($submission, 'status') != 'reviewed'): ?>
+                    <?php if ($client_review_submission): ?>
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-circle-info me-1"></i>
+                            Clients review follow-up note forms from the client portal after submission.
+                        </div>
+                    <?php elseif (array_string_value($submission, 'status') != 'reviewed'): ?>
                         <button type="button" class="btn btn-success w-100 mb-2" data-bs-toggle="modal" data-bs-target="#reviewModal">
                             <i class="fas fa-check-circle"></i> Mark as Reviewed
                         </button>

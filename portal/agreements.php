@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/follow_up_notes.php';
 require_once '../backend/includes/form_types.php';
 requirePortalLogin();
 
@@ -109,6 +110,7 @@ include '../portal/includes/header.php';
             <thead><tr><th>Form</th><th>Submitted</th><th>Status</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
             <?php foreach ($submissions as $fs): ?>
+                <?php $client_review_submission = bdta_form_submission_requires_client_review(scalar_string($fs['form_type'] ?? '')); ?>
                 <tr>
                     <td><?php echo escape($fs['form_title'] ?? 'Unknown Form'); ?></td>
                     <td><?php echo escape($fs['submitted_at'] ?? ''); ?></td>

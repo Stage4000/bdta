@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/form_types.php';
+require_once '../backend/includes/follow_up_notes.php';
 requireLogin();
 
 $db = new Database();
@@ -79,6 +80,7 @@ $stmt = $conn->prepare("
 ");
 $stmt->execute([$id]);
 $forms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$follow_up_submissions_by_booking = bdta_index_follow_up_submissions_by_booking($forms);
 
 // Get quotes
 $stmt = $conn->prepare("SELECT * FROM quotes WHERE client_id = ? ORDER BY created_at DESC");
@@ -382,15 +384,31 @@ include '../backend/includes/header.php';
                                 </thead>
                                 <tbody>
                                     <?php foreach (array_slice($past_appointments, 0, 10) as $apt): ?>
+                                        <?php
+                                        $follow_up_submission = $follow_up_submissions_by_booking[array_int_value($apt, 'id')] ?? null;
+                                        $follow_up_status = is_array($follow_up_submission)
+                                            ? array_string_value($follow_up_submission, 'status')
+                                            : '';
+                                        $follow_up_badge = $follow_up_status === 'reviewed'
+                                            ? 'bg-success'
+                                            : 'bg-primary';
+                                        ?>
                                         <tr>
                                             <td><?= formatDate($apt['appointment_date']) ?></td>
                                             <td><?= date('g:i A', safe_timestamp(strtotime($apt['appointment_time']))) ?></td>
                                             <td><?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?></td>
                                             <td><span class="badge bg-secondary"><?= escape($apt['status']) ?></span></td>
                                             <td>
-                                                <a href="form_requests_create.php?form_type=follow_up_note&amp;booking_id=<?= (int) $apt['id'] ?>" class="btn btn-xs btn-outline-secondary">
-                                                    <i class="fas fa-note-sticky"></i> Follow-up Form
-                                                </a>
+                                                <?php if (is_array($follow_up_submission)): ?>
+                                                    <a href="form_submissions_view.php?id=<?= array_int_value($follow_up_submission, 'id') ?>" class="btn btn-xs btn-outline-primary">
+                                                        <i class="fas fa-eye"></i> View Follow-up
+                                                    </a>
+                                                    <span class="badge <?= $follow_up_badge ?> ms-1"><?= escape(ucfirst($follow_up_status)) ?></span>
+                                                <?php else: ?>
+                                                    <a href="form_requests_create.php?form_type=follow_up_note&amp;booking_id=<?= (int) $apt['id'] ?>" class="btn btn-xs btn-outline-secondary">
+                                                        <i class="fas fa-note-sticky"></i> Follow-up Form
+                                                    </a>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
