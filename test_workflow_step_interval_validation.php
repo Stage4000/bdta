@@ -4,6 +4,11 @@
  * Verify workflow step delay validation aligns with workflow processor cadence.
  */
 
+// Must be set before config/database bootstrap to avoid shared default DB connection.
+$sqlite_test_filename = 'bdta_workflow_interval_' . uniqid('', true) . '.db';
+putenv('DB_TYPE=sqlite');
+putenv('SQLITE_DB_PATH=' . $sqlite_test_filename);
+
 require_once __DIR__ . '/backend/includes/config.php';
 require_once __DIR__ . '/backend/includes/database.php';
 require_once __DIR__ . '/backend/includes/workflow_helper.php';
@@ -14,8 +19,6 @@ function assertWorkflowIntervalTest(bool $condition, string $message): void {
     }
 }
 
-$sqlite_test_filename = 'bdta_workflow_interval_' . uniqid('', true) . '.db';
-putenv('SQLITE_DB_PATH=' . $sqlite_test_filename);
 $db_file_path = __DIR__ . '/backend/' . $sqlite_test_filename;
 
 $exit_code = 0;

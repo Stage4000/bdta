@@ -65,7 +65,10 @@ function bdta_get_workflow_processor_interval_minutes(PDO $conn): int {
 
         switch ($schedule_type) {
             case 'interval':
-                $interval_minutes[] = max(1, intval($schedule_value) ?: 60);
+                $interval = intval($schedule_value);
+                $interval_minutes[] = ($interval > 0)
+                    ? $interval
+                    : BDTA_DEFAULT_WORKFLOW_PROCESSOR_INTERVAL_MINUTES;
                 break;
             case 'hourly':
                 $interval_minutes[] = 60;
