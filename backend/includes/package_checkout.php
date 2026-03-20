@@ -163,6 +163,7 @@ function bdta_finalize_package_purchase(
     $buyer_name = trim($buyer_name);
     $buyer_email = strtolower(trim($buyer_email));
     $buyer_phone = trim($buyer_phone);
+    $buyer_phone_value = $buyer_phone !== '' ? $buyer_phone : null;
     $notes = trim($notes);
 
     if ($buyer_name === '' || $buyer_email === '') {
@@ -175,7 +176,7 @@ function bdta_finalize_package_purchase(
         $client_lookup = $conn->prepare("
             SELECT id, name, phone
             FROM clients
-            WHERE LOWER(email) = LOWER(?)
+            WHERE LOWER(email) = ?
             ORDER BY updated_at DESC, created_at DESC, id DESC
             LIMIT 1
         ");
@@ -201,7 +202,7 @@ function bdta_finalize_package_purchase(
                 ->execute([$updated_name, $updated_phone !== '' ? $updated_phone : null, $client_id]);
         } else {
             $client_insert = $conn->prepare("INSERT INTO clients (name, email, phone) VALUES (?, ?, ?)");
-            $client_insert->execute([$buyer_name, $buyer_email, $buyer_phone !== '' ? $buyer_phone : null]);
+            $client_insert->execute([$buyer_name, $buyer_email, $buyer_phone_value]);
             $client_id = safe_int($conn->lastInsertId());
         }
 

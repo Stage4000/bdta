@@ -136,7 +136,7 @@ if (!$success && $session_id !== '') {
                     $error = 'Could not verify your payment. If you were charged, please contact us.';
                 } elseif (array_string_value($session, 'payment_status') !== 'paid') {
                     $info_message = 'Payment was not completed. You can review the package details and try again below.';
-                } elseif (safe_int($session['amount_total'] ?? 0) !== (int) round($package_price * 100, 0)) {
+                } elseif (safe_int($session['amount_total'] ?? 0) !== (int) round($package_price * 100)) {
                     $error = 'The payment amount did not match this package. Please contact us if you were charged.';
                 } elseif (safe_int($session['metadata']['package_id'] ?? 0) !== safe_int($package['id'] ?? 0)) {
                     $error = 'The payment confirmation did not match this package. Please contact us if you were charged.';
@@ -161,7 +161,7 @@ if (!$success && $session_id !== '') {
                         header('Location: package_detail.php?token=' . urlencode($token) . '&purchase=success');
                         exit;
                     } catch (Throwable $e) {
-                        error_log('Package purchase finalization failed: ' . $e->getMessage());
+                        error_log('Package purchase finalization failed for token ' . $token . ': ' . $e->getMessage());
                         $error = 'Your payment was received, but we could not finish issuing the package automatically. Please contact us so we can help right away.';
                     }
                 }
@@ -176,8 +176,10 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
     $buyer_email = trim(scalar_string($_POST['buyer_email'] ?? ''));
     $buyer_phone = trim(scalar_string($_POST['buyer_phone'] ?? ''));
     $notes       = trim(scalar_string($_POST['notes'] ?? ''));
-    $attached_form_posted_values = is_array($_POST['package_form'][$attached_form['id'] ?? 0] ?? null)
-        ? $_POST['package_form'][$attached_form['id']]
+    $attached_form_id = safe_int($attached_form['id'] ?? 0);
+    $posted_package_form_values = $_POST['package_form'][$attached_form_id] ?? null;
+    $attached_form_posted_values = is_array($posted_package_form_values)
+        ? $posted_package_form_values
         : [];
     $form_validation = bdta_validate_package_form_submission($attached_form, is_array($attached_form_posted_values) ? $attached_form_posted_values : []);
 
@@ -359,7 +361,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                         <i class="fas fa-circle-check fa-4x text-success mb-3"></i>
                         <h3 class="text-success">Purchase Confirmed!</h3>
                         <p class="text-muted mb-2">Thank you! Your credits for <strong><?= htmlspecialchars($package['name']) ?></strong> have been issued.</p>
-                        <p class="small text-muted mb-4">To use them, sign in to the client portal and book the appointment types included in this package. If you do not have a portal password yet, use the same email address you purchased with to get started.</p>
+                        <p class="small text-muted mb-4">To use them, sign in to the client portal and book the appointment types included in this package. If you do not have a portal password yet, use the Forgot Password option with the same email address you purchased with to get started.</p>
                         <hr>
                         <h6 class="mb-3">Credits Issued:</h6>
                         <div class="row g-2 justify-content-center">
@@ -538,7 +540,8 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                                     $field_options = is_array($field['options'] ?? null) ? $field['options'] : [];
                                     $field_placeholder = array_string_value($field, 'placeholder');
                                     $field_required = !empty($field['required']);
-                                    $field_value = $attached_form_posted_values[$field_index] ?? ($_POST['package_form'][$attached_form_id][$field_index] ?? null);
+                                    $posted_field_values = $_POST['package_form'][$attached_form_id] ?? [];
+                                    $field_value = $attached_form_posted_values[$field_index] ?? ($posted_field_values[$field_index] ?? null);
                                     ?>
                                     <div class="mb-3">
                                         <label class="form-label">
