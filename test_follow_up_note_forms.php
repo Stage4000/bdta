@@ -21,6 +21,62 @@ function assertFollowUpNoteTest(bool $condition, string $message): void
     }
 }
 
+/**
+ * Deletes only test SQLite files that resolve directly inside the expected directory.
+ * Missing files are treated as a no-op so cleanup can safely run from finally blocks.
+ */
+function deleteFollowUpNoteTestFile(string $path, string $allowed_directory, ?string $required_basename_prefix = null): void
+{
+    if (str_contains($path, "\0") || str_contains($allowed_directory, "\0")) {
+        error_log('Rejected follow-up note test cleanup path containing null bytes.');
+        return;
+    }
+
+    if (str_contains($path, '../') || str_contains($path, '..\\')) {
+        error_log('Rejected follow-up note test cleanup path containing traversal segments: ' . $path);
+        return;
+    }
+
+    if (!file_exists($path)) {
+        return;
+    }
+
+    $real_path = realpath($path);
+    $real_allowed_directory = realpath($allowed_directory);
+
+    if ($real_path === false || $real_allowed_directory === false) {
+        error_log('Unable to resolve follow-up note test cleanup path: ' . $path);
+        return;
+    }
+
+    // Canonicalize the resolved file path into the expected directory before applying the stricter direct-child check.
+    if (!str_starts_with($real_path, $real_allowed_directory . DIRECTORY_SEPARATOR)) {
+        error_log('Rejected follow-up note test cleanup path outside allowed directory: ' . $real_path);
+        return;
+    }
+
+    if (dirname($real_path) !== $real_allowed_directory) {
+        error_log('Rejected follow-up note test cleanup path outside expected directory level: ' . $real_path);
+        return;
+    }
+
+    if ($required_basename_prefix !== null && !str_starts_with(basename($real_path), $required_basename_prefix)) {
+        error_log('Rejected follow-up note test cleanup path with unexpected basename: ' . $real_path);
+        return;
+    }
+
+    // nosemgrep: php.lang.security.unlink-use.unlink-use
+    if (!unlink($real_path)) {
+        $last_error = error_get_last();
+        $error_detail = is_array($last_error) ? scalar_string($last_error['message'] ?? '') : '';
+        error_log(
+            'Unable to delete follow-up note test SQLite file: '
+            . $real_path
+            . ($error_detail !== '' ? ' (' . $error_detail . ')' : '')
+        );
+    }
+}
+
 $cleanup_submission_id = 0;
 
 try {
@@ -127,7 +183,5 @@ try {
     if ($cleanup_submission_id > 0) {
         $conn->prepare("DELETE FROM form_submissions WHERE id = ?")->execute([$cleanup_submission_id]);
     }
-    if (file_exists($sqlite_path)) {
-        unlink($sqlite_path);
-    }
+    deleteFollowUpNoteTestFile($sqlite_path, __DIR__ . '/backend', 'follow_up_note_forms_test_');
 }
