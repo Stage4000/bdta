@@ -72,10 +72,11 @@ try {
 
     $request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
     $cleanup_submission_id = (int) $request['submission_id'];
+    $latest_submission_id = $cleanup_submission_id;
 
     $conn->prepare("
         UPDATE form_submissions
-        SET responses = ?, status = 'submitted', submitted_at = CURRENT_TIMESTAMP
+        SET responses = ?, status = 'submitted', submitted_at = '2026-01-02 09:00:00'
         WHERE id = ?
     ")->execute([json_encode(['0' => 'Great progress', '1' => 'Practice leash work']), $cleanup_submission_id]);
 
@@ -98,7 +99,7 @@ try {
     $cleanup_submission_id = $second_submission_id;
     $conn->prepare("
         UPDATE form_submissions
-        SET responses = ?, status = 'reviewed', submitted_at = CURRENT_TIMESTAMP, reviewed_at = CURRENT_TIMESTAMP
+        SET responses = ?, status = 'reviewed', submitted_at = '2026-01-01 09:00:00', reviewed_at = '2026-01-01 09:30:00'
         WHERE id = ?
     ")->execute([json_encode(['0' => 'Reviewed update', '1' => 'Continue reinforcement']), $second_submission_id]);
 
@@ -107,12 +108,12 @@ try {
         FROM form_submissions fs
         JOIN form_templates ft ON fs.template_id = ft.id
         WHERE fs.client_id = ?
-        ORDER BY fs.submitted_at DESC
+        ORDER BY fs.id DESC
     ");
     $forms_stmt->execute([$client_id]);
     $indexed = bdta_index_follow_up_submissions_by_booking(assoc_rows($forms_stmt->fetchAll(PDO::FETCH_ASSOC)));
     assertFollowUpNoteTest(isset($indexed[$booking_id]), 'Expected the booking to be indexed with its follow-up submission.');
-    assertFollowUpNoteTest(array_int_value($indexed[$booking_id], 'id') === $second_submission_id, 'Expected the indexed follow-up submission to use the latest booking submission.');
+    assertFollowUpNoteTest(array_int_value($indexed[$booking_id], 'id') === $latest_submission_id, 'Expected the indexed follow-up submission to use the newest submitted_at value even when rows are unsorted.');
     assertFollowUpNoteTest(bdta_form_submission_requires_client_review('follow_up_note'), 'Expected follow-up note forms to require client review.');
     assertFollowUpNoteTest(bdta_form_submission_requires_client_review('session_note'), 'Expected legacy session notes to require client review.');
     assertFollowUpNoteTest(!bdta_form_submission_requires_client_review('client_form'), 'Expected client forms to remain outside the follow-up review flow.');

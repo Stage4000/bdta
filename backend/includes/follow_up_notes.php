@@ -27,19 +27,38 @@ function bdta_index_follow_up_submissions_by_booking(array $forms): array
             continue;
         }
 
-        if (
-            !isset($submissions[$booking_id])
-            || array_string_value($form, 'submitted_at') > array_string_value($submissions[$booking_id], 'submitted_at')
-            || (
-                array_string_value($form, 'submitted_at') === array_string_value($submissions[$booking_id], 'submitted_at')
-                && array_int_value($form, 'id') > array_int_value($submissions[$booking_id], 'id')
-            )
-        ) {
+        if (!isset($submissions[$booking_id]) || bdta_follow_up_submission_is_newer($form, $submissions[$booking_id])) {
             $submissions[$booking_id] = $form;
         }
     }
 
     return $submissions;
+}
+
+/**
+ * @param array<string, mixed> $candidate
+ * @param array<string, mixed> $current
+ */
+function bdta_follow_up_submission_is_newer(array $candidate, array $current): bool
+{
+    $candidate_submitted_at = array_string_value($candidate, 'submitted_at');
+    $current_submitted_at = array_string_value($current, 'submitted_at');
+    $candidate_timestamp = $candidate_submitted_at !== '' ? strtotime($candidate_submitted_at) : false;
+    $current_timestamp = $current_submitted_at !== '' ? strtotime($current_submitted_at) : false;
+
+    if ($candidate_timestamp !== false && $current_timestamp !== false && $candidate_timestamp !== $current_timestamp) {
+        return $candidate_timestamp > $current_timestamp;
+    }
+
+    if ($candidate_timestamp !== false && $current_timestamp === false) {
+        return true;
+    }
+
+    if ($candidate_timestamp === false && $current_timestamp !== false) {
+        return false;
+    }
+
+    return array_int_value($candidate, 'id') > array_int_value($current, 'id');
 }
 
 function bdta_get_follow_up_review_url(int $submission_id): string
