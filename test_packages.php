@@ -80,6 +80,10 @@ try {
          ->execute(['Package Intake Form', 'Collects package checkout details', 'client_form', $client_form_fields]);
     $package_form_template_id = (int)$conn->lastInsertId();
     $created_form_template_ids[] = $package_form_template_id;
+    $conn->prepare("INSERT INTO form_templates (name, description, form_type, fields, is_internal, is_active) VALUES (?,?,?,?,0,1)")
+         ->execute(['Package Invalid Follow-up Form', 'Should not be eligible for public package checkout', 'follow_up_note', $client_form_fields]);
+    $invalid_package_form_template_id = (int)$conn->lastInsertId();
+    $created_form_template_ids[] = $invalid_package_form_template_id;
 
     // ------------------------------------------------------------------
     // Test 1: Field Rental appointment type
@@ -173,6 +177,15 @@ try {
 
     $attached_form = bdta_get_package_attached_form($conn, $package_form_template_id);
     assert($attached_form !== null, 'Expected attached package form to load');
+    assert(bdta_get_package_attached_form($conn, $invalid_package_form_template_id) === null, 'Forced-internal form types should not load as package checkout forms');
+    $valid_form_options = bdta_get_package_checkout_form_options($conn, $package_form_template_id);
+    assert($valid_form_options['selected_form_is_valid'], 'Expected valid package checkout form option to stay selectable');
+    $valid_form_option_ids = array_map(static fn (array $form): int => (int)($form['id'] ?? 0), $valid_form_options['forms']);
+    assert(in_array($package_form_template_id, $valid_form_option_ids, true), 'Expected valid package form in admin options');
+    $invalid_form_options = bdta_get_package_checkout_form_options($conn, $invalid_package_form_template_id);
+    assert(!$invalid_form_options['selected_form_is_valid'], 'Forced-internal form types should be flagged as invalid package checkout selections');
+    $invalid_form_option_ids = array_map(static fn (array $form): int => (int)($form['id'] ?? 0), $invalid_form_options['forms']);
+    assert(!in_array($invalid_package_form_template_id, $invalid_form_option_ids, true), 'Forced-internal form types should not appear in admin package checkout options');
     $missing_form_validation = bdta_validate_package_form_submission($attached_form, []);
     assert($missing_form_validation['errors'] === ['Dog Name is required.'], 'Expected required package form validation error');
     $valid_form_validation = bdta_validate_package_form_submission($attached_form, [
@@ -199,7 +212,7 @@ try {
         'Package Test Client',
         'pkgtest@example.com',
         '555-0100',
-        'Test purchase',
+        '',
         $attached_form,
         $valid_form_validation['responses'],
         null,
@@ -214,12 +227,32 @@ try {
     $cred_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     assert(count($cred_rows) === 3, 'Expected 3 credit rows');
-    $stmt = $conn->prepare("SELECT payment_method, stripe_checkout_session_id FROM client_packages WHERE id = ?");
+    $stmt = $conn->prepare("SELECT payment_method, stripe_checkout_session_id, notes FROM client_packages WHERE id = ?");
     $stmt->execute([$cp_id]);
     $purchase_row = $stmt->fetch(PDO::FETCH_ASSOC);
     assert(is_array($purchase_row), 'Expected purchased package row');
     assert($purchase_row['payment_method'] === 'credit_card', 'Expected payment method metadata to be stored');
     assert(strpos((string)$purchase_row['stripe_checkout_session_id'], 'cs_test_') === 0, 'Expected Stripe checkout session metadata to be stored');
+    assert($purchase_row['notes'] === 'Self-serve package purchase via Stripe checkout', 'Expected default package note to reflect Stripe checkout');
+    $duplicate_checkout_result = bdta_finalize_package_purchase(
+        $conn,
+        [
+            'id' => $package_id,
+            'name' => 'Test Bundle',
+            'expiration_days' => 90,
+        ],
+        $items,
+        'Package Test Client',
+        'pkgtest@example.com',
+        '555-0100',
+        '',
+        $attached_form,
+        $valid_form_validation['responses'],
+        null,
+        'credit_card',
+        $purchase_row['stripe_checkout_session_id']
+    );
+    assert($duplicate_checkout_result['client_package_id'] === $cp_id, 'Expected package purchase idempotency to reuse the same package purchase for the same package/session');
     $stmt = $conn->prepare("SELECT template_id, responses, status FROM form_submissions WHERE client_id = ? ORDER BY id DESC LIMIT 1");
     $stmt->execute([$client_id]);
     $form_submission = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -228,6 +261,10 @@ try {
     assert($form_submission['status'] === 'submitted', 'Expected package form submission status to be submitted');
     $stored_responses = json_decode((string)$form_submission['responses'], true);
     assert(is_array($stored_responses) && ($stored_responses[0] ?? '') === 'Rocket', 'Expected package form responses to be saved');
+    $stmt = $conn->prepare("SELECT notes FROM package_credit_transactions WHERE client_id = ? AND transaction_type = 'purchase' ORDER BY id ASC LIMIT 1");
+    $stmt->execute([$client_id]);
+    $transaction_note = $stmt->fetchColumn();
+    assert($transaction_note === "Package 'Test Bundle' purchased via Stripe checkout", 'Expected purchase audit note to reflect Stripe checkout');
     echo "  ✓ Checkout helper assigned credits, stored payment metadata, and saved the attached form submission\n\n";
 
     // ------------------------------------------------------------------

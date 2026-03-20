@@ -116,53 +116,60 @@ if (!$success && $session_id !== '') {
             $error = 'Online payments are not currently available. Please contact us to complete this purchase.';
         } else {
             $ch = curl_init('https://api.stripe.com/v1/checkout/sessions/' . urlencode($session_id));
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
-            ]);
-            $response = curl_exec($ch);
-            if ($response === false) {
-                $curl_error = curl_error($ch);
-                curl_close($ch);
-                error_log("Package Stripe session retrieval curl failed: $curl_error");
+            if ($ch === false) {
+                error_log('Package Stripe session retrieval curl_init failed');
                 $error = 'Could not verify your payment. If you were charged, please contact us.';
             } else {
-                $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-                $session = decode_json_assoc(scalar_string($response));
-
-                if ($http_code !== 200 || array_string_value($session, 'id') === '') {
-                    error_log("Package Stripe session retrieval failed for session $session_id (HTTP $http_code)");
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_TIMEOUT => 30,
+                ]);
+                $response = curl_exec($ch);
+                if ($response === false) {
+                    $curl_error = curl_error($ch);
+                    curl_close($ch);
+                    error_log("Package Stripe session retrieval curl failed: $curl_error");
                     $error = 'Could not verify your payment. If you were charged, please contact us.';
-                } elseif (array_string_value($session, 'payment_status') !== 'paid') {
-                    $info_message = 'Payment was not completed. You can review the package details and try again below.';
-                } elseif (safe_int($session['amount_total'] ?? 0) !== (int) round($package_price * 100)) {
-                    $error = 'The payment amount did not match this package. Please contact us if you were charged.';
-                } elseif (safe_int($session['metadata']['package_id'] ?? 0) !== safe_int($package['id'] ?? 0)) {
-                    $error = 'The payment confirmation did not match this package. Please contact us if you were charged.';
                 } else {
-                    try {
-                        bdta_finalize_package_purchase(
-                            $conn,
-                            $package,
-                            $items,
-                            scalar_string($pending_purchase['buyer_name'] ?? ''),
-                            scalar_string($pending_purchase['buyer_email'] ?? ''),
-                            scalar_string($pending_purchase['buyer_phone'] ?? ''),
-                            scalar_string($pending_purchase['notes'] ?? ''),
-                            $attached_form,
-                            is_array($pending_purchase['form_responses'] ?? null) ? $pending_purchase['form_responses'] : [],
-                            safe_int($pending_purchase['view_id'] ?? 0),
-                            'credit_card',
-                            $session_id
-                        );
-                        unset($_SESSION['pending_package_purchases'][$token]);
-                        $_SESSION['package_purchase_success'][$token] = 1;
-                        header('Location: package_detail.php?token=' . urlencode($token) . '&purchase=success');
-                        exit;
-                    } catch (Throwable $e) {
-                        error_log('Package purchase finalization failed for token ' . $token . ': ' . $e->getMessage());
-                        $error = 'Your payment was received, but we could not finish issuing the package automatically. Please contact us so we can help right away.';
+                    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+                    $session = decode_json_assoc(scalar_string($response));
+
+                    if ($http_code !== 200 || array_string_value($session, 'id') === '') {
+                        error_log("Package Stripe session retrieval failed for session $session_id (HTTP $http_code)");
+                        $error = 'Could not verify your payment. If you were charged, please contact us.';
+                    } elseif (array_string_value($session, 'payment_status') !== 'paid') {
+                        $info_message = 'Payment was not completed. You can review the package details and try again below.';
+                    } elseif (safe_int($session['amount_total'] ?? 0) !== (int) round($package_price * 100)) {
+                        $error = 'The payment amount did not match this package. Please contact us if you were charged.';
+                    } elseif (safe_int($session['metadata']['package_id'] ?? 0) !== safe_int($package['id'] ?? 0)) {
+                        $error = 'The payment confirmation did not match this package. Please contact us if you were charged.';
+                    } else {
+                        try {
+                            bdta_finalize_package_purchase(
+                                $conn,
+                                $package,
+                                $items,
+                                scalar_string($pending_purchase['buyer_name'] ?? ''),
+                                scalar_string($pending_purchase['buyer_email'] ?? ''),
+                                scalar_string($pending_purchase['buyer_phone'] ?? ''),
+                                scalar_string($pending_purchase['notes'] ?? ''),
+                                $attached_form,
+                                is_array($pending_purchase['form_responses'] ?? null) ? $pending_purchase['form_responses'] : [],
+                                safe_int($pending_purchase['view_id'] ?? 0),
+                                'credit_card',
+                                $session_id
+                            );
+                            unset($_SESSION['pending_package_purchases'][$token]);
+                            $_SESSION['package_purchase_success'][$token] = 1;
+                            header('Location: package_detail.php?token=' . urlencode($token) . '&purchase=success');
+                            exit;
+                        } catch (Throwable $e) {
+                            error_log('Package purchase finalization failed for token ' . $token . ': ' . $e->getMessage());
+                            $error = 'Your payment was received, but we could not finish issuing the package automatically. Please contact us so we can help right away.';
+                        }
                     }
                 }
             }
@@ -172,6 +179,7 @@ if (!$success && $session_id !== '') {
 
 // Handle purchase form submission
 if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purchase') {
+    $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
     $buyer_name  = trim(scalar_string($_POST['buyer_name'] ?? ''));
     $buyer_email = trim(scalar_string($_POST['buyer_email'] ?? ''));
     $buyer_phone = trim(scalar_string($_POST['buyer_phone'] ?? ''));
@@ -183,7 +191,9 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
         : [];
     $form_validation = bdta_validate_package_form_submission($attached_form, is_array($attached_form_posted_values) ? $attached_form_posted_values : []);
 
-    if ($buyer_name === '' || $buyer_email === '') {
+    if (!hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $submitted_csrf_token)) {
+        $error = 'Your session expired. Please refresh the page and try again.';
+    } elseif ($buyer_name === '' || $buyer_email === '') {
         $error = 'Please enter your name and email address.';
     } elseif (!filter_var($buyer_email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
@@ -236,36 +246,43 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
                     ]);
 
                     $ch = curl_init('https://api.stripe.com/v1/checkout/sessions');
-                    curl_setopt_array($ch, [
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_POST => true,
-                        CURLOPT_POSTFIELDS => $post_data,
-                        CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
-                        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
-                    ]);
-                    $response = curl_exec($ch);
-                    if ($response === false) {
-                        $curl_error = curl_error($ch);
-                        curl_close($ch);
-                        error_log("Package Stripe checkout session creation failed (curl): $curl_error");
+                    if ($ch === false) {
+                        error_log('Package Stripe checkout session creation curl_init failed');
                         $error = 'Could not initiate online payment. Please try again or contact us.';
                     } else {
-                        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                        curl_close($ch);
-                        $session = decode_json_assoc(scalar_string($response));
-                        if ($http_code !== 200 || array_string_value($session, 'url') === '') {
-                            $session_error = is_array($session['error'] ?? null) ? $session['error'] : [];
-                            error_log(
-                                'Package Stripe Checkout Session creation failed [' .
-                                array_string_value($session_error, 'type', 'unknown') . '/' .
-                                array_string_value($session_error, 'code') . ']: ' .
-                                array_string_value($session_error, 'message', 'Unknown error') .
-                                " (HTTP $http_code)"
-                            );
+                        curl_setopt_array($ch, [
+                            CURLOPT_RETURNTRANSFER => true,
+                            CURLOPT_POST => true,
+                            CURLOPT_POSTFIELDS => $post_data,
+                            CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
+                            CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+                            CURLOPT_CONNECTTIMEOUT => 10,
+                            CURLOPT_TIMEOUT => 30,
+                        ]);
+                        $response = curl_exec($ch);
+                        if ($response === false) {
+                            $curl_error = curl_error($ch);
+                            curl_close($ch);
+                            error_log("Package Stripe checkout session creation failed (curl): $curl_error");
                             $error = 'Could not initiate online payment. Please try again or contact us.';
                         } else {
-                            header('Location: ' . array_string_value($session, 'url'));
-                            exit;
+                            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                            curl_close($ch);
+                            $session = decode_json_assoc(scalar_string($response));
+                            if ($http_code !== 200 || array_string_value($session, 'url') === '') {
+                                $session_error = is_array($session['error'] ?? null) ? $session['error'] : [];
+                                error_log(
+                                    'Package Stripe Checkout Session creation failed [' .
+                                    array_string_value($session_error, 'type', 'unknown') . '/' .
+                                    array_string_value($session_error, 'code') . ']: ' .
+                                    array_string_value($session_error, 'message', 'Unknown error') .
+                                    " (HTTP $http_code)"
+                                );
+                                $error = 'Could not initiate online payment. Please try again or contact us.';
+                            } else {
+                                header('Location: ' . array_string_value($session, 'url'));
+                                exit;
+                            }
                         }
                     }
                 }
@@ -480,6 +497,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                         <?php endif; ?>
                         <form method="POST" novalidate>
                             <input type="hidden" name="action" value="purchase">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? '')) ?>">
 
                             <div class="mb-3">
                                 <label for="buyer_name" class="form-label">Your Name <span class="text-danger">*</span></label>

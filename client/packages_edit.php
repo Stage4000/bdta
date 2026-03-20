@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/package_checkout.php';
 
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -86,16 +87,10 @@ if ($is_edit && !empty($existing_items)) {
 $appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $package_form_template_id = $is_edit ? safe_int($package['form_template_id'] ?? 0) : 0;
-$package_form_query = "SELECT id, name FROM form_templates WHERE COALESCE(is_internal, 0) = 0 AND is_active = 1";
-$package_form_params = [];
-if ($package_form_template_id > 0) {
-    $package_form_query = "SELECT id, name FROM form_templates WHERE (COALESCE(is_internal, 0) = 0 AND is_active = 1) OR id = ?";
-    $package_form_params[] = $package_form_template_id;
-}
-$package_form_query .= " ORDER BY name";
-$stmt = $conn->prepare($package_form_query);
-$stmt->execute($package_form_params);
-$available_package_forms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$package_form_options = bdta_get_package_checkout_form_options($conn, $package_form_template_id);
+$available_package_forms = $package_form_options['forms'];
+$selected_package_form = $package_form_options['selected_form'];
+$selected_package_form_is_valid = $package_form_options['selected_form_is_valid'];
 
 /**
  * @param list<array<string, mixed>> $appointment_types_rows
@@ -245,6 +240,13 @@ include __DIR__ . '/../backend/includes/header.php';
         <div class="card-body">
             <?php if (isset($error)): ?>
                 <div class="alert alert-danger"><?= scalar_string($error) ?></div>
+            <?php endif; ?>
+            <?php if ($is_edit && $package_form_template_id > 0 && !$selected_package_form_is_valid): ?>
+                <div class="alert alert-warning">
+                    The previously attached checkout form
+                    <strong><?= escape(array_string_value($selected_package_form ?? [], 'name', 'Unknown form')) ?></strong>
+                    is no longer eligible for public package checkout and will not be shown to buyers. Choose a client-facing active form or clear the selection.
+                </div>
             <?php endif; ?>
 
             <form method="POST" action="">

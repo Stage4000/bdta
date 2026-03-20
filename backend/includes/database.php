@@ -1721,6 +1721,12 @@ class Database {
         } catch (PDOException $e) {
             // Index might already exist, ignore
         }
+
+        try {
+            $this->execSQL("CREATE INDEX idx_client_packages_package_stripe_session ON client_packages(package_id, stripe_checkout_session_id)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
+        }
         
         // Add package_credit_id to bookings for tracking which package credit was consumed
         $booking_column_names_pkg = $this->getTableColumns('bookings');

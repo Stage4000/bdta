@@ -30,6 +30,79 @@ function bdta_package_checkout_fields(mixed $fields): array
 }
 
 /**
+ * @param array<string, mixed> $form
+ */
+function bdta_package_form_is_checkout_eligible(array $form): bool
+{
+    if (safe_int($form['is_active'] ?? 0) !== 1) {
+        return false;
+    }
+
+    if (safe_int($form['is_internal'] ?? 0) === 1) {
+        return false;
+    }
+
+    $form_type = bdta_normalize_form_type(scalar_string($form['form_type'] ?? 'client_form'));
+    return bdta_form_type_forced_internal($form_type) !== 1 && bdta_form_type_allows_public_submission($form_type);
+}
+
+/**
+ * @return array{forms: list<array<string, mixed>>, selected_form: array<string, mixed>|null, selected_form_is_valid: bool}
+ */
+function bdta_get_package_checkout_form_options(PDO $conn, int $selected_form_template_id = 0): array
+{
+    $query = "
+        SELECT id, name, form_type, is_active, COALESCE(is_internal, 0) AS is_internal
+        FROM form_templates
+        WHERE is_active = 1
+    ";
+    $params = [];
+    if ($selected_form_template_id > 0) {
+        $query = "
+            SELECT id, name, form_type, is_active, COALESCE(is_internal, 0) AS is_internal
+            FROM form_templates
+            WHERE is_active = 1 OR id = ?
+        ";
+        $params[] = $selected_form_template_id;
+    }
+
+    $query .= " ORDER BY name";
+
+    $stmt = $conn->prepare($query);
+    $stmt->execute($params);
+
+    $forms = [];
+    $selected_form = null;
+    $selected_form_is_valid = ($selected_form_template_id <= 0);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $form) {
+        if (!is_array($form)) {
+            continue;
+        }
+
+        $form_id = safe_int($form['id'] ?? 0);
+        if ($form_id === $selected_form_template_id) {
+            $selected_form = $form;
+        }
+
+        if (!bdta_package_form_is_checkout_eligible($form)) {
+            continue;
+        }
+
+        if ($form_id === $selected_form_template_id) {
+            $selected_form_is_valid = true;
+        }
+
+        $forms[] = $form;
+    }
+
+    return [
+        'forms' => $forms,
+        'selected_form' => $selected_form,
+        'selected_form_is_valid' => $selected_form_is_valid,
+    ];
+}
+
+/**
  * @return array<string, mixed>|null
  */
 function bdta_get_package_attached_form(PDO $conn, int $form_template_id): ?array
@@ -49,11 +122,11 @@ function bdta_get_package_attached_form(PDO $conn, int $form_template_id): ?arra
         return null;
     }
 
-    $form_type = bdta_normalize_form_type(scalar_string($form['form_type'] ?? 'client_form'));
-    if (safe_int($form['is_internal'] ?? 0) === 1 || bdta_form_type_forced_internal($form_type) === 1 || !bdta_form_type_allows_public_submission($form_type)) {
+    if (!bdta_package_form_is_checkout_eligible($form)) {
         return null;
     }
 
+    $form_type = bdta_normalize_form_type(scalar_string($form['form_type'] ?? 'client_form'));
     $form['form_type'] = $form_type;
     $form['fields'] = bdta_package_checkout_fields($form['fields'] ?? []);
 
@@ -136,15 +209,17 @@ function bdta_finalize_package_purchase(
     ?string $payment_method = null,
     ?string $stripe_checkout_session_id = null
 ): array {
+    $package_id = safe_int($package['id'] ?? 0);
+
     if ($stripe_checkout_session_id !== null && $stripe_checkout_session_id !== '') {
         $existing_stmt = $conn->prepare("
             SELECT id, client_id
             FROM client_packages
-            WHERE stripe_checkout_session_id = ?
+            WHERE stripe_checkout_session_id = ? AND package_id = ?
             ORDER BY id DESC
             LIMIT 1
         ");
-        $existing_stmt->execute([$stripe_checkout_session_id]);
+        $existing_stmt->execute([$stripe_checkout_session_id, $package_id]);
         $existing_purchase = $existing_stmt->fetch(PDO::FETCH_ASSOC);
         if (is_array($existing_purchase)) {
             if ($view_id !== null && $view_id > 0) {
@@ -165,6 +240,16 @@ function bdta_finalize_package_purchase(
     $buyer_phone = trim($buyer_phone);
     $buyer_phone_value = $buyer_phone !== '' ? $buyer_phone : null;
     $notes = trim($notes);
+    $purchase_default_note = match ($payment_method) {
+        'credit_card' => 'Self-serve package purchase via Stripe checkout',
+        'offline' => 'Self-serve package purchase via public checkout',
+        default => 'Self-serve package purchase',
+    };
+    $purchase_audit_channel = match ($payment_method) {
+        'credit_card' => 'Stripe checkout',
+        'offline' => 'Public checkout',
+        default => 'package checkout',
+    };
 
     if ($buyer_name === '' || $buyer_email === '') {
         throw new InvalidArgumentException('Buyer name and email are required.');
@@ -212,7 +297,7 @@ function bdta_finalize_package_purchase(
             $expires_at = date('Y-m-d H:i:s', safe_timestamp(strtotime('+' . $expiration_days . ' days')));
         }
 
-        $note_text = $notes !== '' ? $notes : 'Self-serve purchase via shareable link';
+        $note_text = $notes !== '' ? $notes : $purchase_default_note;
         $purchase_stmt = $conn->prepare("
             INSERT INTO client_packages
                 (client_id, package_id, package_name, expires_at, is_active, notes, created_by, payment_method, stripe_checkout_session_id)
@@ -220,7 +305,7 @@ function bdta_finalize_package_purchase(
         ");
         $purchase_stmt->execute([
             $client_id,
-            safe_int($package['id'] ?? 0),
+            $package_id,
             scalar_string($package['name'] ?? ''),
             $expires_at,
             $note_text,
@@ -256,7 +341,7 @@ function bdta_finalize_package_purchase(
                 $client_id,
                 safe_int($credit_row['appointment_type_id'] ?? 0),
                 safe_int($credit_row['total_credits'] ?? 0),
-                "Package '" . scalar_string($package['name'] ?? '') . "' purchased via shareable link",
+                "Package '" . scalar_string($package['name'] ?? '') . "' purchased via " . $purchase_audit_channel,
             ]);
         }
 

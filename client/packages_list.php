@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
 require_once __DIR__ . '/../backend/includes/package_contracts.php';
+require_once __DIR__ . '/../backend/includes/package_checkout.php';
 
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -25,9 +26,8 @@ $limit_clause = $db->buildLimitClause($per_page, $offset);
 // Pagination clause is built from safe_int()-bounded integers only.
 // nosemgrep
 $stmt = $conn->prepare("
-    SELECT p.*, ft.name AS attached_form_name
+    SELECT p.*
     FROM packages p
-    LEFT JOIN form_templates ft ON p.form_template_id = ft.id
     ORDER BY p.is_active DESC, p.name ASC" . $limit_clause . "
 ");
 $stmt->execute();
@@ -57,6 +57,26 @@ if (!empty($package_ids)) {
 }
 
 $contracts_by_package = bdta_get_package_contract_summaries($conn, $package_ids);
+
+$attached_form_names_by_id = [];
+$attached_form_ids = array_values(array_unique(array_filter(array_map(static fn (array $package_row): int => safe_int($package_row['form_template_id'] ?? 0), $packages))));
+if ($attached_form_ids !== []) {
+    $placeholders = implode(',', array_fill(0, count($attached_form_ids), '?'));
+    // Placeholder count is generated from trusted form IDs and the values remain parameterized.
+    // nosemgrep
+    $stmt = $conn->prepare("
+        SELECT id, name, form_type, is_active, COALESCE(is_internal, 0) AS is_internal
+        FROM form_templates
+        WHERE id IN ($placeholders)
+    ");
+    $stmt->execute($attached_form_ids);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $form_row) {
+        if (!is_array($form_row) || !bdta_package_form_is_checkout_eligible($form_row)) {
+            continue;
+        }
+        $attached_form_names_by_id[safe_int($form_row['id'] ?? 0)] = array_string_value($form_row, 'name');
+    }
+}
 
 // Fetch link analytics per package
 $link_stats = [];
@@ -159,9 +179,9 @@ include __DIR__ . '/../backend/includes/header.php';
                                          <?php endif; ?>
                                      </td>
                                      <td>
-                                         <?php $pkg_contracts = $contracts_by_package[$pkg['id']] ?? []; ?>
-                                          <?php $attached_form_name = array_string_value($pkg, 'attached_form_name'); ?>
-                                          <?php if (empty($pkg_contracts) && $attached_form_name === ''): ?>
+                                          <?php $pkg_contracts = $contracts_by_package[$pkg['id']] ?? []; ?>
+                                           <?php $attached_form_name = $attached_form_names_by_id[safe_int($pkg['form_template_id'] ?? 0)] ?? ''; ?>
+                                           <?php if (empty($pkg_contracts) && $attached_form_name === ''): ?>
                                               <span class="text-muted">No checkout requirements</span>
                                           <?php else: ?>
                                               <?php if ($attached_form_name !== ''): ?>
