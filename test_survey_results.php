@@ -43,13 +43,15 @@ function bdta_relative_path(string $from_directory, string $to_directory): strin
     return str_repeat('../', count($remaining_from_segments)) . implode('/', $remaining_to_segments);
 }
 
-$backend_directory = realpath(__DIR__ . '/backend');
+$backend_directory = __DIR__ . '/backend';
 $temporary_directory = realpath(sys_get_temp_dir());
 
-if ($backend_directory === false || $temporary_directory === false) {
+if (!is_dir($backend_directory) || $temporary_directory === false) {
     throw new RuntimeException('Unable to resolve filesystem paths for survey test database.');
 }
 
+// Database prepends SQLITE_DB_PATH from the backend directory, so the test
+// needs a relative path from backend/ to the system temp directory.
 $temporary_directory_relative_path = rtrim(bdta_relative_path($backend_directory, $temporary_directory), '/');
 $sqlite_db_path = ($temporary_directory_relative_path !== '' ? $temporary_directory_relative_path . '/' : '')
     . 'test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
