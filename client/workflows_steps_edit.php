@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
+require_once '../backend/includes/workflow_helper.php';
 
 requireLogin();
 
@@ -61,7 +62,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
     
     if (empty($step_name) || empty($email_subject) || empty($email_body_html)) {
         $error = 'Step name, email subject, and email body are required';
-    } else {
+    }
+
+    if (!isset($error) && in_array($delay_type, ['after_enrollment', 'after_previous'], true)) {
+        $delay_minutes = bdta_parse_workflow_delay_to_minutes($delay_value);
+        $processor_interval_minutes = bdta_get_workflow_processor_interval_minutes($conn);
+        if ($delay_minutes < $processor_interval_minutes) {
+            $error = "Delay must be at least {$processor_interval_minutes} minutes to match your workflow processor schedule.";
+        }
+    }
+
+    if (!isset($error)) {
         // Get next step order
         if (!$is_edit) {
             $stmt = $conn->prepare("SELECT MAX(step_order) as max_order FROM workflow_steps WHERE workflow_id = ?");
