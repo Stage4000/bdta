@@ -101,9 +101,16 @@ include '../backend/includes/header.php';
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-file-circle-check"></i> View Form Submission</h2>
-        <a href="form_submissions_list.php" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Back to List
-        </a>
+        <div class="d-flex gap-2">
+            <?php if (bdta_normalize_form_type(array_string_value($submission, 'form_type')) === 'survey_form'): ?>
+                <a href="form_survey_results.php?template_id=<?= array_int_value($submission, 'template_id') ?>" class="btn btn-outline-info">
+                    <i class="fas fa-chart-simple"></i> Survey Results
+                </a>
+            <?php endif; ?>
+            <a href="form_submissions_list.php" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+        </div>
     </div>
 
     <?php if (isset($_SESSION['flash_message'])): ?>
