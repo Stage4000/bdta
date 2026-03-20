@@ -183,12 +183,17 @@ require_once '../backend/includes/header.php';
                                 <?php endif; ?>
                             </td>
                             <td><?php echo escape(formatDate(array_string_value($template, 'created_at'), 'M j, Y')); ?></td>
-                            <td>
-                                <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
-                                    <a href="form_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-primary table-action-btn" title="Edit">
-                                        <i class="fas fa-pencil"></i>
+                             <td>
+                                 <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                    <?php if (bdta_normalize_form_type(array_string_value($template, 'form_type')) === 'survey_form'): ?>
+                                    <a href="form_survey_results.php?template_id=<?php echo $template['id']; ?>" class="btn btn-sm btn-outline-info table-action-btn" title="Results">
+                                        <i class="fas fa-chart-simple"></i>
                                     </a>
-                                    <form method="POST" action="form_templates_duplicate.php" class="d-inline">
+                                    <?php endif; ?>
+                                     <a href="form_templates_edit.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-primary table-action-btn" title="Edit">
+                                         <i class="fas fa-pencil"></i>
+                                     </a>
+                                     <form method="POST" action="form_templates_duplicate.php" class="d-inline">
                                         <input type="hidden" name="id" value="<?php echo (int) $template['id']; ?>">
                                         <input type="hidden" name="csrf_token" value="<?php echo escape($_SESSION['csrf_token'] ?? ''); ?>">
                                         <button type="submit" class="btn btn-sm btn-outline-secondary table-action-btn" title="Duplicate">
@@ -205,13 +210,20 @@ require_once '../backend/includes/header.php';
                                     <div class="dropdown">
                                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                             <i class="fas fa-ellipsis-v"></i>
-                                        </button>
-                                        <ul class="dropdown-menu dropdown-menu-end">
+                                         </button>
+                                         <ul class="dropdown-menu dropdown-menu-end">
+                                            <?php if (bdta_normalize_form_type(array_string_value($template, 'form_type')) === 'survey_form'): ?>
                                             <li>
-                                                <a class="dropdown-item" href="form_templates_edit.php?id=<?php echo $template['id']; ?>">
-                                                    <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                <a class="dropdown-item" href="form_survey_results.php?template_id=<?php echo $template['id']; ?>">
+                                                    <i class="fas fa-chart-simple me-2 text-info"></i>Results
                                                 </a>
                                             </li>
+                                            <?php endif; ?>
+                                             <li>
+                                                 <a class="dropdown-item" href="form_templates_edit.php?id=<?php echo $template['id']; ?>">
+                                                     <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                 </a>
+                                             </li>
                                             <li>
                                                 <form method="POST" action="form_templates_duplicate.php">
                                                     <input type="hidden" name="id" value="<?php echo (int) $template['id']; ?>">
