@@ -180,11 +180,11 @@ try {
     assert(bdta_get_package_attached_form($conn, $invalid_package_form_template_id) === null, 'Forced-internal form types should not load as package checkout forms');
     $valid_form_options = bdta_get_package_checkout_form_options($conn, $package_form_template_id);
     assert($valid_form_options['selected_form_is_valid'], 'Expected valid package checkout form option to stay selectable');
-    $valid_form_option_ids = array_map(static fn (array $form): int => (int)($form['id'] ?? 0), $valid_form_options['forms']);
+    $valid_form_option_ids = array_map(static fn (array $form): int => safe_int($form['id'] ?? 0), $valid_form_options['forms']);
     assert(in_array($package_form_template_id, $valid_form_option_ids, true), 'Expected valid package form in admin options');
     $invalid_form_options = bdta_get_package_checkout_form_options($conn, $invalid_package_form_template_id);
     assert(!$invalid_form_options['selected_form_is_valid'], 'Forced-internal form types should be flagged as invalid package checkout selections');
-    $invalid_form_option_ids = array_map(static fn (array $form): int => (int)($form['id'] ?? 0), $invalid_form_options['forms']);
+    $invalid_form_option_ids = array_map(static fn (array $form): int => safe_int($form['id'] ?? 0), $invalid_form_options['forms']);
     assert(!in_array($invalid_package_form_template_id, $invalid_form_option_ids, true), 'Forced-internal form types should not appear in admin package checkout options');
     $missing_form_validation = bdta_validate_package_form_submission($attached_form, []);
     assert($missing_form_validation['errors'] === ['Dog Name is required.'], 'Expected required package form validation error');

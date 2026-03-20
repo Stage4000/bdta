@@ -57,7 +57,8 @@ $ref = substr(scalar_string($_SERVER['HTTP_REFERER'] ?? ''), 0, 512);
 try {
     $conn->prepare("INSERT INTO package_link_views (package_id, ip_address, user_agent, referrer) VALUES (?, ?, ?, ?)")
          ->execute([$package['id'], $ip, $ua, $ref]);
-    $view_id = $conn->lastInsertId();
+    $last_insert_id = $conn->lastInsertId();
+    $view_id = $last_insert_id === false ? null : safe_int($last_insert_id);
 } catch (PDOException $e) {
     $view_id = null;
 }
@@ -144,7 +145,7 @@ if (!$success && $session_id !== '') {
                         $info_message = 'Payment was not completed. You can review the package details and try again below.';
                     } elseif (safe_int($session['amount_total'] ?? 0) !== (int) round($package_price * 100)) {
                         $error = 'The payment amount did not match this package. Please contact us if you were charged.';
-                    } elseif (safe_int($session['metadata']['package_id'] ?? 0) !== safe_int($package['id'] ?? 0)) {
+                    } elseif (safe_int(is_array($session['metadata'] ?? null) ? $session['metadata']['package_id'] ?? 0 : 0) !== safe_int($package['id'] ?? 0)) {
                         $error = 'The payment confirmation did not match this package. Please contact us if you were charged.';
                     } else {
                         try {
@@ -189,7 +190,7 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
     $attached_form_posted_values = is_array($posted_package_form_values)
         ? $posted_package_form_values
         : [];
-    $form_validation = bdta_validate_package_form_submission($attached_form, is_array($attached_form_posted_values) ? $attached_form_posted_values : []);
+    $form_validation = bdta_validate_package_form_submission($attached_form, $attached_form_posted_values);
 
     if (!hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $submitted_csrf_token)) {
         $error = 'Your session expired. Please refresh the page and try again.';
@@ -299,7 +300,7 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
                     $notes,
                     $attached_form,
                     $form_validation['responses'],
-                    $view_id,
+                    $view_id !== null ? safe_int($view_id) : null,
                     'offline'
                 );
                 $_SESSION['package_purchase_success'][$token] = 1;
@@ -558,7 +559,10 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                                     $field_options = is_array($field['options'] ?? null) ? $field['options'] : [];
                                     $field_placeholder = array_string_value($field, 'placeholder');
                                     $field_required = !empty($field['required']);
-                                    $posted_field_values = $_POST['package_form'][$attached_form_id] ?? [];
+                                    $posted_field_values = [];
+                                    if (is_array($_POST['package_form'] ?? null) && is_array($_POST['package_form'][$attached_form_id] ?? null)) {
+                                        $posted_field_values = $_POST['package_form'][$attached_form_id];
+                                    }
                                     $field_value = $attached_form_posted_values[$field_index] ?? ($posted_field_values[$field_index] ?? null);
                                     ?>
                                     <div class="mb-3">

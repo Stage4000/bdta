@@ -71,7 +71,7 @@ if ($attached_form_ids !== []) {
     ");
     $stmt->execute($attached_form_ids);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $form_row) {
-        if (!is_array($form_row) || !bdta_package_form_is_checkout_eligible($form_row)) {
+        if (!bdta_package_form_is_checkout_eligible($form_row)) {
             continue;
         }
         $attached_form_names_by_id[safe_int($form_row['id'] ?? 0)] = array_string_value($form_row, 'name');

@@ -49,7 +49,7 @@ function bdta_package_form_is_checkout_eligible(array $form): bool
 /**
  * @return array{forms: list<array<string, mixed>>, selected_form: array<string, mixed>|null, selected_form_is_valid: bool}
  */
-function bdta_get_package_checkout_form_options(PDO $conn, int $selected_form_template_id = 0): array
+function bdta_get_package_checkout_form_options(SafePDO $conn, int $selected_form_template_id = 0): array
 {
     $query = "
         SELECT id, name, form_type, is_active, COALESCE(is_internal, 0) AS is_internal
@@ -75,10 +75,6 @@ function bdta_get_package_checkout_form_options(PDO $conn, int $selected_form_te
     $selected_form = null;
     $selected_form_is_valid = ($selected_form_template_id <= 0);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $form) {
-        if (!is_array($form)) {
-            continue;
-        }
-
         $form_id = safe_int($form['id'] ?? 0);
         if ($form_id === $selected_form_template_id) {
             $selected_form = $form;
@@ -105,7 +101,7 @@ function bdta_get_package_checkout_form_options(PDO $conn, int $selected_form_te
 /**
  * @return array<string, mixed>|null
  */
-function bdta_get_package_attached_form(PDO $conn, int $form_template_id): ?array
+function bdta_get_package_attached_form(SafePDO $conn, int $form_template_id): ?array
 {
     if ($form_template_id <= 0) {
         return null;
@@ -117,6 +113,7 @@ function bdta_get_package_attached_form(PDO $conn, int $form_template_id): ?arra
         WHERE id = ? AND is_active = 1
     ");
     $stmt->execute([$form_template_id]);
+    /** @var array<string, mixed>|false $form */
     $form = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!is_array($form)) {
         return null;
@@ -196,7 +193,7 @@ function bdta_validate_package_form_submission(?array $form, array $submitted_va
  * @return array{client_id: int, client_package_id: int, form_submission_id: int}
  */
 function bdta_finalize_package_purchase(
-    PDO $conn,
+    SafePDO $conn,
     array $package,
     array $items,
     string $buyer_name,
@@ -276,11 +273,11 @@ function bdta_finalize_package_purchase(
 
             $updated_name = trim(scalar_string($existing_client['name'] ?? ''));
             $updated_phone = trim(scalar_string($existing_client['phone'] ?? ''));
-            if ($updated_name === '' && $buyer_name !== '') {
+            if ($updated_name === '') {
                 $updated_name = $buyer_name;
             }
-            if ($updated_phone === '' && $buyer_phone !== '') {
-                $updated_phone = $buyer_phone;
+            if ($updated_phone === '' && $buyer_phone_value !== null) {
+                $updated_phone = $buyer_phone_value;
             }
 
             $conn->prepare("UPDATE clients SET name = ?, phone = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
