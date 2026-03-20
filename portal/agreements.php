@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/follow_up_notes.php';
+require_once '../backend/includes/form_types.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -23,10 +24,15 @@ $stmt = $conn->prepare("
     FROM form_submissions fs
     LEFT JOIN form_templates ft ON fs.template_id = ft.id
     WHERE fs.client_id = ?
+      AND COALESCE(ft.is_internal, 0) = 0
+      AND fs.status IN ('submitted', 'reviewed')
     ORDER BY fs.submitted_at DESC
 ");
 $stmt->execute([$client_id]);
-$submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$submissions = array_values(array_filter(
+    $stmt->fetchAll(PDO::FETCH_ASSOC),
+    static fn (array $submission): bool => bdta_form_type_forced_internal(array_string_value($submission, 'form_type')) === 0
+));
 
 $page_title = 'Agreements';
 include '../portal/includes/header.php';
@@ -101,7 +107,7 @@ include '../portal/includes/header.php';
     <?php else: ?>
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Form</th><th>Submitted</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+            <thead><tr><th>Form</th><th>Submitted</th><th>Status</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
             <?php foreach ($submissions as $fs): ?>
                 <?php $client_review_submission = bdta_form_submission_requires_client_review(scalar_string($fs['form_type'] ?? '')); ?>
@@ -109,14 +115,27 @@ include '../portal/includes/header.php';
                     <td><?php echo escape($fs['form_title'] ?? 'Unknown Form'); ?></td>
                     <td><?php echo escape($fs['submitted_at'] ?? ''); ?></td>
                     <td><?php echo escape($fs['status'] ?? ''); ?></td>
-                    <td class="text-end">
-                        <?php if ($client_review_submission): ?>
-                            <a href="form_submission_view.php?id=<?php echo intval($fs['id'] ?? 0); ?>" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-eye me-1"></i><?php echo scalar_string($fs['status'] ?? '') === 'reviewed' ? 'View' : 'Review'; ?>
+                    <td>
+                        <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                            <a href="<?php echo PORTAL_URL; ?>form_view.php?id=<?php echo (int) ($fs['id'] ?? 0); ?>"
+                               class="btn btn-sm btn-outline-primary table-action-btn">
+                                <i class="fas fa-eye me-1"></i>View
                             </a>
-                        <?php else: ?>
-                            <span class="text-muted">—</span>
-                        <?php endif; ?>
+                        </div>
+                        <div class="d-md-none table-action-dropdown">
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="<?php echo PORTAL_URL; ?>form_view.php?id=<?php echo (int) ($fs['id'] ?? 0); ?>">
+                                            <i class="fas fa-eye me-2 text-primary"></i>View
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>
