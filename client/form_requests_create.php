@@ -355,7 +355,7 @@ include '../backend/includes/header.php';
                             <button type="submit" name="request_action" value="generate" class="btn btn-outline-primary">
                                 <i class="fas fa-link me-1"></i> Generate Link
                             </button>
-                            <button type="submit" name="request_action" value="open" class="btn btn-primary">
+                            <button type="submit" name="request_action" value="open" class="btn btn-primary" formtarget="_blank">
                                 <i class="fas fa-up-right-from-square me-1"></i> Open Form
                             </button>
                             <?php if ($client !== [] && !bdta_form_type_forced_internal($form_type)): ?>
