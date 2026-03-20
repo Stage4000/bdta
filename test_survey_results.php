@@ -7,7 +7,7 @@
  * @param string $path
  * @return array<int, string>
  */
-function bdta_path_segments(string $path): array
+function survey_test_path_segments(string $path): array
 {
     $normalized_path = str_replace('\\', '/', $path);
     $trimmed_path = trim($normalized_path, '/');
@@ -24,10 +24,10 @@ function bdta_path_segments(string $path): array
  * @param string $to_directory
  * @return string
  */
-function bdta_relative_path(string $from_directory, string $to_directory): string
+function survey_test_relative_path(string $from_directory, string $to_directory): string
 {
-    $from_segments = bdta_path_segments($from_directory);
-    $to_segments = bdta_path_segments($to_directory);
+    $from_segments = survey_test_path_segments($from_directory);
+    $to_segments = survey_test_path_segments($to_directory);
     $shared_segment_count = 0;
 
     while (
@@ -52,7 +52,7 @@ if (!is_dir($backend_directory) || $temporary_directory === false) {
 
 // Database prepends SQLITE_DB_PATH from the backend directory, so the test
 // needs a relative path from backend/ to the system temp directory.
-$temporary_directory_relative_path = rtrim(bdta_relative_path($backend_directory, $temporary_directory), '/');
+$temporary_directory_relative_path = rtrim(survey_test_relative_path($backend_directory, $temporary_directory), '/');
 $sqlite_db_path = ($temporary_directory_relative_path !== '' ? $temporary_directory_relative_path . '/' : '')
     . 'test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
 
