@@ -27,7 +27,14 @@ function bdta_index_follow_up_submissions_by_booking(array $forms): array
             continue;
         }
 
-        if (!isset($submissions[$booking_id])) {
+        if (
+            !isset($submissions[$booking_id])
+            || array_string_value($form, 'submitted_at') > array_string_value($submissions[$booking_id], 'submitted_at')
+            || (
+                array_string_value($form, 'submitted_at') === array_string_value($submissions[$booking_id], 'submitted_at')
+                && array_int_value($form, 'id') > array_int_value($submissions[$booking_id], 'id')
+            )
+        ) {
             $submissions[$booking_id] = $form;
         }
     }
@@ -37,7 +44,7 @@ function bdta_index_follow_up_submissions_by_booking(array $forms): array
 
 function bdta_get_follow_up_review_url(int $submission_id): string
 {
-    return getDynamicBaseUrl() . '/portal/form_submission_view.php?id=' . $submission_id;
+    return rtrim(getDynamicBaseUrl(), '/') . '/portal/form_submission_view.php?id=' . $submission_id;
 }
 
 /**
@@ -83,8 +90,7 @@ function bdta_notify_follow_up_note_completed(PDO $conn, int $submission_id): ar
 
     $review_url = bdta_get_follow_up_review_url($submission_id);
     $client_name_raw = array_string_value($submission, 'client_name');
-    $client_name = escape($client_name_raw);
-    $form_name = escape(array_string_value($submission, 'form_name'));
+    $form_name_raw = array_string_value($submission, 'form_name');
     $appointment_summary = trim(
         array_string_value($submission, 'service_type') . ' ' .
         array_string_value($submission, 'appointment_date') . ' ' .
@@ -92,14 +98,14 @@ function bdta_notify_follow_up_note_completed(PDO $conn, int $submission_id): ar
     );
 
     $subject = 'Your follow-up note is ready to review';
-    $html_body = '<p>Hello ' . $client_name . ',</p>'
-        . '<p>Your <strong>' . $form_name . '</strong> has been completed by our team.</p>'
+    $html_body = '<p>Hello ' . escape($client_name_raw) . ',</p>'
+        . '<p>Your <strong>' . escape($form_name_raw) . '</strong> has been completed by our team.</p>'
         . ($appointment_summary !== ''
             ? '<p>Appointment: <strong>' . escape($appointment_summary) . '</strong></p>'
             : '')
         . '<p>Please review it here: <a href="' . escape($review_url) . '">Review Follow-up Note</a></p>';
     $text_body = "Hello " . $client_name_raw . ",\n\n"
-        . "Your " . array_string_value($submission, 'form_name') . " has been completed by our team.\n"
+        . "Your " . $form_name_raw . " has been completed by our team.\n"
         . ($appointment_summary !== '' ? "Appointment: " . $appointment_summary . "\n" : '')
         . "Please review it here:\n" . $review_url;
 

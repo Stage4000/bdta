@@ -1,9 +1,9 @@
 <?php
 
-$sqlite_filename = 'follow_up_note_forms_test_' . uniqid('', true) . '.sqlite';
-$sqlite_path = __DIR__ . '/backend/' . $sqlite_filename;
+$sqlite_env_path = 'follow_up_note_forms_test_' . uniqid('', true) . '.sqlite';
+$sqlite_path = __DIR__ . '/backend/' . $sqlite_env_path;
 putenv('DB_TYPE=sqlite');
-putenv('SQLITE_DB_PATH=' . $sqlite_filename);
+putenv('SQLITE_DB_PATH=' . $sqlite_env_path);
 
 require_once __DIR__ . '/backend/includes/config.php';
 require_once __DIR__ . '/backend/includes/database.php';
@@ -86,12 +86,24 @@ try {
     $email_stmt->execute([$client_id]);
     $email_row = $email_stmt->fetch(PDO::FETCH_ASSOC);
     assertFollowUpNoteTest(is_array($email_row), 'Expected follow-up notification email to be logged.');
-    assertFollowUpNoteTest(str_contains(scalar_string($email_row['subject'] ?? ''), 'follow-up note'), 'Expected follow-up notification subject.');
+    assertFollowUpNoteTest(
+        scalar_string($email_row['subject'] ?? '') === 'Your follow-up note is ready to review',
+        'Expected follow-up notification subject.'
+    );
     assertFollowUpNoteTest(str_contains(scalar_string($email_row['body_html'] ?? ''), '/portal/form_submission_view.php?id=' . $cleanup_submission_id), 'Expected follow-up portal review link in email body.');
     assertFollowUpNoteTest(scalar_string($email_row['status'] ?? '') === 'failed', 'Expected the logged email to reflect the SMTP failure.');
 
+    $second_request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
+    $second_submission_id = (int) $second_request['submission_id'];
+    $cleanup_submission_id = $second_submission_id;
+    $conn->prepare("
+        UPDATE form_submissions
+        SET responses = ?, status = 'reviewed', submitted_at = CURRENT_TIMESTAMP, reviewed_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    ")->execute([json_encode(['0' => 'Reviewed update', '1' => 'Continue reinforcement']), $second_submission_id]);
+
     $forms_stmt = $conn->prepare("
-        SELECT fs.id, fs.booking_id, fs.status, ft.form_type
+        SELECT fs.id, fs.booking_id, fs.status, fs.submitted_at, ft.form_type
         FROM form_submissions fs
         JOIN form_templates ft ON fs.template_id = ft.id
         WHERE fs.client_id = ?
@@ -100,7 +112,7 @@ try {
     $forms_stmt->execute([$client_id]);
     $indexed = bdta_index_follow_up_submissions_by_booking(assoc_rows($forms_stmt->fetchAll(PDO::FETCH_ASSOC)));
     assertFollowUpNoteTest(isset($indexed[$booking_id]), 'Expected the booking to be indexed with its follow-up submission.');
-    assertFollowUpNoteTest(array_int_value($indexed[$booking_id], 'id') === $cleanup_submission_id, 'Expected the indexed follow-up submission to match the booking.');
+    assertFollowUpNoteTest(array_int_value($indexed[$booking_id], 'id') === $second_submission_id, 'Expected the indexed follow-up submission to use the latest booking submission.');
     assertFollowUpNoteTest(bdta_form_submission_requires_client_review('follow_up_note'), 'Expected follow-up note forms to require client review.');
     assertFollowUpNoteTest(bdta_form_submission_requires_client_review('session_note'), 'Expected legacy session notes to require client review.');
     assertFollowUpNoteTest(!bdta_form_submission_requires_client_review('client_form'), 'Expected client forms to remain outside the follow-up review flow.');

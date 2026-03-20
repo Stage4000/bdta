@@ -258,8 +258,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($notification_result['success']) {
                     $success_message .= ' The client has been notified to review it in the portal.';
                 } else {
-                    $success_message .= ' The follow-up note was saved, but the client email could not be sent: '
-                        . scalar_string($notification_result['message']);
+                    error_log(
+                        'Client notification email failed for submission #' . $new_submission_id . ': '
+                        . scalar_string($notification_result['message'])
+                    );
+                    $success_message .= ' The follow-up note was saved, but the client notification email could not be sent at this time.';
                 }
             }
         }
