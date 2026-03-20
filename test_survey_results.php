@@ -5,7 +5,7 @@
  * Normalize a filesystem path and split it into non-empty segments.
  *
  * @param string $path
- * @return list<string>
+ * @return array<int, string>
  */
 function bdta_path_segments(string $path): array
 {
@@ -28,13 +28,19 @@ function bdta_relative_path(string $from_directory, string $to_directory): strin
 {
     $from_segments = bdta_path_segments($from_directory);
     $to_segments = bdta_path_segments($to_directory);
+    $shared_segment_count = 0;
 
-    while ($from_segments !== [] && $to_segments !== [] && $from_segments[0] === $to_segments[0]) {
-        array_shift($from_segments);
-        array_shift($to_segments);
+    while (
+        isset($from_segments[$shared_segment_count], $to_segments[$shared_segment_count])
+        && $from_segments[$shared_segment_count] === $to_segments[$shared_segment_count]
+    ) {
+        $shared_segment_count++;
     }
 
-    return str_repeat('../', count($from_segments)) . implode('/', $to_segments);
+    $remaining_from_segments = array_slice($from_segments, $shared_segment_count);
+    $remaining_to_segments = array_slice($to_segments, $shared_segment_count);
+
+    return str_repeat('../', count($remaining_from_segments)) . implode('/', $remaining_to_segments);
 }
 
 $backend_directory = realpath(__DIR__ . '/backend');
@@ -44,8 +50,9 @@ if ($backend_directory === false || $temporary_directory === false) {
     throw new RuntimeException('Unable to resolve filesystem paths for survey test database.');
 }
 
-$sqlite_db_path = bdta_relative_path($backend_directory, $temporary_directory)
-    . '/test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
+$temporary_directory_relative_path = rtrim(bdta_relative_path($backend_directory, $temporary_directory), '/');
+$sqlite_db_path = ($temporary_directory_relative_path !== '' ? $temporary_directory_relative_path . '/' : '')
+    . 'test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
 
 // Keep the temporary SQLite file under the system temp directory and let the
 // environment clean it up instead of deleting a computed path in the test.
