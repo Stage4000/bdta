@@ -209,26 +209,29 @@ function bdta_finalize_package_purchase(
     $package_id = safe_int($package['id'] ?? 0);
 
     if ($stripe_checkout_session_id !== null && $stripe_checkout_session_id !== '') {
-        $existing_stmt = $conn->prepare("
-            SELECT id, client_id
-            FROM client_packages
-            WHERE stripe_checkout_session_id = ? AND package_id = ?
-            ORDER BY id DESC
-            LIMIT 1
-        ");
-        $existing_stmt->execute([$stripe_checkout_session_id, $package_id]);
-        $existing_purchase = $existing_stmt->fetch(PDO::FETCH_ASSOC);
-        if (is_array($existing_purchase)) {
-            if ($view_id !== null && $view_id > 0) {
-                $conn->prepare("UPDATE package_link_views SET purchased = 1, client_id = ? WHERE id = ?")
-                    ->execute([safe_int($existing_purchase['client_id'] ?? 0), $view_id]);
-            }
+        $package_id = safe_int($package['id'] ?? 0);
+        if ($package_id > 0) {
+            $existing_stmt = $conn->prepare("
+                SELECT id, client_id
+                FROM client_packages
+                WHERE stripe_checkout_session_id = ? AND package_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+            ");
+            $existing_stmt->execute([$stripe_checkout_session_id, $package_id]);
+            $existing_purchase = $existing_stmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($existing_purchase)) {
+                if ($view_id !== null && $view_id > 0) {
+                    $conn->prepare("UPDATE package_link_views SET purchased = 1, client_id = ? WHERE id = ?")
+                        ->execute([safe_int($existing_purchase['client_id'] ?? 0), $view_id]);
+                }
 
-            return [
-                'client_id' => safe_int($existing_purchase['client_id'] ?? 0),
-                'client_package_id' => safe_int($existing_purchase['id'] ?? 0),
-                'form_submission_id' => 0,
-            ];
+                return [
+                    'client_id' => safe_int($existing_purchase['client_id'] ?? 0),
+                    'client_package_id' => safe_int($existing_purchase['id'] ?? 0),
+                    'form_submission_id' => 0,
+                ];
+            }
         }
     }
 
