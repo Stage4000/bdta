@@ -1663,7 +1663,7 @@ class Database {
                 is_active INTEGER DEFAULT 1,
                 notes TEXT,
                 payment_method TEXT,
-                stripe_checkout_session_id VARCHAR(255),
+                stripe_checkout_session_id VARCHAR(255) NULL,
                 created_by INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
@@ -1786,9 +1786,9 @@ class Database {
         }
         if (!in_array('stripe_checkout_session_id', $client_package_column_names)) {
             if ($this->db_type === 'mysql') {
-                $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id VARCHAR(255)");
+                $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id VARCHAR(255) NULL");
             } else {
-                $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id TEXT");
+                $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id TEXT NULL");
             }
         }
 
