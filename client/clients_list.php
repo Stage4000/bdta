@@ -202,7 +202,10 @@ document.getElementById('searchClients')?.addEventListener('input', function() {
     let visibleRows = 0;
 
     rows.forEach(row => {
-        const searchText = (row.dataset.searchText || '').toLowerCase();
+        if (row.dataset.searchTextLower === undefined) {
+            row.dataset.searchTextLower = (row.dataset.searchText || '').toLowerCase();
+        }
+        const searchText = row.dataset.searchTextLower;
         const matches = searchTerm === '' || searchText.includes(searchTerm);
 
         row.hidden = !matches;
