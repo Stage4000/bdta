@@ -8,11 +8,13 @@
 
 require_once __DIR__ . '/backend/includes/database.php';
 require_once __DIR__ . '/backend/includes/package_contracts.php';
+require_once __DIR__ . '/backend/includes/package_checkout.php';
 
 echo "=== Bundled Package System Test ===\n\n";
 
 $created_contract_template_ids = [];
 $created_appointment_type_ids = [];
+$created_form_template_ids = [];
 $exitCode = 0;
 
 try {
@@ -62,6 +64,27 @@ try {
     $contract_b_id = (int)$conn->lastInsertId();
     $created_contract_template_ids[] = $contract_b_id;
 
+    $client_form_fields = json_encode([
+        [
+            'label' => 'Dog Name',
+            'type' => 'text',
+            'required' => true,
+        ],
+        [
+            'label' => 'Goals',
+            'type' => 'textarea',
+            'required' => false,
+        ],
+    ]);
+    $conn->prepare("INSERT INTO form_templates (name, description, form_type, fields, is_internal, is_active) VALUES (?,?,?,?,0,1)")
+         ->execute(['Package Intake Form', 'Collects package checkout details', 'booking_form', $client_form_fields]);
+    $package_form_template_id = (int)$conn->lastInsertId();
+    $created_form_template_ids[] = $package_form_template_id;
+    $conn->prepare("INSERT INTO form_templates (name, description, form_type, fields, is_internal, is_active) VALUES (?,?,?,?,0,1)")
+         ->execute(['Package Invalid Follow-up Form', 'Should not be eligible for public package checkout', 'follow_up_note', $client_form_fields]);
+    $invalid_package_form_template_id = (int)$conn->lastInsertId();
+    $created_form_template_ids[] = $invalid_package_form_template_id;
+
     // ------------------------------------------------------------------
     // Test 1: Field Rental appointment type
     // ------------------------------------------------------------------
@@ -95,8 +118,8 @@ try {
     // ------------------------------------------------------------------
     echo "Test 2: Create bundled package (1 group + 2 mini + 3 field rentals)\n";
 
-    $stmt = $conn->prepare("INSERT INTO packages (name, description, price, expiration_days, is_active) VALUES (?,?,?,?,?)");
-    $stmt->execute(['Test Bundle', 'Mixed package for testing', 150.00, 90, 1]);
+    $stmt = $conn->prepare("INSERT INTO packages (name, description, price, expiration_days, is_active, form_template_id) VALUES (?,?,?,?,?,?)");
+    $stmt->execute(['Test Bundle', 'Mixed package for testing', 150.00, 90, 1, $package_form_template_id]);
     $package_id = $conn->lastInsertId();
 
     $item_stmt = $conn->prepare("INSERT INTO package_items (package_id, appointment_type_id, quantity) VALUES (?,?,?)");
@@ -148,39 +171,130 @@ try {
     echo "  ✓ Contract disclosure summary deduplicates shared templates and preserves covered types, including inactive included types\n\n";
 
     // ------------------------------------------------------------------
+    // Test 2c: Package checkout form loads and validates required responses
+    // ------------------------------------------------------------------
+    echo "Test 2c: Package checkout form support validates required responses\n";
+
+    $attached_form = bdta_get_package_attached_form($conn, $package_form_template_id);
+    assert($attached_form !== null, 'Expected attached package form to load');
+    assert(($attached_form['form_type'] ?? '') === 'booking_form', 'Expected booking forms to be eligible for package checkout');
+    assert(bdta_get_package_attached_form($conn, $invalid_package_form_template_id) === null, 'Forced-internal form types should not load as package checkout forms');
+    $valid_form_options = bdta_get_package_checkout_form_options($conn, $package_form_template_id);
+    assert($valid_form_options['selected_form_is_valid'], 'Expected valid package checkout form option to stay selectable');
+    $valid_form_option_ids = array_map(static fn (array $form): int => safe_int($form['id'] ?? 0), $valid_form_options['forms']);
+    assert(in_array($package_form_template_id, $valid_form_option_ids, true), 'Expected valid package form in admin options');
+    $invalid_form_options = bdta_get_package_checkout_form_options($conn, $invalid_package_form_template_id);
+    assert(!$invalid_form_options['selected_form_is_valid'], 'Forced-internal form types should be flagged as invalid package checkout selections');
+    $invalid_form_option_ids = array_map(static fn (array $form): int => safe_int($form['id'] ?? 0), $invalid_form_options['forms']);
+    assert(!in_array($invalid_package_form_template_id, $invalid_form_option_ids, true), 'Forced-internal form types should not appear in admin package checkout options');
+    $missing_form_validation = bdta_validate_package_form_submission($attached_form, []);
+    assert($missing_form_validation['errors'] === ['Dog Name is required.'], 'Expected required package form validation error');
+    $valid_form_validation = bdta_validate_package_form_submission($attached_form, [
+        0 => 'Rocket',
+        1 => 'Build confidence around other dogs',
+    ]);
+    assert($valid_form_validation['errors'] === [], 'Expected package form validation to pass');
+    assert($valid_form_validation['responses'][0] === 'Rocket', 'Expected package form response to be captured');
+    echo "  ✓ Attached package form loads and enforces required fields\n\n";
+
+    // ------------------------------------------------------------------
+    // Test 2d: Pending paid checkout details persist server-side
+    // ------------------------------------------------------------------
+    echo "Test 2d: Paid checkout details persist server-side for Stripe return recovery\n";
+
+    $pending_checkout_session_id = 'cs_pending_' . bin2hex(random_bytes(6));
+    bdta_store_pending_package_purchase(
+        $conn,
+        (int)$package_id,
+        'test-package-token',
+        $pending_checkout_session_id,
+        'Pending Package Buyer',
+        'PendingBuyer@example.com',
+        '555-0111',
+        'Needs evening sessions',
+        $valid_form_validation['responses'],
+        null
+    );
+    $stored_pending_purchase = bdta_get_pending_package_purchase($conn, (int)$package_id, $pending_checkout_session_id);
+    assert(is_array($stored_pending_purchase), 'Expected pending package purchase to be retrievable by package/session');
+    assert($stored_pending_purchase['buyer_name'] === 'Pending Package Buyer', 'Expected pending package buyer name to persist');
+    assert($stored_pending_purchase['buyer_email'] === 'pendingbuyer@example.com', 'Expected pending package buyer email to be normalized');
+    assert($stored_pending_purchase['notes'] === 'Needs evening sessions', 'Expected pending package notes to persist');
+    assert(($stored_pending_purchase['form_responses'][0] ?? '') === 'Rocket', 'Expected pending package form responses to persist');
+    bdta_delete_pending_package_purchase($conn, (int)$package_id, $pending_checkout_session_id);
+    assert(bdta_get_pending_package_purchase($conn, (int)$package_id, $pending_checkout_session_id) === null, 'Expected pending package purchase to be removable after fulfillment');
+    echo "  ✓ Pending checkout details persist in the database for post-Stripe recovery\n\n";
+
+    // ------------------------------------------------------------------
     // Test 3: Create test client + assign package
     // ------------------------------------------------------------------
-    echo "Test 3: Assign package to client\n";
+    echo "Test 3: Assign package to client through checkout helper\n";
 
-    $stmt = $conn->prepare("INSERT INTO clients (name, email) VALUES (?,?)");
-    $stmt->execute(['Package Test Client', 'pkgtest@example.com']);
-    $client_id = $conn->lastInsertId();
+    $checkout_result = bdta_finalize_package_purchase(
+        $conn,
+        [
+            'id' => $package_id,
+            'name' => 'Test Bundle',
+            'expiration_days' => 90,
+        ],
+        $items,
+        'Package Test Client',
+        'pkgtest@example.com',
+        '555-0100',
+        '',
+        $attached_form,
+        $valid_form_validation['responses'],
+        null,
+        'credit_card',
+        'cs_test_' . bin2hex(random_bytes(6))
+    );
+    $client_id = $checkout_result['client_id'];
+    $cp_id = $checkout_result['client_package_id'];
 
-    $expires_at = date('Y-m-d H:i:s', strtotime('+90 days'));
-    $stmt = $conn->prepare("
-        INSERT INTO client_packages (client_id, package_id, package_name, expires_at, is_active, notes, created_by)
-        VALUES (?,?,?,?,1,?,1)
-    ");
-    $stmt->execute([$client_id, $package_id, 'Test Bundle', $expires_at, 'Test purchase']);
-    $cp_id = $conn->lastInsertId();
-
-    $credit_stmt = $conn->prepare("INSERT INTO client_package_credits (client_package_id, client_id, appointment_type_id, total_credits, used_credits) VALUES (?,?,?,?,0)");
-    foreach ($items as $item) {
-        $credit_stmt->execute([$cp_id, $client_id, $item['appointment_type_id'], $item['quantity']]);
-    }
-
-    // Log purchase transactions
     $stmt = $conn->prepare("SELECT * FROM client_package_credits WHERE client_package_id = ?");
     $stmt->execute([$cp_id]);
     $cred_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $tx_stmt = $conn->prepare("INSERT INTO package_credit_transactions (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, notes, created_by) VALUES (?,?,?,'purchase',?,?,1)");
-    foreach ($cred_rows as $cred) {
-        $tx_stmt->execute([$cred['id'], $client_id, $cred['appointment_type_id'], $cred['total_credits'], 'Package purchase']);
-    }
-
     assert(count($cred_rows) === 3, 'Expected 3 credit rows');
-    echo "  ✓ Package assigned; client has 1 group, 2 mini, 3 field_rental credits\n\n";
+    $stmt = $conn->prepare("SELECT payment_method, stripe_checkout_session_id, notes FROM client_packages WHERE id = ?");
+    $stmt->execute([$cp_id]);
+    $purchase_row = $stmt->fetch(PDO::FETCH_ASSOC);
+    assert(is_array($purchase_row), 'Expected purchased package row');
+    assert($purchase_row['payment_method'] === 'credit_card', 'Expected payment method metadata to be stored');
+    assert(strpos((string)$purchase_row['stripe_checkout_session_id'], 'cs_test_') === 0, 'Expected Stripe checkout session metadata to be stored');
+    assert($purchase_row['notes'] === 'Self-serve package purchase via Stripe checkout', 'Expected default package note to reflect Stripe checkout');
+    $duplicate_checkout_result = bdta_finalize_package_purchase(
+        $conn,
+        [
+            'id' => $package_id,
+            'name' => 'Test Bundle',
+            'expiration_days' => 90,
+        ],
+        $items,
+        'Package Test Client',
+        'pkgtest@example.com',
+        '555-0100',
+        '',
+        $attached_form,
+        $valid_form_validation['responses'],
+        null,
+        'credit_card',
+        $purchase_row['stripe_checkout_session_id']
+    );
+    assert($duplicate_checkout_result['client_package_id'] === $cp_id, 'Expected package purchase idempotency to reuse the same package purchase for the same package/session');
+    $stmt = $conn->prepare("SELECT template_id, responses, status FROM form_submissions WHERE client_id = ? ORDER BY id DESC LIMIT 1");
+    $stmt->execute([$client_id]);
+    $form_submission = $stmt->fetch(PDO::FETCH_ASSOC);
+    assert(is_array($form_submission), 'Expected package form submission to be created');
+    assert((int)$form_submission['template_id'] === $package_form_template_id, 'Expected package form template to be stored');
+    assert($form_submission['status'] === 'submitted', 'Expected package form submission status to be submitted');
+    $stored_responses = json_decode((string)$form_submission['responses'], true);
+    assert(is_array($stored_responses) && ($stored_responses[0] ?? '') === 'Rocket', 'Expected package form responses to be saved');
+    $stmt = $conn->prepare("SELECT notes FROM package_credit_transactions WHERE client_id = ? AND transaction_type = 'purchase' ORDER BY id ASC LIMIT 1");
+    $stmt->execute([$client_id]);
+    $transaction_note = $stmt->fetchColumn();
+    assert($transaction_note === "Package 'Test Bundle' purchased via Stripe checkout", 'Expected purchase audit note to reflect Stripe checkout');
+    echo "  ✓ Checkout helper assigned credits, stored payment metadata, and saved the attached form submission\n\n";
 
     // ------------------------------------------------------------------
     // Test 4: Eligibility check – only field_rental credits for field rental booking
@@ -333,6 +447,8 @@ try {
     // Cleanup
     // ------------------------------------------------------------------
     echo "Cleanup...\n";
+    $conn->prepare("DELETE FROM package_pending_purchases WHERE package_id = ?")->execute([$package_id]);
+    $conn->prepare("DELETE FROM form_submissions WHERE client_id = ?")->execute([$client_id]);
     $conn->prepare("DELETE FROM package_credit_transactions WHERE client_id = ?")->execute([$client_id]);
     $conn->prepare("DELETE FROM client_package_credits WHERE client_id = ?")->execute([$client_id]);
     $conn->prepare("DELETE FROM bookings WHERE client_id = ?")->execute([$client_id]);
@@ -357,6 +473,9 @@ try {
     $exitCode = 1;
 } finally {
     if (isset($conn) && $conn instanceof PDO) {
+        if (isset($package_id)) {
+            $conn->prepare("DELETE FROM package_pending_purchases WHERE package_id = ?")->execute([$package_id]);
+        }
         if (!empty($created_appointment_type_ids)) {
             $placeholders = implode(',', array_fill(0, count($created_appointment_type_ids), '?'));
             $stmt = $conn->prepare("DELETE FROM appointment_types WHERE id IN ($placeholders)");
@@ -366,6 +485,11 @@ try {
             $placeholders = implode(',', array_fill(0, count($created_contract_template_ids), '?'));
             $stmt = $conn->prepare("DELETE FROM contract_templates WHERE id IN ($placeholders)");
             $stmt->execute($created_contract_template_ids);
+        }
+        if (!empty($created_form_template_ids)) {
+            $placeholders = implode(',', array_fill(0, count($created_form_template_ids), '?'));
+            $stmt = $conn->prepare("DELETE FROM form_templates WHERE id IN ($placeholders)");
+            $stmt->execute($created_form_template_ids);
         }
     }
 }
