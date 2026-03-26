@@ -129,7 +129,7 @@ if (!$success && $session_id !== '') {
         }
     }
 
-    if (!is_array($pending_purchase) || safe_int($pending_purchase['package_id'] ?? 0) !== $package_id) {
+    if (!is_array($pending_purchase) || $pending_purchase['package_id'] !== $package_id) {
         $error = 'We could not recover your checkout details to finish this purchase. Please try again or contact us if your card was charged.';
     } else {
         require_once __DIR__ . '/../backend/includes/stripe_config.php';
@@ -169,18 +169,20 @@ if (!$success && $session_id !== '') {
                     } elseif (safe_int(is_array($session['metadata'] ?? null) ? $session['metadata']['package_id'] ?? 0 : 0) !== safe_int($package['id'] ?? 0)) {
                         $error = 'The payment confirmation did not match this package. Please contact us if you were charged.';
                     } else {
+                        /** @var array<int, mixed> $pending_form_responses */
+                        $pending_form_responses = $pending_purchase['form_responses'];
                         try {
                             bdta_finalize_package_purchase(
                                 $conn,
                                 $package,
                                 $items,
-                                scalar_string($pending_purchase['buyer_name'] ?? ''),
-                                scalar_string($pending_purchase['buyer_email'] ?? ''),
-                                scalar_string($pending_purchase['buyer_phone'] ?? ''),
-                                scalar_string($pending_purchase['notes'] ?? ''),
+                                $pending_purchase['buyer_name'],
+                                $pending_purchase['buyer_email'],
+                                $pending_purchase['buyer_phone'],
+                                $pending_purchase['notes'],
                                 $attached_form,
-                                is_array($pending_purchase['form_responses'] ?? null) ? $pending_purchase['form_responses'] : [],
-                                safe_int($pending_purchase['view_id'] ?? 0),
+                                $pending_form_responses,
+                                $pending_purchase['view_id'],
                                 'credit_card',
                                 $session_id
                             );
