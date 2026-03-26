@@ -378,7 +378,7 @@ class MoxieClientSync {
                     ");
                     $stmt->execute([
                         $invoice['invoice_number'],
-                        $invoice['moxie_invoice_id'],
+                        $invoice['moxie_invoice_id'] !== '' ? $invoice['moxie_invoice_id'] : null,
                         self::stringValue($client, 'id'),
                         $invoice['issue_date'],
                         $invoice['due_date'],
