@@ -304,7 +304,6 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
                                 $error = 'Could not initiate online payment. Please try again or contact us.';
                             } else {
                                 $stripe_checkout_session_id = array_string_value($session, 'id');
-                                $_SESSION['pending_package_purchases'][$token]['stripe_checkout_session_id'] = $stripe_checkout_session_id;
                                 try {
                                     bdta_store_pending_package_purchase(
                                         $conn,
@@ -312,14 +311,15 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
                                         $token,
                                         $stripe_checkout_session_id,
                                         $buyer_name,
-                                        strtolower($buyer_email),
+                                        $buyer_email,
                                         $buyer_phone,
                                         $notes,
                                         $form_validation['responses'],
                                         $view_id
                                     );
+                                    $_SESSION['pending_package_purchases'][$token]['stripe_checkout_session_id'] = $stripe_checkout_session_id;
                                 } catch (Throwable $e) {
-                                    error_log('Package pending purchase persistence failed for token ' . $token . ': ' . $e->getMessage());
+                                    error_log('Package pending purchase persistence failed for package ' . safe_int($package['id'] ?? 0) . ': ' . $e->getMessage());
                                     $error = 'Could not prepare your checkout details for a secure return. Please try again or contact us.';
                                 }
                             }

@@ -189,7 +189,7 @@ function bdta_validate_package_form_submission(?array $form, array $submitted_va
  * @param array<int|string, mixed> $form_responses
  * @return array<int, mixed>
  */
-function bdta_normalize_pending_package_form_responses(array $form_responses): array
+function bdta_reindex_pending_package_form_responses(array $form_responses): array
 {
     $normalized = [];
     foreach ($form_responses as $key => $value) {
@@ -308,7 +308,7 @@ function bdta_get_pending_package_purchase(SafePDO $conn, int $package_id, strin
         'buyer_email' => scalar_string($pending_purchase['buyer_email'] ?? ''),
         'buyer_phone' => scalar_string($pending_purchase['buyer_phone'] ?? ''),
         'notes' => scalar_string($pending_purchase['notes'] ?? ''),
-        'form_responses' => bdta_normalize_pending_package_form_responses(is_array($decoded_form_responses) ? $decoded_form_responses : []),
+        'form_responses' => bdta_reindex_pending_package_form_responses(is_array($decoded_form_responses) ? $decoded_form_responses : []),
         'view_id' => safe_int($pending_purchase['view_id'] ?? 0),
     ];
 }
