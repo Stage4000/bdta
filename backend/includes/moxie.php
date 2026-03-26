@@ -8,6 +8,8 @@ class MoxieClientSync {
     private const MAX_PAGES = 100;
     private const REQUEST_TIMEOUT = 15;
     private const CONNECT_TIMEOUT = 5;
+    /** @var list<int> */
+    private const RATE_LIMIT_RETRY_DELAYS = [2, 4, 8];
     private const LOG_INIT_RETRY_INTERVAL = 60; // wait this long before retrying log setup after a failure
     /** @var list<string> Endpoint order: /action/clients/list first, then legacy fallback paths. */
     private const CLIENT_LIST_PATHS = [
@@ -352,7 +354,27 @@ class MoxieClientSync {
                         'count' => $count,
                         'request_method' => $request_payload === null ? 'GET' : 'POST',
                     ]);
-                    $response = $this->requestJson($request_url, $api_key, $request_payload);
+                    $rate_limit_retry = 0;
+                    while (true) {
+                        try {
+                            $response = $this->requestJson($request_url, $api_key, $request_payload);
+                            break;
+                        } catch (RuntimeException $e) {
+                            if (!self::isHttpStatusException($e, 429) || !isset(self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry])) {
+                                throw $e;
+                            }
+
+                            $delay_seconds = self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry];
+                            $rate_limit_retry++;
+                            self::log('Moxie rate limited client page request; retrying the same page after a short delay.', [
+                                'url' => $request_url,
+                                'page' => $page,
+                                'retry_attempt' => $rate_limit_retry,
+                                'delay_seconds' => $delay_seconds,
+                            ]);
+                            $this->pauseBeforeRateLimitRetry($delay_seconds);
+                        }
+                    }
                     $page_clients = self::extractClientRows($response);
                     foreach ($page_clients as $page_client) {
                         $clients[] = $page_client;
@@ -726,6 +748,12 @@ class MoxieClientSync {
     private static function isHttpStatusException(Throwable $exception, int $status): bool {
         return preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) === 1
             && safe_int($matches[1]) === $status;
+    }
+
+    protected function pauseBeforeRateLimitRetry(int $delay_seconds): void {
+        if ($delay_seconds > 0) {
+            sleep($delay_seconds);
+        }
     }
 
     private static function shouldUseGetForClientListPath(string $path): bool {

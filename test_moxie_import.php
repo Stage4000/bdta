@@ -414,6 +414,91 @@ try {
         throw new RuntimeException('Expected fetchClients() to retry the next endpoint after a first-page timeout: ' . json_encode($timeout_fallback_calls));
     }
 
+    $rate_limited_request_calls = [];
+    $rate_limited_retry_delays = [];
+    $rate_limited_sync = new class($conn, $rate_limited_request_calls, $rate_limited_retry_delays) extends MoxieClientSync {
+        /** @var array<int, array{url:string, api_key:string, payload:array<string, int>|null}> */
+        private array $captured_calls;
+        /** @var list<int> */
+        private array $captured_retry_delays;
+
+        /**
+         * @param array<int, array{url:string, api_key:string, payload:array<string, int>|null}> $captured_calls
+         * @param list<int> $captured_retry_delays
+         */
+        public function __construct(SafePDO $conn, array &$captured_calls, array &$captured_retry_delays) {
+            parent::__construct($conn);
+            $this->captured_calls = &$captured_calls;
+            $this->captured_retry_delays = &$captured_retry_delays;
+        }
+
+        /**
+         * @param array<string, int>|null $payload
+         * @return array<int|string, mixed>
+         */
+        protected function requestJson(string $url, string $api_key, ?array $payload = null): array {
+            $this->captured_calls[] = [
+                'url' => $url,
+                'api_key' => $api_key,
+                'payload' => $payload,
+            ];
+
+            if (count($this->captured_calls) === 1) {
+                return [
+                    'clients' => [
+                        ['id' => 'rate-limit-page-1'],
+                    ],
+                    '_links' => [
+                        'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/action/clients/list?start=100&count=100'],
+                    ],
+                ];
+            }
+
+            if (count($this->captured_calls) === 2) {
+                throw new RuntimeException('Moxie request failed with HTTP status 429.');
+            }
+
+            return [
+                'clients' => [
+                    ['id' => 'rate-limit-page-2'],
+                ],
+            ];
+        }
+
+        protected function pauseBeforeRateLimitRetry(int $delay_seconds): void {
+            $this->captured_retry_delays[] = $delay_seconds;
+        }
+    };
+
+    $rate_limited_clients = $rate_limited_sync->fetchClients($normalized_base_url, 'test-api-key', 100);
+    if (count($rate_limited_clients) !== 2) {
+        throw new RuntimeException('Expected fetchClients() to retry a 429 response on the same page and continue pagination.');
+    }
+
+    if ($rate_limited_request_calls !== [
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
+            'api_key' => 'test-api-key',
+            'payload' => null,
+        ],
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list?start=100&count=100',
+            'api_key' => 'test-api-key',
+            'payload' => null,
+        ],
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list?start=100&count=100',
+            'api_key' => 'test-api-key',
+            'payload' => null,
+        ],
+    ]) {
+        throw new RuntimeException('Expected fetchClients() to retry a 429 response on the same paginated URL: ' . json_encode($rate_limited_request_calls));
+    }
+
+    if ($rate_limited_retry_delays !== [2]) {
+        throw new RuntimeException('Expected fetchClients() to apply the initial rate-limit retry delay before retrying the same page: ' . json_encode($rate_limited_retry_delays));
+    }
+
     echo "✓ Moxie import client creation works\n";
     echo "✓ Archived and missing-email clients are skipped\n";
     echo "✓ Existing clients update by Moxie client ID\n";
@@ -424,6 +509,7 @@ try {
     echo "✓ fetchClients retries the legacy list endpoint when the primary endpoint returns 404\n";
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint returns 500 on page one\n";
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint times out on page one\n";
+    echo "✓ fetchClients retries a 429 response on the same paginated request before failing\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";
     echo "=== All Moxie Import Tests Passed! ===\n";
 } catch (Throwable $e) {
