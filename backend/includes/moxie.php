@@ -321,8 +321,8 @@ class MoxieClientSync {
             $start = 0;
             $count = $page_size;
             $completed_pagination = false;
-            $next_request_url = '';
             $use_get_requests = self::shouldUseGetForClientListPath($list_path);
+            $next_request_url = '';
 
             try {
                 while ($page < self::MAX_PAGES) {
@@ -333,15 +333,13 @@ class MoxieClientSync {
                         'count' => $count,
                     ];
                     if ($use_get_requests) {
-                        if ($next_request_url !== '') {
-                            $request_url = $next_request_url;
-                            $next_request_url = '';
-                            $request_payload = null;
-                        } elseif ($page === 1 && $start === 0) {
-                            $request_payload = null;
-                        } else {
+                        $request_payload = null;
+                        $follow_pagination_url = $next_request_url;
+                        $next_request_url = '';
+                        if ($follow_pagination_url !== '') {
+                            $request_url = $follow_pagination_url;
+                        } elseif ($page > 1 || $start > 0) {
                             $request_url = self::appendPaginationQuery($list_url, $start, $count);
-                            $request_payload = null;
                         }
                     }
 
