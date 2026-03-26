@@ -358,6 +358,62 @@ try {
         throw new RuntimeException('Expected fetchClients() to retry the next endpoint after a 500 on the first page: ' . json_encode($server_error_fallback_calls));
     }
 
+    $timeout_fallback_calls = [];
+    $timeout_fallback_sync = new class($conn, $timeout_fallback_calls) extends MoxieClientSync {
+        /** @var array<int, array{url:string, api_key:string, payload:array<string, int>|null}> */
+        private array $captured_calls;
+
+        /**
+         * @param array<int, array{url:string, api_key:string, payload:array<string, int>|null}> $captured_calls
+         */
+        public function __construct(SafePDO $conn, array &$captured_calls) {
+            parent::__construct($conn);
+            $this->captured_calls = &$captured_calls;
+        }
+
+        /**
+         * @param array<string, int>|null $payload
+         * @return array<int|string, mixed>
+         */
+        protected function requestJson(string $url, string $api_key, ?array $payload = null): array {
+            $this->captured_calls[] = [
+                'url' => $url,
+                'api_key' => $api_key,
+                'payload' => $payload,
+            ];
+
+            if (count($this->captured_calls) === 1) {
+                throw new RuntimeException('Moxie request failed: Operation timed out after 15000 milliseconds with 0 bytes received');
+            }
+
+            return [
+                'clients' => [
+                    ['id' => 'timeout-fallback-page-1'],
+                ],
+            ];
+        }
+    };
+
+    $timeout_fallback_clients = $timeout_fallback_sync->fetchClients($normalized_base_url, 'test-api-key', 100);
+    if (count($timeout_fallback_clients) !== 1) {
+        throw new RuntimeException('Expected fetchClients() to retry an alternate endpoint after a first-page timeout.');
+    }
+
+    if ($timeout_fallback_calls !== [
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
+            'api_key' => 'test-api-key',
+            'payload' => null,
+        ],
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
+            'api_key' => 'test-api-key',
+            'payload' => ['start' => 0, 'count' => 100],
+        ],
+    ]) {
+        throw new RuntimeException('Expected fetchClients() to retry the next endpoint after a first-page timeout: ' . json_encode($timeout_fallback_calls));
+    }
+
     echo "✓ Moxie import client creation works\n";
     echo "✓ Archived and missing-email clients are skipped\n";
     echo "✓ Existing clients update by Moxie client ID\n";
@@ -367,6 +423,7 @@ try {
     echo "✓ fetchClients GETs the primary client list endpoint and follows the returned pagination URL\n";
     echo "✓ fetchClients retries the legacy list endpoint when the primary endpoint returns 404\n";
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint returns 500 on page one\n";
+    echo "✓ fetchClients retries the next list endpoint when the primary endpoint times out on page one\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";
     echo "=== All Moxie Import Tests Passed! ===\n";
 } catch (Throwable $e) {

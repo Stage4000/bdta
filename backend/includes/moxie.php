@@ -6,6 +6,8 @@ require_once __DIR__ . '/settings.php';
 class MoxieClientSync {
     private const DEFAULT_PAGE_SIZE = 100;
     private const MAX_PAGES = 100;
+    private const REQUEST_TIMEOUT = 15;
+    private const CONNECT_TIMEOUT = 5;
     private const LOG_INIT_RETRY_INTERVAL = 60; // wait this long before retrying log setup after a failure
     /** @var list<string> Endpoint order: /action/clients/list first, then legacy fallback paths. */
     private const CLIENT_LIST_PATHS = [
@@ -633,8 +635,8 @@ class MoxieClientSync {
 
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => self::REQUEST_TIMEOUT,
+            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
             CURLOPT_HTTPHEADER => $headers,
         ]);
 
@@ -731,6 +733,10 @@ class MoxieClientSync {
     }
 
     private static function shouldRetryAlternateEndpoint(Throwable $exception): bool {
+        if (preg_match('/timed out/i', $exception->getMessage()) === 1) {
+            return true;
+        }
+
         if (preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) !== 1) {
             return false;
         }
