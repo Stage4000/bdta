@@ -444,7 +444,7 @@ class MoxieClientSync {
                 ");
                 $stmt->execute([
                     $merged['invoice_number'],
-                    $merged['moxie_invoice_id'],
+                    $merged['moxie_invoice_id'] !== '' ? $merged['moxie_invoice_id'] : null,
                     $merged['client_id'],
                     $merged['issue_date'],
                     $merged['due_date'],
