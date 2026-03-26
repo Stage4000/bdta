@@ -90,6 +90,7 @@ if ($purchase_status === 'success' && !empty($_SESSION['package_purchase_success
 }
 
 if (!$success && $session_id !== '') {
+    $package_id = safe_int($package['id'] ?? 0);
     $existing_purchase_stmt = $conn->prepare("
         SELECT id
         FROM client_packages
@@ -97,18 +98,38 @@ if (!$success && $session_id !== '') {
         ORDER BY id DESC
         LIMIT 1
     ");
-    $existing_purchase_stmt->execute([$package['id'], $session_id]);
+    $existing_purchase_stmt->execute([$package_id, $session_id]);
     $existing_purchase = $existing_purchase_stmt->fetch(PDO::FETCH_ASSOC);
 
     if (is_array($existing_purchase)) {
+        bdta_delete_pending_package_purchase($conn, $package_id, $session_id);
+        unset($_SESSION['pending_package_purchases'][$token]);
         $_SESSION['package_purchase_success'][$token] = 1;
         header('Location: package_detail.php?token=' . urlencode($token) . '&purchase=success');
         exit;
     }
 
-    /** @var array<string, mixed>|null $pending_purchase */
-    $pending_purchase = $_SESSION['pending_package_purchases'][$token] ?? null;
-    if (!is_array($pending_purchase) || safe_int($pending_purchase['package_id'] ?? 0) !== safe_int($package['id'] ?? 0)) {
+    /** @var array<string, mixed>|null $session_pending_purchase */
+    $session_pending_purchase = $_SESSION['pending_package_purchases'][$token] ?? null;
+    $pending_purchase = bdta_get_pending_package_purchase($conn, $package_id, $session_id);
+    if ($pending_purchase === null && is_array($session_pending_purchase) && safe_int($session_pending_purchase['package_id'] ?? 0) === $package_id) {
+        $stored_session_checkout_session_id = scalar_string($session_pending_purchase['stripe_checkout_session_id'] ?? '');
+        if ($stored_session_checkout_session_id === '' || $stored_session_checkout_session_id === $session_id) {
+            $pending_purchase = [
+                'package_id' => $package_id,
+                'package_token' => $token,
+                'stripe_checkout_session_id' => $stored_session_checkout_session_id,
+                'buyer_name' => scalar_string($session_pending_purchase['buyer_name'] ?? ''),
+                'buyer_email' => scalar_string($session_pending_purchase['buyer_email'] ?? ''),
+                'buyer_phone' => scalar_string($session_pending_purchase['buyer_phone'] ?? ''),
+                'notes' => scalar_string($session_pending_purchase['notes'] ?? ''),
+                'form_responses' => is_array($session_pending_purchase['form_responses'] ?? null) ? $session_pending_purchase['form_responses'] : [],
+                'view_id' => safe_int($session_pending_purchase['view_id'] ?? 0),
+            ];
+        }
+    }
+
+    if (!is_array($pending_purchase) || safe_int($pending_purchase['package_id'] ?? 0) !== $package_id) {
         $error = 'We could not recover your checkout details to finish this purchase. Please try again or contact us if your card was charged.';
     } else {
         require_once __DIR__ . '/../backend/includes/stripe_config.php';
@@ -163,6 +184,7 @@ if (!$success && $session_id !== '') {
                                 'credit_card',
                                 $session_id
                             );
+                            bdta_delete_pending_package_purchase($conn, $package_id, $session_id);
                             unset($_SESSION['pending_package_purchases'][$token]);
                             $_SESSION['package_purchase_success'][$token] = 1;
                             header('Location: package_detail.php?token=' . urlencode($token) . '&purchase=success');
@@ -281,6 +303,28 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
                                 );
                                 $error = 'Could not initiate online payment. Please try again or contact us.';
                             } else {
+                                $stripe_checkout_session_id = array_string_value($session, 'id');
+                                $_SESSION['pending_package_purchases'][$token]['stripe_checkout_session_id'] = $stripe_checkout_session_id;
+                                try {
+                                    bdta_store_pending_package_purchase(
+                                        $conn,
+                                        safe_int($package['id'] ?? 0),
+                                        $token,
+                                        $stripe_checkout_session_id,
+                                        $buyer_name,
+                                        strtolower($buyer_email),
+                                        $buyer_phone,
+                                        $notes,
+                                        $form_validation['responses'],
+                                        $view_id
+                                    );
+                                } catch (Throwable $e) {
+                                    error_log('Package pending purchase persistence failed for token ' . $token . ': ' . $e->getMessage());
+                                    $error = 'Could not prepare your checkout details for a secure return. Please try again or contact us.';
+                                }
+                            }
+
+                            if ($error === null) {
                                 header('Location: ' . array_string_value($session, 'url'));
                                 exit;
                             }

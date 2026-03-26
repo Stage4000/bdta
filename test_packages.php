@@ -197,6 +197,34 @@ try {
     echo "  ✓ Attached package form loads and enforces required fields\n\n";
 
     // ------------------------------------------------------------------
+    // Test 2d: Pending paid checkout details persist server-side
+    // ------------------------------------------------------------------
+    echo "Test 2d: Paid checkout details persist server-side for Stripe return recovery\n";
+
+    $pending_checkout_session_id = 'cs_pending_' . bin2hex(random_bytes(6));
+    bdta_store_pending_package_purchase(
+        $conn,
+        (int)$package_id,
+        'test-package-token',
+        $pending_checkout_session_id,
+        'Pending Package Buyer',
+        'PendingBuyer@example.com',
+        '555-0111',
+        'Needs evening sessions',
+        $valid_form_validation['responses'],
+        null
+    );
+    $stored_pending_purchase = bdta_get_pending_package_purchase($conn, (int)$package_id, $pending_checkout_session_id);
+    assert(is_array($stored_pending_purchase), 'Expected pending package purchase to be retrievable by package/session');
+    assert($stored_pending_purchase['buyer_name'] === 'Pending Package Buyer', 'Expected pending package buyer name to persist');
+    assert($stored_pending_purchase['buyer_email'] === 'pendingbuyer@example.com', 'Expected pending package buyer email to be normalized');
+    assert($stored_pending_purchase['notes'] === 'Needs evening sessions', 'Expected pending package notes to persist');
+    assert(($stored_pending_purchase['form_responses'][0] ?? '') === 'Rocket', 'Expected pending package form responses to persist');
+    bdta_delete_pending_package_purchase($conn, (int)$package_id, $pending_checkout_session_id);
+    assert(bdta_get_pending_package_purchase($conn, (int)$package_id, $pending_checkout_session_id) === null, 'Expected pending package purchase to be removable after fulfillment');
+    echo "  ✓ Pending checkout details persist in the database for post-Stripe recovery\n\n";
+
+    // ------------------------------------------------------------------
     // Test 3: Create test client + assign package
     // ------------------------------------------------------------------
     echo "Test 3: Assign package to client through checkout helper\n";
@@ -418,6 +446,7 @@ try {
     // Cleanup
     // ------------------------------------------------------------------
     echo "Cleanup...\n";
+    $conn->prepare("DELETE FROM package_pending_purchases WHERE package_id = ?")->execute([$package_id]);
     $conn->prepare("DELETE FROM form_submissions WHERE client_id = ?")->execute([$client_id]);
     $conn->prepare("DELETE FROM package_credit_transactions WHERE client_id = ?")->execute([$client_id]);
     $conn->prepare("DELETE FROM client_package_credits WHERE client_id = ?")->execute([$client_id]);
@@ -443,6 +472,9 @@ try {
     $exitCode = 1;
 } finally {
     if (isset($conn) && $conn instanceof PDO) {
+        if (isset($package_id)) {
+            $conn->prepare("DELETE FROM package_pending_purchases WHERE package_id = ?")->execute([$package_id]);
+        }
         if (!empty($created_appointment_type_ids)) {
             $placeholders = implode(',', array_fill(0, count($created_appointment_type_ids), '?'));
             $stmt = $conn->prepare("DELETE FROM appointment_types WHERE id IN ($placeholders)");

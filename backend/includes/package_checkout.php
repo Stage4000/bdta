@@ -186,6 +186,146 @@ function bdta_validate_package_form_submission(?array $form, array $submitted_va
 }
 
 /**
+ * @param array<int|string, mixed> $form_responses
+ * @return array<int, mixed>
+ */
+function bdta_normalize_pending_package_form_responses(array $form_responses): array
+{
+    $normalized = [];
+    foreach ($form_responses as $key => $value) {
+        $normalized[safe_int($key)] = $value;
+    }
+    ksort($normalized);
+
+    return $normalized;
+}
+
+/**
+ * @param array<int, mixed> $form_responses
+ */
+function bdta_store_pending_package_purchase(
+    SafePDO $conn,
+    int $package_id,
+    string $package_token,
+    string $stripe_checkout_session_id,
+    string $buyer_name,
+    string $buyer_email,
+    string $buyer_phone = '',
+    string $notes = '',
+    array $form_responses = [],
+    ?int $view_id = null
+): void {
+    if ($package_id <= 0 || $package_token === '' || $stripe_checkout_session_id === '') {
+        throw new InvalidArgumentException('Package, token, and Stripe checkout session are required.');
+    }
+
+    $buyer_name = trim($buyer_name);
+    $buyer_email = strtolower(trim($buyer_email));
+    if ($buyer_name === '' || $buyer_email === '') {
+        throw new InvalidArgumentException('Pending purchase buyer details are required.');
+    }
+
+    $encoded_form_responses = json_encode($form_responses);
+    if ($encoded_form_responses === false) {
+        throw new RuntimeException('Unable to encode pending package form responses.');
+    }
+
+    $existing_stmt = $conn->prepare("
+        SELECT id
+        FROM package_pending_purchases
+        WHERE package_id = ? AND stripe_checkout_session_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $existing_stmt->execute([$package_id, $stripe_checkout_session_id]);
+    $existing_pending_purchase = $existing_stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (is_array($existing_pending_purchase) && safe_int($existing_pending_purchase['id'] ?? 0) > 0) {
+        $conn->prepare("
+            UPDATE package_pending_purchases
+            SET package_token = ?, buyer_name = ?, buyer_email = ?, buyer_phone = ?, notes = ?, form_responses = ?, view_id = ?
+            WHERE id = ?
+        ")->execute([
+            $package_token,
+            $buyer_name,
+            $buyer_email,
+            trim($buyer_phone) !== '' ? trim($buyer_phone) : null,
+            trim($notes) !== '' ? trim($notes) : null,
+            $encoded_form_responses,
+            $view_id !== null && $view_id > 0 ? $view_id : null,
+            safe_int($existing_pending_purchase['id'] ?? 0),
+        ]);
+
+        return;
+    }
+
+    $conn->prepare("
+        INSERT INTO package_pending_purchases
+            (package_id, package_token, stripe_checkout_session_id, buyer_name, buyer_email, buyer_phone, notes, form_responses, view_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ")->execute([
+        $package_id,
+        $package_token,
+        $stripe_checkout_session_id,
+        $buyer_name,
+        $buyer_email,
+        trim($buyer_phone) !== '' ? trim($buyer_phone) : null,
+        trim($notes) !== '' ? trim($notes) : null,
+        $encoded_form_responses,
+        $view_id !== null && $view_id > 0 ? $view_id : null,
+    ]);
+}
+
+/**
+ * @return array{package_id: int, package_token: string, stripe_checkout_session_id: string, buyer_name: string, buyer_email: string, buyer_phone: string, notes: string, form_responses: array<int, mixed>, view_id: int}|null
+ */
+function bdta_get_pending_package_purchase(SafePDO $conn, int $package_id, string $stripe_checkout_session_id): ?array
+{
+    if ($package_id <= 0 || $stripe_checkout_session_id === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT package_id, package_token, stripe_checkout_session_id, buyer_name, buyer_email, buyer_phone, notes, form_responses, view_id
+        FROM package_pending_purchases
+        WHERE package_id = ? AND stripe_checkout_session_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$package_id, $stripe_checkout_session_id]);
+    $pending_purchase = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($pending_purchase)) {
+        return null;
+    }
+
+    $decoded_form_responses = json_decode(scalar_string($pending_purchase['form_responses'] ?? ''), true);
+
+    return [
+        'package_id' => safe_int($pending_purchase['package_id'] ?? 0),
+        'package_token' => scalar_string($pending_purchase['package_token'] ?? ''),
+        'stripe_checkout_session_id' => scalar_string($pending_purchase['stripe_checkout_session_id'] ?? ''),
+        'buyer_name' => scalar_string($pending_purchase['buyer_name'] ?? ''),
+        'buyer_email' => scalar_string($pending_purchase['buyer_email'] ?? ''),
+        'buyer_phone' => scalar_string($pending_purchase['buyer_phone'] ?? ''),
+        'notes' => scalar_string($pending_purchase['notes'] ?? ''),
+        'form_responses' => bdta_normalize_pending_package_form_responses(is_array($decoded_form_responses) ? $decoded_form_responses : []),
+        'view_id' => safe_int($pending_purchase['view_id'] ?? 0),
+    ];
+}
+
+function bdta_delete_pending_package_purchase(SafePDO $conn, int $package_id, string $stripe_checkout_session_id): void
+{
+    if ($package_id <= 0 || $stripe_checkout_session_id === '') {
+        return;
+    }
+
+    $conn->prepare("
+        DELETE FROM package_pending_purchases
+        WHERE package_id = ? AND stripe_checkout_session_id = ?
+    ")->execute([$package_id, $stripe_checkout_session_id]);
+}
+
+/**
  * @param array<string, mixed> $package
  * @param list<array<string, mixed>> $items
  * @param array<string, mixed>|null $attached_form
