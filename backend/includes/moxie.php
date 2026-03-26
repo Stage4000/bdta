@@ -1160,7 +1160,7 @@ class MoxieClientSync {
      * @return array<string, mixed>
      */
     private static function assocArray(?array $value): array {
-        if (!is_array($value)) {
+        if ($value === null) {
             return [];
         }
 
