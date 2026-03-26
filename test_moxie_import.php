@@ -230,6 +230,54 @@ try {
         throw new RuntimeException('Expected fetchClients() to GET the primary client list endpoint and follow the pagination URL returned by Moxie: ' . json_encode($request_calls));
     }
 
+    $no_next_request_calls = [];
+    $no_next_sync = new class($conn, $no_next_request_calls) extends MoxieClientSync {
+        /** @var array<int, array{url:string, api_key:string, payload:array<string, int>|null}> */
+        private array $captured_calls;
+
+        /**
+         * @param array<int, array{url:string, api_key:string, payload:array<string, int>|null}> $captured_calls
+         */
+        public function __construct(SafePDO $conn, array &$captured_calls) {
+            parent::__construct($conn);
+            $this->captured_calls = &$captured_calls;
+        }
+
+        /**
+         * @param array<string, int>|null $payload
+         * @return array<int|string, mixed>
+         */
+        protected function requestJson(string $url, string $api_key, ?array $payload = null): array {
+            $this->captured_calls[] = [
+                'url' => $url,
+                'api_key' => $api_key,
+                'payload' => $payload,
+            ];
+
+            return [
+                'clients' => array_map(
+                    static fn (int $index): array => ['id' => 'client-' . $index],
+                    range(1, 100)
+                ),
+            ];
+        }
+    };
+
+    $no_next_clients = $no_next_sync->fetchClients($normalized_base_url, 'test-api-key', 100);
+    if (count($no_next_clients) !== 100) {
+        throw new RuntimeException('Expected fetchClients() to return the first GET page when Moxie does not return a next URL.');
+    }
+
+    if ($no_next_request_calls !== [
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
+            'api_key' => 'test-api-key',
+            'payload' => null,
+        ],
+    ]) {
+        throw new RuntimeException('Expected fetchClients() to stop GET pagination when Moxie does not return a next URL: ' . json_encode($no_next_request_calls));
+    }
+
     $fallback_request_calls = [];
     $fallback_test_sync = new class($conn, $fallback_request_calls) extends MoxieClientSync {
         /** @var array<int, array{url:string, api_key:string, payload:array<string, int>|null}> */
@@ -506,6 +554,7 @@ try {
     echo "✓ fetchClients validates required base URL and page size inputs\n";
     echo "✓ Absolute Moxie pagination URLs must stay on the configured HTTPS origin\n";
     echo "✓ fetchClients GETs the primary client list endpoint and follows the returned pagination URL\n";
+    echo "✓ fetchClients stops GET pagination when Moxie does not return a next URL\n";
     echo "✓ fetchClients retries the legacy list endpoint when the primary endpoint returns 404\n";
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint returns 500 on page one\n";
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint times out on page one\n";

@@ -389,6 +389,11 @@ class MoxieClientSync {
                         continue;
                     }
 
+                    if ($use_get_requests) {
+                        $completed_pagination = true;
+                        break;
+                    }
+
                     if (count($page_clients) < $count) {
                         $completed_pagination = true;
                         break;
