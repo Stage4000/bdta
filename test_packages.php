@@ -77,7 +77,7 @@ try {
         ],
     ]);
     $conn->prepare("INSERT INTO form_templates (name, description, form_type, fields, is_internal, is_active) VALUES (?,?,?,?,0,1)")
-         ->execute(['Package Intake Form', 'Collects package checkout details', 'client_form', $client_form_fields]);
+         ->execute(['Package Intake Form', 'Collects package checkout details', 'booking_form', $client_form_fields]);
     $package_form_template_id = (int)$conn->lastInsertId();
     $created_form_template_ids[] = $package_form_template_id;
     $conn->prepare("INSERT INTO form_templates (name, description, form_type, fields, is_internal, is_active) VALUES (?,?,?,?,0,1)")
@@ -177,6 +177,7 @@ try {
 
     $attached_form = bdta_get_package_attached_form($conn, $package_form_template_id);
     assert($attached_form !== null, 'Expected attached package form to load');
+    assert(($attached_form['form_type'] ?? '') === 'booking_form', 'Expected booking forms to be eligible for package checkout');
     assert(bdta_get_package_attached_form($conn, $invalid_package_form_template_id) === null, 'Forced-internal form types should not load as package checkout forms');
     $valid_form_options = bdta_get_package_checkout_form_options($conn, $package_form_template_id);
     assert($valid_form_options['selected_form_is_valid'], 'Expected valid package checkout form option to stay selectable');

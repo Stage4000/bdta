@@ -286,7 +286,13 @@ include __DIR__ . '/../backend/includes/header.php';
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <div class="form-text">Optionally require a client-facing form during package checkout.</div>
+                        <div class="form-text">Optionally require any active client-facing form during package checkout. Admin-only forms are excluded.</div>
+                        <?php if ($available_package_forms === []): ?>
+                            <div class="form-text text-warning mt-1">
+                                No eligible client-facing forms are available yet.
+                                <a href="form_templates_edit.php">Create a form template</a> and choose a client-facing form type.
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 

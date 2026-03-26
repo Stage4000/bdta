@@ -43,7 +43,7 @@ function bdta_package_form_is_checkout_eligible(array $form): bool
     }
 
     $form_type = bdta_normalize_form_type(scalar_string($form['form_type'] ?? 'client_form'));
-    return bdta_form_type_forced_internal($form_type) !== 1 && bdta_form_type_allows_public_submission($form_type);
+    return bdta_form_type_forced_internal($form_type) !== 1;
 }
 
 /**
