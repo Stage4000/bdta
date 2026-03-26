@@ -1164,6 +1164,19 @@ class MoxieClientSync {
             return [];
         }
 
+        $all_string_keys = true;
+        foreach (array_keys($value) as $key) {
+            if (!is_string($key)) {
+                $all_string_keys = false;
+                break;
+            }
+        }
+
+        if ($all_string_keys) {
+            /** @var array<string, mixed> $value */
+            return $value;
+        }
+
         $assoc = [];
         foreach ($value as $key => $item) {
             $assoc[(string) $key] = $item;
