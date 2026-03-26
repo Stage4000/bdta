@@ -6,7 +6,7 @@ require_once __DIR__ . '/form_types.php';
 require_once __DIR__ . '/workflow_helper.php';
 
 /**
- * @return list<array<string, mixed>>.
+ * @return list<array<string, mixed>>
  */
 function bdta_package_checkout_fields(mixed $fields): array
 {
