@@ -2,8 +2,10 @@
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/settings.php';
 
-/** @phpstan-type NormalizedClient array{name:string, email:string, phone:string, address:string, notes:string, moxie_client_id:string, archived:bool} */
-/** @phpstan-type NormalizedInvoice array{invoice_number:string, moxie_invoice_id:string, issue_date:string, due_date:string, subtotal:float, tax_rate:float, tax_amount:float, total_amount:float, status:string, payment_method:string, payment_date:string, notes:string, client:NormalizedClient} */
+/**
+ * @phpstan-type NormalizedClient array{name:string, email:string, phone:string, address:string, notes:string, moxie_client_id:string, archived:bool}
+ * @phpstan-type NormalizedInvoice array{invoice_number:string, moxie_invoice_id:string, issue_date:string, due_date:string, subtotal:float, tax_rate:float, tax_amount:float, total_amount:float, status:string, payment_method:string, payment_date:string, notes:string, client:NormalizedClient}
+ */
 class MoxieClientSync {
     private const DEFAULT_PAGE_SIZE = 100;
     private const MAX_PAGES = 100;
@@ -1092,8 +1094,8 @@ class MoxieClientSync {
      * @return NormalizedClient
      */
     private static function normalizeInvoiceClient(array $raw_invoice): array {
-        $client_info = self::arrayValue($raw_invoice, 'clientInfo') ?? [];
-        $contact = self::arrayValue($client_info, 'contact') ?? [];
+        $client_info = self::assocArray(self::arrayValue($raw_invoice, 'clientInfo'));
+        $contact = self::assocArray(self::arrayValue($client_info, 'contact'));
         $contact_name = trim(self::stringValue($contact, 'firstName') . ' ' . self::stringValue($contact, 'lastName'));
         $address = implode(', ', array_values(array_filter([
             self::stringValue($client_info, 'address1'),
@@ -1151,6 +1153,23 @@ class MoxieClientSync {
     private static function arrayValue(array $row, string $key): ?array {
         $value = $row[$key] ?? null;
         return is_array($value) ? $value : null;
+    }
+
+    /**
+     * @param array<int|string, mixed>|null $value
+     * @return array<string, mixed>
+     */
+    private static function assocArray(?array $value): array {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $assoc = [];
+        foreach ($value as $key => $item) {
+            $assoc[(string) $key] = $item;
+        }
+
+        return $assoc;
     }
 
     /**
