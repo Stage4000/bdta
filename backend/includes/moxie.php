@@ -6,6 +6,10 @@ require_once __DIR__ . '/settings.php';
 class MoxieClientSync {
     private const DEFAULT_PAGE_SIZE = 100;
     private const MAX_PAGES = 100;
+    private const REQUEST_TIMEOUT = 15;
+    private const CONNECT_TIMEOUT = 5;
+    /** @var list<int> */
+    private const RATE_LIMIT_RETRY_DELAYS = [2, 4, 8];
     private const LOG_INIT_RETRY_INTERVAL = 60; // wait this long before retrying log setup after a failure
     /** @var list<string> Endpoint order: /action/clients/list first, then legacy fallback paths. */
     private const CLIENT_LIST_PATHS = [
@@ -321,20 +325,57 @@ class MoxieClientSync {
             $start = 0;
             $count = $page_size;
             $completed_pagination = false;
+            $use_get_requests = self::shouldUseGetForClientListPath($list_path);
+            $next_request_url = '';
 
             try {
                 while ($page < self::MAX_PAGES) {
                     $page++;
+                    $request_url = $list_url;
+                    $request_payload = [
+                        'start' => $start,
+                        'count' => $count,
+                    ];
+                    if ($use_get_requests) {
+                        $request_payload = null;
+                        if ($next_request_url !== '') {
+                            $request_url = $next_request_url;
+                        }
+                        $next_request_url = '';
+                    }
+
                     self::log('Fetching Moxie client page.', [
-                        'url' => $list_url,
+                        'url' => $request_url,
                         'page' => $page,
                         'start' => $start,
                         'count' => $count,
+                        'request_method' => $request_payload === null ? 'GET' : 'POST',
                     ]);
-                    $response = $this->requestJson($list_url, $api_key, [
-                        'start' => $start,
-                        'count' => $count,
-                    ]);
+                    $response = null;
+                    $rate_limit_retry = 0;
+                    while (true) {
+                        try {
+                            $response = $this->requestJson($request_url, $api_key, $request_payload);
+                            break;
+                        } catch (RuntimeException $e) {
+                            if (!self::isHttpStatusException($e, 429) || !isset(self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry])) {
+                                throw $e;
+                            }
+
+                            $delay_seconds = self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry];
+                            $rate_limit_retry++;
+                            self::log('Moxie rate limited client page request; retrying the same page after a short delay.', [
+                                'url' => $request_url,
+                                'page' => $page,
+                                'retry_attempt' => $rate_limit_retry,
+                                'delay_seconds' => $delay_seconds,
+                            ]);
+                            $this->pauseBeforeRateLimitRetry($delay_seconds);
+                        }
+                    }
+                    if ($response === null) {
+                        throw new RuntimeException('Moxie request did not return a response for URL: ' . $request_url);
+                    }
                     $page_clients = self::extractClientRows($response);
                     foreach ($page_clients as $page_client) {
                         $clients[] = $page_client;
@@ -342,8 +383,16 @@ class MoxieClientSync {
 
                     $response_next = self::extractNextUrl($response, $base_url);
                     if ($response_next !== '') {
+                        if ($use_get_requests) {
+                            $next_request_url = $response_next;
+                        }
                         ['start' => $start, 'count' => $count] = self::extractNextPageRequest($response_next, $start + $count, $page_size);
                         continue;
+                    }
+
+                    if ($use_get_requests) {
+                        $completed_pagination = true;
+                        break;
                     }
 
                     if (count($page_clients) < $count) {
@@ -355,9 +404,10 @@ class MoxieClientSync {
                     $count = $page_size;
                 }
             } catch (RuntimeException $e) {
-                if ($path_index < $path_count - 1 && $page === 1 && self::isHttpStatusException($e, 404)) {
-                    self::log('Moxie client list endpoint returned 404; retrying alternate endpoint.', [
+                if ($path_index < $path_count - 1 && $page === 1 && self::shouldRetryAlternateEndpoint($e)) {
+                    self::log('Moxie client list endpoint failed on the first page; retrying alternate endpoint.', [
                         'failed_url' => $list_url,
+                        'error' => $e->getMessage(),
                         'retry_url' => $base_url . $list_paths[$path_index + 1],
                     ]);
                     continue;
@@ -613,8 +663,8 @@ class MoxieClientSync {
 
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => self::REQUEST_TIMEOUT,
+            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
             CURLOPT_HTTPHEADER => $headers,
         ]);
 
@@ -704,6 +754,29 @@ class MoxieClientSync {
     private static function isHttpStatusException(Throwable $exception, int $status): bool {
         return preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) === 1
             && safe_int($matches[1]) === $status;
+    }
+
+    protected function pauseBeforeRateLimitRetry(int $delay_seconds): void {
+        if ($delay_seconds > 0) {
+            sleep($delay_seconds);
+        }
+    }
+
+    private static function shouldUseGetForClientListPath(string $path): bool {
+        return $path === '/api/public/action/clients/list';
+    }
+
+    private static function shouldRetryAlternateEndpoint(Throwable $exception): bool {
+        if (preg_match('/timed out/i', $exception->getMessage()) === 1) {
+            return true;
+        }
+
+        if (preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) !== 1) {
+            return false;
+        }
+
+        $status = safe_int($matches[1]);
+        return $status === 404 || ($status >= 500 && $status < 600);
     }
 
     private static function isAllowedMoxieHost(string $host): bool {
