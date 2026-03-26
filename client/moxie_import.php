@@ -5,7 +5,7 @@ require_once __DIR__ . '/../backend/includes/moxie.php';
 
 requireLogin();
 
-$page_title = 'Import Clients from Moxie';
+$page_title = 'Import Clients and Invoices from Moxie';
 $base_url = MoxieClientSync::getConfiguredBaseUrl();
 $has_saved_api_key = MoxieClientSync::getConfiguredApiKey() !== '';
 $last_summary = null;
@@ -19,6 +19,11 @@ if (isset($_SESSION['moxie_import_last_summary']) && is_array($_SESSION['moxie_i
         'unchanged' => safe_int($summary['unchanged'] ?? 0),
         'skipped_archived' => safe_int($summary['skipped_archived'] ?? 0),
         'skipped_missing_email' => safe_int($summary['skipped_missing_email'] ?? 0),
+        'invoices_fetched' => safe_int($summary['invoices_fetched'] ?? 0),
+        'invoices_created' => safe_int($summary['invoices_created'] ?? 0),
+        'invoices_updated' => safe_int($summary['invoices_updated'] ?? 0),
+        'invoices_unchanged' => safe_int($summary['invoices_unchanged'] ?? 0),
+        'invoices_skipped_missing_client' => safe_int($summary['invoices_skipped_missing_client'] ?? 0),
     ];
     unset($_SESSION['moxie_import_last_summary']);
 }
@@ -101,9 +106,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['moxie_import_last_summary'] = $last_summary;
                 setFlashMessage(
                     'Moxie sync complete. '
-                    . $last_summary['created'] . ' created, '
-                    . $last_summary['updated'] . ' updated, '
-                    . $last_summary['unchanged'] . ' unchanged.',
+                    . $last_summary['created'] . ' clients created, '
+                    . $last_summary['updated'] . ' clients updated, '
+                    . $last_summary['invoices_created'] . ' invoices created, and '
+                    . $last_summary['invoices_updated'] . ' invoices updated.',
                     'success'
                 );
                 MoxieClientSync::log('Moxie sync run from admin UI.', ['admin_id' => safe_int($_SESSION['admin_id'] ?? 0)] + $last_summary);
@@ -124,7 +130,7 @@ include __DIR__ . '/../backend/includes/header.php';
     <div class="row">
         <div class="col-lg-9 col-xl-8">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="fas fa-cloud-arrow-down me-2"></i>Import Clients from Moxie</h2>
+                <h2><i class="fas fa-cloud-arrow-down me-2"></i>Import Clients and Invoices from Moxie</h2>
                 <a href="clients_list.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Back to Clients
                 </a>
@@ -133,7 +139,7 @@ include __DIR__ . '/../backend/includes/header.php';
             <div class="card mb-4">
                 <div class="card-body">
                     <p class="text-muted mb-4">
-                        Connect your Moxie workspace, save the API key, and import clients into the existing BDTA client list.
+                        Connect your Moxie workspace, save the API key, and import clients plus payable invoices into BDTA.
                         Sync activity is written to <code>backend/logs/moxie.log</code> for debugging.
                     </p>
 
@@ -152,7 +158,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 required
                             >
                             <div class="form-text">
-                                Example: <code>pod00.withmoxie.dev</code> or <code>https://pod00.withmoxie.dev</code>. The importer stores the HTTPS workspace origin and sends JSON pagination requests to <code>/api/public/clients/list</code>.
+                                Example: <code>pod00.withmoxie.dev</code> or <code>https://pod00.withmoxie.dev</code>. The importer stores the HTTPS workspace origin and syncs clients plus payable invoices from the public API.
                             </div>
                         </div>
 
@@ -176,7 +182,7 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <i class="fas fa-floppy-disk me-1"></i> Save Credentials
                             </button>
                             <button type="submit" name="action" value="run_sync" class="btn btn-primary">
-                                <i class="fas fa-rotate me-1"></i> Run Client Sync
+                                <i class="fas fa-rotate me-1"></i> Run Moxie Sync
                             </button>
                         </div>
                     </form>
@@ -190,6 +196,11 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <div class="col-sm-6 col-lg-4"><strong>Unchanged:</strong> <?= escape($last_summary['unchanged']) ?></div>
                                 <div class="col-sm-6 col-lg-4"><strong>Skipped archived:</strong> <?= escape($last_summary['skipped_archived']) ?></div>
                                 <div class="col-sm-6 col-lg-4"><strong>Skipped missing email:</strong> <?= escape($last_summary['skipped_missing_email']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices fetched:</strong> <?= escape($last_summary['invoices_fetched']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices created:</strong> <?= escape($last_summary['invoices_created']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices updated:</strong> <?= escape($last_summary['invoices_updated']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices unchanged:</strong> <?= escape($last_summary['invoices_unchanged']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices skipped (missing client):</strong> <?= escape($last_summary['invoices_skipped_missing_client']) ?></div>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -203,9 +214,11 @@ include __DIR__ . '/../backend/includes/header.php';
                 <div class="card-body">
                     <ul class="mb-0">
                         <li>Imports active Moxie clients from the public API client list endpoint.</li>
+                        <li>Imports payable invoices only when their Moxie client can be matched to an imported or existing BDTA client.</li>
                         <li>Matches existing BDTA clients by saved Moxie client ID first, then email, then exact name + phone.</li>
                         <li>Creates new clients when no match exists and updates existing records when Moxie data changes.</li>
                         <li>Skips archived Moxie clients and entries that do not contain an email address.</li>
+                        <li>Skips invoices for Moxie clients that are archived and do not already exist in BDTA.</li>
                     </ul>
                 </div>
             </div>

@@ -3,6 +3,7 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/settings.php';
 
 /** @phpstan-type NormalizedClient array{name:string, email:string, phone:string, address:string, notes:string, moxie_client_id:string, archived:bool} */
+/** @phpstan-type NormalizedInvoice array{invoice_number:string, moxie_invoice_id:string, issue_date:string, due_date:string, subtotal:float, tax_rate:float, tax_amount:float, total_amount:float, status:string, payment_method:string, payment_date:string, notes:string, client:NormalizedClient} */
 class MoxieClientSync {
     private const DEFAULT_PAGE_SIZE = 100;
     private const MAX_PAGES = 100;
@@ -17,6 +18,7 @@ class MoxieClientSync {
         '/api/public/client/list',
         '/api/public/clients/list',
     ];
+    private const INVOICE_SEARCH_PATH = '/api/public/action/payableInvoices/search';
 
     private static ?string $initializedLogFile = null;
     private static ?int $lastLogInitializationFailureAt = null;
@@ -163,7 +165,19 @@ class MoxieClientSync {
     }
 
     /**
-     * @return array{fetched:int, created:int, updated:int, unchanged:int, skipped_archived:int, skipped_missing_email:int}
+     * @return array{
+     *     fetched:int,
+     *     created:int,
+     *     updated:int,
+     *     unchanged:int,
+     *     skipped_archived:int,
+     *     skipped_missing_email:int,
+     *     invoices_fetched:int,
+     *     invoices_created:int,
+     *     invoices_updated:int,
+     *     invoices_unchanged:int,
+     *     invoices_skipped_missing_client:int
+     * }
      */
     public function sync(string $base_url, string $api_key): array {
         $base_url = self::normalizeBaseUrl($base_url);
@@ -177,10 +191,19 @@ class MoxieClientSync {
             throw new InvalidArgumentException('Moxie API key is required.');
         }
 
-        self::log('Starting Moxie client sync.', ['base_url' => $base_url]);
+        self::log('Starting Moxie sync.', ['base_url' => $base_url]);
         $raw_clients = $this->fetchClients($base_url, $api_key);
-        $result = $this->syncClientRows($raw_clients);
-        self::log('Finished Moxie client sync.', $result);
+        $client_result = $this->syncClientRows($raw_clients);
+        $raw_invoices = $this->fetchInvoices($base_url, $api_key);
+        $invoice_result = $this->syncInvoiceRows($raw_invoices);
+        $result = $client_result + [
+            'invoices_fetched' => $invoice_result['fetched'],
+            'invoices_created' => $invoice_result['created'],
+            'invoices_updated' => $invoice_result['updated'],
+            'invoices_unchanged' => $invoice_result['unchanged'],
+            'invoices_skipped_missing_client' => $invoice_result['skipped_missing_client'],
+        ];
+        self::log('Finished Moxie sync.', $result);
 
         return $result;
     }
@@ -297,6 +320,160 @@ class MoxieClientSync {
             }
 
             self::log('Moxie client sync failed.', ['error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * @param list<array<string, mixed>> $raw_invoices
+     * @return array{fetched:int, created:int, updated:int, unchanged:int, skipped_missing_client:int}
+     */
+    public function syncInvoiceRows(array $raw_invoices): array {
+        $summary = [
+            'fetched' => count($raw_invoices),
+            'created' => 0,
+            'updated' => 0,
+            'unchanged' => 0,
+            'skipped_missing_client' => 0,
+        ];
+        $started_transaction = false;
+
+        try {
+            $this->conn->beginTransaction();
+            $started_transaction = true;
+
+            foreach ($raw_invoices as $raw_invoice) {
+                $invoice = self::normalizeInvoice($raw_invoice);
+                $client = $this->findInvoiceClient($invoice);
+
+                if ($client === null) {
+                    $summary['skipped_missing_client']++;
+                    self::log('Skipping Moxie invoice because no matching BDTA client exists.', [
+                        'moxie_invoice_id' => $invoice['moxie_invoice_id'],
+                        'invoice_number' => $invoice['invoice_number'],
+                        'moxie_client_id' => $invoice['client']['moxie_client_id'],
+                    ]);
+                    continue;
+                }
+
+                $existing = $this->findExistingInvoice($invoice);
+                if ($existing === null) {
+                    $stmt = $this->conn->prepare("
+                        INSERT INTO invoices (
+                            invoice_number,
+                            moxie_invoice_id,
+                            client_id,
+                            issue_date,
+                            due_date,
+                            subtotal,
+                            tax_rate,
+                            tax_amount,
+                            total_amount,
+                            status,
+                            payment_method,
+                            payment_date,
+                            notes
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $invoice['invoice_number'],
+                        $invoice['moxie_invoice_id'],
+                        self::stringValue($client, 'id'),
+                        $invoice['issue_date'],
+                        $invoice['due_date'],
+                        $invoice['subtotal'],
+                        $invoice['tax_rate'],
+                        $invoice['tax_amount'],
+                        $invoice['total_amount'],
+                        $invoice['status'],
+                        $invoice['payment_method'] !== '' ? $invoice['payment_method'] : null,
+                        $invoice['payment_date'] !== '' ? $invoice['payment_date'] : null,
+                        $invoice['notes'] !== '' ? $invoice['notes'] : null,
+                    ]);
+                    $summary['created']++;
+                    self::log('Created invoice from Moxie import.', [
+                        'invoice_id' => scalar_string($this->conn->lastInsertId()),
+                        'moxie_invoice_id' => $invoice['moxie_invoice_id'],
+                        'invoice_number' => $invoice['invoice_number'],
+                    ]);
+                    continue;
+                }
+
+                $merged = [
+                    'invoice_number' => $invoice['invoice_number'] !== '' ? $invoice['invoice_number'] : self::stringValue($existing, 'invoice_number'),
+                    'moxie_invoice_id' => $invoice['moxie_invoice_id'] !== '' ? $invoice['moxie_invoice_id'] : self::stringValue($existing, 'moxie_invoice_id'),
+                    'client_id' => self::stringValue($client, 'id'),
+                    'issue_date' => $invoice['issue_date'],
+                    'due_date' => $invoice['due_date'],
+                    'subtotal' => $invoice['subtotal'],
+                    'tax_rate' => $invoice['tax_rate'],
+                    'tax_amount' => $invoice['tax_amount'],
+                    'total_amount' => $invoice['total_amount'],
+                    'status' => $invoice['status'] !== '' ? $invoice['status'] : self::stringValue($existing, 'status'),
+                    'payment_method' => $invoice['payment_method'] !== '' ? $invoice['payment_method'] : self::stringValue($existing, 'payment_method'),
+                    'payment_date' => $invoice['payment_date'] !== '' ? $invoice['payment_date'] : self::stringValue($existing, 'payment_date'),
+                    'notes' => $invoice['notes'] !== '' ? $invoice['notes'] : self::stringValue($existing, 'notes'),
+                ];
+
+                $unchanged = $merged['invoice_number'] === self::stringValue($existing, 'invoice_number')
+                    && $merged['moxie_invoice_id'] === self::stringValue($existing, 'moxie_invoice_id')
+                    && $merged['client_id'] === self::stringValue($existing, 'client_id')
+                    && $merged['issue_date'] === self::stringValue($existing, 'issue_date')
+                    && $merged['due_date'] === self::stringValue($existing, 'due_date')
+                    && self::amountEquals($merged['subtotal'], $existing['subtotal'] ?? null)
+                    && self::amountEquals($merged['tax_rate'], $existing['tax_rate'] ?? null)
+                    && self::amountEquals($merged['tax_amount'], $existing['tax_amount'] ?? null)
+                    && self::amountEquals($merged['total_amount'], $existing['total_amount'] ?? null)
+                    && $merged['status'] === self::stringValue($existing, 'status')
+                    && $merged['payment_method'] === self::stringValue($existing, 'payment_method')
+                    && $merged['payment_date'] === self::stringValue($existing, 'payment_date')
+                    && $merged['notes'] === self::stringValue($existing, 'notes');
+
+                if ($unchanged) {
+                    $summary['unchanged']++;
+                    continue;
+                }
+
+                $stmt = $this->conn->prepare("
+                    UPDATE invoices
+                    SET invoice_number = ?, moxie_invoice_id = ?, client_id = ?, issue_date = ?, due_date = ?,
+                        subtotal = ?, tax_rate = ?, tax_amount = ?, total_amount = ?, status = ?, payment_method = ?,
+                        payment_date = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ");
+                $stmt->execute([
+                    $merged['invoice_number'],
+                    $merged['moxie_invoice_id'],
+                    $merged['client_id'],
+                    $merged['issue_date'],
+                    $merged['due_date'],
+                    $merged['subtotal'],
+                    $merged['tax_rate'],
+                    $merged['tax_amount'],
+                    $merged['total_amount'],
+                    $merged['status'],
+                    $merged['payment_method'] !== '' ? $merged['payment_method'] : null,
+                    $merged['payment_date'] !== '' ? $merged['payment_date'] : null,
+                    $merged['notes'] !== '' ? $merged['notes'] : null,
+                    self::stringValue($existing, 'id'),
+                ]);
+                $summary['updated']++;
+                self::log('Updated invoice from Moxie import.', [
+                    'invoice_id' => self::stringValue($existing, 'id'),
+                    'moxie_invoice_id' => $merged['moxie_invoice_id'],
+                    'invoice_number' => $merged['invoice_number'],
+                ]);
+            }
+
+            $this->conn->commit();
+            return $summary;
+        } catch (Throwable $e) {
+            if ($started_transaction && $this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+
+            self::log('Moxie invoice sync failed.', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -438,6 +615,40 @@ class MoxieClientSync {
     }
 
     /**
+     * @return list<array<string, mixed>>
+     */
+    public function fetchInvoices(string $base_url, string $api_key): array {
+        $base_url = self::normalizeBaseUrl($base_url);
+        if ($base_url === '') {
+            throw new InvalidArgumentException('Moxie base URL is required.');
+        }
+
+        $request_url = $base_url . self::INVOICE_SEARCH_PATH;
+        $rate_limit_retry = 0;
+
+        while (true) {
+            try {
+                self::log('Fetching Moxie payable invoices.', ['url' => $request_url]);
+                $response = $this->requestJson($request_url, $api_key);
+                return self::extractInvoiceRows($response);
+            } catch (RuntimeException $e) {
+                if (!self::isHttpStatusException($e, 429) || !isset(self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry])) {
+                    throw $e;
+                }
+
+                $delay_seconds = self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry];
+                $rate_limit_retry++;
+                self::log('Moxie rate limited invoice request; retrying after a short delay.', [
+                    'url' => $request_url,
+                    'retry_attempt' => $rate_limit_retry,
+                    'delay_seconds' => $delay_seconds,
+                ]);
+                $this->pauseBeforeRateLimitRetry($delay_seconds);
+            }
+        }
+    }
+
+    /**
      * @param array<int|string, mixed> $payload
      * @return list<array<string, mixed>>
      */
@@ -450,6 +661,32 @@ class MoxieClientSync {
         $candidates = [
             is_array($embedded) ? ($embedded['clients'] ?? null) : null,
             $payload['clients'] ?? null,
+            $payload['data'] ?? null,
+            $payload['items'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_array($candidate)) {
+                return self::listOfAssoc($candidate);
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<int|string, mixed> $payload
+     * @return list<array<string, mixed>>
+     */
+    public static function extractInvoiceRows(array $payload): array {
+        if (self::isListArray($payload)) {
+            return self::listOfAssoc($payload);
+        }
+
+        $embedded = self::arrayValue($payload, '_embedded');
+        $candidates = [
+            is_array($embedded) ? ($embedded['invoices'] ?? null) : null,
+            $payload['invoices'] ?? null,
             $payload['data'] ?? null,
             $payload['items'] ?? null,
         ];
@@ -601,6 +838,77 @@ class MoxieClientSync {
     }
 
     /**
+     * @param array<string, mixed> $raw_invoice
+     * @return NormalizedInvoice
+     */
+    public static function normalizeInvoice(array $raw_invoice): array {
+        $client = self::normalizeInvoiceClient($raw_invoice);
+        $moxie_invoice_id = trim(self::firstNonEmpty([
+            self::stringValue($raw_invoice, 'id'),
+            self::stringValue($raw_invoice, 'invoiceId'),
+            self::stringValue($raw_invoice, 'uuid'),
+        ]));
+        $encoded_raw_invoice = json_encode($raw_invoice, JSON_UNESCAPED_SLASHES);
+        $invoice_number = trim(self::firstNonEmpty([
+            self::stringValue($raw_invoice, 'invoiceNumberFormatted'),
+            self::stringValue($raw_invoice, 'invoiceNumber'),
+            $moxie_invoice_id !== '' ? 'MOXIE-' . $moxie_invoice_id : '',
+            $encoded_raw_invoice !== false ? 'MOXIE-' . substr(sha1($encoded_raw_invoice), 0, 20) : '',
+        ]));
+        $subtotal = self::numericValue($raw_invoice['subTotal'] ?? $raw_invoice['subtotal'] ?? 0);
+        $tax_amount = self::numericValue($raw_invoice['tax'] ?? $raw_invoice['taxAmount'] ?? 0);
+        $total_amount = self::numericValue($raw_invoice['total'] ?? $raw_invoice['totalAmount'] ?? $subtotal + $tax_amount);
+        $payment_method = self::normalizeInvoicePaymentMethod($raw_invoice);
+        $payment_date = self::normalizeDateValue(
+            self::firstNonEmpty([
+                self::stringValue($raw_invoice, 'datePaid'),
+                self::stringValue(self::firstPaymentRow($raw_invoice), 'datePaid'),
+                self::stringValue(self::firstPaymentRow($raw_invoice), 'timestamp'),
+            ]),
+            ''
+        );
+        $issue_date = self::normalizeDateValue(
+            self::firstNonEmpty([
+                self::stringValue($raw_invoice, 'dateCreated'),
+                self::stringValue($raw_invoice, 'dateSent'),
+                self::stringValue($raw_invoice, 'dateDue'),
+            ]),
+            date('Y-m-d')
+        );
+        $due_date = self::normalizeDateValue(
+            self::firstNonEmpty([
+                self::stringValue($raw_invoice, 'dateDueCalculated'),
+                self::stringValue($raw_invoice, 'dateDue'),
+                $issue_date,
+            ]),
+            $issue_date
+        );
+
+        return [
+            'invoice_number' => $invoice_number,
+            'moxie_invoice_id' => $moxie_invoice_id,
+            'issue_date' => $issue_date,
+            'due_date' => $due_date,
+            'subtotal' => $subtotal,
+            'tax_rate' => $subtotal > 0 ? round(($tax_amount / $subtotal) * 100, 4) : 0.0,
+            'tax_amount' => $tax_amount,
+            'total_amount' => $total_amount,
+            'status' => self::normalizeInvoiceStatus(
+                self::stringValue($raw_invoice, 'status'),
+                self::numericValue($raw_invoice['amountDue'] ?? $raw_invoice['localAmountDue'] ?? 0),
+                $due_date
+            ),
+            'payment_method' => $payment_method,
+            'payment_date' => $payment_date,
+            'notes' => trim(self::firstNonEmpty([
+                self::stringValue($raw_invoice, 'notes'),
+                self::stringValue($raw_invoice, 'memo'),
+            ])),
+            'client' => $client,
+        ];
+    }
+
+    /**
      * @param NormalizedClient $client
      * @return array<string, mixed>|null
      */
@@ -626,6 +934,56 @@ class MoxieClientSync {
         if ($client['name'] !== '' && $client['phone'] !== '') {
             $stmt = $this->conn->prepare("SELECT * FROM clients WHERE name = ? AND phone = ? ORDER BY id LIMIT 1");
             $stmt->execute([$client['name'], $client['phone']]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($row)) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param NormalizedInvoice $invoice
+     * @return array<string, mixed>|null
+     */
+    private function findInvoiceClient(array $invoice): ?array {
+        $existing = $this->findExistingClient($invoice['client']);
+        if ($existing === null) {
+            return null;
+        }
+
+        $moxie_client_id = $invoice['client']['moxie_client_id'];
+        if ($moxie_client_id !== '' && self::stringValue($existing, 'moxie_client_id') === '') {
+            $stmt = $this->conn->prepare("
+                UPDATE clients
+                SET moxie_client_id = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND (moxie_client_id IS NULL OR moxie_client_id = '')
+            ");
+            $stmt->execute([$moxie_client_id, self::stringValue($existing, 'id')]);
+            $existing['moxie_client_id'] = $moxie_client_id;
+        }
+
+        return $existing;
+    }
+
+    /**
+     * @param NormalizedInvoice $invoice
+     * @return array<string, mixed>|null
+     */
+    private function findExistingInvoice(array $invoice): ?array {
+        if ($invoice['moxie_invoice_id'] !== '') {
+            $stmt = $this->conn->prepare("SELECT * FROM invoices WHERE moxie_invoice_id = ? ORDER BY id LIMIT 1");
+            $stmt->execute([$invoice['moxie_invoice_id']]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($row)) {
+                return $row;
+            }
+        }
+
+        if ($invoice['invoice_number'] !== '') {
+            $stmt = $this->conn->prepare("SELECT * FROM invoices WHERE invoice_number = ? ORDER BY id LIMIT 1");
+            $stmt->execute([$invoice['invoice_number']]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (is_array($row)) {
                 return $row;
@@ -725,10 +1083,60 @@ class MoxieClientSync {
     }
 
     /**
+     * @param array<string, mixed> $raw_invoice
+     * @return NormalizedClient
+     */
+    private static function normalizeInvoiceClient(array $raw_invoice): array {
+        $client_info = self::arrayValue($raw_invoice, 'clientInfo') ?? [];
+        $contact = self::arrayValue($client_info, 'contact') ?? [];
+        $contact_name = trim(self::stringValue($contact, 'firstName') . ' ' . self::stringValue($contact, 'lastName'));
+        $address = implode(', ', array_values(array_filter([
+            self::stringValue($client_info, 'address1'),
+            self::stringValue($client_info, 'address2'),
+            self::stringValue($client_info, 'city'),
+            self::stringValue($client_info, 'locality'),
+            self::stringValue($client_info, 'postal'),
+            self::stringValue($client_info, 'country'),
+        ], static fn (mixed $value): bool => trim(scalar_string($value)) !== '')));
+
+        return [
+            'name' => trim(self::firstNonEmpty([
+                self::stringValue($client_info, 'name'),
+                $contact_name,
+                self::stringValue($contact, 'email'),
+            ])),
+            'email' => trim(self::firstNonEmpty([
+                self::stringValue($contact, 'email'),
+                self::stringValue($raw_invoice, 'clientEmail'),
+            ])),
+            'phone' => trim(self::firstNonEmpty([
+                self::stringValue($client_info, 'phone'),
+                self::stringValue($contact, 'phone'),
+                self::stringValue($contact, 'mobile'),
+            ])),
+            'address' => $address,
+            'notes' => trim(self::firstNonEmpty([
+                self::stringValue($contact, 'notes'),
+                self::stringValue($raw_invoice, 'notes'),
+            ])),
+            'moxie_client_id' => trim(self::firstNonEmpty([
+                self::stringValue($raw_invoice, 'clientId'),
+                self::stringValue($client_info, 'id'),
+                self::stringValue($contact, 'clientId'),
+            ])),
+            'archived' => false,
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $row
      */
     private static function stringValue(array $row, string $key): string {
         return scalar_string($row[$key] ?? '');
+    }
+
+    private static function numericValue(mixed $value): float {
+        return safe_float($value);
     }
 
     /**
@@ -754,6 +1162,65 @@ class MoxieClientSync {
     private static function isHttpStatusException(Throwable $exception, int $status): bool {
         return preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) === 1
             && safe_int($matches[1]) === $status;
+    }
+
+    private static function normalizeInvoiceStatus(string $status, float $amount_due, string $due_date): string {
+        $normalized = strtolower(trim($status));
+        if ($normalized === '') {
+            $normalized = $amount_due <= 0 ? 'paid' : 'sent';
+        }
+
+        $mapped = match ($normalized) {
+            'sent', 'viewed', 'open', 'outstanding', 'unpaid' => 'sent',
+            'partial', 'partially_paid' => 'partial',
+            'paid', 'completed' => 'paid',
+            'cancelled', 'canceled' => 'cancelled',
+            'void', 'voided' => 'void',
+            default => $normalized,
+        };
+
+        if (in_array($mapped, ['sent', 'partial'], true) && $amount_due > 0 && $due_date !== '' && $due_date < date('Y-m-d')) {
+            return 'overdue';
+        }
+
+        return $mapped;
+    }
+
+    private static function normalizeDateValue(string $value, string $fallback): string {
+        $value = trim($value);
+        if ($value === '') {
+            return $fallback;
+        }
+
+        $timestamp = strtotime($value);
+        if ($timestamp === false) {
+            return $fallback;
+        }
+
+        return date('Y-m-d', $timestamp);
+    }
+
+    /**
+     * @param array<string, mixed> $raw_invoice
+     * @return array<string, mixed>
+     */
+    private static function firstPaymentRow(array $raw_invoice): array {
+        $payments = self::listOfAssoc($raw_invoice['payments'] ?? []);
+        return $payments[0] ?? [];
+    }
+
+    /**
+     * @param array<string, mixed> $raw_invoice
+     */
+    private static function normalizeInvoicePaymentMethod(array $raw_invoice): string {
+        return strtolower(trim(self::firstNonEmpty([
+            self::stringValue(self::firstPaymentRow($raw_invoice), 'paymentProvider'),
+            self::stringValue(self::firstPaymentRow($raw_invoice), 'paidBy'),
+        ])));
+    }
+
+    private static function amountEquals(float $expected, mixed $actual): bool {
+        return abs($expected - safe_float($actual)) < 0.0001;
     }
 
     protected function pauseBeforeRateLimitRetry(int $delay_seconds): void {

@@ -620,6 +620,7 @@ class Database {
                 CREATE TABLE IF NOT EXISTS invoices (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     invoice_number TEXT UNIQUE NOT NULL,
+                    moxie_invoice_id TEXT,
                     client_id INTEGER NOT NULL,
                     issue_date DATE NOT NULL,
                     due_date DATE NOT NULL,
@@ -1373,6 +1374,37 @@ class Database {
                 $this->execSQL("CREATE UNIQUE INDEX idx_invoices_pay_token ON invoices(pay_token)");
             } catch (PDOException $e) {
                 // Index already exists, ignore
+            }
+        }
+        $added_moxie_invoice_id = false;
+        if (!in_array('moxie_invoice_id', $invoice_column_names)) {
+            if ($this->db_type === 'mysql') {
+                $this->execSQL("ALTER TABLE invoices ADD COLUMN moxie_invoice_id VARCHAR(255) NULL");
+            } else {
+                $this->execSQL("ALTER TABLE invoices ADD COLUMN moxie_invoice_id TEXT");
+            }
+            $added_moxie_invoice_id = true;
+        }
+        if ($this->db_type === 'mysql') {
+            if (!$added_moxie_invoice_id) {
+                try {
+                    $this->execSQL("ALTER TABLE invoices MODIFY moxie_invoice_id VARCHAR(255) NULL");
+                } catch (PDOException $e) {
+                    // Column might already be the desired type, ignore
+                }
+            }
+            if (!$this->indexExists('invoices', 'idx_invoices_moxie_invoice_id')) {
+                try {
+                    $this->execSQL("CREATE UNIQUE INDEX idx_invoices_moxie_invoice_id ON invoices(moxie_invoice_id)");
+                } catch (PDOException $e) {
+                    error_log("Migration: could not create invoices moxie_invoice_id index - " . $e->getMessage());
+                }
+            }
+        } else {
+            try {
+                $this->execSQL("CREATE UNIQUE INDEX idx_invoices_moxie_invoice_id ON invoices(moxie_invoice_id)");
+            } catch (PDOException $e) {
+                // Index might already exist, ignore
             }
         }
 

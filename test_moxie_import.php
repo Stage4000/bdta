@@ -14,6 +14,11 @@ try {
     $archived_client_id = 'test-moxie-archived-' . $test_suffix;
     $missing_email_client_id = 'test-moxie-no-email-' . $test_suffix;
     $primary_email = 'jane.doe.' . $test_suffix . '@example.invalid';
+    $existing_archived_client_email = 'archived.local.' . $test_suffix . '@example.invalid';
+    $existing_archived_moxie_client_id = 'test-moxie-existing-archived-' . $test_suffix;
+    $primary_invoice_id = 'test-moxie-invoice-primary-' . $test_suffix;
+    $existing_archived_invoice_id = 'test-moxie-invoice-archived-' . $test_suffix;
+    $missing_client_invoice_id = 'test-moxie-invoice-missing-' . $test_suffix;
 
     $first_pass = [
         [
@@ -165,6 +170,181 @@ try {
     $result = $sync->syncClientRows($second_pass);
     if ($result['unchanged'] !== 1) {
         throw new RuntimeException('Expected unchanged client on identical sync: ' . json_encode($result));
+    }
+
+    $create_existing_client = $conn->prepare("
+        INSERT INTO clients (name, email, phone, address, notes)
+        VALUES (?, ?, ?, ?, ?)
+    ");
+    $create_existing_client->execute([
+        'Archived Existing Client',
+        $existing_archived_client_email,
+        '+1-555-3000',
+        '456 Oak St',
+        'Existing local client for archived Moxie invoices',
+    ]);
+    $existing_archived_client_db_id = scalar_string($conn->lastInsertId());
+
+    $invoice_pass = [
+        [
+            'id' => $primary_invoice_id,
+            'invoiceNumberFormatted' => 'MOX-' . $test_suffix . '-001',
+            'clientId' => $primary_client_id,
+            'dateCreated' => '2024-01-10',
+            'dateDue' => '2024-01-20',
+            'status' => 'SENT',
+            'subTotal' => 100,
+            'tax' => 7,
+            'total' => 107,
+            'amountDue' => 107,
+            'clientInfo' => [
+                'id' => $primary_client_id,
+                'name' => 'Acme Corporation Updated',
+                'phone' => '+1-555-9999',
+                'contact' => [
+                    'email' => $primary_email,
+                    'phone' => '+1-555-9999',
+                ],
+            ],
+        ],
+        [
+            'id' => $existing_archived_invoice_id,
+            'invoiceNumberFormatted' => 'MOX-' . $test_suffix . '-002',
+            'clientId' => $existing_archived_moxie_client_id,
+            'dateCreated' => '2024-02-01',
+            'dateDue' => '2024-02-15',
+            'status' => 'PARTIAL',
+            'subTotal' => 200,
+            'tax' => 0,
+            'total' => 200,
+            'amountDue' => 50,
+            'payments' => [
+                [
+                    'paymentProvider' => 'CHECK',
+                    'datePaid' => '2024-02-10',
+                ],
+            ],
+            'clientInfo' => [
+                'id' => $existing_archived_moxie_client_id,
+                'name' => 'Archived Existing Client',
+                'phone' => '+1-555-3000',
+                'contact' => [
+                    'email' => $existing_archived_client_email,
+                    'phone' => '+1-555-3000',
+                ],
+            ],
+        ],
+        [
+            'id' => $missing_client_invoice_id,
+            'invoiceNumberFormatted' => 'MOX-' . $test_suffix . '-003',
+            'clientId' => 'missing-client-' . $test_suffix,
+            'dateCreated' => '2024-03-01',
+            'dateDue' => '2024-03-15',
+            'status' => 'SENT',
+            'subTotal' => 50,
+            'tax' => 0,
+            'total' => 50,
+            'amountDue' => 50,
+            'clientInfo' => [
+                'id' => 'missing-client-' . $test_suffix,
+                'name' => 'Missing Client',
+                'contact' => [
+                    'email' => 'missing.' . $test_suffix . '@example.invalid',
+                ],
+            ],
+        ],
+    ];
+
+    $invoice_result = $sync->syncInvoiceRows($invoice_pass);
+    if ($invoice_result['created'] !== 2 || $invoice_result['skipped_missing_client'] !== 1) {
+        throw new RuntimeException('Unexpected invoice sync result: ' . json_encode($invoice_result));
+    }
+
+    $invoice_stmt = $conn->prepare("
+        SELECT id, invoice_number, client_id, subtotal, tax_rate, tax_amount, total_amount, status, payment_method, payment_date
+        FROM invoices
+        WHERE moxie_invoice_id = ?
+    ");
+    $invoice_stmt->execute([$primary_invoice_id]);
+    $primary_invoice = $invoice_stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($primary_invoice)) {
+        throw new RuntimeException('Primary Moxie invoice was not created.');
+    }
+    if (scalar_string($primary_invoice['invoice_number'] ?? '') !== 'MOX-' . $test_suffix . '-001') {
+        throw new RuntimeException('Primary Moxie invoice number was not imported.');
+    }
+    if (scalar_string($primary_invoice['status'] ?? '') !== 'overdue') {
+        throw new RuntimeException('Expected overdue Moxie invoices to map to overdue status.');
+    }
+
+    $invoice_stmt->execute([$existing_archived_invoice_id]);
+    $archived_existing_invoice = $invoice_stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($archived_existing_invoice)) {
+        throw new RuntimeException('Invoice for existing archived Moxie client was not created.');
+    }
+    if (scalar_string($archived_existing_invoice['client_id'] ?? '') !== $existing_archived_client_db_id) {
+        throw new RuntimeException('Invoice for existing archived Moxie client did not attach to the existing BDTA client.');
+    }
+    if (scalar_string($archived_existing_invoice['payment_method'] ?? '') !== 'check') {
+        throw new RuntimeException('Imported invoice payment provider was not normalized.');
+    }
+
+    $archived_existing_client_stmt = $conn->prepare("SELECT moxie_client_id FROM clients WHERE id = ?");
+    $archived_existing_client_stmt->execute([$existing_archived_client_db_id]);
+    $archived_existing_client = $archived_existing_client_stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($archived_existing_client) || scalar_string($archived_existing_client['moxie_client_id'] ?? '') !== $existing_archived_moxie_client_id) {
+        throw new RuntimeException('Existing BDTA client was not linked to the archived Moxie client during invoice import.');
+    }
+
+    $updated_invoice_pass = [
+        [
+            'id' => $primary_invoice_id,
+            'invoiceNumberFormatted' => 'MOX-' . $test_suffix . '-001',
+            'clientId' => $primary_client_id,
+            'dateCreated' => '2024-01-10',
+            'dateDue' => '2024-01-20',
+            'datePaid' => '2024-01-18',
+            'status' => 'PAID',
+            'subTotal' => 120,
+            'tax' => 12,
+            'total' => 132,
+            'amountDue' => 0,
+            'payments' => [
+                [
+                    'paymentProvider' => 'STRIPE',
+                    'datePaid' => '2024-01-18',
+                ],
+            ],
+            'clientInfo' => [
+                'id' => $primary_client_id,
+                'name' => 'Acme Corporation Updated',
+                'phone' => '+1-555-9999',
+                'contact' => [
+                    'email' => $primary_email,
+                    'phone' => '+1-555-9999',
+                ],
+            ],
+        ],
+    ];
+
+    $invoice_result = $sync->syncInvoiceRows($updated_invoice_pass);
+    if ($invoice_result['updated'] !== 1) {
+        throw new RuntimeException('Expected one updated invoice on second invoice sync: ' . json_encode($invoice_result));
+    }
+
+    $invoice_stmt->execute([$primary_invoice_id]);
+    $primary_invoice = $invoice_stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($primary_invoice)
+        || scalar_string($primary_invoice['status'] ?? '') !== 'paid'
+        || scalar_string($primary_invoice['payment_method'] ?? '') !== 'stripe'
+        || scalar_string($primary_invoice['payment_date'] ?? '') !== '2024-01-18'
+    ) {
+        throw new RuntimeException('Imported invoice updates were not applied.');
+    }
+
+    $invoice_result = $sync->syncInvoiceRows($updated_invoice_pass);
+    if ($invoice_result['unchanged'] !== 1) {
+        throw new RuntimeException('Expected unchanged invoice on identical invoice sync: ' . json_encode($invoice_result));
     }
 
     $request_calls = [];
@@ -550,9 +730,60 @@ try {
         throw new RuntimeException('Expected fetchClients() to apply the initial rate-limit retry delay before retrying the same page: ' . json_encode($rate_limited_retry_delays));
     }
 
+    $invoice_request_calls = [];
+    $invoice_fetch_sync = new class($conn, $invoice_request_calls) extends MoxieClientSync {
+        /** @var array<int, array{url:string, api_key:string, payload:array<string, int>|null}> */
+        private array $captured_calls;
+
+        /**
+         * @param array<int, array{url:string, api_key:string, payload:array<string, int>|null}> $captured_calls
+         */
+        public function __construct(SafePDO $conn, array &$captured_calls) {
+            parent::__construct($conn);
+            $this->captured_calls = &$captured_calls;
+        }
+
+        /**
+         * @param array<string, int>|null $payload
+         * @return array<int|string, mixed>
+         */
+        protected function requestJson(string $url, string $api_key, ?array $payload = null): array {
+            $this->captured_calls[] = [
+                'url' => $url,
+                'api_key' => $api_key,
+                'payload' => $payload,
+            ];
+
+            return [
+                [
+                    'id' => 'invoice-fetch-1',
+                    'clientId' => 'client-fetch-1',
+                ],
+            ];
+        }
+    };
+
+    $fetched_invoices = $invoice_fetch_sync->fetchInvoices($normalized_base_url, 'test-api-key');
+    if (count($fetched_invoices) !== 1) {
+        throw new RuntimeException('Expected fetchInvoices() to return the mocked invoice list.');
+    }
+
+    if ($invoice_request_calls !== [
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/payableInvoices/search',
+            'api_key' => 'test-api-key',
+            'payload' => null,
+        ],
+    ]) {
+        throw new RuntimeException('Expected fetchInvoices() to GET the payable invoices endpoint: ' . json_encode($invoice_request_calls));
+    }
+
     echo "✓ Moxie import client creation works\n";
     echo "✓ Archived and missing-email clients are skipped\n";
     echo "✓ Existing clients update by Moxie client ID\n";
+    echo "✓ Moxie invoice import creates invoices only for imported or existing BDTA clients\n";
+    echo "✓ Invoice import can attach archived Moxie clients to an existing BDTA client record\n";
+    echo "✓ Repeated invoice syncs are idempotent and update imported invoices in place\n";
     echo "✓ Moxie base URL validation restricts allowed origins\n";
     echo "✓ fetchClients validates required base URL and page size inputs\n";
     echo "✓ Absolute Moxie pagination URLs must stay on the configured HTTPS origin\n";
@@ -562,6 +793,7 @@ try {
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint returns 500 on page one\n";
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint times out on page one\n";
     echo "✓ fetchClients retries a 429 response on the same paginated request before failing\n";
+    echo "✓ fetchInvoices GETs the payable invoice search endpoint\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";
     echo "=== All Moxie Import Tests Passed! ===\n";
 } catch (Throwable $e) {
@@ -569,14 +801,28 @@ try {
     exit(1);
 } finally {
     if (isset($conn) && $conn instanceof PDO) {
+        $cleanup_invoice_ids = [
+            $primary_invoice_id ?? '',
+            $existing_archived_invoice_id ?? '',
+            $missing_client_invoice_id ?? '',
+        ];
+        if (!in_array('', $cleanup_invoice_ids, true)) {
+            $cleanup_invoices = $conn->prepare("DELETE FROM invoices WHERE moxie_invoice_id IN (?, ?, ?)");
+            $cleanup_invoices->execute($cleanup_invoice_ids);
+        }
         $cleanup_ids = [
             $primary_client_id ?? '',
             $archived_client_id ?? '',
             $missing_email_client_id ?? '',
+            $existing_archived_moxie_client_id ?? '',
         ];
         if (!in_array('', $cleanup_ids, true)) {
-            $cleanup = $conn->prepare("DELETE FROM clients WHERE moxie_client_id IN (?, ?, ?)");
+            $cleanup = $conn->prepare("DELETE FROM clients WHERE moxie_client_id IN (?, ?, ?, ?)");
             $cleanup->execute($cleanup_ids);
+        }
+        if (isset($existing_archived_client_email)) {
+            $cleanup_existing = $conn->prepare("DELETE FROM clients WHERE email = ?");
+            $cleanup_existing->execute([$existing_archived_client_email]);
         }
     }
 }
