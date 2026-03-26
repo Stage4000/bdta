@@ -859,9 +859,13 @@ class MoxieClientSync {
         $tax_amount = self::numericValue($raw_invoice['tax'] ?? $raw_invoice['taxAmount'] ?? 0);
         $total_amount = self::numericValue($raw_invoice['total'] ?? $raw_invoice['totalAmount'] ?? $subtotal + $tax_amount);
         $payment_method = self::normalizeInvoicePaymentMethod($raw_invoice);
+        $invoice_paid_date = self::normalizeDateValue(
+            self::stringValue($raw_invoice, 'datePaid'),
+            ''
+        );
         $payment_date = self::normalizeDateValue(
             self::firstNonEmpty([
-                self::stringValue($raw_invoice, 'datePaid'),
+                $invoice_paid_date,
                 self::stringValue(self::firstPaymentRow($raw_invoice), 'datePaid'),
                 self::stringValue(self::firstPaymentRow($raw_invoice), 'timestamp'),
             ]),
@@ -896,7 +900,8 @@ class MoxieClientSync {
             'status' => self::normalizeInvoiceStatus(
                 self::stringValue($raw_invoice, 'status'),
                 self::numericValue($raw_invoice['amountDue'] ?? $raw_invoice['localAmountDue'] ?? 0),
-                $due_date
+                $due_date,
+                $invoice_paid_date
             ),
             'payment_method' => $payment_method,
             'payment_date' => $payment_date,
@@ -1164,7 +1169,11 @@ class MoxieClientSync {
             && safe_int($matches[1]) === $status;
     }
 
-    private static function normalizeInvoiceStatus(string $status, float $amount_due, string $due_date): string {
+    private static function normalizeInvoiceStatus(string $status, float $amount_due, string $due_date, string $invoice_paid_date = ''): string {
+        if ($invoice_paid_date !== '') {
+            return 'paid';
+        }
+
         $normalized = strtolower(trim($status));
         if ($normalized === '') {
             $normalized = $amount_due <= 0 ? 'paid' : 'sent';

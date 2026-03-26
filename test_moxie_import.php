@@ -192,6 +192,7 @@ try {
             'clientId' => $primary_client_id,
             'dateCreated' => '2024-01-10',
             'dateDue' => '2024-01-20',
+            'datePaid' => '2024-01-18',
             'status' => 'SENT',
             'subTotal' => 100,
             'tax' => 7,
@@ -273,8 +274,11 @@ try {
     if (scalar_string($primary_invoice['invoice_number'] ?? '') !== 'MOX-' . $test_suffix . '-001') {
         throw new RuntimeException('Primary Moxie invoice number was not imported.');
     }
-    if (scalar_string($primary_invoice['status'] ?? '') !== 'overdue') {
-        throw new RuntimeException('Expected overdue Moxie invoices to map to overdue status.');
+    if (scalar_string($primary_invoice['status'] ?? '') !== 'paid') {
+        throw new RuntimeException('Expected invoices with an invoice-level paid date to import as paid.');
+    }
+    if (scalar_string($primary_invoice['payment_date'] ?? '') !== '2024-01-18') {
+        throw new RuntimeException('Expected invoice-level paid date to be imported.');
     }
 
     $invoice_stmt->execute([$existing_archived_invoice_id]);
@@ -287,6 +291,9 @@ try {
     }
     if (scalar_string($archived_existing_invoice['payment_method'] ?? '') !== 'check') {
         throw new RuntimeException('Imported invoice payment provider was not normalized.');
+    }
+    if (scalar_string($archived_existing_invoice['status'] ?? '') !== 'overdue') {
+        throw new RuntimeException('Expected partially paid past-due Moxie invoices without invoice-level paid dates to remain overdue.');
     }
 
     $archived_existing_client_stmt = $conn->prepare("SELECT moxie_client_id FROM clients WHERE id = ?");
@@ -783,6 +790,7 @@ try {
     echo "✓ Existing clients update by Moxie client ID\n";
     echo "✓ Moxie invoice import creates invoices only for imported or existing BDTA clients\n";
     echo "✓ Invoice import can attach archived Moxie clients to an existing BDTA client record\n";
+    echo "✓ Invoice-level paid dates keep imported Moxie invoices in paid status\n";
     echo "✓ Repeated invoice syncs are idempotent and update imported invoices in place\n";
     echo "✓ Moxie base URL validation restricts allowed origins\n";
     echo "✓ fetchClients validates required base URL and page size inputs\n";
