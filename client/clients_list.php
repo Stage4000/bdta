@@ -21,7 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
 // Fetch all clients
 $stmt = $conn->query("SELECT * FROM clients ORDER BY created_at DESC");
 $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$clientTableColumnCount = 6;
 
 include '../backend/includes/header.php';
 ?>
@@ -63,16 +62,26 @@ include '../backend/includes/header.php';
                     >
                 </div>
             <?php endif; ?>
+            <?php
+            $clientTableColumns = [
+                ['label' => 'ID', 'class' => 'd-none d-md-table-cell'],
+                ['label' => 'Name'],
+                ['label' => 'Email', 'class' => 'd-none d-sm-table-cell'],
+                ['label' => 'Phone', 'class' => 'd-none d-md-table-cell'],
+                ['label' => 'Created', 'class' => 'd-none d-lg-table-cell'],
+                ['label' => 'Actions'],
+            ];
+            $clientTableColumnCount = count($clientTableColumns);
+            ?>
             <div class="table-responsive">
                 <table class="table table-hover client-list-table" id="clientsTable">
                     <thead>
                         <tr>
-                            <th class="d-none d-md-table-cell">ID</th>
-                            <th>Name</th>
-                            <th class="d-none d-sm-table-cell">Email</th>
-                            <th class="d-none d-md-table-cell">Phone</th>
-                            <th class="d-none d-lg-table-cell">Created</th>
-                            <th>Actions</th>
+                            <?php foreach ($clientTableColumns as $column): ?>
+                                <th<?= !empty($column['class']) ? ' class="' . escape($column['class']) . '"' : '' ?>>
+                                    <?= escape($column['label']) ?>
+                                </th>
+                            <?php endforeach; ?>
                         </tr>
                     </thead>
                     <tbody>
