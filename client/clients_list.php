@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
 // Fetch all clients
 $stmt = $conn->query("SELECT * FROM clients ORDER BY created_at DESC");
 $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$clientTableColumnCount = 6;
 
 include '../backend/includes/header.php';
 ?>
@@ -50,8 +51,20 @@ include '../backend/includes/header.php';
 
     <div class="card">
         <div class="card-body">
+            <?php if (!empty($clients)): ?>
+                <div class="mb-3">
+                    <label for="searchClients" class="form-label">Search Clients</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="searchClients"
+                        placeholder="Search by name, email, or phone..."
+                        autocomplete="off"
+                    >
+                </div>
+            <?php endif; ?>
             <div class="table-responsive">
-                <table class="table table-hover client-list-table">
+                <table class="table table-hover client-list-table" id="clientsTable">
                     <thead>
                         <tr>
                             <th class="d-none d-md-table-cell">ID</th>
@@ -65,13 +78,17 @@ include '../backend/includes/header.php';
                     <tbody>
                         <?php if (empty($clients)): ?>
                             <tr>
-                                <td colspan="6" class="text-center py-4">
+                                <td colspan="<?= $clientTableColumnCount ?>" class="text-center py-4">
                                     <p class="text-muted">No clients found. Add your first client to get started!</p>
                                 </td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($clients as $client): ?>
-                                <tr>
+                                <tr data-search-text="<?= escape(implode(' ', [
+                                    $client['name'] ?? '',
+                                    $client['email'] ?? '',
+                                    $client['phone'] ?? '',
+                                ])) ?>">
                                     <td class="d-none d-md-table-cell"><?= escape($client['id']) ?></td>
                                     <td>
                                         <strong><?= escape($client['name']) ?></strong>
@@ -164,6 +181,11 @@ include '../backend/includes/header.php';
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
+                            <tr id="clientsSearchNoResults" hidden>
+                                <td colspan="<?= $clientTableColumnCount ?>" class="text-center py-4">
+                                    <p class="text-muted mb-0">No clients match your search.</p>
+                                </td>
+                            </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -171,5 +193,29 @@ include '../backend/includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+document.getElementById('searchClients')?.addEventListener('input', function() {
+    const searchTerm = this.value.trim().toLowerCase();
+    const rows = document.querySelectorAll('#clientsTable tbody tr[data-search-text]');
+    const noResultsRow = document.getElementById('clientsSearchNoResults');
+    let visibleRows = 0;
+
+    rows.forEach(row => {
+        const searchText = (row.dataset.searchText || '').toLowerCase();
+        const matches = searchTerm === '' || searchText.includes(searchTerm);
+
+        row.hidden = !matches;
+
+        if (matches) {
+            visibleRows++;
+        }
+    });
+
+    if (noResultsRow) {
+        noResultsRow.hidden = visibleRows !== 0;
+    }
+});
+</script>
 
 <?php include '../backend/includes/footer.php'; ?>
