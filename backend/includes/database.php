@@ -1723,7 +1723,7 @@ class Database {
         }
 
         try {
-            $this->execSQL("CREATE INDEX idx_client_packages_package_stripe_session ON client_packages(package_id, stripe_checkout_session_id)");
+            $this->execSQL("CREATE UNIQUE INDEX idx_client_packages_package_stripe_session ON client_packages(package_id, stripe_checkout_session_id)");
         } catch (PDOException $e) {
             // Index might already exist, ignore
         }
