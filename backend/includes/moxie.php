@@ -351,6 +351,7 @@ class MoxieClientSync {
                         'count' => $count,
                         'request_method' => $request_payload === null ? 'GET' : 'POST',
                     ]);
+                    $response = null;
                     $rate_limit_retry = 0;
                     while (true) {
                         try {
@@ -371,6 +372,9 @@ class MoxieClientSync {
                             ]);
                             $this->pauseBeforeRateLimitRetry($delay_seconds);
                         }
+                    }
+                    if ($response === null) {
+                        throw new RuntimeException('Moxie request did not return a response.');
                     }
                     $page_clients = self::extractClientRows($response);
                     foreach ($page_clients as $page_client) {
@@ -773,15 +777,6 @@ class MoxieClientSync {
 
         $status = safe_int($matches[1]);
         return $status === 404 || ($status >= 500 && $status < 600);
-    }
-
-    private static function appendPaginationQuery(string $url, int $start, int $count): string {
-        $query = http_build_query([
-            'start' => $start,
-            'count' => $count,
-        ], '', '&', PHP_QUERY_RFC3986);
-
-        return $url . (str_contains($url, '?') ? '&' : '?') . $query;
     }
 
     private static function isAllowedMoxieHost(string $host): bool {
