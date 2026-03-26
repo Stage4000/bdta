@@ -230,17 +230,20 @@ try {
         throw new RuntimeException('Expected fetchClients() to GET the primary client list endpoint and follow the pagination URL returned by Moxie: ' . json_encode($request_calls));
     }
 
+    $no_next_page_size = 100;
     $no_next_request_calls = [];
-    $no_next_sync = new class($conn, $no_next_request_calls) extends MoxieClientSync {
+    $no_next_sync = new class($conn, $no_next_request_calls, $no_next_page_size) extends MoxieClientSync {
         /** @var array<int, array{url:string, api_key:string, payload:array<string, int>|null}> */
         private array $captured_calls;
+        private int $pageSize;
 
         /**
          * @param array<int, array{url:string, api_key:string, payload:array<string, int>|null}> $captured_calls
          */
-        public function __construct(SafePDO $conn, array &$captured_calls) {
+        public function __construct(SafePDO $conn, array &$captured_calls, int $page_size) {
             parent::__construct($conn);
             $this->captured_calls = &$captured_calls;
+            $this->pageSize = $page_size;
         }
 
         /**
@@ -257,14 +260,14 @@ try {
             return [
                 'clients' => array_map(
                     static fn (int $index): array => ['id' => 'client-' . $index],
-                    range(1, 100)
+                    range(1, $this->pageSize)
                 ),
             ];
         }
     };
 
-    $no_next_clients = $no_next_sync->fetchClients($normalized_base_url, 'test-api-key', 100);
-    if (count($no_next_clients) !== 100) {
+    $no_next_clients = $no_next_sync->fetchClients($normalized_base_url, 'test-api-key', $no_next_page_size);
+    if (count($no_next_clients) !== $no_next_page_size) {
         throw new RuntimeException('Expected fetchClients() to return the first GET page when Moxie does not return a next URL.');
     }
 
