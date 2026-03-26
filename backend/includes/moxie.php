@@ -374,7 +374,7 @@ class MoxieClientSync {
                         }
                     }
                     if ($response === null) {
-                        throw new RuntimeException('Moxie request did not return a response.');
+                        throw new RuntimeException('Moxie request did not return a response for URL: ' . $request_url);
                     }
                     $page_clients = self::extractClientRows($response);
                     foreach ($page_clients as $page_client) {
