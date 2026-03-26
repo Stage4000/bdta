@@ -355,9 +355,10 @@ class MoxieClientSync {
                     $count = $page_size;
                 }
             } catch (RuntimeException $e) {
-                if ($path_index < $path_count - 1 && $page === 1 && self::isHttpStatusException($e, 404)) {
-                    self::log('Moxie client list endpoint returned 404; retrying alternate endpoint.', [
+                if ($path_index < $path_count - 1 && $page === 1 && self::shouldRetryAlternateEndpoint($e)) {
+                    self::log('Moxie client list endpoint failed on the first page; retrying alternate endpoint.', [
                         'failed_url' => $list_url,
+                        'error' => $e->getMessage(),
                         'retry_url' => $base_url . $list_paths[$path_index + 1],
                     ]);
                     continue;
@@ -704,6 +705,15 @@ class MoxieClientSync {
     private static function isHttpStatusException(Throwable $exception, int $status): bool {
         return preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) === 1
             && safe_int($matches[1]) === $status;
+    }
+
+    private static function shouldRetryAlternateEndpoint(Throwable $exception): bool {
+        if (preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) !== 1) {
+            return false;
+        }
+
+        $status = safe_int($matches[1]);
+        return $status === 404 || ($status >= 500 && $status < 600);
     }
 
     private static function isAllowedMoxieHost(string $host): bool {
