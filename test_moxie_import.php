@@ -219,15 +219,15 @@ try {
         [
             'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
             'api_key' => 'test-api-key',
-            'payload' => ['start' => 0, 'count' => 100],
+            'payload' => null,
         ],
         [
-            'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
+            'url' => 'https://pod00.withmoxie.dev/api/public/clients/list?start=100&count=25',
             'api_key' => 'test-api-key',
-            'payload' => ['start' => 100, 'count' => 25],
+            'payload' => null,
         ],
     ]) {
-        throw new RuntimeException('Expected fetchClients() to POST JSON pagination payloads to the primary client list endpoint: ' . json_encode($request_calls));
+        throw new RuntimeException('Expected fetchClients() to GET the primary client list endpoint and follow the pagination URL returned by Moxie: ' . json_encode($request_calls));
     }
 
     $fallback_request_calls = [];
@@ -286,7 +286,7 @@ try {
         [
             'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
             'api_key' => 'test-api-key',
-            'payload' => ['start' => 0, 'count' => 100],
+            'payload' => null,
         ],
         [
             'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
@@ -347,7 +347,7 @@ try {
         [
             'url' => 'https://pod00.withmoxie.dev/api/public/action/clients/list',
             'api_key' => 'test-api-key',
-            'payload' => ['start' => 0, 'count' => 100],
+            'payload' => null,
         ],
         [
             'url' => 'https://pod00.withmoxie.dev/api/public/client/list',
@@ -364,7 +364,7 @@ try {
     echo "✓ Moxie base URL validation restricts allowed origins\n";
     echo "✓ fetchClients validates required base URL and page size inputs\n";
     echo "✓ Absolute Moxie pagination URLs must stay on the configured HTTPS origin\n";
-    echo "✓ fetchClients posts JSON pagination payloads to the client list endpoint\n";
+    echo "✓ fetchClients GETs the primary client list endpoint and follows the returned pagination URL\n";
     echo "✓ fetchClients retries the legacy list endpoint when the primary endpoint returns 404\n";
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint returns 500 on page one\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";

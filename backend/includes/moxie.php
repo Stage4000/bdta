@@ -321,20 +321,38 @@ class MoxieClientSync {
             $start = 0;
             $count = $page_size;
             $completed_pagination = false;
+            $next_request_url = '';
+            $use_get_requests = self::shouldUseGetForClientListPath($list_path);
 
             try {
                 while ($page < self::MAX_PAGES) {
                     $page++;
+                    $request_url = $list_url;
+                    $request_payload = [
+                        'start' => $start,
+                        'count' => $count,
+                    ];
+                    if ($use_get_requests) {
+                        if ($next_request_url !== '') {
+                            $request_url = $next_request_url;
+                            $next_request_url = '';
+                            $request_payload = null;
+                        } elseif ($page === 1 && $start === 0) {
+                            $request_payload = null;
+                        } else {
+                            $request_url = self::appendPaginationQuery($list_url, $start, $count);
+                            $request_payload = null;
+                        }
+                    }
+
                     self::log('Fetching Moxie client page.', [
-                        'url' => $list_url,
+                        'url' => $request_url,
                         'page' => $page,
                         'start' => $start,
                         'count' => $count,
+                        'request_method' => $request_payload === null ? 'GET' : 'POST',
                     ]);
-                    $response = $this->requestJson($list_url, $api_key, [
-                        'start' => $start,
-                        'count' => $count,
-                    ]);
+                    $response = $this->requestJson($request_url, $api_key, $request_payload);
                     $page_clients = self::extractClientRows($response);
                     foreach ($page_clients as $page_client) {
                         $clients[] = $page_client;
@@ -342,6 +360,9 @@ class MoxieClientSync {
 
                     $response_next = self::extractNextUrl($response, $base_url);
                     if ($response_next !== '') {
+                        if ($use_get_requests) {
+                            $next_request_url = $response_next;
+                        }
                         ['start' => $start, 'count' => $count] = self::extractNextPageRequest($response_next, $start + $count, $page_size);
                         continue;
                     }
@@ -707,6 +728,10 @@ class MoxieClientSync {
             && safe_int($matches[1]) === $status;
     }
 
+    private static function shouldUseGetForClientListPath(string $path): bool {
+        return $path === '/api/public/action/clients/list';
+    }
+
     private static function shouldRetryAlternateEndpoint(Throwable $exception): bool {
         if (preg_match('/HTTP status (\d+)/', $exception->getMessage(), $matches) !== 1) {
             return false;
@@ -714,6 +739,15 @@ class MoxieClientSync {
 
         $status = safe_int($matches[1]);
         return $status === 404 || ($status >= 500 && $status < 600);
+    }
+
+    private static function appendPaginationQuery(string $url, int $start, int $count): string {
+        $query = http_build_query([
+            'start' => $start,
+            'count' => $count,
+        ], '', '&', PHP_QUERY_RFC3986);
+
+        return $url . (str_contains($url, '?') ? '&' : '?') . $query;
     }
 
     private static function isAllowedMoxieHost(string $host): bool {
