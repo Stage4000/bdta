@@ -1663,7 +1663,7 @@ class Database {
                 is_active INTEGER DEFAULT 1,
                 notes TEXT,
                 payment_method TEXT,
-                stripe_checkout_session_id TEXT,
+                stripe_checkout_session_id VARCHAR(255),
                 created_by INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
@@ -1733,7 +1733,7 @@ class Database {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 package_id INTEGER NOT NULL,
                 package_token TEXT NOT NULL,
-                stripe_checkout_session_id TEXT NOT NULL,
+                stripe_checkout_session_id VARCHAR(255) NOT NULL,
                 buyer_name TEXT NOT NULL,
                 buyer_email TEXT NOT NULL,
                 buyer_phone TEXT,
@@ -1785,7 +1785,11 @@ class Database {
             $this->execSQL("ALTER TABLE client_packages ADD COLUMN payment_method TEXT");
         }
         if (!in_array('stripe_checkout_session_id', $client_package_column_names)) {
-            $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id TEXT");
+            if ($this->db_type === 'mysql') {
+                $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id VARCHAR(255)");
+            } else {
+                $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id TEXT");
+            }
         }
 
         // Create package_link_views table for analytics
@@ -2110,6 +2114,16 @@ class Database {
         // MySQL installations where the TEXT → VARCHAR(255) conversion was previously
         // applied, so that large JSON payloads are no longer truncated.
         if ($this->db_type === 'mysql') {
+            try {
+                $this->conn->exec("ALTER TABLE client_packages MODIFY COLUMN stripe_checkout_session_id VARCHAR(255) NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify client_packages.stripe_checkout_session_id - " . $e->getMessage());
+            }
+            try {
+                $this->conn->exec("ALTER TABLE package_pending_purchases MODIFY COLUMN stripe_checkout_session_id VARCHAR(255) NOT NULL");
+            } catch (PDOException $e) {
+                error_log("Migration: could not modify package_pending_purchases.stripe_checkout_session_id - " . $e->getMessage());
+            }
             try {
                 $this->conn->exec("ALTER TABLE form_templates MODIFY COLUMN fields MEDIUMTEXT NOT NULL");
             } catch (PDOException $e) {
