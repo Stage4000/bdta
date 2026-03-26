@@ -338,13 +338,10 @@ class MoxieClientSync {
                     ];
                     if ($use_get_requests) {
                         $request_payload = null;
-                        $follow_pagination_url = $next_request_url;
-                        $next_request_url = '';
-                        if ($follow_pagination_url !== '') {
-                            $request_url = $follow_pagination_url;
-                        } elseif ($page > 1 || $start > 0) {
-                            $request_url = self::appendPaginationQuery($list_url, $start, $count);
+                        if ($next_request_url !== '') {
+                            $request_url = $next_request_url;
                         }
+                        $next_request_url = '';
                     }
 
                     self::log('Fetching Moxie client page.', [
