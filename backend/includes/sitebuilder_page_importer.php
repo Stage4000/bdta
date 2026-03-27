@@ -1,6 +1,9 @@
 <?php
 
 final class SiteBuilderPageImporter {
+    private const BLOG_PAGE_ROUTE = '/blog/index.php';
+    private const DEFAULT_BUTTON_TEXT = 'Learn more';
+
     private PDO $targetConn;
     private string $siteBuilderPath;
     private string $siteRootPath;
@@ -14,6 +17,8 @@ final class SiteBuilderPageImporter {
     private array $sourcePagesById = [];
     /** @var array<string, string> */
     private array $sourcePageSlugs = [];
+    /** @var array<string, bool> */
+    private array $blogPageIds = [];
     private string $siteStyleCss = '';
     private string $navbarHtml = '';
     private string $footerHtml = '';
@@ -49,22 +54,17 @@ final class SiteBuilderPageImporter {
     }
 
     private function shouldImport(): bool {
-        $existing = $this->targetConn->query(
-            "SELECT slug FROM site_pages WHERE is_homepage = 0"
-        )->fetchAll(PDO::FETCH_COLUMN);
-
-        if (!is_array($existing) || $existing === []) {
+        $existingCount = $this->targetConn->query(
+            "SELECT COUNT(*) FROM site_pages WHERE is_homepage = 0"
+        )->fetchColumn();
+        if ((int) $existingCount === 0) {
             return true;
         }
 
-        $existingSlugs = array_map('strval', $existing);
-        foreach (['about-us', 'pet-sitting', 'connect'] as $requiredSlug) {
-            if (!in_array($requiredSlug, $existingSlugs, true)) {
-                return true;
-            }
-        }
-
-        return false;
+        $blankCount = $this->targetConn->query(
+            "SELECT COUNT(*) FROM site_pages WHERE is_homepage = 0 AND (html_content IS NULL OR html_content = '')"
+        )->fetchColumn();
+        return (int) $blankCount > 0;
     }
 
     private function openSourceArchive(): void {
@@ -140,7 +140,7 @@ final class SiteBuilderPageImporter {
             $name = trim((string) ($pageData['name'] ?? ''));
             $title = trim((string) ($pageData['title'] ?? ''));
             $pageLabel = $name !== '' ? $name : $title;
-            if ($pageLabel === '' || (int) ($row['isFront'] ?? 0) === 1 || strcasecmp($name, 'Blog') === 0) {
+            if ($pageLabel === '' || (int) ($row['isFront'] ?? 0) === 1) {
                 continue;
             }
 
@@ -151,6 +151,10 @@ final class SiteBuilderPageImporter {
             }
 
             $pageId = (string) ($row['id'] ?? '');
+            if ($this->pageContainsElementClass($pageId, 'Blog')) {
+                $this->blogPageIds[$pageId] = true;
+                continue;
+            }
             $pageData['id'] = $pageId;
             $pageData['isFront'] = (int) ($row['isFront'] ?? 0);
             $pageData['sortOrder'] = (int) ($row['sortOrder'] ?? 0);
@@ -405,9 +409,9 @@ final class SiteBuilderPageImporter {
      */
     private function renderButtonElement(array $data): string {
         $content = is_array($data['content'] ?? null) ? $data['content'] : [];
-        $text = trim(strip_tags((string) ($content['text'] ?? 'Learn more')));
+        $text = trim(strip_tags((string) ($content['text'] ?? self::DEFAULT_BUTTON_TEXT)));
         if ($text === '') {
-            $text = 'Learn more';
+            $text = self::DEFAULT_BUTTON_TEXT;
         }
 
         $href = $this->resolveLink(is_array($content['link'] ?? null) ? $content['link'] : null);
@@ -617,6 +621,18 @@ final class SiteBuilderPageImporter {
         return implode("\n\n", $css);
     }
 
+    private function pageContainsElementClass(string $pageId, string $className): bool {
+        if (!$this->sourceConn instanceof PDO) {
+            return false;
+        }
+
+        $stmt = $this->sourceConn->prepare(
+            "SELECT 1 FROM elements WHERE pageId = ? AND class = ? LIMIT 1"
+        );
+        $stmt->execute([$pageId, $className]);
+        return $stmt->fetchColumn() !== false;
+    }
+
     private function loadShellHtml(): void {
         $indexPath = $this->siteRootPath . '/index.html';
         $rawHtml = @file_get_contents($indexPath);
@@ -694,12 +710,32 @@ final class SiteBuilderPageImporter {
         if ($normalized === '' || !str_starts_with($normalized, 'gallery/')) {
             return $normalized;
         }
-        if (str_contains($normalized, '..')) {
+
+        $segments = explode('/', ltrim($normalized, '/'));
+        foreach ($segments as $index => $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return '';
+            }
+            if ($index > 0 && str_contains($segment, "\0")) {
+                return '';
+            }
+        }
+
+        if (!is_dir($this->assetOutputDir) && !mkdir($this->assetOutputDir, 0755, true) && !is_dir($this->assetOutputDir)) {
             return '';
         }
 
-        $zipPath = ltrim($normalized, '/');
+        $zipPath = implode('/', $segments);
         $destinationPath = $this->assetOutputDir . '/' . $zipPath;
+        $assetRoot = realpath($this->assetOutputDir);
+        $destinationDir = dirname($destinationPath);
+        if (!is_dir($destinationDir) && !mkdir($destinationDir, 0755, true) && !is_dir($destinationDir)) {
+            return '';
+        }
+        $resolvedDestinationDir = realpath($destinationDir);
+        if (!is_string($assetRoot) || !is_string($resolvedDestinationDir) || !str_starts_with($resolvedDestinationDir, $assetRoot)) {
+            return '';
+        }
         if (!is_file($destinationPath)) {
             $this->extractAsset($zipPath, $destinationPath);
         }
@@ -743,8 +779,8 @@ final class SiteBuilderPageImporter {
             if (isset($this->sourcePagesById[$url]['isFront']) && $this->toInt($this->sourcePagesById[$url]['isFront']) === 1) {
                 return '/';
             }
-            if (strcasecmp((string) ($this->sourcePagesById[$url]['name'] ?? ''), 'Blog') === 0) {
-                return '/blog/index.php';
+            if (isset($this->blogPageIds[$url])) {
+                return self::BLOG_PAGE_ROUTE;
             }
             if (isset($this->sourcePageSlugs[$url])) {
                 return '/page.php?slug=' . rawurlencode($this->sourcePageSlugs[$url]);

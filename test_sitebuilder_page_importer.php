@@ -270,10 +270,15 @@ HTML
 
     $importer = new SiteBuilderPageImporter($targetPdo, $siteBuilderPath, $tmpDir);
     $importer->import();
+    $firstPassPages = $targetPdo->query("SELECT slug, html_content FROM site_pages WHERE is_homepage = 0 ORDER BY sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
+    assertTrue(count($firstPassPages) === 2, 'Expected two imported non-home pages after the first import.');
     $importer->import();
 
     $pages = $targetPdo->query("SELECT slug, title, html_content, css_content, og_image FROM site_pages WHERE is_homepage = 0 ORDER BY sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
     assertTrue(count($pages) === 2, 'Expected exactly two imported non-home pages.');
+    assertTrue($pages[0]['html_content'] === $firstPassPages[0]['html_content'], 'Expected repeated imports to leave existing imported content unchanged.');
+    $totalPages = (int) $targetPdo->query("SELECT COUNT(*) FROM site_pages")->fetchColumn();
+    assertTrue($totalPages === 3, 'Expected the builder home page to be excluded from import.');
 
     $connectPage = $pages[0];
     assertTrue($connectPage['slug'] === 'connect', 'Expected Connect page slug to be imported.');
