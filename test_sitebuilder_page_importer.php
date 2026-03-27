@@ -243,7 +243,7 @@ function createSiteBuilderArchive(string $archivePath, string $sourceDbPath): vo
     @unlink($zipPath);
 }
 
-$tmpDir = makeTempDir('bdta-sitebuilder-import-test');
+$tmpDir = makeTempDir('sitebuilder-import-test');
 
 try {
     mkdir($tmpDir . '/backend/uploads', 0777, true);

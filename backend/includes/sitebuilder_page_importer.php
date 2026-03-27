@@ -3,6 +3,8 @@
 final class SiteBuilderPageImporter {
     private const BLOG_PAGE_ROUTE = '/blog/index.php';
     private const DEFAULT_BUTTON_TEXT = 'Learn more';
+    private const IMPORTED_PAGE_TOP_PADDING = '110px';
+    private const MAX_LAYOUT_MIN_HEIGHT_PX = 600;
 
     private PDO $targetConn;
     private string $siteBuilderPath;
@@ -78,7 +80,7 @@ final class SiteBuilderPageImporter {
             throw new RuntimeException('Site builder export ZIP header not found.');
         }
 
-        $this->tempZipPath = tempnam(sys_get_temp_dir(), 'bdta-sitebuilder-');
+        $this->tempZipPath = tempnam(sys_get_temp_dir(), 'sitebuilder-import-');
         if (!is_string($this->tempZipPath) || $this->tempZipPath === '') {
             throw new RuntimeException('Unable to create temporary ZIP file.');
         }
@@ -102,7 +104,7 @@ final class SiteBuilderPageImporter {
             throw new RuntimeException('Source project database not found in export.');
         }
 
-        $this->tempDbPath = tempnam(sys_get_temp_dir(), 'bdta-sitebuilder-db-');
+        $this->tempDbPath = tempnam(sys_get_temp_dir(), 'sitebuilder-db-');
         if (!is_string($this->tempDbPath) || $this->tempDbPath === '') {
             throw new RuntimeException('Unable to create temporary project database.');
         }
@@ -353,7 +355,11 @@ final class SiteBuilderPageImporter {
 
         $style = $this->buildElementStyle($data);
         unset($style['height'], $style['max-height']);
-        if (isset($style['min-height']) && preg_match('/^(\d+(?:\.\d+)?)px$/', $style['min-height'], $matches) === 1 && (float) $matches[1] > 600) {
+        if (
+            isset($style['min-height'])
+            && preg_match('/^(\d+(?:\.\d+)?)px$/', $style['min-height'], $matches) === 1
+            && (float) $matches[1] > self::MAX_LAYOUT_MIN_HEIGHT_PX
+        ) {
             unset($style['min-height']);
         }
         $style['display'] = 'flex';
@@ -532,7 +538,7 @@ final class SiteBuilderPageImporter {
     private function buildImportedPageCss(): string {
         return trim(
             ".bdta-imported-page {\n"
-            . "    padding-top: 110px;\n"
+            . "    padding-top: " . self::IMPORTED_PAGE_TOP_PADDING . ";\n"
             . "    padding-bottom: 4rem;\n"
             . "    min-height: 60vh;\n"
             . "}\n"
