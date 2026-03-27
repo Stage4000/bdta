@@ -299,18 +299,17 @@ class Database {
         return $this->conn->exec($converted_sql);
     }
 
-    private function importSiteBuilderPages(): void {
-        require_once __DIR__ . '/sitebuilder_page_importer.php';
+    private function seedManualSiteBuilderPages(): void {
+        require_once __DIR__ . '/sitebuilder_manual_pages.php';
 
         try {
-            $importer = new SiteBuilderPageImporter(
+            SiteBuilderManualPageSeeder::seed(
                 $this->conn,
-                dirname(__DIR__, 2) . '/brooksdogtrainingacademy.com_project.sitebuilder',
-                dirname(__DIR__, 2)
+                dirname(__DIR__, 2),
+                dirname(__DIR__, 2) . '/brooksdogtrainingacademy.com_project.sitebuilder'
             );
-            $importer->import();
         } catch (Throwable $e) {
-            error_log('Site builder page import failed: ' . $e->getMessage());
+            error_log('Manual SiteBuilder page seed failed: ' . $e->getMessage());
         }
     }
     
@@ -2124,7 +2123,7 @@ class Database {
         if (!in_array('og_image', $sp_column_names)) {
             $this->execSQL("ALTER TABLE site_pages ADD COLUMN og_image TEXT");
         }
-        $this->importSiteBuilderPages();
+        $this->seedManualSiteBuilderPages();
 
         // Widen the form_templates.fields and form_submissions.responses columns on
         // MySQL installations where the TEXT → VARCHAR(255) conversion was previously
