@@ -129,11 +129,24 @@ final class SiteBuilderManualPageSeeder {
             return;
         }
 
+        $normalizedBaseDir = self::normalizePath($resolvedBaseDir);
+
         foreach ($assets as $asset) {
-            if (!str_starts_with($asset, "gallery/") || str_contains($asset, "..") || str_starts_with($asset, '/')) {
+            $decodedAsset = rawurldecode($asset);
+            if (
+                !str_starts_with($asset, "gallery/")
+                || str_contains($asset, "..")
+                || str_contains($decodedAsset, '..')
+                || str_starts_with($asset, '/')
+            ) {
                 continue;
             }
-            $destPath = $assetBaseDir . "/" . $asset;
+
+            $destPath = self::normalizePath($assetBaseDir . "/" . $asset);
+            if (!str_starts_with($destPath, $normalizedBaseDir . '/')) {
+                continue;
+            }
+
             if (is_file($destPath)) {
                 continue;
             }
@@ -149,7 +162,9 @@ final class SiteBuilderManualPageSeeder {
             if ($resolvedDir === false || ($resolvedDir !== $resolvedBaseDir && !str_starts_with($resolvedDir, $resolvedBaseDir . DIRECTORY_SEPARATOR))) {
                 continue;
             }
-            @file_put_contents($destPath, $contents);
+            if (file_put_contents($destPath, $contents) === false) {
+                error_log('Unable to write SiteBuilder asset: ' . $asset);
+            }
         }
     }
 
@@ -217,5 +232,39 @@ final class SiteBuilderManualPageSeeder {
         }
 
         return 0;
+    }
+
+    private static function normalizePath(string $path): string {
+        $segments = preg_split('~/+~', str_replace('\\', '/', $path));
+        if ($segments === false) {
+            return $path;
+        }
+
+        $normalized = [];
+        foreach ($segments as $index => $segment) {
+            if ($segment === '' && $index === 0) {
+                $normalized[] = '';
+                continue;
+            }
+
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+
+            if ($segment === '..') {
+                if (count($normalized) > 1 || (count($normalized) === 1 && $normalized[0] !== '')) {
+                    array_pop($normalized);
+                }
+                continue;
+            }
+
+            $normalized[] = $segment;
+        }
+
+        if ($normalized === ['']) {
+            return '/';
+        }
+
+        return implode('/', $normalized);
     }
 }
