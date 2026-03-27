@@ -627,12 +627,11 @@ class MoxieClientSync {
 
         $request_url = $base_url . self::INVOICE_SEARCH_PATH;
         $invoices = [];
-        $page = 0;
+        $page = 1;
 
-        while ($page < self::MAX_PAGES) {
-            $page++;
+        while ($page <= self::MAX_PAGES) {
             $rate_limit_retry = 0;
-            $response = null;
+            $response = [];
 
             while (true) {
                 try {
@@ -659,10 +658,6 @@ class MoxieClientSync {
                 }
             }
 
-            if ($response === null) {
-                throw new RuntimeException('Moxie request did not return a response for URL: ' . $request_url);
-            }
-
             foreach (self::extractInvoiceRows($response) as $invoice) {
                 $invoices[] = $invoice;
             }
@@ -673,6 +668,7 @@ class MoxieClientSync {
             }
 
             $request_url = $response_next;
+            $page++;
         }
 
         self::log('Moxie invoice sync aborted after reaching the maximum page limit.', [
