@@ -688,9 +688,8 @@ class MoxieClientSync {
                 $start += $count;
                 $request_url = $invoice_search_url . '?' . http_build_query([
                     'start' => $start,
-                    'count' => $page_size,
+                    'count' => $count,
                 ]);
-                $count = $page_size;
                 $page++;
                 continue;
             }
