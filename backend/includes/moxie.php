@@ -637,12 +637,14 @@ class MoxieClientSync {
             'count' => $count,
         ]);
         $invoices = [];
+        $seen_invoice_keys = [];
         $page = 1;
 
         while ($page <= self::MAX_PAGES) {
             $rate_limit_retry = 0;
             $response = [];
             $page_invoice_count = 0;
+            $page_added_new_invoice = false;
 
             while (true) {
                 try {
@@ -676,12 +678,29 @@ class MoxieClientSync {
             $page_invoices = self::extractInvoiceRows($response);
             $page_invoice_count = count($page_invoices);
             foreach ($page_invoices as $invoice) {
+                $invoice_key = self::invoicePaginationKey($invoice);
+                if (isset($seen_invoice_keys[$invoice_key])) {
+                    continue;
+                }
+
+                $seen_invoice_keys[$invoice_key] = true;
                 $invoices[] = $invoice;
+                $page_added_new_invoice = true;
             }
 
             $response_next = self::extractNextUrl($response, $base_url);
             if ($response_next === '') {
-                if ($page_invoice_count === 0) {
+                if ($page_invoice_count === 0 || !$page_added_new_invoice) {
+                    if ($page_invoice_count > 0 && !$page_added_new_invoice) {
+                        self::log('Stopping Moxie invoice pagination because the current page did not add any new invoices.', [
+                            'url' => $request_url,
+                            'page' => $page,
+                            'start' => $start,
+                            'count' => $count,
+                            'page_invoice_count' => $page_invoice_count,
+                        ]);
+                    }
+
                     return $invoices;
                 }
 
@@ -756,6 +775,29 @@ class MoxieClientSync {
         }
 
         return [];
+    }
+
+    /**
+     * @param array<string, mixed> $invoice
+     */
+    private static function invoicePaginationKey(array $invoice): string {
+        $stable_key = trim(self::firstNonEmpty([
+            self::stringValue($invoice, 'id'),
+            self::stringValue($invoice, 'invoiceId'),
+            self::stringValue($invoice, 'uuid'),
+            self::stringValue($invoice, 'invoiceNumberFormatted'),
+            self::stringValue($invoice, 'invoiceNumber'),
+        ]));
+        if ($stable_key !== '') {
+            return $stable_key;
+        }
+
+        $encoded_invoice = json_encode($invoice, JSON_UNESCAPED_SLASHES);
+        if ($encoded_invoice !== false) {
+            return 'hash:' . sha1($encoded_invoice);
+        }
+
+        return 'hash:' . sha1(serialize($invoice));
     }
 
     /**
