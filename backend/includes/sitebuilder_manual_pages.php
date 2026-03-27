@@ -4,7 +4,18 @@ final class SiteBuilderManualPageSeeder {
     private const COMMON_CSS_ENCODED = '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';
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<array{
+     *     slug: string,
+     *     title: string,
+     *     meta_description: string,
+     *     meta_keywords: string,
+     *     og_title: string,
+     *     og_description: string,
+     *     og_image: string,
+     *     sort_order: int,
+     *     assets: list<string>,
+     *     html_encoded: string
+     * }>
      */
     private static function getPages(): array {
         return [
@@ -85,21 +96,18 @@ final class SiteBuilderManualPageSeeder {
         }
 
         $tempZipPath = tempnam(sys_get_temp_dir(), "sitebuilder-pages-");
-        if (!is_string($tempZipPath) || $tempZipPath === "") {
+        if ($tempZipPath === false) {
             return null;
         }
 
         if (@file_put_contents($tempZipPath, substr($archiveBytes, $zipOffset)) === false) {
-            @unlink($tempZipPath);
             return null;
         }
 
         $zip = new ZipArchive();
         if ($zip->open($tempZipPath) !== true) {
-            @unlink($tempZipPath);
             return null;
         }
-        @unlink($tempZipPath);
         return $zip;
     }
 
@@ -108,7 +116,7 @@ final class SiteBuilderManualPageSeeder {
      */
     private static function extractAssets(ZipArchive $zip, string $siteRootPath, array $assets): void {
         foreach ($assets as $asset) {
-            if (!is_string($asset) || !str_starts_with($asset, "gallery/") || str_contains($asset, "..")) {
+            if (!str_starts_with($asset, "gallery/") || str_contains($asset, "..")) {
                 continue;
             }
             $destPath = rtrim($siteRootPath, "/") . "/backend/uploads/sitebuilder/" . $asset;
@@ -128,13 +136,24 @@ final class SiteBuilderManualPageSeeder {
     }
 
     /**
-     * @param array<string, mixed> $page
+     * @param array{
+     *     slug: string,
+     *     title: string,
+     *     meta_description: string,
+     *     meta_keywords: string,
+     *     og_title: string,
+     *     og_description: string,
+     *     og_image: string,
+     *     sort_order: int,
+     *     assets: list<string>,
+     *     html_encoded: string
+     * } $page
      */
     private static function upsertPage(PDO $conn, array $page): void {
         $check = $conn->prepare("SELECT id, html_content FROM site_pages WHERE slug = ? OR title = ? LIMIT 1");
         $check->execute([$page['slug'], $page['title']]);
         $existing = $check->fetch(PDO::FETCH_ASSOC);
-        if (is_array($existing) && trim((string) ($existing['html_content'] ?? "")) !== "") {
+        if (is_array($existing) && trim(self::stringValue($existing['html_content'] ?? '')) !== '') {
             return;
         }
 
@@ -146,12 +165,12 @@ final class SiteBuilderManualPageSeeder {
 
         if (is_array($existing)) {
             $stmt = $conn->prepare("UPDATE site_pages SET slug=?, title=?, html_content=?, css_content=?, meta_description=?, meta_keywords=?, og_title=?, og_description=?, og_image=?, is_published=1, updated_at=CURRENT_TIMESTAMP WHERE id=?");
-            $stmt->execute([$page['slug'], $page['title'], $html, $css, $page['meta_description'], $page['meta_keywords'], $page['og_title'], $page['og_description'], $page['og_image'], (int) $existing['id']]);
+            $stmt->execute([$page['slug'], $page['title'], $html, $css, $page['meta_description'], $page['meta_keywords'], $page['og_title'], $page['og_description'], $page['og_image'], self::intValue($existing['id'] ?? 0)]);
             return;
         }
 
         $stmt = $conn->prepare("INSERT INTO site_pages (slug, title, html_content, css_content, meta_description, meta_keywords, og_title, og_description, og_image, is_homepage, is_published, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?)");
-        $stmt->execute([$page['slug'], $page['title'], $html, $css, $page['meta_description'], $page['meta_keywords'], $page['og_title'], $page['og_description'], $page['og_image'], (int) $page['sort_order']]);
+        $stmt->execute([$page['slug'], $page['title'], $html, $css, $page['meta_description'], $page['meta_keywords'], $page['og_title'], $page['og_description'], $page['og_image'], $page['sort_order']]);
     }
 
     private static function decode(mixed $encoded): string {
@@ -164,5 +183,21 @@ final class SiteBuilderManualPageSeeder {
         }
         $decoded = zlib_decode($compressed);
         return is_string($decoded) ? $decoded : "";
+    }
+
+    private static function stringValue(mixed $value): string {
+        return is_string($value) ? $value : '';
+    }
+
+    private static function intValue(mixed $value): int {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && preg_match('/^-?\d+$/', $value) === 1) {
+            return (int) $value;
+        }
+
+        return 0;
     }
 }

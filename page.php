@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/backend/includes/config.php';
 require_once __DIR__ . '/backend/public/includes/public_error_page.php';
+require_once __DIR__ . '/backend/public/includes/public_navigation.php';
 require_once __DIR__ . '/backend/includes/tawk_to.php';
 
 $db   = new Database();
@@ -106,7 +107,7 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     <?php endif; ?>
 </head>
 <body>
-    <?php echo $page['html_content']; ?>
+    <?php echo bdta_sync_public_navigation_links((string) $page['html_content']); ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- BDTA dynamic modules (Packages & Events blocks added via the site editor) -->

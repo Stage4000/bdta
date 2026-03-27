@@ -34,6 +34,7 @@ function rrmdir(string $path): void {
         if (is_dir($itemPath)) {
             rrmdir($itemPath);
         } else {
+            // nosemgrep: php.lang.security.unlink-use.unlink-use
             @unlink($itemPath);
         }
     }
@@ -100,6 +101,7 @@ function createAssetOnlySiteBuilderArchive(string $archivePath): void {
 
     $zip->close();
     file_put_contents($archivePath, 'sitebuilder-custom-header' . file_get_contents($zipPath));
+    // nosemgrep: php.lang.security.unlink-use.unlink-use
     @unlink($zipPath);
 }
 
