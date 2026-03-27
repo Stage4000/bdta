@@ -994,7 +994,7 @@ try {
 
     $fetched_repeated_page_invoices = $invoice_fetch_sync_repeated_page_without_next->fetchInvoices($normalized_base_url, 'test-api-key');
     if (count($fetched_repeated_page_invoices) !== 1) {
-        throw new RuntimeException('Expected fetchInvoices() to stop when a repeated page does not add any new invoices.');
+        throw new RuntimeException('Expected fetchInvoices() to stop when a repeated page does not add any new invoices: ' . json_encode($fetched_repeated_page_invoices));
     }
 
     if ($invoice_request_calls_repeated_page_without_next !== [
