@@ -303,6 +303,10 @@ class Database {
         require_once __DIR__ . '/sitebuilder_manual_pages.php';
 
         try {
+            if (!SiteBuilderManualPageSeeder::needsSeeding($this->conn)) {
+                return;
+            }
+
             SiteBuilderManualPageSeeder::seed(
                 $this->conn,
                 dirname(__DIR__, 2),

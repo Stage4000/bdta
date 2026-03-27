@@ -64,27 +64,61 @@ final class SiteBuilderManualPageSeeder {
         ];
     }
 
+    public static function needsSeeding(PDO $conn): bool {
+        $slugs = array_column(self::getPages(), 'slug');
+        if ($slugs === []) {
+            return false;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($slugs), '?'));
+        $stmt = $conn->prepare(
+            "SELECT slug, html_content FROM site_pages WHERE slug IN ($placeholders)"
+        );
+        $stmt->execute($slugs);
+
+        /** @var array<string, string> $existingPages */
+        $existingPages = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if (!is_array($row) || !isset($row['slug'])) {
+                continue;
+            }
+            $existingPages[self::stringValue($row['slug'])] = self::stringValue($row['html_content'] ?? '');
+        }
+
+        foreach ($slugs as $slug) {
+            if (trim($existingPages[$slug] ?? '') === '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function seed(PDO $conn, string $siteRootPath, string $siteBuilderPath): void {
-        if (!is_readable($siteBuilderPath) || !class_exists('ZipArchive')) {
+        if (!self::needsSeeding($conn) || !is_readable($siteBuilderPath) || !class_exists('ZipArchive')) {
             return;
         }
 
-        $zip = self::openArchive($siteBuilderPath);
-        if (!$zip instanceof ZipArchive) {
+        $archive = self::openArchive($siteBuilderPath);
+        if (!is_array($archive)) {
             return;
         }
 
         try {
             foreach (self::getPages() as $page) {
-                self::extractAssets($zip, $siteRootPath, $page['assets']);
+                self::extractAssets($archive['zip'], $siteRootPath, $page['assets']);
                 self::upsertPage($conn, $page);
             }
         } finally {
-            $zip->close();
+            $archive['zip']->close();
+            self::deleteTempZip($archive['tempZipPath']);
         }
     }
 
-    private static function openArchive(string $siteBuilderPath): ?ZipArchive {
+    /**
+     * @return array{zip: ZipArchive, tempZipPath: string}|null
+     */
+    private static function openArchive(string $siteBuilderPath): ?array {
         $archiveBytes = @file_get_contents($siteBuilderPath);
         if (!is_string($archiveBytes) || $archiveBytes === "") {
             return null;
@@ -101,18 +135,19 @@ final class SiteBuilderManualPageSeeder {
         }
 
         if (@file_put_contents($tempZipPath, substr($archiveBytes, $zipOffset)) === false) {
-            // nosemgrep: php.lang.security.unlink-use.unlink-use
-            @unlink($tempZipPath);
+            self::deleteTempZip($tempZipPath);
             return null;
         }
 
         $zip = new ZipArchive();
         if ($zip->open($tempZipPath) !== true) {
-            // nosemgrep: php.lang.security.unlink-use.unlink-use
-            @unlink($tempZipPath);
+            self::deleteTempZip($tempZipPath);
             return null;
         }
-        return $zip;
+        return [
+            'zip' => $zip,
+            'tempZipPath' => $tempZipPath,
+        ];
     }
 
     /**
@@ -183,8 +218,8 @@ final class SiteBuilderManualPageSeeder {
      * } $page
      */
     private static function upsertPage(PDO $conn, array $page): void {
-        $check = $conn->prepare("SELECT id, html_content FROM site_pages WHERE slug = ? OR title = ? LIMIT 1");
-        $check->execute([$page['slug'], $page['title']]);
+        $check = $conn->prepare("SELECT id, html_content FROM site_pages WHERE slug = ? LIMIT 1");
+        $check->execute([$page['slug']]);
         $existing = $check->fetch(PDO::FETCH_ASSOC);
         if (is_array($existing) && trim(self::stringValue($existing['html_content'] ?? '')) !== '') {
             return;
@@ -266,5 +301,10 @@ final class SiteBuilderManualPageSeeder {
         }
 
         return implode('/', $normalized);
+    }
+
+    private static function deleteTempZip(string $tempZipPath): void {
+        // nosemgrep: php.lang.security.unlink-use.unlink-use
+        @unlink($tempZipPath);
     }
 }

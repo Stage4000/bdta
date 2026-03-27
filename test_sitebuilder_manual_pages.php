@@ -66,6 +66,7 @@ function createTargetDb(string $dbPath): PDO {
         )"
     );
     $pdo->exec("INSERT INTO site_pages (slug, title, is_homepage, is_published, sort_order) VALUES ('home', 'Home', 1, 0, 0)");
+    $pdo->exec("INSERT INTO site_pages (slug, title, html_content, css_content, is_homepage, is_published, sort_order) VALUES ('legacy-directory', 'Directory', '<p>legacy</p>', '', 0, 1, 99)");
     return $pdo;
 }
 
@@ -114,16 +115,22 @@ try {
     $pdo = createTargetDb($dbPath);
     createAssetOnlySiteBuilderArchive($archivePath);
 
+    assertTrue(SiteBuilderManualPageSeeder::needsSeeding($pdo), 'Expected manual pages to need seeding before import.');
+
     SiteBuilderManualPageSeeder::seed($pdo, $tmpDir, $archivePath);
     SiteBuilderManualPageSeeder::seed($pdo, $tmpDir, $archivePath);
 
+    assertTrue(!SiteBuilderManualPageSeeder::needsSeeding($pdo), 'Expected manual pages not to need reseeding after import.');
+
     $pages = $pdo->query("SELECT slug, title, is_published, og_image, length(html_content) AS html_len, length(css_content) AS css_len FROM site_pages WHERE is_homepage = 0 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
-    assertTrue(count($pages) === 2, 'Expected only the two manually requested pages to be seeded.');
+    assertTrue(count($pages) === 3, 'Expected the two manually requested pages plus the unrelated pre-existing page.');
     assertTrue($pages[0]['slug'] === 'dog-training-fact-sheet', 'Expected fact sheet page to be seeded first.');
     assertTrue($pages[1]['slug'] === 'directory', 'Expected directory page to be seeded second.');
-    assertTrue((int) $pages[0]['is_published'] === 1 && (int) $pages[1]['is_published'] === 1, 'Expected both pages to be published.');
-    assertTrue((int) $pages[0]['html_len'] > 1000 && (int) $pages[1]['html_len'] > 1000, 'Expected imported HTML content for both pages.');
-    assertTrue((int) $pages[0]['css_len'] > 1000 && (int) $pages[1]['css_len'] > 1000, 'Expected imported CSS content for both pages.');
+    assertTrue($pages[2]['slug'] === 'legacy-directory', 'Expected unrelated legacy page to remain untouched.');
+    assertTrue((int) $pages[0]['is_published'] === 1 && (int) $pages[1]['is_published'] === 1, 'Expected both seeded pages to be published.');
+    assertTrue((int) $pages[0]['html_len'] > 1000 && (int) $pages[1]['html_len'] > 1000, 'Expected imported HTML content for both seeded pages.');
+    assertTrue((int) $pages[0]['css_len'] > 1000 && (int) $pages[1]['css_len'] > 1000, 'Expected imported CSS content for both seeded pages.');
+    assertTrue((int) $pages[2]['html_len'] < 1000, 'Expected the unrelated legacy page not to be overwritten by the manual seed.');
     assertTrue($pages[0]['og_image'] === '/backend/uploads/sitebuilder/gallery/Dog-Training-Fact-Sheet-1.png', 'Expected fact sheet OG image path to be preserved.');
 
     $factSheetHtml = $pdo->query("SELECT html_content FROM site_pages WHERE slug = 'dog-training-fact-sheet'")->fetchColumn();
