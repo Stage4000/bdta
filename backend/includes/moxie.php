@@ -619,25 +619,38 @@ class MoxieClientSync {
     /**
      * @return list<array<string, mixed>>
      */
-    public function fetchInvoices(string $base_url, string $api_key): array {
+    public function fetchInvoices(string $base_url, string $api_key, int $page_size = self::DEFAULT_PAGE_SIZE): array {
         $base_url = self::normalizeBaseUrl($base_url);
         if ($base_url === '') {
             throw new InvalidArgumentException('Moxie base URL is required.');
         }
 
-        $request_url = $base_url . self::INVOICE_SEARCH_PATH;
+        if ($page_size < 1) {
+            throw new InvalidArgumentException('Moxie page size must be at least 1.');
+        }
+
+        $invoice_search_url = $base_url . self::INVOICE_SEARCH_PATH;
+        $start = 0;
+        $count = $page_size;
+        $request_url = $invoice_search_url . '?' . http_build_query([
+            'start' => $start,
+            'count' => $count,
+        ]);
         $invoices = [];
         $page = 1;
 
         while ($page <= self::MAX_PAGES) {
             $rate_limit_retry = 0;
             $response = [];
+            $page_invoice_count = 0;
 
             while (true) {
                 try {
                     self::log('Fetching Moxie payable invoices.', [
                         'url' => $request_url,
                         'page' => $page,
+                        'start' => $start,
+                        'count' => $count,
                     ]);
                     $response = $this->requestJson($request_url, $api_key);
                     break;
@@ -651,6 +664,8 @@ class MoxieClientSync {
                     self::log('Moxie rate limited invoice request; retrying after a short delay.', [
                         'url' => $request_url,
                         'page' => $page,
+                        'start' => $start,
+                        'count' => $count,
                         'retry_attempt' => $rate_limit_retry,
                         'delay_seconds' => $delay_seconds,
                     ]);
@@ -658,15 +673,29 @@ class MoxieClientSync {
                 }
             }
 
-            foreach (self::extractInvoiceRows($response) as $invoice) {
+            $page_invoices = self::extractInvoiceRows($response);
+            $page_invoice_count = count($page_invoices);
+            foreach ($page_invoices as $invoice) {
                 $invoices[] = $invoice;
             }
 
             $response_next = self::extractNextUrl($response, $base_url);
             if ($response_next === '') {
-                return $invoices;
+                if ($page_invoice_count < $count) {
+                    return $invoices;
+                }
+
+                $start += $count;
+                $request_url = $invoice_search_url . '?' . http_build_query([
+                    'start' => $start,
+                    'count' => $page_size,
+                ]);
+                $count = $page_size;
+                $page++;
+                continue;
             }
 
+            ['start' => $start, 'count' => $count] = self::extractNextPageRequest($response_next, $start + $count, $page_size);
             $request_url = $response_next;
             $page++;
         }

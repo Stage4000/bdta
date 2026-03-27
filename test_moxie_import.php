@@ -793,7 +793,7 @@ try {
 
     if ($invoice_request_calls !== [
         [
-            'url' => 'https://pod00.withmoxie.dev/api/public/action/payableInvoices/search',
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/payableInvoices/search?start=0&count=100',
             'api_key' => 'test-api-key',
             'payload' => null,
         ],
@@ -803,7 +803,68 @@ try {
             'payload' => null,
         ],
     ]) {
-        throw new RuntimeException('Expected fetchInvoices() to GET the payable invoices endpoint and follow the pagination URL returned by Moxie: ' . json_encode($invoice_request_calls));
+        throw new RuntimeException('Expected fetchInvoices() to GET the payable invoices endpoint with explicit pagination and follow the pagination URL returned by Moxie: ' . json_encode($invoice_request_calls));
+    }
+
+    $invoice_request_calls_without_next = [];
+    $invoice_fetch_sync_without_next = new class($conn, $invoice_request_calls_without_next) extends MoxieClientSync {
+        /** @var array<int, array{url:string, api_key:string, payload:array<string, int>|null}> */
+        private array $captured_calls;
+
+        /**
+         * @param array<int, array{url:string, api_key:string, payload:array<string, int>|null}> $captured_calls
+         */
+        public function __construct(SafePDO $conn, array &$captured_calls) {
+            parent::__construct($conn);
+            $this->captured_calls = &$captured_calls;
+        }
+
+        /**
+         * @param array<string, int>|null $payload
+         * @return array<int|string, mixed>
+         */
+        protected function requestJson(string $url, string $api_key, ?array $payload = null): array {
+            $this->captured_calls[] = [
+                'url' => $url,
+                'api_key' => $api_key,
+                'payload' => $payload,
+            ];
+
+            if (count($this->captured_calls) === 1) {
+                return [
+                    'data' => [
+                        ['id' => 'invoice-offset-1', 'clientId' => 'client-offset-1'],
+                        ['id' => 'invoice-offset-2', 'clientId' => 'client-offset-2'],
+                    ],
+                ];
+            }
+
+            return [
+                'data' => [
+                    ['id' => 'invoice-offset-3', 'clientId' => 'client-offset-3'],
+                ],
+            ];
+        }
+    };
+
+    $fetched_offset_invoices = $invoice_fetch_sync_without_next->fetchInvoices($normalized_base_url, 'test-api-key', 2);
+    if (count($fetched_offset_invoices) !== 3) {
+        throw new RuntimeException('Expected fetchInvoices() to continue paging by start/count when Moxie omits a next URL.');
+    }
+
+    if ($invoice_request_calls_without_next !== [
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/payableInvoices/search?start=0&count=2',
+            'api_key' => 'test-api-key',
+            'payload' => null,
+        ],
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/payableInvoices/search?start=2&count=2',
+            'api_key' => 'test-api-key',
+            'payload' => null,
+        ],
+    ]) {
+        throw new RuntimeException('Expected fetchInvoices() to continue offset pagination when Moxie omits a next URL: ' . json_encode($invoice_request_calls_without_next));
     }
 
     echo "✓ Moxie import client creation works\n";
@@ -822,7 +883,8 @@ try {
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint returns 500 on page one\n";
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint times out on page one\n";
     echo "✓ fetchClients retries a 429 response on the same paginated request before failing\n";
-    echo "✓ fetchInvoices GETs the payable invoice search endpoint and follows pagination URLs\n";
+    echo "✓ fetchInvoices GETs the payable invoice search endpoint with explicit pagination and follows pagination URLs\n";
+    echo "✓ fetchInvoices keeps paging by start/count when Moxie omits a next URL\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";
     echo "=== All Moxie Import Tests Passed! ===\n";
 } catch (Throwable $e) {

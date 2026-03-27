@@ -108,8 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'Moxie sync complete. '
                     . $last_summary['created'] . ' clients created, '
                     . $last_summary['updated'] . ' clients updated, '
-                    . $last_summary['invoices_created'] . ' payable invoices created, and '
-                    . $last_summary['invoices_updated'] . ' payable invoices updated.',
+                    . $last_summary['invoices_created'] . ' invoices created, and '
+                    . $last_summary['invoices_updated'] . ' invoices updated.',
                     'success'
                 );
                 MoxieClientSync::log('Moxie sync run from admin UI.', ['admin_id' => safe_int($_SESSION['admin_id'] ?? 0)] + $last_summary);
@@ -140,7 +140,6 @@ include __DIR__ . '/../backend/includes/header.php';
                 <div class="card-body">
                     <p class="text-muted mb-4">
                         Connect your Moxie workspace, save the API key, and import clients plus payable invoices into BDTA.
-                        Moxie's public API only exposes invoices that are currently in a payable state, so paid or archived invoice history will not be returned by this importer.
                         Sync activity is written to <code>backend/logs/moxie.log</code> for debugging.
                     </p>
 
@@ -197,11 +196,11 @@ include __DIR__ . '/../backend/includes/header.php';
                                 <div class="col-sm-6 col-lg-4"><strong>Unchanged:</strong> <?= escape($last_summary['unchanged']) ?></div>
                                 <div class="col-sm-6 col-lg-4"><strong>Skipped archived:</strong> <?= escape($last_summary['skipped_archived']) ?></div>
                                 <div class="col-sm-6 col-lg-4"><strong>Skipped missing email:</strong> <?= escape($last_summary['skipped_missing_email']) ?></div>
-                                <div class="col-sm-6 col-lg-4"><strong>Payable invoices fetched:</strong> <?= escape($last_summary['invoices_fetched']) ?></div>
-                                <div class="col-sm-6 col-lg-4"><strong>Payable invoices created:</strong> <?= escape($last_summary['invoices_created']) ?></div>
-                                <div class="col-sm-6 col-lg-4"><strong>Payable invoices updated:</strong> <?= escape($last_summary['invoices_updated']) ?></div>
-                                <div class="col-sm-6 col-lg-4"><strong>Payable invoices unchanged:</strong> <?= escape($last_summary['invoices_unchanged']) ?></div>
-                                <div class="col-sm-6 col-lg-4"><strong>Payable invoices skipped (missing client):</strong> <?= escape($last_summary['invoices_skipped_missing_client']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices fetched:</strong> <?= escape($last_summary['invoices_fetched']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices created:</strong> <?= escape($last_summary['invoices_created']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices updated:</strong> <?= escape($last_summary['invoices_updated']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices unchanged:</strong> <?= escape($last_summary['invoices_unchanged']) ?></div>
+                                <div class="col-sm-6 col-lg-4"><strong>Invoices skipped (missing client):</strong> <?= escape($last_summary['invoices_skipped_missing_client']) ?></div>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -215,8 +214,7 @@ include __DIR__ . '/../backend/includes/header.php';
                 <div class="card-body">
                     <ul class="mb-0">
                         <li>Imports active Moxie clients from the public API client list endpoint.</li>
-                        <li>Imports only the payable invoices returned by Moxie's public API when their Moxie client can be matched to an imported or existing BDTA client.</li>
-                        <li>Paid and archived invoices are not available from Moxie's public invoice search endpoint, so they cannot be imported by this tool.</li>
+                        <li>Imports invoices returned by Moxie's payable invoice search endpoint when their Moxie client can be matched to an imported or existing BDTA client.</li>
                         <li>Matches existing BDTA clients by saved Moxie client ID first, then email, then exact name + phone.</li>
                         <li>Creates new clients when no match exists and updates existing records when Moxie data changes.</li>
                         <li>Skips archived Moxie clients and entries that do not contain an email address.</li>
