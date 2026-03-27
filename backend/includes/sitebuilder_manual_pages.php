@@ -119,11 +119,21 @@ final class SiteBuilderManualPageSeeder {
      * @param list<string> $assets
      */
     private static function extractAssets(ZipArchive $zip, string $siteRootPath, array $assets): void {
+        $assetBaseDir = rtrim($siteRootPath, "/") . "/backend/uploads/sitebuilder";
+        if (!is_dir($assetBaseDir) && !mkdir($assetBaseDir, 0755, true) && !is_dir($assetBaseDir)) {
+            return;
+        }
+
+        $resolvedBaseDir = realpath($assetBaseDir);
+        if ($resolvedBaseDir === false) {
+            return;
+        }
+
         foreach ($assets as $asset) {
-            if (!str_starts_with($asset, "gallery/") || str_contains($asset, "..")) {
+            if (!str_starts_with($asset, "gallery/") || str_contains($asset, "..") || str_starts_with($asset, '/')) {
                 continue;
             }
-            $destPath = rtrim($siteRootPath, "/") . "/backend/uploads/sitebuilder/" . $asset;
+            $destPath = $assetBaseDir . "/" . $asset;
             if (is_file($destPath)) {
                 continue;
             }
@@ -133,6 +143,10 @@ final class SiteBuilderManualPageSeeder {
             }
             $dir = dirname($destPath);
             if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+                continue;
+            }
+            $resolvedDir = realpath($dir);
+            if ($resolvedDir === false || ($resolvedDir !== $resolvedBaseDir && !str_starts_with($resolvedDir, $resolvedBaseDir . DIRECTORY_SEPARATOR))) {
                 continue;
             }
             @file_put_contents($destPath, $contents);
