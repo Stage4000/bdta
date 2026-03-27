@@ -101,11 +101,15 @@ final class SiteBuilderManualPageSeeder {
         }
 
         if (@file_put_contents($tempZipPath, substr($archiveBytes, $zipOffset)) === false) {
+            // nosemgrep: php.lang.security.unlink-use.unlink-use
+            @unlink($tempZipPath);
             return null;
         }
 
         $zip = new ZipArchive();
         if ($zip->open($tempZipPath) !== true) {
+            // nosemgrep: php.lang.security.unlink-use.unlink-use
+            @unlink($tempZipPath);
             return null;
         }
         return $zip;
@@ -165,7 +169,7 @@ final class SiteBuilderManualPageSeeder {
 
         if (is_array($existing)) {
             $stmt = $conn->prepare("UPDATE site_pages SET slug=?, title=?, html_content=?, css_content=?, meta_description=?, meta_keywords=?, og_title=?, og_description=?, og_image=?, is_published=1, updated_at=CURRENT_TIMESTAMP WHERE id=?");
-            $stmt->execute([$page['slug'], $page['title'], $html, $css, $page['meta_description'], $page['meta_keywords'], $page['og_title'], $page['og_description'], $page['og_image'], self::intValue($existing['id'] ?? 0)]);
+            $stmt->execute([$page['slug'], $page['title'], $html, $css, $page['meta_description'], $page['meta_keywords'], $page['og_title'], $page['og_description'], $page['og_image'], self::intValue($existing['id'])]);
             return;
         }
 
