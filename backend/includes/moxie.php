@@ -681,7 +681,7 @@ class MoxieClientSync {
 
             $response_next = self::extractNextUrl($response, $base_url);
             if ($response_next === '') {
-                if ($page_invoice_count < $count) {
+                if ($page_invoice_count === 0) {
                     return $invoices;
                 }
 
