@@ -761,18 +761,34 @@ try {
                 'payload' => $payload,
             ];
 
+            if (count($this->captured_calls) === 1) {
+                return [
+                    'data' => [
+                        [
+                            'id' => 'invoice-fetch-1',
+                            'clientId' => 'client-fetch-1',
+                        ],
+                    ],
+                    '_links' => [
+                        'next' => ['href' => 'https://pod00.withmoxie.dev/api/public/action/payableInvoices/search?start=100&count=100'],
+                    ],
+                ];
+            }
+
             return [
-                [
-                    'id' => 'invoice-fetch-1',
-                    'clientId' => 'client-fetch-1',
+                'data' => [
+                    [
+                        'id' => 'invoice-fetch-2',
+                        'clientId' => 'client-fetch-2',
+                    ],
                 ],
             ];
         }
     };
 
     $fetched_invoices = $invoice_fetch_sync->fetchInvoices($normalized_base_url, 'test-api-key');
-    if (count($fetched_invoices) !== 1) {
-        throw new RuntimeException('Expected fetchInvoices() to return the mocked invoice list.');
+    if (count($fetched_invoices) !== 2) {
+        throw new RuntimeException('Expected fetchInvoices() to return both mocked invoice pages.');
     }
 
     if ($invoice_request_calls !== [
@@ -781,8 +797,13 @@ try {
             'api_key' => 'test-api-key',
             'payload' => null,
         ],
+        [
+            'url' => 'https://pod00.withmoxie.dev/api/public/action/payableInvoices/search?start=100&count=100',
+            'api_key' => 'test-api-key',
+            'payload' => null,
+        ],
     ]) {
-        throw new RuntimeException('Expected fetchInvoices() to GET the payable invoices endpoint: ' . json_encode($invoice_request_calls));
+        throw new RuntimeException('Expected fetchInvoices() to GET the payable invoices endpoint and follow the pagination URL returned by Moxie: ' . json_encode($invoice_request_calls));
     }
 
     echo "✓ Moxie import client creation works\n";
@@ -801,7 +822,7 @@ try {
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint returns 500 on page one\n";
     echo "✓ fetchClients retries the next list endpoint when the primary endpoint times out on page one\n";
     echo "✓ fetchClients retries a 429 response on the same paginated request before failing\n";
-    echo "✓ fetchInvoices GETs the payable invoice search endpoint\n";
+    echo "✓ fetchInvoices GETs the payable invoice search endpoint and follows pagination URLs\n";
     echo "✓ Repeated syncs are idempotent for unchanged clients\n\n";
     echo "=== All Moxie Import Tests Passed! ===\n";
 } catch (Throwable $e) {

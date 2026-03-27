@@ -626,28 +626,60 @@ class MoxieClientSync {
         }
 
         $request_url = $base_url . self::INVOICE_SEARCH_PATH;
-        $rate_limit_retry = 0;
+        $invoices = [];
+        $page = 0;
 
-        while (true) {
-            try {
-                self::log('Fetching Moxie payable invoices.', ['url' => $request_url]);
-                $response = $this->requestJson($request_url, $api_key);
-                return self::extractInvoiceRows($response);
-            } catch (RuntimeException $e) {
-                if (!self::isHttpStatusException($e, 429) || !isset(self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry])) {
-                    throw $e;
+        while ($page < self::MAX_PAGES) {
+            $page++;
+            $rate_limit_retry = 0;
+            $response = null;
+
+            while (true) {
+                try {
+                    self::log('Fetching Moxie payable invoices.', [
+                        'url' => $request_url,
+                        'page' => $page,
+                    ]);
+                    $response = $this->requestJson($request_url, $api_key);
+                    break;
+                } catch (RuntimeException $e) {
+                    if (!self::isHttpStatusException($e, 429) || !isset(self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry])) {
+                        throw $e;
+                    }
+
+                    $delay_seconds = self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry];
+                    $rate_limit_retry++;
+                    self::log('Moxie rate limited invoice request; retrying after a short delay.', [
+                        'url' => $request_url,
+                        'page' => $page,
+                        'retry_attempt' => $rate_limit_retry,
+                        'delay_seconds' => $delay_seconds,
+                    ]);
+                    $this->pauseBeforeRateLimitRetry($delay_seconds);
                 }
-
-                $delay_seconds = self::RATE_LIMIT_RETRY_DELAYS[$rate_limit_retry];
-                $rate_limit_retry++;
-                self::log('Moxie rate limited invoice request; retrying after a short delay.', [
-                    'url' => $request_url,
-                    'retry_attempt' => $rate_limit_retry,
-                    'delay_seconds' => $delay_seconds,
-                ]);
-                $this->pauseBeforeRateLimitRetry($delay_seconds);
             }
+
+            if ($response === null) {
+                throw new RuntimeException('Moxie request did not return a response for URL: ' . $request_url);
+            }
+
+            foreach (self::extractInvoiceRows($response) as $invoice) {
+                $invoices[] = $invoice;
+            }
+
+            $response_next = self::extractNextUrl($response, $base_url);
+            if ($response_next === '') {
+                return $invoices;
+            }
+
+            $request_url = $response_next;
         }
+
+        self::log('Moxie invoice sync aborted after reaching the maximum page limit.', [
+            'max_pages' => self::MAX_PAGES,
+            'last_url' => $request_url,
+        ]);
+        throw new RuntimeException('Moxie invoice sync stopped after reaching the maximum page limit. Please narrow the import or increase the page limit in code.');
     }
 
     /**
