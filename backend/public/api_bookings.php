@@ -432,7 +432,7 @@ function api_booking_create_booking(PDO $conn, array $data): array {
 
         $conn->commit();
 
-        require_once '../includes/icalendar.php';
+        require_once __DIR__ . '/../includes/icalendar.php';
         $base_url = getDynamicBaseUrl();
         $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
         $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
