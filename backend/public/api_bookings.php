@@ -494,12 +494,14 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         if ($conn->inTransaction()) {
             $conn->rollBack();
         }
-        return ['error' => $e->getMessage()];
+        error_log('Error in api_booking_create_booking (PDOException): ' . $e->getMessage());
+        return ['error' => 'An unexpected error occurred while creating the booking. Please try again later.'];
     } catch (RuntimeException $e) {
         if ($conn->inTransaction()) {
             $conn->rollBack();
         }
-        return ['error' => $e->getMessage()];
+        error_log('Error in api_booking_create_booking (RuntimeException): ' . $e->getMessage());
+        return ['error' => 'An unexpected error occurred while creating the booking. Please try again later.'];
     } catch (Throwable $e) {
         if ($conn->inTransaction()) {
             $conn->rollBack();
