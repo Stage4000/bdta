@@ -74,6 +74,421 @@ function api_booking_string_list(mixed $value): array {
     return $strings;
 }
 
+/**
+ * @param array<string, mixed> $data
+ * @return array<string, mixed>
+ */
+function api_booking_create_booking(PDO $conn, array $data): array {
+    $required_fields = ['client_name', 'client_email', 'service_type', 'appointment_date', 'appointment_time'];
+    foreach ($required_fields as $field) {
+        if (!isset($data[$field]) || empty($data[$field])) {
+            return ['error' => "Missing required field: $field"];
+        }
+    }
+
+    $client_name = array_string_value($data, 'client_name');
+    $client_email = array_string_value($data, 'client_email');
+    $client_phone = array_string_value($data, 'client_phone');
+    $service_type = array_string_value($data, 'service_type');
+    $appointment_date = array_string_value($data, 'appointment_date');
+    $appointment_time = array_string_value($data, 'appointment_time');
+    $notes = array_string_value($data, 'notes');
+    $appointment_type_id_value = safe_int($data['appointment_type_id'] ?? 0);
+    $duration_minutes = safe_int($data['duration_minutes'] ?? 60);
+
+    try {
+        if (!filter_var($client_email, FILTER_VALIDATE_EMAIL)) {
+            return ['error' => 'Invalid email format for client_email'];
+        }
+
+        $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
+        $stmt->execute([$client_email]);
+        $existing_client = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+        $client_id = $existing_client !== [] ? array_int_value($existing_client, 'id') : 0;
+
+        $location = null;
+        $location_type = trim(array_string_value($data, 'location_type'));
+        $location_value = trim(array_string_value($data, 'location_value'));
+        $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
+
+        if ($appointment_type_id_value > 0) {
+            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id FROM appointment_types WHERE id = ?");
+            $stmt->execute([$appointment_type_id_value]);
+            $apt_type = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+            if ($apt_type !== [] && !empty($apt_type['is_mini_session'])) {
+                $location_type = 'fixed';
+                $location = array_string_value($apt_type, 'mini_session_location');
+            } elseif ($apt_type !== [] && !empty($apt_type['is_field_rental'])) {
+                $location_type = 'fixed';
+                $location = array_string_value($apt_type, 'field_rental_location');
+            } elseif ($apt_type !== [] && !empty($apt_type['is_group_class'])) {
+                $location_type = 'fixed';
+                $location = array_string_value($apt_type, 'group_class_location');
+            } elseif ($apt_type !== [] && !empty($apt_type['location_types'])) {
+                $configured = api_booking_string_list(decode_json_assoc(array_string_value($apt_type, 'location_types')));
+                if (!empty($configured)) {
+                    $allowed_location_types = array_merge($configured, ['fixed']);
+                }
+            }
+
+            if (!empty($apt_type['contract_template_id'])) {
+                $contract_typed_name = trim(array_string_value($data, 'contract_typed_name'));
+                if (empty($contract_typed_name)) {
+                    return ['error' => 'You must sign the required contract (type your full name) to complete your booking.'];
+                }
+            }
+        }
+
+        if ($location_type !== 'fixed') {
+            if (empty($location_type) || !in_array($location_type, $allowed_location_types)) {
+                return ['error' => 'A valid location type is required. Please select how the appointment will be conducted.'];
+            }
+            if (in_array($location_type, ['custom_address', 'webcall'], true) && empty($location_value)) {
+                return ['error' => $location_type === 'webcall' ? 'Webcall URL is required.' : 'Custom address is required.'];
+            }
+            if ($location_type === 'client_address') {
+                if ($client_id <= 0) {
+                    return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                }
+
+                $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
+                $stmt->execute([$client_id]);
+                $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+                $resolved_address = trim(array_string_value($client_row, 'address'));
+                if (empty($resolved_address)) {
+                    return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                }
+                $location = $resolved_address;
+            } else {
+                $location = $location_value;
+            }
+        }
+
+        $use_credit = ($data['use_credit'] ?? false) === true;
+        $pkg_credit_id_to_use = null;
+        if ($use_credit && $appointment_type_id_value > 0 && $client_id > 0) {
+            $stmt = $conn->prepare("
+                SELECT cpc.id
+                FROM client_package_credits cpc
+                JOIN client_packages cp ON cpc.client_package_id = cp.id
+                WHERE cpc.client_id = ?
+                  AND cpc.appointment_type_id = ?
+                  AND (cpc.total_credits - cpc.used_credits) > 0
+                  AND cp.is_active = 1
+                  AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+                ORDER BY cp.expires_at ASC
+                LIMIT 1
+            ");
+            $stmt->execute([$client_id, $appointment_type_id_value]);
+            $credit_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+            if ($credit_row !== []) {
+                $pkg_credit_id_to_use = array_int_value($credit_row, 'id');
+            }
+        }
+
+        $contract_typed_name = trim(array_string_value($data, 'contract_typed_name'));
+        $allowed_sig_fonts = ['font-dancing', 'font-pacifico', 'font-satisfy', 'font-great-vibes', 'font-allura'];
+        $contract_signature_font = array_string_value($data, 'contract_signature_font');
+        $contract_sig_font = in_array($contract_signature_font, $allowed_sig_fonts, true)
+            ? $contract_signature_font
+            : 'font-dancing';
+        $contract_accepted = !empty($contract_typed_name) ? 1 : 0;
+        $contract_accepted_at = $contract_accepted ? date('Y-m-d H:i:s') : null;
+
+        $conn->beginTransaction();
+
+        if ($client_id === 0) {
+            $stmt = $conn->prepare("
+                INSERT INTO clients (name, email, phone, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ");
+            $stmt->execute([
+                $client_name,
+                $client_email,
+                $client_phone,
+                'Created from booking form'
+            ]);
+            $client_id = safe_int($conn->lastInsertId());
+        }
+
+        $dog_names = array_string_value($data, 'dog_names');
+        $pet_ids = [];
+        if (!empty($dog_names)) {
+            $names = array_filter(
+                array_map('trim', explode(',', $dog_names)),
+                fn($n) => $n !== ''
+            );
+
+            if (!empty($names)) {
+                $placeholders = str_repeat('?,', count($names) - 1) . '?';
+                $stmt = $conn->prepare("SELECT id, name FROM pets WHERE client_id = ? AND name IN ($placeholders)");
+                $stmt->execute(array_merge([$client_id], $names));
+                $existing_pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $existing_pet_map = [];
+                foreach ($existing_pets as $pet) {
+                    $pet_row = api_booking_db_row($pet);
+                    $existing_pet_map[array_string_value($pet_row, 'name')] = array_int_value($pet_row, 'id');
+                }
+
+                foreach ($names as $dog_name) {
+                    if (isset($existing_pet_map[$dog_name])) {
+                        $pet_ids[] = $existing_pet_map[$dog_name];
+                    } else {
+                        $stmt = $conn->prepare("
+                            INSERT INTO pets (client_id, name, species, is_active, created_at, updated_at)
+                            VALUES (?, ?, 'Dog', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        ");
+                        $stmt->execute([$client_id, $dog_name]);
+                        $pet_ids[] = safe_int($conn->lastInsertId());
+                    }
+                }
+            }
+        }
+
+        $stmt = $conn->prepare("
+            INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        ");
+        $stmt->execute([
+            $client_id,
+            $appointment_type_id_value > 0 ? $appointment_type_id_value : null,
+            $client_name,
+            $client_email,
+            $client_phone,
+            $service_type,
+            $appointment_date,
+            $appointment_time,
+            $notes,
+            $duration_minutes,
+            $location,
+            $location_type,
+            $pkg_credit_id_to_use,
+            $contract_accepted,
+            $contract_accepted_at,
+            $contract_accepted ? $contract_typed_name : null,
+            $contract_accepted ? $contract_sig_font : null
+        ]);
+
+        $booking_id = safe_int($conn->lastInsertId());
+
+        if (!empty($pet_ids)) {
+            foreach ($pet_ids as $pet_id) {
+                $stmt = $conn->prepare("
+                    INSERT INTO appointment_pets (booking_id, pet_id, created_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                ");
+                $stmt->execute([$booking_id, $pet_id]);
+            }
+        }
+
+        $workflow_helper = new WorkflowHelper($conn);
+        if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+            /** @var array<int|string, mixed> $form_responses */
+            $form_responses = $data['form_responses'];
+            $ins = $conn->prepare("INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at) VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)");
+            foreach ($form_responses as $template_id => $responses) {
+                if (is_array($responses) && !empty($responses)) {
+                    $ins->execute([$client_id, (int)$template_id, $booking_id, json_encode($responses)]);
+                    $form_submission_id = scalar_string($conn->lastInsertId());
+                    try {
+                        $workflow_helper->checkFormTriggers($form_submission_id);
+                    } catch (\Throwable $e) {
+                        error_log("Workflow trigger error for form submission #{$form_submission_id}: " . $e->getMessage());
+                    }
+                }
+            }
+        }
+
+        $client_col_map = [
+            'name'    => 'name',
+            'email'   => 'email',
+            'phone'   => 'phone',
+            'address' => 'address',
+        ];
+        $pet_col_map = [
+            'name'            => 'name',
+            'species'         => 'species',
+            'breed'           => 'breed',
+            'date_of_birth'   => 'date_of_birth',
+            'source'          => 'source',
+            'spayed_neutered' => 'spayed_neutered',
+            'vaccines_current'=> 'vaccines_current',
+            'vaccine_notes'   => 'vaccine_notes',
+            'behavior_notes'  => 'behavior_notes',
+            'medical_notes'   => 'medical_notes',
+            'training_notes'  => 'training_notes',
+        ];
+        $overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
+
+        if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+            /** @var array<int|string, mixed> $form_responses */
+            $form_responses = $data['form_responses'];
+            $booking_pet_ids = $pet_ids;
+
+            $cur_client_stmt = $conn->prepare("SELECT name, email, phone, address FROM clients WHERE id = ?");
+            $cur_client_stmt->execute([$client_id]);
+            $cur_client = api_booking_db_row($cur_client_stmt->fetch(PDO::FETCH_ASSOC));
+
+            foreach ($form_responses as $tpl_id => $responses) {
+                if (!is_array($responses)) continue;
+
+                $tpl_stmt = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
+                $tpl_stmt->execute([(int)$tpl_id]);
+                $tpl_row = api_booking_db_row($tpl_stmt->fetch(PDO::FETCH_ASSOC));
+                if ($tpl_row === []) continue;
+
+                $tpl_fields = api_booking_assoc_rows(array_string_value($tpl_row, 'fields'));
+
+                foreach ($tpl_fields as $fi => $field) {
+                    $mapping = array_string_value($field, 'profile_mapping');
+                    if (empty($mapping)) continue;
+
+                    $value = $responses[$fi] ?? null;
+                    if ($value === null || $value === '') continue;
+                    if (is_array($value)) $value = implode(', ', string_list($value));
+                    $value = scalar_string($value);
+
+                    if (strpos($mapping, 'client.') === 0) {
+                        $attr = substr($mapping, 7);
+                        if (!isset($client_col_map[$attr])) continue;
+                        if ($attr === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) continue;
+
+                        $existing = scalar_string($cur_client[$attr] ?? '');
+                        if ($overwrite_declined && $existing !== '' && $existing !== $value) continue;
+
+                        $safe_col = $client_col_map[$attr];
+                        $conn->prepare("UPDATE clients SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                             ->execute([$value, $client_id]);
+                        logClientActivity($client_id, 'profile_update_from_form',
+                            "Profile field '{$attr}' updated via form submission (booking #{$booking_id})", $conn);
+
+                    } elseif (preg_match('/^pet_([123])\.(.+)$/', $mapping, $m)) {
+                        $pet_index = (int)$m[1] - 1;
+                        $attr      = $m[2];
+                        if (!isset($pet_col_map[$attr])) continue;
+
+                        $pet_id = $booking_pet_ids[$pet_index] ?? null;
+                        if (!$pet_id) continue;
+
+                        $own = $conn->prepare("SELECT * FROM pets WHERE id = ? AND client_id = ?");
+                        $own->execute([$pet_id, $client_id]);
+                        $cur_pet = api_booking_db_row($own->fetch(PDO::FETCH_ASSOC));
+                        if ($cur_pet === []) continue;
+
+                        if ($attr === 'date_of_birth') {
+                            $dt = date_create_from_format('Y-m-d', $value)
+                               ?: date_create_from_format('m/d/Y', $value)
+                               ?: date_create_from_format('d/m/Y', $value);
+                            if (!$dt) continue;
+                            $value = $dt->format('Y-m-d');
+                        } elseif (in_array($attr, ['spayed_neutered', 'vaccines_current'], true)) {
+                            $value = in_array(strtolower($value), ['1', 'yes', 'true', 'on'], true) ? 1 : 0;
+                        }
+
+                        $existing_pet_val = scalar_string($cur_pet[$attr] ?? '');
+                        if ($overwrite_declined && $existing_pet_val !== '' && (string)$existing_pet_val !== (string)$value) continue;
+
+                        $safe_col = $pet_col_map[$attr];
+                        $conn->prepare("UPDATE pets SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                             ->execute([$value, $pet_id]);
+                        logClientActivity($client_id, 'pet_profile_update_from_form',
+                            "Pet #{$pet_id} field '{$attr}' updated via form submission (booking #{$booking_id})", $conn);
+                    }
+                }
+            }
+        }
+
+        $workflow_helper->checkAppointmentTriggers(scalar_string($booking_id));
+
+        if ($pkg_credit_id_to_use) {
+            $conn->prepare("
+                UPDATE client_package_credits
+                SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ")->execute([$pkg_credit_id_to_use]);
+
+            $apt_type_id_for_log = $appointment_type_id_value > 0 ? $appointment_type_id_value : null;
+            if ($apt_type_id_for_log) {
+                $conn->prepare("
+                    INSERT INTO package_credit_transactions
+                        (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
+                    VALUES (?, ?, ?, 'consume', -1, ?, ?, NULL)
+                ")->execute([
+                    $pkg_credit_id_to_use,
+                    $client_id,
+                    $apt_type_id_for_log,
+                    $booking_id,
+                    "Credit applied at booking #{$booking_id} via client portal"
+                ]);
+            }
+        }
+
+        $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
+        $stmt->execute([$booking_id]);
+        $booking = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+        if ($booking === []) {
+            throw new RuntimeException('Booking record not found after insert');
+        }
+
+        $conn->commit();
+
+        require_once '../includes/icalendar.php';
+        $base_url = getDynamicBaseUrl();
+        $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
+        $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
+
+        $email_service = new EmailService(null, $conn);
+        $email_result = $email_service->sendBookingConfirmation($booking);
+
+        $google_result = ['success' => false, 'message' => 'Google Calendar integration not configured'];
+
+        if (GoogleCalendarIntegration::isOAuthConfigured()) {
+            $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+            while (($admin_row = api_booking_db_row($stmt_admins->fetch(PDO::FETCH_ASSOC))) !== []) {
+                $google_result = GoogleCalendarIntegration::addEventOAuth($booking, array_int_value($admin_row, 'admin_user_id'));
+                if ($google_result['success']) {
+                    break;
+                }
+            }
+        }
+
+        if (!$google_result['success']) {
+            $google_calendar = new GoogleCalendarIntegration();
+            if ($google_calendar->isConfigured()) {
+                $google_result = $google_calendar->addEvent($booking);
+            }
+        }
+
+        if (!empty($google_result['event_id'])) {
+            $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
+                 ->execute([$google_result['event_id'], $booking_id]);
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Booking created successfully!',
+            'booking_id' => $booking_id,
+            'credit_applied' => $pkg_credit_id_to_use !== null,
+            'calendar_links' => [
+                'google_calendar' => $google_calendar_link,
+                'ical_download' => $ical_download_link
+            ],
+            'email_sent' => $email_result['success'],
+            'google_calendar_synced' => $google_result['success']
+        ];
+    } catch (PDOException $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        return ['error' => $e->getMessage()];
+    } catch (RuntimeException $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        return ['error' => $e->getMessage()];
+    }
+}
+
 if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits') {
     // Check available credits for a client email + appointment type
     $email = scalar_string($_GET['email'] ?? '');
@@ -864,448 +1279,6 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         }
     }
 
-    $required_fields = ['client_name', 'client_email', 'service_type', 'appointment_date', 'appointment_time'];
-    foreach ($required_fields as $field) {
-        if (!isset($data[$field]) || empty($data[$field])) {
-            echo json_encode(['error' => "Missing required field: $field"]);
-            exit;
-        }
-    }
-
-    $client_name = array_string_value($data, 'client_name');
-    $client_email = array_string_value($data, 'client_email');
-    $client_phone = array_string_value($data, 'client_phone');
-    $service_type = array_string_value($data, 'service_type');
-    $appointment_date = array_string_value($data, 'appointment_date');
-    $appointment_time = array_string_value($data, 'appointment_time');
-    $notes = array_string_value($data, 'notes');
-    $appointment_type_id_value = safe_int($data['appointment_type_id'] ?? 0);
-    $duration_minutes = safe_int($data['duration_minutes'] ?? 60);
-    
-    try {
-        // Validate email format
-        if (!filter_var($client_email, FILTER_VALIDATE_EMAIL)) {
-            echo json_encode(['error' => 'Invalid email format for client_email']);
-            exit;
-        }
-        
-        // Check if client exists by email
-        $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
-        $stmt->execute([$client_email]);
-        $existing_client = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
-        
-        if ($existing_client !== []) {
-            // Client exists, use their ID
-            $client_id = array_int_value($existing_client, 'id');
-        } else {
-            // Create new client
-            $stmt = $conn->prepare("
-                INSERT INTO clients (name, email, phone, notes, created_at, updated_at) 
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ");
-            $stmt->execute([
-                $client_name,
-                $client_email,
-                $client_phone,
-                'Created from booking form'
-            ]);
-            $client_id = safe_int($conn->lastInsertId());
-        }
-        
-        // Create pet profiles from dog names if provided
-        $dog_names = array_string_value($data, 'dog_names');
-        $pet_ids = [];
-        if (!empty($dog_names)) {
-            // Split comma-separated dog names and remove empty strings explicitly
-            $names = array_filter(
-                array_map('trim', explode(',', $dog_names)),
-                fn($n) => $n !== ''
-            );
-            
-            if (!empty($names)) {
-                // Fetch all existing pets for this client in one query
-                $placeholders = str_repeat('?,', count($names) - 1) . '?';
-                $stmt = $conn->prepare("SELECT id, name FROM pets WHERE client_id = ? AND name IN ($placeholders)");
-                $stmt->execute(array_merge([$client_id], $names));
-                $existing_pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                $existing_pet_map = [];
-                foreach ($existing_pets as $pet) {
-                    $pet_row = api_booking_db_row($pet);
-                    $existing_pet_map[array_string_value($pet_row, 'name')] = array_int_value($pet_row, 'id');
-                }
-                
-                // Create new pets or use existing ones
-                foreach ($names as $dog_name) {
-                    if (isset($existing_pet_map[$dog_name])) {
-                        // Pet already exists
-                        $pet_ids[] = $existing_pet_map[$dog_name];
-                    } else {
-                        // Create new pet
-                        $stmt = $conn->prepare("
-                            INSERT INTO pets (client_id, name, species, is_active, created_at, updated_at) 
-                            VALUES (?, ?, 'Dog', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ");
-                        $stmt->execute([$client_id, $dog_name]);
-                        $pet_ids[] = safe_int($conn->lastInsertId());
-                    }
-                }
-            }
-        }
-        
-        // Get appointment type info to check if it's a Mini Session or Field Rental
-        $location = null;
-        $location_type = trim(array_string_value($data, 'location_type'));
-        $location_value = trim(array_string_value($data, 'location_value'));
-        $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
-
-        if ($appointment_type_id_value > 0) {
-            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id FROM appointment_types WHERE id = ?");
-            $stmt->execute([$appointment_type_id_value]);
-            $apt_type = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
-            if ($apt_type !== [] && !empty($apt_type['is_mini_session'])) {
-                // Fixed location: override any submitted location
-                $location_type = 'fixed';
-                $location = array_string_value($apt_type, 'mini_session_location');
-            } elseif ($apt_type !== [] && !empty($apt_type['is_field_rental'])) {
-                $location_type = 'fixed';
-                $location = array_string_value($apt_type, 'field_rental_location');
-            } elseif ($apt_type !== [] && !empty($apt_type['is_group_class'])) {
-                $location_type = 'fixed';
-                $location = array_string_value($apt_type, 'group_class_location');
-            } elseif ($apt_type !== [] && !empty($apt_type['location_types'])) {
-                // Restrict to appointment type's configured location types
-                $configured = api_booking_string_list(decode_json_assoc(array_string_value($apt_type, 'location_types')));
-                if (!empty($configured)) {
-                    $allowed_location_types = array_merge($configured, ['fixed']);
-                }
-            }
-
-            // Validate contract signature if this appointment type requires one
-            if (!empty($apt_type['contract_template_id'])) {
-                $contract_typed_name = trim(array_string_value($data, 'contract_typed_name'));
-                if (empty($contract_typed_name)) {
-                    echo json_encode(['error' => 'You must sign the required contract (type your full name) to complete your booking.']);
-                    exit;
-                }
-            }
-        }
-
-        // For non-fixed types, validate and resolve location
-        if ($location_type !== 'fixed') {
-            if (empty($location_type) || !in_array($location_type, $allowed_location_types)) {
-                echo json_encode(['error' => 'A valid location type is required. Please select how the appointment will be conducted.']);
-                exit;
-            }
-            if (in_array($location_type, ['custom_address', 'webcall']) && empty($location_value)) {
-                echo json_encode(['error' => $location_type === 'webcall' ? 'Webcall URL is required.' : 'Custom address is required.']);
-                exit;
-            }
-            // For client_address, resolve the actual address from the client's profile
-            if ($location_type === 'client_address') {
-                $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
-                $stmt->execute([$client_id]);
-                $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
-                $resolved_address = trim(array_string_value($client_row, 'address'));
-                if (empty($resolved_address)) {
-                    echo json_encode(['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.']);
-                    exit;
-                }
-                $location = $resolved_address;
-            } else {
-                $location = $location_value;
-            }
-        }
-        
-        // Resolve credit to use, if requested
-        $use_credit = ($data['use_credit'] ?? false) === true;
-        $pkg_credit_id_to_use = null;
-        if ($use_credit && $appointment_type_id_value > 0) {
-            // Find the best eligible credit row (soonest expiry first)
-            $stmt = $conn->prepare("
-                SELECT cpc.id
-                FROM client_package_credits cpc
-                JOIN client_packages cp ON cpc.client_package_id = cp.id
-                WHERE cpc.client_id = ?
-                  AND cpc.appointment_type_id = ?
-                  AND (cpc.total_credits - cpc.used_credits) > 0
-                  AND cp.is_active = 1
-                  AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
-                ORDER BY cp.expires_at ASC
-                LIMIT 1
-            ");
-            $stmt->execute([$client_id, $appointment_type_id_value]);
-            $credit_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
-            if ($credit_row !== []) {
-                $pkg_credit_id_to_use = array_int_value($credit_row, 'id');
-            }
-        }
-
-        // Determine contract signature data
-        $contract_typed_name = trim(array_string_value($data, 'contract_typed_name'));
-        $allowed_sig_fonts = ['font-dancing', 'font-pacifico', 'font-satisfy', 'font-great-vibes', 'font-allura'];
-        $contract_signature_font = array_string_value($data, 'contract_signature_font');
-        $contract_sig_font = in_array($contract_signature_font, $allowed_sig_fonts, true)
-            ? $contract_signature_font
-            : 'font-dancing';
-        $contract_accepted = !empty($contract_typed_name) ? 1 : 0;
-        $contract_accepted_at = $contract_accepted ? date('Y-m-d H:i:s') : null;
-
-        // Create booking with client_id, appointment_type_id, location, location_type, and package_credit_id
-        $stmt = $conn->prepare("
-            INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-        ");
-        $stmt->execute([
-            $client_id,
-            $appointment_type_id_value > 0 ? $appointment_type_id_value : null,
-            $client_name,
-            $client_email,
-            $client_phone,
-            $service_type,
-            $appointment_date,
-            $appointment_time,
-            $notes,
-            $duration_minutes,
-            $location,
-            $location_type,
-            $pkg_credit_id_to_use,
-            $contract_accepted,
-            $contract_accepted_at,
-            $contract_accepted ? $contract_typed_name : null,
-            $contract_accepted ? $contract_sig_font : null
-        ]);
-        
-        $booking_id = safe_int($conn->lastInsertId());
-        
-        // Link pets to booking
-        if (!empty($pet_ids)) {
-            foreach ($pet_ids as $pet_id) {
-                $stmt = $conn->prepare("
-                    INSERT INTO appointment_pets (booking_id, pet_id, created_at) 
-                    VALUES (?, ?, CURRENT_TIMESTAMP)
-                ");
-                $stmt->execute([$booking_id, $pet_id]);
-            }
-        }
-
-        // Save form responses submitted during booking
-        $workflow_helper = new WorkflowHelper($conn);
-        if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
-            /** @var array<int|string, mixed> $form_responses */
-            $form_responses = $data['form_responses'];
-            $ins = $conn->prepare("INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at) VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)");
-            foreach ($form_responses as $template_id => $responses) {
-                if (is_array($responses) && !empty($responses)) {
-                    $ins->execute([$client_id, (int)$template_id, $booking_id, json_encode($responses)]);
-                    $form_submission_id = scalar_string($conn->lastInsertId());
-                    try {
-                        $workflow_helper->checkFormTriggers($form_submission_id);
-                    } catch (\Throwable $e) {
-                        error_log("Workflow trigger error for form submission #{$form_submission_id}: " . $e->getMessage());
-                    }
-                }
-            }
-        }
-
-        // ── Apply profile mappings from form responses ────────────────────────────
-        // Explicit safe column name maps (not user-controlled — never interpolate raw input)
-        $client_col_map = [
-            'name'    => 'name',
-            'email'   => 'email',
-            'phone'   => 'phone',
-            'address' => 'address',
-        ];
-        $pet_col_map = [
-            'name'            => 'name',
-            'species'         => 'species',
-            'breed'           => 'breed',
-            'date_of_birth'   => 'date_of_birth',
-            'source'          => 'source',
-            'spayed_neutered' => 'spayed_neutered',
-            'vaccines_current'=> 'vaccines_current',
-            'vaccine_notes'   => 'vaccine_notes',
-            'behavior_notes'  => 'behavior_notes',
-            'medical_notes'   => 'medical_notes',
-            'training_notes'  => 'training_notes',
-        ];
-        // Distinguish between three cases sent by the client:
-        //   • overwrite_profile key absent  → modal was never shown (no detected conflict); always apply mapping
-        //   • overwrite_profile: true       → user confirmed the overwrite prompt; always apply mapping
-        //   • overwrite_profile: false      → user explicitly chose "Keep Existing"; skip conflicting fields
-        $overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
-
-        if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
-            /** @var array<int|string, mixed> $form_responses */
-            $form_responses = $data['form_responses'];
-            // $pet_ids is already ordered by dog_names input — use it for pet_1, pet_2, pet_3 mapping
-            $booking_pet_ids = $pet_ids;
-
-            // Load current client record for conflict checking
-            $cur_client_stmt = $conn->prepare("SELECT name, email, phone, address FROM clients WHERE id = ?");
-            $cur_client_stmt->execute([$client_id]);
-            $cur_client = api_booking_db_row($cur_client_stmt->fetch(PDO::FETCH_ASSOC));
-
-            foreach ($form_responses as $tpl_id => $responses) {
-                if (!is_array($responses)) continue;
-
-                $tpl_stmt = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
-                $tpl_stmt->execute([(int)$tpl_id]);
-                $tpl_row = api_booking_db_row($tpl_stmt->fetch(PDO::FETCH_ASSOC));
-                if ($tpl_row === []) continue;
-
-                $tpl_fields = api_booking_assoc_rows(array_string_value($tpl_row, 'fields'));
-
-                foreach ($tpl_fields as $fi => $field) {
-                    $mapping = array_string_value($field, 'profile_mapping');
-                    if (empty($mapping)) continue;
-
-                    $value = $responses[$fi] ?? null;
-                    if ($value === null || $value === '') continue;
-                    if (is_array($value)) $value = implode(', ', string_list($value));
-                    $value = scalar_string($value);
-
-                    if (strpos($mapping, 'client.') === 0) {
-                        $attr = substr($mapping, 7);
-                        if (!isset($client_col_map[$attr])) continue;
-                        if ($attr === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) continue;
-
-                        // Only skip when the user explicitly declined the overwrite prompt
-                        $existing = scalar_string($cur_client[$attr] ?? '');
-                        if ($overwrite_declined && $existing !== '' && $existing !== $value) continue;
-
-                        $safe_col = $client_col_map[$attr];
-                        $conn->prepare("UPDATE clients SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-                             ->execute([$value, $client_id]);
-                        logClientActivity($client_id, 'profile_update_from_form',
-                            "Profile field '{$attr}' updated via form submission (booking #{$booking_id})", $conn);
-
-                    } elseif (preg_match('/^pet_([123])\.(.+)$/', $mapping, $m)) {
-                        $pet_index = (int)$m[1] - 1;
-                        $attr      = $m[2];
-                        if (!isset($pet_col_map[$attr])) continue;
-
-                        $pet_id = $booking_pet_ids[$pet_index] ?? null;
-                        if (!$pet_id) continue;
-
-                        // Verify ownership
-                        $own = $conn->prepare("SELECT * FROM pets WHERE id = ? AND client_id = ?");
-                        $own->execute([$pet_id, $client_id]);
-                        $cur_pet = api_booking_db_row($own->fetch(PDO::FETCH_ASSOC));
-                        if ($cur_pet === []) continue;
-
-                        // Type coercion / validation
-                        if ($attr === 'date_of_birth') {
-                            $dt = date_create_from_format('Y-m-d', $value)
-                               ?: date_create_from_format('m/d/Y', $value)
-                               ?: date_create_from_format('d/m/Y', $value);
-                            if (!$dt) continue;
-                            $value = $dt->format('Y-m-d');
-                        } elseif (in_array($attr, ['spayed_neutered', 'vaccines_current'], true)) {
-                            $value = in_array(strtolower($value), ['1', 'yes', 'true', 'on'], true) ? 1 : 0;
-                        }
-
-                        // Only skip when the user explicitly declined the overwrite prompt
-                        $existing_pet_val = scalar_string($cur_pet[$attr] ?? '');
-                        if ($overwrite_declined && $existing_pet_val !== '' && (string)$existing_pet_val !== (string)$value) continue;
-
-                        $safe_col = $pet_col_map[$attr];
-                        $conn->prepare("UPDATE pets SET {$safe_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-                             ->execute([$value, $pet_id]);
-                        logClientActivity($client_id, 'pet_profile_update_from_form',
-                            "Pet #{$pet_id} field '{$attr}' updated via form submission (booking #{$booking_id})", $conn);
-                    }
-                }
-            }
-        }
-
-        $workflow_helper->checkAppointmentTriggers(scalar_string($booking_id));
-
-        // Deduct credit if one was selected
-        if ($pkg_credit_id_to_use) {
-            $conn->prepare("
-                UPDATE client_package_credits
-                SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ")->execute([$pkg_credit_id_to_use]);
-
-            // Look up appointment_type_id for the transaction log
-            $apt_type_id_for_log = $appointment_type_id_value > 0 ? $appointment_type_id_value : null;
-            if ($apt_type_id_for_log) {
-                $conn->prepare("
-                    INSERT INTO package_credit_transactions
-                        (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
-                    VALUES (?, ?, ?, 'consume', -1, ?, ?, NULL)
-                ")->execute([
-                    $pkg_credit_id_to_use,
-                    $client_id,
-                    $apt_type_id_for_log,
-                    $booking_id,
-                    "Credit applied at booking #{$booking_id} via client portal"
-                ]);
-            }
-        }
-
-        // Get the complete booking info
-        $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
-        $stmt->execute([$booking_id]);
-        $booking = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
-        if ($booking === []) {
-            throw new RuntimeException('Booking record not found after insert');
-        }
-        
-        // Generate calendar links
-        require_once '../includes/icalendar.php';
-        $base_url = getDynamicBaseUrl();
-        $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
-        $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
-        
-        // Send confirmation email
-        $email_service = new EmailService(null, $conn);
-        $email_result = $email_service->sendBookingConfirmation($booking);
-        
-        // Try to add to Google Calendar
-        // Priority: OAuth tokens (per admin user) → service account (legacy)
-        $google_result = ['success' => false, 'message' => 'Google Calendar integration not configured'];
-
-        // Attempt OAuth sync: use the first admin user that has a valid OAuth token
-        if (GoogleCalendarIntegration::isOAuthConfigured()) {
-            $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-            while (($admin_row = api_booking_db_row($stmt_admins->fetch(PDO::FETCH_ASSOC))) !== []) {
-                $google_result = GoogleCalendarIntegration::addEventOAuth($booking, array_int_value($admin_row, 'admin_user_id'));
-                if ($google_result['success']) {
-                    break;
-                }
-            }
-        }
-
-        // Fall back to service account if OAuth did not succeed
-        if (!$google_result['success']) {
-            $google_calendar = new GoogleCalendarIntegration();
-            if ($google_calendar->isConfigured()) {
-                $google_result = $google_calendar->addEvent($booking);
-            }
-        }
-
-        // Persist the Google event ID so we can delete it later if cancelled
-        if (!empty($google_result['event_id'])) {
-            $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
-                 ->execute([$google_result['event_id'], $booking_id]);
-        }
-        
-        echo json_encode([
-            'success' => true,
-            'message' => 'Booking created successfully!',
-            'booking_id' => $booking_id,
-            'credit_applied' => $pkg_credit_id_to_use !== null,
-            'calendar_links' => [
-                'google_calendar' => $google_calendar_link,
-                'ical_download' => $ical_download_link
-            ],
-            'email_sent' => $email_result['success'],
-            'google_calendar_synced' => $google_result['success']
-        ]);
-    } catch (PDOException $e) {
-        echo json_encode(['error' => $e->getMessage()]);
-    }
+    echo json_encode(api_booking_create_booking($conn, $data));
 }
 ?>
