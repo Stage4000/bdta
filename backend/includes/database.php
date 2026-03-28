@@ -2131,6 +2131,32 @@ class Database {
         if (!in_array('og_image', $sp_column_names)) {
             $this->execSQL("ALTER TABLE site_pages ADD COLUMN og_image TEXT");
         }
+
+        // Ensure site_pages.html_content and css_content are wide enough on MySQL
+        // before seeding manual SiteBuilder pages. On fresh MySQL installs these
+        // columns may initially be TEXT, which can cause truncation or insert
+        // failures under strict SQL mode when inserting large HTML/CSS blobs.
+        if ($this->db_type === 'mysql') {
+            try {
+                // Check and widen html_content if necessary
+                $htmlColStmt = $this->conn->query("SHOW COLUMNS FROM site_pages LIKE 'html_content'");
+                $htmlColInfo = $htmlColStmt->fetch(PDO::FETCH_ASSOC);
+                if ($htmlColInfo && isset($htmlColInfo['Type']) && stripos((string)$htmlColInfo['Type'], 'mediumtext') === false) {
+                    $this->execSQL("ALTER TABLE site_pages MODIFY COLUMN html_content MEDIUMTEXT");
+                }
+
+                // Check and widen css_content if necessary
+                $cssColStmt = $this->conn->query("SHOW COLUMNS FROM site_pages LIKE 'css_content'");
+                $cssColInfo = $cssColStmt->fetch(PDO::FETCH_ASSOC);
+                if ($cssColInfo && isset($cssColInfo['Type']) && stripos((string)$cssColInfo['Type'], 'mediumtext') === false) {
+                    $this->execSQL("ALTER TABLE site_pages MODIFY COLUMN css_content MEDIUMTEXT");
+                }
+            } catch (PDOException $e) {
+                // If this adjustment fails, continue; a later migration may already
+                // have handled the MEDIUMTEXT widening.
+                error_log("Migration: could not ensure MEDIUMTEXT for site_pages content columns - " . $e->getMessage());
+            }
+        }
         $this->seedManualSiteBuilderPages();
 
         // Widen the form_templates.fields and form_submissions.responses columns on
