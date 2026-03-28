@@ -352,6 +352,27 @@ function requirePortalLogin(): void {
     if (!isPortalLoggedIn()) {
         redirect(PORTAL_URL . 'login.php');
     }
+
+    $client_id = portalClientId();
+    if ($client_id <= 0) {
+        redirect(PORTAL_URL . 'login.php');
+    }
+
+    $db = new Database();
+    $conn = $db->getConnection();
+    $stmt = $conn->prepare("SELECT id FROM clients WHERE id = ? AND COALESCE(is_archived, 0) = 0");
+    $stmt->execute([$client_id]);
+
+    if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
+        unset(
+            $_SESSION['portal_client_id'],
+            $_SESSION['portal_client_name'],
+            $_SESSION['portal_client_email'],
+            $_SESSION['portal_impersonating_admin_id']
+        );
+        setFlashMessage('Your portal account is currently archived. Please contact support for assistance.', 'warning');
+        redirect(PORTAL_URL . 'login.php');
+    }
 }
 
 function portalClientId(): int {

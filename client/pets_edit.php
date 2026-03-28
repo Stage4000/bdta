@@ -76,7 +76,7 @@ function pets_edit_return_url(string $url): string {
 }
 
 // Get all clients for dropdown
-$stmt = $conn->query("SELECT id, name, email FROM clients ORDER BY name");
+$stmt = $conn->query("SELECT id, name, email FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 
 // If editing, get pet data

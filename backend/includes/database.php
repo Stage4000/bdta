@@ -233,7 +233,128 @@ class Database {
             return " LIMIT $limit";
         }
     }
-    
+
+    public function archiveClient(int|string $client_id): bool {
+        $client_id = (int)$client_id;
+        if ($client_id <= 0) {
+            return false;
+        }
+
+        $started_transaction = false;
+
+        try {
+            if (!$this->conn->inTransaction()) {
+                $this->conn->beginTransaction();
+                $started_transaction = true;
+            }
+
+            $stmt = $this->conn->prepare("
+                UPDATE clients
+                SET is_archived = 1,
+                    archived_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND COALESCE(is_archived, 0) = 0
+            ");
+            $stmt->execute([$client_id]);
+
+            if ($stmt->rowCount() === 0) {
+                if ($started_transaction) {
+                    $this->conn->rollBack();
+                }
+
+                return false;
+            }
+
+            $this->conn->prepare("
+                UPDATE quotes
+                SET status = 'declined',
+                    declined_at = COALESCE(declined_at, CURRENT_TIMESTAMP),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE client_id = ? AND status IN ('draft', 'sent', 'viewed')
+            ")->execute([$client_id]);
+
+            $this->conn->prepare("
+                UPDATE contracts
+                SET status = 'expired',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE client_id = ? AND status IN ('draft', 'sent', 'pending')
+            ")->execute([$client_id]);
+
+            $this->conn->prepare("
+                UPDATE invoices
+                SET status = 'cancelled',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE client_id = ? AND status NOT IN ('paid', 'cancelled', 'void')
+            ")->execute([$client_id]);
+
+            $this->conn->prepare("
+                UPDATE invoice_installments
+                SET status = 'cancelled',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE invoice_id IN (SELECT id FROM invoices WHERE client_id = ?)
+                  AND status = 'unpaid'
+            ")->execute([$client_id]);
+
+            $this->conn->prepare("
+                UPDATE form_submissions
+                SET status = 'cancelled'
+                WHERE client_id = ? AND status = 'pending'
+            ")->execute([$client_id]);
+
+            $this->conn->prepare("
+                UPDATE workflow_enrollments
+                SET status = 'cancelled',
+                    cancelled_at = COALESCE(cancelled_at, CURRENT_TIMESTAMP)
+                WHERE client_id = ? AND status NOT IN ('completed', 'cancelled')
+            ")->execute([$client_id]);
+
+            $this->conn->prepare("
+                UPDATE workflow_step_executions
+                SET status = 'cancelled'
+                WHERE enrollment_id IN (
+                    SELECT id FROM workflow_enrollments WHERE client_id = ?
+                ) AND status = 'pending'
+            ")->execute([$client_id]);
+
+            $this->conn->prepare("
+                UPDATE bookings
+                SET status = 'cancelled',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE client_id = ? AND status NOT IN ('completed', 'cancelled')
+            ")->execute([$client_id]);
+
+            if ($started_transaction) {
+                $this->conn->commit();
+            }
+
+            return true;
+        } catch (Throwable $e) {
+            if ($started_transaction && $this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+
+            throw $e;
+        }
+    }
+
+    public function unarchiveClient(int|string $client_id): bool {
+        $client_id = (int)$client_id;
+        if ($client_id <= 0) {
+            return false;
+        }
+
+        $stmt = $this->conn->prepare("
+            UPDATE clients
+            SET is_archived = 0,
+                archived_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND COALESCE(is_archived, 0) = 1
+        ");
+        $stmt->execute([$client_id]);
+
+        return $stmt->rowCount() > 0;
+    }
+     
     /**
      * Convert SQL from SQLite syntax to MySQL syntax
      */
@@ -457,6 +578,8 @@ class Database {
                     dog_name TEXT,
                     dog_breed TEXT,
                     notes TEXT,
+                    is_archived INTEGER NOT NULL DEFAULT 0,
+                    archived_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -1422,6 +1545,12 @@ class Database {
         }
         if (!in_array('password_reset_expires', $client_column_names)) {
             $this->execSQL("ALTER TABLE clients ADD COLUMN password_reset_expires TIMESTAMP");
+        }
+        if (!in_array('is_archived', $client_column_names)) {
+            $this->execSQL("ALTER TABLE clients ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!in_array('archived_at', $client_column_names)) {
+            $this->execSQL("ALTER TABLE clients ADD COLUMN archived_at TIMESTAMP");
         }
         $added_moxie_client_id = false;
         if (!in_array('moxie_client_id', $client_column_names)) {

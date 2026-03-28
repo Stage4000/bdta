@@ -78,7 +78,7 @@ if ($client_id > 0) {
 }
 
 if ($form_type === 'booking_form') {
-    $stmt = $conn->query("SELECT id, name, email FROM clients ORDER BY name");
+    $stmt = $conn->query("SELECT id, name, email FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
     $all_clients = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 

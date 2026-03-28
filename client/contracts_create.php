@@ -26,7 +26,7 @@ if ($contract_id > 0) {
     }
 }
 
-$clients_stmt = $conn->query("SELECT id, name, email FROM clients ORDER BY name");
+$clients_stmt = $conn->query("SELECT id, name, email FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $templates_stmt = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name");
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($client_id && $title && $contract_text) {
         // Get client info for variable substitution
-        $client_stmt = $conn->prepare("SELECT name, email FROM clients WHERE id = ?");
+        $client_stmt = $conn->prepare("SELECT name, email FROM clients WHERE id = ? AND COALESCE(is_archived, 0) = 0");
         $client_stmt->execute([$client_id]);
         $client = $client_stmt->fetch(PDO::FETCH_ASSOC);
         

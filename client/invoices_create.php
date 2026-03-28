@@ -28,7 +28,7 @@ $installment_interval_type_value = in_array($_POST['installment_interval_type'] 
     ? scalar_string($_POST['installment_interval_type'])
     : 'months';
 
-$clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
+$clients_stmt = $conn->query("SELECT id, name FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Load active packages for the package selector

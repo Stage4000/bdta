@@ -34,11 +34,12 @@ try {
     $db = new Database();
     $conn = $db->getConnection();
 
-    $stmt = $conn->prepare("
-        SELECT id, name, email
-        FROM clients
-        ORDER BY name ASC
-    ");
+     $stmt = $conn->prepare("
+         SELECT id, name, email
+         FROM clients
+         WHERE COALESCE(is_archived, 0) = 0
+         ORDER BY name ASC
+     ");
     $stmt->execute();
     $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
