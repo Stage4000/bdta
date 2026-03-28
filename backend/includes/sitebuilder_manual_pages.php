@@ -254,8 +254,8 @@ final class SiteBuilderManualPageSeeder {
         }
 
         if (is_array($existing)) {
-            $stmt = $conn->prepare("UPDATE site_pages SET slug=?, title=?, html_content=?, css_content=?, meta_description=?, meta_keywords=?, og_title=?, og_description=?, og_image=?, is_published=1, updated_at=CURRENT_TIMESTAMP WHERE id=?");
-            $stmt->execute([$page['slug'], $page['title'], $html, $css, $page['meta_description'], $page['meta_keywords'], $page['og_title'], $page['og_description'], $page['og_image'], self::intValue($existing['id'])]);
+            $stmt = $conn->prepare("UPDATE site_pages SET slug=?, title=?, html_content=?, css_content=?, meta_description=?, meta_keywords=?, og_title=?, og_description=?, og_image=?, sort_order=?, is_published=1, updated_at=CURRENT_TIMESTAMP WHERE id=?");
+            $stmt->execute([$page['slug'], $page['title'], $html, $css, $page['meta_description'], $page['meta_keywords'], $page['og_title'], $page['og_description'], $page['og_image'], $page['sort_order'], self::intValue($existing['id'])]);
             return;
         }
 
