@@ -370,7 +370,7 @@ function requirePortalLogin(): void {
             $_SESSION['portal_client_email'],
             $_SESSION['portal_impersonating_admin_id']
         );
-        setFlashMessage('Your portal account is currently archived. Please contact support for assistance.', 'warning');
+        setFlashMessage('Your portal account is currently inactive. Please contact support for assistance.', 'warning');
         redirect(PORTAL_URL . 'login.php');
     }
 }

@@ -39,15 +39,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch clients for selected view
-$archiveFilter = $view === 'archived' ? '1' : '0';
-$stmt = $conn->query("
+$archiveFilter = $view === 'archived' ? 1 : 0;
+$stmt = $conn->prepare("
     SELECT *
     FROM clients
-    WHERE COALESCE(is_archived, 0) = {$archiveFilter}
+    WHERE COALESCE(is_archived, 0) = ?
     ORDER BY
         CASE WHEN COALESCE(is_archived, 0) = 1 THEN archived_at ELSE created_at END DESC,
         created_at DESC
 ");
+$stmt->bindValue(1, $archiveFilter, PDO::PARAM_INT);
+$stmt->execute();
 $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 include '../backend/includes/header.php';
@@ -141,19 +143,19 @@ include '../backend/includes/header.php';
                                     $client['phone'] ?? '',
                                 ])) ?>">
                                     <td class="d-none d-md-table-cell"><?= escape($client['id']) ?></td>
-                                     <td>
-                                         <strong><?= escape($client['name']) ?></strong>
-                                         <?php if (!empty($client['is_admin'])): ?>
+                                    <td>
+                                        <strong><?= escape($client['name']) ?></strong>
+                                        <?php if (!empty($client['is_admin'])): ?>
                                             <span class="badge bg-primary ms-2" title="Has admin access">
-                                                 <i class="fas fa-shield-check"></i> Admin
-                                             </span>
-                                         <?php endif; ?>
-                                         <?php if (!empty($client['is_archived'])): ?>
-                                             <span class="badge bg-secondary ms-2">
-                                                 <i class="fas fa-box-archive"></i> Archived
-                                             </span>
-                                         <?php endif; ?>
-                                     </td>
+                                                <i class="fas fa-shield-check"></i> Admin
+                                            </span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($client['is_archived'])): ?>
+                                            <span class="badge bg-secondary ms-2">
+                                                <i class="fas fa-box-archive"></i> Archived
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="d-none d-sm-table-cell"><?= escape($client['email']) ?></td>
                                     <td class="d-none d-md-table-cell"><?= escape($client['phone'] ?? 'N/A') ?></td>
                                     <td class="d-none d-lg-table-cell"><?= formatDate($client['created_at']) ?></td>
@@ -172,12 +174,12 @@ include '../backend/includes/header.php';
                                              <a href="time_entries_list.php?client_id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-secondary table-action-btn" title="Time Entries">
                                                  <i class="fas fa-clock"></i>
                                              </a>
-                                             <?php if (empty($client['is_admin'])): ?>
-                                             <a href="impersonate_client.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-warning table-action-btn" title="View Portal as Client"
-                                                onclick="return confirm('View the client portal as this client?')">
-                                                 <i class="fas fa-eye"></i>
-                                             </a>
-                                             <?php endif; ?>
+                                            <?php if (empty($client['is_admin']) && empty($client['is_archived'])): ?>
+                                            <a href="impersonate_client.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-warning table-action-btn" title="View Portal as Client"
+                                               onclick="return confirm('View the client portal as this client?')">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <?php endif; ?>
                                              <?php if ($view === 'archived'): ?>
                                              <form method="post" class="d-inline" onsubmit="return confirm('Unarchive this client and return them to the active client list?')">
                                                  <input type="hidden" name="unarchive_id" value="<?= $client['id'] ?>">
@@ -233,9 +235,9 @@ include '../backend/includes/header.php';
                                                             <i class="fas fa-clock me-2 text-secondary"></i>Time Entries
                                                         </a>
                                                     </li>
-                                                     <?php if (empty($client['is_admin'])): ?>
-                                                     <li>
-                                                         <a class="dropdown-item" href="impersonate_client.php?id=<?= $client['id'] ?>"
+                                                    <?php if (empty($client['is_admin']) && empty($client['is_archived'])): ?>
+                                                    <li>
+                                                        <a class="dropdown-item" href="impersonate_client.php?id=<?= $client['id'] ?>"
                                                            onclick="return confirm('View the client portal as this client?')">
                                                              <i class="fas fa-eye me-2 text-warning"></i>View Portal as Client
                                                          </a>
