@@ -25,26 +25,47 @@ function bdta_current_public_nav_context(): string {
 function bdta_get_imported_page_runtime_css(): string {
     return <<<'CSS'
 .bdta-imported-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     padding-left: 1rem;
     padding-right: 1rem;
     overflow-x: hidden;
+}
+.bdta-imported-page > .bdta-import-layout {
+    margin-left: auto !important;
+    margin-right: auto !important;
 }
 .bdta-imported-page .bdta-import-layout,
 .bdta-imported-page .bdta-import-block {
     box-sizing: border-box;
 }
 @media (max-width: 767.98px) {
+    .bdta-imported-page .bdta-import-stack-phone,
     .bdta-imported-page .bdta-import-layout,
     .bdta-imported-page .bdta-import-block {
+        width: 100% !important;
         min-width: 0 !important;
         max-width: 100% !important;
     }
     .bdta-imported-page .bdta-import-block {
-        width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
     }
     .bdta-imported-page .bdta-import-image {
         width: 100%;
         height: auto;
+    }
+    .bdta-imported-page a,
+    .bdta-imported-page p,
+    .bdta-imported-page h1,
+    .bdta-imported-page h2,
+    .bdta-imported-page h3,
+    .bdta-imported-page h4,
+    .bdta-imported-page h5,
+    .bdta-imported-page h6,
+    .bdta-imported-page span {
+        overflow-wrap: break-word;
     }
 }
 CSS;

@@ -46,6 +46,8 @@ HTML;
 
     $runtimeCss = bdta_get_imported_page_runtime_css();
     assertTrue(str_contains($runtimeCss, 'min-width: 0 !important;'), 'Expected runtime CSS to include imported mobile width override.');
+    assertTrue(str_contains($runtimeCss, 'align-items: center;'), 'Expected runtime CSS to center imported page content.');
+    assertTrue(str_contains($runtimeCss, '.bdta-imported-page .bdta-import-stack-phone,'), 'Expected runtime CSS to widen stacked imported layouts on mobile.');
 
     echo "Public navigation helper test passed.\n";
 } finally {

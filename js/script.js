@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Initialize all components
+    normalizePublicNavigation();
     initNavigation();
     initBackToTop();
     initContactForm();
@@ -22,6 +23,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initDarkModeToggle();
     loadPackages();
     loadEvents();
+});
+
+window.addEventListener('pageshow', function() {
+    normalizePublicNavigation();
 });
 
 // ==========================================
@@ -105,6 +110,34 @@ function initNavigation() {
             }
         });
     });
+}
+
+function normalizePublicNavigation() {
+    const navList = document.querySelector('.navbar .navbar-nav');
+    if (!navList) return;
+
+    const directoryHref = '/page.php?slug=directory';
+    const hasDirectoryLink = Array.from(navList.querySelectorAll('.nav-link')).some(function (link) {
+        return link.getAttribute('href') === directoryHref;
+    });
+    if (!hasDirectoryLink) {
+        const blogItem = Array.from(navList.querySelectorAll('.nav-item')).find(function (item) {
+            const link = item.querySelector('.nav-link');
+            return link && link.textContent.trim() === 'Blog';
+        });
+        if (!blogItem) return;
+
+        const directoryItem = document.createElement('li');
+        directoryItem.className = 'nav-item';
+
+        const directoryLink = document.createElement('a');
+        directoryLink.className = 'nav-link';
+        directoryLink.href = directoryHref;
+        directoryLink.textContent = 'Directory';
+
+        directoryItem.appendChild(directoryLink);
+        navList.insertBefore(directoryItem, blogItem);
+    }
 }
 
 // ==========================================
