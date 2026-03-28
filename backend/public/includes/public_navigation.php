@@ -1,0 +1,122 @@
+<?php
+
+function bdta_current_public_nav_context(): string {
+    $slugValue = $_GET['slug'] ?? '';
+    $slug = is_string($slugValue) ? trim($slugValue) : '';
+    if ($slug === 'directory') {
+        return 'directory';
+    }
+
+    $requestUriValue = $_SERVER['REQUEST_URI'] ?? '';
+    $requestUri = is_string($requestUriValue) ? $requestUriValue : '';
+    $requestPath = parse_url($requestUri, PHP_URL_PATH);
+    $requestPath = is_string($requestPath) ? $requestPath : '';
+    if (preg_match('~(?:^|/)blog(?:/|$)~', $requestPath) === 1) {
+        return 'blog';
+    }
+
+    if ($requestPath === '' || $requestPath === '/' || str_ends_with($requestPath, '/index.php') || str_ends_with($requestPath, '/index.html')) {
+        return 'home';
+    }
+
+    return '';
+}
+
+function bdta_get_imported_page_runtime_css(): string {
+    return <<<'CSS'
+.bdta-imported-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    overflow-x: hidden;
+}
+.bdta-imported-page > .bdta-import-layout {
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+.bdta-imported-page .bdta-import-layout,
+.bdta-imported-page .bdta-import-block {
+    box-sizing: border-box;
+}
+@media (max-width: 767.98px) {
+    .bdta-imported-page .bdta-import-stack-phone,
+    .bdta-imported-page .bdta-import-layout,
+    .bdta-imported-page .bdta-import-block {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    .bdta-imported-page .bdta-import-block {
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    .bdta-imported-page .bdta-import-image {
+        width: 100%;
+        height: auto;
+    }
+    .bdta-imported-page a,
+    .bdta-imported-page p,
+    .bdta-imported-page h1,
+    .bdta-imported-page h2,
+    .bdta-imported-page h3,
+    .bdta-imported-page h4,
+    .bdta-imported-page h5,
+    .bdta-imported-page h6,
+    .bdta-imported-page span {
+        overflow-wrap: break-word;
+    }
+}
+CSS;
+}
+
+function bdta_sync_public_navigation_links(string $html): string {
+    $directoryLink = '/page.php?slug=directory';
+    if (!str_contains($html, 'href="' . $directoryLink . '"')) {
+        $directoryItem = '<li class="nav-item">' . "\n"
+            . '                        <a class="nav-link" href="' . $directoryLink . '">Directory</a>' . "\n"
+            . '                    </li>' . "\n"
+            . '                    ';
+        $html = preg_replace(
+            '~<li class="nav-item">\s*<a class="nav-link(?: active)?" href="(?:/)?(?:blog/index\.php|index\.php)">Blog</a>\s*</li>\s*~',
+            $directoryItem . '$0',
+            $html,
+            1
+        ) ?? $html;
+    }
+
+    $html = preg_replace(
+        '~<li class="nav-item">\s*<a class="nav-link(?: active)?" href="(?:/)?(?:page\.php\?slug=dog-training-fact-sheet|facts/?(?:index\.php)?)">Dog Training Fact Sheet</a>\s*</li>\s*~',
+        '',
+        $html
+    ) ?? $html;
+
+    $currentContext = bdta_current_public_nav_context();
+    $activeLabels = [
+        'Home' => $currentContext === 'home',
+        'Blog' => $currentContext === 'blog',
+        'Directory' => $currentContext === 'directory',
+    ];
+
+    $html = preg_replace_callback(
+        '~<a class="(?P<class>[^"]*\bnav-link\b[^"]*)" href="(?P<href>[^"]+)">(?P<label>Home|Blog|Directory)</a>~',
+        static function (array $matches) use ($activeLabels): string {
+            $classValue = trim($matches['class']);
+            $classes = preg_split('/\s+/', $classValue);
+            if ($classes === false) {
+                $classes = [$classValue];
+            }
+
+            $classes = array_values(array_filter($classes, static fn(string $class): bool => $class !== '' && $class !== 'active'));
+            if ($activeLabels[$matches['label']] === true) {
+                $classes[] = 'active';
+            }
+
+            return '<a class="' . implode(' ', array_unique($classes)) . '" href="' . $matches['href'] . '">' . $matches['label'] . '</a>';
+        },
+        $html
+    ) ?? $html;
+
+    return $html;
+}

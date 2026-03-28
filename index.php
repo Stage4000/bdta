@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/backend/includes/config.php';
 require_once __DIR__ . '/backend/includes/tawk_to.php';
+require_once __DIR__ . '/backend/public/includes/public_navigation.php';
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -36,6 +37,7 @@ if (!$page || trim($page['html_content']) === '') {
         if ($widget !== '') {
             $html = preg_replace('/<\/body>/i', $widget . "\n</body>", $html, 1) ?? $html;
         }
+        $html = bdta_sync_public_navigation_links($html);
         echo $html;
     } else {
         echo '<h1>Site coming soon.</h1>';
@@ -106,9 +108,12 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
         <?php echo $page['css_content']; ?>
     </style>
     <?php endif; ?>
+    <style>
+        <?php echo bdta_get_imported_page_runtime_css(); ?>
+    </style>
 </head>
 <body>
-    <?php echo $page['html_content']; ?>
+    <?php echo bdta_sync_public_navigation_links((string) $page['html_content']); ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- AOS Animation Library -->

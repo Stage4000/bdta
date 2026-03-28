@@ -3,3 +3,8 @@
 # index.php itself reads index.html as a fallback when no published homepage exists in the DB,
 # so both files can coexist safely.
 DirectoryIndex index.php index.html
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^facts/?$ /page.php?slug=dog-training-fact-sheet [L,QSA]
+</IfModule>
