@@ -486,6 +486,11 @@ function api_booking_create_booking(PDO $conn, array $data): array {
             $conn->rollBack();
         }
         return ['error' => $e->getMessage()];
+    } catch (Throwable $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        return ['error' => $e->getMessage()];
     }
 }
 
