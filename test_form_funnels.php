@@ -5,6 +5,20 @@ require_once __DIR__ . '/backend/includes/database.php';
 require_once __DIR__ . '/backend/includes/form_types.php';
 require_once __DIR__ . '/backend/includes/public_form_context.php';
 
+$original_request_method = $_SERVER['REQUEST_METHOD'] ?? null;
+$_SERVER['REQUEST_METHOD'] = 'CLI';
+$original_cwd = getcwd();
+chdir(__DIR__ . '/backend/public');
+require_once __DIR__ . '/backend/public/api_bookings.php';
+if ($original_cwd !== false) {
+    chdir($original_cwd);
+}
+if ($original_request_method === null) {
+    unset($_SERVER['REQUEST_METHOD']);
+} else {
+    $_SERVER['REQUEST_METHOD'] = $original_request_method;
+}
+
 echo "=== Form Funnel Tests ===\n\n";
 
 $cleanup = [
@@ -104,7 +118,44 @@ try {
         throw new RuntimeException('Mismatched client/booking combinations should be rejected.');
     }
 
-    echo "✓ Public form links resolve existing client and appointment context correctly\n\n";
+    echo "✓ Public form links resolve existing client and appointment context correctly\n";
+
+    $missing_address_email = 'missing-address-' . $suffix . '@example.com';
+    $client_count_stmt = $conn->prepare("SELECT COUNT(*) FROM clients WHERE email = ?");
+    $client_count_stmt->execute([$missing_address_email]);
+    $client_count_before = (int) $client_count_stmt->fetchColumn();
+
+    $booking_count_stmt = $conn->prepare("SELECT COUNT(*) FROM bookings WHERE client_email = ?");
+    $booking_count_stmt->execute([$missing_address_email]);
+    $booking_count_before = (int) $booking_count_stmt->fetchColumn();
+
+    $result = api_booking_create_booking($conn, [
+        'client_name' => 'Missing Address ' . $suffix,
+        'client_email' => $missing_address_email,
+        'client_phone' => '555-9999',
+        'service_type' => 'At Home Consultation',
+        'appointment_date' => date('Y-m-d', strtotime('+5 days')),
+        'appointment_time' => '11:00',
+        'location_type' => 'client_address',
+    ]);
+
+    if (($result['error'] ?? '') !== 'Your account does not have an address on file. Please update your profile or choose a different location type.') {
+        throw new RuntimeException('Missing-address bookings should return the expected validation error.');
+    }
+
+    $client_count_stmt->execute([$missing_address_email]);
+    $client_count_after = (int) $client_count_stmt->fetchColumn();
+    if ($client_count_after !== $client_count_before) {
+        throw new RuntimeException('Failed booking attempts must not create a new client record.');
+    }
+
+    $booking_count_stmt->execute([$missing_address_email]);
+    $booking_count_after = (int) $booking_count_stmt->fetchColumn();
+    if ($booking_count_after !== $booking_count_before) {
+        throw new RuntimeException('Failed booking attempts must not create a booking record.');
+    }
+
+    echo "✓ Failed public bookings do not create phantom clients or bookings\n\n";
     echo "=== Form Funnel Tests Passed! ===\n";
 } catch (Throwable $e) {
     echo "✗ Error: " . $e->getMessage() . "\n";
