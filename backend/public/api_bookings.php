@@ -78,7 +78,7 @@ function api_booking_string_list(mixed $value): array {
  * @param array<string, mixed> $data
  * @return array<string, mixed>
  */
-function api_booking_create_booking(PDO $conn, array $data): array {
+function api_booking_create_booking(SafePDO $conn, array $data): array {
     $required_fields = ['client_name', 'client_email', 'service_type', 'appointment_date', 'appointment_time'];
     foreach ($required_fields as $field) {
         if (!isset($data[$field]) || empty($data[$field])) {
@@ -434,34 +434,48 @@ function api_booking_create_booking(PDO $conn, array $data): array {
 
         require_once __DIR__ . '/../includes/icalendar.php';
         $base_url = getDynamicBaseUrl();
-        $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
+        $google_calendar_link = '';
         $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
+        try {
+            $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
+        } catch (Throwable $e) {
+            error_log('api_booking_create_booking: calendar link generation failed for booking #' . $booking_id . ': ' . $e->getMessage());
+        }
 
-        $email_service = new EmailService(null, $conn);
-        $email_result = $email_service->sendBookingConfirmation($booking);
+        $email_result = ['success' => false];
+        try {
+            $email_service = new EmailService(null, $conn);
+            $email_result = $email_service->sendBookingConfirmation($booking);
+        } catch (Throwable $e) {
+            error_log('api_booking_create_booking: confirmation email failed for booking #' . $booking_id . ': ' . $e->getMessage());
+        }
 
         $google_result = ['success' => false, 'message' => 'Google Calendar integration not configured'];
-
-        if (GoogleCalendarIntegration::isOAuthConfigured()) {
-            $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-            while (($admin_row = api_booking_db_row($stmt_admins->fetch(PDO::FETCH_ASSOC))) !== []) {
-                $google_result = GoogleCalendarIntegration::addEventOAuth($booking, array_int_value($admin_row, 'admin_user_id'));
-                if ($google_result['success']) {
-                    break;
+        try {
+            if (GoogleCalendarIntegration::isOAuthConfigured()) {
+                $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+                while (($admin_row = api_booking_db_row($stmt_admins->fetch(PDO::FETCH_ASSOC))) !== []) {
+                    $google_result = GoogleCalendarIntegration::addEventOAuth($booking, array_int_value($admin_row, 'admin_user_id'));
+                    if ($google_result['success']) {
+                        break;
+                    }
                 }
             }
-        }
 
-        if (!$google_result['success']) {
-            $google_calendar = new GoogleCalendarIntegration();
-            if ($google_calendar->isConfigured()) {
-                $google_result = $google_calendar->addEvent($booking);
+            if (!$google_result['success']) {
+                $google_calendar = new GoogleCalendarIntegration();
+                if ($google_calendar->isConfigured()) {
+                    $google_result = $google_calendar->addEvent($booking);
+                }
             }
-        }
 
-        if (!empty($google_result['event_id'])) {
-            $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
-                 ->execute([$google_result['event_id'], $booking_id]);
+            if (!empty($google_result['event_id'])) {
+                $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
+                     ->execute([$google_result['event_id'], $booking_id]);
+            }
+        } catch (Throwable $e) {
+            $google_result = ['success' => false, 'message' => 'Google Calendar sync failed'];
+            error_log('api_booking_create_booking: Google Calendar sync failed for booking #' . $booking_id . ': ' . $e->getMessage());
         }
 
         return [
