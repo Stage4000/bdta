@@ -105,6 +105,9 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
         <?php echo $page['css_content']; ?>
     </style>
     <?php endif; ?>
+    <style>
+        <?php echo bdta_get_imported_page_runtime_css(); ?>
+    </style>
 </head>
 <body>
     <?php echo bdta_sync_public_navigation_links((string) $page['html_content']); ?>

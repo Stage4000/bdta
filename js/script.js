@@ -53,6 +53,9 @@ function initDarkModeToggle() {
 function initNavigation() {
     const navbar = document.querySelector('.navbar');
     const navLinks = document.querySelectorAll('.nav-link');
+    const sectionNavLinks = Array.from(navLinks).filter(function (link) {
+        return link.hash !== '';
+    });
     
     if (!navbar) return;
     
@@ -81,9 +84,9 @@ function initNavigation() {
                 }
             });
             
-            navLinks.forEach(link => {
+            sectionNavLinks.forEach(link => {
                 link.classList.remove('active');
-                if (link.getAttribute('href') === `#${current}`) {
+                if (link.hash === `#${current}`) {
                     link.classList.add('active');
                 }
             });

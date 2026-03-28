@@ -1,3 +1,4 @@
+<?php require_once dirname(__DIR__, 2) . '/backend/public/includes/public_navigation.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -19,6 +20,7 @@
     <link href="../css/style.css" rel="stylesheet">
 </head>
 <body>
+    <?php ob_start(); ?>
     <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold" href="../index.html">
@@ -45,5 +47,6 @@
             </div>
         </div>
     </nav>
+    <?php echo bdta_sync_public_navigation_links((string) ob_get_clean()); ?>
 
     <main style="margin-top: 80px;">

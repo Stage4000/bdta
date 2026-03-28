@@ -1,0 +1,63 @@
+<?php
+
+require_once __DIR__ . '/backend/public/includes/public_navigation.php';
+
+function assertSameString(string $expected, string $actual, string $message): void {
+    if ($expected !== $actual) {
+        throw new RuntimeException($message . "\nExpected: " . $expected . "\nActual:   " . $actual);
+    }
+}
+
+function assertTrue(bool $condition, string $message): void {
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+$originalRequestUri = $_SERVER['REQUEST_URI'] ?? null;
+$originalSlug = $_GET['slug'] ?? null;
+
+try {
+    $baseHtml = <<<HTML
+<ul class="navbar-nav ms-auto">
+    <li class="nav-item"><a class="nav-link active" href="/#home">Home</a></li>
+    <li class="nav-item"><a class="nav-link" href="/blog/index.php">Blog</a></li>
+</ul>
+HTML;
+
+    $_SERVER['REQUEST_URI'] = '/page.php?slug=directory';
+    $_GET['slug'] = 'directory';
+    $directoryHtml = bdta_sync_public_navigation_links($baseHtml);
+    assertTrue(str_contains($directoryHtml, 'href="/page.php?slug=directory">Directory</a>'), 'Expected Directory link to be injected.');
+    assertTrue(str_contains($directoryHtml, 'class="nav-link active" href="/page.php?slug=directory">Directory</a>'), 'Expected Directory link to be active on the directory page.');
+    assertTrue(!str_contains($directoryHtml, 'class="nav-link active" href="/#home">Home</a>'), 'Expected Home link not to stay active on the directory page.');
+
+    $_SERVER['REQUEST_URI'] = '/blog/index.php';
+    unset($_GET['slug']);
+    $blogHtml = bdta_sync_public_navigation_links($baseHtml);
+    assertTrue(str_contains($blogHtml, 'class="nav-link active" href="/blog/index.php">Blog</a>'), 'Expected Blog link to be active on blog pages.');
+
+    $_SERVER['REQUEST_URI'] = '/';
+    $_GET['slug'] = '';
+    $factSheetHtml = bdta_sync_public_navigation_links(
+        $baseHtml . '<li class="nav-item"><a class="nav-link" href="/facts">Dog Training Fact Sheet</a></li>'
+    );
+    assertTrue(!str_contains($factSheetHtml, 'Dog Training Fact Sheet'), 'Expected Dog Training Fact Sheet nav link to be removed.');
+
+    $runtimeCss = bdta_get_imported_page_runtime_css();
+    assertTrue(str_contains($runtimeCss, 'min-width: 0 !important;'), 'Expected runtime CSS to include imported mobile width override.');
+
+    echo "Public navigation helper test passed.\n";
+} finally {
+    if ($originalRequestUri === null) {
+        unset($_SERVER['REQUEST_URI']);
+    } else {
+        $_SERVER['REQUEST_URI'] = $originalRequestUri;
+    }
+
+    if ($originalSlug === null) {
+        unset($_GET['slug']);
+    } else {
+        $_GET['slug'] = $originalSlug;
+    }
+}
