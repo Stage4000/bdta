@@ -303,14 +303,18 @@ class Database {
         require_once __DIR__ . '/sitebuilder_manual_pages.php';
 
         try {
-            if (!SiteBuilderManualPageSeeder::needsSeeding($this->conn)) {
+            $siteRootPath = dirname(__DIR__, 2);
+            if (
+                !SiteBuilderManualPageSeeder::needsSeeding($this->conn)
+                && !SiteBuilderManualPageSeeder::needsAssetExtraction($siteRootPath)
+            ) {
                 return;
             }
 
             SiteBuilderManualPageSeeder::seed(
                 $this->conn,
-                dirname(__DIR__, 2),
-                dirname(__DIR__, 2) . '/brooksdogtrainingacademy.com_project.sitebuilder'
+                $siteRootPath,
+                $siteRootPath . '/brooksdogtrainingacademy.com_project.sitebuilder'
             );
         } catch (Throwable $e) {
             error_log('Manual SiteBuilder page seed failed: ' . $e->getMessage());

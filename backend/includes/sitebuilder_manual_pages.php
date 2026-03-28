@@ -94,8 +94,30 @@ final class SiteBuilderManualPageSeeder {
         return false;
     }
 
+    public static function needsAssetExtraction(string $siteRootPath): bool {
+        $assetBaseDir = rtrim($siteRootPath, "/") . "/backend/uploads/sitebuilder";
+
+        foreach (self::getPages() as $page) {
+            foreach ($page['assets'] as $asset) {
+                $assetPath = self::normalizePath($assetBaseDir . "/" . $asset);
+                if (!is_file($assetPath)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public static function seed(PDO $conn, string $siteRootPath, string $siteBuilderPath): void {
-        if (!self::needsSeeding($conn) || !is_readable($siteBuilderPath) || !class_exists('ZipArchive')) {
+        if (
+            (
+                !self::needsSeeding($conn)
+                && !self::needsAssetExtraction($siteRootPath)
+            )
+            || !is_readable($siteBuilderPath)
+            || !class_exists('ZipArchive')
+        ) {
             return;
         }
 

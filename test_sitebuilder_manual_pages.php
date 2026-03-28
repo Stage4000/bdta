@@ -121,6 +121,7 @@ try {
     SiteBuilderManualPageSeeder::seed($pdo, $tmpDir, $archivePath);
 
     assertTrue(!SiteBuilderManualPageSeeder::needsSeeding($pdo), 'Expected manual pages not to need reseeding after import.');
+    assertTrue(!SiteBuilderManualPageSeeder::needsAssetExtraction($tmpDir), 'Expected asset extraction not to be needed after import.');
 
     $pages = $pdo->query("SELECT slug, title, is_published, og_image, length(html_content) AS html_len, length(css_content) AS css_len FROM site_pages WHERE is_homepage = 0 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
     assertTrue(count($pages) === 3, 'Expected the two manually requested pages plus the unrelated pre-existing page.');
@@ -140,6 +141,14 @@ try {
 
     assertTrue(is_file($tmpDir . '/backend/uploads/sitebuilder/gallery/Dog-Training-Fact-Sheet-1.png'), 'Expected fact sheet assets to be extracted.');
     assertTrue(is_file($tmpDir . '/backend/uploads/sitebuilder/gallery/Your business here.png'), 'Expected directory assets to be extracted.');
+
+    // nosemgrep: php.lang.security.unlink-use.unlink-use
+    @unlink($tmpDir . '/backend/uploads/sitebuilder/gallery/check-leash-laws.png');
+    assertTrue(SiteBuilderManualPageSeeder::needsAssetExtraction($tmpDir), 'Expected missing imported assets to trigger re-extraction.');
+
+    SiteBuilderManualPageSeeder::seed($pdo, $tmpDir, $archivePath);
+    assertTrue(is_file($tmpDir . '/backend/uploads/sitebuilder/gallery/check-leash-laws.png'), 'Expected a later seed run to restore missing imported assets even when page HTML already exists.');
+    assertTrue(!SiteBuilderManualPageSeeder::needsAssetExtraction($tmpDir), 'Expected asset extraction to be satisfied again after restoring the missing file.');
 
     echo "Manual SiteBuilder page seed test passed.\n";
 } finally {
