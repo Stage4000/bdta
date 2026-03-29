@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = safe_int($_POST['unarchive_id']);
         $unarchived = $db->unarchiveClient($id);
         setFlashMessage($unarchived ? 'Client unarchived successfully!' : 'Client could not be unarchived.', $unarchived ? 'success' : 'warning');
-        redirect('clients_list.php');
+        redirect($return_view === 'archived' ? 'clients_list.php?view=archived' : 'clients_list.php');
     }
 
     if (isset($_POST['delete_id'])) {
