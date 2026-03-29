@@ -310,7 +310,7 @@ class Database {
 
             $this->conn->prepare("
                 UPDATE workflow_step_executions
-                SET status = 'cancelled'
+                SET status = 'failed'
                 WHERE enrollment_id IN (
                     SELECT id FROM workflow_enrollments WHERE client_id = ?
                 ) AND status = 'pending'
