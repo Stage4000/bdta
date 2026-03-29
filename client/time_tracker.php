@@ -9,7 +9,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 // Fetch clients for quick select
-$clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
+$clients_stmt = $conn->query("SELECT id, name FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle AJAX requests

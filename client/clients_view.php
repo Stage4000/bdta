@@ -24,6 +24,8 @@ if (!is_array($client)) {
     redirect('clients_list.php');
 }
 
+$clientListUrl = !empty($client['is_archived']) ? 'clients_list.php?view=archived' : 'clients_list.php';
+
 // Get client's pets with file count
 $stmt = $conn->prepare("
     SELECT p.*, COUNT(pf.id) as file_count
@@ -126,21 +128,37 @@ include '../backend/includes/header.php';
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-user-circle me-2"></i><?= escape($client['name']) ?></h2>
+        <h2>
+            <i class="fas fa-user-circle me-2"></i><?= escape($client['name']) ?>
+            <?php if (!empty($client['is_archived'])): ?>
+                <span class="badge bg-secondary ms-2"><i class="fas fa-box-archive me-1"></i>Archived</span>
+            <?php endif; ?>
+        </h2>
         <div>
             <a href="clients_edit.php?id=<?= $id ?>" class="btn btn-primary me-2">
                 <i class="fas fa-pencil"></i> Edit Client
             </a>
+            <?php if (empty($client['is_archived'])): ?>
             <a href="bookings_create.php?client_id=<?= $id ?>" class="btn btn-success me-2">
                 <i class="fas fa-calendar-plus"></i> New Booking
             </a>
-            <?php if (empty($client['is_admin'])): ?>
+            <?php endif; ?>
+            <?php if (empty($client['is_admin']) && empty($client['is_archived'])): ?>
             <a href="impersonate_client.php?id=<?= $id ?>" class="btn btn-warning me-2"
                onclick="return confirm('View the client portal as this client?')">
                 <i class="fas fa-eye"></i> View Portal as Client
             </a>
             <?php endif; ?>
-            <a href="clients_list.php" class="btn btn-secondary">
+            <form method="post" action="clients_list.php" class="d-inline me-2" onsubmit="return confirm('<?= !empty($client['is_archived']) ? 'Unarchive this client and return them to the active client list?' : 'Archive this client? Pending items such as quotes, contracts, invoices, forms, workflows, and bookings will be cancelled or voided.' ?>')">
+                <input type="hidden" name="<?= !empty($client['is_archived']) ? 'unarchive_id' : 'archive_id' ?>" value="<?= $id ?>">
+                <input type="hidden" name="return_view" value="<?= !empty($client['is_archived']) ? 'archived' : 'active' ?>">
+                <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                <button type="submit" class="btn <?= !empty($client['is_archived']) ? 'btn-info' : 'btn-outline-secondary' ?>">
+                    <i class="fas <?= !empty($client['is_archived']) ? 'fa-box-open' : 'fa-box-archive' ?>"></i>
+                    <?= !empty($client['is_archived']) ? 'Unarchive Client' : 'Archive Client' ?>
+                </button>
+            </form>
+            <a href="<?= $clientListUrl ?>" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>
@@ -153,6 +171,13 @@ include '../backend/includes/header.php';
         <div class="alert alert-<?= $flash['type'] ?> alert-dismissible fade show">
             <?= escape($flash['message']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
+    <?php if (!empty($client['is_archived'])): ?>
+        <div class="alert alert-secondary">
+            <i class="fas fa-box-archive me-2"></i>
+            This client is archived and hidden from active client selectors. Historical records remain available here.
         </div>
     <?php endif; ?>
 
@@ -177,6 +202,11 @@ include '../backend/includes/header.php';
                         
                         <dt>Member Since:</dt>
                         <dd><?= formatDate($client['created_at']) ?></dd>
+
+                        <?php if (!empty($client['is_archived']) && !empty($client['archived_at'])): ?>
+                            <dt>Archived On:</dt>
+                            <dd><?= formatDate($client['archived_at']) ?></dd>
+                        <?php endif; ?>
                         
                         <?php if (!empty($pkg_credits_summary)): ?>
                             <dt>Credits:</dt>

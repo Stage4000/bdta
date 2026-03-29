@@ -37,7 +37,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'credits') {
 }
 
 // Get clients for dropdown
-$stmt = $conn->query("SELECT id, name, email FROM clients ORDER BY name");
+$stmt = $conn->query("SELECT id, name, email FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get active appointment types
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Get client details
-        $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ?");
+        $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ? AND COALESCE(is_archived, 0) = 0");
         $stmt->execute([$client_id]);
         $client = $stmt->fetch(PDO::FETCH_ASSOC);
         

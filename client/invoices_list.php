@@ -8,7 +8,7 @@ $conn = $db->getConnection();
 $client_filter = safe_int($_GET['client_id'] ?? 0);
 
 // Fetch clients
-$clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
+$clients_stmt = $conn->query("SELECT id, name FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch invoices

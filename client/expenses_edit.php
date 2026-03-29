@@ -14,7 +14,7 @@ if ($id > 0) {
     $expense = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-$clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
+$clients_stmt = $conn->query("SELECT id, name FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -52,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($category) || empty($description) || $amount <= 0 || empty($expense_date)) {
         setFlashMessage('All required fields must be filled!', 'danger');
+    } elseif ($client_id !== null && bdta_fetch_active_client($conn, $client_id) === []) {
+        setFlashMessage('Selected client was not found!', 'danger');
     } else {
         if ($id > 0) {
             // If new file uploaded, delete old one

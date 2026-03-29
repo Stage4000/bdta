@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn = $db->getConnection();
         
         // Check if email exists in clients table
-        $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE email = ? AND is_admin = 1");
+        $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE email = ? AND is_admin = 1 AND COALESCE(is_archived, 0) = 0");
         $stmt->execute([$email]);
         $client = $stmt->fetch(PDO::FETCH_ASSOC);
         

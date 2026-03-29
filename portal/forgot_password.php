@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db   = new Database();
         $conn = $db->getConnection();
 
-        $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE email = ? AND (is_admin = 0 OR is_admin IS NULL)");
+        $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE email = ? AND (is_admin = 0 OR is_admin IS NULL) AND COALESCE(is_archived, 0) = 0");
         $stmt->execute([$email]);
         $client = $stmt->fetch(PDO::FETCH_ASSOC);
 

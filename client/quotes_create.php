@@ -13,7 +13,7 @@ $quote_id = safe_int($_GET['id'] ?? 0);
 $is_edit = $quote_id > 0;
 
 // Get clients
-$clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
+$clients_stmt = $conn->query("SELECT id, name FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Load active packages for the package selector
@@ -91,7 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (count($line_items) == 0) {
-        setFlashMessage("Please add at least one line item with a description and a price greater than zero", 'error');
+        setFlashMessage("Please add at least one line item with a description and a price greater than zero.", 'error');
+    } elseif (bdta_fetch_active_client($conn, $client_id) === []) {
+        setFlashMessage("Selected client was not found", 'danger');
     } else {
         $saved_quote_id = null;
 

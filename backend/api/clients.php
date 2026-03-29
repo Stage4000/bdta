@@ -37,6 +37,7 @@ try {
     $stmt = $conn->prepare("
         SELECT id, name, email
         FROM clients
+        WHERE COALESCE(is_archived, 0) = 0
         ORDER BY name ASC
     ");
     $stmt->execute();

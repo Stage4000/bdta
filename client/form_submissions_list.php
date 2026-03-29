@@ -85,7 +85,7 @@ if (!empty($params)) {
 $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get clients for filter
-$clients_stmt = $conn->query("SELECT id, name FROM clients ORDER BY name");
+$clients_stmt = $conn->query("SELECT id, name FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get templates for filter

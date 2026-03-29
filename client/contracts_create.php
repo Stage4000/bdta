@@ -26,7 +26,7 @@ if ($contract_id > 0) {
     }
 }
 
-$clients_stmt = $conn->query("SELECT id, name, email FROM clients ORDER BY name");
+$clients_stmt = $conn->query("SELECT id, name, email FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $templates_stmt = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name");
@@ -50,36 +50,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($client_id && $title && $contract_text) {
         // Get client info for variable substitution
-        $client_stmt = $conn->prepare("SELECT name, email FROM clients WHERE id = ?");
-        $client_stmt->execute([$client_id]);
-        $client = $client_stmt->fetch(PDO::FETCH_ASSOC);
-        
-        // Replace variables
-        $contract_text = str_replace('{{client_name}}', array_string_value($client ?: [], 'name'), $contract_text);
-        $contract_text = str_replace('{{client_email}}', array_string_value($client ?: [], 'email'), $contract_text);
-        $contract_text = str_replace('{{date}}', date('F j, Y'), $contract_text);
-        
-        if ($contract_id > 0) {
-            // Update existing contract
-            $stmt = $conn->prepare("
-                UPDATE contracts 
-                SET client_id = ?, title = ?, description = ?, contract_text = ?, effective_date = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ");
-            $stmt->execute([$client_id, $title, $description, $contract_text, $effective_date, $contract_id]);
-            setFlashMessage('Contract updated successfully!', 'success');
-            redirect('contracts_view.php?id=' . $contract_id);
+        $client = bdta_fetch_active_client($conn, $client_id);
+
+        if ($client === []) {
+            setFlashMessage('Selected client was not found.', 'danger');
         } else {
-            // Create new contract
-            $contract_number = 'CON-' . date('Ymd') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT);
-            
-            $stmt = $conn->prepare("
-                INSERT INTO contracts (contract_number, client_id, title, description, contract_text, created_date, effective_date, status) 
-                VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?, 'draft')
-            ");
-            $stmt->execute([$contract_number, $client_id, $title, $description, $contract_text, $effective_date]);
-            setFlashMessage('Contract created successfully!', 'success');
-            redirect('contracts_list.php');
+            // Replace variables
+            $contract_text = str_replace('{{client_name}}', array_string_value($client, 'name'), $contract_text);
+            $contract_text = str_replace('{{client_email}}', array_string_value($client, 'email'), $contract_text);
+            $contract_text = str_replace('{{date}}', date('F j, Y'), $contract_text);
+        
+            if ($contract_id > 0) {
+                // Update existing contract
+                $stmt = $conn->prepare("
+                    UPDATE contracts 
+                    SET client_id = ?, title = ?, description = ?, contract_text = ?, effective_date = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ");
+                $stmt->execute([$client_id, $title, $description, $contract_text, $effective_date, $contract_id]);
+                setFlashMessage('Contract updated successfully!', 'success');
+                redirect('contracts_view.php?id=' . $contract_id);
+            } else {
+                // Create new contract
+                $contract_number = 'CON-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+                
+                $stmt = $conn->prepare("
+                    INSERT INTO contracts (contract_number, client_id, title, description, contract_text, created_date, effective_date, status) 
+                    VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?, 'draft')
+                ");
+                $stmt->execute([$contract_number, $client_id, $title, $description, $contract_text, $effective_date]);
+                setFlashMessage('Contract created successfully!', 'success');
+                redirect('contracts_list.php');
+            }
         }
     }
 }

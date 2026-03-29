@@ -196,6 +196,21 @@ function decode_json_assoc_list(mixed $json): array {
     return $rows;
 }
 
+/**
+ * @return array<string, mixed>
+ */
+function bdta_fetch_active_client(PDO $conn, int|string $client_id): array {
+    $client_id = (int)$client_id;
+    if ($client_id <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ? AND COALESCE(is_archived, 0) = 0");
+    $stmt->execute([$client_id]);
+
+    return assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+}
+
 function bdta_get_display_timezone(): DateTimeZone {
     static $timezone = null;
     if ($timezone instanceof DateTimeZone) {
@@ -350,6 +365,27 @@ function isPortalLoggedIn(): bool {
 
 function requirePortalLogin(): void {
     if (!isPortalLoggedIn()) {
+        redirect(PORTAL_URL . 'login.php');
+    }
+
+    $client_id = portalClientId();
+    if ($client_id <= 0) {
+        redirect(PORTAL_URL . 'login.php');
+    }
+
+    $db = new Database();
+    $conn = $db->getConnection();
+    $stmt = $conn->prepare("SELECT id FROM clients WHERE id = ? AND COALESCE(is_archived, 0) = 0");
+    $stmt->execute([$client_id]);
+
+    if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
+        unset(
+            $_SESSION['portal_client_id'],
+            $_SESSION['portal_client_name'],
+            $_SESSION['portal_client_email'],
+            $_SESSION['portal_impersonating_admin_id']
+        );
+        setFlashMessage('Your portal account is currently inactive. Please contact support for assistance.', 'warning');
         redirect(PORTAL_URL . 'login.php');
     }
 }
