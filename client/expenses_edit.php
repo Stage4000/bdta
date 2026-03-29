@@ -52,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($category) || empty($description) || $amount <= 0 || empty($expense_date)) {
         setFlashMessage('All required fields must be filled!', 'danger');
+    } elseif ($client_id !== null && bdta_fetch_active_client($conn, $client_id) === []) {
+        setFlashMessage('Selected client was not found.', 'danger');
     } else {
         if ($id > 0) {
             // If new file uploaded, delete old one

@@ -196,6 +196,21 @@ function decode_json_assoc_list(mixed $json): array {
     return $rows;
 }
 
+/**
+ * @return array<string, mixed>
+ */
+function bdta_fetch_active_client(PDO $conn, int|string $client_id): array {
+    $client_id = (int)$client_id;
+    if ($client_id <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ? AND COALESCE(is_archived, 0) = 0");
+    $stmt->execute([$client_id]);
+
+    return assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+}
+
 function bdta_get_display_timezone(): DateTimeZone {
     static $timezone = null;
     if ($timezone instanceof DateTimeZone) {

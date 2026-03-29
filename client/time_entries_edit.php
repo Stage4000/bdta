@@ -37,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($client_id) || empty($service_type) || empty($date) || empty($start_time) || empty($end_time)) {
         setFlashMessage('All required fields must be filled!', 'danger');
+    } elseif (bdta_fetch_active_client($conn, $client_id) === []) {
+        setFlashMessage('Selected client was not found!', 'danger');
     } else {
         // Calculate duration
         $start = new DateTime($date . ' ' . $start_time);

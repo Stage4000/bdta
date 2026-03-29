@@ -123,6 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
     if (empty($client_id)) $errors[] = "Client is required.";
     if (empty($name)) $errors[] = "Pet name is required.";
+    if ($client_id > 0 && bdta_fetch_active_client($conn, $client_id) === []) $errors[] = "Selected client was not found.";
     
     if (empty($errors)) {
         try {

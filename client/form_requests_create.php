@@ -69,9 +69,7 @@ if ($appointment_type_id > 0) {
 }
 
 if ($client_id > 0) {
-    $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE id = ?");
-    $stmt->execute([$client_id]);
-    $client = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+    $client = bdta_fetch_active_client($conn, $client_id);
     if ($client === []) {
         $errors[] = 'Client not found.';
     }
@@ -128,9 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email_subject = trim(scalar_string($_POST['email_subject'] ?? ''));
 
         if ($form_type === 'booking_form' && $client === [] && $client_id > 0) {
-            $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE id = ?");
-            $stmt->execute([$client_id]);
-            $client = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+            $client = bdta_fetch_active_client($conn, $client_id);
         }
 
         if ($form_type !== 'booking_form' && $template_id <= 0) {

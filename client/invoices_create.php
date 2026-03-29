@@ -15,6 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($requested_time_entry_ids)) {
         redirect('invoices_create.php');
     }
 
+    if (bdta_fetch_active_client($conn, $preset_client_id) === []) {
+        setFlashMessage('Please choose an active client before converting time entries into an invoice.', 'danger');
+        redirect('invoices_create.php');
+    }
+
     $requested_time_entries = bdta_get_invoiceable_time_entries($conn, $requested_time_entry_ids, $preset_client_id);
 }
 $issue_date_value = scalar_string($_POST['issue_date'] ?? date('Y-m-d'));
@@ -153,6 +158,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setFlashMessage('The same time entry cannot be added more than once. Please remove duplicate rows and try again.', 'danger');
         } elseif ($invalid_time_entry_ids !== []) {
             setFlashMessage('One or more selected time entries are no longer invoiceable. Please refresh and try again.', 'danger');
+        } elseif (bdta_fetch_active_client($conn, $client_id) === []) {
+            setFlashMessage('Please select an active client before creating an invoice.', 'danger');
         } elseif ($client_id && !empty($items)) {
             $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
             $invoice_id = null;

@@ -277,7 +277,7 @@ class Database {
                 UPDATE contracts
                 SET status = 'expired',
                     updated_at = CURRENT_TIMESTAMP
-                WHERE client_id = ? AND status IN ('draft', 'sent', 'signed')
+                WHERE client_id = ? AND status IN ('draft', 'sent')
             ")->execute([$client_id]);
 
             $this->conn->prepare("

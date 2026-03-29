@@ -173,7 +173,7 @@ try {
     expectTrue(fetchStatus($conn, 'form_submissions', $submitted_form_id) === 'submitted', 'Submitted form should remain submitted');
     expectTrue(fetchStatus($conn, 'workflow_enrollments', $active_enrollment_id) === 'cancelled', 'Active workflow enrollment should be cancelled on archive');
     expectTrue(fetchStatus($conn, 'workflow_enrollments', $completed_enrollment_id) === 'completed', 'Completed workflow enrollment should remain completed');
-    expectTrue(fetchStatus($conn, 'workflow_step_executions', $pending_step_execution_id) === 'cancelled', 'Pending workflow step should be cancelled on archive');
+    expectTrue(fetchStatus($conn, 'workflow_step_executions', $pending_step_execution_id) === 'failed', 'Pending workflow step should be marked failed on archive');
     expectTrue(fetchStatus($conn, 'workflow_step_executions', $completed_step_execution_id) === 'completed', 'Completed workflow step should remain completed');
     expectTrue(fetchStatus($conn, 'bookings', $pending_booking_id) === 'cancelled', 'Pending booking should be cancelled on archive');
     expectTrue(fetchStatus($conn, 'bookings', $completed_booking_id) === 'completed', 'Completed booking should remain completed');

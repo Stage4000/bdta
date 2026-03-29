@@ -10,7 +10,7 @@ $view = scalar_string($_GET['view'] ?? 'active') === 'archived' ? 'archived' : '
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
         setFlashMessage('Invalid request.', 'danger');
-        redirect('clients_list.php');
+        redirect($view === 'archived' ? 'clients_list.php?view=archived' : 'clients_list.php');
     }
 
     $return_view = scalar_string($_POST['return_view'] ?? $view) === 'archived' ? 'archived' : 'active';
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = safe_int($_POST['archive_id']);
         $archived = $db->archiveClient($id);
         setFlashMessage($archived ? 'Client archived successfully!' : 'Client could not be archived.', $archived ? 'success' : 'warning');
-        redirect('clients_list.php?view=archived');
+        redirect($return_view === 'archived' ? 'clients_list.php?view=archived' : 'clients_list.php');
     }
 
     if (isset($_POST['unarchive_id'])) {
