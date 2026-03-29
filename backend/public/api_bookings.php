@@ -79,6 +79,15 @@ function api_booking_string_list(mixed $value): array {
  * @return array<string, mixed>
  */
 function api_booking_create_booking(SafePDO $conn, array $data): array {
+    if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+        $mapped_form_values = api_booking_extract_profile_mapped_form_values($conn, $data['form_responses']);
+        foreach ($mapped_form_values as $key => $value) {
+            if (array_string_value($data, $key) === '') {
+                $data[$key] = $value;
+            }
+        }
+    }
+
     $required_fields = ['client_name', 'client_email', 'service_type', 'appointment_date', 'appointment_time'];
     foreach ($required_fields as $field) {
         if (!isset($data[$field]) || empty($data[$field])) {
@@ -513,6 +522,82 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         }
         return ['error' => $e->getMessage()];
     }
+}
+
+/**
+ * @param array<int|string, mixed> $form_responses
+ * @return array<string, string>
+ */
+function api_booking_extract_profile_mapped_form_values(SafePDO $conn, array $form_responses): array {
+    $mapped_values = [];
+    $template_ids = [];
+
+    foreach ($form_responses as $tpl_id => $responses) {
+        if (is_array($responses)) {
+            $template_ids[] = (int) $tpl_id;
+        }
+    }
+
+    $template_ids = array_unique(array_filter($template_ids, static fn (int $id): bool => $id > 0));
+    if ($template_ids === []) {
+        return $mapped_values;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($template_ids), '?'));
+    $tpl_stmt = $conn->prepare("SELECT id, fields FROM form_templates WHERE id IN ($placeholders)");
+    $tpl_stmt->execute($template_ids);
+    $template_fields_by_id = [];
+    foreach ($tpl_stmt->fetchAll(PDO::FETCH_ASSOC) as $tpl_row) {
+        $tpl_row = api_booking_db_row($tpl_row);
+        $template_fields_by_id[array_int_value($tpl_row, 'id')] = api_booking_assoc_rows(array_string_value($tpl_row, 'fields'));
+    }
+
+    foreach ($form_responses as $tpl_id => $responses) {
+        if (!is_array($responses)) {
+            continue;
+        }
+
+        $tpl_fields = $template_fields_by_id[(int) $tpl_id] ?? [];
+        if ($tpl_fields === []) {
+            continue;
+        }
+
+        foreach ($tpl_fields as $fi => $field) {
+            $mapping = array_string_value($field, 'profile_mapping');
+            if ($mapping === '') {
+                continue;
+            }
+
+            $value = $responses[$fi] ?? null;
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_array($value)) {
+                $value = implode(', ', string_list($value));
+            }
+            $value = trim(scalar_string($value));
+            if ($value === '') {
+                continue;
+            }
+
+            if ($mapping === 'client.name' && !isset($mapped_values['client_name'])) {
+                $mapped_values['client_name'] = $value;
+            } elseif ($mapping === 'client.email' && !isset($mapped_values['client_email'])) {
+                $mapped_values['client_email'] = $value;
+            } elseif ($mapping === 'client.phone' && !isset($mapped_values['client_phone'])) {
+                $mapped_values['client_phone'] = $value;
+            } elseif ($mapping === 'client.address' && !isset($mapped_values['client_address'])) {
+                $mapped_values['client_address'] = $value;
+            } elseif ($mapping === 'pet_1.name' && !isset($mapped_values['dog_names'])) {
+                $mapped_values['dog_names'] = $value;
+            } elseif ($mapping === 'booking.notes' && !isset($mapped_values['notes'])) {
+                $mapped_values['notes'] = $value;
+            }
+        }
+    }
+
+    return $mapped_values;
 }
 
 if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits') {
