@@ -157,19 +157,48 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             }
             if ($location_type === 'client_address') {
                 $form_provided_address = trim(array_string_value($data, 'client_address'));
-                if (!empty($form_provided_address)) {
-                    $location = $form_provided_address;
-                } elseif ($client_id > 0) {
+                // Interpret overwrite_profile flag from the request; defaults to false when not provided.
+                $overwrite_profile = filter_var($data['overwrite_profile'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+                // Resolve stored client address, if this is an existing client.
+                $resolved_address = '';
+                if ($client_id > 0) {
                     $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
                     $stmt->execute([$client_id]);
                     $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
                     $resolved_address = trim(array_string_value($client_row, 'address'));
-                    if (empty($resolved_address)) {
+                }
+
+                if ($client_id === 0) {
+                    // New client: require an address in the form and use it for this booking.
+                    if (!empty($form_provided_address)) {
+                        $location = $form_provided_address;
+                    } else {
+                        return ['error' => 'An address is required for this booking. Please provide your address in the booking form.'];
+                    }
+                } else {
+                    // Existing client.
+                    if ($resolved_address === '' && $form_provided_address === '') {
+                        // No stored address and none provided in the form.
                         return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
                     }
-                    $location = $resolved_address;
-                } else {
-                    return ['error' => 'An address is required for this booking. Please provide your address in the booking form.'];
+
+                    if ($resolved_address === '' && $form_provided_address !== '') {
+                        // Existing client without a stored address: use the form-provided one.
+                        $location = $form_provided_address;
+                    } elseif ($resolved_address !== '') {
+                        if ($overwrite_profile) {
+                            // Client agreed to overwrite profile: allow using the new form address if provided,
+                            // otherwise fall back to the stored address.
+                            $location = $form_provided_address !== '' ? $form_provided_address : $resolved_address;
+                        } else {
+                            // Client did not agree to overwrite profile: always use stored address for the booking.
+                            $location = $resolved_address;
+                        }
+                    } else {
+                        // Fallback: no usable address.
+                        return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                    }
                 }
             } else {
                 $location = $location_value;
