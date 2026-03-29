@@ -238,6 +238,7 @@ include '../portal/includes/header.php';
     [data-bs-theme="dark"] .step-label { color: #9ca3af; }
     [data-bs-theme="dark"] .time-slot { background: #111827; border-color: #374151; color: #e5e7eb; }
     [data-bs-theme="dark"] .time-slot:hover { background: rgba(154, 0, 115, 0.18); }
+    [data-bs-theme="dark"] .time-slot.selected { background: rgba(154, 0, 115, 0.35); border-color: #9a0073; color: #f5d0fe; }
     [data-bs-theme="dark"] .pet-option { border-color: #374151; background: #111827; color: #e5e7eb; }
     [data-bs-theme="dark"] .pet-option.selected { background: rgba(154, 0, 115, 0.18); }
     [data-bs-theme="dark"] .sig-preview { color: #e5e7eb; border-bottom-color: #9ca3af; }
