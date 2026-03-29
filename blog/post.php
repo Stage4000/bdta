@@ -53,7 +53,7 @@ require_once 'includes/header.php';
                         <hr class="my-4">
                         
                         <div class="blog-content">
-                            <?php echo nl2br(escape($post_content)); ?>
+                            <?php echo $post_content; ?>
                         </div>
                     </article>
                 </div>
