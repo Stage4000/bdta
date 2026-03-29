@@ -147,18 +147,21 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 return ['error' => $location_type === 'webcall' ? 'Webcall URL is required.' : 'Custom address is required.'];
             }
             if ($location_type === 'client_address') {
-                if ($client_id <= 0) {
-                    return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                $form_provided_address = trim(array_string_value($data, 'client_address'));
+                if (!empty($form_provided_address)) {
+                    $location = $form_provided_address;
+                } elseif ($client_id > 0) {
+                    $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
+                    $stmt->execute([$client_id]);
+                    $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+                    $resolved_address = trim(array_string_value($client_row, 'address'));
+                    if (empty($resolved_address)) {
+                        return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                    }
+                    $location = $resolved_address;
+                } else {
+                    return ['error' => 'An address is required for this booking. Please provide your address in the booking form.'];
                 }
-
-                $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
-                $stmt->execute([$client_id]);
-                $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
-                $resolved_address = trim(array_string_value($client_row, 'address'));
-                if (empty($resolved_address)) {
-                    return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
-                }
-                $location = $resolved_address;
             } else {
                 $location = $location_value;
             }
@@ -198,14 +201,16 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $conn->beginTransaction();
 
         if ($client_id === 0) {
+            $client_address = trim(array_string_value($data, 'client_address'));
             $stmt = $conn->prepare("
-                INSERT INTO clients (name, email, phone, notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT INTO clients (name, email, phone, address, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ");
             $stmt->execute([
                 $client_name,
                 $client_email,
                 $client_phone,
+                !empty($client_address) ? $client_address : null,
                 'Created from booking form'
             ]);
             $client_id = safe_int($conn->lastInsertId());
@@ -1291,11 +1296,12 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                     exit;
                 }
                 $mapping = array_string_value($field, 'profile_mapping');
-                if ($mapping === 'client.name'  && $val !== '') $data['client_name']  = $val;
-                if ($mapping === 'client.email' && $val !== '') $data['client_email'] = $val;
-                if ($mapping === 'client.phone' && $val !== '') $data['client_phone'] = $val;
-                if ($mapping === 'pet_1.name'   && $val !== '') $data['dog_names']    = $val;
-                if ($mapping === 'booking.notes' && $val !== '') $data['notes']        = $val;
+                if ($mapping === 'client.name'    && $val !== '') $data['client_name']    = $val;
+                if ($mapping === 'client.email'   && $val !== '') $data['client_email']   = $val;
+                if ($mapping === 'client.phone'   && $val !== '') $data['client_phone']   = $val;
+                if ($mapping === 'client.address' && $val !== '') $data['client_address'] = $val;
+                if ($mapping === 'pet_1.name'     && $val !== '') $data['dog_names']      = $val;
+                if ($mapping === 'booking.notes'  && $val !== '') $data['notes']          = $val;
             }
         }
     }
