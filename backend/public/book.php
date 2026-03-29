@@ -1398,6 +1398,19 @@ if (isset($error_mode) && $error_mode) {
             return result;
         }
 
+        function mergeProfileMappedValues(primaryValues = null, fallbackValues = null) {
+            const primary = primaryValues || {};
+            const fallback = fallbackValues || {};
+            return {
+                client_name: primary.client_name || fallback.client_name || '',
+                client_email: primary.client_email || fallback.client_email || '',
+                client_phone: primary.client_phone || fallback.client_phone || '',
+                client_address: primary.client_address || fallback.client_address || '',
+                dog_names: primary.dog_names || fallback.dog_names || '',
+                notes: primary.notes || fallback.notes || '',
+            };
+        }
+
         // Loaded on confirm step from profile lookup API
         let currentClientProfile = {};
         let currentPetProfiles   = []; // ordered by dog_names
@@ -1830,13 +1843,14 @@ if (isset($error_mode) && $error_mode) {
 
             const formResponses = collectFormResponses();
             const mappedFormValues = getMappedFormValues(formResponses);
+            const intakeMappedValues = bookingIntakeFields ? getBookingIntakeValues() : null;
+            const combinedMappedValues = mergeProfileMappedValues(intakeMappedValues, mappedFormValues);
             let email = '', dogNames = '';
             if (bookingIntakeFields) {
-                const iv = getBookingIntakeValues();
-                const confirmName = iv.client_name || mappedFormValues.client_name;
-                const confirmEmail = iv.client_email || mappedFormValues.client_email;
-                const confirmPhone = iv.client_phone || mappedFormValues.client_phone;
-                const confirmDogs = iv.dog_names || mappedFormValues.dog_names;
+                const confirmName = combinedMappedValues.client_name;
+                const confirmEmail = combinedMappedValues.client_email;
+                const confirmPhone = combinedMappedValues.client_phone;
+                const confirmDogs = combinedMappedValues.dog_names;
                 document.getElementById('confirmName').textContent  = confirmName || 'Not provided';
                 document.getElementById('confirmEmail').textContent = confirmEmail || 'Not provided';
                 document.getElementById('confirmPhone').textContent = confirmPhone || 'Not provided';
@@ -1855,7 +1869,7 @@ if (isset($error_mode) && $error_mode) {
                 email    = String(confirmEmail || '').trim();
                 dogNames = String(confirmDogs || '').trim();
             }
-            document.getElementById('confirmLocation').textContent = getLocationSummary(mappedFormValues) || 'Not specified';
+            document.getElementById('confirmLocation').textContent = getLocationSummary(combinedMappedValues) || 'Not specified';
 
             const creditToggleArea    = document.getElementById('creditToggleArea');
             const creditRemainingNote = document.getElementById('creditRemainingNote');
@@ -2186,12 +2200,13 @@ if (isset($error_mode) && $error_mode) {
             let booking_intake_field_values = null;
             if (bookingIntakeFields) {
                 const iv = getBookingIntakeValues();
-                client_name    = iv.client_name || mappedFormValues.client_name;
-                client_email   = iv.client_email || mappedFormValues.client_email;
-                client_phone   = iv.client_phone || mappedFormValues.client_phone;
-                client_address = iv.client_address || mappedFormValues.client_address;
-                dog_names      = iv.dog_names || mappedFormValues.dog_names;
-                notes          = iv.notes || mappedFormValues.notes;
+                const combinedMappedValues = mergeProfileMappedValues(iv, mappedFormValues);
+                client_name    = combinedMappedValues.client_name;
+                client_email   = combinedMappedValues.client_email;
+                client_phone   = combinedMappedValues.client_phone;
+                client_address = combinedMappedValues.client_address;
+                dog_names      = combinedMappedValues.dog_names;
+                notes          = combinedMappedValues.notes;
                 booking_intake_field_values = iv.intake_field_values;
             } else {
                 client_name    = document.getElementById('clientName').value || mappedFormValues.client_name;
