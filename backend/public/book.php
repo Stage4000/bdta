@@ -551,6 +551,11 @@ if (isset($error_mode) && $error_mode) {
         [data-bs-theme="dark"] .time-slot:hover {
             background: rgba(154, 0, 115, 0.18);
         }
+        [data-bs-theme="dark"] .time-slot.selected {
+            background: rgba(154, 0, 115, 0.35);
+            border-color: #9a0073;
+            color: #f5d0fe;
+        }
         [data-bs-theme="dark"] .time-slot.unavailable {
             background: #1f2937;
             color: #6b7280;
