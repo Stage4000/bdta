@@ -178,26 +178,21 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                     }
                 } else {
                     // Existing client.
-                    if ($resolved_address === '' && $form_provided_address === '') {
-                        // No stored address and none provided in the form.
-                        return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
-                    }
+                    if ($resolved_address === '') {
+                        if ($form_provided_address === '') {
+                            // No stored address and none provided in the form.
+                            return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                        }
 
-                    if ($resolved_address === '' && $form_provided_address !== '') {
                         // Existing client without a stored address: use the form-provided one.
                         $location = $form_provided_address;
-                    } elseif ($resolved_address !== '') {
-                        if ($overwrite_profile) {
-                            // Client agreed to overwrite profile: allow using the new form address if provided,
-                            // otherwise fall back to the stored address.
-                            $location = $form_provided_address !== '' ? $form_provided_address : $resolved_address;
-                        } else {
-                            // Client did not agree to overwrite profile: always use stored address for the booking.
-                            $location = $resolved_address;
-                        }
+                    } elseif ($overwrite_profile && $form_provided_address !== '') {
+                        // Client agreed to overwrite profile: use the new form address.
+                        $location = $form_provided_address;
                     } else {
-                        // Fallback: no usable address.
-                        return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                        // Existing client with a stored address: keep using it when no replacement address was provided
+                        // or the client declined overwriting their saved profile address.
+                        $location = $resolved_address;
                     }
                 }
             } else {
