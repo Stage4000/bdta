@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($requested_time_entry_ids)) {
     }
 
     if (bdta_fetch_active_client($conn, $preset_client_id) === []) {
-        setFlashMessage('Please choose an active client before converting time entries into an invoice.', 'danger');
+        setFlashMessage('Please select an active client before converting time entries into an invoice.', 'danger');
         redirect('invoices_create.php');
     }
 

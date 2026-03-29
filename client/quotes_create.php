@@ -91,9 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (count($line_items) == 0) {
-        setFlashMessage("Please add at least one line item with a description and a price greater than zero", 'error');
+        setFlashMessage("Please add at least one line item with a description and a price greater than zero.", 'error');
     } elseif (bdta_fetch_active_client($conn, $client_id) === []) {
-        setFlashMessage("Selected client was not found.", 'error');
+        setFlashMessage("Selected client was not found", 'danger');
     } else {
         $saved_quote_id = null;
 
