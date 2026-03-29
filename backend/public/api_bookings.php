@@ -79,6 +79,15 @@ function api_booking_string_list(mixed $value): array {
  * @return array<string, mixed>
  */
 function api_booking_create_booking(SafePDO $conn, array $data): array {
+    if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+        $mapped_form_values = api_booking_extract_profile_mapped_form_values($conn, $data['form_responses']);
+        foreach ($mapped_form_values as $key => $value) {
+            if (array_string_value($data, $key) === '') {
+                $data[$key] = $value;
+            }
+        }
+    }
+
     $required_fields = ['client_name', 'client_email', 'service_type', 'appointment_date', 'appointment_time'];
     foreach ($required_fields as $field) {
         if (!isset($data[$field]) || empty($data[$field])) {
@@ -147,18 +156,45 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 return ['error' => $location_type === 'webcall' ? 'Webcall URL is required.' : 'Custom address is required.'];
             }
             if ($location_type === 'client_address') {
-                if ($client_id <= 0) {
-                    return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                $form_provided_address = trim(array_string_value($data, 'client_address'));
+                // Interpret overwrite_profile flag from the request; defaults to false when not provided.
+                $overwrite_profile = filter_var($data['overwrite_profile'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+                // Resolve stored client address, if this is an existing client.
+                $resolved_address = '';
+                if ($client_id > 0) {
+                    $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
+                    $stmt->execute([$client_id]);
+                    $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+                    $resolved_address = trim(array_string_value($client_row, 'address'));
                 }
 
-                $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
-                $stmt->execute([$client_id]);
-                $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
-                $resolved_address = trim(array_string_value($client_row, 'address'));
-                if (empty($resolved_address)) {
-                    return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                if ($client_id === 0) {
+                    // New client: require an address in the form and use it for this booking.
+                    if (!empty($form_provided_address)) {
+                        $location = $form_provided_address;
+                    } else {
+                        return ['error' => 'An address is required for this booking. Please provide your address in the booking form.'];
+                    }
+                } else {
+                    // Existing client.
+                    if ($resolved_address === '') {
+                        if ($form_provided_address === '') {
+                            // No stored address and none provided in the form.
+                            return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
+                        }
+
+                        // Existing client without a stored address: use the form-provided one.
+                        $location = $form_provided_address;
+                    } elseif ($overwrite_profile && $form_provided_address !== '') {
+                        // Client agreed to overwrite profile: use the new form address.
+                        $location = $form_provided_address;
+                    } else {
+                        // Existing client with a stored address: keep using it when no replacement address was provided
+                        // or the client declined overwriting their saved profile address.
+                        $location = $resolved_address;
+                    }
                 }
-                $location = $resolved_address;
             } else {
                 $location = $location_value;
             }
@@ -198,14 +234,16 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $conn->beginTransaction();
 
         if ($client_id === 0) {
+            $client_address = trim(array_string_value($data, 'client_address'));
             $stmt = $conn->prepare("
-                INSERT INTO clients (name, email, phone, notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT INTO clients (name, email, phone, address, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ");
             $stmt->execute([
                 $client_name,
                 $client_email,
                 $client_phone,
+                !empty($client_address) ? $client_address : null,
                 'Created from booking form'
             ]);
             $client_id = safe_int($conn->lastInsertId());
@@ -508,6 +546,82 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         }
         return ['error' => $e->getMessage()];
     }
+}
+
+/**
+ * @param array<int|string, mixed> $form_responses
+ * @return array<string, string>
+ */
+function api_booking_extract_profile_mapped_form_values(SafePDO $conn, array $form_responses): array {
+    $mapped_values = [];
+    $template_ids = [];
+
+    foreach ($form_responses as $tpl_id => $responses) {
+        if (is_array($responses)) {
+            $template_ids[] = (int) $tpl_id;
+        }
+    }
+
+    $template_ids = array_unique(array_filter($template_ids, static fn (int $id): bool => $id > 0));
+    if ($template_ids === []) {
+        return $mapped_values;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($template_ids), '?'));
+    $tpl_stmt = $conn->prepare("SELECT id, fields FROM form_templates WHERE id IN ($placeholders)");
+    $tpl_stmt->execute($template_ids);
+    $template_fields_by_id = [];
+    foreach ($tpl_stmt->fetchAll(PDO::FETCH_ASSOC) as $tpl_row) {
+        $tpl_row = api_booking_db_row($tpl_row);
+        $template_fields_by_id[array_int_value($tpl_row, 'id')] = api_booking_assoc_rows(array_string_value($tpl_row, 'fields'));
+    }
+
+    foreach ($form_responses as $tpl_id => $responses) {
+        if (!is_array($responses)) {
+            continue;
+        }
+
+        $tpl_fields = $template_fields_by_id[(int) $tpl_id] ?? [];
+        if ($tpl_fields === []) {
+            continue;
+        }
+
+        foreach ($tpl_fields as $fi => $field) {
+            $mapping = array_string_value($field, 'profile_mapping');
+            if ($mapping === '') {
+                continue;
+            }
+
+            $value = $responses[$fi] ?? null;
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_array($value)) {
+                $value = implode(', ', string_list($value));
+            }
+            $value = trim(scalar_string($value));
+            if ($value === '') {
+                continue;
+            }
+
+            if ($mapping === 'client.name' && !isset($mapped_values['client_name'])) {
+                $mapped_values['client_name'] = $value;
+            } elseif ($mapping === 'client.email' && !isset($mapped_values['client_email'])) {
+                $mapped_values['client_email'] = $value;
+            } elseif ($mapping === 'client.phone' && !isset($mapped_values['client_phone'])) {
+                $mapped_values['client_phone'] = $value;
+            } elseif ($mapping === 'client.address' && !isset($mapped_values['client_address'])) {
+                $mapped_values['client_address'] = $value;
+            } elseif ($mapping === 'pet_1.name' && !isset($mapped_values['dog_names'])) {
+                $mapped_values['dog_names'] = $value;
+            } elseif ($mapping === 'booking.notes' && !isset($mapped_values['notes'])) {
+                $mapped_values['notes'] = $value;
+            }
+        }
+    }
+
+    return $mapped_values;
 }
 
 if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits') {
@@ -1291,11 +1405,12 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                     exit;
                 }
                 $mapping = array_string_value($field, 'profile_mapping');
-                if ($mapping === 'client.name'  && $val !== '') $data['client_name']  = $val;
-                if ($mapping === 'client.email' && $val !== '') $data['client_email'] = $val;
-                if ($mapping === 'client.phone' && $val !== '') $data['client_phone'] = $val;
-                if ($mapping === 'pet_1.name'   && $val !== '') $data['dog_names']    = $val;
-                if ($mapping === 'booking.notes' && $val !== '') $data['notes']        = $val;
+                if ($mapping === 'client.name'    && $val !== '') $data['client_name']    = $val;
+                if ($mapping === 'client.email'   && $val !== '') $data['client_email']   = $val;
+                if ($mapping === 'client.phone'   && $val !== '') $data['client_phone']   = $val;
+                if ($mapping === 'client.address' && $val !== '') $data['client_address'] = $val;
+                if ($mapping === 'pet_1.name'     && $val !== '') $data['dog_names']      = $val;
+                if ($mapping === 'booking.notes'  && $val !== '') $data['notes']          = $val;
             }
         }
     }

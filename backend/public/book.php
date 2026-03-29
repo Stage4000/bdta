@@ -1321,6 +1321,17 @@ if (isset($error_mode) && $error_mode) {
             : 'null' ?>;
         const bookingIntakeFormId = <?= ($booking_intake_form) ? public_book_int($booking_intake_form, 'id') : 'null' ?>;
 
+        function normalizeMappedFormValue(value) {
+            if (Array.isArray(value)) {
+                return value
+                    .filter(item => item !== null && item !== undefined && item !== '')
+                    .map(item => String(item))
+                    .join(', ')
+                    .trim();
+            }
+            return String(value ?? '').trim();
+        }
+
         /**
          * Collect values from the dynamic booking intake form fields.
          * Returns an object with extracted profile values and a raw field index map.
@@ -1331,6 +1342,7 @@ if (isset($error_mode) && $error_mode) {
                 client_name: '',
                 client_email: '',
                 client_phone: '',
+                client_address: '',
                 dog_names: '',
                 notes: '',
                 intake_field_values: {}
@@ -1339,23 +1351,64 @@ if (isset($error_mode) && $error_mode) {
                 let val = '';
                 if (field.type === 'checkbox') {
                     const checked = document.querySelectorAll('[data-booking-intake-field="' + fi + '"]:checked');
-                    val = Array.from(checked).map(function(c) { return c.value; }).join(', ');
+                    val = normalizeMappedFormValue(Array.from(checked).map(function(c) { return c.value; }));
                 } else if (field.type === 'radio') {
                     const checked = document.querySelector('[data-booking-intake-field="' + fi + '"]:checked');
-                    val = checked ? checked.value : '';
+                    val = normalizeMappedFormValue(checked ? checked.value : '');
                 } else {
                     const el = document.querySelector('[data-booking-intake-field="' + fi + '"]');
-                    val = el ? el.value : '';
+                    val = normalizeMappedFormValue(el ? el.value : '');
                 }
                 result.intake_field_values[fi] = val;
                 const mapping = field.profile_mapping || '';
                 if (mapping === 'client.name')  result.client_name  = val;
                 if (mapping === 'client.email') result.client_email = val;
                 if (mapping === 'client.phone') result.client_phone = val;
+                if (mapping === 'client.address') result.client_address = val;
                 if (mapping === 'pet_1.name')   result.dog_names    = val;
                 if (mapping === 'booking.notes') result.notes       = val;
             });
             return result;
+        }
+
+        function getMappedFormValues(formResponses) {
+            const result = {
+                client_name: '',
+                client_email: '',
+                client_phone: '',
+                client_address: '',
+                dog_names: '',
+                notes: '',
+            };
+
+            for (const [formId, fieldMaps] of Object.entries(formFieldMappings)) {
+                const responses = formResponses[formId] || {};
+                for (const [fi, mapping] of Object.entries(fieldMaps)) {
+                    const val = normalizeMappedFormValue(responses[fi]);
+                    if (!val) continue;
+                    if (mapping === 'client.name' && !result.client_name) result.client_name = val;
+                    if (mapping === 'client.email' && !result.client_email) result.client_email = val;
+                    if (mapping === 'client.phone' && !result.client_phone) result.client_phone = val;
+                    if (mapping === 'client.address' && !result.client_address) result.client_address = val;
+                    if (mapping === 'pet_1.name' && !result.dog_names) result.dog_names = val;
+                    if (mapping === 'booking.notes' && !result.notes) result.notes = val;
+                }
+            }
+
+            return result;
+        }
+
+        function mergeProfileMappedValues(primaryValues = null, fallbackValues = null) {
+            const primary = primaryValues || {};
+            const fallback = fallbackValues || {};
+            return {
+                client_name: primary.client_name || fallback.client_name || '',
+                client_email: primary.client_email || fallback.client_email || '',
+                client_phone: primary.client_phone || fallback.client_phone || '',
+                client_address: primary.client_address || fallback.client_address || '',
+                dog_names: primary.dog_names || fallback.dog_names || '',
+                notes: primary.notes || fallback.notes || '',
+            };
         }
 
         // Loaded on confirm step from profile lookup API
@@ -1752,17 +1805,25 @@ if (isset($error_mode) && $error_mode) {
             return `${hour12}:${minutes} ${ampm}`;
         }
         
-        function getLocationSummary() {
+        function getLocationSummary(mappedFormValues = null) {
+            const resolvedMappedFormValues = mappedFormValues || getMappedFormValues(collectFormResponses());
             const locTypeEl = document.getElementById('publicLocationType');
             if (!locTypeEl) {
                 // Fixed type — find the hidden input
                 const hiddenType = document.querySelector('input[name="location_type"]');
                 const hiddenVal = document.querySelector('input[name="location_value"]');
-                return hiddenVal ? hiddenVal.value : 'Fixed location';
+                const hiddenTypeValue = hiddenType ? hiddenType.value : '';
+                if (hiddenTypeValue === 'client_address') {
+                    return resolvedMappedFormValues.client_address || 'My registered address';
+                }
+                if (hiddenTypeValue === 'custom_address' || hiddenTypeValue === 'webcall') {
+                    return hiddenVal && hiddenVal.value ? hiddenVal.value : 'Not specified';
+                }
+                return hiddenVal && hiddenVal.value ? hiddenVal.value : 'Fixed location';
             }
             const type = locTypeEl.value;
             const labels = {
-                'client_address': 'My registered address',
+                'client_address': resolvedMappedFormValues.client_address || 'My registered address',
                 'custom_address': document.getElementById('publicLocationValueInput')?.value || 'Custom address',
                 'phone_inbound': 'Phone call (I call the trainer)',
                 'phone_outbound': 'Phone call (trainer calls me)',
@@ -1780,24 +1841,35 @@ if (isset($error_mode) && $error_mode) {
             });
             document.getElementById('confirmTime').textContent = formatTime(selectedTime);
 
+            const formResponses = collectFormResponses();
+            const mappedFormValues = getMappedFormValues(formResponses);
+            const intakeMappedValues = bookingIntakeFields ? getBookingIntakeValues() : null;
+            const combinedMappedValues = mergeProfileMappedValues(intakeMappedValues, mappedFormValues);
             let email = '', dogNames = '';
             if (bookingIntakeFields) {
-                const iv = getBookingIntakeValues();
-                document.getElementById('confirmName').textContent  = iv.client_name  || 'Not provided';
-                document.getElementById('confirmEmail').textContent = iv.client_email || 'Not provided';
-                document.getElementById('confirmPhone').textContent = iv.client_phone || 'Not provided';
-                document.getElementById('confirmDogs').textContent  = iv.dog_names    || 'Not specified';
-                email    = iv.client_email.trim();
-                dogNames = iv.dog_names.trim();
+                const confirmName = combinedMappedValues.client_name;
+                const confirmEmail = combinedMappedValues.client_email;
+                const confirmPhone = combinedMappedValues.client_phone;
+                const confirmDogs = combinedMappedValues.dog_names;
+                document.getElementById('confirmName').textContent  = confirmName || 'Not provided';
+                document.getElementById('confirmEmail').textContent = confirmEmail || 'Not provided';
+                document.getElementById('confirmPhone').textContent = confirmPhone || 'Not provided';
+                document.getElementById('confirmDogs').textContent  = confirmDogs  || 'Not specified';
+                email    = String(confirmEmail || '').trim();
+                dogNames = String(confirmDogs || '').trim();
             } else {
-                document.getElementById('confirmName').textContent  = document.getElementById('clientName').value;
-                document.getElementById('confirmEmail').textContent = document.getElementById('clientEmail').value;
-                document.getElementById('confirmPhone').textContent = document.getElementById('clientPhone').value || 'Not provided';
-                document.getElementById('confirmDogs').textContent  = document.getElementById('dogNames').value || 'Not specified';
-                email    = document.getElementById('clientEmail').value.trim();
-                dogNames = document.getElementById('dogNames').value.trim();
+                const confirmName = document.getElementById('clientName').value || mappedFormValues.client_name;
+                const confirmEmail = document.getElementById('clientEmail').value || mappedFormValues.client_email;
+                const confirmPhone = document.getElementById('clientPhone').value || mappedFormValues.client_phone;
+                const confirmDogs = document.getElementById('dogNames').value || mappedFormValues.dog_names;
+                document.getElementById('confirmName').textContent  = confirmName || 'Not provided';
+                document.getElementById('confirmEmail').textContent = confirmEmail || 'Not provided';
+                document.getElementById('confirmPhone').textContent = confirmPhone || 'Not provided';
+                document.getElementById('confirmDogs').textContent  = confirmDogs  || 'Not specified';
+                email    = String(confirmEmail || '').trim();
+                dogNames = String(confirmDogs || '').trim();
             }
-            document.getElementById('confirmLocation').textContent = getLocationSummary() || 'Not specified';
+            document.getElementById('confirmLocation').textContent = getLocationSummary(combinedMappedValues) || 'Not specified';
 
             const creditToggleArea    = document.getElementById('creditToggleArea');
             const creditRemainingNote = document.getElementById('creditRemainingNote');
@@ -2121,24 +2193,28 @@ if (isset($error_mode) && $error_mode) {
             }
 
             const formResponses = collectFormResponses();
+            const mappedFormValues = getMappedFormValues(formResponses);
 
             // Gather client info — from dynamic intake form or hardcoded fields
-            let client_name, client_email, client_phone, dog_names, notes;
+            let client_name, client_email, client_phone, client_address, dog_names, notes;
             let booking_intake_field_values = null;
             if (bookingIntakeFields) {
                 const iv = getBookingIntakeValues();
-                client_name  = iv.client_name;
-                client_email = iv.client_email;
-                client_phone = iv.client_phone;
-                dog_names    = iv.dog_names;
-                notes        = iv.notes;
+                const combinedMappedValues = mergeProfileMappedValues(iv, mappedFormValues);
+                client_name    = combinedMappedValues.client_name;
+                client_email   = combinedMappedValues.client_email;
+                client_phone   = combinedMappedValues.client_phone;
+                client_address = combinedMappedValues.client_address;
+                dog_names      = combinedMappedValues.dog_names;
+                notes          = combinedMappedValues.notes;
                 booking_intake_field_values = iv.intake_field_values;
             } else {
-                client_name  = document.getElementById('clientName').value;
-                client_email = document.getElementById('clientEmail').value;
-                client_phone = document.getElementById('clientPhone').value;
-                dog_names    = document.getElementById('dogNames').value;
-                notes        = document.getElementById('notes').value;
+                client_name    = document.getElementById('clientName').value || mappedFormValues.client_name;
+                client_email   = document.getElementById('clientEmail').value || mappedFormValues.client_email;
+                client_phone   = document.getElementById('clientPhone').value || mappedFormValues.client_phone;
+                client_address = mappedFormValues.client_address;
+                dog_names      = document.getElementById('dogNames').value || mappedFormValues.dog_names;
+                notes          = document.getElementById('notes').value || mappedFormValues.notes;
             }
 
             const bookingData = {
@@ -2149,6 +2225,7 @@ if (isset($error_mode) && $error_mode) {
                 client_name: client_name,
                 client_email: client_email,
                 client_phone: client_phone,
+                client_address: client_address,
                 dog_names: dog_names,
                 notes: notes,
                 // Default to 60 minutes if appointment type duration is not available

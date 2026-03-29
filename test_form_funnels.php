@@ -24,6 +24,7 @@ echo "=== Form Funnel Tests ===\n\n";
 $cleanup = [
     'client_ids' => [],
     'booking_ids' => [],
+    'form_template_ids' => [],
 ];
 
 try {
@@ -139,7 +140,7 @@ try {
         'location_type' => 'client_address',
     ]);
 
-    if (($result['error'] ?? '') !== 'Your account does not have an address on file. Please update your profile or choose a different location type.') {
+    if (($result['error'] ?? '') !== 'An address is required for this booking. Please provide your address in the booking form.') {
         throw new RuntimeException('Missing-address bookings should return the expected validation error.');
     }
 
@@ -155,7 +156,81 @@ try {
         throw new RuntimeException('Failed booking attempts must not create a booking record.');
     }
 
-    echo "✓ Failed public bookings do not create phantom clients or bookings\n\n";
+    echo "✓ Failed public bookings do not create phantom clients or bookings\n";
+
+    $mapped_form_email = 'mapped-form-' . $suffix . '@example.com';
+    $conn->prepare("
+        INSERT INTO form_templates (name, form_type, fields, is_internal, is_active)
+        VALUES (?, 'client_form', ?, 0, 1)
+    ")->execute([
+        'Mapped Booking Fields ' . $suffix,
+        json_encode([
+            ['label' => 'Home Address', 'type' => 'text', 'required' => true, 'profile_mapping' => 'client.address'],
+            ['label' => 'Dog Name', 'type' => 'text', 'required' => true, 'profile_mapping' => 'pet_1.name'],
+        ], JSON_THROW_ON_ERROR),
+    ]);
+    $mapped_form_id = (int) $conn->lastInsertId();
+    $cleanup['form_template_ids'][] = $mapped_form_id;
+
+    $mapped_result = api_booking_create_booking($conn, [
+        'client_name' => 'Mapped Form ' . $suffix,
+        'client_email' => $mapped_form_email,
+        'client_phone' => '555-1111',
+        'service_type' => 'At Home Consultation',
+        'appointment_date' => date('Y-m-d', strtotime('+6 days')),
+        'appointment_time' => '14:00',
+        'location_type' => 'client_address',
+        'form_responses' => [
+            $mapped_form_id => [
+                0 => '123 Example Street',
+                1 => 'Pixel',
+            ],
+        ],
+    ]);
+
+    if (($mapped_result['success'] ?? false) !== true) {
+        throw new RuntimeException('Profile-mapped form values should allow public bookings to succeed.');
+    }
+
+    $mapped_booking_id = safe_int($mapped_result['booking_id'] ?? 0);
+    if ($mapped_booking_id <= 0) {
+        throw new RuntimeException('Successful mapped-form bookings should return a booking ID.');
+    }
+    $cleanup['booking_ids'][] = $mapped_booking_id;
+
+    $mapped_client_stmt = $conn->prepare("SELECT id, address FROM clients WHERE email = ?");
+    $mapped_client_stmt->execute([$mapped_form_email]);
+    $mapped_client = $mapped_client_stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($mapped_client) || (string) ($mapped_client['address'] ?? '') !== '123 Example Street') {
+        throw new RuntimeException('Mapped form address should be saved to the newly created client profile.');
+    }
+    $cleanup['client_ids'][] = (int) $mapped_client['id'];
+
+    $mapped_booking_stmt = $conn->prepare("SELECT location, location_type FROM bookings WHERE id = ?");
+    $mapped_booking_stmt->execute([$mapped_booking_id]);
+    $mapped_booking = $mapped_booking_stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($mapped_booking)
+        || (string) ($mapped_booking['location_type'] ?? '') !== 'client_address'
+        || (string) ($mapped_booking['location'] ?? '') !== '123 Example Street'
+    ) {
+        throw new RuntimeException('Mapped form address should be used as the booking location.');
+    }
+
+    $pet_stmt = $conn->prepare("
+        SELECT p.name
+        FROM pets p
+        JOIN appointment_pets ap ON ap.pet_id = p.id
+        WHERE ap.booking_id = ?
+        ORDER BY p.id ASC
+        LIMIT 1
+    ");
+    $pet_stmt->execute([$mapped_booking_id]);
+    $linked_pet_name = (string) $pet_stmt->fetchColumn();
+    if ($linked_pet_name !== 'Pixel') {
+        throw new RuntimeException('Mapped pet name should be used when creating the booking pet link.');
+    }
+
+    echo "✓ Profile-mapped required form values feed public booking location and pet summary data\n\n";
     echo "=== Form Funnel Tests Passed! ===\n";
 } catch (Throwable $e) {
     echo "✗ Error: " . $e->getMessage() . "\n";
@@ -172,6 +247,12 @@ try {
             $placeholders = implode(',', array_fill(0, count($cleanup['client_ids']), '?'));
             $stmt = $conn->prepare("DELETE FROM clients WHERE id IN ($placeholders)");
             $stmt->execute($cleanup['client_ids']);
+        }
+
+        if ($cleanup['form_template_ids'] !== []) {
+            $placeholders = implode(',', array_fill(0, count($cleanup['form_template_ids']), '?'));
+            $stmt = $conn->prepare("DELETE FROM form_templates WHERE id IN ($placeholders)");
+            $stmt->execute($cleanup['form_template_ids']);
         }
     }
 }
