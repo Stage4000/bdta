@@ -2,6 +2,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/form_types.php';
 require_once '../backend/includes/follow_up_notes.php';
+require_once '../backend/includes/invoice_status.php';
 requireLogin();
 
 $db = new Database();
@@ -660,10 +661,7 @@ include '../backend/includes/header.php';
                                             <td><?= formatDate($invoice['due_date']) ?></td>
                                             <td>$<?= number_format(safe_float($invoice['total_amount']), 2) ?></td>
                                             <td>
-                                                <?php
-                                                $colors = ['draft' => 'secondary', 'sent' => 'info', 'paid' => 'success', 'overdue' => 'danger', 'partial' => 'warning'];
-                                                $color = $colors[$invoice['status']] ?? 'secondary';
-                                                ?>
+                                                <?php $color = bdta_invoice_status_color(array_string_value($invoice, 'status')); ?>
                                                 <span class="badge bg-<?= $color ?>"><?= strtoupper($invoice['status']) ?></span>
                                             </td>
                                             <td>

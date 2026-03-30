@@ -10,7 +10,7 @@ $conn = $db->getConnection();
 $content = $conn->query("SELECT * FROM portal_content WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
 
 // Open invoices count
-$stmt = $conn->prepare("SELECT COUNT(*) FROM invoices WHERE client_id = ? AND status NOT IN ('paid','cancelled','void')");
+$stmt = $conn->prepare("SELECT COUNT(*) FROM invoices WHERE client_id = ? AND status NOT IN ('paid','refunded','cancelled','void')");
 $stmt->execute([$client_id]);
 $open_invoices = $stmt->fetchColumn();
 

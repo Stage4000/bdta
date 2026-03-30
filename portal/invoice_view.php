@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/invoice_status.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -35,9 +36,11 @@ $stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id = ? 
 $stmt->execute([$id]);
 $installments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$refunded_total = bdta_invoice_get_refunded_total($conn, $id);
+$refunds = bdta_invoice_get_refunds($conn, $id);
+$net_amount = bdta_invoice_get_net_amount($invoice, $refunded_total);
 $status  = strtolower($invoice['status'] ?? 'draft');
-$colors  = ['draft' => 'secondary', 'sent' => 'primary', 'paid' => 'success', 'overdue' => 'danger', 'cancelled' => 'dark', 'void' => 'dark'];
-$color   = $colors[$status] ?? 'secondary';
+$color   = bdta_invoice_status_color($status);
 
 $page_title = 'Invoice ' . escape($invoice['invoice_number']);
 include '../portal/includes/header.php';
@@ -50,7 +53,7 @@ include '../portal/includes/header.php';
         <button onclick="window.print()" class="btn btn-outline-primary btn-sm ms-1"><i class="fas fa-print me-1"></i>Print</button>
         <?php
         require_once '../backend/includes/stripe_config.php';
-        if ($status !== 'paid' && isStripeEnabled()):
+        if (bdta_invoice_is_payable($invoice) && isStripeEnabled()):
             // Use token-based checkout if available (no re-login on page redirect)
             $checkout_url = !empty($invoice['pay_token'])
                 ? 'invoice_checkout.php?token=' . urlencode($invoice['pay_token'])
@@ -94,6 +97,9 @@ include '../portal/includes/header.php';
                 <p class="mb-1"><span class="text-muted">Due Date:</span> <strong><?php echo formatDate($invoice['due_date']); ?></strong></p>
                 <?php if (!empty($invoice['payment_date'])): ?>
                     <p class="mb-1"><span class="text-muted">Paid Date:</span> <strong><?php echo formatDate($invoice['payment_date']); ?></strong></p>
+                <?php endif; ?>
+                <?php if ($refunds !== []): ?>
+                    <p class="mb-1"><span class="text-muted">Refunded:</span> <strong>$<?php echo number_format($refunded_total, 2); ?></strong></p>
                 <?php endif; ?>
             </div>
         </div>
@@ -148,6 +154,16 @@ include '../portal/includes/header.php';
                             <td class="text-end">$<?php echo number_format(floatval($invoice['tax_amount']), 2); ?></td>
                         </tr>
                     <?php endif; ?>
+                    <?php if ($refunds !== []): ?>
+                        <tr class="table-warning">
+                            <td class="text-end"><strong>Refunded:</strong></td>
+                            <td class="text-end">-$<?php echo number_format($refunded_total, 2); ?></td>
+                        </tr>
+                        <tr class="table-info">
+                            <td class="text-end"><strong>Net Collected:</strong></td>
+                            <td class="text-end">$<?php echo number_format($net_amount, 2); ?></td>
+                        </tr>
+                    <?php endif; ?>
                     <tr class="table-primary">
                         <td class="text-end"><strong>Total:</strong></td>
                         <td class="text-end"><strong>$<?php echo number_format(floatval($invoice['total_amount']), 2); ?></strong></td>
@@ -161,6 +177,28 @@ include '../portal/includes/header.php';
                 <i class="fas fa-check-circle me-1"></i>
                 <strong>Payment Received:</strong> $<?php echo number_format(floatval($invoice['total_amount']), 2); ?>
                 via <?php echo escape(ucwords(str_replace('_', ' ', $invoice['payment_method']))); ?>
+            </div>
+        <?php endif; ?>
+        <?php if (!empty($invoice['void_reason'])): ?>
+            <div class="alert alert-dark mt-2 mb-0">
+                <strong>Void Reason:</strong> <?php echo escape($invoice['void_reason']); ?>
+            </div>
+        <?php endif; ?>
+        <?php if ($refunds !== []): ?>
+            <div class="alert alert-warning mt-2 mb-0">
+                <strong>Refund History:</strong>
+                <ul class="mb-0 mt-2">
+                    <?php foreach ($refunds as $refund): ?>
+                        <li>
+                            $<?php echo number_format(safe_float($refund['amount'] ?? 0), 2); ?>
+                            on <?php echo formatDate(array_string_value($refund, 'refund_date')); ?>
+                            via <?php echo escape(ucwords(str_replace('_', ' ', array_string_value($refund, 'refund_method', 'other')))); ?>
+                            <?php if (!empty($refund['notes'])): ?>
+                                — <?php echo escape(array_string_value($refund, 'notes')); ?>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
             </div>
         <?php endif; ?>
     </div>
@@ -209,6 +247,8 @@ include '../portal/includes/header.php';
                         <td>
                             <?php if ($inst['status'] === 'paid'): ?>
                                 <span class="badge bg-success">Paid</span>
+                            <?php elseif ($inst['status'] === 'cancelled'): ?>
+                                <span class="badge bg-secondary">Cancelled</span>
                             <?php else: ?>
                                 <span class="badge bg-warning text-dark">Unpaid</span>
                             <?php endif; ?>

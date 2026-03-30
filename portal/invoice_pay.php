@@ -5,6 +5,7 @@
  */
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/stripe_config.php';
+require_once '../backend/includes/invoice_status.php';
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -40,9 +41,11 @@ $inst_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id
 $inst_stmt->execute([$invoice['id']]);
 $installments = $inst_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$refunded_total = bdta_invoice_get_refunded_total($conn, safe_int($invoice['id'] ?? 0));
+$refunds = bdta_invoice_get_refunds($conn, safe_int($invoice['id'] ?? 0));
+$net_amount = bdta_invoice_get_net_amount($invoice, $refunded_total);
 $status = strtolower($invoice['status'] ?? 'draft');
-$colors = ['draft' => 'secondary', 'sent' => 'primary', 'paid' => 'success', 'overdue' => 'danger', 'cancelled' => 'dark', 'void' => 'dark'];
-$color  = $colors[$status] ?? 'secondary';
+$color  = bdta_invoice_status_color($status);
 
 $business_name = Settings::get('site_name', "Brook's Dog Training Academy");
 $page_title    = 'Invoice ' . escape($invoice['invoice_number']);
@@ -172,6 +175,9 @@ body { background: #f8f9fa; }
                     <?php if (!empty($invoice['payment_date'])): ?>
                         <p class="mb-1"><span class="text-muted">Paid Date:</span> <strong><?php echo escape($invoice['payment_date']); ?></strong></p>
                     <?php endif; ?>
+                    <?php if ($refunds !== []): ?>
+                        <p class="mb-1"><span class="text-muted">Refunded:</span> <strong>$<?php echo number_format($refunded_total, 2); ?></strong></p>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -225,6 +231,16 @@ body { background: #f8f9fa; }
                                 <td class="text-end">$<?php echo number_format(floatval($invoice['tax_amount']), 2); ?></td>
                             </tr>
                         <?php endif; ?>
+                        <?php if ($refunds !== []): ?>
+                            <tr class="table-warning">
+                                <td class="text-end"><strong>Refunded:</strong></td>
+                                <td class="text-end">-$<?php echo number_format($refunded_total, 2); ?></td>
+                            </tr>
+                            <tr class="table-info">
+                                <td class="text-end"><strong>Net Collected:</strong></td>
+                                <td class="text-end">$<?php echo number_format($net_amount, 2); ?></td>
+                            </tr>
+                        <?php endif; ?>
                         <tr class="table-primary">
                             <td class="text-end"><strong>Total:</strong></td>
                             <td class="text-end"><strong>$<?php echo number_format(floatval($invoice['total_amount']), 2); ?></strong></td>
@@ -240,10 +256,32 @@ body { background: #f8f9fa; }
                     via <?php echo escape(ucwords(str_replace('_', ' ', $invoice['payment_method']))); ?>
                 </div>
             <?php endif; ?>
+            <?php if (!empty($invoice['void_reason'])): ?>
+                <div class="alert alert-dark mt-2 mb-0">
+                    <strong>Void Reason:</strong> <?php echo escape($invoice['void_reason']); ?>
+                </div>
+            <?php endif; ?>
+            <?php if ($refunds !== []): ?>
+                <div class="alert alert-warning mt-2 mb-0">
+                    <strong>Refund History:</strong>
+                    <ul class="mb-0 mt-2">
+                        <?php foreach ($refunds as $refund): ?>
+                            <li>
+                                $<?php echo number_format(safe_float($refund['amount'] ?? 0), 2); ?>
+                                on <?php echo escape(array_string_value($refund, 'refund_date')); ?>
+                                via <?php echo escape(ucwords(str_replace('_', ' ', array_string_value($refund, 'refund_method', 'other')))); ?>
+                                <?php if (!empty($refund['notes'])): ?>
+                                    — <?php echo escape(array_string_value($refund, 'notes')); ?>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
-    <?php if ($status !== 'paid' && isStripeEnabled()): ?>
+    <?php if (bdta_invoice_is_payable($invoice) && isStripeEnabled()): ?>
     <div class="text-center my-4 no-print">
         <a href="invoice_checkout.php?token=<?php echo urlencode($token); ?>"
            class="btn btn-success btn-lg px-5">
@@ -294,6 +332,8 @@ body { background: #f8f9fa; }
                             <td>
                                 <?php if ($inst['status'] === 'paid'): ?>
                                     <span class="badge bg-success">Paid</span>
+                                <?php elseif ($inst['status'] === 'cancelled'): ?>
+                                    <span class="badge bg-secondary">Cancelled</span>
                                 <?php else: ?>
                                     <span class="badge bg-warning text-dark">Unpaid</span>
                                 <?php endif; ?>

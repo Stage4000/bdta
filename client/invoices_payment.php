@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/email_service.php';
+require_once '../backend/includes/invoice_status.php';
 requireLogin();
 
 $db = new Database();
@@ -13,8 +14,8 @@ $stmt = $conn->prepare("SELECT * FROM invoices WHERE id = ?");
 $stmt->execute([$id]);
 $invoice = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
 
-if ($invoice === [] || array_string_value($invoice, 'status') === 'paid') {
-    setFlashMessage('Invoice not found or already paid!', 'danger');
+if ($invoice === [] || !bdta_invoice_is_payable($invoice)) {
+    setFlashMessage('Invoice not found or cannot accept payment.', 'danger');
     redirect('invoices_list.php');
 }
 

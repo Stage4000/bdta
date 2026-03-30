@@ -6,6 +6,7 @@
  *   - Portal session: ?id=INVOICE_ID     — requires portal login
  */
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/invoice_status.php';
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -23,7 +24,7 @@ if (!empty($token)) {
     $stmt->execute([$token]);
     $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$invoice || $invoice['status'] === 'paid') {
+    if (!$invoice || !bdta_invoice_is_payable($invoice)) {
         header('Location: invoice_pay.php?token=' . urlencode($token));
         exit;
     }
@@ -53,7 +54,7 @@ if (!empty($token)) {
     $stmt->execute([$id, $client_id]);
     $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$invoice || $invoice['status'] === 'paid') {
+    if (!$invoice || !bdta_invoice_is_payable($invoice)) {
         redirect(PORTAL_URL . 'invoice_view.php?id=' . $id);
     }
 

@@ -120,3 +120,83 @@ function verifyPaymentIntent(string $payment_intent_id): array {
         ];
     }
 }
+
+/**
+ * @param array<string, scalar> $metadata
+ * @return array<string, scalar>
+ */
+function createStripeRefund(string $payment_intent_id, ?float $amount = null, array $metadata = []): array
+{
+    if (!isStripeEnabled()) {
+        return [
+            'success' => false,
+            'error' => 'Stripe is not enabled or configured'
+        ];
+    }
+
+    $payment_intent_id = trim($payment_intent_id);
+    if ($payment_intent_id === '') {
+        return [
+            'success' => false,
+            'error' => 'Missing Stripe payment intent'
+        ];
+    }
+
+    $post_fields = [
+        'payment_intent' => $payment_intent_id,
+    ];
+
+    if ($amount !== null) {
+        $amount_cents = (int) round($amount * 100, 0);
+        if ($amount_cents <= 0) {
+            return [
+                'success' => false,
+                'error' => 'Refund amount must be greater than zero'
+            ];
+        }
+
+        $post_fields['amount'] = $amount_cents;
+    }
+
+    foreach ($metadata as $key => $value) {
+        $post_fields['metadata[' . $key . ']'] = scalar_string($value);
+    }
+
+    $ch = curl_init('https://api.stripe.com/v1/refunds');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query($post_fields),
+        CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
+        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+    ]);
+
+    $response = curl_exec($ch);
+    if ($response === false) {
+        $curl_error = curl_error($ch);
+        curl_close($ch);
+
+        return [
+            'success' => false,
+            'error' => $curl_error
+        ];
+    }
+
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $refund = decode_json_assoc(scalar_string($response));
+    if ($http_code < 200 || $http_code >= 300 || array_string_value($refund, 'id') === '') {
+        $refund_error = is_array($refund['error'] ?? null) ? $refund['error'] : [];
+        return [
+            'success' => false,
+            'error' => array_string_value($refund_error, 'message', 'Unable to create Stripe refund')
+        ];
+    }
+
+    return [
+        'success' => true,
+        'refund_id' => array_string_value($refund, 'id'),
+        'status' => array_string_value($refund, 'status'),
+    ];
+}
