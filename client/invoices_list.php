@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/invoice_status.php';
 requireLogin();
 
 $db = new Database();
@@ -102,14 +103,7 @@ include '../backend/includes/header.php';
                                 <td><strong>$<?= number_format(safe_float($invoice['total_amount'] ?? 0), 2) ?></strong></td>
                                 <td>
                                     <?php
-                                    $status_colors = [
-                                        'draft' => 'secondary',
-                                        'sent' => 'info',
-                                        'paid' => 'success',
-                                        'overdue' => 'danger',
-                                        'cancelled' => 'dark'
-                                    ];
-                                    $color = $status_colors[$invoice['status']] ?? 'secondary';
+                                    $color = bdta_invoice_status_color(array_string_value($invoice, 'status'));
                                     ?>
                                     <span class="badge bg-<?= $color ?>"><?= strtoupper($invoice['status']) ?></span>
                                 </td>
@@ -123,7 +117,7 @@ include '../backend/includes/header.php';
                                                 <i class="fas fa-pencil"></i>
                                             </a>
                                         <?php endif; ?>
-                                        <?php if ($invoice['status'] !== 'paid'): ?>
+                                        <?php if (bdta_invoice_is_payable($invoice)): ?>
                                             <a href="invoices_payment.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-success table-action-btn" title="Pay" aria-label="Pay">
                                                 <i class="fas fa-credit-card"></i>
                                             </a>
@@ -147,7 +141,7 @@ include '../backend/includes/header.php';
                                                         </a>
                                                     </li>
                                                 <?php endif; ?>
-                                                <?php if ($invoice['status'] !== 'paid'): ?>
+                                                <?php if (bdta_invoice_is_payable($invoice)): ?>
                                                     <li>
                                                         <a class="dropdown-item" href="invoices_payment.php?id=<?= $invoice['id'] ?>">
                                                             <i class="fas fa-credit-card me-2 text-success"></i>Pay

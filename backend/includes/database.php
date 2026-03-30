@@ -284,7 +284,7 @@ class Database {
                 UPDATE invoices
                 SET status = 'cancelled',
                     updated_at = CURRENT_TIMESTAMP
-                WHERE client_id = ? AND status NOT IN ('paid', 'cancelled', 'void')
+                WHERE client_id = ? AND status NOT IN ('paid', 'refunded', 'cancelled', 'void')
             ")->execute([$client_id]);
 
             $this->conn->prepare("
@@ -776,6 +776,8 @@ class Database {
                     payment_method TEXT,
                     payment_date DATE,
                     stripe_payment_intent_id TEXT,
+                    void_reason TEXT,
+                    voided_at TIMESTAMP,
                     notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -813,6 +815,20 @@ class Database {
                     notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+                )
+            ");
+
+            $this->execSQL("
+                CREATE TABLE IF NOT EXISTS invoice_refunds (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    invoice_id INTEGER NOT NULL,
+                    amount REAL NOT NULL,
+                    refund_date DATE NOT NULL,
+                    refund_method TEXT,
+                    stripe_refund_id TEXT,
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
                 )
             ");
@@ -1521,11 +1537,49 @@ class Database {
             }
         }
 
+        if (!in_array('void_reason', $invoice_column_names)) {
+            $this->execSQL("ALTER TABLE invoices ADD COLUMN void_reason TEXT");
+        }
+
+        if (!in_array('voided_at', $invoice_column_names)) {
+            $this->execSQL("ALTER TABLE invoices ADD COLUMN voided_at TIMESTAMP");
+        }
+
         // Update invoice_installments table to add receipt audit trail
         $installment_column_names = $this->getTableColumns('invoice_installments');
 
         if (!in_array('receipt_sent_at', $installment_column_names)) {
             $this->execSQL("ALTER TABLE invoice_installments ADD COLUMN receipt_sent_at TIMESTAMP");
+        }
+
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS invoice_refunds (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                refund_date DATE NOT NULL,
+                refund_method TEXT,
+                stripe_refund_id TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            )
+        ");
+
+        try {
+            $this->execSQL("CREATE INDEX idx_invoice_refunds_invoice_id ON invoice_refunds(invoice_id)");
+        } catch (PDOException $e) {
+            // Index already exists, ignore.
+        }
+
+        try {
+            if ($this->db_type === 'sqlite') {
+                $this->execSQL("CREATE UNIQUE INDEX idx_invoice_refunds_stripe_refund_id ON invoice_refunds(stripe_refund_id) WHERE stripe_refund_id IS NOT NULL");
+            } else {
+                $this->execSQL("CREATE UNIQUE INDEX idx_invoice_refunds_stripe_refund_id ON invoice_refunds(stripe_refund_id)");
+            }
+        } catch (PDOException $e) {
+            // Index already exists, ignore.
         }
         
         // Update clients table to add password and admin fields for client login

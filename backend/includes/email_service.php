@@ -916,9 +916,10 @@ HTML;
 
         // Build "Pay Now" button section if Stripe is enabled and invoice is unpaid
         require_once __DIR__ . '/stripe_config.php';
+        require_once __DIR__ . '/invoice_status.php';
         $pay_now_html = '';
         $pay_now_text = '';
-        if (isStripeEnabled() && ($invoice['status'] ?? '') !== 'paid') {
+        if (isStripeEnabled() && bdta_invoice_is_payable($invoice)) {
             $pay_url = $guest_pay_url;
             $pay_now_html = <<<HTML
     <div style="text-align:center;margin:24px 0">

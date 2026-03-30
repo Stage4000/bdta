@@ -7,6 +7,7 @@
  *   - Portal session: ?id=INVOICE_ID&session_id=...      — requires portal login
  */
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/invoice_status.php';
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -70,9 +71,9 @@ if (!empty($token)) {
     $success_url = PORTAL_URL . 'invoice_view.php?id=' . $id;
 }
 
-// Already paid — nothing to do
-if ($invoice['status'] === 'paid') {
-    setFlashMessage('This invoice has already been paid.', 'info');
+// Already settled — nothing to do
+if (!bdta_invoice_is_payable($invoice)) {
+    setFlashMessage('This invoice is no longer payable.', 'info');
     header('Location: ' . $success_url);
     exit;
 }
@@ -136,7 +137,7 @@ $conn->prepare("
         payment_date = CURRENT_DATE,
         stripe_payment_intent_id = ?,
         updated_at = CURRENT_TIMESTAMP
-    WHERE id = ? AND status != 'paid'
+    WHERE id = ? AND status NOT IN ('paid', 'refunded', 'void', 'cancelled')
 ")->execute([$payment_intent_id, $id]);
 
 // Send payment receipt email

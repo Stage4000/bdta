@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/invoice_status.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -36,15 +37,7 @@ include '../portal/includes/header.php';
             <?php foreach ($invoices as $inv): ?>
                 <?php
                 $status = strtolower($inv['status'] ?? 'draft');
-                $badge = match($status) {
-                    'paid'       => 'success',
-                    'overdue'    => 'danger',
-                    'sent'       => 'primary',
-                    'draft'      => 'secondary',
-                    'cancelled'  => 'dark',
-                    'void'       => 'dark',
-                    default      => 'secondary',
-                };
+                $badge = bdta_invoice_status_color($status);
                 ?>
                 <tr>
                     <td><?php echo escape($inv['invoice_number'] ?? '#' . $inv['id']); ?></td>

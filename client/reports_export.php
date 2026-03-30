@@ -48,8 +48,9 @@ switch ($type) {
                 COUNT(*) as count,
                 SUM(total_amount) as total
             FROM invoices
-            WHERE status = 'paid'
-            AND payment_date BETWEEN ? AND ?
+            WHERE payment_date BETWEEN ? AND ?
+              AND payment_method IS NOT NULL
+              AND status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
             GROUP BY DATE(payment_date)
             ORDER BY date
         ");
@@ -68,7 +69,17 @@ switch ($type) {
         }
         
         fputcsv($output, []);
-        fputcsv($output, ['Total', $total_invoices, number_format($grand_total, 2)]);
+        $refund_total_stmt = $conn->prepare("
+            SELECT COALESCE(SUM(amount), 0)
+            FROM invoice_refunds
+            WHERE refund_date BETWEEN ? AND ?
+        ");
+        $refund_total_stmt->execute([$start_date, $end_date]);
+        $refund_total = safe_float($refund_total_stmt->fetchColumn());
+
+        fputcsv($output, ['Total Collected', $total_invoices, number_format($grand_total, 2)]);
+        fputcsv($output, ['Total Refunds', '', number_format($refund_total, 2)]);
+        fputcsv($output, ['Net Collected', '', number_format($grand_total - $refund_total, 2)]);
         break;
 
     case 'income_detail':
@@ -77,7 +88,7 @@ switch ($type) {
         fputcsv($output, ['Date Range:', $start_date . ' to ' . $end_date]);
         fputcsv($output, ['Generated:', date('Y-m-d H:i:s')]);
         fputcsv($output, []);
-        fputcsv($output, ['Invoice #', 'Client', 'Issue Date', 'Payment Date', 'Payment Method', 'Subtotal', 'Tax', 'Total']);
+        fputcsv($output, ['Invoice #', 'Client', 'Issue Date', 'Payment Date', 'Payment Method', 'Subtotal', 'Tax', 'Total', 'Refunded', 'Net']);
         
         $stmt = $conn->prepare("
             SELECT 
@@ -88,19 +99,30 @@ switch ($type) {
                 i.payment_method,
                 i.subtotal,
                 i.tax_amount,
-                i.total_amount
+                i.total_amount,
+                COALESCE(rt.total_refunded, 0) as refunded_total
             FROM invoices i
             JOIN clients c ON i.client_id = c.id
-            WHERE i.status = 'paid'
-            AND i.payment_date BETWEEN ? AND ?
+            LEFT JOIN (
+                SELECT invoice_id, SUM(amount) as total_refunded
+                FROM invoice_refunds
+                WHERE refund_date BETWEEN ? AND ?
+                GROUP BY invoice_id
+            ) rt ON rt.invoice_id = i.id
+            WHERE i.payment_date BETWEEN ? AND ?
+              AND i.payment_method IS NOT NULL
+              AND i.status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
             ORDER BY i.payment_date, i.invoice_number
         ");
-        $stmt->execute([$start_date, $end_date]);
+        $stmt->execute([$start_date, $end_date, $start_date, $end_date]);
         
         $grand_total = 0;
+        $grand_refunded = 0;
         $total_tax = 0;
         $total_subtotal = 0;
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $row_total = safe_float($row['total_amount']);
+            $row_refunded = safe_float($row['refunded_total']);
             fputcsv($output, [
                 $row['invoice_number'],
                 $row['client_name'],
@@ -109,15 +131,18 @@ switch ($type) {
                 $row['payment_method'] ?? 'N/A',
                 number_format(safe_float($row['subtotal']), 2),
                 number_format(safe_float($row['tax_amount']), 2),
-                number_format(safe_float($row['total_amount']), 2)
+                number_format($row_total, 2),
+                number_format($row_refunded, 2),
+                number_format(max(0, $row_total - $row_refunded), 2)
             ]);
             $total_subtotal += safe_float($row['subtotal']);
             $total_tax += safe_float($row['tax_amount']);
-            $grand_total += safe_float($row['total_amount']);
+            $grand_total += $row_total;
+            $grand_refunded += $row_refunded;
         }
         
         fputcsv($output, []);
-        fputcsv($output, ['Total', '', '', '', '', number_format($total_subtotal, 2), number_format($total_tax, 2), number_format($grand_total, 2)]);
+        fputcsv($output, ['Total', '', '', '', '', number_format($total_subtotal, 2), number_format($total_tax, 2), number_format($grand_total, 2), number_format($grand_refunded, 2), number_format(max(0, $grand_total - $grand_refunded), 2)]);
         break;
 
     case 'expense_summary':
@@ -209,16 +234,28 @@ switch ($type) {
         $income_stmt = $conn->prepare("
             SELECT COALESCE(SUM(total_amount), 0) as total
             FROM invoices
-            WHERE status = 'paid'
-            AND payment_date BETWEEN ? AND ?
+            WHERE payment_date BETWEEN ? AND ?
+              AND payment_method IS NOT NULL
+              AND status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
         ");
         $income_stmt->execute([$start_date, $end_date]);
         $total_income = safe_float($income_stmt->fetchColumn());
+
+        $refund_stmt = $conn->prepare("
+            SELECT COALESCE(SUM(amount), 0) as total
+            FROM invoice_refunds
+            WHERE refund_date BETWEEN ? AND ?
+        ");
+        $refund_stmt->execute([$start_date, $end_date]);
+        $total_refunds = safe_float($refund_stmt->fetchColumn());
+        $net_revenue = $total_income - $total_refunds;
         
         // Get income by category (using invoice line items if available, or just totals)
         fputcsv($output, ['INCOME']);
         fputcsv($output, ['Category', 'Amount']);
-        fputcsv($output, ['Total Revenue', number_format($total_income, 2)]);
+        fputcsv($output, ['Total Collected', number_format($total_income, 2)]);
+        fputcsv($output, ['Refunds Issued', number_format($total_refunds, 2)]);
+        fputcsv($output, ['Net Revenue', number_format($net_revenue, 2)]);
         fputcsv($output, []);
         
         // Get total expenses
@@ -249,7 +286,7 @@ switch ($type) {
         fputcsv($output, []);
         
         // Calculate profit/loss
-        $profit_loss = $total_income - $total_expenses;
+        $profit_loss = $net_revenue - $total_expenses;
         fputcsv($output, ['NET PROFIT/LOSS', number_format($profit_loss, 2)]);
         fputcsv($output, []);
         

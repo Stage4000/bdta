@@ -59,29 +59,54 @@ switch ($range) {
         $end_date = date('Y-m-t');
 }
 
-// Get income data (from invoices that are paid)
+// Get income data (cash received from invoices)
 $income_stmt = $conn->prepare("
     SELECT 
         DATE(payment_date) as date,
         SUM(total_amount) as amount
     FROM invoices
-    WHERE status = 'paid'
-    AND payment_date BETWEEN ? AND ?
+    WHERE payment_date BETWEEN ? AND ?
+      AND payment_method IS NOT NULL
+      AND status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
     GROUP BY DATE(payment_date)
     ORDER BY date
 ");
 $income_stmt->execute([$start_date, $end_date]);
 $income_data = $income_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Get refund data
+$refund_stmt = $conn->prepare("
+    SELECT
+        DATE(refund_date) as date,
+        SUM(amount) as amount
+    FROM invoice_refunds
+    WHERE refund_date BETWEEN ? AND ?
+    GROUP BY DATE(refund_date)
+    ORDER BY date
+");
+$refund_stmt->execute([$start_date, $end_date]);
+$refund_data = $refund_stmt->fetchAll(PDO::FETCH_ASSOC);
+
 // Get total income
 $total_income_stmt = $conn->prepare("
     SELECT COALESCE(SUM(total_amount), 0) as total
     FROM invoices
-    WHERE status = 'paid'
-    AND payment_date BETWEEN ? AND ?
+    WHERE payment_date BETWEEN ? AND ?
+      AND payment_method IS NOT NULL
+      AND status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
 ");
 $total_income_stmt->execute([$start_date, $end_date]);
 $total_income = safe_float($total_income_stmt->fetchColumn());
+
+// Get total refunds
+$total_refund_stmt = $conn->prepare("
+    SELECT COALESCE(SUM(amount), 0) as total
+    FROM invoice_refunds
+    WHERE refund_date BETWEEN ? AND ?
+");
+$total_refund_stmt->execute([$start_date, $end_date]);
+$total_refunds = safe_float($total_refund_stmt->fetchColumn());
+$net_income = $total_income - $total_refunds;
 
 // Get expense data
 $expense_stmt = $conn->prepare("
@@ -106,32 +131,37 @@ $total_expense_stmt->execute([$start_date, $end_date]);
 $total_expenses = safe_float($total_expense_stmt->fetchColumn());
 
 // Calculate profit/loss
-$profit_loss = $total_income - $total_expenses;
+$profit_loss = $net_income - $total_expenses;
 
 // Prepare data for charts
 $all_dates = array_unique(array_merge(
     array_column($income_data, 'date'),
+    array_column($refund_data, 'date'),
     array_column($expense_data, 'date')
 ));
 sort($all_dates);
 
 // Create indexed arrays for chart data
 $income_by_date = array_column($income_data, 'amount', 'date');
+$refund_by_date = array_column($refund_data, 'amount', 'date');
 $expense_by_date = array_column($expense_data, 'amount', 'date');
 
 $chart_labels = [];
 $chart_income = [];
+$chart_refunds = [];
 $chart_expenses = [];
 $chart_profit = [];
 
 foreach ($all_dates as $date) {
     $chart_labels[] = date('M j', safe_timestamp(strtotime((string) $date)));
     $income_val = isset($income_by_date[$date]) ? floatval($income_by_date[$date]) : 0;
+    $refund_val = isset($refund_by_date[$date]) ? floatval($refund_by_date[$date]) : 0;
     $expense_val = isset($expense_by_date[$date]) ? floatval($expense_by_date[$date]) : 0;
     
     $chart_income[] = $income_val;
+    $chart_refunds[] = $refund_val;
     $chart_expenses[] = $expense_val;
-    $chart_profit[] = $income_val - $expense_val;
+    $chart_profit[] = $income_val - $refund_val - $expense_val;
 }
 
 $page_title = 'Financial Reports';
@@ -218,16 +248,25 @@ $export_query = http_build_query([
 
     <!-- Summary Cards -->
     <div class="row mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card text-white bg-success">
                 <div class="card-body">
-                    <h6 class="card-title"><i class="fas fa-arrow-trend-up me-1"></i> Total Income</h6>
+                    <h6 class="card-title"><i class="fas fa-arrow-trend-up me-1"></i> Total Collected</h6>
                     <h2>$<?= number_format($total_income, 2) ?></h2>
-                    <small>Revenue from paid invoices</small>
+                    <small>Payments received from invoices</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="card text-dark bg-warning">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="fas fa-rotate-left me-1"></i> Total Refunds</h6>
+                    <h2>$<?= number_format($total_refunds, 2) ?></h2>
+                    <small>Refunds issued in this period</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="card text-white bg-danger">
                 <div class="card-body">
                     <h6 class="card-title"><i class="fas fa-arrow-trend-down me-1"></i> Total Expenses</h6>
@@ -236,7 +275,7 @@ $export_query = http_build_query([
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card text-white <?= $profit_loss >= 0 ? 'bg-primary' : 'bg-warning' ?>">
                 <div class="card-body">
                     <h6 class="card-title"><i class="fas fa-chart-line me-1"></i> Net Profit/Loss</h6>
@@ -303,6 +342,7 @@ document.getElementById('rangeSelect').addEventListener('change', function() {
 // Chart data
 const labels = <?= json_encode($chart_labels) ?>;
 const incomeData = <?= json_encode($chart_income) ?>;
+const refundData = <?= json_encode($chart_refunds) ?>;
 const expenseData = <?= json_encode($chart_expenses) ?>;
 const profitData = <?= json_encode($chart_profit) ?>;
 
@@ -311,21 +351,31 @@ new Chart(document.getElementById('incomeChart'), {
     type: 'line',
     data: {
         labels: labels,
-        datasets: [{
-            label: 'Income',
-            data: incomeData,
-            borderColor: '#0a9a9c',
-            backgroundColor: 'rgba(10, 154, 156, 0.1)',
-            fill: true,
-            tension: 0.4
-        }]
+        datasets: [
+            {
+                label: 'Collected',
+                data: incomeData,
+                borderColor: '#0a9a9c',
+                backgroundColor: 'rgba(10, 154, 156, 0.1)',
+                fill: true,
+                tension: 0.4
+            },
+            {
+                label: 'Refunds',
+                data: refundData,
+                borderColor: '#ffc107',
+                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                fill: true,
+                tension: 0.4
+            }
+        ]
     },
     options: {
         responsive: true,
         maintainAspectRatio: true,
         plugins: {
             legend: {
-                display: false
+                display: true
             }
         },
         scales: {
