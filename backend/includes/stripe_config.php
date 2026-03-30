@@ -169,6 +169,8 @@ function createStripeRefund(string $payment_intent_id, ?float $amount = null, ar
         CURLOPT_POSTFIELDS => http_build_query($post_fields),
         CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
         CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 30,
     ]);
 
     $response = curl_exec($ch);
