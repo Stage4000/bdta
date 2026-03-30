@@ -41,7 +41,7 @@ function bdta_invoice_can_void(array $invoice): bool
 {
     $status = strtolower(array_string_value($invoice, 'status', 'draft'));
 
-    return !in_array($status, ['paid', 'refunded', 'cancelled', 'void'], true);
+    return !in_array($status, ['paid', 'refunded', 'cancelled', 'void', 'partial'], true);
 }
 
 function bdta_invoice_get_refunded_total(PDO $conn, int $invoice_id): float
