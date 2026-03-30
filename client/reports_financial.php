@@ -258,7 +258,7 @@ $export_query = http_build_query([
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card text-white bg-warning">
+            <div class="card text-dark bg-warning">
                 <div class="card-body">
                     <h6 class="card-title"><i class="fas fa-rotate-left me-1"></i> Total Refunds</h6>
                     <h2>$<?= number_format($total_refunds, 2) ?></h2>

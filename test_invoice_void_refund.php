@@ -13,6 +13,7 @@ $client_id = 0;
 $time_entry_id = 0;
 $void_invoice_id = 0;
 $paid_invoice_id = 0;
+$export_invoice_id = 0;
 $installment_id = 0;
 
 try {
@@ -83,6 +84,11 @@ try {
     }
     echo "✓ Voiding cancels unpaid installments\n";
 
+    if (bdta_invoice_status_color('partial') !== 'warning') {
+        throw new RuntimeException('Partial invoice status color regressed');
+    }
+    echo "✓ Partial invoice statuses retain their warning badge color\n";
+
     $invoice_stmt->execute(['INV-REFUND-' . $unique_token, $client_id, '2026-03-11', '2026-04-11', 100.00, 0.00, 100.00, 'paid']);
     $paid_invoice_id = safe_int($conn->lastInsertId());
     $conn->prepare("
@@ -135,18 +141,49 @@ try {
         throw new RuntimeException('Refunded invoice status was not persisted');
     }
 
+    $invoice_stmt->execute(['INV-EXPORT-' . $unique_token, $client_id, '2026-03-14', '2026-04-14', 200.00, 0.00, 200.00, 'paid']);
+    $export_invoice_id = safe_int($conn->lastInsertId());
+    $conn->prepare("
+        UPDATE invoices
+        SET payment_method = 'cash',
+            payment_date = '2026-03-14'
+        WHERE id = ?
+    ")->execute([$export_invoice_id]);
+
+    bdta_record_invoice_refund($conn, $export_invoice_id, 25.00, '2026-03-10', 'cash', 'Outside report range');
+    bdta_record_invoice_refund($conn, $export_invoice_id, 30.00, '2026-03-15', 'cash', 'Inside report range');
+
+    $export_stmt = $conn->prepare("
+        SELECT COALESCE(rt.total_refunded, 0) as refunded_total
+        FROM invoices i
+        LEFT JOIN (
+            SELECT invoice_id, SUM(amount) as total_refunded
+            FROM invoice_refunds
+            WHERE refund_date BETWEEN ? AND ?
+            GROUP BY invoice_id
+        ) rt ON rt.invoice_id = i.id
+        WHERE i.id = ?
+    ");
+    $export_stmt->execute(['2026-03-12', '2026-03-31', $export_invoice_id]);
+    if (safe_float($export_stmt->fetchColumn()) !== 30.00) {
+        throw new RuntimeException('Income detail export did not scope refund totals to the selected date range');
+    }
+    echo "✓ Income detail refund totals honor the selected refund date range\n";
+
     echo "\n=== All Tests Passed! ===\n";
 } catch (Throwable $e) {
     echo "\n✗ Test failed: " . $e->getMessage() . "\n";
     exit(1);
 } finally {
-    if ($paid_invoice_id > 0) {
-        $conn->prepare("DELETE FROM invoice_refunds WHERE invoice_id = ?")->execute([$paid_invoice_id]);
+    foreach ([$paid_invoice_id, $export_invoice_id] as $refunded_invoice_id) {
+        if ($refunded_invoice_id > 0) {
+            $conn->prepare("DELETE FROM invoice_refunds WHERE invoice_id = ?")->execute([$refunded_invoice_id]);
+        }
     }
     if ($void_invoice_id > 0) {
         $conn->prepare("DELETE FROM invoice_installments WHERE invoice_id = ?")->execute([$void_invoice_id]);
     }
-    foreach ([$void_invoice_id, $paid_invoice_id] as $invoice_id) {
+    foreach ([$void_invoice_id, $paid_invoice_id, $export_invoice_id] as $invoice_id) {
         if ($invoice_id > 0) {
             $conn->prepare("DELETE FROM invoice_items WHERE invoice_id = ?")->execute([$invoice_id]);
             $conn->prepare("DELETE FROM invoices WHERE id = ?")->execute([$invoice_id]);

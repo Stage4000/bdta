@@ -8,6 +8,7 @@ function bdta_invoice_status_colors(): array
     return [
         'draft' => 'secondary',
         'sent' => 'info',
+        'partial' => 'warning',
         'paid' => 'success',
         'overdue' => 'danger',
         'cancelled' => 'dark',

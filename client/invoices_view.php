@@ -34,6 +34,7 @@ $net_amount = bdta_invoice_get_net_amount($invoice, $refunded_total);
 $can_pay_invoice = bdta_invoice_is_payable($invoice);
 $can_void_invoice = bdta_invoice_can_void($invoice);
 $can_refund_invoice = bdta_invoice_can_refund($invoice, $refunded_total);
+$csrf_token_value = scalar_string($_SESSION['csrf_token'] ?? '');
 
 // Handle "Send Receipt" POST action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
@@ -78,7 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['void_invoice'])) {
-    if (!$can_void_invoice) {
+    $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+
+    if ($submitted_csrf_token === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
+        setFlashMessage('Invalid request.', 'danger');
+    } elseif (!$can_void_invoice) {
         setFlashMessage('Only unpaid invoices can be voided.', 'danger');
     } else {
         try {
@@ -93,23 +98,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['void_invoice'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_invoice'])) {
-    $refund_amount = safe_float($_POST['refund_amount'] ?? 0);
-    $refund_date = scalar_string($_POST['refund_date'] ?? date('Y-m-d'));
-    $refund_note = trim(scalar_string($_POST['refund_note'] ?? ''));
-    $refund_method = array_string_value($invoice, 'payment_method', 'other');
-
-    [$refund_year, $refund_month, $refund_day] = array_pad(array_map('intval', explode('-', $refund_date)), 3, 0);
-    if (!checkdate($refund_month, $refund_day, $refund_year)) {
-        setFlashMessage('Please enter a valid refund date.', 'danger');
-    } elseif (!$can_refund_invoice) {
-        setFlashMessage('This invoice cannot be refunded.', 'danger');
+    $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+    if ($submitted_csrf_token === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
+        setFlashMessage('Invalid request.', 'danger');
     } else {
+        $refund_amount = round(safe_float($_POST['refund_amount'] ?? 0), 2);
+        $refund_date = scalar_string($_POST['refund_date'] ?? date('Y-m-d'));
+        $refund_note = trim(scalar_string($_POST['refund_note'] ?? ''));
+        [$refund_year, $refund_month, $refund_day] = array_pad(array_map('intval', explode('-', $refund_date)), 3, 0);
+
+        if (!checkdate($refund_month, $refund_day, $refund_year)) {
+        setFlashMessage('Please enter a valid refund date.', 'danger');
+        } elseif ($refund_amount <= 0) {
+        setFlashMessage('Refund amount must be greater than zero.', 'danger');
+        } else {
+        $fresh_invoice_stmt = $conn->prepare('SELECT * FROM invoices WHERE id = ?');
+        $fresh_invoice_stmt->execute([$id]);
+        $current_invoice = $fresh_invoice_stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!is_array($current_invoice)) {
+            setFlashMessage('Invoice not found.', 'danger');
+            redirect('invoices_view.php?id=' . $id);
+        }
+
+        $current_refunded_total = bdta_invoice_get_refunded_total($conn, $id);
+        $current_remaining_amount = bdta_invoice_get_net_amount($current_invoice, $current_refunded_total);
+        $refund_method = array_string_value($current_invoice, 'payment_method', 'other');
+
+        if (!bdta_invoice_can_refund($current_invoice, $current_refunded_total)) {
+            setFlashMessage('This invoice cannot be refunded.', 'danger');
+            redirect('invoices_view.php?id=' . $id);
+        }
+
+        if ($refund_amount > $current_remaining_amount) {
+            setFlashMessage('Refund amount cannot exceed the remaining paid balance.', 'danger');
+            redirect('invoices_view.php?id=' . $id);
+        }
+
         $stripe_refund_id = null;
-        $payment_intent_id = array_string_value($invoice, 'stripe_payment_intent_id');
+        $payment_intent_id = array_string_value($current_invoice, 'stripe_payment_intent_id');
         if ($payment_intent_id !== '') {
             $stripe_refund = createStripeRefund($payment_intent_id, $refund_amount, [
                 'invoice_id' => $id,
-                'invoice_number' => array_string_value($invoice, 'invoice_number'),
+                'invoice_number' => array_string_value($current_invoice, 'invoice_number'),
             ]);
 
             if (!($stripe_refund['success'] ?? false)) {
@@ -138,6 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_invoice'])) {
             setFlashMessage($status_message, 'success');
         } catch (Throwable $e) {
             setFlashMessage('Unable to record refund: ' . $e->getMessage(), 'danger');
+        }
         }
     }
 
@@ -250,6 +282,7 @@ include '../backend/includes/header.php';
                             <div class="card-body">
                                 <form method="POST">
                                     <input type="hidden" name="void_invoice" value="1">
+                                    <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
                                     <div class="mb-3">
                                         <label class="form-label">Reason for voiding</label>
                                         <textarea class="form-control" name="void_reason" rows="3" placeholder="Optional note explaining why this invoice is being voided"></textarea>
@@ -268,6 +301,7 @@ include '../backend/includes/header.php';
                             <div class="card-body">
                                 <form method="POST">
                                     <input type="hidden" name="refund_invoice" value="1">
+                                    <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
                                     <div class="row">
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">Refund Amount</label>

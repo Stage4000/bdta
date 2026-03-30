@@ -106,6 +106,7 @@ switch ($type) {
             LEFT JOIN (
                 SELECT invoice_id, SUM(amount) as total_refunded
                 FROM invoice_refunds
+                WHERE refund_date BETWEEN ? AND ?
                 GROUP BY invoice_id
             ) rt ON rt.invoice_id = i.id
             WHERE i.payment_date BETWEEN ? AND ?
@@ -113,7 +114,7 @@ switch ($type) {
               AND i.status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
             ORDER BY i.payment_date, i.invoice_number
         ");
-        $stmt->execute([$start_date, $end_date]);
+        $stmt->execute([$start_date, $end_date, $start_date, $end_date]);
         
         $grand_total = 0;
         $grand_refunded = 0;
