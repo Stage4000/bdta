@@ -123,7 +123,11 @@ try {
     assertTrue(!SiteBuilderManualPageSeeder::needsSeeding($pdo), 'Expected manual pages not to need reseeding after import.');
     assertTrue(!SiteBuilderManualPageSeeder::needsAssetExtraction($tmpDir), 'Expected asset extraction not to be needed after import.');
 
-    $pages = $pdo->query("SELECT slug, title, is_published, og_image, length(html_content) AS html_len, length(css_content) AS css_len FROM site_pages WHERE is_homepage = 0 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+    $pages_stmt = $pdo->query("SELECT slug, title, is_published, og_image, length(html_content) AS html_len, length(css_content) AS css_len FROM site_pages WHERE is_homepage = 0 ORDER BY sort_order ASC, id ASC");
+    if ($pages_stmt === false) {
+        throw new RuntimeException('Unable to read seeded manual pages.');
+    }
+    $pages = $pages_stmt->fetchAll(PDO::FETCH_ASSOC);
     assertTrue(count($pages) === 3, 'Expected the two manually requested pages plus the unrelated pre-existing page.');
     assertTrue($pages[0]['slug'] === 'dog-training-fact-sheet', 'Expected fact sheet page to be seeded first.');
     assertTrue($pages[1]['slug'] === 'directory', 'Expected directory page to be seeded second.');
@@ -134,8 +138,13 @@ try {
     assertTrue((int) $pages[2]['html_len'] < 1000, 'Expected the unrelated legacy page not to be overwritten by the manual seed.');
     assertTrue($pages[0]['og_image'] === '/backend/uploads/sitebuilder/gallery/Dog-Training-Fact-Sheet-1.png', 'Expected fact sheet OG image path to be preserved.');
 
-    $factSheetHtml = $pdo->query("SELECT html_content FROM site_pages WHERE slug = 'dog-training-fact-sheet'")->fetchColumn();
-    $directoryHtml = $pdo->query("SELECT html_content FROM site_pages WHERE slug = 'directory'")->fetchColumn();
+    $fact_sheet_stmt = $pdo->query("SELECT html_content FROM site_pages WHERE slug = 'dog-training-fact-sheet'");
+    $directory_stmt = $pdo->query("SELECT html_content FROM site_pages WHERE slug = 'directory'");
+    if ($fact_sheet_stmt === false || $directory_stmt === false) {
+        throw new RuntimeException('Unable to read seeded page HTML.');
+    }
+    $factSheetHtml = $fact_sheet_stmt->fetchColumn();
+    $directoryHtml = $directory_stmt->fetchColumn();
     assertTrue(is_string($factSheetHtml) && str_contains($factSheetHtml, '/backend/uploads/sitebuilder/gallery/Dog-Training-Fact-Sheet-1.png'), 'Expected fact sheet page body to be present.');
     assertTrue(is_string($directoryHtml) && str_contains($directoryHtml, '/backend/uploads/sitebuilder/gallery/Your%20business%20here.png'), 'Expected directory page body to be present.');
 

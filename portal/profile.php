@@ -258,7 +258,7 @@ include '../portal/includes/header.php';
 
 <script>
 let editingContactId = null;
-const contactCsrfToken = <?php echo json_encode($csrf_token); ?>;
+const contactCsrfToken = <?php echo json_encode(csrfToken()); ?>;
 
 document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(e) {

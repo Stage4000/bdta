@@ -9,6 +9,12 @@ if (PHP_SAPI !== 'cli') {
 require_once dirname(__DIR__) . '/backend/includes/config.php';
 require_once dirname(__DIR__) . '/backend/includes/tawk_to.php';
 
+function assertTawkWidgetScriptEmpty(mixed $script, string $message): void {
+    if (!is_string($script) || $script !== '') {
+        throw new RuntimeException($message);
+    }
+}
+
 echo "=== Tawk.to Widget Test ===\n\n";
 
 $advanced_settings = array_column(Settings::getCategory('advanced'), null, 'key');
@@ -40,25 +46,19 @@ try {
     echo "✓ Enabled widget renders the expected embed URL\n";
 
     Settings::set('tawk_to_enabled', '0');
-    if (bdta_get_tawk_to_widget_script() !== '') {
-        throw new RuntimeException('Disabled widget should not render any script.');
-    }
+    assertTawkWidgetScriptEmpty(bdta_get_tawk_to_widget_script(), 'Disabled widget should not render any script.');
     echo "✓ Disabled widget renders nothing\n";
 
     Settings::set('tawk_to_enabled', '1');
     Settings::set('tawk_to_property_id', 'invalid/property');
     Settings::set('tawk_to_widget_id', '../../bad-widget');
-    if (bdta_get_tawk_to_widget_script() !== '') {
-        throw new RuntimeException('Invalid Tawk.to identifiers should not render any script.');
-    }
+    assertTawkWidgetScriptEmpty(bdta_get_tawk_to_widget_script(), 'Invalid Tawk.to identifiers should not render any script.');
     echo "✓ Invalid identifiers are rejected safely\n";
 
     Settings::set('tawk_to_property_id', '0123456789abcdef01234567');
     Settings::set('tawk_to_widget_id', 'default');
     $_SERVER['REQUEST_URI'] = '/client/login.php';
-    if (bdta_get_tawk_to_widget_script() !== '') {
-        throw new RuntimeException('Anonymous admin-area requests should not receive the widget.');
-    }
+    assertTawkWidgetScriptEmpty(bdta_get_tawk_to_widget_script(), 'Anonymous admin-area requests should not receive the widget.');
     echo "✓ Anonymous admin-area routes suppress the widget\n";
 
     $_SERVER['REQUEST_URI'] = '/client/package_detail.php?token=demo';
@@ -69,16 +69,12 @@ try {
 
     $_SERVER['REQUEST_URI'] = '/';
     $_SESSION['admin_id'] = 1;
-    if (bdta_get_tawk_to_widget_script() !== '') {
-        throw new RuntimeException('Authenticated admin sessions should not receive the widget.');
-    }
+    assertTawkWidgetScriptEmpty(bdta_get_tawk_to_widget_script(), 'Authenticated admin sessions should not receive the widget.');
     echo "✓ Authenticated admin sessions suppress the widget\n";
 
     unset($_SESSION['admin_id']);
     $_SESSION['portal_impersonating_admin_id'] = 1;
-    if (bdta_get_tawk_to_widget_script() !== '') {
-        throw new RuntimeException('Impersonating admins should not receive the widget on portal pages.');
-    }
+    assertTawkWidgetScriptEmpty(bdta_get_tawk_to_widget_script(), 'Impersonating admins should not receive the widget on portal pages.');
     echo "✓ Admin impersonation suppresses the portal widget\n";
 
     echo "\n=== All Tests Passed! ===\n";

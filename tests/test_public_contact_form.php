@@ -25,7 +25,7 @@ try {
     ];
 
     $new_result = bdta_handle_public_contact_submission($conn, $new_payload);
-    if (($new_result['success'] ?? false) !== true) {
+    if ($new_result['success'] !== true) {
         throw new RuntimeException('Expected new contact submission to succeed.');
     }
 
@@ -72,7 +72,7 @@ try {
         'message' => 'Second message from existing contact.',
     ];
     $existing_result = bdta_handle_public_contact_submission($conn, $existing_payload);
-    if (($existing_result['success'] ?? false) !== true) {
+    if ($existing_result['success'] !== true) {
         throw new RuntimeException('Expected existing contact submission to succeed.');
     }
 
@@ -106,7 +106,7 @@ try {
         'email' => 'not-an-email',
         'message' => '',
     ]);
-    if (($invalid_result['success'] ?? true) !== false) {
+    if ($invalid_result['success'] !== false) {
         throw new RuntimeException('Invalid contact payload should fail validation.');
     }
 

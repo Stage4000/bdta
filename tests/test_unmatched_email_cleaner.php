@@ -68,7 +68,7 @@ try {
     if (!$result['success']) {
         throw new RuntimeException('Cleaner task did not report success.');
     }
-    if (($result['items_processed'] ?? 0) < count($invalid_ids)) {
+    if ($result['items_processed'] < count($invalid_ids)) {
         throw new RuntimeException('Cleaner task did not delete all malformed emails.');
     }
 

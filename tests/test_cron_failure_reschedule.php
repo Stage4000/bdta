@@ -24,7 +24,7 @@ $cron = new CronRunner();
 $cron_reflection = new ReflectionClass('CronRunner');
 $get_current_time = $cron_reflection->getMethod('getCurrentUtcDateTime');
 $get_current_time->setAccessible(true);
-$now_utc = (string) $get_current_time->invoke($cron);
+$now_utc = scalar_string($get_current_time->invoke($cron));
 $past_time = (new DateTimeImmutable($now_utc, new DateTimeZone('UTC')))
     ->modify('-1 hour')
     ->format('Y-m-d H:i:s');

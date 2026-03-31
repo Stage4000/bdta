@@ -12,7 +12,7 @@ function survey_test_path_segments(string $path): array
     $normalized_path = str_replace('\\', '/', $path);
     $trimmed_path = trim($normalized_path, '/');
     $segments = explode('/', $trimmed_path);
-    $non_empty_segments = array_filter($segments, 'strlen');
+    $non_empty_segments = array_filter($segments, static fn(string $segment): bool => $segment !== '');
 
     return array_values($non_empty_segments);
 }
@@ -126,19 +126,24 @@ try {
 
     $rating_field = $results['fields'][0] ?? [];
     $rating_options = is_array($rating_field['options'] ?? null) ? $rating_field['options'] : [];
-    if (array_int_value($rating_options[0] ?? [], 'count') !== 2 || array_int_value($rating_options[0] ?? [], 'percentage') !== 67) {
+    $great_option = assoc_row($rating_options[0] ?? null);
+    if (array_int_value($great_option, 'count') !== 2 || array_int_value($great_option, 'percentage') !== 67) {
         throw new RuntimeException('Expected "Great" answers to be counted and rounded to 67%.');
     }
-    if (array_int_value($rating_options[1] ?? [], 'count') !== 1) {
+    $okay_option = assoc_row($rating_options[1] ?? null);
+    if (array_int_value($okay_option, 'count') !== 1) {
         throw new RuntimeException('Expected "Okay" answers to be counted.');
     }
 
     $topics_field = $results['fields'][1] ?? [];
     $topic_options = is_array($topics_field['options'] ?? null) ? $topics_field['options'] : [];
-    if (array_int_value($topic_options[0] ?? [], 'count') !== 2) {
+    $recall_option = assoc_row($topic_options[0] ?? null);
+    $leash_option = assoc_row($topic_options[1] ?? null);
+    $greetings_option = assoc_row($topic_options[2] ?? null);
+    if (array_int_value($recall_option, 'count') !== 2) {
         throw new RuntimeException('Expected Recall checkbox totals to aggregate across submissions.');
     }
-    if (array_int_value($topic_options[1] ?? [], 'count') !== 1 || array_int_value($topic_options[2] ?? [], 'count') !== 1) {
+    if (array_int_value($leash_option, 'count') !== 1 || array_int_value($greetings_option, 'count') !== 1) {
         throw new RuntimeException('Expected each checkbox choice to keep its own aggregated count.');
     }
 
@@ -154,10 +159,12 @@ try {
     if (count($recent_responses) !== 2) {
         throw new RuntimeException('Expected recent open-ended responses to be retained.');
     }
-    if (array_string_value($recent_responses[0] ?? [], 'client_name') !== 'Alex') {
+    $first_recent_response = assoc_row($recent_responses[0] ?? null);
+    $second_recent_response = assoc_row($recent_responses[1] ?? null);
+    if (array_string_value($first_recent_response, 'client_name') !== 'Alex') {
         throw new RuntimeException('Expected recent responses to preserve submission order.');
     }
-    if (array_string_value($recent_responses[1] ?? [], 'client_name', 'Unknown client') !== 'Unknown client') {
+    if (array_string_value($second_recent_response, 'client_name', 'Unknown client') !== 'Unknown client') {
         throw new RuntimeException('Expected missing client names to fall back to "Unknown client".');
     }
 

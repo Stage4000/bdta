@@ -32,8 +32,13 @@ function assertMailRouterTest(bool $condition, string $message): void {
  */
 function mailRouterLogLinesContaining(string $log_contents, string $needle): array {
     $matching_lines = [];
+    $lines = preg_split('/\r\n|\r|\n/', $log_contents);
 
-    foreach (preg_split('/\r\n|\r|\n/', $log_contents) as $line) {
+    if ($lines === false) {
+        return [];
+    }
+
+    foreach ($lines as $line) {
         if ($line !== '' && strpos($line, $needle) !== false) {
             $matching_lines[] = $line;
         }
@@ -111,6 +116,9 @@ try {
 
     $mailrouter_log = file_get_contents($log_path);
     assertMailRouterTest($mailrouter_log !== false, 'MailRouter log file could not be read.');
+    if ($mailrouter_log === false) {
+        throw new RuntimeException('MailRouter log file could not be read.');
+    }
     assertMailRouterTest(strpos($mailrouter_log, '[MailRouter] ROUTING') !== false, 'MailRouter log file does not contain the routing entry.');
     assertMailRouterTest(strpos($mailrouter_log, $unique_token) !== false, 'MailRouter log file does not contain the expected routing entry.');
     assertMailRouterTest(strpos($mailrouter_log, '[MailRouter] FAILED') !== false, 'MailRouter log file does not contain the failed delivery entry.');
@@ -132,6 +140,9 @@ try {
 
     $mailrouter_log = file_get_contents($log_path);
     assertMailRouterTest($mailrouter_log !== false, 'MailRouter log file could not be re-read.');
+    if ($mailrouter_log === false) {
+        throw new RuntimeException('MailRouter log file could not be re-read.');
+    }
     assertMailRouterTest(strpos($mailrouter_log, "Forged Subject\r") === false, 'MailRouter log contains a raw carriage return sequence.');
     assertMailRouterTest(strpos($mailrouter_log, "Forged Subject\n") === false, 'MailRouter log contains a raw newline sequence.');
     assertMailRouterTest(strpos($mailrouter_log, 'Injected-Header: ' . $unique_token) !== false, 'MailRouter log does not contain the sanitized forged-subject content.');

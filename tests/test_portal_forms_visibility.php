@@ -156,7 +156,8 @@ try {
 
     echo "\nTest 4: form_view blocks forced-internal form types even when template flag is off\n";
     $view_stmt->execute([$forced_internal_submission_id, $client_id]);
-    $forced_internal_row = $view_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $forced_internal_fetch = $view_stmt->fetch(PDO::FETCH_ASSOC);
+    $forced_internal_row = is_array($forced_internal_fetch) ? $forced_internal_fetch : null;
     if ($is_view_allowed($forced_internal_row)) {
         throw new RuntimeException('Forced-internal form type must not be viewable.');
     }
@@ -164,7 +165,8 @@ try {
 
     echo "\nTest 5: form_view blocks submissions from other clients\n";
     $view_stmt->execute([$other_client_submission_id, $client_id]);
-    if ($view_stmt->fetch(PDO::FETCH_ASSOC)) {
+    $other_client_row = $view_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($other_client_row !== false) {
         throw new RuntimeException('Submission from another client should not be viewable.');
     }
     echo "  ✓ Cross-client access is blocked\n";

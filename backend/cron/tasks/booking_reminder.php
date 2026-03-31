@@ -103,6 +103,7 @@ class BookingReminderTask {
         $hours_before = safe_int($rule['hours_before'] ?? 0);
         $start_time   = date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$hours_before} hours")));
         $end_time     = date('Y-m-d H:i:s', safe_timestamp(strtotime("+{$hours_before} hours + 2 hours")));
+        $appointment_datetime_sql = $this->getAppointmentDateTimeSql('b');
 
         // Build WHERE clause additions for appointment-type filtering
         $extra_where = '';
@@ -131,7 +132,7 @@ class BookingReminderTask {
             LEFT JOIN booking_reminders_sent brs
                 ON brs.booking_id = b.id AND brs.rule_id = ?
             WHERE b.status = 'confirmed'
-            AND CONCAT(b.appointment_date, ' ', b.appointment_time) BETWEEN ? AND ?
+            AND {$appointment_datetime_sql} BETWEEN ? AND ?
             AND brs.id IS NULL
             {$extra_where}
             ORDER BY b.appointment_date, b.appointment_time
@@ -182,13 +183,14 @@ class BookingReminderTask {
         $hours_before = 24;
         $start_time   = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours"));
         $end_time     = date('Y-m-d H:i:s', strtotime("+{$hours_before} hours + 2 hours"));
+        $appointment_datetime_sql = $this->getAppointmentDateTimeSql('b');
 
         $stmt = $this->conn->prepare("
             SELECT b.*, c.email AS client_email, c.name AS client_name
             FROM bookings b
             LEFT JOIN clients c ON b.client_id = c.id
             WHERE b.status = 'confirmed'
-            AND CONCAT(b.appointment_date, ' ', b.appointment_time) BETWEEN ? AND ?
+            AND {$appointment_datetime_sql} BETWEEN ? AND ?
             AND b.reminder_sent = 0
             ORDER BY b.appointment_date, b.appointment_time
         ");
@@ -224,6 +226,22 @@ class BookingReminderTask {
             'message'         => $message,
             'errors'          => $errors,
         ];
+    }
+
+    private function getAppointmentDateTimeSql(string $booking_alias): string {
+        $driver_name = strtolower(scalar_string($this->conn->getAttribute(PDO::ATTR_DRIVER_NAME)));
+
+        if ($driver_name === 'mysql') {
+            return "TIMESTAMP({$booking_alias}.appointment_date, {$booking_alias}.appointment_time)";
+        }
+
+        if ($driver_name === 'sqlite') {
+            return "datetime({$booking_alias}.appointment_date || ' ' || {$booking_alias}.appointment_time)";
+        }
+
+        throw new RuntimeException(
+            'Unsupported database driver for booking reminders: ' . $driver_name . '. Supported drivers: mysql, sqlite'
+        );
     }
     
     /**

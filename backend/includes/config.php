@@ -57,9 +57,9 @@ if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.use_strict_mode', '1');
     $cookie_params = session_get_cookie_params();
     session_set_cookie_params([
-        'lifetime' => safe_int($cookie_params['lifetime'] ?? 0),
-        'path' => scalar_string($cookie_params['path'] ?? '/'),
-        'domain' => scalar_string($cookie_params['domain'] ?? ''),
+        'lifetime' => safe_int($cookie_params['lifetime']),
+        'path' => scalar_string($cookie_params['path']),
+        'domain' => scalar_string($cookie_params['domain']),
         'secure' => bdta_request_is_https(),
         'httponly' => true,
         'samesite' => 'Lax',

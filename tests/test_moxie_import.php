@@ -264,6 +264,10 @@ try {
                 ),
             ];
         }
+
+        public function getCapturedCallCount(): int {
+            return count($this->captured_calls);
+        }
     };
 
     $no_next_clients = $no_next_sync->fetchClients($normalized_base_url, 'test-api-key', $no_next_page_size);
@@ -279,6 +283,9 @@ try {
         ],
     ]) {
         throw new RuntimeException('Expected fetchClients() to stop GET pagination when Moxie does not return a next URL: ' . json_encode($no_next_request_calls));
+    }
+    if ($no_next_sync->getCapturedCallCount() !== count($no_next_request_calls)) {
+        throw new RuntimeException('Expected the no-next pagination test to capture each request.');
     }
 
     $fallback_request_calls = [];
@@ -519,6 +526,10 @@ try {
         protected function pauseBeforeRateLimitRetry(int $delay_seconds): void {
             $this->captured_retry_delays[] = $delay_seconds;
         }
+
+        public function getCapturedRetryDelayCount(): int {
+            return count($this->captured_retry_delays);
+        }
     };
 
     $rate_limited_clients = $rate_limited_sync->fetchClients($normalized_base_url, 'test-api-key', 100);
@@ -548,6 +559,9 @@ try {
 
     if ($rate_limited_retry_delays !== [2]) {
         throw new RuntimeException('Expected fetchClients() to apply the initial rate-limit retry delay before retrying the same page: ' . json_encode($rate_limited_retry_delays));
+    }
+    if ($rate_limited_sync->getCapturedRetryDelayCount() !== count($rate_limited_retry_delays)) {
+        throw new RuntimeException('Expected the rate-limit retry test to capture each retry delay.');
     }
 
     echo "✓ Moxie import client creation works\n";
