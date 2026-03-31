@@ -5,15 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
     <title><?php echo isset($page_title) ? escape($page_title) : 'Client Area'; ?> - BDTA</title>
-    <!-- Dark mode: respect saved user preference, fall back to system preference -->
-    <script>
-        (function () {
-            'use strict';
-            var saved = localStorage.getItem('bdta-theme');
-            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        }());
-    </script>
+    <script src="/assets/js/theme-init.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous">
     <link rel="stylesheet" href="../assets/css/shared-ui.css">
@@ -37,119 +29,6 @@
             --theme-sidebar-start: <?= $tc_sidebar_start ?>;
             --theme-sidebar-end:   <?= $tc_sidebar_end ?>;
         }
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(135deg, <?= $tc_sidebar_start ?> 0%, <?= $tc_sidebar_end ?> 100%);
-        }
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 0.75rem 1rem;
-        }
-        .sidebar .nav-link.disabled,
-        .sidebar .nav-link:disabled {
-            color: rgba(255,255,255,0.45);
-            opacity: 0.65;
-            background: transparent;
-            cursor: default;
-            pointer-events: none;
-        }
-        .sidebar .nav-link:hover,
-        .sidebar .nav-link.active {
-            color: #fff;
-            background: rgba(10,154,156,0.3);
-        }
-        .btn-primary {
-            background-color: <?= $tc_primary ?>;
-            border-color: <?= $tc_primary ?>;
-        }
-        .btn-primary:hover {
-            background-color: <?= $tc_primary_dark ?>;
-            border-color: <?= $tc_primary_dark ?>;
-        }
-        .btn-success {
-            background-color: <?= $tc_secondary ?>;
-            border-color: <?= $tc_secondary ?>;
-        }
-        .btn-success:hover {
-            background-color: color-mix(in srgb, <?= $tc_secondary ?> 85%, black);
-            border-color: color-mix(in srgb, <?= $tc_secondary ?> 85%, black);
-        }
-        .badge.bg-primary {
-            background-color: <?= $tc_primary ?> !important;
-        }
-        .badge.bg-info {
-            background-color: <?= $tc_secondary ?> !important;
-        }
-        .text-primary {
-            color: <?= $tc_primary ?> !important;
-        }
-        a {
-            color: <?= $tc_primary ?>;
-        }
-        a:hover {
-            color: <?= $tc_primary_dark ?>;
-        }
-        /* Submenu parent row layout */
-        .nav-item-parent {
-            display: flex;
-            align-items: stretch;
-        }
-        .nav-item-parent > .nav-link {
-            flex-grow: 1;
-        }
-        /* Submenu toggle chevron button */
-        .submenu-toggle {
-            background: none;
-            border: none;
-            color: rgba(255,255,255,0.8);
-            padding: 0 0.75rem;
-            cursor: pointer;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-        }
-        .submenu-toggle:hover {
-            color: #fff;
-        }
-        .submenu-toggle .fa-chevron-down {
-            font-size: 0.7rem;
-            transition: transform 0.2s ease;
-        }
-        .submenu-toggle[aria-expanded="true"] .fa-chevron-down {
-            transform: rotate(180deg);
-        }
-        /* Sub-menu items */
-        .sidebar .submenu .nav-link {
-            padding: 0.45rem 1rem 0.45rem 2.5rem;
-            font-size: 0.875em;
-        }
-        /* Sidebar divider */
-        .sidebar-divider {
-            border-top: 1px solid rgba(255,255,255,0.15);
-            margin: 0.4rem 0.75rem;
-        }
-        .app-toast-container {
-            z-index: 11;
-        }
-        .app-mobile-navbar {
-            background: linear-gradient(135deg, var(--theme-sidebar-start) 0%, var(--theme-sidebar-end) 100%);
-        }
-        .app-main-content {
-            min-height: 100vh;
-            padding: 1rem;
-            padding-bottom: 2rem;
-        }
-        @media (min-width: 768px) {
-            .app-main-content {
-                padding: 1.5rem;
-            }
-        }
-        /* Dark mode overrides for custom (non-Bootstrap) elements */
-        [data-bs-theme="dark"] main.col-md-9,
-        [data-bs-theme="dark"] main.col-md-10,
-        [data-bs-theme="dark"] .main-content {
-            background-color: #111827;
-        }
     </style>
     <script src="/client/pwa-register.js" defer></script>
 </head>
@@ -157,7 +36,7 @@
     <?php $flash = getFlashMessage(); ?>
     <?php if ($flash): ?>
     <div class="position-fixed top-0 end-0 p-3 app-toast-container">
-        <div class="toast show align-items-center text-white bg-<?php echo $flash['type'] === 'success' ? 'success' : ($flash['type'] === 'error' ? 'danger' : 'info'); ?> border-0" role="alert">
+        <div class="toast show align-items-center text-white bg-<?php echo escape($flash['type']); ?> border-0" role="alert">
             <div class="d-flex">
                 <div class="toast-body"><?php echo escape($flash['message']); ?></div>
                 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close notification"></button>
@@ -491,26 +370,3 @@
 <?php else: ?>
 <main class="container mt-5">
 <?php endif; ?>
-<!-- Dark mode toggle script -->
-<script>
-(function () {
-    'use strict';
-    function updateToggle() {
-        var isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-        var icon  = document.getElementById('darkModeIcon');
-        var label = document.getElementById('darkModeLabel');
-        if (icon)  icon.className = isDark ? 'fas fa-sun me-2' : 'fas fa-moon me-2';
-        if (label) label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
-    }
-    updateToggle();
-    var btn = document.getElementById('darkModeToggle');
-    if (btn) {
-        btn.addEventListener('click', function () {
-            var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-bs-theme', next);
-            localStorage.setItem('bdta-theme', next);
-            updateToggle();
-        });
-    }
-}());
-</script>

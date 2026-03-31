@@ -7,12 +7,8 @@ $conn = $db->getConnection();
 $view = scalar_string($_GET['view'] ?? 'active') === 'archived' ? 'archived' : 'active';
 
 // Handle client actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
-        setFlashMessage('Invalid request.', 'danger');
-        redirect($view === 'archived' ? 'clients_list.php?view=archived' : 'clients_list.php');
-    }
-
+if (isPostRequest()) {
+    requireValidCsrfToken($view === 'archived' ? 'clients_list.php?view=archived' : 'clients_list.php');
     $return_view = scalar_string($_POST['return_view'] ?? $view) === 'archived' ? 'archived' : 'active';
 
     if (isset($_POST['archive_id'])) {
@@ -71,16 +67,6 @@ include '../backend/includes/header.php';
             <?php endif; ?>
         </div>
     </div>
-
-    <?php
-    $flash = getFlashMessage();
-    if ($flash):
-    ?>
-        <div class="alert alert-<?= $flash['type'] ?> alert-dismissible fade show">
-            <?= escape($flash['message']) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    <?php endif; ?>
 
     <div class="card">
         <div class="card-body">
@@ -184,7 +170,7 @@ include '../backend/includes/header.php';
                                              <form method="post" class="d-inline" onsubmit="return confirm('Unarchive this client and return them to the active client list?')">
                                                  <input type="hidden" name="unarchive_id" value="<?= $client['id'] ?>">
                                                  <input type="hidden" name="return_view" value="<?= escape($view) ?>">
-                                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                 <?php echo csrfInput(); ?>
                                                  <button type="submit" class="btn btn-sm btn-outline-info table-action-btn" title="Unarchive">
                                                      <i class="fas fa-box-open"></i>
                                                  </button>
@@ -193,7 +179,7 @@ include '../backend/includes/header.php';
                                              <form method="post" class="d-inline" onsubmit="return confirm('Archive this client? Pending items such as quotes, contracts, invoices, forms, workflows, and bookings will be cancelled or voided.')">
                                                  <input type="hidden" name="archive_id" value="<?= $client['id'] ?>">
                                                  <input type="hidden" name="return_view" value="<?= escape($view) ?>">
-                                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                 <?php echo csrfInput(); ?>
                                                  <button type="submit" class="btn btn-sm btn-outline-secondary table-action-btn" title="Archive">
                                                      <i class="fas fa-box-archive"></i>
                                                  </button>
@@ -202,7 +188,7 @@ include '../backend/includes/header.php';
                                              <form method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this client? This cannot be undone.')">
                                                  <input type="hidden" name="delete_id" value="<?= $client['id'] ?>">
                                                  <input type="hidden" name="return_view" value="<?= escape($view) ?>">
-                                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                 <?php echo csrfInput(); ?>
                                                  <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
                                                      <i class="fas fa-trash"></i>
                                                 </button>
@@ -248,7 +234,7 @@ include '../backend/includes/header.php';
                                                              <form method="post" onsubmit="return confirm('Unarchive this client and return them to the active client list?')">
                                                                  <input type="hidden" name="unarchive_id" value="<?= $client['id'] ?>">
                                                                  <input type="hidden" name="return_view" value="<?= escape($view) ?>">
-                                                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                                 <?php echo csrfInput(); ?>
                                                                  <button type="submit" class="dropdown-item w-100 text-start border-0 bg-transparent">
                                                                      <i class="fas fa-box-open me-2 text-info"></i>Unarchive
                                                                  </button>
@@ -257,7 +243,7 @@ include '../backend/includes/header.php';
                                                              <form method="post" onsubmit="return confirm('Archive this client? Pending items such as quotes, contracts, invoices, forms, workflows, and bookings will be cancelled or voided.')">
                                                                  <input type="hidden" name="archive_id" value="<?= $client['id'] ?>">
                                                                  <input type="hidden" name="return_view" value="<?= escape($view) ?>">
-                                                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                                 <?php echo csrfInput(); ?>
                                                                  <button type="submit" class="dropdown-item w-100 text-start border-0 bg-transparent">
                                                                      <i class="fas fa-box-archive me-2 text-secondary"></i>Archive
                                                                  </button>
@@ -269,7 +255,7 @@ include '../backend/includes/header.php';
                                                          <form method="post" onsubmit="return confirm('Are you sure you want to delete this client? This cannot be undone.')">
                                                              <input type="hidden" name="delete_id" value="<?= $client['id'] ?>">
                                                              <input type="hidden" name="return_view" value="<?= escape($view) ?>">
-                                                             <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                             <?php echo csrfInput(); ?>
                                                              <button type="submit" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent">
                                                                  <i class="fas fa-trash me-2"></i>Delete
                                                             </button>

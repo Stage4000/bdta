@@ -1,5 +1,205 @@
 /* Shared UI consistency helpers for admin and portal surfaces */
 
+:root {
+    --theme-primary: #9a0073;
+    --theme-primary-dark: #7a005a;
+    --theme-secondary: #0a9a9c;
+    --theme-sidebar-start: #9a0073;
+    --theme-sidebar-end: #7a005a;
+    --bdta-surface: #ffffff;
+    --bdta-surface-alt: #f8fafc;
+    --bdta-border: rgba(148, 163, 184, 0.26);
+    --bdta-shadow-sm: 0 12px 30px rgba(15, 23, 42, 0.08);
+    --bdta-shadow-lg: 0 24px 50px rgba(15, 23, 42, 0.12);
+    --bdta-radius: 1rem;
+    --bdta-radius-sm: 0.875rem;
+    --bdta-transition: 180ms ease;
+}
+
+body {
+    min-height: 100vh;
+    background:
+        linear-gradient(180deg, rgba(148, 163, 184, 0.08), transparent 260px),
+        var(--bdta-surface-alt);
+}
+
+a {
+    color: var(--theme-primary);
+}
+
+a:hover {
+    color: var(--theme-primary-dark);
+}
+
+.app-toast-container {
+    z-index: 1100;
+}
+
+.app-admin-banner {
+    z-index: 1050;
+}
+
+.app-mobile-navbar {
+    background: linear-gradient(135deg, var(--theme-sidebar-start) 0%, var(--theme-sidebar-end) 100%);
+    box-shadow: var(--bdta-shadow-sm);
+}
+
+.app-main-content {
+    min-height: 100vh;
+    padding: 1rem;
+    padding-bottom: 2rem;
+}
+
+.sidebar {
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--theme-sidebar-start) 0%, var(--theme-sidebar-end) 100%);
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.84);
+    padding: 0.75rem 1rem;
+    border-radius: 0.875rem;
+    margin: 0.125rem 0.5rem;
+    transition: background-color var(--bdta-transition), color var(--bdta-transition), transform var(--bdta-transition);
+}
+
+.sidebar .nav-link.disabled,
+.sidebar .nav-link:disabled {
+    color: rgba(255, 255, 255, 0.45);
+    opacity: 0.65;
+    background: transparent;
+    cursor: default;
+    pointer-events: none;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.sidebar .submenu .nav-link {
+    padding: 0.45rem 1rem 0.45rem 2.5rem;
+    font-size: 0.875em;
+}
+
+.nav-item-parent {
+    display: flex;
+    align-items: stretch;
+}
+
+.nav-item-parent > .nav-link {
+    flex-grow: 1;
+}
+
+.submenu-toggle {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    padding: 0 0.75rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.submenu-toggle:hover {
+    color: #fff;
+}
+
+.submenu-toggle .fa-chevron-down {
+    font-size: 0.7rem;
+    transition: transform var(--bdta-transition);
+}
+
+.submenu-toggle[aria-expanded="true"] .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.sidebar-divider {
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    margin: 0.4rem 0.75rem;
+}
+
+.card,
+.modal-content,
+.dropdown-menu {
+    border: 1px solid var(--bdta-border);
+    border-radius: var(--bdta-radius);
+    box-shadow: var(--bdta-shadow-sm);
+}
+
+.card-header,
+.modal-header,
+.modal-footer {
+    border-color: var(--bdta-border);
+}
+
+.btn {
+    min-height: 2.75rem;
+    border-radius: 999px;
+    font-weight: 600;
+    transition: transform var(--bdta-transition), box-shadow var(--bdta-transition), background-color var(--bdta-transition), border-color var(--bdta-transition), color var(--bdta-transition);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+
+.btn:focus-visible,
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--theme-primary) 18%, transparent);
+}
+
+.btn-primary {
+    background-color: var(--theme-primary);
+    border-color: var(--theme-primary);
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+    background-color: var(--theme-primary-dark);
+    border-color: var(--theme-primary-dark);
+}
+
+.btn-success {
+    background-color: var(--theme-secondary);
+    border-color: var(--theme-secondary);
+}
+
+.btn-success:hover,
+.btn-success:focus-visible {
+    background-color: color-mix(in srgb, var(--theme-secondary) 85%, black);
+    border-color: color-mix(in srgb, var(--theme-secondary) 85%, black);
+}
+
+.badge.bg-primary {
+    background-color: var(--theme-primary) !important;
+}
+
+.badge.bg-info {
+    background-color: var(--theme-secondary) !important;
+}
+
+.text-primary {
+    color: var(--theme-primary) !important;
+}
+
+.form-control,
+.form-select,
+.input-group-text {
+    border-radius: var(--bdta-radius-sm);
+    border-color: var(--bdta-border);
+}
+
+.table > :not(caption) > * > * {
+    vertical-align: middle;
+}
+
 .table td .btn,
 .table th .btn {
     min-height: 36px;
@@ -45,6 +245,43 @@
     width: auto;
 }
 
+.ck.ck-editor__editable_inline,
+.ck.ck-editor__main > .ck-editor__editable,
+.ck.ck-content {
+    min-height: 16rem !important;
+}
+
+[data-bs-theme="dark"] body {
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.84), rgba(15, 23, 42, 0.92)),
+        #0f172a;
+    color: #e5e7eb;
+}
+
+[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] .modal-content,
+[data-bs-theme="dark"] .dropdown-menu,
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select,
+[data-bs-theme="dark"] .input-group-text {
+    background-color: #111827;
+    border-color: #334155;
+    color: #e5e7eb;
+}
+
+[data-bs-theme="dark"] .card-header,
+[data-bs-theme="dark"] .modal-header,
+[data-bs-theme="dark"] .modal-footer {
+    background-color: #0f172a;
+    border-color: #334155;
+}
+
+[data-bs-theme="dark"] .table {
+    --bs-table-bg: transparent;
+    --bs-table-border-color: #334155;
+    color: #e5e7eb;
+}
+
 [data-bs-theme="dark"] thead.table-light {
     --bs-table-bg: #1f2937;
     --bs-table-striped-bg: #273449;
@@ -61,10 +298,16 @@
     color: #e5e7eb;
 }
 
-.ck.ck-editor__editable_inline,
-.ck.ck-editor__main > .ck-editor__editable,
-.ck.ck-content {
-    min-height: 16rem !important;
+[data-bs-theme="dark"] .main-content,
+[data-bs-theme="dark"] main.col-md-9,
+[data-bs-theme="dark"] main.col-md-10 {
+    background-color: transparent;
+}
+
+@media (min-width: 768px) {
+    .app-main-content {
+        padding: 1.5rem;
+    }
 }
 
 @media (max-width: 767.98px) {

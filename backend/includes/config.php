@@ -54,6 +54,16 @@ date_default_timezone_set(getSystemTimezone());
 
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.use_strict_mode', '1');
+    $cookie_params = session_get_cookie_params();
+    session_set_cookie_params([
+        'lifetime' => safe_int($cookie_params['lifetime'] ?? 0),
+        'path' => scalar_string($cookie_params['path'] ?? '/'),
+        'domain' => scalar_string($cookie_params['domain'] ?? ''),
+        'secure' => bdta_request_is_https(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 
@@ -70,8 +80,39 @@ define('PORTAL_URL', '/portal/');
 
 // Helper functions
 function redirect(string $url): never {
-    header("Location: $url");
+    $sanitized_url = preg_replace('/[\r\n]+/', '', $url) ?? '';
+    header('Location: ' . ($sanitized_url !== '' ? $sanitized_url : BASE_URL));
     exit();
+}
+
+function bdta_request_is_https(): bool {
+    if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && scalar_string($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') {
+        return true;
+    }
+
+    if (isset($_SERVER['HTTP_X_FORWARDED_SSL']) && scalar_string($_SERVER['HTTP_X_FORWARDED_SSL']) === 'on') {
+        return true;
+    }
+
+    if (!empty($_SERVER['HTTPS']) && scalar_string($_SERVER['HTTPS']) !== 'off') {
+        return true;
+    }
+
+    return isset($_SERVER['SERVER_PORT']) && safe_int($_SERVER['SERVER_PORT']) === 443;
+}
+
+function requestMethodIs(string $method): bool {
+    return strtoupper(scalar_string($_SERVER['REQUEST_METHOD'] ?? 'GET')) === strtoupper($method);
+}
+
+function isPostRequest(): bool {
+    return requestMethodIs('POST');
+}
+
+function refreshSessionAfterAuthentication(): void {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
 }
 
 function isLoggedIn(): bool {
@@ -86,7 +127,7 @@ function requireLogin(): void {
 
 function setFlashMessage(string $message, string $type = 'info'): void {
     $_SESSION['flash_message'] = $message;
-    $_SESSION['flash_type'] = $type;
+    $_SESSION['flash_type'] = normalizeFlashType($type);
 }
 
 /**
@@ -95,12 +136,55 @@ function setFlashMessage(string $message, string $type = 'info'): void {
 function getFlashMessage(): ?array {
     if (isset($_SESSION['flash_message'])) {
         $message = scalar_string($_SESSION['flash_message']);
-        $type = scalar_string($_SESSION['flash_type'] ?? 'info');
+        $type = normalizeFlashType(scalar_string($_SESSION['flash_type'] ?? 'info'));
         unset($_SESSION['flash_message']);
         unset($_SESSION['flash_type']);
         return ['message' => $message, 'type' => $type];
     }
     return null;
+}
+
+function normalizeFlashType(string $type): string {
+    $normalized = strtolower(trim($type));
+    if ($normalized === 'error') {
+        return 'danger';
+    }
+
+    $allowed = ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'];
+    return in_array($normalized, $allowed, true) ? $normalized : 'info';
+}
+
+function csrfToken(): string {
+    if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+
+    return scalar_string($_SESSION['csrf_token']);
+}
+
+function isValidCsrfToken(mixed $token): bool {
+    $submitted_token = scalar_string($token);
+    $session_token = csrfToken();
+
+    return $submitted_token !== '' && hash_equals($session_token, $submitted_token);
+}
+
+function requireValidCsrfToken(?string $redirect_url = null, string $message = 'Invalid request.'): void {
+    if (isValidCsrfToken($_POST['csrf_token'] ?? null)) {
+        return;
+    }
+
+    setFlashMessage($message, 'danger');
+    if ($redirect_url !== null && $redirect_url !== '') {
+        redirect($redirect_url);
+    }
+
+    http_response_code(400);
+    exit('Invalid request.');
+}
+
+function csrfInput(): string {
+    return '<input type="hidden" name="csrf_token" value="' . escape(csrfToken()) . '">';
 }
 
 function escape(mixed $string): string {

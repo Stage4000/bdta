@@ -9,15 +9,7 @@
     
     <meta name="color-scheme" content="light dark">
     <title>Brook's Dog Training Academy - Home</title>
-    <!-- Dark mode: respect saved user preference, fall back to system preference -->
-    <script>
-        (function () {
-            'use strict';
-            var saved = localStorage.getItem('bdta-theme');
-            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        }());
-    </script>
+    <script src="assets/js/theme-init.js"></script>
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
@@ -34,7 +26,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="assets/css/public/site.css">
     <!-- Dynamic Theme Colors (from admin settings) -->
     <link rel="stylesheet" href="backend/public/theme.css.php">
 </head>
@@ -526,7 +518,8 @@
     <!-- AOS Animation Library -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js" integrity="sha384-wziAfh6b/qT+3LrqebF9WeK4+J5sehS6FA10J1t3a866kJ/fvU5UwofWnQyzLtwu" crossorigin="anonymous"></script>
     
+    <script src="assets/js/theme-toggle.js"></script>
     <!-- Custom JS -->
-    <script src="js/script.js"></script>
+    <script src="assets/js/public/site.js"></script>
 </body>
 </html>

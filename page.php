@@ -81,15 +81,7 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     <meta name="color-scheme" content="light dark">
     <title><?php echo $seo_title; ?> — Brook's Dog Training Academy</title>
 
-    <!-- Dark mode: respect saved user preference -->
-    <script>
-        (function () {
-            'use strict';
-            var saved = localStorage.getItem('bdta-theme');
-            var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        }());
-    </script>
+    <script src="/assets/js/theme-init.js"></script>
 
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -97,7 +89,7 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/assets/css/public/site.css">
     <link rel="stylesheet" href="/backend/public/theme.css.php">
 
     <?php if (!empty($page['css_content'])): ?>
@@ -113,8 +105,9 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     <?php echo bdta_sync_public_navigation_links((string) $page['html_content']); ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/assets/js/theme-toggle.js"></script>
     <!-- BDTA dynamic modules (Packages & Events blocks added via the site editor) -->
-    <script src="/js/bdta-modules.js"></script>
+    <script src="/assets/js/public/modules.js"></script>
     <?php bdta_render_tawk_to_widget(); ?>
 </body>
 </html>

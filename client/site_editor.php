@@ -389,12 +389,12 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
                 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
                 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap',
-                '/css/style.css',
+                '/assets/css/public/site.css',
                 '/backend/public/theme.css.php'
             ],
             scripts: [
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js',
-                '/js/bdta-modules.js'
+                '/assets/js/public/modules.js'
             ]
         },
         // Custom panels

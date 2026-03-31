@@ -3,11 +3,15 @@ require_once '../backend/includes/config.php';
 
 $error = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (isPostRequest()) {
+    if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
+        $error = 'Your session expired. Please refresh the page and try again.';
+    }
+
     $username = scalar_string($_POST['username'] ?? '');
     $password = scalar_string($_POST['password'] ?? '');
     
-    if ($username && $password) {
+    if ($error === '' && $username && $password) {
         $db = new Database();
         $conn = $db->getConnection();
         
@@ -17,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (is_array($user) && password_verify($password, array_string_value($user, 'password_hash'))) {
+            refreshSessionAfterAuthentication();
             $_SESSION['admin_id'] = $user['id'];
             $_SESSION['admin_username'] = $user['username'];
             $_SESSION['is_admin'] = true;
@@ -30,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $client = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (is_array($client) && password_verify($password, array_string_value($client, 'password_hash'))) {
+                refreshSessionAfterAuthentication();
                 $_SESSION['admin_id'] = $client['id'];
                 $_SESSION['admin_username'] = $client['name'];
                 $_SESSION['admin_email'] = $client['email'];
@@ -40,12 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $conn->prepare("UPDATE clients SET last_login = CURRENT_TIMESTAMP WHERE id = ?");
                 $stmt->execute([$client['id']]);
                 
-                setFlashMessage('Welcome back, ' . escape($client['name']) . '!', 'success');
+                setFlashMessage('Welcome back, ' . array_string_value($client, 'name') . '!', 'success');
                 redirect('index.php');
             } else {
                 $error = 'Invalid username or password';
             }
         }
+    } elseif ($error === '') {
+        $error = 'Please enter your username and password.';
     }
 }
 
@@ -84,6 +92,7 @@ $page_title = 'Login';
                             <div class="alert alert-danger"><?php echo escape($error); ?></div>
                         <?php endif; ?>
                         <form method="POST">
+                            <?php echo csrfInput(); ?>
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>
                                 <input type="text" class="form-control" id="username" name="username" required autofocus autocomplete="username">

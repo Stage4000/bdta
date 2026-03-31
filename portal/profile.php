@@ -7,8 +7,6 @@ $db   = new Database();
 $conn = $db->getConnection();
 
 $errors   = [];
-$success  = '';
-$csrf_token = scalar_string($_SESSION['csrf_token'] ?? '');
 
 // Fetch current client data
 $stmt = $conn->prepare("SELECT * FROM clients WHERE id = ?");
@@ -27,7 +25,11 @@ $stmt = $conn->prepare("
 $stmt->execute([$client_id]);
 $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (isPostRequest()) {
+    if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
+        $errors[] = 'Your session expired. Please refresh the page and try again.';
+    }
+
     $name    = trim(scalar_string($_POST['name'] ?? ''));
     $email   = trim(scalar_string($_POST['email'] ?? ''));
     $phone   = trim(scalar_string($_POST['phone'] ?? ''));
@@ -89,7 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect(PORTAL_URL . 'logout.php');
         }
 
-        $success = 'Profile updated successfully.';
+        setFlashMessage('Profile updated successfully.', 'success');
+        redirect(PORTAL_URL . 'profile.php');
     }
 }
 
@@ -109,14 +112,11 @@ include '../portal/includes/header.php';
     </div>
 <?php endif; ?>
 
-<?php if ($success): ?>
-    <div class="alert alert-success"><?php echo escape($success); ?></div>
-<?php endif; ?>
-
 <div class="card mb-4">
     <div class="card-header"><strong>Personal Information</strong></div>
     <div class="card-body">
         <form method="POST">
+            <?php echo csrfInput(); ?>
             <div class="row g-3">
                 <div class="col-md-6">
                     <label for="name" class="form-label">Full Name <span class="text-danger">*</span></label>

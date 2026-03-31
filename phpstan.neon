@@ -7,12 +7,7 @@ parameters:
         - portal
         - index.php
         - page.php
-        - test_crud.php
-        - test_database.php
-        - test_integration.php
-        - test_packages.php
-        - test_portal_credit_booking.php
-        - test_unified_credits.php
+        - tests
     excludePaths:
         analyse:
             - backend/includes/phpmailer/*

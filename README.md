@@ -14,6 +14,16 @@ Brook's Dog Training Academy was founded in 2018 by Brook Lefkowitz, an Animal B
 
 This is a **complete business management system** combining a public-facing website with a powerful backend CRM designed specifically for service-based businesses. The system handles everything from client acquisition through booking, service delivery, time tracking, invoicing, and contract management.
 
+## Repository Structure
+
+The project is organized around runtime responsibility instead of mixing assets, entry points, and verification scripts at the repository root.
+
+- `assets/`: shared front-end assets, including `assets/css/public/` for public-site styles and `assets/js/public/` for public-site bundles
+- `backend/`: application services, includes, cron tasks, APIs, uploads, and public PHP endpoints
+- `blog/`, `client/`, `portal/`: web entry points grouped by experience surface
+- `tests/`: executable PHP smoke, workflow, and integration scripts
+- Root files: lightweight entry points, configuration, and project documentation
+
 ## Features
 
 ### 🌐 Public Website (Frontend)

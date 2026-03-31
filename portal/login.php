@@ -8,11 +8,15 @@ if (isPortalLoggedIn()) {
 
 $error = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (isPostRequest()) {
+    if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
+        $error = 'Your session expired. Please refresh the page and try again.';
+    }
+
     $email    = trim(scalar_string($_POST['email'] ?? ''));
     $password = scalar_string($_POST['password'] ?? '');
 
-    if ($email && $password) {
+    if ($error === '' && $email && $password) {
         $db   = new Database();
         $conn = $db->getConnection();
 
@@ -20,7 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$email]);
         $client = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($client && password_verify($password, array_string_value($client, 'password_hash'))) {
+        if (is_array($client) && password_verify($password, array_string_value($client, 'password_hash'))) {
+            refreshSessionAfterAuthentication();
             $_SESSION['portal_client_id']    = $client['id'];
             $_SESSION['portal_client_name']  = $client['name'];
             $_SESSION['portal_client_email'] = $client['email'];
@@ -31,12 +36,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             logClientActivity($client['id'], 'login', 'Client logged in', $conn);
 
-            setFlashMessage('Welcome back, ' . escape($client['name']) . '!', 'success');
+            setFlashMessage('Welcome back, ' . array_string_value($client, 'name') . '!', 'success');
             redirect(PORTAL_URL . 'index.php');
         } else {
             $error = 'Invalid email address or password.';
         }
-    } else {
+    } elseif ($error === '') {
         $error = 'Please enter your email and password.';
     }
 }
@@ -72,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="alert alert-danger"><?php echo escape($error); ?></div>
                         <?php endif; ?>
                         <form method="POST">
+                            <?php echo csrfInput(); ?>
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email Address</label>
                                 <input type="email" class="form-control" id="email" name="email"
