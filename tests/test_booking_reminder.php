@@ -9,6 +9,9 @@ require_once dirname(__DIR__) . '/backend/includes/config.php';
 require_once dirname(__DIR__) . '/backend/includes/settings.php';
 require_once dirname(__DIR__) . '/backend/cron/tasks/booking_reminder.php';
 
+const RULE_BOOKING_OFFSET_HOURS = 2;
+const LEGACY_BOOKING_OFFSET_HOURS = 25;
+
 function assertBookingReminderTest(bool $condition, string $message): void {
     if (!$condition) {
         throw new RuntimeException($message);
@@ -74,12 +77,12 @@ try {
     $cleanup['rule_id'] = (int) $conn->lastInsertId();
 
     $rule_booking_datetime = (new DateTimeImmutable('now'))
-        ->modify('+2 hours')
+        ->modify('+' . RULE_BOOKING_OFFSET_HOURS . ' hours')
         ->format('Y-m-d H:i:s');
     [$rule_booking_date, $rule_booking_time] = explode(' ', $rule_booking_datetime, 2);
 
     $legacy_booking_datetime = (new DateTimeImmutable('now'))
-        ->modify('+25 hours')
+        ->modify('+' . LEGACY_BOOKING_OFFSET_HOURS . ' hours')
         ->format('Y-m-d H:i:s');
     [$legacy_booking_date, $legacy_booking_time] = explode(' ', $legacy_booking_datetime, 2);
 

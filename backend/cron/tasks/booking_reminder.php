@@ -235,7 +235,13 @@ class BookingReminderTask {
             return "TIMESTAMP({$booking_alias}.appointment_date, {$booking_alias}.appointment_time)";
         }
 
-        return "datetime({$booking_alias}.appointment_date || ' ' || {$booking_alias}.appointment_time)";
+        if ($driver_name === 'sqlite') {
+            return "datetime({$booking_alias}.appointment_date || ' ' || {$booking_alias}.appointment_time)";
+        }
+
+        throw new RuntimeException(
+            'Unsupported database driver for booking reminders: ' . $driver_name . '. Supported drivers: mysql, sqlite'
+        );
     }
     
     /**
