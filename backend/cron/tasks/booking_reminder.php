@@ -229,7 +229,7 @@ class BookingReminderTask {
     }
 
     private function getAppointmentDateTimeSql(string $booking_alias): string {
-        $driver_name = strtolower((string) $this->conn->getAttribute(PDO::ATTR_DRIVER_NAME));
+        $driver_name = strtolower(scalar_string($this->conn->getAttribute(PDO::ATTR_DRIVER_NAME)));
 
         if ($driver_name === 'mysql') {
             return "TIMESTAMP({$booking_alias}.appointment_date, {$booking_alias}.appointment_time)";

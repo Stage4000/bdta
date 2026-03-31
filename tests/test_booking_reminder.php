@@ -122,11 +122,10 @@ try {
     $task = new BookingReminderTask($conn);
     $rule_result = $task->execute();
 
-    assertBookingReminderTest(($rule_result['success'] ?? false) === true, 'Rule-based booking reminder task did not report success.');
-    assertBookingReminderTest(($rule_result['items_processed'] ?? -1) === 0, 'Expected zero successful sends when SMTP host is blank.');
+    assertBookingReminderTest($rule_result['success'] === true, 'Rule-based booking reminder task did not report success.');
+    assertBookingReminderTest($rule_result['items_processed'] === 0, 'Expected zero successful sends when SMTP host is blank.');
 
-    $rule_errors = is_array($rule_result['errors'] ?? null) ? $rule_result['errors'] : [];
-    $rule_error_text = implode("\n", array_map('strval', $rule_errors));
+    $rule_error_text = implode("\n", $rule_result['errors']);
 
     assertBookingReminderTest(
         str_contains($rule_error_text, '#' . (string) $rule_booking_id),
@@ -139,14 +138,13 @@ try {
 
     $legacy_method = (new ReflectionClass(BookingReminderTask::class))->getMethod('executeLegacy');
     $legacy_method->setAccessible(true);
-    /** @var array{success?: bool, items_processed?: int, errors?: mixed} $legacy_result */
+    /** @var array{success: bool, items_processed: int, message: string, errors: list<string>} $legacy_result */
     $legacy_result = $legacy_method->invoke($task);
 
-    assertBookingReminderTest(($legacy_result['success'] ?? false) === true, 'Legacy booking reminder task did not report success.');
-    assertBookingReminderTest(($legacy_result['items_processed'] ?? -1) === 0, 'Expected zero successful legacy sends when SMTP host is blank.');
+    assertBookingReminderTest($legacy_result['success'] === true, 'Legacy booking reminder task did not report success.');
+    assertBookingReminderTest($legacy_result['items_processed'] === 0, 'Expected zero successful legacy sends when SMTP host is blank.');
 
-    $legacy_errors = is_array($legacy_result['errors'] ?? null) ? $legacy_result['errors'] : [];
-    $legacy_error_text = implode("\n", array_map('strval', $legacy_errors));
+    $legacy_error_text = implode("\n", $legacy_result['errors']);
 
     assertBookingReminderTest(
         str_contains($legacy_error_text, '#' . (string) $legacy_booking_id),
@@ -169,11 +167,13 @@ try {
     }
 
     if ($cleanup['booking_ids'] !== []) {
-        $placeholders = implode(',', array_fill(0, count($cleanup['booking_ids']), '?'));
-        $conn->prepare("DELETE FROM booking_reminders_sent WHERE booking_id IN ($placeholders)")
-            ->execute($cleanup['booking_ids']);
-        $conn->prepare("DELETE FROM bookings WHERE id IN ($placeholders)")
-            ->execute($cleanup['booking_ids']);
+        $delete_sent = $conn->prepare("DELETE FROM booking_reminders_sent WHERE booking_id = ?");
+        $delete_booking = $conn->prepare("DELETE FROM bookings WHERE id = ?");
+
+        foreach ($cleanup['booking_ids'] as $booking_id) {
+            $delete_sent->execute([$booking_id]);
+            $delete_booking->execute([$booking_id]);
+        }
     }
 
     if (is_int($cleanup['rule_id']) && $cleanup['rule_id'] > 0) {
