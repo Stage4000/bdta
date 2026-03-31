@@ -138,11 +138,10 @@ try {
     $task = new QuoteReminderTask($conn);
     $result = $task->execute();
 
-    assertQuoteReminderTest(($result['success'] ?? false) === true, 'Quote reminder task did not report success.');
-    assertQuoteReminderTest(($result['items_processed'] ?? -1) === 0, 'Expected zero successful sends when SMTP host is blank.');
+    assertQuoteReminderTest($result['success'] === true, 'Quote reminder task did not report success.');
+    assertQuoteReminderTest($result['items_processed'] === 0, 'Expected zero successful sends when SMTP host is blank.');
 
-    $errors = is_array($result['errors'] ?? null) ? $result['errors'] : [];
-    $error_text = implode("\n", array_map('strval', $errors));
+    $error_text = implode("\n", $result['errors']);
 
     assertQuoteReminderTest(
         str_contains($error_text, $active_email),

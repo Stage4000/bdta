@@ -20,7 +20,7 @@ if (!class_exists('WorkflowTask')) {
     throw new RuntimeException('Legacy WorkflowTask class is missing.');
 }
 
-if (!is_subclass_of('WorkflowTask', 'WorkflowProcessorTask')) {
+if (!in_array('WorkflowProcessorTask', class_parents('WorkflowTask') ?: [], true)) {
     throw new RuntimeException('WorkflowTask should extend WorkflowProcessorTask.');
 }
 

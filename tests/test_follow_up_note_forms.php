@@ -68,7 +68,7 @@ function deleteFollowUpNoteTestFile(string $path, string $allowed_directory, ?st
     // nosemgrep: php.lang.security.unlink-use.unlink-use
     if (!unlink($real_path)) {
         $last_error = error_get_last();
-        $error_detail = is_array($last_error) ? scalar_string($last_error['message'] ?? '') : '';
+        $error_detail = is_array($last_error) ? scalar_string($last_error['message']) : '';
         error_log(
             'Unable to delete follow-up note test SQLite file: '
             . $real_path
@@ -127,7 +127,7 @@ try {
     $template_id = (int) $conn->lastInsertId();
 
     $request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
-    $cleanup_submission_id = (int) $request['submission_id'];
+    $cleanup_submission_id = array_int_value($request, 'submission_id');
     $latest_submission_id = $cleanup_submission_id;
 
     $conn->prepare("
@@ -151,7 +151,7 @@ try {
     assertFollowUpNoteTest(scalar_string($email_row['status'] ?? '') === 'failed', 'Expected the logged email to reflect the SMTP failure.');
 
     $second_request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
-    $second_submission_id = (int) $second_request['submission_id'];
+    $second_submission_id = array_int_value($second_request, 'submission_id');
     $cleanup_submission_id = $second_submission_id;
     $conn->prepare("
         UPDATE form_submissions

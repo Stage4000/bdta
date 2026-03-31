@@ -9,6 +9,12 @@ if (PHP_SAPI !== 'cli') {
 require_once dirname(__DIR__) . '/backend/includes/config.php';
 require_once dirname(__DIR__) . '/backend/includes/imap_receiver.php';
 
+function assertDuplicateCheckResult(mixed $result, bool $expected, string $message): void {
+    if (!is_bool($result) || $result !== $expected) {
+        throw new RuntimeException($message);
+    }
+}
+
 echo "=== IMAP Receiver Test ===\n\n";
 
 $suffix = bin2hex(random_bytes(4));
@@ -76,9 +82,11 @@ try {
         currentUtcDateTime()
     ]);
 
-    if ($duplicate_check->invoke($receiver, $message_id, 'other@example.invalid', 'Other Subject', '2026-03-01 00:00:00') !== true) {
-        throw new RuntimeException('Expected existing client email message_id to be treated as duplicate.');
-    }
+    assertDuplicateCheckResult(
+        $duplicate_check->invoke($receiver, $message_id, 'other@example.invalid', 'Other Subject', '2026-03-01 00:00:00'),
+        true,
+        'Expected existing client email message_id to be treated as duplicate.'
+    );
     echo "✓ Existing client emails are deduplicated by message_id\n";
 
     $stmt = $conn->prepare("
@@ -99,9 +107,11 @@ try {
         currentUtcDateTime()
     ]);
 
-    if ($duplicate_check->invoke($receiver, $unmatched_message_id, 'other@example.invalid', 'Other Subject', '2026-03-01 00:00:00') !== true) {
-        throw new RuntimeException('Expected existing unmatched email message_id to be treated as duplicate.');
-    }
+    assertDuplicateCheckResult(
+        $duplicate_check->invoke($receiver, $unmatched_message_id, 'other@example.invalid', 'Other Subject', '2026-03-01 00:00:00'),
+        true,
+        'Expected existing unmatched email message_id to be treated as duplicate.'
+    );
     echo "✓ Existing unmatched emails are deduplicated by message_id\n";
 
     $stmt = $conn->prepare("
@@ -123,17 +133,23 @@ try {
         currentUtcDateTime()
     ]);
 
-    if ($duplicate_check->invoke($receiver, $collision_message_id, 'collision.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at) !== true) {
-        throw new RuntimeException('Expected existing client email message_id to still be treated as duplicate.');
-    }
-    if ($duplicate_check->invoke($receiver, '<new-message-id-' . $suffix . '@example.invalid>', 'different.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at) !== false) {
-        throw new RuntimeException('Expected new message_id to not be treated as duplicate despite matching subject/date.');
-    }
+    assertDuplicateCheckResult(
+        $duplicate_check->invoke($receiver, $collision_message_id, 'collision.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at),
+        true,
+        'Expected existing client email message_id to still be treated as duplicate.'
+    );
+    assertDuplicateCheckResult(
+        $duplicate_check->invoke($receiver, '<new-message-id-' . $suffix . '@example.invalid>', 'different.' . $suffix . '@example.invalid', $collision_subject, $fallback_received_at),
+        false,
+        'Expected new message_id to not be treated as duplicate despite matching subject/date.'
+    );
     echo "✓ Message IDs take precedence over subject/date collisions\n";
 
-    if ($duplicate_check->invoke($receiver, '', 'fallback.' . $suffix . '@example.invalid', $fallback_subject, $fallback_received_at) !== false) {
-        throw new RuntimeException('Expected fallback duplicate check to ignore unmatched subjects before data exists.');
-    }
+    assertDuplicateCheckResult(
+        $duplicate_check->invoke($receiver, '', 'fallback.' . $suffix . '@example.invalid', $fallback_subject, $fallback_received_at),
+        false,
+        'Expected fallback duplicate check to ignore unmatched subjects before data exists.'
+    );
 
     $stmt = $conn->prepare("
         INSERT INTO unmatched_emails (
@@ -153,9 +169,11 @@ try {
     ]);
     $fallback_unmatched_email_id = safe_int($conn->lastInsertId());
 
-    if ($duplicate_check->invoke($receiver, '', 'fallback.' . $suffix . '@example.invalid', $fallback_subject, $fallback_received_at) !== true) {
-        throw new RuntimeException('Expected subject/date fallback duplicate check to remain active when message_id is unavailable.');
-    }
+    assertDuplicateCheckResult(
+        $duplicate_check->invoke($receiver, '', 'fallback.' . $suffix . '@example.invalid', $fallback_subject, $fallback_received_at),
+        true,
+        'Expected subject/date fallback duplicate check to remain active when message_id is unavailable.'
+    );
     echo "✓ Fallback duplicate detection still works without a message_id\n";
 
     echo "\n=== All IMAP Receiver Tests Passed! ===\n";

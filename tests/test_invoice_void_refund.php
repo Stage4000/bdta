@@ -106,7 +106,7 @@ try {
         'cash',
         'Partial refund for missed session'
     );
-    if (safe_float($first_refund['refunded_total'] ?? 0) !== 40.00 || scalar_string($first_refund['status'] ?? '') !== 'paid') {
+    if (safe_float($first_refund['refunded_total']) !== 40.00 || scalar_string($first_refund['status']) !== 'paid') {
         throw new RuntimeException('Partial refund did not preserve the paid invoice status');
     }
     echo "✓ Partial refunds are recorded without reopening the invoice\n";
@@ -119,7 +119,7 @@ try {
         'cash',
         'Final refund'
     );
-    if (safe_float($second_refund['refunded_total'] ?? 0) !== 100.00 || scalar_string($second_refund['status'] ?? '') !== 'refunded') {
+    if (safe_float($second_refund['refunded_total']) !== 100.00 || scalar_string($second_refund['status']) !== 'refunded') {
         throw new RuntimeException('Full refund did not move the invoice to refunded status');
     }
     echo "✓ Full refunds move invoices to refunded status\n";

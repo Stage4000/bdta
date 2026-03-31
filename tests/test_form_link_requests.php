@@ -60,7 +60,7 @@ try {
     $cleanup['form_template_ids'][] = $pet_form_template_id;
 
     $request = bdta_create_form_request($conn, $pet_form_template_id, $client_id, $booking_id, $pet_id);
-    $submission_id = (int) ($request['submission_id'] ?? 0);
+    $submission_id = array_int_value($request, 'submission_id');
     $cleanup['submission_ids'][] = $submission_id;
 
     $stmt = $conn->prepare("SELECT client_id, booking_id, pet_id, status, responses FROM form_submissions WHERE id = ?");
