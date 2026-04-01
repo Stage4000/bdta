@@ -1839,30 +1839,6 @@ class Database {
             // Index might already exist, ignore
         }
 
-        $this->execSQL("
-            CREATE TABLE IF NOT EXISTS package_pending_purchases (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                package_id INTEGER NOT NULL,
-                package_token TEXT NOT NULL,
-                stripe_checkout_session_id VARCHAR(255) NOT NULL,
-                buyer_name TEXT NOT NULL,
-                buyer_email TEXT NOT NULL,
-                buyer_phone TEXT,
-                notes TEXT,
-                form_responses TEXT,
-                view_id INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
-                FOREIGN KEY (view_id) REFERENCES package_link_views(id) ON DELETE SET NULL
-            )
-        ");
-
-        try {
-            $this->execSQL("CREATE UNIQUE INDEX idx_package_pending_purchases_package_session ON package_pending_purchases(package_id, stripe_checkout_session_id)");
-        } catch (PDOException $e) {
-            // Index might already exist, ignore
-        }
-        
         // Add package_credit_id to bookings for tracking which package credit was consumed
         $booking_column_names_pkg = $this->getTableColumns('bookings');
         if (!in_array('package_credit_id', $booking_column_names_pkg)) {
@@ -1913,6 +1889,30 @@ class Database {
                 FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
             )
         ");
+
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS package_pending_purchases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                package_id INTEGER NOT NULL,
+                package_token TEXT NOT NULL,
+                stripe_checkout_session_id VARCHAR(255) NOT NULL,
+                buyer_name TEXT NOT NULL,
+                buyer_email TEXT NOT NULL,
+                buyer_phone TEXT,
+                notes TEXT,
+                form_responses TEXT,
+                view_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (view_id) REFERENCES package_link_views(id) ON DELETE SET NULL
+            )
+        ");
+
+        try {
+            $this->execSQL("CREATE UNIQUE INDEX idx_package_pending_purchases_package_session ON package_pending_purchases(package_id, stripe_checkout_session_id)");
+        } catch (PDOException $e) {
+            // Index might already exist, ignore
+        }
 
         // Add portal_available column to appointment_types
         $apt_column_names = $this->getTableColumns('appointment_types');
