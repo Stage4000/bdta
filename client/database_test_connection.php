@@ -27,8 +27,19 @@ $response = [
 ];
 
 try {
-    $db = new Database();
-    $conn = $db->getConnection();
+    $db_type = strtolower(trim(EnvLoader::get('DB_TYPE', 'mysql')));
+    if ($db_type !== '' && $db_type !== 'mysql') {
+        throw new RuntimeException('SQLite support has been removed. Configure DB_TYPE=mysql or omit DB_TYPE.');
+    }
+
+    if (trim($mysql_host) === '' || trim($mysql_db) === '' || trim($mysql_user) === '') {
+        throw new RuntimeException('Create a `.env` file from `.env.example` and set DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD for your MySQL database.');
+    }
+
+    $dsn = "mysql:host={$mysql_host};port={$mysql_port};dbname={$mysql_db};charset=utf8mb4";
+    $conn = new SafePDO($dsn, $mysql_user, $mysql_pass);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
 
     $stmt = $conn->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()");
     $table_count = $stmt->fetchColumn();

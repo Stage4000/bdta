@@ -29,9 +29,24 @@ if ($username === '') {
 }
 
 $backup_filename = 'bdta_mysql_backup_' . date('Y-m-d_H-i-s') . '.sql';
-$temp_file = sys_get_temp_dir() . '/' . $backup_filename;
+$temp_file = tempnam(sys_get_temp_dir(), 'bdta-backup-');
+if ($temp_file === false) {
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Unable to create a temporary backup file.']);
+    exit;
+}
+if (!chmod($temp_file, 0600)) {
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- temp_file is a server-generated tempnam() path under sys_get_temp_dir().
+    unlink($temp_file);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Unable to set permissions on the temporary backup file.']);
+    exit;
+}
+
 $defaults_file = tempnam(sys_get_temp_dir(), 'bdta-mysql-');
 if ($defaults_file === false) {
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- temp_file is a server-generated tempnam() path under sys_get_temp_dir().
+    unlink($temp_file);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'Unable to create a temporary MySQL config file.']);
     exit;
@@ -57,6 +72,8 @@ if ($mysql_password_raw !== '') {
 }
 
 if (file_put_contents($defaults_file, $defaults_contents) === false) {
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- temp_file is a server-generated tempnam() path under sys_get_temp_dir().
+    unlink($temp_file);
     // nosemgrep: php.lang.security.unlink-use.unlink-use -- defaults_file is a server-generated tempnam() path under sys_get_temp_dir().
     unlink($defaults_file);
     header('Content-Type: application/json');
@@ -65,6 +82,8 @@ if (file_put_contents($defaults_file, $defaults_contents) === false) {
 }
 
 if (!chmod($defaults_file, 0600)) {
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- temp_file is a server-generated tempnam() path under sys_get_temp_dir().
+    unlink($temp_file);
     // nosemgrep: php.lang.security.unlink-use.unlink-use -- defaults_file is a server-generated tempnam() path under sys_get_temp_dir().
     unlink($defaults_file);
     header('Content-Type: application/json');
@@ -88,6 +107,8 @@ $descriptors = [
 // nosemgrep: php.lang.security.exec-use.exec-use -- proc_open receives a fixed argv array with bypass_shell enabled, credentials come from a temp defaults file, and the dump writes to a server-generated temp file.
 $process = proc_open($command, $descriptors, $pipes, null, null, ['bypass_shell' => true]);
 if (!is_resource($process)) {
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- temp_file is a server-generated tempnam() path under sys_get_temp_dir().
+    unlink($temp_file);
     // nosemgrep: php.lang.security.unlink-use.unlink-use -- defaults_file is a server-generated tempnam() path under sys_get_temp_dir().
     unlink($defaults_file);
     header('Content-Type: application/json');
