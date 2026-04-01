@@ -133,21 +133,28 @@ try {
 } finally {
     if ($cleanup_submission_ids !== []) {
         $delete_submission_stmt = $conn->prepare("DELETE FROM form_submissions WHERE id = ?");
-        foreach ($cleanup_submission_ids as $cleanup_submission_id) {
-            $delete_submission_stmt->execute([(int) $cleanup_submission_id]);
+        $conn->beginTransaction();
+        try {
+            foreach ($cleanup_submission_ids as $cleanup_submission_id) {
+                $delete_submission_stmt->execute([(int) $cleanup_submission_id]);
+            }
+            $conn->commit();
+        } catch (Throwable $cleanup_error) {
+            $conn->rollBack();
+            throw $cleanup_error;
         }
     }
     if ($cleanup_booking_id > 0) {
-        $conn->prepare("DELETE FROM bookings WHERE id = ?")->execute([$cleanup_booking_id]);
+        $conn->prepare("DELETE FROM bookings WHERE id = ?")->execute([(int) $cleanup_booking_id]);
     }
     if ($cleanup_template_id > 0) {
-        $conn->prepare("DELETE FROM form_templates WHERE id = ?")->execute([$cleanup_template_id]);
+        $conn->prepare("DELETE FROM form_templates WHERE id = ?")->execute([(int) $cleanup_template_id]);
     }
     if ($cleanup_appointment_type_id > 0) {
-        $conn->prepare("DELETE FROM appointment_types WHERE id = ?")->execute([$cleanup_appointment_type_id]);
+        $conn->prepare("DELETE FROM appointment_types WHERE id = ?")->execute([(int) $cleanup_appointment_type_id]);
     }
     if ($cleanup_client_id > 0) {
-        $conn->prepare("DELETE FROM client_emails WHERE client_id = ?")->execute([$cleanup_client_id]);
-        $conn->prepare("DELETE FROM clients WHERE id = ?")->execute([$cleanup_client_id]);
+        $conn->prepare("DELETE FROM client_emails WHERE client_id = ?")->execute([(int) $cleanup_client_id]);
+        $conn->prepare("DELETE FROM clients WHERE id = ?")->execute([(int) $cleanup_client_id]);
     }
 }
