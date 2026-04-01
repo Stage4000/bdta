@@ -19,14 +19,14 @@ if (!$client_index_sql instanceof ReflectionClassConstant || !$unmatched_index_s
 $client_index_value = $client_index_sql->getValue();
 $unmatched_index_value = $unmatched_index_sql->getValue();
 
-if (!is_string($client_index_value) || $client_index_value !== 'CREATE INDEX idx_client_emails_message_id ON client_emails(message_id(191))') {
-    throw new RuntimeException('client_emails message_id index SQL should use only message_id(191).');
+if (!is_string($client_index_value) || $client_index_value !== 'CREATE INDEX idx_client_emails_message_id ON client_emails(direction(16), message_id(191))') {
+    throw new RuntimeException('client_emails message_id index SQL should use safe prefixes for direction and message_id.');
 }
 
 if (!is_string($unmatched_index_value) || $unmatched_index_value !== 'CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id(191))') {
     throw new RuntimeException('unmatched_emails message_id index SQL should use message_id(191).');
 }
 
-echo "✓ client_emails message_id index avoids oversized composite keys\n";
+echo "✓ client_emails message_id index uses safe composite prefixes\n";
 echo "✓ unmatched_emails message_id index uses a safe utf8mb4 prefix length\n";
 echo "\nAll email message_id index SQL tests passed!\n";

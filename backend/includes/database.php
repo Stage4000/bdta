@@ -112,7 +112,7 @@ function safe_float(mixed $value): float {
 
 class Database {
     private const MYSQL_CLIENT_NAME_PHONE_INDEX_SQL = 'CREATE INDEX idx_clients_name_phone ON clients(name(128), phone(32))';
-    private const MYSQL_CLIENT_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_client_emails_message_id ON client_emails(message_id(191))';
+    private const MYSQL_CLIENT_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_client_emails_message_id ON client_emails(direction(16), message_id(191))';
     private const MYSQL_UNMATCHED_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id(191))';
 
     private static ?SafePDO $sharedConnection = null;
