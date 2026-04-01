@@ -123,6 +123,10 @@ class Database {
     private string $db_name;
     private string $db_user;
     private string $db_password;
+
+    private function failConfiguration(string $message): never {
+        die('Database configuration failed: ' . $message);
+    }
     
     public function __construct() {
         if (self::$sharedConnection !== null) {
@@ -140,17 +144,17 @@ class Database {
     private function loadConfig(): void {
         $configured_db_type = strtolower(trim(EnvLoader::get('DB_TYPE', 'mysql')));
         if ($configured_db_type !== '' && $configured_db_type !== 'mysql') {
-            throw new RuntimeException('SQLite support has been removed. Configure DB_TYPE=mysql or omit DB_TYPE.');
+            $this->failConfiguration('SQLite support has been removed. Configure DB_TYPE=mysql or omit DB_TYPE.');
         }
 
         $this->db_host = EnvLoader::get('DB_HOST', 'localhost');
         $this->db_port = EnvLoader::get('DB_PORT', '3306');
         $this->db_name = EnvLoader::get('DB_NAME', 'bdta');
-        $this->db_user = EnvLoader::get('DB_USER', 'root');
+        $this->db_user = EnvLoader::get('DB_USER', '');
         $this->db_password = EnvLoader::get('DB_PASSWORD', '');
 
         if (trim($this->db_host) === '' || trim($this->db_name) === '' || trim($this->db_user) === '') {
-            throw new RuntimeException('MySQL configuration is incomplete. Set DB_HOST, DB_NAME, and DB_USER.');
+            $this->failConfiguration('Create a `.env` file from `.env.example` and set DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD for your MySQL database.');
         }
     }
     
@@ -164,7 +168,8 @@ class Database {
             $this->conn->exec("SET time_zone = '+00:00'");
             $this->conn->exec("SET sql_mode='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
         } catch (PDOException $e) {
-            die("Database connection failed: " . $e->getMessage());
+            error_log('Database connection failed: ' . $e->getMessage());
+            $this->failConfiguration('Unable to connect with the configured MySQL credentials. Check DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD in `.env`.');
         }
     }
     
@@ -2343,7 +2348,7 @@ class Database {
             ['db_host', 'localhost', 'text', 'database', 'MySQL Host', 'MySQL server hostname', 0],
             ['db_port', '3306', 'number', 'database', 'MySQL Port', 'MySQL server port', 0],
             ['db_name', 'bdta', 'text', 'database', 'MySQL Database', 'MySQL database name', 0],
-            ['db_user', 'root', 'text', 'database', 'MySQL Username', 'MySQL username', 0],
+            ['db_user', 'bdta_user', 'text', 'database', 'MySQL Username', 'MySQL username', 0],
             ['db_password', '', 'password', 'database', 'MySQL Password', 'MySQL password', 1],
         ];
 

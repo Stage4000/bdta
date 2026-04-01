@@ -150,8 +150,8 @@ class Settings {
             ],
             [
                 'key' => 'db_user',
-                'value' => EnvLoader::get('DB_USER', 'root'),
-                'actual_value' => EnvLoader::get('DB_USER', 'root'),
+                'value' => EnvLoader::get('DB_USER', ''),
+                'actual_value' => EnvLoader::get('DB_USER', ''),
                 'type' => 'text',
                 'label' => 'MySQL Username',
                 'description' => 'MySQL database username',

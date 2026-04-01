@@ -19,8 +19,14 @@ if ($format !== 'sql') {
 $host = getenv('DB_HOST') ?: 'localhost';
 $port = getenv('DB_PORT') ?: '3306';
 $database = getenv('DB_NAME') ?: 'bdta';
-$username = getenv('DB_USER') ?: 'root';
+$username = getenv('DB_USER') ?: '';
 $password = getenv('DB_PASSWORD') ?: '';
+
+if ($username === '') {
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'MySQL credentials are not configured. Set DB_USER and DB_PASSWORD in .env first.']);
+    exit;
+}
 
 $export_filename = 'bdta_export_' . date('Y-m-d_H-i-s') . '.sql';
 $temp_file = sys_get_temp_dir() . '/' . $export_filename;

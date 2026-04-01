@@ -17,7 +17,7 @@ EnvLoader::load();
 $mysql_host = EnvLoader::get('DB_HOST', 'localhost');
 $mysql_port = EnvLoader::get('DB_PORT', '3306');
 $mysql_db = EnvLoader::get('DB_NAME', 'bdta');
-$mysql_user = EnvLoader::get('DB_USER', 'root');
+$mysql_user = EnvLoader::get('DB_USER', '');
 $mysql_pass = EnvLoader::get('DB_PASSWORD', '');
 
 $response = [
