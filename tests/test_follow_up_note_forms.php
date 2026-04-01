@@ -131,20 +131,22 @@ try {
     echo "Only follow-up note form types participate in the client review flow\n\n";
     echo "=== Follow-up Note Form Tests Passed! ===\n";
 } finally {
-    if ($conn instanceof PDO && $cleanup_submission_ids !== []) {
-        $placeholders = implode(',', array_fill(0, count($cleanup_submission_ids), '?'));
-        $conn->prepare("DELETE FROM form_submissions WHERE id IN ($placeholders)")->execute($cleanup_submission_ids);
+    if ($cleanup_submission_ids !== []) {
+        $delete_submission_stmt = $conn->prepare("DELETE FROM form_submissions WHERE id = ?");
+        foreach ($cleanup_submission_ids as $cleanup_submission_id) {
+            $delete_submission_stmt->execute([(int) $cleanup_submission_id]);
+        }
     }
-    if ($conn instanceof PDO && $cleanup_booking_id > 0) {
+    if ($cleanup_booking_id > 0) {
         $conn->prepare("DELETE FROM bookings WHERE id = ?")->execute([$cleanup_booking_id]);
     }
-    if ($conn instanceof PDO && $cleanup_template_id > 0) {
+    if ($cleanup_template_id > 0) {
         $conn->prepare("DELETE FROM form_templates WHERE id = ?")->execute([$cleanup_template_id]);
     }
-    if ($conn instanceof PDO && $cleanup_appointment_type_id > 0) {
+    if ($cleanup_appointment_type_id > 0) {
         $conn->prepare("DELETE FROM appointment_types WHERE id = ?")->execute([$cleanup_appointment_type_id]);
     }
-    if ($conn instanceof PDO && $cleanup_client_id > 0) {
+    if ($cleanup_client_id > 0) {
         $conn->prepare("DELETE FROM client_emails WHERE client_id = ?")->execute([$cleanup_client_id]);
         $conn->prepare("DELETE FROM clients WHERE id = ?")->execute([$cleanup_client_id]);
     }
