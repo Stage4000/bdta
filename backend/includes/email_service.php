@@ -32,6 +32,8 @@ use PHPMailer\PHPMailer\Exception;
  */
 class EmailService {
 
+    private const SMTP_TRANSPORTS = ['smtp', 'sendgrid', 'mailgun', 'ses'];
+
     // ─── Mail type constants ──────────────────────────────────────────────────
     // Pass one of these to routeMail() / sendGenericEmail() so that every
     // outgoing message is labelled in the logs and can be handled distinctly
@@ -105,7 +107,12 @@ class EmailService {
     }
 
     private static function usesSmtpTransport(string $email_service): bool {
-        return in_array($email_service, ['smtp', 'sendgrid', 'mailgun', 'ses'], true);
+        return in_array($email_service, self::SMTP_TRANSPORTS, true);
+    }
+
+    private static function normalizeSmtpEncryption(string $smtp_encryption): string {
+        $normalized = strtolower(trim($smtp_encryption));
+        return in_array($normalized, ['tls', 'ssl', 'none'], true) ? $normalized : 'tls';
     }
 
     /**
@@ -1583,7 +1590,7 @@ TEXT;
                 $smtp_username = self::trimmedSettingString('smtp_username', '');
                 $smtp_password = self::trimmedSettingString('smtp_password', '');
                 $smtp_port = safe_int(Settings::get('smtp_port', 587));
-                $smtp_encryption = strtolower(self::trimmedSettingString('smtp_encryption', 'tls')); // 'tls', 'ssl', or 'none'
+                $smtp_encryption = self::normalizeSmtpEncryption(self::settingString('smtp_encryption', 'tls')); // 'tls', 'ssl', or 'none'
                 
                 // Validate SMTP configuration
                 if (empty($smtp_host)) {

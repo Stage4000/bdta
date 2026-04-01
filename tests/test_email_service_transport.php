@@ -3,6 +3,8 @@
 
 require_once dirname(__DIR__) . '/backend/includes/database.php';
 
+const EMAIL_TRANSPORT_WHITESPACE_ONLY = '   ';
+
 /**
  * @param array<string, string> $settings
  */
@@ -24,11 +26,13 @@ function resetEmailServiceTransportState(SafePDO $conn): void {
     require_once dirname(__DIR__) . '/backend/includes/settings.php';
 
     $settings_reflection = new ReflectionClass(Settings::class);
-    foreach (['db' => null, 'cache' => []] as $property_name => $value) {
-        $property = $settings_reflection->getProperty($property_name);
-        $property->setAccessible(true);
-        $property->setValue(null, $value);
-    }
+    $db_property = $settings_reflection->getProperty('db');
+    $db_property->setAccessible(true);
+    $db_property->setValue(null, null);
+
+    $cache_property = $settings_reflection->getProperty('cache');
+    $cache_property->setAccessible(true);
+    $cache_property->setValue(null, []);
 }
 
 function assertEmailServiceTransport(bool $condition, string $message): void {
@@ -85,20 +89,49 @@ try {
         'Expected SendGrid transport option to use the SMTP code path.'
     );
 
+    seedEmailServiceTransportSettings($conn, array_merge($defaults, [
+        'email_service' => ' SMTP ',
+        'smtp_host' => EMAIL_TRANSPORT_WHITESPACE_ONLY,
+        'smtp_username' => EMAIL_TRANSPORT_WHITESPACE_ONLY,
+        'smtp_password' => EMAIL_TRANSPORT_WHITESPACE_ONLY,
+        'smtp_encryption' => 'invalid',
+    ]));
+    resetEmailServiceTransportState($conn);
+
+    $email_service = new EmailService();
+    $trimmed_smtp_result = $email_service->sendGenericEmail(
+        'client@example.com',
+        'Trimmed SMTP transport regression',
+        '<p>Hello</p>',
+        'Hello',
+        EmailService::MAIL_TYPE_GENERIC
+    );
+
+    assertEmailServiceTransport($trimmed_smtp_result['success'] === false, 'Expected trimmed SMTP regression case to fail without an SMTP host.');
+    assertEmailServiceTransport(
+        str_contains($trimmed_smtp_result['message'], 'SMTP host is not configured'),
+        'Expected whitespace-padded SMTP selection to use the SMTP code path.'
+    );
+
     $email_service_reflection = new ReflectionClass(EmailService::class);
     $trimmed_setting = $email_service_reflection->getMethod('trimmedSettingString');
     $trimmed_setting->setAccessible(true);
     $uses_smtp_transport = $email_service_reflection->getMethod('usesSmtpTransport');
     $uses_smtp_transport->setAccessible(true);
+    $normalize_smtp_encryption = $email_service_reflection->getMethod('normalizeSmtpEncryption');
+    $normalize_smtp_encryption->setAccessible(true);
 
     seedEmailServiceTransportSettings($conn, array_merge($defaults, [
         'email_service' => ' SMTP ',
         'smtp_host' => ' smtp.example.test ',
-        'smtp_username' => '   ',
-        'smtp_password' => "\t",
-        'smtp_encryption' => ' TLS ',
+        'smtp_username' => EMAIL_TRANSPORT_WHITESPACE_ONLY,
+        'smtp_password' => EMAIL_TRANSPORT_WHITESPACE_ONLY,
+        'smtp_encryption' => ' invalid ',
     ]));
     resetEmailServiceTransportState($conn);
+
+    $trimmed_service = $trimmed_setting->invoke(null, 'email_service', 'mail');
+    $normalized_service = strtolower($trimmed_service);
 
     assertEmailServiceTransport(
         $trimmed_setting->invoke(null, 'smtp_host', '') === 'smtp.example.test',
@@ -113,8 +146,12 @@ try {
         'Expected whitespace-only SMTP password to be treated as empty.'
     );
     assertEmailServiceTransport(
-        $uses_smtp_transport->invoke(null, strtolower($trimmed_setting->invoke(null, 'email_service', 'mail'))) === true,
+        $uses_smtp_transport->invoke(null, $normalized_service) === true,
         'Expected trimmed provider selection to resolve to the SMTP transport.'
+    );
+    assertEmailServiceTransport(
+        $normalize_smtp_encryption->invoke(null, ' invalid ') === 'tls',
+        'Expected invalid SMTP encryption values to fall back to tls.'
     );
 
     echo "Email service transport regression test passed.\n";
