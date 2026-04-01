@@ -269,7 +269,7 @@ $stmt->execute([$client_id]);
 $total_transactions = (int)$stmt->fetchColumn();
 $total_pages = ceil($total_transactions / $per_page);
 
-// Build LIMIT clause that works with both MySQL and SQLite
+// Build a MySQL LIMIT clause from safe integer inputs.
 $limit_clause = $db->buildLimitClause($per_page, $offset);
 // Pagination clause is built from safe_int()-bounded integers only.
 // nosemgrep

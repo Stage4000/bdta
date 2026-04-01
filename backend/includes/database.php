@@ -1,7 +1,7 @@
 <?php
 /**
  * Brook's Dog Training Academy - Database Configuration
- * Supports MySQL (primary) and SQLite (fallback/development)
+ * MySQL-only database bootstrap and schema management.
  */
 
 // Load environment variables
@@ -116,10 +116,8 @@ class Database {
     private const MYSQL_UNMATCHED_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id(255))';
 
     private static ?SafePDO $sharedConnection = null;
-    private static ?string $sharedDbType = null;
-    private string $db_file;
     private SafePDO $conn;
-    private string $db_type = 'sqlite'; // 'mysql' or 'sqlite'
+    private string $db_type = 'mysql';
     private string $db_host;
     private string $db_port;
     private string $db_name;
@@ -129,7 +127,7 @@ class Database {
     public function __construct() {
         if (self::$sharedConnection !== null) {
             $this->conn = self::$sharedConnection;
-            $this->db_type = self::$sharedDbType ?? 'sqlite';
+            $this->db_type = 'mysql';
             return;
         }
         // Load database configuration from environment
@@ -137,74 +135,37 @@ class Database {
         $this->connect();
         $this->initTables();
         self::$sharedConnection = $this->conn;
-        self::$sharedDbType = $this->db_type;
     }
     
     private function loadConfig(): void {
-        // Load database configuration from environment variables only
-        // This avoids circular dependency of storing database config in the database
-        $env_db_type = EnvLoader::get('DB_TYPE', 'sqlite');
-        
-        // MySQL configuration
+        $configured_db_type = strtolower(trim(EnvLoader::get('DB_TYPE', 'mysql')));
+        if ($configured_db_type !== '' && $configured_db_type !== 'mysql') {
+            throw new RuntimeException('SQLite support has been removed. Configure DB_TYPE=mysql or omit DB_TYPE.');
+        }
+
         $this->db_host = EnvLoader::get('DB_HOST', 'localhost');
         $this->db_port = EnvLoader::get('DB_PORT', '3306');
         $this->db_name = EnvLoader::get('DB_NAME', 'bdta');
         $this->db_user = EnvLoader::get('DB_USER', 'root');
         $this->db_password = EnvLoader::get('DB_PASSWORD', '');
-        
-        // SQLite configuration
-        $sqlite_path = EnvLoader::get('SQLITE_DB_PATH', 'bdta.db');
-        $this->db_file = __DIR__ . '/../' . $sqlite_path;
-        
-        // Determine which database to use
-        // Try MySQL first if configured, fallback to SQLite
-        if ($env_db_type === 'mysql' && $this->isMySQLConfigured()) {
-            $this->db_type = 'mysql';
-        } else {
-            $this->db_type = 'sqlite';
+
+        if (trim($this->db_host) === '' || trim($this->db_name) === '' || trim($this->db_user) === '') {
+            throw new RuntimeException('MySQL configuration is incomplete. Set DB_HOST, DB_NAME, and DB_USER.');
         }
-    }
-    
-    private function isMySQLConfigured(): bool {
-        // Check if MySQL is minimally configured
-        return !empty($this->db_host) && !empty($this->db_name);
     }
     
     private function connect(): void {
         try {
-            if ($this->db_type === 'mysql') {
-                // Try MySQL connection
-                $dsn = "mysql:host={$this->db_host};port={$this->db_port};dbname={$this->db_name};charset=utf8mb4";
-                try {
-                    $this->conn = new SafePDO($dsn, $this->db_user, $this->db_password);
-                    $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                    $this->conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
-                    // Set MySQL specific settings
-                    $this->conn->exec("SET NAMES utf8mb4");
-                    $this->conn->exec("SET time_zone = '+00:00'");
-                    // Use modern SQL mode for MySQL 5.7+
-                    $this->conn->exec("SET sql_mode='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
-                } catch(PDOException $e) {
-                    // MySQL connection failed, fallback to SQLite
-                    error_log("MySQL connection failed, falling back to SQLite: " . $e->getMessage());
-                    $this->db_type = 'sqlite';
-                    $this->connectSQLite();
-                }
-            } else {
-                // Use SQLite
-                $this->connectSQLite();
-            }
-        } catch(PDOException $e) {
+            $dsn = "mysql:host={$this->db_host};port={$this->db_port};dbname={$this->db_name};charset=utf8mb4";
+            $this->conn = new SafePDO($dsn, $this->db_user, $this->db_password);
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $this->conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
+            $this->conn->exec("SET NAMES utf8mb4");
+            $this->conn->exec("SET time_zone = '+00:00'");
+            $this->conn->exec("SET sql_mode='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
+        } catch (PDOException $e) {
             die("Database connection failed: " . $e->getMessage());
         }
-    }
-    
-    private function connectSQLite(): void {
-        $this->conn = new SafePDO('sqlite:' . $this->db_file);
-        $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $this->conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
-        // Enable foreign keys for SQLite
-        $this->execSQL('PRAGMA foreign_keys = ON');
     }
     
     public function getConnection(): SafePDO {
@@ -216,9 +177,8 @@ class Database {
     }
     
     /**
-     * Build LIMIT clause compatible with both MySQL and SQLite
-     * MySQL doesn't support parameterized LIMIT/OFFSET properly, so we need to use literals
-     * 
+     * Build a MySQL LIMIT/OFFSET clause with integer literals.
+     *
      * @param int $limit The number of rows to return
      * @param int $offset The number of rows to skip
      * @return string The LIMIT clause to append to SQL
@@ -356,14 +316,9 @@ class Database {
     }
      
     /**
-     * Convert SQL from SQLite syntax to MySQL syntax
+     * Normalize legacy schema DDL fragments into MySQL syntax.
      */
     private function convertSQL(string $sql): string {
-        if ($this->db_type === 'sqlite') {
-            return $sql; // No conversion needed
-        }
-        
-        // MySQL conversions
         $mysql_sql = $sql;
         
         // Convert INTEGER PRIMARY KEY AUTOINCREMENT to INT AUTO_INCREMENT PRIMARY KEY
@@ -413,7 +368,7 @@ class Database {
     }
     
     /**
-     * Execute SQL with automatic conversion
+     * Execute SQL after MySQL normalization.
      */
     private function execSQL(string $sql): int|false {
         $converted_sql = $this->convertSQL($sql);
@@ -443,9 +398,6 @@ class Database {
     }
     
     /**
-     * Get column information in a database-agnostic way
-     */
-    /**
      * @return list<string>
      */
     private function getTableColumns(string $tableName): array {
@@ -454,21 +406,14 @@ class Database {
             throw new InvalidArgumentException("Invalid table name: $tableName");
         }
         
-        if ($this->db_type === 'sqlite') {
-            $stmt = $this->conn->prepare("SELECT name FROM pragma_table_info(?)");
-            $stmt->execute([$tableName]);
-            return array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
-        } else {
-            // MySQL - use INFORMATION_SCHEMA for parameterized query
-            $stmt = $this->conn->prepare("
-                SELECT COLUMN_NAME 
-                FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_SCHEMA = DATABASE() 
-                AND TABLE_NAME = ?
-            ");
-            $stmt->execute([$tableName]);
-            return array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
-        }
+        $stmt = $this->conn->prepare("
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = ?
+        ");
+        $stmt->execute([$tableName]);
+        return array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
     private function indexExists(string $tableName, string $indexName): bool {
@@ -477,12 +422,6 @@ class Database {
         }
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $indexName)) {
             throw new InvalidArgumentException("Invalid index name: $indexName");
-        }
-
-        if ($this->db_type === 'sqlite') {
-            $stmt = $this->conn->prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND name = ?");
-            $stmt->execute([$tableName, $indexName]);
-            return $stmt->fetchColumn() !== false;
         }
 
         $stmt = $this->conn->prepare("
@@ -507,13 +446,8 @@ class Database {
         }
         
         try {
-            if ($this->db_type === 'sqlite') {
-                $stmt = $this->conn->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?");
-                $stmt->execute([$tableName]);
-            } else {
-                $stmt = $this->conn->prepare("SHOW TABLES LIKE ?");
-                $stmt->execute([$tableName]);
-            }
+            $stmt = $this->conn->prepare("SHOW TABLES LIKE ?");
+            $stmt->execute([$tableName]);
             return $stmt->rowCount() > 0;
         } catch (PDOException $e) {
             return false;
@@ -1325,14 +1259,6 @@ class Database {
             ['tawk_to_property_id', '', 'text', 'advanced', 'Tawk.to Property ID', 'Paste the property ID from your Tawk.to embed snippet.', 0],
             ['tawk_to_widget_id', 'default', 'text', 'advanced', 'Tawk.to Widget ID', 'Optional widget ID from the Tawk.to embed snippet. Leave as "default" unless Tawk.to specifies another value.', 0],
             
-            // Database Settings
-            ['db_type', 'sqlite', 'select', 'database', 'Database Type', 'Database backend: mysql or sqlite', 0],
-            ['db_host', 'localhost', 'text', 'database', 'MySQL Host', 'MySQL server hostname (only for MySQL)', 0],
-            ['db_port', '3306', 'number', 'database', 'MySQL Port', 'MySQL server port (only for MySQL)', 0],
-            ['db_name', 'bdta', 'text', 'database', 'MySQL Database', 'MySQL database name (only for MySQL)', 0],
-            ['db_user', 'root', 'text', 'database', 'MySQL Username', 'MySQL username (only for MySQL)', 0],
-            ['db_password', '', 'password', 'database', 'MySQL Password', 'MySQL password (only for MySQL)', 1],
-            ['sqlite_db_path', 'bdta.db', 'text', 'database', 'SQLite Database Path', 'SQLite database filename relative to backend/ (only for SQLite)', 0],
         ];
         
         $stmt = $this->conn->prepare("
@@ -1527,8 +1453,6 @@ class Database {
         }
 
         if (!in_array('pay_token', $invoice_column_names)) {
-            // SQLite doesn't support UNIQUE in ALTER TABLE ADD COLUMN,
-            // so we add the column then create a separate unique index
             $this->execSQL("ALTER TABLE invoices ADD COLUMN pay_token TEXT");
             try {
                 $this->execSQL("CREATE UNIQUE INDEX idx_invoices_pay_token ON invoices(pay_token)");
@@ -1573,11 +1497,7 @@ class Database {
         }
 
         try {
-            if ($this->db_type === 'sqlite') {
-                $this->execSQL("CREATE UNIQUE INDEX idx_invoice_refunds_stripe_refund_id ON invoice_refunds(stripe_refund_id) WHERE stripe_refund_id IS NOT NULL");
-            } else {
-                $this->execSQL("CREATE UNIQUE INDEX idx_invoice_refunds_stripe_refund_id ON invoice_refunds(stripe_refund_id)");
-            }
+            $this->execSQL("CREATE UNIQUE INDEX idx_invoice_refunds_stripe_refund_id ON invoice_refunds(stripe_refund_id)");
         } catch (PDOException $e) {
             // Index already exists, ignore.
         }
@@ -1608,45 +1528,28 @@ class Database {
         }
         $added_moxie_client_id = false;
         if (!in_array('moxie_client_id', $client_column_names)) {
-            if ($this->db_type === 'mysql') {
-                $this->execSQL("ALTER TABLE clients ADD COLUMN moxie_client_id VARCHAR(255) NULL");
-            } else {
-                $this->execSQL("ALTER TABLE clients ADD COLUMN moxie_client_id TEXT");
-            }
+            $this->execSQL("ALTER TABLE clients ADD COLUMN moxie_client_id VARCHAR(255) NULL");
             $added_moxie_client_id = true;
         }
-        if ($this->db_type === 'mysql') {
-            if (!$added_moxie_client_id) {
-                try {
-                    $this->execSQL("ALTER TABLE clients MODIFY moxie_client_id VARCHAR(255) NULL");
-                } catch (PDOException $e) {
-                    // Column might already be the desired type, ignore
-                }
+        if (!$added_moxie_client_id) {
+            try {
+                $this->execSQL("ALTER TABLE clients MODIFY moxie_client_id VARCHAR(255) NULL");
+            } catch (PDOException $e) {
+                // Column might already be the desired type, ignore
             }
-            if (!$this->indexExists('clients', 'idx_clients_moxie_client_id')) {
-                try {
-                    $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
-                } catch (PDOException $e) {
-                    error_log("Migration: could not create clients moxie_client_id index - " . $e->getMessage());
-                }
-            }
-            if (!$this->indexExists('clients', 'idx_clients_name_phone')) {
-                try {
-                    $this->execSQL(self::MYSQL_CLIENT_NAME_PHONE_INDEX_SQL);
-                } catch (PDOException $e) {
-                    error_log("Migration: could not create clients name/phone index - " . $e->getMessage());
-                }
-            }
-        } else {
+        }
+        if (!$this->indexExists('clients', 'idx_clients_moxie_client_id')) {
             try {
                 $this->execSQL("CREATE INDEX idx_clients_moxie_client_id ON clients(moxie_client_id)");
             } catch (PDOException $e) {
-                // Index might already exist, ignore
+                error_log("Migration: could not create clients moxie_client_id index - " . $e->getMessage());
             }
+        }
+        if (!$this->indexExists('clients', 'idx_clients_name_phone')) {
             try {
-                $this->execSQL("CREATE INDEX idx_clients_name_phone ON clients(name, phone)");
+                $this->execSQL(self::MYSQL_CLIENT_NAME_PHONE_INDEX_SQL);
             } catch (PDOException $e) {
-                // Index might already exist, ignore
+                error_log("Migration: could not create clients name/phone index - " . $e->getMessage());
             }
         }
         
@@ -1654,9 +1557,7 @@ class Database {
         $apt_column_names = $this->getTableColumns('appointment_types');
         
         if (!in_array('unique_link', $apt_column_names)) {
-            // SQLite doesn't support adding UNIQUE constraint in ALTER TABLE,
-            // so we add it as a regular column and create a unique index
-            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN unique_link TEXT");
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN unique_link VARCHAR(255)");
             
             // Create a unique index on the unique_link column
             try {
@@ -1990,11 +1891,7 @@ class Database {
             $this->execSQL("ALTER TABLE client_packages ADD COLUMN payment_method TEXT");
         }
         if (!in_array('stripe_checkout_session_id', $client_package_column_names)) {
-            if ($this->db_type === 'mysql') {
-                $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id VARCHAR(255) NULL");
-            } else {
-                $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id TEXT NULL");
-            }
+            $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id VARCHAR(255) NULL");
         }
 
         // Create package_link_views table for analytics
@@ -2135,9 +2032,7 @@ class Database {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN group_class_location TEXT");
         }
 
-        // Add appointment_type_id to booking_reminder_rules for per-appointment-type rules
-        // Note: SQLite does not support adding foreign key constraints via ALTER TABLE;
-        // the FK is enforced on fresh installs via the CREATE TABLE definition above.
+        // Add appointment_type_id to booking_reminder_rules for per-appointment-type rules.
         $brr_cols = $this->getTableColumns('booking_reminder_rules');
         if (!in_array('appointment_type_id', $brr_cols)) {
             $this->execSQL("ALTER TABLE booking_reminder_rules ADD COLUMN appointment_type_id INTEGER DEFAULT NULL");
@@ -2235,35 +2130,18 @@ class Database {
         if (!in_array('message_id', $unmatched_email_columns)) {
             $this->execSQL("ALTER TABLE unmatched_emails ADD COLUMN message_id TEXT DEFAULT NULL");
         }
-        if ($this->db_type === 'mysql') {
-            if (!$this->indexExists('client_emails', 'idx_client_emails_message_id')) {
-                try {
-                    $this->execSQL(self::MYSQL_CLIENT_EMAILS_MESSAGE_ID_INDEX_SQL);
-                } catch (PDOException $e) {
-                    error_log("Migration: could not create client_emails message_id index - " . $e->getMessage());
-                }
+        if (!$this->indexExists('client_emails', 'idx_client_emails_message_id')) {
+            try {
+                $this->execSQL(self::MYSQL_CLIENT_EMAILS_MESSAGE_ID_INDEX_SQL);
+            } catch (PDOException $e) {
+                error_log("Migration: could not create client_emails message_id index - " . $e->getMessage());
             }
-            if (!$this->indexExists('unmatched_emails', 'idx_unmatched_emails_message_id')) {
-                try {
-                    $this->execSQL(self::MYSQL_UNMATCHED_EMAILS_MESSAGE_ID_INDEX_SQL);
-                } catch (PDOException $e) {
-                    error_log("Migration: could not create unmatched_emails message_id index - " . $e->getMessage());
-                }
-            }
-        } else {
-            if (!$this->indexExists('client_emails', 'idx_client_emails_message_id')) {
-                try {
-                    $this->execSQL("CREATE INDEX idx_client_emails_message_id ON client_emails(direction, message_id)");
-                } catch (PDOException $e) {
-                    error_log("Migration: could not create client_emails message_id index - " . $e->getMessage());
-                }
-            }
-            if (!$this->indexExists('unmatched_emails', 'idx_unmatched_emails_message_id')) {
-                try {
-                    $this->execSQL("CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id)");
-                } catch (PDOException $e) {
-                    error_log("Migration: could not create unmatched_emails message_id index - " . $e->getMessage());
-                }
+        }
+        if (!$this->indexExists('unmatched_emails', 'idx_unmatched_emails_message_id')) {
+            try {
+                $this->execSQL(self::MYSQL_UNMATCHED_EMAILS_MESSAGE_ID_INDEX_SQL);
+            } catch (PDOException $e) {
+                error_log("Migration: could not create unmatched_emails message_id index - " . $e->getMessage());
             }
         }
 
@@ -2319,103 +2197,99 @@ class Database {
         // before seeding manual SiteBuilder pages. On fresh MySQL installs these
         // columns may initially be TEXT, which can cause truncation or insert
         // failures under strict SQL mode when inserting large HTML/CSS blobs.
-        if ($this->db_type === 'mysql') {
-            try {
-                // Check and widen html_content if necessary
-                $htmlColStmt = $this->conn->query("SHOW COLUMNS FROM site_pages LIKE 'html_content'");
-                $htmlColInfo = $htmlColStmt->fetch(PDO::FETCH_ASSOC);
-                if ($htmlColInfo && isset($htmlColInfo['Type']) && stripos((string)$htmlColInfo['Type'], 'mediumtext') === false) {
-                    $this->execSQL("ALTER TABLE site_pages MODIFY COLUMN html_content MEDIUMTEXT");
-                }
-
-                // Check and widen css_content if necessary
-                $cssColStmt = $this->conn->query("SHOW COLUMNS FROM site_pages LIKE 'css_content'");
-                $cssColInfo = $cssColStmt->fetch(PDO::FETCH_ASSOC);
-                if ($cssColInfo && isset($cssColInfo['Type']) && stripos((string)$cssColInfo['Type'], 'mediumtext') === false) {
-                    $this->execSQL("ALTER TABLE site_pages MODIFY COLUMN css_content MEDIUMTEXT");
-                }
-            } catch (PDOException $e) {
-                // If this adjustment fails, continue; a later migration may already
-                // have handled the MEDIUMTEXT widening.
-                error_log("Migration: could not ensure MEDIUMTEXT for site_pages content columns - " . $e->getMessage());
+        try {
+            // Check and widen html_content if necessary
+            $htmlColStmt = $this->conn->query("SHOW COLUMNS FROM site_pages LIKE 'html_content'");
+            $htmlColInfo = $htmlColStmt->fetch(PDO::FETCH_ASSOC);
+            if ($htmlColInfo && isset($htmlColInfo['Type']) && stripos((string)$htmlColInfo['Type'], 'mediumtext') === false) {
+                $this->execSQL("ALTER TABLE site_pages MODIFY COLUMN html_content MEDIUMTEXT");
             }
+
+            // Check and widen css_content if necessary
+            $cssColStmt = $this->conn->query("SHOW COLUMNS FROM site_pages LIKE 'css_content'");
+            $cssColInfo = $cssColStmt->fetch(PDO::FETCH_ASSOC);
+            if ($cssColInfo && isset($cssColInfo['Type']) && stripos((string)$cssColInfo['Type'], 'mediumtext') === false) {
+                $this->execSQL("ALTER TABLE site_pages MODIFY COLUMN css_content MEDIUMTEXT");
+            }
+        } catch (PDOException $e) {
+            // If this adjustment fails, continue; a later migration may already
+            // have handled the MEDIUMTEXT widening.
+            error_log("Migration: could not ensure MEDIUMTEXT for site_pages content columns - " . $e->getMessage());
         }
         $this->seedManualSiteBuilderPages();
 
         // Widen the form_templates.fields and form_submissions.responses columns on
         // MySQL installations where the TEXT → VARCHAR(255) conversion was previously
         // applied, so that large JSON payloads are no longer truncated.
-        if ($this->db_type === 'mysql') {
-            try {
-                $this->conn->exec("ALTER TABLE client_packages MODIFY COLUMN stripe_checkout_session_id VARCHAR(255) NULL");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify client_packages.stripe_checkout_session_id - " . $e->getMessage());
-            }
-            try {
-                $this->conn->exec("ALTER TABLE package_pending_purchases MODIFY COLUMN stripe_checkout_session_id VARCHAR(255) NOT NULL");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify package_pending_purchases.stripe_checkout_session_id - " . $e->getMessage());
-            }
-            try {
-                $this->conn->exec("ALTER TABLE form_templates MODIFY COLUMN fields MEDIUMTEXT NOT NULL");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify form_templates.fields - " . $e->getMessage());
-            }
-            try {
-                $this->conn->exec("ALTER TABLE form_submissions MODIFY COLUMN responses MEDIUMTEXT NOT NULL");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify form_submissions.responses - " . $e->getMessage());
-            }
-            // Widen contract_templates.template_text and contracts.contract_text on MySQL
-            // installations where the TEXT NOT NULL → VARCHAR(255) conversion was previously
-            // applied by convertSQL(), which capped long contract/template content at 255 chars.
-            try {
-                $this->conn->exec("ALTER TABLE contract_templates MODIFY COLUMN template_text MEDIUMTEXT NOT NULL");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify contract_templates.template_text - " . $e->getMessage());
-            }
-            try {
-                $this->conn->exec("ALTER TABLE contracts MODIFY COLUMN contract_text MEDIUMTEXT NOT NULL");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify contracts.contract_text - " . $e->getMessage());
-            }
-            // Widen email_templates.body_html and body_text on MySQL installations
-            // where TEXT (~64 KB) is too small for large HTML email templates.
-            try {
-                $this->conn->exec("ALTER TABLE email_templates MODIFY COLUMN body_html MEDIUMTEXT NOT NULL");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify email_templates.body_html - " . $e->getMessage());
-            }
-            try {
-                $this->conn->exec("ALTER TABLE email_templates MODIFY COLUMN body_text MEDIUMTEXT");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify email_templates.body_text - " . $e->getMessage());
-            }
-            // Widen email_signature_templates.html_content on MySQL installations
-            // where TEXT (~64 KB) is too small for large HTML email signatures.
-            try {
-                $this->conn->exec("ALTER TABLE email_signature_templates MODIFY COLUMN html_content MEDIUMTEXT NOT NULL");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify email_signature_templates.html_content - " . $e->getMessage());
-            }
-            // Widen site_pages HTML/CSS columns so inline images (data URIs) do not overflow TEXT (~64 KB)
-            try {
-                $this->conn->exec("ALTER TABLE site_pages MODIFY COLUMN html_content MEDIUMTEXT");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify site_pages.html_content - " . $e->getMessage());
-            }
-            try {
-                $this->conn->exec("ALTER TABLE site_pages MODIFY COLUMN css_content MEDIUMTEXT");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify site_pages.css_content - " . $e->getMessage());
-            }
-            // Widen blog_posts.content on MySQL installations where TEXT (~64 KB)
-            // is too small for large rich-text blog post content.
-            try {
-                $this->conn->exec("ALTER TABLE blog_posts MODIFY COLUMN content MEDIUMTEXT NOT NULL");
-            } catch (PDOException $e) {
-                error_log("Migration: could not modify blog_posts.content - " . $e->getMessage());
-            }
+        try {
+            $this->conn->exec("ALTER TABLE client_packages MODIFY COLUMN stripe_checkout_session_id VARCHAR(255) NULL");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify client_packages.stripe_checkout_session_id - " . $e->getMessage());
+        }
+        try {
+            $this->conn->exec("ALTER TABLE package_pending_purchases MODIFY COLUMN stripe_checkout_session_id VARCHAR(255) NOT NULL");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify package_pending_purchases.stripe_checkout_session_id - " . $e->getMessage());
+        }
+        try {
+            $this->conn->exec("ALTER TABLE form_templates MODIFY COLUMN fields MEDIUMTEXT NOT NULL");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify form_templates.fields - " . $e->getMessage());
+        }
+        try {
+            $this->conn->exec("ALTER TABLE form_submissions MODIFY COLUMN responses MEDIUMTEXT NOT NULL");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify form_submissions.responses - " . $e->getMessage());
+        }
+        // Widen contract_templates.template_text and contracts.contract_text on MySQL
+        // installations where the TEXT NOT NULL → VARCHAR(255) conversion was previously
+        // applied by convertSQL(), which capped long contract/template content at 255 chars.
+        try {
+            $this->conn->exec("ALTER TABLE contract_templates MODIFY COLUMN template_text MEDIUMTEXT NOT NULL");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify contract_templates.template_text - " . $e->getMessage());
+        }
+        try {
+            $this->conn->exec("ALTER TABLE contracts MODIFY COLUMN contract_text MEDIUMTEXT NOT NULL");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify contracts.contract_text - " . $e->getMessage());
+        }
+        // Widen email_templates.body_html and body_text on MySQL installations
+        // where TEXT (~64 KB) is too small for large HTML email templates.
+        try {
+            $this->conn->exec("ALTER TABLE email_templates MODIFY COLUMN body_html MEDIUMTEXT NOT NULL");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify email_templates.body_html - " . $e->getMessage());
+        }
+        try {
+            $this->conn->exec("ALTER TABLE email_templates MODIFY COLUMN body_text MEDIUMTEXT");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify email_templates.body_text - " . $e->getMessage());
+        }
+        // Widen email_signature_templates.html_content on MySQL installations
+        // where TEXT (~64 KB) is too small for large HTML email signatures.
+        try {
+            $this->conn->exec("ALTER TABLE email_signature_templates MODIFY COLUMN html_content MEDIUMTEXT NOT NULL");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify email_signature_templates.html_content - " . $e->getMessage());
+        }
+        // Widen site_pages HTML/CSS columns so inline images (data URIs) do not overflow TEXT (~64 KB)
+        try {
+            $this->conn->exec("ALTER TABLE site_pages MODIFY COLUMN html_content MEDIUMTEXT");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify site_pages.html_content - " . $e->getMessage());
+        }
+        try {
+            $this->conn->exec("ALTER TABLE site_pages MODIFY COLUMN css_content MEDIUMTEXT");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify site_pages.css_content - " . $e->getMessage());
+        }
+        // Widen blog_posts.content on MySQL installations where TEXT (~64 KB)
+        // is too small for large rich-text blog post content.
+        try {
+            $this->conn->exec("ALTER TABLE blog_posts MODIFY COLUMN content MEDIUMTEXT NOT NULL");
+        } catch (PDOException $e) {
+            error_log("Migration: could not modify blog_posts.content - " . $e->getMessage());
         }
     }
     
@@ -2458,31 +2332,32 @@ class Database {
     }
 
     private function addDatabaseSettings(): void {
-        // Check if database settings already exist
-        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE category = ?");
-        $stmt->execute(['database']);
-        $count = $stmt->fetchColumn();
-        
-        // Only add if database category doesn't exist
-        if ($count == 0) {
-            $database_settings = [
-                ['db_type', 'sqlite', 'select', 'database', 'Database Type', 'Database backend: mysql or sqlite', 0],
-                ['db_host', 'localhost', 'text', 'database', 'MySQL Host', 'MySQL server hostname (only for MySQL)', 0],
-                ['db_port', '3306', 'number', 'database', 'MySQL Port', 'MySQL server port (only for MySQL)', 0],
-                ['db_name', 'bdta', 'text', 'database', 'MySQL Database', 'MySQL database name (only for MySQL)', 0],
-                ['db_user', 'root', 'text', 'database', 'MySQL Username', 'MySQL username (only for MySQL)', 0],
-                ['db_password', '', 'password', 'database', 'MySQL Password', 'MySQL password (only for MySQL)', 1],
-                ['sqlite_db_path', 'bdta.db', 'text', 'database', 'SQLite Database Path', 'SQLite database filename relative to backend/ (only for SQLite)', 0],
-            ];
-            
-            $stmt = $this->conn->prepare("
-                INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ");
-            
-            foreach ($database_settings as $setting) {
+        try {
+            $this->conn->prepare("DELETE FROM settings WHERE setting_key IN (?, ?)")
+                ->execute(['db_type', 'sqlite_db_path']);
+        } catch (PDOException $e) {
+            // Ignore cleanup failures for obsolete settings.
+        }
+
+        $database_settings = [
+            ['db_host', 'localhost', 'text', 'database', 'MySQL Host', 'MySQL server hostname', 0],
+            ['db_port', '3306', 'number', 'database', 'MySQL Port', 'MySQL server port', 0],
+            ['db_name', 'bdta', 'text', 'database', 'MySQL Database', 'MySQL database name', 0],
+            ['db_user', 'root', 'text', 'database', 'MySQL Username', 'MySQL username', 0],
+            ['db_password', '', 'password', 'database', 'MySQL Password', 'MySQL password', 1],
+        ];
+
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $insert = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($database_settings as $setting) {
+            $check->execute([$setting[0]]);
+            if ($check->fetchColumn() == 0) {
                 try {
-                    $stmt->execute($setting);
+                    $insert->execute($setting);
                 } catch (PDOException $e) {
                     // Setting might already exist, ignore
                 }

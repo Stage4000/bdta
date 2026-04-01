@@ -32,7 +32,7 @@ The script adds 8 IMAP configuration settings to your `settings` table:
 To verify the settings were added:
 ```bash
 cd /path/to/bdta/backend
-sqlite3 bdta.db "SELECT setting_key FROM settings WHERE setting_key LIKE 'imap%';"
+mysql -u bdta_user -p bdta -e "SELECT setting_key FROM settings WHERE setting_key LIKE 'imap%';"
 ```
 
 You should see 8 IMAP-related settings.
@@ -41,7 +41,7 @@ You should see 8 IMAP-related settings.
 If you still don't see the settings:
 1. Clear your browser cache
 2. Check browser console for JavaScript errors
-3. Verify the database file permissions
+3. Verify the MySQL credentials in `.env`
 4. Try logging out and back in
 
 ## Need Help?

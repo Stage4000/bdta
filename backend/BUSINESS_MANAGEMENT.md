@@ -395,18 +395,18 @@ To enable tax:
 - Check webhook event logs in Stripe dashboard
 
 **Database errors?**
-- Ensure SQLite extension enabled
-- Check file permissions on `bdta.db`
-- Run database initialization
+- Verify MySQL is running and reachable
+- Confirm `.env` credentials match the target database
+- Run database initialization against the configured MySQL database
 
 ### Database Backup
 
 ```bash
 # Backup
-cp backend/bdta.db backups/bdta_$(date +%Y%m%d).db
+mysqldump -u bdta_user -p bdta > backups/bdta_$(date +%Y%m%d).sql
 
 # Restore
-cp backups/bdta_20240115.db backend/bdta.db
+mysql -u bdta_user -p bdta < backups/bdta_20240115.sql
 ```
 
 ---
@@ -430,7 +430,7 @@ All data can be exported via SQL queries:
 -- Monthly revenue
 SELECT SUM(total_amount) FROM invoices 
 WHERE status = 'paid' 
-AND strftime('%Y-%m', payment_date) = '2024-01';
+AND DATE_FORMAT(payment_date, '%Y-%m') = '2024-01';
 
 -- Client time summary
 SELECT c.name, SUM(te.duration_minutes)/60 as hours, SUM(te.total_amount) as total
@@ -454,7 +454,7 @@ GROUP BY c.id;
 
 ---
 
-**Built with:** PHP 7.4+, SQLite3, Stripe API, Bootstrap 5
+**Built with:** PHP 7.4+, MySQL, Stripe API, Bootstrap 5
 
 **License:** Proprietary - Brook's Dog Training Academy
 

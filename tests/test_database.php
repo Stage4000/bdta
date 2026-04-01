@@ -2,7 +2,7 @@
 <?php
 /**
  * Test script for database connection
- * Tests both SQLite and MySQL (if configured)
+ * Tests the configured MySQL connection.
  */
 
 require_once dirname(__DIR__) . '/backend/includes/database.php';
@@ -19,11 +19,7 @@ try {
     echo "  Database type: " . strtoupper($db_type) . "\n\n";
     
     // Test table creation
-    if ($db_type === 'sqlite') {
-        $stmt = $conn->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
-    } else {
-        $stmt = $conn->query("SHOW TABLES");
-    }
+    $stmt = $conn->query("SHOW TABLES");
     
     $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
     echo "✓ Tables created successfully!\n";

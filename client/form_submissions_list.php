@@ -70,7 +70,7 @@ $query = "SELECT fs.*,
           $where_sql
           ORDER BY fs.submitted_at DESC";
 
-// Build LIMIT clause that works with both MySQL and SQLite
+// Build a MySQL LIMIT clause from safe integer inputs.
 $limit_clause = $db->buildLimitClause($per_page, $offset);
 $query .= $limit_clause;
 

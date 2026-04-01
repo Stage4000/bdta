@@ -100,10 +100,10 @@ If you want to start fresh with the default tasks:
 cd /path/to/backend/cron
 
 # 1. First, backup your current tasks (optional)
-sqlite3 /path/to/database.db "SELECT * FROM scheduled_tasks;" > tasks_backup.txt
+mysql -u your_user -p your_database -e "SELECT * FROM scheduled_tasks" > tasks_backup.txt
 
 # 2. Clear the current tasks
-sqlite3 /path/to/database.db "DELETE FROM scheduled_tasks;"
+mysql -u your_user -p your_database -e "DELETE FROM scheduled_tasks"
 
 # 3. Reinitialize with defaults
 php init_tasks.php

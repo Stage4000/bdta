@@ -59,10 +59,6 @@ function getSelectOptions(string $key): array {
             '10' => '10 minutes',
             '15' => '15 minutes',
             '30' => '30 minutes'
-        ],
-        'db_type' => [
-            'sqlite' => 'SQLite (Development/Testing)',
-            'mysql' => 'MySQL (Production)'
         ]
     ];
     
@@ -91,13 +87,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         if ($current_category === 'database') {
             $env_updates = [];
             $env_key_map = [
-                'db_type' => 'DB_TYPE',
                 'db_host' => 'DB_HOST',
                 'db_port' => 'DB_PORT',
                 'db_name' => 'DB_NAME',
                 'db_user' => 'DB_USER',
-                'db_password' => 'DB_PASSWORD',
-                'sqlite_db_path' => 'SQLITE_DB_PATH'
+                'db_password' => 'DB_PASSWORD'
             ];
             
             foreach ($_POST as $key => $value) {
@@ -336,7 +330,7 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                         <div class="alert alert-info mb-4">
                             <h6><i class="fas fa-circle-info"></i> Database Configuration</h6>
                             <p class="mb-0 small">
-                                Configure your database backend. The system supports MySQL for production and SQLite for development.
+                                Configure the MySQL connection used by the application.
                                 Changes to database settings require restarting your web server to take effect.
                             </p>
                         </div>
@@ -461,23 +455,20 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                     </form>
                     
                     <?php if ($current_category === 'database'): ?>
-                        <!-- Database Migration Tool -->
+                        <!-- Database Utilities -->
                         <hr class="my-4">
                         <div class="card bg-light">
                             <div class="card-header">
                                 <h6 class="card-title mb-0">
-                                    <i class="fas fa-arrow-right-arrow-left"></i> Database Migration Tool
+                                    <i class="fas fa-database"></i> Database Utilities
                                 </h6>
                             </div>
                             <div class="card-body">
                                 <p class="card-text">
-                                    Use this tool to migrate data from SQLite to MySQL or vice versa when updating existing installations.
+                                    Open the database tools page to verify connectivity and download a MySQL backup.
                                 </p>
                                 <a href="database_migration.php" class="btn btn-warning">
-                                    <i class="fas fa-database"></i> Open Migration Tool
-                                </a>
-                                <a href="<?= ADMIN_URL ?>../backend/MYSQL_MIGRATION.md" target="_blank" class="btn btn-outline-secondary">
-                                    <i class="fas fa-book"></i> Migration Guide
+                                    <i class="fas fa-database"></i> Open Database Tools
                                 </a>
                             </div>
                         </div>

@@ -2,7 +2,7 @@
 <?php
 /**
  * Comprehensive database CRUD test
- * Tests Create, Read, Update, Delete operations on both MySQL and SQLite
+ * Tests Create, Read, Update, Delete operations against MySQL.
  */
 
 require_once dirname(__DIR__) . '/backend/includes/database.php';

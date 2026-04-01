@@ -18,7 +18,7 @@ if (empty($token)) {
     $conn = $db->getConnection();
     
     // Verify token and check expiration
-    $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE password_reset_token = ? AND password_reset_expires > datetime('now') AND COALESCE(is_archived, 0) = 0");
+    $stmt = $conn->prepare("SELECT id, name, email FROM clients WHERE password_reset_token = ? AND password_reset_expires > UTC_TIMESTAMP() AND COALESCE(is_archived, 0) = 0");
     $stmt->execute([$token]);
     $client = $stmt->fetch(PDO::FETCH_ASSOC);
     

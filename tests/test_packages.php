@@ -344,7 +344,7 @@ try {
     $stmt = $conn->prepare("
         INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email,
             appointment_date, appointment_time, service_type, status, package_credit_id, created_at)
-        VALUES (?,?,?,?,?,?,?,'confirmed',?,datetime('now'))
+        VALUES (?,?,?,?,?,?,?,'confirmed',?,CURRENT_TIMESTAMP)
     ");
     $stmt->execute([$client_id, $field_rental_type_id, 'Package Test Client', 'pkgtest@example.com',
         date('Y-m-d', strtotime('+7 days')), '10:00', 'Test Field Rental', $cpc_id]);
