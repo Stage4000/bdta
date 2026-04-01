@@ -1,66 +1,6 @@
 #!/usr/bin/env php
 <?php
 
-/**
- * Normalize a filesystem path and split it into non-empty segments.
- *
- * @param string $path
- * @return array<int, string>
- */
-function survey_test_path_segments(string $path): array
-{
-    $normalized_path = str_replace('\\', '/', $path);
-    $trimmed_path = trim($normalized_path, '/');
-    $segments = explode('/', $trimmed_path);
-    $non_empty_segments = array_filter($segments, static fn(string $segment): bool => $segment !== '');
-
-    return array_values($non_empty_segments);
-}
-
-/**
- * Compute a relative path from one directory to another directory.
- *
- * @param string $from_directory
- * @param string $to_directory
- * @return string
- */
-function survey_test_relative_path(string $from_directory, string $to_directory): string
-{
-    $from_segments = survey_test_path_segments($from_directory);
-    $to_segments = survey_test_path_segments($to_directory);
-    $shared_segment_count = 0;
-
-    while (
-        isset($from_segments[$shared_segment_count], $to_segments[$shared_segment_count])
-        && $from_segments[$shared_segment_count] === $to_segments[$shared_segment_count]
-    ) {
-        $shared_segment_count++;
-    }
-
-    $remaining_from_segments = array_slice($from_segments, $shared_segment_count);
-    $remaining_to_segments = array_slice($to_segments, $shared_segment_count);
-
-    return str_repeat('../', count($remaining_from_segments)) . implode('/', $remaining_to_segments);
-}
-
-$backend_directory = dirname(__DIR__) . '/backend';
-$resolved_temp_directory = realpath(sys_get_temp_dir());
-
-if (!is_dir($backend_directory) || $resolved_temp_directory === false) {
-    throw new RuntimeException('Unable to resolve filesystem paths for survey test database.');
-}
-
-// Database prepends SQLITE_DB_PATH from the backend directory, so the test
-// needs a relative path from backend/ to the system temp directory.
-$temporary_directory_relative_path = rtrim(survey_test_relative_path($backend_directory, $resolved_temp_directory), '/');
-$sqlite_db_path = ($temporary_directory_relative_path !== '' ? $temporary_directory_relative_path . '/' : '')
-    . 'test_survey_results_' . bin2hex(random_bytes(4)) . '.sqlite';
-
-// Keep the temporary SQLite file under the system temp directory and let the
-// environment clean it up instead of deleting a computed path in the test.
-putenv('DB_TYPE=sqlite');
-putenv('SQLITE_DB_PATH=' . $sqlite_db_path);
-
 require_once dirname(__DIR__) . '/backend/includes/config.php';
 require_once dirname(__DIR__) . '/backend/includes/survey_results.php';
 

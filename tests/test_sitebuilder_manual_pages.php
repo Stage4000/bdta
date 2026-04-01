@@ -1,6 +1,9 @@
 <?php
 
+require_once dirname(__DIR__) . '/backend/includes/env_loader.php';
 require_once dirname(__DIR__) . '/backend/includes/sitebuilder_manual_pages.php';
+
+EnvLoader::load();
 
 function assertTrue(bool $condition, string $message): void {
     if (!$condition) {
@@ -42,28 +45,35 @@ function rrmdir(string $path): void {
     @rmdir($path);
 }
 
-function createTargetDb(string $dbPath): PDO {
-    $pdo = new PDO('sqlite:' . $dbPath);
+function createTargetDb(): PDO {
+    $dsn = sprintf(
+        'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
+        EnvLoader::get('DB_HOST', 'localhost'),
+        EnvLoader::get('DB_PORT', '3306'),
+        EnvLoader::get('DB_NAME', 'bdta')
+    );
+    $pdo = new PDO($dsn, EnvLoader::get('DB_USER', 'root'), EnvLoader::get('DB_PASSWORD', ''));
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec("DROP TEMPORARY TABLE IF EXISTS site_pages");
     $pdo->exec(
-        "CREATE TABLE site_pages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            slug TEXT NOT NULL UNIQUE,
-            title TEXT NOT NULL,
-            html_content TEXT,
-            css_content TEXT,
-            meta_description TEXT,
-            is_homepage INTEGER NOT NULL DEFAULT 0,
-            is_published INTEGER NOT NULL DEFAULT 0,
-            sort_order INTEGER NOT NULL DEFAULT 0,
+        "CREATE TEMPORARY TABLE site_pages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            slug VARCHAR(255) NOT NULL UNIQUE,
+            title VARCHAR(255) NOT NULL,
+            html_content MEDIUMTEXT NULL,
+            css_content MEDIUMTEXT NULL,
+            meta_description TEXT NULL,
+            is_homepage TINYINT(1) NOT NULL DEFAULT 0,
+            is_published TINYINT(1) NOT NULL DEFAULT 0,
+            sort_order INT NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_by INTEGER,
-            meta_keywords TEXT,
-            og_title TEXT,
-            og_description TEXT,
-            og_image TEXT
-        )"
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            updated_by INT NULL,
+            meta_keywords TEXT NULL,
+            og_title TEXT NULL,
+            og_description TEXT NULL,
+            og_image TEXT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
     $pdo->exec("INSERT INTO site_pages (slug, title, is_homepage, is_published, sort_order) VALUES ('home', 'Home', 1, 0, 0)");
     $pdo->exec("INSERT INTO site_pages (slug, title, html_content, css_content, is_homepage, is_published, sort_order) VALUES ('legacy-directory', 'Directory', '<p>legacy</p>', '', 0, 1, 99)");
@@ -110,9 +120,8 @@ $tmpDir = makeTempDir('bdta-manual-sitebuilder-pages');
 
 try {
     mkdir($tmpDir . '/backend/uploads', 0777, true);
-    $dbPath = $tmpDir . '/target.db';
     $archivePath = $tmpDir . '/source.sitebuilder';
-    $pdo = createTargetDb($dbPath);
+    $pdo = createTargetDb();
     createAssetOnlySiteBuilderArchive($archivePath);
 
     assertTrue(SiteBuilderManualPageSeeder::needsSeeding($pdo), 'Expected manual pages to need seeding before import.');

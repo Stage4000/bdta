@@ -15,7 +15,7 @@ $offset = ($page - 1) * $per_page;
 // Filter by task ID if provided
 $task_id = isset($_GET['task_id']) ? safe_int($_GET['task_id']) : null;
 
-// Build LIMIT clause that works with both MySQL and SQLite
+// Build a MySQL LIMIT clause from safe integer inputs.
 $limit_clause = $db->buildLimitClause($per_page, $offset);
 
 // Get task logs

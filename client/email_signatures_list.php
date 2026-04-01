@@ -60,7 +60,7 @@ $page = max(1, safe_int($_GET['page'] ?? 1));
 $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
-// Build LIMIT clause that works with both MySQL and SQLite
+// Build a MySQL LIMIT clause from safe integer inputs.
 $limit_clause = $db->buildLimitClause($per_page, $offset);
 // Pagination clause is built from safe_int()-bounded integers only.
 // nosemgrep

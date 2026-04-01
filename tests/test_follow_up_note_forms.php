@@ -1,10 +1,5 @@
 <?php
 
-$sqlite_env_path = 'follow_up_note_forms_test_' . uniqid('', true) . '.sqlite';
-$sqlite_path = dirname(__DIR__) . '/backend/' . $sqlite_env_path;
-putenv('DB_TYPE=sqlite');
-putenv('SQLITE_DB_PATH=' . $sqlite_env_path);
-
 require_once dirname(__DIR__) . '/backend/includes/config.php';
 require_once dirname(__DIR__) . '/backend/includes/database.php';
 require_once dirname(__DIR__) . '/backend/includes/form_link_requests.php';
@@ -21,63 +16,11 @@ function assertFollowUpNoteTest(bool $condition, string $message): void
     }
 }
 
-/**
- * Deletes only test SQLite files that resolve directly inside the expected directory.
- * Missing files are treated as a no-op so cleanup can safely run from finally blocks.
- */
-function deleteFollowUpNoteTestFile(string $path, string $allowed_directory, ?string $required_basename_prefix = null): void
-{
-    if (str_contains($path, "\0") || str_contains($allowed_directory, "\0")) {
-        error_log('Rejected follow-up note test cleanup path containing null bytes.');
-        return;
-    }
-
-    if (str_contains($path, '../') || str_contains($path, '..\\')) {
-        error_log('Rejected follow-up note test cleanup path containing traversal segments: ' . $path);
-        return;
-    }
-
-    if (!file_exists($path)) {
-        return;
-    }
-
-    $real_path = realpath($path);
-    $real_allowed_directory = realpath($allowed_directory);
-
-    if ($real_path === false || $real_allowed_directory === false) {
-        error_log('Unable to resolve follow-up note test cleanup path: ' . $path);
-        return;
-    }
-
-    // Canonicalize the resolved file path into the expected directory before applying the stricter direct-child check.
-    if (!str_starts_with($real_path, $real_allowed_directory . DIRECTORY_SEPARATOR)) {
-        error_log('Rejected follow-up note test cleanup path outside allowed directory: ' . $real_path);
-        return;
-    }
-
-    if (dirname($real_path) !== $real_allowed_directory) {
-        error_log('Rejected follow-up note test cleanup path outside expected directory level: ' . $real_path);
-        return;
-    }
-
-    if ($required_basename_prefix !== null && !str_starts_with(basename($real_path), $required_basename_prefix)) {
-        error_log('Rejected follow-up note test cleanup path with unexpected basename: ' . $real_path);
-        return;
-    }
-
-    // nosemgrep: php.lang.security.unlink-use.unlink-use
-    if (!unlink($real_path)) {
-        $last_error = error_get_last();
-        $error_detail = is_array($last_error) ? scalar_string($last_error['message']) : '';
-        error_log(
-            'Unable to delete follow-up note test SQLite file: '
-            . $real_path
-            . ($error_detail !== '' ? ' (' . $error_detail . ')' : '')
-        );
-    }
-}
-
-$cleanup_submission_id = 0;
+$cleanup_submission_ids = [];
+$cleanup_template_id = 0;
+$cleanup_booking_id = 0;
+$cleanup_appointment_type_id = 0;
+$cleanup_client_id = 0;
 
 try {
     Settings::set('email_service', 'smtp');
@@ -91,10 +34,12 @@ try {
     $conn->prepare("INSERT INTO clients (name, email, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
         ->execute(['Follow Up Client ' . $suffix, $suffix . '@example.com']);
     $client_id = (int) $conn->lastInsertId();
+    $cleanup_client_id = $client_id;
 
     $conn->prepare("INSERT INTO appointment_types (name, duration_minutes, is_active) VALUES (?, 60, 1)")
         ->execute(['Follow Up Session ' . $suffix]);
     $appointment_type_id = (int) $conn->lastInsertId();
+    $cleanup_appointment_type_id = $appointment_type_id;
 
     $conn->prepare("
         INSERT INTO bookings (
@@ -111,6 +56,7 @@ try {
         '11:00',
     ]);
     $booking_id = (int) $conn->lastInsertId();
+    $cleanup_booking_id = $booking_id;
 
     $fields = json_encode([
         ['label' => 'Summary', 'type' => 'textarea', 'required' => 1],
@@ -125,18 +71,20 @@ try {
         $fields,
     ]);
     $template_id = (int) $conn->lastInsertId();
+    $cleanup_template_id = $template_id;
 
     $request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
-    $cleanup_submission_id = array_int_value($request, 'submission_id');
-    $latest_submission_id = $cleanup_submission_id;
+    $first_submission_id = array_int_value($request, 'submission_id');
+    $cleanup_submission_ids[] = $first_submission_id;
+    $latest_submission_id = $first_submission_id;
 
     $conn->prepare("
         UPDATE form_submissions
         SET responses = ?, status = 'submitted', submitted_at = '2026-01-02 09:00:00'
         WHERE id = ?
-    ")->execute([json_encode(['0' => 'Great progress', '1' => 'Practice leash work']), $cleanup_submission_id]);
+    ")->execute([json_encode(['0' => 'Great progress', '1' => 'Practice leash work']), $first_submission_id]);
 
-    $notify_result = bdta_notify_follow_up_note_completed($conn, $cleanup_submission_id);
+    $notify_result = bdta_notify_follow_up_note_completed($conn, $first_submission_id);
     assertFollowUpNoteTest($notify_result['success'] === false, 'Expected notification email send to fail with the test SMTP settings.');
 
     $email_stmt = $conn->prepare("SELECT subject, body_html, status FROM client_emails WHERE client_id = ? ORDER BY id DESC LIMIT 1");
@@ -147,12 +95,15 @@ try {
         scalar_string($email_row['subject'] ?? '') === 'Your follow-up note is ready to review',
         'Expected follow-up notification subject.'
     );
-    assertFollowUpNoteTest(str_contains(scalar_string($email_row['body_html'] ?? ''), '/portal/form_submission_view.php?id=' . $cleanup_submission_id), 'Expected follow-up portal review link in email body.');
+    assertFollowUpNoteTest(
+        str_contains(scalar_string($email_row['body_html'] ?? ''), '/portal/form_submission_view.php?id=' . $first_submission_id),
+        'Expected follow-up portal review link in email body.'
+    );
     assertFollowUpNoteTest(scalar_string($email_row['status'] ?? '') === 'failed', 'Expected the logged email to reflect the SMTP failure.');
 
     $second_request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
     $second_submission_id = array_int_value($second_request, 'submission_id');
-    $cleanup_submission_id = $second_submission_id;
+    $cleanup_submission_ids[] = $second_submission_id;
     $conn->prepare("
         UPDATE form_submissions
         SET responses = ?, status = 'reviewed', submitted_at = '2026-01-01 09:00:00', reviewed_at = '2026-01-01 09:30:00'
@@ -175,13 +126,35 @@ try {
     assertFollowUpNoteTest(!bdta_form_submission_requires_client_review('client_form'), 'Expected client forms to remain outside the follow-up review flow.');
 
     echo "=== Follow-up Note Form Tests ===\n\n";
-    echo "✓ Follow-up notification emails point clients to the portal review page\n";
-    echo "✓ Follow-up submissions are indexed by booking for the client profile action state\n";
-    echo "✓ Only follow-up note form types participate in the client review flow\n\n";
+    echo "Follow-up notification emails point clients to the portal review page\n";
+    echo "Follow-up submissions are indexed by booking for the client profile action state\n";
+    echo "Only follow-up note form types participate in the client review flow\n\n";
     echo "=== Follow-up Note Form Tests Passed! ===\n";
 } finally {
-    if ($cleanup_submission_id > 0) {
-        $conn->prepare("DELETE FROM form_submissions WHERE id = ?")->execute([$cleanup_submission_id]);
+    if ($cleanup_submission_ids !== []) {
+        $delete_submission_stmt = $conn->prepare("DELETE FROM form_submissions WHERE id = ?");
+        $conn->beginTransaction();
+        try {
+            foreach ($cleanup_submission_ids as $cleanup_submission_id) {
+                $delete_submission_stmt->execute([(int) $cleanup_submission_id]);
+            }
+            $conn->commit();
+        } catch (Throwable $cleanup_error) {
+            $conn->rollBack();
+            throw $cleanup_error;
+        }
     }
-    deleteFollowUpNoteTestFile($sqlite_path, dirname(__DIR__) . '/backend', 'follow_up_note_forms_test_');
+    if ($cleanup_booking_id > 0) {
+        $conn->prepare("DELETE FROM bookings WHERE id = ?")->execute([(int) $cleanup_booking_id]);
+    }
+    if ($cleanup_template_id > 0) {
+        $conn->prepare("DELETE FROM form_templates WHERE id = ?")->execute([(int) $cleanup_template_id]);
+    }
+    if ($cleanup_appointment_type_id > 0) {
+        $conn->prepare("DELETE FROM appointment_types WHERE id = ?")->execute([(int) $cleanup_appointment_type_id]);
+    }
+    if ($cleanup_client_id > 0) {
+        $conn->prepare("DELETE FROM client_emails WHERE client_id = ?")->execute([(int) $cleanup_client_id]);
+        $conn->prepare("DELETE FROM clients WHERE id = ?")->execute([(int) $cleanup_client_id]);
+    }
 }

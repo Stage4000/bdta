@@ -1,9 +1,6 @@
 #!/usr/bin/env php
 <?php
 
-putenv('DB_TYPE=sqlite');
-putenv('SQLITE_DB_PATH=portal_forms_visibility_test.db');
-
 require_once dirname(__DIR__) . '/backend/includes/config.php';
 require_once dirname(__DIR__) . '/backend/includes/form_types.php';
 

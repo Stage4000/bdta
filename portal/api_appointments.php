@@ -231,7 +231,7 @@ if ($action === 'reschedule') {
 
     // Check the new slot isn't already taken by another confirmed/pending booking
     // (for this appointment type; excludes the current booking being rescheduled)
-    // Use PHP-computed end time so query works on both MySQL and SQLite.
+    // Use a PHP-computed end time so overlap checks stay consistent.
     if ($apt_type_id > 0) {
         $duration = safe_int($booking['apt_duration_minutes'] ?? ($booking['duration_minutes'] ?? 60));
         // Use DateTime for safe end-time arithmetic (avoids integer overflow with strtotime)

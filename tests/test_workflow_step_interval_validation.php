@@ -4,11 +4,6 @@
  * Verify workflow step delay validation aligns with workflow processor cadence.
  */
 
-// Must be set before config/database bootstrap to avoid shared default DB connection.
-$sqlite_test_filename = 'bdta_workflow_interval_' . uniqid('', true) . '.db';
-putenv('DB_TYPE=sqlite');
-putenv('SQLITE_DB_PATH=' . $sqlite_test_filename);
-
 require_once dirname(__DIR__) . '/backend/includes/config.php';
 require_once dirname(__DIR__) . '/backend/includes/database.php';
 require_once dirname(__DIR__) . '/backend/includes/workflow_helper.php';
@@ -19,8 +14,6 @@ function assertWorkflowIntervalTest(bool $condition, string $message): void {
     }
 }
 
-$db_file_path = dirname(__DIR__) . '/backend/' . $sqlite_test_filename;
-
 $exit_code = 0;
 $db = null;
 $conn = null;
@@ -29,7 +22,8 @@ try {
     $db = new Database();
     $conn = $db->getConnection();
 
-    $delete_tasks = $conn->prepare("DELETE FROM scheduled_tasks");
+    $conn->beginTransaction();
+    $delete_tasks = $conn->prepare("DELETE FROM scheduled_tasks WHERE task_type IN ('workflow_processor', 'workflow')");
     $delete_tasks->execute();
 
     assertWorkflowIntervalTest(
@@ -79,13 +73,12 @@ try {
     $exit_code = 1;
     fwrite(STDERR, $e->getMessage() . PHP_EOL);
 } finally {
+    if ($conn instanceof PDO && $conn->inTransaction()) {
+        $conn->rollBack();
+    }
+
     $conn = null;
     $db = null;
-
-    if (is_file($db_file_path)) {
-        // nosemgrep: php.lang.security.unlink-use.unlink-use
-        unlink($db_file_path);
-    }
 }
 
 exit($exit_code);
