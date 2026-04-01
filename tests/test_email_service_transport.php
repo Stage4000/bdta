@@ -1,0 +1,134 @@
+#!/usr/bin/env php
+<?php
+
+require_once dirname(__DIR__) . '/backend/includes/database.php';
+
+/**
+ * @param array<string, string> $settings
+ */
+function seedEmailServiceTransportSettings(SafePDO $conn, array $settings): void {
+    $conn->exec('DELETE FROM settings');
+
+    $insert = $conn->prepare('INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, ?)');
+    foreach ($settings as $key => $value) {
+        $insert->execute([$key, $value, 'text']);
+    }
+}
+
+function resetEmailServiceTransportState(SafePDO $conn): void {
+    $database_reflection = new ReflectionClass(Database::class);
+    $shared_connection = $database_reflection->getProperty('sharedConnection');
+    $shared_connection->setAccessible(true);
+    $shared_connection->setValue(null, $conn);
+
+    require_once dirname(__DIR__) . '/backend/includes/settings.php';
+
+    $settings_reflection = new ReflectionClass(Settings::class);
+    foreach (['db' => null, 'cache' => []] as $property_name => $value) {
+        $property = $settings_reflection->getProperty($property_name);
+        $property->setAccessible(true);
+        $property->setValue(null, $value);
+    }
+}
+
+function assertEmailServiceTransport(bool $condition, string $message): void {
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+$conn = new SafePDO('sqlite::memory:');
+$conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
+$conn->exec('CREATE TABLE settings (setting_key TEXT PRIMARY KEY, setting_value TEXT, setting_type TEXT)');
+
+resetEmailServiceTransportState($conn);
+
+require_once dirname(__DIR__) . '/backend/includes/email_service.php';
+
+$defaults = [
+    'timezone' => 'UTC',
+    'enable_email_signatures' => '0',
+    'smtp_debug' => '0',
+    'email_from_address' => 'bookings@example.com',
+    'email_from_name' => 'BDTA Test',
+    'smtp_host' => '',
+    'smtp_username' => '',
+    'smtp_password' => '',
+    'smtp_port' => '587',
+    'smtp_encryption' => 'tls',
+];
+
+$log_path = dirname(__DIR__) . '/backend/logs/mailrouter.log';
+$log_previously_existed = file_exists($log_path);
+$original_log_contents = $log_previously_existed ? file_get_contents($log_path) : null;
+$exit_code = 0;
+
+try {
+    seedEmailServiceTransportSettings($conn, array_merge($defaults, [
+        'email_service' => 'sendgrid',
+    ]));
+    resetEmailServiceTransportState($conn);
+
+    $email_service = new EmailService();
+    $sendgrid_result = $email_service->sendGenericEmail(
+        'client@example.com',
+        'Transport selection regression',
+        '<p>Hello</p>',
+        'Hello',
+        EmailService::MAIL_TYPE_GENERIC
+    );
+
+    assertEmailServiceTransport($sendgrid_result['success'] === false, 'Expected SendGrid transport regression case to fail without an SMTP host.');
+    assertEmailServiceTransport(
+        str_contains($sendgrid_result['message'], 'SMTP host is not configured'),
+        'Expected SendGrid transport option to use the SMTP code path.'
+    );
+
+    $email_service_reflection = new ReflectionClass(EmailService::class);
+    $trimmed_setting = $email_service_reflection->getMethod('trimmedSettingString');
+    $trimmed_setting->setAccessible(true);
+    $uses_smtp_transport = $email_service_reflection->getMethod('usesSmtpTransport');
+    $uses_smtp_transport->setAccessible(true);
+
+    seedEmailServiceTransportSettings($conn, array_merge($defaults, [
+        'email_service' => ' SMTP ',
+        'smtp_host' => ' smtp.example.test ',
+        'smtp_username' => '   ',
+        'smtp_password' => "\t",
+        'smtp_encryption' => ' TLS ',
+    ]));
+    resetEmailServiceTransportState($conn);
+
+    assertEmailServiceTransport(
+        $trimmed_setting->invoke(null, 'smtp_host', '') === 'smtp.example.test',
+        'Expected SMTP host setting to be trimmed before transport configuration.'
+    );
+    assertEmailServiceTransport(
+        $trimmed_setting->invoke(null, 'smtp_username', '') === '',
+        'Expected whitespace-only SMTP username to be treated as empty.'
+    );
+    assertEmailServiceTransport(
+        $trimmed_setting->invoke(null, 'smtp_password', '') === '',
+        'Expected whitespace-only SMTP password to be treated as empty.'
+    );
+    assertEmailServiceTransport(
+        $uses_smtp_transport->invoke(null, strtolower($trimmed_setting->invoke(null, 'email_service', 'mail'))) === true,
+        'Expected trimmed provider selection to resolve to the SMTP transport.'
+    );
+
+    echo "Email service transport regression test passed.\n";
+} catch (Throwable $e) {
+    $exit_code = 1;
+    fwrite(STDERR, $e->getMessage() . PHP_EOL);
+} finally {
+    resetEmailServiceTransportState($conn);
+
+    if (!$log_previously_existed && file_exists($log_path)) {
+        unlink($log_path);
+    } elseif ($log_previously_existed && is_string($original_log_contents)) {
+        file_put_contents($log_path, $original_log_contents, LOCK_EX);
+    }
+}
+
+exit($exit_code);
