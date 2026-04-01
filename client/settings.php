@@ -35,9 +35,9 @@ function getSelectOptions(string $key): array {
         'email_service' => [
             'mail' => 'PHP mail() function',
             'smtp' => 'SMTP',
-            'sendgrid' => 'SendGrid',
-            'mailgun' => 'Mailgun',
-            'ses' => 'Amazon SES'
+            'sendgrid' => 'SendGrid (SMTP)',
+            'mailgun' => 'Mailgun (SMTP)',
+            'ses' => 'Amazon SES (SMTP)'
         ],
         'smtp_encryption' => [
             'tls' => 'TLS',

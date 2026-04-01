@@ -100,6 +100,14 @@ class EmailService {
         return scalar_string(Settings::get($key, $default));
     }
 
+    private static function trimmedSettingString(string $key, string $default = ''): string {
+        return trim(self::settingString($key, $default));
+    }
+
+    private static function usesSmtpTransport(string $email_service): bool {
+        return in_array($email_service, ['smtp', 'sendgrid', 'mailgun', 'ses'], true);
+    }
+
     /**
      * @param array<string, mixed> $row
      */
@@ -1567,15 +1575,15 @@ TEXT;
             }
             
             // Get email configuration from settings
-            $email_service = Settings::get('email_service', 'mail');
+            $email_service = strtolower(self::trimmedSettingString('email_service', 'mail'));
             
-            if ($email_service === 'smtp') {
+            if (self::usesSmtpTransport($email_service)) {
                 // Get SMTP configuration
-                $smtp_host = self::settingString('smtp_host', '');
-                $smtp_username = self::settingString('smtp_username', '');
-                $smtp_password = self::settingString('smtp_password', '');
+                $smtp_host = self::trimmedSettingString('smtp_host', '');
+                $smtp_username = self::trimmedSettingString('smtp_username', '');
+                $smtp_password = self::trimmedSettingString('smtp_password', '');
                 $smtp_port = safe_int(Settings::get('smtp_port', 587));
-                $smtp_encryption = self::settingString('smtp_encryption', 'tls'); // 'tls', 'ssl', or 'none'
+                $smtp_encryption = strtolower(self::trimmedSettingString('smtp_encryption', 'tls')); // 'tls', 'ssl', or 'none'
                 
                 // Validate SMTP configuration
                 if (empty($smtp_host)) {

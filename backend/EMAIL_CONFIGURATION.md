@@ -13,6 +13,9 @@ The system uses PHPMailer library to send emails reliably. You can configure it 
 - **PHP mail()** - Basic email function (not recommended for production)
 - **SMTP** - Recommended for production use with any SMTP provider
 
+Provider options such as SendGrid, Mailgun, and Amazon SES use the SMTP transport with
+their provider-specific SMTP settings.
+
 ## Quick Setup
 
 1. Log into the Admin Panel
