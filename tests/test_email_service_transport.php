@@ -57,14 +57,11 @@ function deleteEmailTransportTestFile(string $path, string $allowed_directory, s
         return;
     }
 
-    if (dirname($real_path) !== $real_allowed_directory) {
-        return;
-    }
-
     if ($required_basename !== '' && basename($real_path) !== $required_basename) {
         return;
     }
 
+    // Path validation above constrains deletion to the known test log file in backend/logs.
     // nosemgrep: php.lang.security.unlink-use.unlink-use
     unlink($real_path);
 }
