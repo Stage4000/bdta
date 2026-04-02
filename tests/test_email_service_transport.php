@@ -156,7 +156,9 @@ try {
     resetEmailServiceTransportState($conn);
 
     $trimmed_service = $trimmed_setting->invoke(null, 'email_service', 'mail');
-    assertEmailServiceTransport(is_string($trimmed_service), 'Expected trimmed email service setting to be a string.');
+    if (!is_string($trimmed_service)) {
+        throw new RuntimeException('Expected trimmed email service setting to be a string.');
+    }
     $normalized_service = strtolower($trimmed_service);
 
     assertEmailServiceTransport(
