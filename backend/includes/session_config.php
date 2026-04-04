@@ -7,14 +7,14 @@ const BDTA_DEFAULT_SESSION_LIFETIME_SECONDS = 1209600;
 
 class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpdateTimestampHandlerInterface {
     private int $lifetime;
-    private mixed $connection;
+    private ?object $connection;
 
-    public function __construct(int $lifetime, mixed $connection = null) {
+    public function __construct(int $lifetime, ?object $connection = null) {
         $this->lifetime = $lifetime;
         $this->connection = $connection;
     }
 
-    private function getConnection(): mixed {
+    private function getConnection(): object {
         if ($this->connection === null) {
             $db = new Database();
             $this->connection = $db->getConnection();
@@ -32,20 +32,35 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
     }
 
     public function read($id): string {
-        $stmt = $this->getConnection()->prepare("
+        $connection = $this->getConnection();
+        if (!method_exists($connection, 'prepare')) {
+            throw new RuntimeException('Session connection does not support prepared statements.');
+        }
+        $stmt = $connection->prepare("
             SELECT session_data
             FROM app_sessions
             WHERE session_id = ? AND expires_at > UTC_TIMESTAMP()
         ");
+        if (!is_object($stmt) || !method_exists($stmt, 'execute') || !method_exists($stmt, 'fetch')) {
+            throw new RuntimeException('Session statement does not support reads.');
+        }
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return is_array($row) ? (string) ($row['session_data'] ?? '') : '';
+        if (!is_array($row) || !isset($row['session_data']) || !is_string($row['session_data'])) {
+            return '';
+        }
+
+        return $row['session_data'];
     }
 
     public function write($id, $data): bool {
         $expires_at = gmdate('Y-m-d H:i:s', time() + $this->lifetime);
-        $stmt = $this->getConnection()->prepare("
+        $connection = $this->getConnection();
+        if (!method_exists($connection, 'prepare')) {
+            throw new RuntimeException('Session connection does not support prepared statements.');
+        }
+        $stmt = $connection->prepare("
             INSERT INTO app_sessions (session_id, session_data, expires_at, created_at, updated_at)
             VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON DUPLICATE KEY UPDATE
@@ -53,17 +68,34 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
                 expires_at = ?,
                 updated_at = CURRENT_TIMESTAMP
         ");
+        if (!is_object($stmt) || !method_exists($stmt, 'execute')) {
+            throw new RuntimeException('Session statement does not support writes.');
+        }
 
         return $stmt->execute([$id, $data, $expires_at, $data, $expires_at]);
     }
 
     public function destroy($id): bool {
-        $stmt = $this->getConnection()->prepare("DELETE FROM app_sessions WHERE session_id = ?");
+        $connection = $this->getConnection();
+        if (!method_exists($connection, 'prepare')) {
+            throw new RuntimeException('Session connection does not support prepared statements.');
+        }
+        $stmt = $connection->prepare("DELETE FROM app_sessions WHERE session_id = ?");
+        if (!is_object($stmt) || !method_exists($stmt, 'execute')) {
+            throw new RuntimeException('Session statement does not support deletes.');
+        }
         return $stmt->execute([$id]);
     }
 
     public function gc($max_lifetime): int|false {
-        $stmt = $this->getConnection()->prepare("DELETE FROM app_sessions WHERE expires_at <= UTC_TIMESTAMP()");
+        $connection = $this->getConnection();
+        if (!method_exists($connection, 'prepare')) {
+            throw new RuntimeException('Session connection does not support prepared statements.');
+        }
+        $stmt = $connection->prepare("DELETE FROM app_sessions WHERE expires_at <= UTC_TIMESTAMP()");
+        if (!is_object($stmt) || !method_exists($stmt, 'execute') || !method_exists($stmt, 'rowCount')) {
+            throw new RuntimeException('Session statement does not support garbage collection.');
+        }
         if (!$stmt->execute([])) {
             return false;
         }
@@ -72,11 +104,18 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
     }
 
     public function validateId($id): bool {
-        $stmt = $this->getConnection()->prepare("
+        $connection = $this->getConnection();
+        if (!method_exists($connection, 'prepare')) {
+            throw new RuntimeException('Session connection does not support prepared statements.');
+        }
+        $stmt = $connection->prepare("
             SELECT session_id
             FROM app_sessions
             WHERE session_id = ? AND expires_at > UTC_TIMESTAMP()
         ");
+        if (!is_object($stmt) || !method_exists($stmt, 'execute') || !method_exists($stmt, 'fetch')) {
+            throw new RuntimeException('Session statement does not support validation.');
+        }
         $stmt->execute([$id]);
 
         return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
@@ -84,11 +123,18 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
 
     public function updateTimestamp($id, $data): bool {
         $expires_at = gmdate('Y-m-d H:i:s', time() + $this->lifetime);
-        $stmt = $this->getConnection()->prepare("
+        $connection = $this->getConnection();
+        if (!method_exists($connection, 'prepare')) {
+            throw new RuntimeException('Session connection does not support prepared statements.');
+        }
+        $stmt = $connection->prepare("
             UPDATE app_sessions
             SET expires_at = ?, updated_at = CURRENT_TIMESTAMP
             WHERE session_id = ?
         ");
+        if (!is_object($stmt) || !method_exists($stmt, 'execute')) {
+            throw new RuntimeException('Session statement does not support timestamp updates.');
+        }
 
         return $stmt->execute([$expires_at, $id]);
     }

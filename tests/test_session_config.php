@@ -34,6 +34,9 @@ class FakeSessionStatement {
         $this->query = $query;
     }
 
+    /**
+     * @param list<string> $params
+     */
     public function execute(array $params): bool {
         $this->result = $this->connection->run($this->query, $params);
         return true;
@@ -70,6 +73,14 @@ class FakeSessionConnection {
         }
     }
 
+    public function hasSession(string $session_id): bool {
+        return isset($this->rows[$session_id]);
+    }
+
+    /**
+     * @param list<string> $params
+     * @return array{session_data: string}|array{session_id: string}|bool|int
+     */
     public function run(string $query, array $params): mixed {
         $normalized = preg_replace('/\s+/', ' ', trim($query)) ?: trim($query);
 
@@ -123,6 +134,9 @@ class FakeSessionConnection {
         return false;
     }
 
+    /**
+     * @return array{session_data: string}|array{session_id: string}|false
+     */
     private function fetchActiveRow(string $session_id, bool $with_data): array|false {
         if (!isset($this->rows[$session_id])) {
             $this->last_row_count = 0;
@@ -233,10 +247,10 @@ bdta_assert($handler->read('session-expired') === '', 'Expired session should no
 bdta_assert($handler->validateId('session-expired') === false, 'Expired session should not validate');
 $deleted_sessions = $handler->gc(0);
 bdta_assert($deleted_sessions === 1, 'Garbage collection should report deleted expired sessions');
-bdta_assert(!isset($fake_connection->rows['session-expired']), 'Garbage collection should remove expired sessions');
+bdta_assert(!$fake_connection->hasSession('session-expired'), 'Garbage collection should remove expired sessions');
 
 bdta_assert($handler->destroy('session-a') === true, 'Failed to destroy session');
-bdta_assert(!isset($fake_connection->rows['session-a']), 'Destroyed session should be removed');
+bdta_assert(!$fake_connection->hasSession('session-a'), 'Destroyed session should be removed');
 
 echo "✓ persists sessions in the database handler\n";
 echo "\nAll session config tests passed.\n";
