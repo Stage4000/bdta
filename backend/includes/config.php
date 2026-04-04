@@ -441,15 +441,10 @@ function getDynamicBaseUrl(): string {
             && !bdta_is_default_localhost_base_url($request_base_url)
         ) {
             try {
-                $db = new Database();
-                $conn = $db->getConnection();
-                $stmt = $conn->prepare("
-                    UPDATE settings
-                    SET setting_value = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE setting_key = 'base_url'
-                      AND (setting_value = '' OR setting_value = ?)
-                ");
-                $stmt->execute([$request_base_url, bdta_get_default_localhost_base_url()]);
+                $expected_base_url = $configured_base_url === ''
+                    ? ''
+                    : bdta_get_default_localhost_base_url();
+                Settings::compareAndSet('base_url', $expected_base_url, $request_base_url);
             } catch (Throwable $e) {
                 error_log('getDynamicBaseUrl(): unable to persist detected base_url "' . $request_base_url . '": ' . $e->getMessage());
             }
