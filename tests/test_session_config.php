@@ -5,6 +5,18 @@ require_once dirname(__DIR__) . '/backend/includes/session_config.php';
 
 ob_start();
 
+function bdta_set_session_lifetime_env(string|false $value): void {
+    if ($value === false) {
+        putenv('SESSION_LIFETIME_SECONDS');
+        unset($_ENV['SESSION_LIFETIME_SECONDS'], $_SERVER['SESSION_LIFETIME_SECONDS']);
+        return;
+    }
+
+    putenv('SESSION_LIFETIME_SECONDS=' . $value);
+    $_ENV['SESSION_LIFETIME_SECONDS'] = $value;
+    $_SERVER['SESSION_LIFETIME_SECONDS'] = $value;
+}
+
 $cases = [
     [
         'env' => false,
@@ -29,14 +41,7 @@ $cases = [
 ];
 
 foreach ($cases as $case) {
-    if ($case['env'] === false) {
-        putenv('SESSION_LIFETIME_SECONDS');
-        unset($_ENV['SESSION_LIFETIME_SECONDS'], $_SERVER['SESSION_LIFETIME_SECONDS']);
-    } else {
-        putenv('SESSION_LIFETIME_SECONDS=' . $case['env']);
-        $_ENV['SESSION_LIFETIME_SECONDS'] = $case['env'];
-        $_SERVER['SESSION_LIFETIME_SECONDS'] = $case['env'];
-    }
+    bdta_set_session_lifetime_env($case['env']);
 
     $resolved = bdta_get_session_lifetime_seconds();
     if ($resolved !== $case['expected']) {
@@ -62,8 +67,7 @@ foreach ($cases as $case) {
 
 }
 
-putenv('SESSION_LIFETIME_SECONDS');
-unset($_ENV['SESSION_LIFETIME_SECONDS'], $_SERVER['SESSION_LIFETIME_SECONDS']);
+bdta_set_session_lifetime_env(false);
 
 ob_end_clean();
 
