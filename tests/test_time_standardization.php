@@ -46,6 +46,21 @@ function assertCronLocalTime(string $label, string $utcDatetime, int $expectedHo
     echo "✓ {$label}: " . $local->format('Y-m-d H:i:s') . "\n";
 }
 
+/**
+ * @throws Exception
+ */
+function assertCronLocalHourInterval(string $label, string $utcDatetime, int $hourInterval, int $expectedMinute): void {
+    $local = (new DateTimeImmutable($utcDatetime, bdta_get_utc_timezone()))->setTimezone(bdta_get_display_timezone());
+    $actualHour = (int) $local->format('G');
+    $actualMinute = (int) $local->format('i');
+
+    if ($hourInterval <= 0 || $actualHour % $hourInterval !== 0 || $actualMinute !== $expectedMinute) {
+        throw new Exception($label . " expected local hour divisible by {$hourInterval} at minute " . sprintf('%02d', $expectedMinute) . " but got " . $local->format('Y-m-d H:i:s'));
+    }
+
+    echo "✓ {$label}: " . $local->format('Y-m-d H:i:s') . "\n";
+}
+
 try {
     assertSameString('Configured timezone', 'America/New_York', getSystemTimezone());
     assertSameString('UTC winter datetime converts to EST', 'Jan 15, 2026 11:15 PM', formatDateTime('2026-01-16 04:15:00'));
@@ -69,6 +84,12 @@ try {
     }
     assertCronLocalTime('Custom cron daily expression keeps local 9AM', $custom_daily_run, 9, 0);
 
+    $custom_every_two_hours_run = $parse_cron_expression->invoke($cron_instance, '0 */2 * * *');
+    if (!is_string($custom_every_two_hours_run) || $custom_every_two_hours_run === '') {
+        throw new Exception('Custom every-two-hours cron expression did not return a next run');
+    }
+    assertCronLocalHourInterval('Custom cron every-two-hours expression keeps an even local hour on minute 0', $custom_every_two_hours_run, 2, 0);
+
     $daily_task_run = $calculate_next_run->invoke($cron_instance, [
         'schedule_type' => 'daily',
         'schedule_value' => '09:00',
@@ -78,6 +99,16 @@ try {
         throw new Exception('Daily task schedule did not return a next run');
     }
     assertCronLocalTime('Daily task schedule keeps local 9AM', $daily_task_run, 9, 0);
+
+    $custom_task_run = $calculate_next_run->invoke($cron_instance, [
+        'schedule_type' => 'custom',
+        'schedule_value' => '0 */2 * * *',
+        'task_name' => 'Timezone custom cadence task',
+    ]);
+    if (!is_string($custom_task_run) || $custom_task_run === '') {
+        throw new Exception('Custom every-two-hours task schedule did not return a next run');
+    }
+    assertCronLocalHourInterval('Custom task schedule keeps an even local hour on minute 0', $custom_task_run, 2, 0);
 
     echo "\n=== All Time Standardization Tests Passed! ===\n";
 } catch (Exception $e) {

@@ -83,10 +83,13 @@ function bdta_get_workflow_processor_interval_minutes(PDO $conn): int {
                 $interval_minutes[] = 60 * 24 * 30;
                 break;
             case 'custom':
-                // Only */N * * * * cadence is parsed for interval extraction.
-                // Other custom cron formats fall back to the default interval.
+                // Only simple */N minutes and M */N hours cadences are parsed for
+                // interval extraction. Other custom cron formats fall back to the
+                // default interval.
                 if (preg_match('/^\*\/(\d+)\s+\*\s+\*\s+\*\s+\*$/', $schedule_value, $matches)) {
                     $interval_minutes[] = max(1, intval($matches[1]));
+                } elseif (preg_match('/^\d+\s+\*\/(\d+)\s+\*\s+\*\s+\*$/', $schedule_value, $matches)) {
+                    $interval_minutes[] = max(1, intval($matches[1])) * 60;
                 } else {
                     $interval_minutes[] = BDTA_DEFAULT_WORKFLOW_PROCESSOR_INTERVAL_MINUTES;
                 }
