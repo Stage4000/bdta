@@ -396,10 +396,10 @@ function localDateTimeToUtcString(mixed $date_time, string $format = 'Y-m-d H:i:
  */
 function getDynamicBaseUrl(): string {
     require_once __DIR__ . '/settings.php';
-    $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
 
     // Try to build URL from current request
     if (isset($_SERVER['HTTP_HOST'])) {
+        $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
         // Detect protocol with support for reverse proxies/load balancers
         $protocol = 'http://';
         
@@ -454,6 +454,7 @@ function getDynamicBaseUrl(): string {
     }
     
     // Fallback to base_url setting (for CLI/cron contexts)
+    $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
     if ($configured_base_url !== '') {
         return $configured_base_url;
     }

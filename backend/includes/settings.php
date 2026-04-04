@@ -95,7 +95,7 @@ class Settings {
         $result = $stmt->execute([$new_value, $key, $expected_value]);
 
         if ($result && $stmt->rowCount() > 0) {
-            self::$cache[$key] = self::castValue($new_value, scalar_string($type));
+            self::$cache[$key] = self::castValue($new_value, (string) $type);
             return true;
         }
 
