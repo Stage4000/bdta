@@ -64,6 +64,12 @@ class FakeSessionConnection {
         return new FakeSessionStatement($this, $query);
     }
 
+    public function setSessionExpiry(string $session_id, string $expires_at): void {
+        if (isset($this->rows[$session_id])) {
+            $this->rows[$session_id]['expires_at'] = $expires_at;
+        }
+    }
+
     public function run(string $query, array $params): mixed {
         $normalized = preg_replace('/\s+/', ' ', trim($query)) ?: trim($query);
 
@@ -212,7 +218,7 @@ bdta_assert($handler->write('session-a', 'payload-a') === true, 'Failed to write
 bdta_assert($handler->read('session-a') === 'payload-a', 'Failed to read active session payload');
 bdta_assert($handler->validateId('session-a') === true, 'Failed to validate active session id');
 
-$fake_connection->rows['session-a']['expires_at'] = gmdate('Y-m-d H:i:s', time() + 60);
+$fake_connection->setSessionExpiry('session-a', gmdate('Y-m-d H:i:s', time() + 60));
 $previous_expiry = $fake_connection->rows['session-a']['expires_at'];
 bdta_assert($handler->updateTimestamp('session-a', 'payload-a') === true, 'Failed to update session timestamp');
 bdta_assert(strtotime($fake_connection->rows['session-a']['expires_at']) > strtotime($previous_expiry), 'Failed to extend session expiry');

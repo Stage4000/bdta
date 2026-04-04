@@ -107,13 +107,13 @@ function bdta_register_session_handler(): void {
     static $handler = null;
     static $registered = false;
 
-    if ($registered || $handler instanceof BDTADatabaseSessionHandler || session_status() !== PHP_SESSION_NONE) {
+    if ($registered || session_status() !== PHP_SESSION_NONE) {
         return;
     }
 
     $handler = new BDTADatabaseSessionHandler(bdta_get_session_lifetime_seconds());
     session_set_save_handler($handler, true);
-    $registered = true;
+    $registered = $handler instanceof BDTADatabaseSessionHandler;
 }
 
 function bdta_apply_session_ini_settings(): int {
