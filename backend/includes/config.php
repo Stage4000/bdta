@@ -396,10 +396,10 @@ function localDateTimeToUtcString(mixed $date_time, string $format = 'Y-m-d H:i:
  */
 function getDynamicBaseUrl(): string {
     require_once __DIR__ . '/settings.php';
-    $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
 
     // Try to build URL from current request
     if (isset($_SERVER['HTTP_HOST'])) {
+        $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
         // Detect protocol with support for reverse proxies/load balancers
         $protocol = 'http://';
         
@@ -441,8 +441,8 @@ function getDynamicBaseUrl(): string {
             && !bdta_is_default_localhost_base_url($request_base_url)
         ) {
             try {
-                $latest_configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
-                if ($latest_configured_base_url === '' || bdta_is_default_localhost_base_url($latest_configured_base_url)) {
+                $current_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
+                if ($current_base_url === '' || bdta_is_default_localhost_base_url($current_base_url)) {
                     Settings::set('base_url', $request_base_url);
                 }
             } catch (Throwable $e) {
@@ -454,6 +454,7 @@ function getDynamicBaseUrl(): string {
     }
     
     // Fallback to base_url setting (for CLI/cron contexts)
+    $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
     if ($configured_base_url !== '') {
         return $configured_base_url;
     }
