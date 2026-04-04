@@ -41,3 +41,30 @@ function bdta_is_default_localhost_base_url(string $base_url): bool
 {
     return bdta_normalize_base_url($base_url) === bdta_normalize_base_url(bdta_get_default_localhost_base_url());
 }
+
+/**
+ * @return list<string>
+ */
+function bdta_get_base_url_compare_candidates(string $base_url): array
+{
+    $trimmed = trim($base_url);
+    if ($trimmed === '') {
+        return [''];
+    }
+
+    $normalized = bdta_normalize_base_url($trimmed);
+    if ($normalized === '') {
+        return [$trimmed];
+    }
+
+    $candidates = [$normalized];
+    if (!in_array($normalized . '/', $candidates, true)) {
+        $candidates[] = $normalized . '/';
+    }
+
+    if ($trimmed !== '' && !in_array($trimmed, $candidates, true)) {
+        $candidates[] = $trimmed;
+    }
+
+    return $candidates;
+}

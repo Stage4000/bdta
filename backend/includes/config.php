@@ -397,6 +397,7 @@ function localDateTimeToUtcString(mixed $date_time, string $format = 'Y-m-d H:i:
 function getDynamicBaseUrl(): string {
     require_once __DIR__ . '/settings.php';
     $configured_base_url = null;
+    $host_pattern = '/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*(:[0-9]+)?$/';
     $loadConfiguredBaseUrl = static function () use (&$configured_base_url): string {
         if (!is_string($configured_base_url)) {
             $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
@@ -435,7 +436,7 @@ function getDynamicBaseUrl(): string {
         // Strict validation: proper hostname format with optional port
         // Pattern ensures no consecutive dots, no leading/trailing hyphens in domain parts
         // Note: Does not support IPv6 bracket notation
-        if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*(:[0-9]+)?$/', $host)) {
+        if (!preg_match($host_pattern, $host)) {
             // If HTTP_HOST is suspicious, fall back to SERVER_NAME
             $host = scalar_string($_SERVER['SERVER_NAME'] ?? 'localhost');
             if (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] != 80 && $_SERVER['SERVER_PORT'] != 443) {
@@ -444,17 +445,35 @@ function getDynamicBaseUrl(): string {
         }
         
         $request_base_url = $protocol . $host;
+        $trusted_host = scalar_string($_SERVER['SERVER_NAME'] ?? '');
+        if ($trusted_host !== '' && !preg_match($host_pattern, $trusted_host)) {
+            $trusted_host = '';
+        }
+        if (
+            $trusted_host !== ''
+            && isset($_SERVER['SERVER_PORT'])
+            && $_SERVER['SERVER_PORT'] != 80
+            && $_SERVER['SERVER_PORT'] != 443
+            && !str_contains($trusted_host, ':')
+        ) {
+            $trusted_host .= ':' . scalar_string($_SERVER['SERVER_PORT']);
+        }
+
+        $normalized_request_base_url = bdta_normalize_base_url($request_base_url);
+        $trusted_base_url = $trusted_host === '' ? '' : bdta_normalize_base_url($protocol . $trusted_host);
         if (
             ($configured_base_url === '' || bdta_is_default_localhost_base_url($configured_base_url))
-            && !bdta_is_default_localhost_base_url($request_base_url)
+            && $trusted_base_url !== ''
+            && $normalized_request_base_url === $trusted_base_url
+            && !bdta_is_default_localhost_base_url($trusted_base_url)
         ) {
             try {
-                $expected_base_url = bdta_is_default_localhost_base_url($configured_base_url)
-                    ? bdta_get_default_localhost_base_url()
-                    : '';
-                Settings::compareAndSet('base_url', $expected_base_url, $request_base_url);
+                $expected_base_urls = bdta_is_default_localhost_base_url($configured_base_url)
+                    ? bdta_get_base_url_compare_candidates(bdta_get_default_localhost_base_url())
+                    : [''];
+                Settings::compareAndSet('base_url', $expected_base_urls, $trusted_base_url);
             } catch (Throwable $e) {
-                error_log('getDynamicBaseUrl(): unable to persist detected base_url "' . $request_base_url . '": ' . $e->getMessage());
+                error_log('getDynamicBaseUrl(): unable to persist detected base_url "' . $trusted_base_url . '": ' . $e->getMessage());
             }
         }
 

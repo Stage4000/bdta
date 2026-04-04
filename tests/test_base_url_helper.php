@@ -37,6 +37,14 @@ try {
         bdta_get_default_localhost_base_url() === 'http://localhost:8000',
         'Expected the default localhost fallback helper to expose the seeded placeholder URL.'
     );
+    assertBaseUrlHelperTest(
+        bdta_get_base_url_compare_candidates('http://localhost:8000/') === ['http://localhost:8000', 'http://localhost:8000/'],
+        'Expected equivalent localhost placeholder URLs to produce normalized compare candidates.'
+    );
+    assertBaseUrlHelperTest(
+        bdta_get_base_url_compare_candidates('') === [''],
+        'Expected empty base URLs to preserve an empty compare candidate.'
+    );
 
     echo "Base URL helper tests passed.\n";
 } catch (Throwable $e) {

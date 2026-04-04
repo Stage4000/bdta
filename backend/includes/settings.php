@@ -80,16 +80,25 @@ class Settings {
      * Update a setting only when its current stored value still matches the expected value.
      * This is used for compare-and-swap style writes where concurrent requests may race
      * to replace a seeded placeholder with a detected runtime value.
+     *
+     * @param mixed $expected_value Scalar expected value or list of equivalent values to accept.
      */
     public static function compareAndSet(string $key, mixed $expected_value, mixed $new_value): bool {
         $db = self::getDB();
 
+        $expected_values = is_array($expected_value) ? array_values($expected_value) : [$expected_value];
+        if ($expected_values === []) {
+            return false;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($expected_values), '?'));
+
         $stmt = $db->prepare("
             UPDATE settings
             SET setting_value = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE setting_key = ? AND setting_value = ?
+            WHERE setting_key = ? AND setting_value IN ($placeholders)
         ");
-        $result = $stmt->execute([$new_value, $key, $expected_value]);
+        $result = $stmt->execute(array_merge([$new_value, $key], $expected_values));
 
         if ($result && $stmt->rowCount() > 0) {
             unset(self::$cache[$key]);
