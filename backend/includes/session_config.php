@@ -5,6 +5,7 @@ require_once __DIR__ . '/env_loader.php';
 const BDTA_DEFAULT_SESSION_LIFETIME_SECONDS = 1209600;
 
 function bdta_get_session_lifetime_seconds(): int {
+    EnvLoader::load();
     $configured = EnvLoader::get('SESSION_LIFETIME_SECONDS', (string) BDTA_DEFAULT_SESSION_LIFETIME_SECONDS);
     $lifetime = is_numeric($configured) ? (int) $configured : 0;
 
