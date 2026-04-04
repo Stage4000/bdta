@@ -45,6 +45,13 @@ class FakeSessionStatement {
 }
 
 class FakeSessionConnection {
+    private const INSERT_PREFIX = 'INSERT INTO app_sessions';
+    private const SELECT_DATA_PREFIX = 'SELECT session_data FROM app_sessions';
+    private const SELECT_ID_PREFIX = 'SELECT session_id FROM app_sessions';
+    private const UPDATE_PREFIX = 'UPDATE app_sessions SET expires_at = ?';
+    private const DELETE_ID_PREFIX = 'DELETE FROM app_sessions WHERE session_id = ?';
+    private const DELETE_EXPIRED_PREFIX = 'DELETE FROM app_sessions WHERE expires_at <= UTC_TIMESTAMP()';
+
     /** @var array<string, array{session_data: string, expires_at: string}> */
     public array $rows = [];
 
@@ -55,7 +62,7 @@ class FakeSessionConnection {
     public function run(string $query, array $params): mixed {
         $normalized = preg_replace('/\s+/', ' ', trim($query)) ?? trim($query);
 
-        if (strpos($normalized, 'INSERT INTO app_sessions') === 0) {
+        if (strpos($normalized, self::INSERT_PREFIX) === 0) {
             $this->rows[$params[0]] = [
                 'session_data' => $params[1],
                 'expires_at' => $params[2],
@@ -63,27 +70,27 @@ class FakeSessionConnection {
             return true;
         }
 
-        if (strpos($normalized, 'SELECT session_data FROM app_sessions') === 0) {
+        if (strpos($normalized, self::SELECT_DATA_PREFIX) === 0) {
             return $this->fetchActiveRow($params[0], true);
         }
 
-        if (strpos($normalized, 'SELECT session_id FROM app_sessions') === 0) {
+        if (strpos($normalized, self::SELECT_ID_PREFIX) === 0) {
             return $this->fetchActiveRow($params[0], false);
         }
 
-        if (strpos($normalized, 'UPDATE app_sessions SET expires_at = ?') === 0) {
+        if (strpos($normalized, self::UPDATE_PREFIX) === 0) {
             if (isset($this->rows[$params[1]])) {
                 $this->rows[$params[1]]['expires_at'] = $params[0];
             }
             return true;
         }
 
-        if (strpos($normalized, 'DELETE FROM app_sessions WHERE session_id = ?') === 0) {
+        if (strpos($normalized, self::DELETE_ID_PREFIX) === 0) {
             unset($this->rows[$params[0]]);
             return true;
         }
 
-        if (strpos($normalized, 'DELETE FROM app_sessions WHERE expires_at <= UTC_TIMESTAMP()') === 0) {
+        if (strpos($normalized, self::DELETE_EXPIRED_PREFIX) === 0) {
             $now = time();
             foreach ($this->rows as $id => $row) {
                 if (strtotime($row['expires_at']) <= $now) {

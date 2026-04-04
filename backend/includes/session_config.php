@@ -31,7 +31,7 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
         return true;
     }
 
-    public function read($id): string|false {
+    public function read($id): string {
         $stmt = $this->getConnection()->prepare("
             SELECT session_data
             FROM app_sessions
