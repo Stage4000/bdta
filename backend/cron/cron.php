@@ -333,10 +333,11 @@ class CronRunner {
         if (is_numeric($minute) && preg_match('/^\*\/(\d+)$/', $hour, $matches) && $this->areAllWildcards([$day, $month, $weekday])) {
             $target_minute = intval($minute);
             $hour_interval = max(1, intval($matches[1]));
-            $midnight = $now->setTime(0, $target_minute, 0);
+            $current_hour = (int) $now->format('G');
+            $today_base = $now->setTime(0, $target_minute, 0);
 
-            for ($offset_hours = 0; $offset_hours <= 24; $offset_hours++) {
-                $candidate = $midnight->modify("+{$offset_hours} hours");
+            for ($offset_hours = 0; $offset_hours < 24; $offset_hours++) {
+                $candidate = $today_base->modify('+' . ($current_hour + $offset_hours) . ' hours');
                 if (((int) $candidate->format('G')) % $hour_interval === 0 && $candidate > $now) {
                     return $candidate->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
                 }

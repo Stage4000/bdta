@@ -49,7 +49,7 @@ function assertCronLocalTime(string $label, string $utcDatetime, int $expectedHo
 /**
  * @throws Exception
  */
-function assertCronLocalModuloHour(string $label, string $utcDatetime, int $hourModulo, int $expectedMinute): void {
+function assertCronLocalHourInterval(string $label, string $utcDatetime, int $hourModulo, int $expectedMinute): void {
     $local = (new DateTimeImmutable($utcDatetime, bdta_get_utc_timezone()))->setTimezone(bdta_get_display_timezone());
     $actualHour = (int) $local->format('G');
     $actualMinute = (int) $local->format('i');
@@ -88,7 +88,7 @@ try {
     if (!is_string($custom_every_two_hours_run) || $custom_every_two_hours_run === '') {
         throw new Exception('Custom every-two-hours cron expression did not return a next run');
     }
-    assertCronLocalModuloHour('Custom cron every-two-hours expression keeps an even local hour on minute 0', $custom_every_two_hours_run, 2, 0);
+    assertCronLocalHourInterval('Custom cron every-two-hours expression keeps an even local hour on minute 0', $custom_every_two_hours_run, 2, 0);
 
     $daily_task_run = $calculate_next_run->invoke($cron_instance, [
         'schedule_type' => 'daily',
@@ -108,7 +108,7 @@ try {
     if (!is_string($custom_task_run) || $custom_task_run === '') {
         throw new Exception('Custom every-two-hours task schedule did not return a next run');
     }
-    assertCronLocalModuloHour('Custom task schedule keeps an even local hour on minute 0', $custom_task_run, 2, 0);
+    assertCronLocalHourInterval('Custom task schedule keeps an even local hour on minute 0', $custom_task_run, 2, 0);
 
     echo "\n=== All Time Standardization Tests Passed! ===\n";
 } catch (Exception $e) {
