@@ -65,7 +65,7 @@ class FakeSessionConnection {
     }
 
     public function run(string $query, array $params): mixed {
-        $normalized = preg_replace('/\s+/', ' ', trim($query)) ?? trim($query);
+        $normalized = preg_replace('/\s+/', ' ', trim($query)) ?: trim($query);
 
         if (strpos($normalized, self::INSERT_PREFIX) === 0) {
             $this->rows[$params[0]] = [

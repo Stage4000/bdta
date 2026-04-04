@@ -48,10 +48,10 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
         $stmt = $this->getConnection()->prepare("
             INSERT INTO app_sessions (session_id, session_data, expires_at, created_at, updated_at)
             VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            AS new
+            AS new_session
             ON DUPLICATE KEY UPDATE
-                session_data = new.session_data,
-                expires_at = new.expires_at,
+                session_data = new_session.session_data,
+                expires_at = new_session.expires_at,
                 updated_at = CURRENT_TIMESTAMP
         ");
 
@@ -107,7 +107,7 @@ function bdta_register_session_handler(): void {
     static $handler = null;
     static $registered = false;
 
-    if ($registered || session_status() !== PHP_SESSION_NONE) {
+    if ($registered || $handler instanceof BDTADatabaseSessionHandler || session_status() !== PHP_SESSION_NONE) {
         return;
     }
 
