@@ -328,6 +328,20 @@ class CronRunner {
             $interval = intval($matches[1]);
             return $now->modify("+{$interval} minutes")->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
         }
+
+        // Handle every N hours at a specific minute (e.g., 0 */2 * * * = every 2 hours on the hour)
+        if (is_numeric($minute) && preg_match('/^\*\/(\d+)$/', $hour, $matches) && $this->areAllWildcards([$day, $month, $weekday])) {
+            $target_minute = intval($minute);
+            $hour_interval = max(1, intval($matches[1]));
+            $midnight = $now->setTime(0, $target_minute, 0);
+
+            for ($offset_hours = 0; $offset_hours <= 24; $offset_hours++) {
+                $candidate = $midnight->modify("+{$offset_hours} hours");
+                if (((int) $candidate->format('G')) % $hour_interval === 0 && $candidate > $now) {
+                    return $candidate->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
+                }
+            }
+        }
         
         // Handle hourly at specific minute (e.g., 15 * * * * = every hour at minute 15)
         if (is_numeric($minute) && $this->areAllWildcards([$hour, $day, $month, $weekday])) {
