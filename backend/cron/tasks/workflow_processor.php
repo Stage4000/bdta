@@ -229,7 +229,7 @@ class WorkflowProcessorTask {
             $invoice_pay_token = scalar_string($execution['attach_invoice_pay_token'] ?? '');
             $link = $invoice_pay_token !== ''
                 ? $base_url . '/portal/invoice_pay.php?token=' . urlencode($invoice_pay_token)
-                : $base_url . '/portal/invoice_view.php?id=' . scalar_string($attach_invoice_id);
+                : $base_url . '/portal/invoice_view.php?id=' . urlencode(scalar_string($attach_invoice_id));
             if ($html) {
                 $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #16a34a; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">💳 View Invoice</a></p>';
             } else {

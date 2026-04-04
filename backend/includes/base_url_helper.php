@@ -49,7 +49,8 @@ function bdta_guess_base_url_from_email(string $email): string
         return '';
     }
 
-    $domain = strtolower((string) substr(strrchr($normalized_email, '@') ?: '', 1));
+    $email_parts = explode('@', $normalized_email, 2);
+    $domain = strtolower($email_parts[1] ?? '');
     if ($domain === '' || $domain === 'localhost' || !str_contains($domain, '.')) {
         return '';
     }
