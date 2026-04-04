@@ -55,13 +55,6 @@ try {
         'Custom cron cadence */15 should resolve to 15 minutes.'
     );
 
-    $delete_tasks->execute();
-    $insert_task->execute(['Workflow Processor Custom Two Hour', 'workflow_processor', 'custom', '0 */2 * * *']);
-    assertWorkflowIntervalTest(
-        bdta_get_workflow_processor_interval_minutes($conn) === 120,
-        'Custom cron cadence 0 */2 should resolve to 120 minutes.'
-    );
-
     $delay_minutes = bdta_parse_workflow_delay_to_minutes('30 minutes');
     $processor_interval = bdta_get_workflow_processor_interval_minutes($conn);
     assertWorkflowIntervalTest(
@@ -73,6 +66,13 @@ try {
     assertWorkflowIntervalTest(
         $delay_minutes < $processor_interval,
         'A 10 minute delay should be blocked when workflow processor cadence is 15 minutes.'
+    );
+
+    $delete_tasks->execute();
+    $insert_task->execute(['Workflow Processor Custom Two Hour', 'workflow_processor', 'custom', '0 */2 * * *']);
+    assertWorkflowIntervalTest(
+        bdta_get_workflow_processor_interval_minutes($conn) === 120,
+        'Custom cron cadence 0 */2 should resolve to 120 minutes.'
     );
 
     echo "Workflow step interval validation helper tests passed.\n";
