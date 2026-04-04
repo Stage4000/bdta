@@ -76,6 +76,11 @@ class Settings {
         return $result;
     }
 
+    /**
+     * Update a setting only when its current stored value still matches the expected value.
+     * This is used for compare-and-swap style writes where concurrent requests may race
+     * to replace a seeded placeholder with a detected runtime value.
+     */
     public static function compareAndSet(string $key, mixed $expected_value, mixed $new_value): bool {
         $db = self::getDB();
 
