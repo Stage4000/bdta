@@ -833,10 +833,8 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )
             ");
-            try {
+            if (!$this->indexExists('app_sessions', 'idx_app_sessions_expires_at')) {
                 $this->execSQL("CREATE INDEX idx_app_sessions_expires_at ON app_sessions(expires_at)");
-            } catch (PDOException $e) {
-                // Index might already exist, ignore
             }
             
             // Email signature templates table

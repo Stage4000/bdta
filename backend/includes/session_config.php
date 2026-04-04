@@ -40,7 +40,7 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return is_array($row) ? scalar_string($row['session_data'] ?? '') : '';
+        return is_array($row) ? (string) ($row['session_data'] ?? '') : '';
     }
 
     public function write($id, $data): bool {
@@ -64,8 +64,11 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
 
     public function gc($max_lifetime): int|false {
         $stmt = $this->getConnection()->prepare("DELETE FROM app_sessions WHERE expires_at <= UTC_TIMESTAMP()");
-        $stmt->execute([]);
-        return 0;
+        if (!$stmt->execute([])) {
+            return false;
+        }
+
+        return $stmt->rowCount();
     }
 
     public function validateId($id): bool {

@@ -42,6 +42,10 @@ class FakeSessionStatement {
     public function fetch(int $mode = 0): mixed {
         return $this->result;
     }
+
+    public function rowCount(): int {
+        return $this->connection->last_row_count;
+    }
 }
 
 class FakeSessionConnection {
@@ -54,6 +58,7 @@ class FakeSessionConnection {
 
     /** @var array<string, array{session_data: string, expires_at: string}> */
     public array $rows = [];
+    public int $last_row_count = 0;
 
     public function prepare(string $query): FakeSessionStatement {
         return new FakeSessionStatement($this, $query);
@@ -67,6 +72,7 @@ class FakeSessionConnection {
                 'session_data' => $params[1],
                 'expires_at' => $params[2],
             ];
+            $this->last_row_count = 1;
             return true;
         }
 
@@ -81,36 +87,48 @@ class FakeSessionConnection {
         if (strpos($normalized, self::UPDATE_PREFIX) === 0) {
             if (isset($this->rows[$params[1]])) {
                 $this->rows[$params[1]]['expires_at'] = $params[0];
+                $this->last_row_count = 1;
+            } else {
+                $this->last_row_count = 0;
             }
             return true;
         }
 
         if (strpos($normalized, self::DELETE_ID_PREFIX) === 0) {
+            $this->last_row_count = isset($this->rows[$params[0]]) ? 1 : 0;
             unset($this->rows[$params[0]]);
             return true;
         }
 
         if (strpos($normalized, self::DELETE_EXPIRED_PREFIX) === 0) {
             $now = time();
+            $deleted = 0;
             foreach ($this->rows as $id => $row) {
                 if (strtotime($row['expires_at']) <= $now) {
                     unset($this->rows[$id]);
+                    $deleted++;
                 }
             }
-            return true;
+            $this->last_row_count = $deleted;
+            return $deleted;
         }
 
+        $this->last_row_count = 0;
         return false;
     }
 
     private function fetchActiveRow(string $session_id, bool $with_data): array|false {
         if (!isset($this->rows[$session_id])) {
+            $this->last_row_count = 0;
             return false;
         }
 
         if (strtotime($this->rows[$session_id]['expires_at']) <= time()) {
+            $this->last_row_count = 0;
             return false;
         }
+
+        $this->last_row_count = 1;
 
         if ($with_data) {
             return ['session_data' => $this->rows[$session_id]['session_data']];
@@ -194,8 +212,8 @@ bdta_assert($handler->write('session-a', 'payload-a') === true, 'Failed to write
 bdta_assert($handler->read('session-a') === 'payload-a', 'Failed to read active session payload');
 bdta_assert($handler->validateId('session-a') === true, 'Failed to validate active session id');
 
+$fake_connection->rows['session-a']['expires_at'] = gmdate('Y-m-d H:i:s', time() + 10);
 $previous_expiry = $fake_connection->rows['session-a']['expires_at'];
-sleep(1);
 bdta_assert($handler->updateTimestamp('session-a', 'payload-a') === true, 'Failed to update session timestamp');
 bdta_assert(strtotime($fake_connection->rows['session-a']['expires_at']) > strtotime($previous_expiry), 'Failed to extend session expiry');
 
@@ -205,7 +223,8 @@ $fake_connection->rows['session-expired'] = [
 ];
 bdta_assert($handler->read('session-expired') === '', 'Expired session should not be readable');
 bdta_assert($handler->validateId('session-expired') === false, 'Expired session should not validate');
-$handler->gc(3600);
+$deleted_sessions = $handler->gc(3600);
+bdta_assert($deleted_sessions === 1, 'Garbage collection should report deleted expired sessions');
 bdta_assert(!isset($fake_connection->rows['session-expired']), 'Garbage collection should remove expired sessions');
 
 bdta_assert($handler->destroy('session-a') === true, 'Failed to destroy session');
