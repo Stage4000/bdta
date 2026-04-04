@@ -48,14 +48,13 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
         $stmt = $this->getConnection()->prepare("
             INSERT INTO app_sessions (session_id, session_data, expires_at, created_at, updated_at)
             VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            AS new_session
             ON DUPLICATE KEY UPDATE
-                session_data = new_session.session_data,
-                expires_at = new_session.expires_at,
+                session_data = ?,
+                expires_at = ?,
                 updated_at = CURRENT_TIMESTAMP
         ");
 
-        return $stmt->execute([$id, $data, $expires_at]);
+        return $stmt->execute([$id, $data, $expires_at, $data, $expires_at]);
     }
 
     public function destroy($id): bool {

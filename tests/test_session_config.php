@@ -217,6 +217,8 @@ $handler = new BDTADatabaseSessionHandler(3600, $fake_connection);
 bdta_assert($handler->write('session-a', 'payload-a') === true, 'Failed to write session payload');
 bdta_assert($handler->read('session-a') === 'payload-a', 'Failed to read active session payload');
 bdta_assert($handler->validateId('session-a') === true, 'Failed to validate active session id');
+bdta_assert($handler->write('session-a', 'payload-a-updated') === true, 'Failed to update existing session payload');
+bdta_assert($handler->read('session-a') === 'payload-a-updated', 'Failed to read updated session payload');
 
 $fake_connection->setSessionExpiry('session-a', gmdate('Y-m-d H:i:s', time() + 60));
 $previous_expiry = $fake_connection->rows['session-a']['expires_at'];
