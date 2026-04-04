@@ -58,11 +58,9 @@ function bdta_get_base_url_compare_candidates(string $base_url): array
     }
 
     $candidates = [$normalized];
-    if (!in_array($normalized . '/', $candidates, true)) {
-        $candidates[] = $normalized . '/';
-    }
+    $candidates[] = $normalized . '/';
 
-    if ($trimmed !== '' && !in_array($trimmed, $candidates, true)) {
+    if (!in_array($trimmed, $candidates, true)) {
         $candidates[] = $trimmed;
     }
 
