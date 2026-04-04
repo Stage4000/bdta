@@ -56,6 +56,7 @@ date_default_timezone_set(getSystemTimezone());
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
     $session_lifetime = bdta_apply_session_ini_settings();
+    bdta_register_session_handler();
     $cookie_params = session_get_cookie_params();
     session_set_cookie_params([
         'lifetime' => $session_lifetime,

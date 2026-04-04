@@ -823,6 +823,21 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
+
+            $this->execSQL("
+                CREATE TABLE IF NOT EXISTS app_sessions (
+                    session_id VARCHAR(128) PRIMARY KEY,
+                    session_data MEDIUMBLOB NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            ");
+            try {
+                $this->execSQL("CREATE INDEX idx_app_sessions_expires_at ON app_sessions(expires_at)");
+            } catch (PDOException $e) {
+                // Index might already exist, ignore
+            }
             
             // Email signature templates table
             $this->execSQL("
