@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/session_config.php';
 
 /**
  * Resolve the system timezone from admin settings with a safe fallback.
@@ -54,10 +55,11 @@ date_default_timezone_set(getSystemTimezone());
 
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
-    ini_set('session.use_strict_mode', '1');
+    $session_lifetime = bdta_apply_session_ini_settings();
+    bdta_register_session_handler();
     $cookie_params = session_get_cookie_params();
     session_set_cookie_params([
-        'lifetime' => safe_int($cookie_params['lifetime']),
+        'lifetime' => $session_lifetime,
         'path' => scalar_string($cookie_params['path']),
         'domain' => scalar_string($cookie_params['domain']),
         'secure' => bdta_request_is_https(),

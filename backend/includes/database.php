@@ -823,6 +823,19 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
+
+            $this->execSQL("
+                CREATE TABLE IF NOT EXISTS app_sessions (
+                    session_id VARCHAR(128) PRIMARY KEY,
+                    session_data BLOB NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            ");
+            if (!$this->indexExists('app_sessions', 'idx_app_sessions_expires_at')) {
+                $this->execSQL("CREATE INDEX idx_app_sessions_expires_at ON app_sessions(expires_at)");
+            }
             
             // Email signature templates table
             $this->execSQL("
