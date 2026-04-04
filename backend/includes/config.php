@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/session_config.php';
+require_once __DIR__ . '/base_url_helper.php';
 
 /**
  * Resolve the system timezone from admin settings with a safe fallback.
@@ -394,6 +395,8 @@ function localDateTimeToUtcString(mixed $date_time, string $format = 'Y-m-d H:i:
  * and will fall back to SERVER_NAME. Use base_url setting for IPv6 hosts.
  */
 function getDynamicBaseUrl(): string {
+    require_once __DIR__ . '/settings.php';
+
     // Try to build URL from current request
     if (isset($_SERVER['HTTP_HOST'])) {
         // Detect protocol with support for reverse proxies/load balancers
@@ -435,9 +438,23 @@ function getDynamicBaseUrl(): string {
     }
     
     // Fallback to base_url setting (for CLI/cron contexts)
-    $base_url = Settings::get('base_url', null);
-    if (is_string($base_url) && $base_url !== '') {
-        return rtrim($base_url, '/');
+    $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
+    if ($configured_base_url !== '' && !bdta_is_default_localhost_base_url($configured_base_url)) {
+        return $configured_base_url;
+    }
+
+    foreach ([
+        scalar_string(Settings::get('business_email', '')),
+        scalar_string(Settings::get('email_from_address', '')),
+    ] as $email_address) {
+        $derived_base_url = bdta_guess_base_url_from_email($email_address);
+        if ($derived_base_url !== '') {
+            return $derived_base_url;
+        }
+    }
+
+    if ($configured_base_url !== '') {
+        return $configured_base_url;
     }
     
     // Last resort fallback

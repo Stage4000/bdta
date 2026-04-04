@@ -182,6 +182,8 @@ class WorkflowProcessorTask {
         // Contract link - use template to generate link to contract template
         $attach_contract_id = $execution['attach_contract_id'] ?? null;
         $attach_form_id = $execution['attach_form_id'] ?? null;
+        $attach_quote_id = $execution['attach_quote_id'] ?? null;
+        $attach_invoice_id = $execution['attach_invoice_id'] ?? null;
         $client_id = scalar_string($execution['client_id'] ?? '');
         $appointment_type_id = $execution['appointment_type_id'] ?? null;
         $include_appointment_link = !empty($execution['include_appointment_link']);
@@ -209,6 +211,30 @@ class WorkflowProcessorTask {
                 $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #8b5cf6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📋 Complete Form</a></p>';
             } else {
                 $links[] = "\n\n📋 Complete Form: " . $link;
+            }
+        }
+
+        if (!empty($attach_quote_id)) {
+            $link = $base_url . '/backend/public/quote.php?id=' . scalar_string($attach_quote_id);
+            if ($html) {
+                $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">💬 View Quote</a></p>';
+            } else {
+                $links[] = "\n\n💬 View Quote: " . $link;
+            }
+        }
+
+        if (!empty($attach_invoice_id)) {
+            $link = $base_url . '/portal/invoice_view.php?id=' . scalar_string($attach_invoice_id);
+            $stmt = $this->conn->prepare("SELECT pay_token FROM invoices WHERE id = ?");
+            $stmt->execute([$attach_invoice_id]);
+            $invoice = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+            if ($invoice !== [] && !empty($invoice['pay_token'])) {
+                $link = $base_url . '/portal/invoice_pay.php?token=' . urlencode(scalar_string($invoice['pay_token']));
+            }
+            if ($html) {
+                $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #16a34a; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">💳 View Invoice</a></p>';
+            } else {
+                $links[] = "\n\n💳 View Invoice: " . $link;
             }
         }
         

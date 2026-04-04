@@ -76,9 +76,9 @@ After creating a workflow, add email steps:
 You can attach:
 - **Contract Template**: Links to a specific contract template
 - **Form Template**: Links to a form to complete
+- **Quote**: Links to a specific quote
+- **Invoice**: Links to a specific invoice or payment page
 - **Appointment Link**: Includes booking link for specified appointment type
-
-*Note: Quotes and invoices should be managed separately and can be mentioned in email content with manual links*
 
 ### 3. Set Up Auto-Enrollment Triggers (Optional)
 
