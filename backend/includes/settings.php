@@ -79,14 +79,6 @@ class Settings {
     public static function compareAndSet(string $key, mixed $expected_value, mixed $new_value): bool {
         $db = self::getDB();
 
-        $stmt = $db->prepare("SELECT setting_type FROM settings WHERE setting_key = ?");
-        $stmt->execute([$key]);
-        $type = $stmt->fetchColumn();
-
-        if (!$type) {
-            return false;
-        }
-
         $stmt = $db->prepare("
             UPDATE settings
             SET setting_value = ?, updated_at = CURRENT_TIMESTAMP
@@ -95,7 +87,7 @@ class Settings {
         $result = $stmt->execute([$new_value, $key, $expected_value]);
 
         if ($result && $stmt->rowCount() > 0) {
-            self::$cache[$key] = self::castValue($new_value, (string) $type);
+            unset(self::$cache[$key]);
             return true;
         }
 
