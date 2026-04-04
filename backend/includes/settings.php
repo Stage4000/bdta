@@ -91,7 +91,6 @@ class Settings {
             return true;
         }
 
-        unset(self::$cache[$key]);
         return false;
     }
     

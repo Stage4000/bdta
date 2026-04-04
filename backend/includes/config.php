@@ -449,9 +449,10 @@ function getDynamicBaseUrl(): string {
             && !bdta_is_default_localhost_base_url($request_base_url)
         ) {
             try {
-                $expected_base_url = $configured_base_url === ''
-                    ? ''
-                    : bdta_get_default_localhost_base_url();
+                $expected_base_url = $configured_base_url;
+                if ($expected_base_url !== '') {
+                    $expected_base_url = bdta_get_default_localhost_base_url();
+                }
                 Settings::compareAndSet('base_url', $expected_base_url, $request_base_url);
             } catch (Throwable $e) {
                 error_log('getDynamicBaseUrl(): unable to persist detected base_url "' . $request_base_url . '": ' . $e->getMessage());
