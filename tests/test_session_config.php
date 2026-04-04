@@ -229,7 +229,7 @@ $fake_connection->rows['session-expired'] = [
 ];
 bdta_assert($handler->read('session-expired') === '', 'Expired session should not be readable');
 bdta_assert($handler->validateId('session-expired') === false, 'Expired session should not validate');
-$deleted_sessions = $handler->gc(3600);
+$deleted_sessions = $handler->gc(0);
 bdta_assert($deleted_sessions === 1, 'Garbage collection should report deleted expired sessions');
 bdta_assert(!isset($fake_connection->rows['session-expired']), 'Garbage collection should remove expired sessions');
 

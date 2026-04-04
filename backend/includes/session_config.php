@@ -113,7 +113,7 @@ function bdta_register_session_handler(): void {
 
     $handler = new BDTADatabaseSessionHandler(bdta_get_session_lifetime_seconds());
     session_set_save_handler($handler, true);
-    $registered = $handler instanceof BDTADatabaseSessionHandler;
+    $registered = true;
 }
 
 function bdta_apply_session_ini_settings(): int {
