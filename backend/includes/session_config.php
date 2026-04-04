@@ -6,8 +6,8 @@ const BDTA_DEFAULT_SESSION_LIFETIME_SECONDS = 1209600;
 
 function bdta_get_session_lifetime_seconds(): int {
     EnvLoader::load();
-    $configured = EnvLoader::get('SESSION_LIFETIME_SECONDS', (string) BDTA_DEFAULT_SESSION_LIFETIME_SECONDS);
-    $lifetime = is_numeric($configured) ? (int) $configured : 0;
+    $configured = trim(EnvLoader::get('SESSION_LIFETIME_SECONDS', (string) BDTA_DEFAULT_SESSION_LIFETIME_SECONDS));
+    $lifetime = ctype_digit($configured) ? (int) $configured : 0;
 
     return $lifetime > 0 ? $lifetime : BDTA_DEFAULT_SESSION_LIFETIME_SECONDS;
 }
