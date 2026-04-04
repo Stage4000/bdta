@@ -334,14 +334,16 @@ class CronRunner {
             $target_minute = intval($minute);
             $hour_interval = max(1, intval($matches[1]));
             $current_hour = (int) $now->format('G');
-            $today_base = $now->setTime(0, $target_minute, 0);
+            $current_minute = (int) $now->format('i');
+            $hour_remainder = $current_hour % $hour_interval;
+            $hours_until_interval = ($hour_remainder === 0) ? 0 : ($hour_interval - $hour_remainder);
 
-            for ($offset_hours = 0; $offset_hours < 24; $offset_hours++) {
-                $candidate = $today_base->modify('+' . ($current_hour + $offset_hours) . ' hours');
-                if (((int) $candidate->format('G')) % $hour_interval === 0 && $candidate > $now) {
-                    return $candidate->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
-                }
+            if ($hours_until_interval === 0 && $target_minute <= $current_minute) {
+                $hours_until_interval = $hour_interval;
             }
+
+            $candidate = $now->setTime($current_hour, $target_minute, 0)->modify("+{$hours_until_interval} hours");
+            return $candidate->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
         }
         
         // Handle hourly at specific minute (e.g., 15 * * * * = every hour at minute 15)

@@ -49,13 +49,13 @@ function assertCronLocalTime(string $label, string $utcDatetime, int $expectedHo
 /**
  * @throws Exception
  */
-function assertCronLocalHourInterval(string $label, string $utcDatetime, int $hourModulo, int $expectedMinute): void {
+function assertCronLocalHourInterval(string $label, string $utcDatetime, int $hourInterval, int $expectedMinute): void {
     $local = (new DateTimeImmutable($utcDatetime, bdta_get_utc_timezone()))->setTimezone(bdta_get_display_timezone());
     $actualHour = (int) $local->format('G');
     $actualMinute = (int) $local->format('i');
 
-    if ($hourModulo <= 0 || $actualHour % $hourModulo !== 0 || $actualMinute !== $expectedMinute) {
-        throw new Exception($label . " expected local hour divisible by {$hourModulo} at minute " . sprintf('%02d', $expectedMinute) . " but got " . $local->format('Y-m-d H:i:s'));
+    if ($hourInterval <= 0 || $actualHour % $hourInterval !== 0 || $actualMinute !== $expectedMinute) {
+        throw new Exception($label . " expected local hour divisible by {$hourInterval} at minute " . sprintf('%02d', $expectedMinute) . " but got " . $local->format('Y-m-d H:i:s'));
     }
 
     echo "✓ {$label}: " . $local->format('Y-m-d H:i:s') . "\n";
