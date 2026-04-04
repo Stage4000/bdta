@@ -1,5 +1,10 @@
 <?php
 
+function bdta_get_default_localhost_base_url(): string
+{
+    return defined('DEFAULT_LOCALHOST_URL') ? (string) DEFAULT_LOCALHOST_URL : 'http://localhost:8000';
+}
+
 function bdta_normalize_base_url(string $base_url): string
 {
     $normalized = trim($base_url);
@@ -34,7 +39,7 @@ function bdta_normalize_base_url(string $base_url): string
 
 function bdta_is_default_localhost_base_url(string $base_url): bool
 {
-    return bdta_normalize_base_url($base_url) === bdta_normalize_base_url(DEFAULT_LOCALHOST_URL);
+    return bdta_normalize_base_url($base_url) === bdta_normalize_base_url(bdta_get_default_localhost_base_url());
 }
 
 function bdta_guess_base_url_from_email(string $email): string
