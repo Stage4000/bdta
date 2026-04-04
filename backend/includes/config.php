@@ -396,6 +396,7 @@ function localDateTimeToUtcString(mixed $date_time, string $format = 'Y-m-d H:i:
  */
 function getDynamicBaseUrl(): string {
     require_once __DIR__ . '/settings.php';
+    $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
 
     // Try to build URL from current request
     if (isset($_SERVER['HTTP_HOST'])) {
@@ -434,25 +435,22 @@ function getDynamicBaseUrl(): string {
             }
         }
         
-        return $protocol . $host;
+        $request_base_url = $protocol . $host;
+        if (
+            ($configured_base_url === '' || bdta_is_default_localhost_base_url($configured_base_url))
+            && !bdta_is_default_localhost_base_url($request_base_url)
+        ) {
+            try {
+                Settings::set('base_url', $request_base_url);
+            } catch (Throwable $e) {
+                error_log('config.php: unable to persist detected base_url "' . $request_base_url . '": ' . $e->getMessage());
+            }
+        }
+
+        return $request_base_url;
     }
     
     // Fallback to base_url setting (for CLI/cron contexts)
-    $configured_base_url = bdta_normalize_base_url(scalar_string(Settings::get('base_url', '')));
-    if ($configured_base_url !== '' && !bdta_is_default_localhost_base_url($configured_base_url)) {
-        return $configured_base_url;
-    }
-
-    foreach ([
-        scalar_string(Settings::get('business_email', '')),
-        scalar_string(Settings::get('email_from_address', '')),
-    ] as $email_address) {
-        $derived_base_url = bdta_guess_base_url_from_email($email_address);
-        if ($derived_base_url !== '') {
-            return $derived_base_url;
-        }
-    }
-
     if ($configured_base_url !== '') {
         return $configured_base_url;
     }

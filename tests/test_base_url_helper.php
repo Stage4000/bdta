@@ -34,12 +34,8 @@ try {
         'Expected non-default localhost ports not to be treated as the seeded placeholder.'
     );
     assertBaseUrlHelperTest(
-        bdta_guess_base_url_from_email('bookings@brooksdogtrainingacademy.com') === 'https://brooksdogtrainingacademy.com',
-        'Expected business email domains to produce an https base URL fallback.'
-    );
-    assertBaseUrlHelperTest(
-        bdta_guess_base_url_from_email('admin@localhost') === '',
-        'Expected localhost email domains to be ignored for public base URL fallback.'
+        bdta_get_default_localhost_base_url() === 'http://localhost:8000',
+        'Expected the default localhost fallback helper to expose the seeded placeholder URL.'
     );
 
     echo "Base URL helper tests passed.\n";

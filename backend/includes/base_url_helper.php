@@ -41,19 +41,3 @@ function bdta_is_default_localhost_base_url(string $base_url): bool
 {
     return bdta_normalize_base_url($base_url) === bdta_normalize_base_url(bdta_get_default_localhost_base_url());
 }
-
-function bdta_guess_base_url_from_email(string $email): string
-{
-    $normalized_email = trim($email);
-    if ($normalized_email === '' || filter_var($normalized_email, FILTER_VALIDATE_EMAIL) === false) {
-        return '';
-    }
-
-    $email_parts = explode('@', $normalized_email, 2);
-    $domain = strtolower($email_parts[1] ?? '');
-    if ($domain === '' || $domain === 'localhost' || !str_contains($domain, '.')) {
-        return '';
-    }
-
-    return 'https://' . $domain;
-}
