@@ -333,16 +333,15 @@ class CronRunner {
         if (is_numeric($minute) && preg_match('/^\*\/(\d+)$/', $hour, $matches) && $this->areAllWildcards([$day, $month, $weekday])) {
             $target_minute = intval($minute);
             $hour_interval = max(1, intval($matches[1]));
-            $current_hour = (int) $now->format('G');
-            $current_minute = (int) $now->format('i');
-            $hour_remainder = $current_hour % $hour_interval;
-            $hours_until_interval = ($hour_remainder === 0) ? 0 : ($hour_interval - $hour_remainder);
 
-            if ($hours_until_interval === 0 && $target_minute <= $current_minute) {
-                $hours_until_interval = $hour_interval;
+            for ($candidate_hour = 0; $candidate_hour < 24; $candidate_hour += $hour_interval) {
+                $candidate = $now->setTime($candidate_hour, $target_minute, 0);
+                if ($candidate > $now) {
+                    return $candidate->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
+                }
             }
 
-            $candidate = $now->setTime($current_hour, $target_minute, 0)->modify("+{$hours_until_interval} hours");
+            $candidate = $now->modify('+1 day')->setTime(0, $target_minute, 0);
             return $candidate->setTimezone(bdta_get_utc_timezone())->format('Y-m-d H:i:s');
         }
         
