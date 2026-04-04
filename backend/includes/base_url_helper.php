@@ -30,7 +30,7 @@ function bdta_normalize_base_url(string $base_url): string
 
     $resolved = $scheme . '://' . $host;
 
-    if (isset($parts['port']) && is_int($parts['port'])) {
+    if (isset($parts['port'])) {
         $resolved .= ':' . $parts['port'];
     }
 
