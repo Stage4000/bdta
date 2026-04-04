@@ -95,7 +95,6 @@ class BDTADatabaseSessionHandler implements SessionHandlerInterface, SessionUpda
 }
 
 function bdta_get_session_lifetime_seconds(): int {
-    EnvLoader::load();
     $configured = trim(EnvLoader::get('SESSION_LIFETIME_SECONDS', (string) BDTA_DEFAULT_SESSION_LIFETIME_SECONDS));
     $lifetime = ctype_digit($configured) ? (int) $configured : 0;
 
