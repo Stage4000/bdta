@@ -40,6 +40,8 @@ $cases = [
     ],
 ];
 
+$passed_labels = [];
+
 foreach ($cases as $case) {
     bdta_set_session_lifetime_env($case['env']);
 
@@ -65,6 +67,7 @@ foreach ($cases as $case) {
         exit(1);
     }
 
+    $passed_labels[] = $case['label'];
 }
 
 bdta_set_session_lifetime_env(false);
@@ -72,7 +75,12 @@ bdta_set_session_lifetime_env(false);
 ob_end_clean();
 
 echo "=== Session Config Tests ===\n\n";
-foreach ($cases as $case) {
-    echo "✓ {$case['label']}\n";
+if (count($passed_labels) !== count($cases)) {
+    fwrite(STDERR, "Failed: not all session config cases completed successfully.\n");
+    exit(1);
+}
+
+foreach ($passed_labels as $label) {
+    echo "✓ {$label}\n";
 }
 echo "\nAll session config tests passed.\n";
