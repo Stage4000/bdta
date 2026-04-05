@@ -98,6 +98,24 @@ class EmailService {
         $this->conn     = $conn;
     }
 
+    private function getClientEmailLogConnection(): ?PDO {
+        if ($this->conn instanceof PDO) {
+            return $this->conn;
+        }
+
+        try {
+            $db = new Database();
+            $connection = $db->getConnection();
+            if ($connection instanceof PDO) {
+                $this->conn = $connection;
+            }
+        } catch (Throwable $e) {
+            error_log('[MailRouter] Failed to resolve DB connection for client email logging: ' . $e->getMessage());
+        }
+
+        return $this->conn;
+    }
+
     private static function settingString(string $key, string $default = ''): string {
         return scalar_string(Settings::get($key, $default));
     }
@@ -262,9 +280,9 @@ class EmailService {
         // and MAIL_TYPE_PASSWORD_RESET (not a client-facing communication).
         if (
             $client_id
-            && $this->conn
             && $mail_type !== self::MAIL_TYPE_COMPOSE
             && $mail_type !== self::MAIL_TYPE_PASSWORD_RESET
+            && $this->getClientEmailLogConnection()
         ) {
             $this->logToClientEmails($client_id, $to, $subject, $html_body, $text_body, $result, $mail_type);
         }
