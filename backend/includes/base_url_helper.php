@@ -61,11 +61,7 @@ function bdta_is_localhost_base_url(string $base_url): bool
 
     if (filter_var($normalized_host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
         $ipv6 = inet_pton($normalized_host);
-        static $ipv6_loopback = null;
-        if ($ipv6_loopback === null) {
-            $ipv6_loopback = inet_pton('::1');
-        }
-
+        $ipv6_loopback = inet_pton('::1');
         return $ipv6 !== false && is_string($ipv6_loopback) && $ipv6 === $ipv6_loopback;
     }
 

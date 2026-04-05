@@ -468,9 +468,9 @@ function getDynamicBaseUrl(): string {
             && !bdta_is_localhost_base_url($trusted_base_url)
         ) {
             try {
-                $expected_base_urls = $configured_base_url !== ''
-                    ? bdta_get_base_url_compare_candidates($configured_base_url)
-                    : [''];
+                $expected_base_urls = $configured_base_url === ''
+                    ? ['']
+                    : bdta_get_base_url_compare_candidates($configured_base_url);
                 Settings::compareAndSet('base_url', $expected_base_urls, $trusted_base_url);
             } catch (Throwable $e) {
                 error_log('getDynamicBaseUrl(): unable to persist detected base_url "' . $trusted_base_url . '": ' . $e->getMessage());
