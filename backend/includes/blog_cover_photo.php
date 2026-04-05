@@ -1,5 +1,14 @@
 <?php
 
+function bdta_blog_cover_photo_normalize_base_url(string $base_url): string
+{
+    if (function_exists('bdta_normalize_base_url')) {
+        return bdta_normalize_base_url($base_url);
+    }
+
+    return rtrim(trim($base_url), '/');
+}
+
 function bdta_is_blog_cover_photo_upload_path(string $cover_photo): bool
 {
     $path = trim($cover_photo);
@@ -64,9 +73,7 @@ function bdta_get_blog_cover_photo_meta_url(string $cover_photo, ?string $base_u
         $base_url = getDynamicBaseUrl();
     }
 
-    $normalized_base_url = function_exists('bdta_normalize_base_url')
-        ? bdta_normalize_base_url($base_url)
-        : rtrim(trim($base_url), '/');
+    $normalized_base_url = bdta_blog_cover_photo_normalize_base_url($base_url);
 
     if ($normalized_base_url === '') {
         return $path;
