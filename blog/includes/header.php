@@ -12,6 +12,7 @@
     $resolved_meta_og_description = isset($meta_og_description) ? scalar_string($meta_og_description) : $resolved_meta_description;
     $resolved_meta_og_image = isset($meta_og_image) ? scalar_string($meta_og_image) : '';
     $resolved_meta_og_type = isset($meta_og_type) ? scalar_string($meta_og_type) : 'website';
+    $resolved_twitter_card = $resolved_meta_og_image !== '' ? 'summary_large_image' : 'summary';
     ?>
     <?php if ($resolved_meta_description !== ''): ?>
     <meta name="description" content="<?php echo escape($resolved_meta_description); ?>">
@@ -29,7 +30,7 @@
     <meta property="og:image" content="<?php echo escape($resolved_meta_og_image); ?>">
     <meta name="twitter:image" content="<?php echo escape($resolved_meta_og_image); ?>">
     <?php endif; ?>
-    <meta name="twitter:card" content="<?php echo escape($resolved_meta_og_image !== '' ? 'summary_large_image' : 'summary'); ?>">
+    <meta name="twitter:card" content="<?php echo escape($resolved_twitter_card); ?>">
     <title><?php echo $resolved_page_title !== '' ? escape($resolved_page_title) . ' - ' : ''; ?>Brook's Dog Training Academy</title>
     <script src="/assets/js/theme-init.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">

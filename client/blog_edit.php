@@ -97,9 +97,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $hasError = true;
                 } else {
                     $upload_dir = __DIR__ . '/../backend/uploads/blog_covers/';
-                    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true) && !is_dir($upload_dir)) {
-                        setFlashMessage('Failed to create the blog cover photo upload directory.', 'error');
-                        $hasError = true;
+                    if (!is_dir($upload_dir)) {
+                        $directory_created = mkdir($upload_dir, 0755, true);
+                        if (!$directory_created && !is_dir($upload_dir)) {
+                            setFlashMessage('Failed to create the blog cover photo upload directory.', 'error');
+                            $hasError = true;
+                        }
                     }
 
                     $unique_id = str_replace('.', '_', uniqid('', true));
