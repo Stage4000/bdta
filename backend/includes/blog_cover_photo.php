@@ -28,7 +28,7 @@ function bdta_get_blog_cover_photo_filesystem_path(string $cover_photo): string
 
     $uploads_root = realpath(dirname(__DIR__, 2) . '/backend/uploads/blog_covers');
     $relative_path = substr($path, strlen($prefix));
-    if ($relative_path === '' || str_contains($relative_path, '/')) {
+    if ($relative_path === '' || str_contains($relative_path, '/') || str_contains($relative_path, '\\')) {
         return '';
     }
 
