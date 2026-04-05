@@ -31,6 +31,14 @@ assertBlogContentTest(strpos($sanitized_attributes, 'onclick=') === false, 'Expe
 assertBlogContentTest(strpos($sanitized_attributes, 'onerror=') === false, 'Expected image event handlers to be removed.');
 assertBlogContentTest(strpos($sanitized_attributes, 'rel="noopener noreferrer"') !== false, 'Expected external target=_blank links to receive rel protection.');
 
+$active_content = '<iframe srcdoc="<script>alert(1)</script>"></iframe><svg><a xlink:href="javascript:alert(1)">Bad</a></svg><math><mi>x</mi></math><p>Safe text</p>';
+$sanitized_active_content = bdta_sanitize_blog_post_content($active_content);
+assertBlogContentTest(strpos($sanitized_active_content, '<iframe') === false, 'Expected iframe elements to be removed.');
+assertBlogContentTest(strpos($sanitized_active_content, '<svg') === false, 'Expected svg elements to be removed.');
+assertBlogContentTest(strpos($sanitized_active_content, '<math') === false, 'Expected math elements to be removed.');
+assertBlogContentTest(strpos($sanitized_active_content, 'xlink:href') === false, 'Expected namespaced javascript URLs to be removed with active content containers.');
+assertBlogContentTest(strpos($sanitized_active_content, '<p>Safe text</p>') !== false, 'Expected safe neighboring content to be preserved.');
+
 $relative_paths = '<a href="../private/asset.css">Bad path</a><a href="/blog/good">Good path</a><img src="images/photo.jpg">';
 $sanitized_paths = bdta_sanitize_blog_post_content($relative_paths);
 assertBlogContentTest(strpos($sanitized_paths, '../private/asset.css') === false, 'Expected parent-relative URLs to be removed.');
@@ -54,5 +62,28 @@ $sanitized_document = bdta_sanitize_blog_post_content($wrapped_document);
 assertBlogContentTest(strpos($sanitized_document, '<h2>Blog heading</h2>') !== false, 'Expected body content to be preserved when a full HTML document is pasted.');
 assertBlogContentTest(strpos($sanitized_document, '/broken.css') === false, 'Expected pasted document stylesheets to be removed.');
 assertBlogContentTest(strpos($sanitized_document, '<head>') === false, 'Expected head wrappers to be removed.');
+
+$fallback_input = <<<HTML
+<!-- comment -->
+<html>
+  <head><title>Ignored</title></head>
+  <body>
+    <p onclick="evil()">Keep me</p>
+    <a href="javascript:alert(1)">Bad link</a>
+    <img src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">
+    <iframe srcdoc="<script>alert(1)</script>"></iframe>
+  </body>
+</html>
+HTML;
+
+$fallback_output = bdta_sanitize_blog_post_content_fallback($fallback_input);
+assertBlogContentTest(strpos($fallback_output, '<!--') === false, 'Expected fallback sanitizer to remove comments.');
+assertBlogContentTest(strpos($fallback_output, '<html') === false, 'Expected fallback sanitizer to remove html wrappers.');
+assertBlogContentTest(strpos($fallback_output, '<head') === false, 'Expected fallback sanitizer to remove head wrappers.');
+assertBlogContentTest(strpos($fallback_output, 'onclick=') === false, 'Expected fallback sanitizer to remove inline event handlers.');
+assertBlogContentTest(strpos($fallback_output, 'javascript:') === false, 'Expected fallback sanitizer to remove javascript URLs.');
+assertBlogContentTest(strpos($fallback_output, 'data:text/html') === false, 'Expected fallback sanitizer to remove unsafe data URLs.');
+assertBlogContentTest(strpos($fallback_output, '<iframe') === false, 'Expected fallback sanitizer to remove iframe elements.');
+assertBlogContentTest(strpos($fallback_output, '<p>Keep me</p>') !== false, 'Expected fallback sanitizer to preserve safe markup.');
 
 echo "Blog content helper tests passed.\n";

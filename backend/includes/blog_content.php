@@ -46,16 +46,69 @@ function bdta_sanitize_blog_post_content(string $html): string
 
 function bdta_sanitize_blog_post_content_fallback(string $html): string
 {
+    $without_comments = preg_replace('/<!--.*?-->/s', '', $html);
+    $sanitized = $without_comments === null ? $html : $without_comments;
+
     $sanitized = preg_replace(
-        '/<(script|style|link|meta|title|base|object|embed|form|input|button|select|textarea)\b[^>]*>.*?<\/\1\s*>/is',
+        '/<(script|style|link|meta|title|base|object|embed|form|input|button|select|textarea|iframe|frame|frameset|svg|math)\b[^>]*>.*?<\/\1\s*>/is',
         '',
-        $html
+        $sanitized
     );
     $sanitized = $sanitized === null ? $html : $sanitized;
-    $sanitized = preg_replace('/<\/?(script|style|link|meta|title|base|object|embed|form|input|button|select|textarea)\b[^>]*\/?>/is', '', $sanitized);
+
+    $sanitized = preg_replace('/<\/?(script|style|link|meta|title|base|object|embed|form|input|button|select|textarea|iframe|frame|frameset|svg|math)\b[^>]*\/?>/is', '', $sanitized);
     $sanitized = $sanitized === null ? $html : $sanitized;
 
+    $without_head = preg_replace('/<head\b[^>]*>.*?<\/head\s*>/is', '', $sanitized);
+    $sanitized = $without_head === null ? $sanitized : $without_head;
+
+    $without_wrappers = preg_replace('/<\/?(html|body)\b[^>]*>/is', '', $sanitized);
+    $sanitized = $without_wrappers === null ? $sanitized : $without_wrappers;
+
+    $with_sanitized_attributes = preg_replace_callback(
+        '/<([a-z][a-z0-9:-]*)(\s[^<>]*?)?(\/?)>/i',
+        static function (array $matches): string {
+            $tag = strtolower($matches[1]);
+
+            if (in_array($tag, ['html', 'body', 'head'], true)) {
+                return '';
+            }
+
+            $attributes = isset($matches[2]) ? bdta_sanitize_blog_post_tag_attributes_fallback($matches[2]) : '';
+            $self_closing = isset($matches[3]) ? $matches[3] : '';
+
+            return '<' . $matches[1] . $attributes . $self_closing . '>';
+        },
+        $sanitized
+    );
+    $sanitized = $with_sanitized_attributes === null ? $sanitized : $with_sanitized_attributes;
+
     return trim($sanitized);
+}
+
+function bdta_sanitize_blog_post_tag_attributes_fallback(string $attributes): string
+{
+    $sanitized = preg_replace(
+        '/\s+on[a-z0-9:_-]+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+)/i',
+        '',
+        $attributes
+    );
+    $sanitized = $sanitized === null ? $attributes : $sanitized;
+
+    $sanitized = preg_replace(
+        '/\s+srcdoc\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+)/i',
+        '',
+        $sanitized
+    );
+    $sanitized = $sanitized === null ? $attributes : $sanitized;
+
+    $sanitized_urls = preg_replace(
+        '/\s+(href|src|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript|data)\s*:[^"]*"|\'\s*(?:javascript|vbscript|data)\s*:[^\']*\'|(?:javascript|vbscript|data)\s*:[^\s>]+)/i',
+        '',
+        $sanitized
+    );
+
+    return $sanitized_urls === null ? $sanitized : $sanitized_urls;
 }
 
 /**
@@ -80,7 +133,7 @@ function bdta_clean_blog_post_node(DOMNode $node): void
 
         $tag = strtolower($child->tagName);
 
-        if (in_array($tag, ['script', 'style', 'link', 'meta', 'title', 'base', 'object', 'embed', 'form', 'input', 'button', 'select', 'textarea'], true)) {
+        if (in_array($tag, ['script', 'style', 'link', 'meta', 'title', 'base', 'object', 'embed', 'form', 'input', 'button', 'select', 'textarea', 'iframe', 'frame', 'frameset', 'svg', 'math'], true)) {
             $node->removeChild($child);
             continue;
         }
@@ -121,10 +174,15 @@ function bdta_clean_blog_post_attributes(DOMElement $element): void
             continue;
         }
 
-        if ($name === 'href' || $name === 'src') {
+        if ($name === 'href' || $name === 'src' || $name === 'xlink:href') {
             if (!bdta_is_safe_blog_post_url($value, $name === 'src')) {
                 $attrs_to_remove[] = $attribute->name;
             }
+            continue;
+        }
+
+        if ($name === 'srcdoc') {
+            $attrs_to_remove[] = $attribute->name;
             continue;
         }
 
