@@ -14,7 +14,7 @@ try {
     $normalized = bdta_normalize_active_timer([
         'start_time' => 1712280000,
         'client_id' => 12,
-        'service_type' => 'Training Session',
+        'service_type' => ' Training Session ',
         'description' => ' Working on leash skills ',
     ]);
     assertTimeTrackerHelper($normalized !== null, 'Expected valid active timers to normalize.');

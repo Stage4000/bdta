@@ -31,6 +31,12 @@ $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = scalar_string($_POST['action'] ?? '');
+
+    if (in_array($action, ['start', 'restore', 'stop'], true) && !isValidCsrfToken($_POST['csrf_token'] ?? null)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid request. Please refresh the page and try again.']);
+        exit;
+    }
     
     if ($action === 'start') {
         $requested_start_time = safe_int($_POST['start_time'] ?? 0);
@@ -156,12 +162,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit;
     }
+
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Unknown time tracker action.']);
+    exit;
 }
 
 include '../backend/includes/header.php';
 
 $active_timer_storage_user_type = scalar_string($_SESSION['user_type'] ?? 'admin');
 $active_timer_storage_user_id = safe_int($_SESSION['admin_id'] ?? 0);
+$time_tracker_csrf_token = csrfToken();
 ?>
 
 <div class="container-fluid mt-4">
@@ -245,6 +256,7 @@ const ACTIVE_TIMER_STORAGE_KEY = <?= json_encode(sprintf(
     $active_timer_storage_user_type,
     $active_timer_storage_user_id
 )) ?>;
+const TIME_TRACKER_CSRF_TOKEN = <?= json_encode($time_tracker_csrf_token) ?>;
 let timerInterval = null;
 let startTime = null;
 
@@ -317,6 +329,7 @@ function startTimer() {
     
     const formData = new FormData();
     formData.append('action', 'start');
+    formData.append('csrf_token', TIME_TRACKER_CSRF_TOKEN);
     formData.append('start_time', String(pendingTimer.start_time));
     formData.append('client_id', String(pendingTimer.client_id));
     formData.append('service_type', pendingTimer.service_type);
@@ -340,6 +353,7 @@ function startTimer() {
 function restoreActiveTimer(timer) {
     const formData = new FormData();
     formData.append('action', 'restore');
+    formData.append('csrf_token', TIME_TRACKER_CSRF_TOKEN);
     formData.append('timer_state', JSON.stringify(timer));
 
     fetchTimerJson(formData)
@@ -361,6 +375,7 @@ function stopTimer() {
     
     const formData = new FormData();
     formData.append('action', 'stop');
+    formData.append('csrf_token', TIME_TRACKER_CSRF_TOKEN);
     const storedTimer = getStoredActiveTimer();
     if (storedTimer) {
         formData.append('timer_state', JSON.stringify(storedTimer));
