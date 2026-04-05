@@ -17,6 +17,8 @@ function assertTrue(bool $condition, string $message): void {
 $links = bdta_collect_social_links([
     'facebook_url' => 'https://facebook.example/business',
     'instagram_url' => '',
+    'nextdoor_url' => 'https://nextdoor.com/pages/bdta',
+    'bluesky_url' => 'https://bsky.app/profile/bdta.example',
     'linktree_url' => 'javascript:alert(1)',
     'youtube_url' => 'https://youtube.com/@bdta',
     'custom_social_link_1_label' => 'Podcast',
@@ -24,11 +26,18 @@ $links = bdta_collect_social_links([
     'custom_social_link_2_url' => 'https://www.books.example/store',
 ]);
 
-assertTrue(count($links) === 4, 'Expected only valid configured social links to be collected.');
-assertTrue($links[0]['name'] === 'Facebook', 'Expected Facebook label to be normalized.');
-assertTrue($links[1]['name'] === 'YouTube', 'Expected YouTube link to be included.');
-assertTrue($links[2]['name'] === 'Podcast', 'Expected custom link label to be used.');
-assertTrue($links[3]['name'] === 'books.example', 'Expected unlabeled custom links to fall back to their host name.');
+assertTrue(count($links) === 6, 'Expected only valid configured social links to be collected.');
+$linksByName = [];
+foreach ($links as $link) {
+    $linksByName[$link['name']] = $link;
+}
+
+assertTrue(isset($linksByName['Facebook']), 'Expected Facebook label to be normalized.');
+assertTrue(($linksByName['Nextdoor']['icon'] ?? '') === 'fas fa-house', 'Expected Nextdoor to use the house icon.');
+assertTrue(($linksByName['Bluesky']['icon'] ?? '') === 'custom:bluesky-butterfly', 'Expected Bluesky to use the custom butterfly icon.');
+assertTrue(isset($linksByName['YouTube']), 'Expected YouTube link to be included.');
+assertTrue(isset($linksByName['Podcast']), 'Expected custom link label to be used.');
+assertTrue(isset($linksByName['books.example']), 'Expected unlabeled custom links to fall back to their host name.');
 
 $html = <<<HTML
 <!-- BDTA_SOCIAL_LINKS:events -->
@@ -46,6 +55,8 @@ $rendered = bdta_apply_public_social_links($html, $links);
 
 assertTrue(!str_contains($rendered, 'old events markup'), 'Expected events placeholder content to be replaced.');
 assertTrue(str_contains($rendered, 'https://youtube.com/@bdta'), 'Expected configured built-in links to render.');
+assertTrue(str_contains($rendered, 'fas fa-house'), 'Expected Nextdoor house icon markup to render.');
+assertTrue(str_contains($rendered, '<svg viewBox="0 0 24 24"'), 'Expected Bluesky butterfly SVG markup to render.');
 assertTrue(str_contains($rendered, 'Podcast'), 'Expected custom link labels to render.');
 assertTrue(!str_contains($rendered, 'javascript:alert(1)'), 'Expected invalid URLs to be excluded from rendered markup.');
 

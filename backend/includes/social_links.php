@@ -4,25 +4,25 @@
  */
 
 /**
- * @return list<array{setting_key:string, setting_value:string, setting_type:string, category:string, label:string, description:string, is_secret:int, icon_class:string}>
+ * @return list<array{setting_key:string, setting_value:string, setting_type:string, category:string, label:string, description:string, is_secret:int, icon:string}>
  */
 function bdta_get_supported_social_link_settings(): array {
     return [
-        ['setting_key' => 'facebook_url', 'setting_value' => 'https://www.facebook.com/BrooksDogTrainingAcademy', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Facebook URL', 'description' => 'Facebook page URL', 'is_secret' => 0, 'icon_class' => 'fab fa-facebook-f'],
-        ['setting_key' => 'instagram_url', 'setting_value' => 'https://www.instagram.com/brooksdogtrainingacademy', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Instagram URL', 'description' => 'Instagram profile URL', 'is_secret' => 0, 'icon_class' => 'fab fa-instagram'],
-        ['setting_key' => 'linktree_url', 'setting_value' => 'https://linktr.ee/brooksdogtrainingacademy', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Linktree URL', 'description' => 'Linktree profile URL', 'is_secret' => 0, 'icon_class' => 'fas fa-link'],
-        ['setting_key' => 'tiktok_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'TikTok URL', 'description' => 'TikTok profile URL', 'is_secret' => 0, 'icon_class' => 'fab fa-tiktok'],
-        ['setting_key' => 'youtube_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'YouTube URL', 'description' => 'YouTube channel URL', 'is_secret' => 0, 'icon_class' => 'fab fa-youtube'],
-        ['setting_key' => 'twitter_x_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Twitter / X URL', 'description' => 'Twitter / X profile URL', 'is_secret' => 0, 'icon_class' => 'fab fa-x-twitter'],
-        ['setting_key' => 'threads_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Threads URL', 'description' => 'Threads profile URL', 'is_secret' => 0, 'icon_class' => 'fab fa-threads'],
-        ['setting_key' => 'nextdoor_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Nextdoor URL', 'description' => 'Nextdoor business page URL', 'is_secret' => 0, 'icon_class' => 'fab fa-nextdoor'],
-        ['setting_key' => 'patreon_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Patreon URL', 'description' => 'Patreon page URL', 'is_secret' => 0, 'icon_class' => 'fab fa-patreon'],
-        ['setting_key' => 'pinterest_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Pinterest URL', 'description' => 'Pinterest profile URL', 'is_secret' => 0, 'icon_class' => 'fab fa-pinterest-p'],
-        ['setting_key' => 'snapchat_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Snapchat URL', 'description' => 'Snapchat profile URL', 'is_secret' => 0, 'icon_class' => 'fab fa-snapchat'],
-        ['setting_key' => 'linkedin_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'LinkedIn URL', 'description' => 'LinkedIn profile or company URL', 'is_secret' => 0, 'icon_class' => 'fab fa-linkedin-in'],
-        ['setting_key' => 'bluesky_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Bluesky URL', 'description' => 'Bluesky profile URL', 'is_secret' => 0, 'icon_class' => 'fab fa-bluesky'],
-        ['setting_key' => 'yelp_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Yelp URL', 'description' => 'Yelp business page URL', 'is_secret' => 0, 'icon_class' => 'fab fa-yelp'],
-        ['setting_key' => 'substack_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Substack URL', 'description' => 'Substack publication URL', 'is_secret' => 0, 'icon_class' => 'fas fa-newspaper'],
+        ['setting_key' => 'facebook_url', 'setting_value' => 'https://www.facebook.com/BrooksDogTrainingAcademy', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Facebook URL', 'description' => 'Facebook page URL', 'is_secret' => 0, 'icon' => 'fab fa-facebook-f'],
+        ['setting_key' => 'instagram_url', 'setting_value' => 'https://www.instagram.com/brooksdogtrainingacademy', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Instagram URL', 'description' => 'Instagram profile URL', 'is_secret' => 0, 'icon' => 'fab fa-instagram'],
+        ['setting_key' => 'linktree_url', 'setting_value' => 'https://linktr.ee/brooksdogtrainingacademy', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Linktree URL', 'description' => 'Linktree profile URL', 'is_secret' => 0, 'icon' => 'fas fa-link'],
+        ['setting_key' => 'tiktok_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'TikTok URL', 'description' => 'TikTok profile URL', 'is_secret' => 0, 'icon' => 'fab fa-tiktok'],
+        ['setting_key' => 'youtube_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'YouTube URL', 'description' => 'YouTube channel URL', 'is_secret' => 0, 'icon' => 'fab fa-youtube'],
+        ['setting_key' => 'twitter_x_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Twitter / X URL', 'description' => 'Twitter / X profile URL', 'is_secret' => 0, 'icon' => 'fab fa-x-twitter'],
+        ['setting_key' => 'threads_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Threads URL', 'description' => 'Threads profile URL', 'is_secret' => 0, 'icon' => 'fab fa-threads'],
+        ['setting_key' => 'nextdoor_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Nextdoor URL', 'description' => 'Nextdoor business page URL', 'is_secret' => 0, 'icon' => 'fas fa-house'],
+        ['setting_key' => 'patreon_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Patreon URL', 'description' => 'Patreon page URL', 'is_secret' => 0, 'icon' => 'fab fa-patreon'],
+        ['setting_key' => 'pinterest_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Pinterest URL', 'description' => 'Pinterest profile URL', 'is_secret' => 0, 'icon' => 'fab fa-pinterest-p'],
+        ['setting_key' => 'snapchat_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Snapchat URL', 'description' => 'Snapchat profile URL', 'is_secret' => 0, 'icon' => 'fab fa-snapchat'],
+        ['setting_key' => 'linkedin_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'LinkedIn URL', 'description' => 'LinkedIn profile or company URL', 'is_secret' => 0, 'icon' => 'fab fa-linkedin-in'],
+        ['setting_key' => 'bluesky_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Bluesky URL', 'description' => 'Bluesky profile URL', 'is_secret' => 0, 'icon' => 'custom:bluesky-butterfly'],
+        ['setting_key' => 'yelp_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Yelp URL', 'description' => 'Yelp business page URL', 'is_secret' => 0, 'icon' => 'fab fa-yelp'],
+        ['setting_key' => 'substack_url', 'setting_value' => '', 'setting_type' => 'url', 'category' => 'social', 'label' => 'Substack URL', 'description' => 'Substack publication URL', 'is_secret' => 0, 'icon' => 'fas fa-newspaper'],
     ];
 }
 
@@ -168,7 +168,7 @@ function bdta_get_custom_social_link_label(string $label, string $url, int $inde
 
 /**
  * @param array<string, mixed>|list<array<string, mixed>> $settings
- * @return list<array{name:string,url:string,icon_class:string}>
+ * @return list<array{name:string,url:string,icon:string}>
  */
 function bdta_collect_social_links(array $settings): array {
     $settings_map = bdta_normalize_social_settings($settings);
@@ -183,7 +183,7 @@ function bdta_collect_social_links(array $settings): array {
         $links[] = [
             'name' => preg_replace('/\s+URL$/', '', $setting['label']) ?? $setting['label'],
             'url' => $url,
-            'icon_class' => $setting['icon_class'],
+            'icon' => $setting['icon'],
         ];
     }
 
@@ -196,7 +196,7 @@ function bdta_collect_social_links(array $settings): array {
         $links[] = [
             'name' => bdta_get_custom_social_link_label($settings_map['custom_social_link_' . $index . '_label'] ?? '', $url, $index),
             'url' => $url,
-            'icon_class' => 'fas fa-link',
+            'icon' => 'fas fa-link',
         ];
     }
 
@@ -204,7 +204,7 @@ function bdta_collect_social_links(array $settings): array {
 }
 
 /**
- * @return list<array{name:string,url:string,icon_class:string}>
+ * @return list<array{name:string,url:string,icon:string}>
  */
 function bdta_get_public_social_links(): array {
     require_once __DIR__ . '/settings.php';
@@ -213,7 +213,7 @@ function bdta_get_public_social_links(): array {
 }
 
 /**
- * @param list<array{name:string,url:string,icon_class:string}> $links
+ * @param list<array{name:string,url:string,icon:string}> $links
  */
 function bdta_render_social_link_buttons(array $links, string $container_classes, string $button_classes): string {
     if ($links === []) {
@@ -224,11 +224,10 @@ function bdta_render_social_link_buttons(array $links, string $container_classes
     foreach ($links as $link) {
         $name = htmlspecialchars($link['name'], ENT_QUOTES, 'UTF-8');
         $url = htmlspecialchars($link['url'], ENT_QUOTES, 'UTF-8');
-        $icon_class = htmlspecialchars($link['icon_class'], ENT_QUOTES, 'UTF-8');
         $aria_label = htmlspecialchars('Visit us on ' . $link['name'] . ' (opens in new tab)', ENT_QUOTES, 'UTF-8');
 
         $html .= '<a href="' . $url . '" target="_blank" rel="noopener noreferrer" class="' . htmlspecialchars($button_classes, ENT_QUOTES, 'UTF-8') . '" aria-label="' . $aria_label . '">';
-        $html .= '<i class="' . $icon_class . '"></i>';
+        $html .= bdta_render_social_link_icon($link['icon']);
         $html .= '</a>';
     }
     $html .= '</div>';
@@ -237,7 +236,7 @@ function bdta_render_social_link_buttons(array $links, string $container_classes
 }
 
 /**
- * @param list<array{name:string,url:string,icon_class:string}> $links
+ * @param list<array{name:string,url:string,icon:string}> $links
  */
 function bdta_render_public_social_links_block(string $slot, array $links): string {
     if ($links === []) {
@@ -275,7 +274,7 @@ function bdta_replace_public_social_links_slot(string $html, string $slot, strin
 }
 
 /**
- * @param list<array{name:string,url:string,icon_class:string}>|null $links
+ * @param list<array{name:string,url:string,icon:string}>|null $links
  */
 function bdta_apply_public_social_links(string $html, ?array $links = null): string {
     $links = $links ?? bdta_get_public_social_links();
@@ -285,4 +284,12 @@ function bdta_apply_public_social_links(string $html, ?array $links = null): str
     }
 
     return $html;
+}
+
+function bdta_render_social_link_icon(string $icon): string {
+    if ($icon === 'custom:bluesky-butterfly') {
+        return '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false" fill="currentColor"><path d="M6.335 4.75c1.587 1.19 3.293 3.603 4.165 5.399.873-1.796 2.578-4.209 4.165-5.4 1.145-.858 3-1.522 3 1.117 0 .527-.302 4.432-.48 5.066-.618 2.203-2.87 2.764-4.873 2.422 3.501.598 4.392 2.578 2.468 4.559-3.653 3.762-5.25-.944-5.66-2.15-.075-.221-.11-.324-.12-.236-.01-.088-.046.015-.12.236-.41 1.206-2.007 5.912-5.66 2.15-1.924-1.98-1.033-3.96 2.469-4.559-2.004.342-4.256-.219-4.873-2.422-.178-.634-.48-4.539-.48-5.066 0-2.639 1.854-1.975 3-1.117Z"/></svg>';
+    }
+
+    return '<i class="' . htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') . '" aria-hidden="true"></i>';
 }
