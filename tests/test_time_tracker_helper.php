@@ -65,6 +65,14 @@ try {
     assertTimeTrackerHelper($status_payload['active'] === true, 'Expected status payloads to mark the timer active.');
     assertTimeTrackerHelper($status_payload['elapsed'] === 900, 'Expected status payloads to expose elapsed seconds.');
     assertTimeTrackerHelper($status_payload['timer']['description'] === 'Leash work', 'Expected status payloads to include the full timer metadata.');
+    assertTimeTrackerHelper(
+        bdta_active_timer_has_valid_start_time($status_payload['timer'], 1712280900) === true,
+        'Expected current timers to pass future-time validation.'
+    );
+    assertTimeTrackerHelper(
+        bdta_active_timer_has_valid_start_time($status_payload['timer'], 1712279500) === false,
+        'Expected timers too far in the future to fail validation.'
+    );
 
     echo "Time tracker helper tests passed.\n";
 } catch (Throwable $e) {

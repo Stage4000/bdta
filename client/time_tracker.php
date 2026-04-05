@@ -46,6 +46,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if (!bdta_active_timer_has_valid_start_time($active_timer)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Unable to start the timer because the start time is invalid.']);
+            exit;
+        }
+
         $_SESSION['active_timer'] = $active_timer;
 
         echo json_encode([
@@ -65,6 +71,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if (!bdta_active_timer_has_valid_start_time($active_timer)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Unable to restore the active timer because the saved start time is invalid.']);
+            exit;
+        }
+
         $_SESSION['active_timer'] = $active_timer;
         echo json_encode(['success' => true] + bdta_active_timer_status_payload($active_timer));
         exit;
@@ -78,6 +90,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($timer !== null) {
             $end_time = time();
+            if (!bdta_active_timer_has_valid_start_time($timer, $end_time)) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Unable to stop the timer because the saved start time is invalid.']);
+                exit;
+            }
+
             $start_time = min($timer['start_time'], $end_time);
             $duration_seconds = max(0, $end_time - $start_time);
             $duration_minutes = round($duration_seconds / 60);
@@ -128,9 +146,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($action === 'status') {
         $active_timer = bdta_normalize_active_timer($_SESSION['active_timer'] ?? null);
-        if ($active_timer !== null) {
+        if ($active_timer !== null && bdta_active_timer_has_valid_start_time($active_timer)) {
             echo json_encode(bdta_active_timer_status_payload($active_timer));
         } else {
+            unset($_SESSION['active_timer']);
             echo json_encode(['active' => false]);
         }
         exit;
@@ -138,6 +157,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 include '../backend/includes/header.php';
+
+$active_timer_storage_user_type = scalar_string($_SESSION['user_type'] ?? 'admin');
+$active_timer_storage_user_id = safe_int($_SESSION['admin_id'] ?? 0);
 ?>
 
 <div class="container-fluid mt-4">
@@ -218,8 +240,8 @@ include '../backend/includes/header.php';
 <script>
 const ACTIVE_TIMER_STORAGE_KEY = <?= json_encode(sprintf(
     'bdtaActiveTimer:%s:%d',
-    scalar_string($_SESSION['user_type'] ?? 'admin'),
-    safe_int($_SESSION['admin_id'] ?? 0)
+    $active_timer_storage_user_type,
+    $active_timer_storage_user_id
 )) ?>;
 let timerInterval = null;
 let startTime = null;
@@ -401,7 +423,7 @@ function normalizeActiveTimer(timer) {
     const startTimeValue = Number(timer.start_time);
     const clientId = Number(timer.client_id);
     const serviceType = typeof timer.service_type === 'string' ? timer.service_type.trim() : '';
-    const description = typeof timer.description === 'string' ? timer.description : '';
+    const description = typeof timer.description === 'string' ? timer.description.trim() : '';
 
     const hasValidStartTime = Number.isFinite(startTimeValue) && startTimeValue > 0;
     const hasValidClientId = Number.isFinite(clientId) && clientId > 0;

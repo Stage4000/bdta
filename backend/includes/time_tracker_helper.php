@@ -48,6 +48,12 @@ function bdta_active_timer_status_payload(array $timer, ?int $now = null): array
     ];
 }
 
+function bdta_active_timer_has_valid_start_time(array $timer, ?int $now = null, int $future_tolerance_seconds = 300): bool
+{
+    $current_time = $now ?? time();
+    return $timer['start_time'] <= ($current_time + max(0, $future_tolerance_seconds));
+}
+
 function bdta_time_tracker_int(mixed $value): int
 {
     return is_numeric($value) ? (int) $value : 0;
