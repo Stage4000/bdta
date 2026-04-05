@@ -33,8 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = scalar_string($_POST['action'] ?? '');
     
     if ($action === 'start') {
+        $requested_start_time = safe_int($_POST['start_time'] ?? 0);
         $active_timer = bdta_normalize_active_timer([
-            'start_time' => safe_int($_POST['start_time'] ?? 0) > 0 ? safe_int($_POST['start_time'] ?? 0) : time(),
+            'start_time' => $requested_start_time > 0 ? $requested_start_time : time(),
             'client_id' => safe_int($_POST['client_id'] ?? 0),
             'service_type' => trim(scalar_string($_POST['service_type'] ?? '')),
             'description' => trim(scalar_string($_POST['description'] ?? '')),
@@ -96,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
+            // Small client/server clock skew is tolerated, so clamp slightly-future times to "now" before saving.
             $start_time = min($timer['start_time'], $end_time);
             $duration_seconds = max(0, $end_time - $start_time);
             $duration_minutes = round($duration_seconds / 60);
