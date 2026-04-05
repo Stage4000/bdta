@@ -162,6 +162,18 @@ class EmailService {
                 $normalized_client_id = safe_int($matched_client_id);
                 return $normalized_client_id > 0 ? $normalized_client_id : null;
             }
+
+            $contact_stmt = $conn->prepare('SELECT client_id FROM client_contacts WHERE LOWER(email) = LOWER(?) ORDER BY is_primary DESC, client_id ASC LIMIT 1');
+            $contact_stmt->execute([$to]);
+            $matched_contact_client_id = $contact_stmt->fetchColumn();
+            if (is_int($matched_contact_client_id)) {
+                return $matched_contact_client_id > 0 ? $matched_contact_client_id : null;
+            }
+
+            if (is_string($matched_contact_client_id)) {
+                $normalized_contact_client_id = safe_int($matched_contact_client_id);
+                return $normalized_contact_client_id > 0 ? $normalized_contact_client_id : null;
+            }
         } catch (Throwable $e) {
             error_log('[MailRouter] Failed to resolve client by recipient email for history logging: ' . $e->getMessage());
         }
