@@ -5,7 +5,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
-    <title><?php echo isset($page_title) ? escape($page_title) . ' - ' : ''; ?>Brook's Dog Training Academy</title>
+    <?php
+    $resolved_page_title = isset($page_title) ? scalar_string($page_title) : '';
+    $resolved_meta_description = isset($meta_description) ? scalar_string($meta_description) : '';
+    $resolved_meta_og_title = isset($meta_og_title) ? scalar_string($meta_og_title) : $resolved_page_title;
+    $resolved_meta_og_description = isset($meta_og_description) ? scalar_string($meta_og_description) : $resolved_meta_description;
+    $resolved_meta_og_image = isset($meta_og_image) ? scalar_string($meta_og_image) : '';
+    $resolved_meta_og_type = isset($meta_og_type) ? scalar_string($meta_og_type) : 'website';
+    ?>
+    <?php if ($resolved_meta_description !== ''): ?>
+    <meta name="description" content="<?php echo escape($resolved_meta_description); ?>">
+    <?php endif; ?>
+    <?php if ($resolved_meta_og_title !== ''): ?>
+    <meta property="og:title" content="<?php echo escape($resolved_meta_og_title); ?>">
+    <meta name="twitter:title" content="<?php echo escape($resolved_meta_og_title); ?>">
+    <?php endif; ?>
+    <meta property="og:type" content="<?php echo escape($resolved_meta_og_type); ?>">
+    <?php if ($resolved_meta_og_description !== ''): ?>
+    <meta property="og:description" content="<?php echo escape($resolved_meta_og_description); ?>">
+    <meta name="twitter:description" content="<?php echo escape($resolved_meta_og_description); ?>">
+    <?php endif; ?>
+    <?php if ($resolved_meta_og_image !== ''): ?>
+    <meta property="og:image" content="<?php echo escape($resolved_meta_og_image); ?>">
+    <meta name="twitter:image" content="<?php echo escape($resolved_meta_og_image); ?>">
+    <?php endif; ?>
+    <meta name="twitter:card" content="<?php echo $resolved_meta_og_image !== '' ? 'summary_large_image' : 'summary'; ?>">
+    <title><?php echo $resolved_page_title !== '' ? escape($resolved_page_title) . ' - ' : ''; ?>Brook's Dog Training Academy</title>
     <script src="/assets/js/theme-init.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">

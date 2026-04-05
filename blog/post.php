@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/blog_content.php';
+require_once '../backend/includes/blog_cover_photo.php';
 
 $slug = scalar_string($_GET['slug'] ?? '');
 
@@ -30,7 +31,13 @@ $post_author = array_string_value($post, 'author');
 $post_publish_date = array_string_value($post, 'publish_date');
 $post_excerpt = array_string_value($post, 'excerpt');
 $post_content = bdta_sanitize_blog_post_content(array_string_value($post, 'content'));
+$post_cover_photo = array_string_value($post, 'cover_photo');
 $page_title = $post_title;
+$meta_description = $post_excerpt;
+$meta_og_title = $post_title;
+$meta_og_description = $post_excerpt;
+$meta_og_image = bdta_get_blog_cover_photo_meta_url($post_cover_photo);
+$meta_og_type = 'article';
 require_once 'includes/header.php';
 ?>
         <div class="container py-5">
@@ -41,6 +48,9 @@ require_once 'includes/header.php';
                     </a>
                     
                     <article>
+                        <?php if (bdta_is_blog_cover_photo_upload_path($post_cover_photo)): ?>
+                        <img src="<?php echo escape($post_cover_photo); ?>" class="img-fluid rounded shadow-sm mb-4 w-100" alt="<?php echo escape($post_title); ?>" style="max-height: 420px; object-fit: cover;">
+                        <?php endif; ?>
                         <h1 class="display-5 fw-bold mb-3"><?php echo escape($post_title); ?></h1>
                         <p class="text-muted mb-4">
                             <i class="fas fa-user me-1"></i> <?php echo escape($post_author); ?> | 

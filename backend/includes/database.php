@@ -482,6 +482,7 @@ class Database {
                     slug TEXT UNIQUE NOT NULL,
                     content MEDIUMTEXT NOT NULL,
                     excerpt TEXT,
+                    cover_photo TEXT,
                     author TEXT NOT NULL,
                     published INTEGER DEFAULT 0,
                     publish_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1420,6 +1421,9 @@ class Database {
             } catch (PDOException $e) {
                 error_log("Migration: could not backfill blog_posts.publish_date - " . $e->getMessage());
             }
+        }
+        if (!in_array('cover_photo', $blog_column_names)) {
+            $this->execSQL("ALTER TABLE blog_posts ADD COLUMN cover_photo TEXT");
         }
         
         // Update contracts table to add reminder tracking

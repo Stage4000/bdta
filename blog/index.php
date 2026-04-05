@@ -1,12 +1,13 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/blog_cover_photo.php';
 
 $db = new Database();
 $conn = $db->getConnection();
 
 $now = (new DateTime())->format('Y-m-d H:i:s');
 $stmt = $conn->prepare("
-    SELECT id, title, slug, excerpt, author, publish_date, created_at 
+    SELECT id, title, slug, excerpt, author, publish_date, created_at, cover_photo
     FROM blog_posts 
     WHERE published = 1 AND publish_date <= :now 
     ORDER BY publish_date DESC
@@ -29,9 +30,13 @@ require_once 'includes/header.php';
                     $post_publish_date = array_string_value($post, 'publish_date');
                     $post_excerpt = array_string_value($post, 'excerpt');
                     $post_slug = array_string_value($post, 'slug');
+                    $post_cover_photo = array_string_value($post, 'cover_photo');
                     ?>
                     <div class="col-md-6 col-lg-4">
                         <div class="card h-100 border-0 shadow-sm hover-lift">
+                            <?php if (bdta_is_blog_cover_photo_upload_path($post_cover_photo)): ?>
+                            <img src="<?php echo escape($post_cover_photo); ?>" class="card-img-top" alt="<?php echo escape($post_title); ?>" style="aspect-ratio: 16 / 9; object-fit: cover;">
+                            <?php endif; ?>
                             <div class="card-body p-4">
                                 <h5 class="card-title fw-bold"><?php echo escape($post_title); ?></h5>
                                 <p class="text-muted small mb-2">

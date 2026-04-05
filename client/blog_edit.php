@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/blog_content.php';
+require_once '../backend/includes/blog_cover_photo.php';
 requireLogin();
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -29,8 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $content = bdta_sanitize_blog_post_content(scalar_string($_POST['content'] ?? ''));
     $excerpt = scalar_string($_POST['excerpt'] ?? '');
     $published = isset($_POST['published']) ? 1 : 0;
+    $remove_cover_photo = isset($_POST['remove_cover_photo']);
     $publish_date_input = scalar_string($_POST['publish_date'] ?? '');
     $publish_date = $post ? array_string_value($post, 'publish_date', array_string_value($post, 'created_at', date('Y-m-d H:i:s'))) : date('Y-m-d H:i:s');
+    $cover_photo = $post ? array_string_value($post, 'cover_photo') : '';
+    $new_cover_photo = '';
     $hasError = false;
 
     if ($publish_date_input) {
@@ -53,28 +57,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hasError = true;
         }
     }
+    $cover_photo_upload = $_FILES['cover_photo'] ?? null;
+    $cover_photo_upload_error = is_array($cover_photo_upload) ? array_int_value($cover_photo_upload, 'error', UPLOAD_ERR_NO_FILE) : UPLOAD_ERR_NO_FILE;
+    if (!$hasError && is_array($cover_photo_upload) && $cover_photo_upload_error !== UPLOAD_ERR_NO_FILE) {
+        if ($cover_photo_upload_error !== UPLOAD_ERR_OK) {
+            $err_messages = [
+                UPLOAD_ERR_INI_SIZE   => 'Cover photo exceeds server upload size limit.',
+                UPLOAD_ERR_FORM_SIZE  => 'Cover photo exceeds form upload size limit.',
+                UPLOAD_ERR_PARTIAL    => 'Cover photo was only partially uploaded.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder for cover photo upload.',
+                UPLOAD_ERR_CANT_WRITE => 'Failed to write the cover photo to disk.',
+                UPLOAD_ERR_EXTENSION  => 'Cover photo upload blocked by a server extension.',
+            ];
+            setFlashMessage($err_messages[$cover_photo_upload_error] ?? 'Unable to upload the cover photo.', 'error');
+            $hasError = true;
+        } else {
+            $tmp_path = array_string_value($cover_photo_upload, 'tmp_name');
+            $orig_name = array_string_value($cover_photo_upload, 'name');
+            $file_size = array_int_value($cover_photo_upload, 'size');
+            $allowed_mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            $mime_to_ext = [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/webp' => 'webp',
+                'image/gif' => 'gif',
+            ];
+
+            if ($file_size > (5 * 1024 * 1024)) {
+                setFlashMessage('Cover photo must be smaller than 5 MB.', 'error');
+                $hasError = true;
+            } else {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime_type = $finfo === false ? false : finfo_file($finfo, $tmp_path);
+                if ($finfo !== false) {
+                    finfo_close($finfo);
+                }
+
+                if (!is_string($mime_type) || !array_key_exists($mime_type, $mime_to_ext)) {
+                    setFlashMessage('Only JPG, PNG, WebP, or GIF cover photos are allowed.', 'error');
+                    $hasError = true;
+                } else {
+                    $upload_dir = __DIR__ . '/../backend/uploads/blog_covers/';
+                    if (!is_dir($upload_dir)) {
+                        mkdir($upload_dir, 0755, true);
+                    }
+
+                    $filename = 'blog_cover_' . ($post_id > 0 ? $post_id . '_' : '') . uniqid('', true) . '.' . $mime_to_ext[$mime_type];
+                    $dest_path = $upload_dir . $filename;
+
+                    if (!move_uploaded_file($tmp_path, $dest_path)) {
+                        setFlashMessage('Failed to save the uploaded cover photo.', 'error');
+                        $hasError = true;
+                    } else {
+                        $new_cover_photo = '/backend/uploads/blog_covers/' . $filename;
+                    }
+                }
+            }
+        }
+    }
     if (!$hasError) {
         $author = scalar_string($_SESSION['admin_username'] ?? '');
+        if ($new_cover_photo !== '') {
+            $cover_photo = $new_cover_photo;
+        } elseif ($remove_cover_photo) {
+            $cover_photo = '';
+        }
         
         try {
             if ($post_id) {
                 $stmt = $conn->prepare("
                     UPDATE blog_posts 
-                    SET title = ?, slug = ?, content = ?, excerpt = ?, published = ?, publish_date = ?, updated_at = CURRENT_TIMESTAMP 
+                    SET title = ?, slug = ?, content = ?, excerpt = ?, cover_photo = ?, published = ?, publish_date = ?, updated_at = CURRENT_TIMESTAMP 
                     WHERE id = ?
                 ");
-                $stmt->execute([$title, $slug, $content, $excerpt, $published, $publish_date, $post_id]);
+                $stmt->execute([$title, $slug, $content, $excerpt, $cover_photo, $published, $publish_date, $post_id]);
                 setFlashMessage('Blog post updated successfully!', 'success');
             } else {
                 $stmt = $conn->prepare("
-                    INSERT INTO blog_posts (title, slug, content, excerpt, author, published, publish_date) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO blog_posts (title, slug, content, excerpt, cover_photo, author, published, publish_date) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$title, $slug, $content, $excerpt, $author, $published, $publish_date]);
+                $stmt->execute([$title, $slug, $content, $excerpt, $cover_photo, $author, $published, $publish_date]);
                 setFlashMessage('Blog post created successfully!', 'success');
+            }
+            $old_cover_photo = $post ? array_string_value($post, 'cover_photo') : '';
+            $replaced_existing_cover_photo = $new_cover_photo !== '' && $old_cover_photo !== '' && $old_cover_photo !== $new_cover_photo;
+            $removed_existing_cover_photo = $remove_cover_photo && $old_cover_photo !== '' && $new_cover_photo === '';
+            if ($replaced_existing_cover_photo || $removed_existing_cover_photo) {
+                $old_cover_photo_path = bdta_get_blog_cover_photo_filesystem_path($old_cover_photo);
+                if ($old_cover_photo_path !== '' && is_file($old_cover_photo_path)) {
+                    // old_cover_photo_path is constrained to the fixed blog cover upload directory.
+                    // nosemgrep
+                    unlink($old_cover_photo_path);
+                }
             }
             redirect('blog_list.php');
         } catch (PDOException $e) {
+            if ($new_cover_photo !== '') {
+                $new_cover_photo_path = bdta_get_blog_cover_photo_filesystem_path($new_cover_photo);
+                if ($new_cover_photo_path !== '' && is_file($new_cover_photo_path)) {
+                    // new_cover_photo_path is constrained to the fixed blog cover upload directory.
+                    // nosemgrep
+                    unlink($new_cover_photo_path);
+                }
+            }
             setFlashMessage('Error: ' . $e->getMessage(), 'error');
         }
     }
@@ -85,6 +171,7 @@ $post_title = $post ? array_string_value($post, 'title') : '';
 $post_slug = $post ? array_string_value($post, 'slug') : '';
 $post_excerpt = $post ? array_string_value($post, 'excerpt') : '';
 $post_content = $post ? array_string_value($post, 'content') : '';
+$post_cover_photo = $post ? array_string_value($post, 'cover_photo') : '';
 $post_published = $post ? array_int_value($post, 'published') === 1 : false;
 $publish_date_value = $post ? array_string_value($post, 'publish_date', array_string_value($post, 'created_at', date('Y-m-d H:i:s'))) : date('Y-m-d H:i:s');
 $publish_date_value = date('Y-m-d\\TH:i', safe_timestamp(strtotime($publish_date_value)));
@@ -96,7 +183,7 @@ require_once '../backend/includes/header.php';
     
     <div class="card">
         <div class="card-body">
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                 <div class="mb-3">
                     <label for="title" class="form-label">Title</label>
@@ -114,6 +201,23 @@ require_once '../backend/includes/header.php';
                 <div class="mb-3">
                     <label for="excerpt" class="form-label">Excerpt</label>
                     <textarea class="form-control" id="excerpt" name="excerpt" rows="3"><?php echo escape($post_excerpt); ?></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label for="cover_photo" class="form-label">Cover Photo</label>
+                    <input type="file" class="form-control" id="cover_photo" name="cover_photo" accept="image/jpeg,image/png,image/webp,image/gif">
+                    <small class="text-muted">Optional. JPG, PNG, WebP, or GIF up to 5 MB.</small>
+                    <?php if (bdta_is_blog_cover_photo_upload_path($post_cover_photo)): ?>
+                    <div class="mt-3">
+                        <img src="<?php echo escape($post_cover_photo); ?>" alt="<?php echo escape($post_title); ?>" class="img-fluid rounded border" style="max-height: 220px; object-fit: cover;">
+                    </div>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="remove_cover_photo" name="remove_cover_photo">
+                        <label class="form-check-label" for="remove_cover_photo">
+                            Remove existing cover photo
+                        </label>
+                    </div>
+                    <?php endif; ?>
                 </div>
                 
                 <div class="mb-3">
