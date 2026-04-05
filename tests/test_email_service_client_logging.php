@@ -33,6 +33,7 @@ $conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
 $conn->exec('CREATE TABLE settings (setting_key TEXT PRIMARY KEY, setting_value TEXT, setting_type TEXT)');
 $conn->exec('CREATE TABLE clients (id INTEGER PRIMARY KEY, name TEXT, email TEXT)');
 $conn->exec('CREATE TABLE client_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, name TEXT, email TEXT, phone TEXT, is_primary INTEGER DEFAULT 0)');
+$conn->exec('CREATE TABLE bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER, client_email TEXT NOT NULL)');
 $conn->exec('
     CREATE TABLE client_emails (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,6 +78,7 @@ foreach ([
 
 $conn->prepare('INSERT INTO clients (id, name, email) VALUES (?, ?, ?)')->execute([123, 'Logging Test Client', 'client@example.com']);
 $conn->prepare('INSERT INTO client_contacts (client_id, name, email, phone, is_primary) VALUES (?, ?, ?, ?, ?)')->execute([123, 'Alternate Contact', 'alt-contact@example.com', '555-0100', 1]);
+$conn->prepare('INSERT INTO bookings (client_id, client_email) VALUES (?, ?)')->execute([123, 'legacy-main-contact@example.com']);
 
 resetEmailServiceClientLoggingState($conn);
 
@@ -146,13 +148,22 @@ try {
     );
     assertEmailServiceClientLogging($result['success'] === false, 'Expected generic recipient fallback email send to fail without an SMTP host.');
 
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_GENERIC,
+        'Legacy Main Contact <legacy-main-contact@example.com>',
+        'Generic automated email resolved by booking snapshot recipient',
+        '<p>Hello legacy booking fallback</p>',
+        'Hello legacy booking fallback'
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected booking-snapshot recipient fallback email send to fail without an SMTP host.');
+
     $logged_emails = $conn->query('SELECT client_id, status, to_email, subject, mail_type, error_message FROM client_emails ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
-    assertEmailServiceClientLogging(count($logged_emails) === 6, 'Expected all automated email attempts to be recorded in client_emails.');
+    assertEmailServiceClientLogging(count($logged_emails) === 7, 'Expected all automated email attempts to be recorded in client_emails.');
 
     foreach ($logged_emails as $logged_email) {
         assertEmailServiceClientLogging((int) ($logged_email['client_id'] ?? 0) === 123, 'Expected logged automated email to keep the client_id.');
         assertEmailServiceClientLogging(($logged_email['status'] ?? '') === 'failed', 'Expected failed SMTP attempt to be marked failed in client_emails.');
-        assertEmailServiceClientLogging(in_array(strtolower((string) ($logged_email['to_email'] ?? '')), ['client@example.com', 'alt-contact@example.com'], true), 'Expected logged automated email to keep the destination address.');
+        assertEmailServiceClientLogging(in_array(strtolower((string) ($logged_email['to_email'] ?? '')), ['client@example.com', 'alt-contact@example.com', 'legacy main contact <legacy-main-contact@example.com>'], true), 'Expected logged automated email to keep the destination address.');
         assertEmailServiceClientLogging(str_contains((string) ($logged_email['error_message'] ?? ''), 'SMTP host is not configured'), 'Expected logged automated email to store the delivery error.');
     }
 
@@ -165,6 +176,9 @@ try {
     assertEmailServiceClientLogging(($logged_emails[4]['to_email'] ?? '') === 'ALT-CONTACT@example.com', 'Expected contact-recipient fallback email to preserve the original recipient casing in the log row.');
     assertEmailServiceClientLogging(($logged_emails[5]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected generic automated fallback email to keep the generic mail type.');
     assertEmailServiceClientLogging(($logged_emails[5]['subject'] ?? '') === 'Generic automated email resolved by recipient', 'Expected generic automated fallback email to be logged.');
+    assertEmailServiceClientLogging(($logged_emails[6]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected booking-snapshot fallback email to keep the generic mail type.');
+    assertEmailServiceClientLogging(($logged_emails[6]['subject'] ?? '') === 'Generic automated email resolved by booking snapshot recipient', 'Expected booking-snapshot fallback email to be logged.');
+    assertEmailServiceClientLogging(($logged_emails[6]['to_email'] ?? '') === 'Legacy Main Contact <legacy-main-contact@example.com>', 'Expected booking-snapshot fallback email to preserve the original recipient string in the log row.');
 
     echo "Email service automated client logging test passed.\n";
 } catch (Throwable $e) {

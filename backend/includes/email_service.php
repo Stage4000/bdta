@@ -129,6 +129,47 @@ class EmailService {
         return $this->conn;
     }
 
+    private static function normalizeHistoryLookupEmail(string $email): string {
+        $trimmed_email = trim($email);
+        if ($trimmed_email === '') {
+            return '';
+        }
+
+        if (preg_match('/<([^<>]+)>/', $trimmed_email, $matches) === 1) {
+            $candidate = trim($matches[1]);
+            if ($candidate !== '') {
+                $trimmed_email = $candidate;
+            }
+        }
+
+        $delimiters = [',', ';'];
+        foreach ($delimiters as $delimiter) {
+            $delimiter_position = strpos($trimmed_email, $delimiter);
+            if ($delimiter_position !== false) {
+                $candidate = trim(substr($trimmed_email, 0, $delimiter_position));
+                if ($candidate !== '') {
+                    $trimmed_email = $candidate;
+                }
+                break;
+            }
+        }
+
+        return trim($trimmed_email);
+    }
+
+    private static function normalizeResolvedClientId(int|string|false|null $client_id): ?int {
+        if (is_int($client_id)) {
+            return $client_id > 0 ? $client_id : null;
+        }
+
+        if (is_string($client_id)) {
+            $normalized_client_id = safe_int(trim($client_id));
+            return $normalized_client_id > 0 ? $normalized_client_id : null;
+        }
+
+        return null;
+    }
+
     private function resolveClientIdForHistory(int|string|null $client_id, string $to, string $mail_type): int|string|null {
         if (is_int($client_id)) {
             return $client_id > 0 ? $client_id : null;
@@ -146,33 +187,27 @@ class EmailService {
         }
 
         $conn = $this->getClientEmailLogConnection();
-        if (!$conn || trim($to) === '') {
+        $lookup_email = self::normalizeHistoryLookupEmail($to);
+        if (!$conn || $lookup_email === '') {
             return null;
         }
 
         try {
-            $stmt = $conn->prepare('SELECT id FROM clients WHERE LOWER(email) = LOWER(?) ORDER BY id ASC LIMIT 1');
-            $stmt->execute([$to]);
-            $matched_client_id = $stmt->fetchColumn();
-            if (is_int($matched_client_id)) {
-                return $matched_client_id > 0 ? $matched_client_id : null;
-            }
+            $lookup_queries = [
+                'SELECT id FROM clients WHERE LOWER(email) = LOWER(?) ORDER BY id ASC LIMIT 1',
+                'SELECT client_id FROM client_contacts WHERE LOWER(email) = LOWER(?) ORDER BY is_primary DESC, client_id ASC LIMIT 1',
+                'SELECT client_id FROM bookings WHERE client_id IS NOT NULL AND LOWER(client_email) = LOWER(?) ORDER BY id DESC LIMIT 1',
+                "SELECT client_id FROM client_emails WHERE LOWER(to_email) = LOWER(?) OR LOWER(from_email) = LOWER(?) ORDER BY id DESC LIMIT 1",
+            ];
 
-            if (is_string($matched_client_id)) {
-                $normalized_client_id = safe_int($matched_client_id);
-                return $normalized_client_id > 0 ? $normalized_client_id : null;
-            }
-
-            $contact_stmt = $conn->prepare('SELECT client_id FROM client_contacts WHERE LOWER(email) = LOWER(?) ORDER BY is_primary DESC, client_id ASC LIMIT 1');
-            $contact_stmt->execute([$to]);
-            $matched_contact_client_id = $contact_stmt->fetchColumn();
-            if (is_int($matched_contact_client_id)) {
-                return $matched_contact_client_id > 0 ? $matched_contact_client_id : null;
-            }
-
-            if (is_string($matched_contact_client_id)) {
-                $normalized_contact_client_id = safe_int($matched_contact_client_id);
-                return $normalized_contact_client_id > 0 ? $normalized_contact_client_id : null;
+            foreach ($lookup_queries as $lookup_query) {
+                $stmt = $conn->prepare($lookup_query);
+                $params = str_contains($lookup_query, 'from_email') ? [$lookup_email, $lookup_email] : [$lookup_email];
+                $stmt->execute($params);
+                $matched_client_id = self::normalizeResolvedClientId($stmt->fetchColumn());
+                if ($matched_client_id !== null) {
+                    return $matched_client_id;
+                }
             }
         } catch (Throwable $e) {
             error_log('[MailRouter] Failed to resolve client by recipient email for history logging: ' . $e->getMessage());
