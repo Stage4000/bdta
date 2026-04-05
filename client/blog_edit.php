@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/blog_content.php';
 requireLogin();
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -25,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $title = scalar_string($_POST['title'] ?? '');
     $slug = scalar_string($_POST['slug'] ?? '');
-    $content = scalar_string($_POST['content'] ?? '');
+    $content = bdta_sanitize_blog_post_content(scalar_string($_POST['content'] ?? ''));
     $excerpt = scalar_string($_POST['excerpt'] ?? '');
     $published = isset($_POST['published']) ? 1 : 0;
     $publish_date_input = scalar_string($_POST['publish_date'] ?? '');

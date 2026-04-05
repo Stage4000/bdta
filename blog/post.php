@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/blog_content.php';
 
 $slug = scalar_string($_GET['slug'] ?? '');
 
@@ -28,7 +29,7 @@ $post_title = array_string_value($post, 'title');
 $post_author = array_string_value($post, 'author');
 $post_publish_date = array_string_value($post, 'publish_date');
 $post_excerpt = array_string_value($post, 'excerpt');
-$post_content = array_string_value($post, 'content');
+$post_content = bdta_sanitize_blog_post_content(array_string_value($post, 'content'));
 $page_title = $post_title;
 require_once 'includes/header.php';
 ?>
