@@ -99,14 +99,48 @@ try {
 
     assertEmailServiceClientLogging($result['success'] === false, 'Expected the email send to fail without an SMTP host.');
 
-    $logged_email = $conn->query('SELECT client_id, status, to_email, subject, mail_type, error_message FROM client_emails')->fetch(PDO::FETCH_ASSOC);
-    assertEmailServiceClientLogging(is_array($logged_email), 'Expected automated email attempt to be recorded in client_emails.');
-    assertEmailServiceClientLogging((int) ($logged_email['client_id'] ?? 0) === 123, 'Expected logged automated email to keep the client_id.');
-    assertEmailServiceClientLogging(($logged_email['status'] ?? '') === 'failed', 'Expected failed SMTP attempt to be marked failed in client_emails.');
-    assertEmailServiceClientLogging(($logged_email['to_email'] ?? '') === 'client@example.com', 'Expected logged automated email to keep the destination address.');
-    assertEmailServiceClientLogging(($logged_email['subject'] ?? '') === 'Automated client logging regression', 'Expected logged automated email to keep the subject.');
-    assertEmailServiceClientLogging(($logged_email['mail_type'] ?? '') === EmailService::MAIL_TYPE_WORKFLOW, 'Expected logged automated email to keep the workflow mail type.');
-    assertEmailServiceClientLogging(str_contains((string) ($logged_email['error_message'] ?? ''), 'SMTP host is not configured'), 'Expected logged automated email to store the delivery error.');
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_WORKFLOW,
+        'CLIENT@example.com',
+        'Workflow email resolved by recipient',
+        '<p>Hello workflow fallback</p>',
+        'Hello workflow fallback'
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected workflow fallback email send to fail without an SMTP host.');
+
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_BOOKING_CONFIRMATION,
+        'client@example.com',
+        'Booking confirmation resolved by recipient',
+        '<p>Hello confirmation fallback</p>',
+        'Hello confirmation fallback'
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected booking confirmation fallback email send to fail without an SMTP host.');
+
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_BOOKING_CANCELLATION,
+        'client@example.com',
+        'Booking cancellation resolved by recipient',
+        '<p>Hello cancellation fallback</p>',
+        'Hello cancellation fallback'
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected booking cancellation fallback email send to fail without an SMTP host.');
+
+    $logged_emails = $conn->query('SELECT client_id, status, to_email, subject, mail_type, error_message FROM client_emails ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
+    assertEmailServiceClientLogging(count($logged_emails) === 4, 'Expected all automated email attempts to be recorded in client_emails.');
+
+    foreach ($logged_emails as $logged_email) {
+        assertEmailServiceClientLogging((int) ($logged_email['client_id'] ?? 0) === 123, 'Expected logged automated email to keep the client_id.');
+        assertEmailServiceClientLogging(($logged_email['status'] ?? '') === 'failed', 'Expected failed SMTP attempt to be marked failed in client_emails.');
+        assertEmailServiceClientLogging(strtolower((string) ($logged_email['to_email'] ?? '')) === 'client@example.com', 'Expected logged automated email to keep the destination address.');
+        assertEmailServiceClientLogging(str_contains((string) ($logged_email['error_message'] ?? ''), 'SMTP host is not configured'), 'Expected logged automated email to store the delivery error.');
+    }
+
+    assertEmailServiceClientLogging(($logged_emails[0]['subject'] ?? '') === 'Automated client logging regression', 'Expected explicit client_id workflow log row to be recorded first.');
+    assertEmailServiceClientLogging(($logged_emails[0]['mail_type'] ?? '') === EmailService::MAIL_TYPE_WORKFLOW, 'Expected explicit workflow email to keep the workflow mail type.');
+    assertEmailServiceClientLogging(($logged_emails[1]['mail_type'] ?? '') === EmailService::MAIL_TYPE_WORKFLOW, 'Expected workflow fallback email to keep the workflow mail type.');
+    assertEmailServiceClientLogging(($logged_emails[2]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CONFIRMATION, 'Expected booking confirmation fallback email to keep the confirmation mail type.');
+    assertEmailServiceClientLogging(($logged_emails[3]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CANCELLATION, 'Expected booking cancellation fallback email to keep the cancellation mail type.');
 
     echo "Email service automated client logging test passed.\n";
 } catch (Throwable $e) {

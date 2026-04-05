@@ -33,6 +33,19 @@ use PHPMailer\PHPMailer\Exception;
 class EmailService {
 
     private const SMTP_TRANSPORTS = ['smtp', 'sendgrid', 'mailgun', 'ses'];
+    private const CLIENT_HISTORY_RECIPIENT_LOOKUP_TYPES = [
+        self::MAIL_TYPE_BOOKING_CONFIRMATION,
+        self::MAIL_TYPE_BOOKING_REMINDER,
+        self::MAIL_TYPE_PAYMENT_RECEIPT,
+        self::MAIL_TYPE_INVOICE,
+        self::MAIL_TYPE_INVOICE_REMINDER,
+        self::MAIL_TYPE_QUOTE,
+        self::MAIL_TYPE_CONTRACT_REMINDER,
+        self::MAIL_TYPE_QUOTE_REMINDER,
+        self::MAIL_TYPE_FORM_REMINDER,
+        self::MAIL_TYPE_BOOKING_CANCELLATION,
+        self::MAIL_TYPE_WORKFLOW,
+    ];
 
     // ─── Mail type constants ──────────────────────────────────────────────────
     // Pass one of these to routeMail() / sendGenericEmail() so that every
@@ -114,6 +127,46 @@ class EmailService {
         }
 
         return $this->conn;
+    }
+
+    private function resolveClientIdForHistory(int|string|null $client_id, string $to, string $mail_type): int|string|null {
+        if (is_int($client_id)) {
+            return $client_id > 0 ? $client_id : null;
+        }
+
+        if (is_string($client_id)) {
+            $trimmed_client_id = trim($client_id);
+            if ($trimmed_client_id !== '') {
+                return $trimmed_client_id;
+            }
+        }
+
+        if (!in_array($mail_type, self::CLIENT_HISTORY_RECIPIENT_LOOKUP_TYPES, true)) {
+            return null;
+        }
+
+        $conn = $this->getClientEmailLogConnection();
+        if (!$conn || trim($to) === '') {
+            return null;
+        }
+
+        try {
+            $stmt = $conn->prepare('SELECT id FROM clients WHERE LOWER(email) = LOWER(?) ORDER BY id ASC LIMIT 1');
+            $stmt->execute([$to]);
+            $matched_client_id = $stmt->fetchColumn();
+            if (is_int($matched_client_id)) {
+                return $matched_client_id > 0 ? $matched_client_id : null;
+            }
+
+            if (is_string($matched_client_id)) {
+                $normalized_client_id = safe_int($matched_client_id);
+                return $normalized_client_id > 0 ? $normalized_client_id : null;
+            }
+        } catch (Throwable $e) {
+            error_log('[MailRouter] Failed to resolve client by recipient email for history logging: ' . $e->getMessage());
+        }
+
+        return null;
     }
 
     private static function settingString(string $key, string $default = ''): string {
@@ -240,10 +293,10 @@ class EmailService {
             $text_body = strip_tags($html_body);
         }
 
-        $cc        = $options['cc']        ?? [];
-        $bcc       = $options['bcc']       ?? [];
-        $context   = $options['context']   ?? [];
-        $client_id = $options['client_id'] ?? null;
+        $cc        = $options['cc']      ?? [];
+        $bcc       = $options['bcc']     ?? [];
+        $context   = $options['context'] ?? [];
+        $client_id = $this->resolveClientIdForHistory($options['client_id'] ?? null, $to, $mail_type);
 
         // ── Pre-send log entry ────────────────────────────────────────────────
         $log_prefix = '[MailRouter]';
