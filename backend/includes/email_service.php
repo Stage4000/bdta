@@ -118,10 +118,7 @@ class EmailService {
 
         try {
             $db = new Database();
-            $connection = $db->getConnection();
-            if ($connection instanceof PDO) {
-                $this->conn = $connection;
-            }
+            $this->conn = $db->getConnection();
         } catch (Throwable $e) {
             error_log('[MailRouter] Failed to resolve DB connection for client email logging: ' . $e->getMessage());
         }
