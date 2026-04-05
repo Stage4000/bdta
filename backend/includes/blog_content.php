@@ -115,16 +115,22 @@ function bdta_sanitize_blog_post_tag_attributes_fallback(string $attributes): st
             $attribute_name = strtolower($matches[1]);
             $raw_value = trim($matches[2]);
 
-            if ($raw_value !== '' && ($raw_value[0] === '"' || $raw_value[0] === '\'')) {
+            if (
+                strlen($raw_value) >= 2
+                && ($raw_value[0] === '"' || $raw_value[0] === '\'')
+                && substr($raw_value, -1) === $raw_value[0]
+            ) {
                 $raw_value = substr($raw_value, 1, -1);
             }
+
+            $raw_value = trim($raw_value, "\"'");
 
             $allow_data_image = $attribute_name === 'src';
             if (!bdta_is_safe_blog_post_url(trim($raw_value), $allow_data_image)) {
                 return '';
             }
 
-            $serialized_value = '"' . htmlspecialchars($raw_value, ENT_QUOTES, 'UTF-8') . '"';
+            $serialized_value = '"' . htmlspecialchars($raw_value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
 
             return ' ' . $matches[1] . '=' . $serialized_value;
         },
