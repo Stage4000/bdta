@@ -114,10 +114,8 @@ function bdta_sanitize_blog_post_tag_attributes_fallback(string $attributes): st
         static function (array $matches): string {
             $attribute_name = strtolower($matches[1]);
             $raw_value = trim($matches[2]);
-            $quote = '';
 
             if ($raw_value !== '' && ($raw_value[0] === '"' || $raw_value[0] === '\'')) {
-                $quote = $raw_value[0];
                 $raw_value = substr($raw_value, 1, -1);
             }
 
@@ -126,7 +124,7 @@ function bdta_sanitize_blog_post_tag_attributes_fallback(string $attributes): st
                 return '';
             }
 
-            $serialized_value = $quote !== '' ? $quote . $raw_value . $quote : $raw_value;
+            $serialized_value = '"' . htmlspecialchars($raw_value, ENT_QUOTES, 'UTF-8') . '"';
 
             return ' ' . $matches[1] . '=' . $serialized_value;
         },

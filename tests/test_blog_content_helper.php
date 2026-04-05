@@ -45,6 +45,11 @@ assertBlogContentTest(strpos($sanitized_paths, '../private/asset.css') === false
 assertBlogContentTest(strpos($sanitized_paths, 'href="/blog/good"') !== false, 'Expected root-relative URLs to be preserved.');
 assertBlogContentTest(strpos($sanitized_paths, 'src="images/photo.jpg"') !== false, 'Expected simple relative asset URLs to be preserved.');
 
+$safe_data_image = '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB">';
+$sanitized_safe_data_image = bdta_sanitize_blog_post_content($safe_data_image);
+assertBlogContentTest(strpos($sanitized_safe_data_image, 'data:image/png;base64') !== false, 'Expected DOM sanitizer to preserve safe inline image data URLs.');
+assertBlogContentTest(strpos($sanitized_safe_data_image, 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB') !== false, 'Expected DOM sanitizer to preserve the full inline image data payload.');
+
 $wrapped_document = <<<HTML
 <html>
   <head>
