@@ -270,7 +270,14 @@ function bdta_replace_public_social_links_slot(string $html, string $slot, strin
     $pattern = '/' . preg_quote($start_marker, '/') . '.*?' . preg_quote($end_marker, '/') . '/s';
     $rendered = $start_marker . "\n" . $replacement . "\n" . $end_marker;
 
-    return preg_replace($pattern, $rendered, $html, 1) ?? $html;
+    return preg_replace_callback(
+        $pattern,
+        static function (array $matches) use ($rendered): string {
+            return $rendered;
+        },
+        $html,
+        1
+    ) ?? $html;
 }
 
 /**
