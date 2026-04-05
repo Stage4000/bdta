@@ -27,7 +27,7 @@ function bdta_sanitize_blog_post_content(string $html): string
 
     $xpath = new DOMXPath($dom);
     $root_nodes = $xpath->query('//*[@id="' . $wrapper_id . '"]');
-    $root = $root_nodes instanceof DOMNodeList ? $root_nodes->item(0) : null;
+    $root = $root_nodes !== false ? $root_nodes->item(0) : null;
 
     if (!$root instanceof DOMElement) {
         return bdta_sanitize_blog_post_content_fallback($html);
@@ -75,8 +75,8 @@ function bdta_sanitize_blog_post_content_fallback(string $html): string
                 return '';
             }
 
-            $attributes = $matches[2] !== '' ? bdta_sanitize_blog_post_tag_attributes_fallback($matches[2]) : '';
-            $self_closing = $matches[3];
+            $attributes = ($matches[2] ?? '') !== '' ? bdta_sanitize_blog_post_tag_attributes_fallback($matches[2]) : '';
+            $self_closing = $matches[3] ?? '';
 
             return '<' . $matches[1] . $attributes . $self_closing . '>';
         },
