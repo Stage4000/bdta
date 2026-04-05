@@ -101,6 +101,9 @@ function bdta_social_string(mixed $value): string {
     return '';
 }
 
+/**
+ * @param array<array-key, mixed> $row
+ */
 function bdta_social_map_value(array $row, string $key): string {
     return isset($row[$key]) ? bdta_social_string($row[$key]) : '';
 }
@@ -140,7 +143,7 @@ function bdta_sanitize_public_social_url(string $url): string {
     }
 
     $validated = filter_var($url, FILTER_VALIDATE_URL);
-    if (!is_string($validated) || $validated === '') {
+    if ($validated === false) {
         return '';
     }
 
