@@ -65,7 +65,7 @@ function bdta_is_localhost_base_url(string $base_url): bool
 
     $ipv4 = ip2long($normalized_host);
     // Check whether the address is in the 127.0.0.0/8 loopback range.
-    return $ipv4 !== false && ($ipv4 & 0xff000000) === 0x7f000000;
+    return $ipv4 !== false && ((($ipv4 >> 24) & 0xff) === 0x7f);
 }
 
 /**
