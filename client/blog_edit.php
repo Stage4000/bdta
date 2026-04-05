@@ -116,6 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (!$hasError) {
         $author = scalar_string($_SESSION['admin_username'] ?? '');
+        $old_cover_photo = $post ? array_string_value($post, 'cover_photo') : '';
         if ($new_cover_photo !== '') {
             $cover_photo = $new_cover_photo;
         } elseif ($remove_cover_photo) {
@@ -139,7 +140,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$title, $slug, $content, $excerpt, $cover_photo, $author, $published, $publish_date]);
                 setFlashMessage('Blog post created successfully!', 'success');
             }
-            $old_cover_photo = $post ? array_string_value($post, 'cover_photo') : '';
             $replaced_existing_cover_photo = $new_cover_photo !== '' && $old_cover_photo !== '' && $old_cover_photo !== $new_cover_photo;
             $removed_existing_cover_photo = $remove_cover_photo && $old_cover_photo !== '' && $new_cover_photo === '';
             if ($replaced_existing_cover_photo || $removed_existing_cover_photo) {

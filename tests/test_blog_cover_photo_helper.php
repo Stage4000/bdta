@@ -48,6 +48,12 @@ assertSameValue(
 
 assertSameValue(
     '',
+    bdta_get_blog_cover_photo_meta_url('javascript:alert(1)', 'https://example.com'),
+    'Expected non-http URL schemes to be rejected for blog cover metadata.'
+);
+
+assertSameValue(
+    '',
     bdta_get_blog_cover_photo_meta_url('/backend/uploads/seo/cover.jpg', 'https://example.com'),
     'Expected unsupported local image paths to be rejected for blog cover metadata.'
 );

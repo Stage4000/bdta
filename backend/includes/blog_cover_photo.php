@@ -26,7 +26,12 @@ function bdta_get_blog_cover_photo_meta_url(string $cover_photo, ?string $base_u
     }
 
     if (filter_var($path, FILTER_VALIDATE_URL)) {
-        return $path;
+        $scheme = strtolower((string) parse_url($path, PHP_URL_SCHEME));
+        if (in_array($scheme, ['http', 'https'], true)) {
+            return $path;
+        }
+
+        return '';
     }
 
     if (!bdta_is_blog_cover_photo_upload_path($path)) {
