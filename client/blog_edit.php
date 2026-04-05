@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $hasError = true;
                     }
 
-                    $filename = 'blog_cover_' . ($post_id > 0 ? (int) $post_id . '_' : '') . uniqid('', true) . '.' . $mime_to_ext[$mime_type];
+                    $filename = 'blog_cover_' . ($post_id > 0 ? (int) $post_id . '_' : '') . str_replace('.', '_', uniqid('', true)) . '.' . $mime_to_ext[$mime_type];
                     $dest_path = $upload_dir . $filename;
 
                     if (!$hasError) {
