@@ -42,6 +42,21 @@ function bdta_is_default_localhost_base_url(string $base_url): bool
     return bdta_normalize_base_url($base_url) === bdta_normalize_base_url(bdta_get_default_localhost_base_url());
 }
 
+function bdta_is_localhost_base_url(string $base_url): bool
+{
+    $normalized = bdta_normalize_base_url($base_url);
+    if ($normalized === '') {
+        return false;
+    }
+
+    $host = parse_url($normalized, PHP_URL_HOST);
+    if (!is_string($host) || $host === '') {
+        return false;
+    }
+
+    return in_array(strtolower($host), ['localhost', '127.0.0.1', '::1'], true);
+}
+
 /**
  * @return list<string>
  */

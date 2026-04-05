@@ -462,14 +462,14 @@ function getDynamicBaseUrl(): string {
         $normalized_request_base_url = bdta_normalize_base_url($request_base_url);
         $trusted_base_url = $trusted_host === '' ? '' : bdta_normalize_base_url($protocol . $trusted_host);
         if (
-            ($configured_base_url === '' || bdta_is_default_localhost_base_url($configured_base_url))
+            ($configured_base_url === '' || bdta_is_localhost_base_url($configured_base_url))
             && $trusted_base_url !== ''
             && $normalized_request_base_url === $trusted_base_url
-            && !bdta_is_default_localhost_base_url($trusted_base_url)
+            && !bdta_is_localhost_base_url($trusted_base_url)
         ) {
             try {
-                $expected_base_urls = bdta_is_default_localhost_base_url($configured_base_url)
-                    ? bdta_get_base_url_compare_candidates(bdta_get_default_localhost_base_url())
+                $expected_base_urls = $configured_base_url !== ''
+                    ? bdta_get_base_url_compare_candidates($configured_base_url)
                     : [''];
                 Settings::compareAndSet('base_url', $expected_base_urls, $trusted_base_url);
             } catch (Throwable $e) {

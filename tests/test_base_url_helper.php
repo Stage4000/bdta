@@ -30,8 +30,20 @@ try {
         'Expected the seeded localhost base URL to be detected as the default placeholder.'
     );
     assertBaseUrlHelperTest(
+        bdta_is_localhost_base_url('http://localhost') === true,
+        'Expected localhost hostnames without the seeded port to still count as localhost placeholders.'
+    );
+    assertBaseUrlHelperTest(
+        bdta_is_localhost_base_url('https://127.0.0.1:8080/') === true,
+        'Expected loopback IP base URLs to count as localhost placeholders.'
+    );
+    assertBaseUrlHelperTest(
         bdta_is_default_localhost_base_url('http://localhost:8080') === false,
         'Expected non-default localhost ports not to be treated as the seeded placeholder.'
+    );
+    assertBaseUrlHelperTest(
+        bdta_is_localhost_base_url('https://example.com') === false,
+        'Expected real hosts not to be treated as localhost placeholders.'
     );
     assertBaseUrlHelperTest(
         bdta_get_default_localhost_base_url() === 'http://localhost:8000',
@@ -40,6 +52,10 @@ try {
     assertBaseUrlHelperTest(
         bdta_get_base_url_compare_candidates('http://localhost:8000/') === ['http://localhost:8000', 'http://localhost:8000/'],
         'Expected equivalent localhost placeholder URLs to produce normalized compare candidates.'
+    );
+    assertBaseUrlHelperTest(
+        bdta_get_base_url_compare_candidates('http://localhost') === ['http://localhost', 'http://localhost/'],
+        'Expected localhost placeholder variants to compare against both normalized and trailing-slash forms.'
     );
     assertBaseUrlHelperTest(
         bdta_get_base_url_compare_candidates('') === [''],
