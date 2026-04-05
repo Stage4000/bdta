@@ -89,5 +89,6 @@ assertBlogContentTest(strpos($fallback_output, '<p>Keep me</p>') !== false, 'Exp
 $fallback_safe_data_image = '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB">';
 $fallback_safe_data_image_output = bdta_sanitize_blog_post_content_fallback($fallback_safe_data_image);
 assertBlogContentTest(strpos($fallback_safe_data_image_output, 'data:image/png;base64') !== false, 'Expected fallback sanitizer to preserve safe inline image data URLs.');
+assertBlogContentTest(strpos($fallback_safe_data_image_output, 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB') !== false, 'Expected fallback sanitizer to preserve the full inline image data payload.');
 
 echo "Blog content helper tests passed.\n";

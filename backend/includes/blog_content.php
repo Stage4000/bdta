@@ -46,7 +46,7 @@ function bdta_sanitize_blog_post_content(string $html): string
 
 function bdta_sanitize_blog_post_content_fallback(string $html): string
 {
-    $without_comments = preg_replace('/<!--.*?-->/s', '', $html);
+    $without_comments = preg_replace('/<!--[\s\S]*?-->/', '', $html);
     $sanitized = $without_comments === null ? $html : $without_comments;
 
     $sanitized = preg_replace(
@@ -114,7 +114,7 @@ function bdta_sanitize_blog_post_tag_attributes_fallback(string $attributes): st
                 $raw_value = substr($raw_value, 1, -1);
             }
 
-            $allow_data_image = $attribute_name === 'src' || $attribute_name === 'xlink:href';
+            $allow_data_image = $attribute_name === 'src';
             if (!bdta_is_safe_blog_post_url(trim($raw_value), $allow_data_image)) {
                 return '';
             }
