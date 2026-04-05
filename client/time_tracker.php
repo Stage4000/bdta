@@ -3,7 +3,23 @@
  * Active Time Tracker - Start/Stop Timer
  */
 require_once '../backend/includes/config.php';
-requireLogin();
+require_once '../backend/includes/time_tracker_helper.php';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json');
+
+    if (!isLoggedIn()) {
+        http_response_code(401);
+        echo json_encode([
+            'success' => false,
+            'requires_login' => true,
+            'message' => 'Your session expired. Please sign in again. Your timer is still saved on this device.',
+        ]);
+        exit;
+    }
+} else {
+    requireLogin();
+}
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -14,27 +30,82 @@ $clients = $clients_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    header('Content-Type: application/json');
-    
     $action = scalar_string($_POST['action'] ?? '');
+
+    if (in_array($action, ['start', 'restore', 'stop'], true) && !isValidCsrfToken($_POST['csrf_token'] ?? null)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid request. Please refresh the page and try again.']);
+        exit;
+    }
     
     if ($action === 'start') {
-        $_SESSION['active_timer'] = [
-            'start_time' => time(),
+        $requested_start_time = safe_int($_POST['start_time'] ?? 0);
+        $active_timer = bdta_normalize_active_timer([
+            'start_time' => $requested_start_time > 0 ? $requested_start_time : time(),
             'client_id' => safe_int($_POST['client_id'] ?? 0),
             'service_type' => trim(scalar_string($_POST['service_type'] ?? '')),
-            'description' => trim(scalar_string($_POST['description'] ?? ''))
-        ];
-        echo json_encode(['success' => true, 'start_time' => $_SESSION['active_timer']['start_time']]);
+            'description' => trim(scalar_string($_POST['description'] ?? '')),
+        ]);
+
+        if ($active_timer === null) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Please fill in required fields (Client and Service Type).']);
+            exit;
+        }
+
+        if (!bdta_active_timer_has_valid_start_time($active_timer)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Unable to start the timer because the start time is invalid.']);
+            exit;
+        }
+
+        $_SESSION['active_timer'] = $active_timer;
+
+        echo json_encode([
+            'success' => true,
+            'start_time' => $active_timer['start_time'],
+            'timer' => $active_timer,
+        ]);
+        exit;
+    }
+
+    if ($action === 'restore') {
+        $active_timer = bdta_normalize_active_timer($_POST['timer_state'] ?? null);
+
+        if ($active_timer === null) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Unable to restore the active timer.']);
+            exit;
+        }
+
+        if (!bdta_active_timer_has_valid_start_time($active_timer)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Unable to restore the active timer because the saved start time is invalid.']);
+            exit;
+        }
+
+        $_SESSION['active_timer'] = $active_timer;
+        echo json_encode(['success' => true] + bdta_active_timer_status_payload($active_timer));
         exit;
     }
     
     if ($action === 'stop') {
-        if (isset($_SESSION['active_timer'])) {
-            $timer = is_array($_SESSION['active_timer']) ? $_SESSION['active_timer'] : [];
-            $start_time = safe_int($timer['start_time'] ?? 0);
+        $timer = bdta_normalize_active_timer($_SESSION['active_timer'] ?? null);
+        if ($timer === null) {
+            $timer = bdta_normalize_active_timer($_POST['timer_state'] ?? null);
+        }
+
+        if ($timer !== null) {
             $end_time = time();
-            $duration_seconds = $end_time - $start_time;
+            if (!bdta_active_timer_has_valid_start_time($timer, $end_time)) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Unable to stop the timer because the saved start time is invalid.']);
+                exit;
+            }
+
+            // Small client/server clock skew is tolerated, so clamp slightly-future start times down to the stop time before saving.
+            $start_time = min($timer['start_time'], $end_time);
+            $duration_seconds = max(0, $end_time - $start_time);
             $duration_minutes = round($duration_seconds / 60);
             
             // Save to database
@@ -54,9 +125,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             ");
             $stmt->execute([
-                safe_int($timer['client_id'] ?? 0),
-                scalar_string($timer['service_type'] ?? ''),
-                scalar_string($timer['description'] ?? ''),
+                $timer['client_id'],
+                $timer['service_type'],
+                $timer['description'],
                 $date,
                 $start_time_str,
                 $end_time_str,
@@ -75,25 +146,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             exit;
         }
+
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'No active timer was found to stop.']);
+        exit;
     }
     
     if ($action === 'status') {
-        if (isset($_SESSION['active_timer'])) {
-            $active_timer = is_array($_SESSION['active_timer']) ? $_SESSION['active_timer'] : [];
-            $active_start_time = safe_int($active_timer['start_time'] ?? 0);
-            echo json_encode([
-                'active' => true,
-                'start_time' => $active_start_time,
-                'elapsed' => time() - $active_start_time
-            ]);
+        $active_timer = bdta_normalize_active_timer($_SESSION['active_timer'] ?? null);
+        if ($active_timer !== null && bdta_active_timer_has_valid_start_time($active_timer)) {
+            echo json_encode(bdta_active_timer_status_payload($active_timer));
         } else {
+            unset($_SESSION['active_timer']);
             echo json_encode(['active' => false]);
         }
         exit;
     }
+
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Unknown time tracker action.']);
+    exit;
 }
 
 include '../backend/includes/header.php';
+
+$active_timer_storage_user_type = scalar_string($_SESSION['user_type'] ?? 'admin');
+$active_timer_storage_user_id = safe_int($_SESSION['admin_id'] ?? 0);
+$time_tracker_csrf_token = csrfToken();
 ?>
 
 <div class="container-fluid mt-4">
@@ -172,27 +251,54 @@ include '../backend/includes/header.php';
 </div>
 
 <script>
+const ACTIVE_TIMER_STORAGE_KEY = <?= json_encode(sprintf(
+    'bdtaActiveTimer:%s:%d',
+    $active_timer_storage_user_type,
+    $active_timer_storage_user_id
+)) ?>;
+const TIME_TRACKER_CSRF_TOKEN = <?= json_encode($time_tracker_csrf_token) ?>;
 let timerInterval = null;
 let startTime = null;
 
 // Check for active timer on page load
 document.addEventListener('DOMContentLoaded', function() {
-    checkTimerStatus();
+    initializeTimer();
     loadTodayEntries();
 });
 
+function initializeTimer() {
+    const storedTimer = getStoredActiveTimer();
+    if (storedTimer) {
+        applyActiveTimer(storedTimer);
+    }
+
+    checkTimerStatus();
+}
+
 function checkTimerStatus() {
-    fetch('time_tracker.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: 'action=status'
-    })
-    .then(r => r.json())
+    const formData = new FormData();
+    formData.append('action', 'status');
+
+    fetchTimerJson(formData)
     .then(data => {
-        if (data.active) {
-            startTime = data.start_time * 1000;
-            showRunningState();
-            startTimerUpdate();
+        if (data.active && data.timer) {
+            saveActiveTimer(data.timer);
+            applyActiveTimer(data.timer);
+            return;
+        }
+
+        const storedTimer = getStoredActiveTimer();
+        if (storedTimer) {
+            applyActiveTimer(storedTimer);
+            restoreActiveTimer(storedTimer);
+        }
+    })
+    .catch(error => {
+        if (error.message !== 'Authentication required') {
+            const storedTimer = getStoredActiveTimer();
+            if (storedTimer) {
+                applyActiveTimer(storedTimer);
+            }
         }
     });
 }
@@ -206,23 +312,60 @@ function startTimer() {
         alert('Please fill in required fields (Client and Service Type)');
         return;
     }
+
+    const pendingTimer = normalizeActiveTimer({
+        start_time: Math.floor(Date.now() / 1000),
+        client_id: clientId,
+        service_type: serviceType,
+        description: description
+    });
+    if (!pendingTimer) {
+        alert('Unable to start the timer right now.');
+        return;
+    }
+
+    saveActiveTimer(pendingTimer);
+    applyActiveTimer(pendingTimer);
     
     const formData = new FormData();
     formData.append('action', 'start');
-    formData.append('client_id', clientId);
-    formData.append('service_type', serviceType);
-    formData.append('description', description);
+    formData.append('csrf_token', TIME_TRACKER_CSRF_TOKEN);
+    formData.append('start_time', String(pendingTimer.start_time));
+    formData.append('client_id', String(pendingTimer.client_id));
+    formData.append('service_type', pendingTimer.service_type);
+    formData.append('description', pendingTimer.description);
     
-    fetch('time_tracker.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
+    fetchTimerJson(formData)
     .then(data => {
         if (data.success) {
-            startTime = data.start_time * 1000;
-            showRunningState();
-            startTimerUpdate();
+            saveActiveTimer(data.timer);
+            applyActiveTimer(data.timer);
+        }
+    })
+    .catch(error => {
+        clearActiveTimer();
+        stopTimerUpdate();
+        showStoppedState();
+        handleTimerError(error);
+    });
+}
+
+function restoreActiveTimer(timer) {
+    const formData = new FormData();
+    formData.append('action', 'restore');
+    formData.append('csrf_token', TIME_TRACKER_CSRF_TOKEN);
+    formData.append('timer_state', JSON.stringify(timer));
+
+    fetchTimerJson(formData)
+    .then(data => {
+        if (data.timer) {
+            saveActiveTimer(data.timer);
+            applyActiveTimer(data.timer);
+        }
+    })
+    .catch(error => {
+        if (error.message !== 'Authentication required') {
+            console.warn(error);
         }
     });
 }
@@ -232,21 +375,132 @@ function stopTimer() {
     
     const formData = new FormData();
     formData.append('action', 'stop');
-    
-    fetch('time_tracker.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
+    formData.append('csrf_token', TIME_TRACKER_CSRF_TOKEN);
+    const storedTimer = getStoredActiveTimer();
+    if (storedTimer) {
+        formData.append('timer_state', JSON.stringify(storedTimer));
+    }
+
+    fetchTimerJson(formData)
     .then(data => {
         if (data.success) {
+            clearActiveTimer();
             stopTimerUpdate();
             showStoppedState();
             alert(`Time entry saved! Duration: ${formatDuration(data.duration_minutes * 60)}`);
             resetForm();
             loadTodayEntries();
         }
+    })
+    .catch(handleTimerError);
+}
+
+function fetchTimerJson(formData) {
+    return fetch('time_tracker.php', {
+        method: 'POST',
+        body: formData,
+        keepalive: true
+    })
+    .then(async response => {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            if (response.redirected && response.url) {
+                window.location.href = response.url;
+                throw new Error('Authentication required');
+            }
+            throw new Error('Unexpected response while tracking time.');
+        }
+
+        const data = await response.json();
+        if (data.requires_login || response.status === 401) {
+            alert(data.message || 'Your session expired. Please sign in again. Your timer is still saved on this device.');
+            window.location.href = 'login.php';
+            throw new Error('Authentication required');
+        }
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Unable to complete the time tracking request.');
+        }
+
+        return data;
     });
+}
+
+function handleTimerError(error) {
+    if (error.message !== 'Authentication required') {
+        alert(error.message || 'Unable to complete the time tracking request.');
+    }
+}
+
+function normalizeActiveTimer(timer) {
+    if (!timer || typeof timer !== 'object') {
+        return null;
+    }
+
+    const startTimeValue = Number(timer.start_time);
+    const clientId = Number(timer.client_id);
+    const serviceType = typeof timer.service_type === 'string' ? timer.service_type.trim() : '';
+    const description = typeof timer.description === 'string' ? timer.description.trim() : '';
+
+    const hasValidStartTime = Number.isFinite(startTimeValue) && startTimeValue > 0;
+    const hasValidClientId = Number.isFinite(clientId) && clientId > 0;
+    const hasServiceType = serviceType !== '';
+
+    if (!hasValidStartTime || !hasValidClientId || !hasServiceType) {
+        return null;
+    }
+
+    return {
+        start_time: Math.floor(startTimeValue),
+        client_id: Math.floor(clientId),
+        service_type: serviceType,
+        description: description
+    };
+}
+
+function getStoredActiveTimer() {
+    try {
+        const storedTimer = localStorage.getItem(ACTIVE_TIMER_STORAGE_KEY);
+        return normalizeActiveTimer(storedTimer ? JSON.parse(storedTimer) : null);
+    } catch (error) {
+        clearActiveTimer();
+        return null;
+    }
+}
+
+function saveActiveTimer(timer) {
+    const normalizedTimer = normalizeActiveTimer(timer);
+    if (!normalizedTimer) {
+        return;
+    }
+
+    try {
+        localStorage.setItem(ACTIVE_TIMER_STORAGE_KEY, JSON.stringify(normalizedTimer));
+    } catch (error) {
+        console.warn(error);
+    }
+}
+
+function clearActiveTimer() {
+    try {
+        localStorage.removeItem(ACTIVE_TIMER_STORAGE_KEY);
+    } catch (error) {
+        console.warn(error);
+    }
+}
+
+function applyActiveTimer(timer) {
+    const normalizedTimer = normalizeActiveTimer(timer);
+    if (!normalizedTimer) {
+        return;
+    }
+
+    startTime = normalizedTimer.start_time * 1000;
+    document.getElementById('client_id').value = String(normalizedTimer.client_id);
+    document.getElementById('service_type').value = normalizedTimer.service_type;
+    document.getElementById('description').value = normalizedTimer.description;
+    showRunningState();
+    startTimerUpdate();
 }
 
 function showRunningState() {
@@ -258,6 +512,7 @@ function showRunningState() {
 }
 
 function showStoppedState() {
+    startTime = null;
     document.getElementById('timerForm').style.opacity = '1';
     document.getElementById('timerForm').querySelectorAll('input, select, textarea').forEach(el => el.disabled = false);
     document.getElementById('startBtn').style.display = 'block';
@@ -267,6 +522,7 @@ function showStoppedState() {
 }
 
 function startTimerUpdate() {
+    stopTimerUpdate();
     updateTimerDisplay();
     timerInterval = setInterval(updateTimerDisplay, 1000);
 }
@@ -279,14 +535,20 @@ function stopTimerUpdate() {
 }
 
 function updateTimerDisplay() {
+    if (!startTime) {
+        document.getElementById('timerDisplay').textContent = '00:00:00';
+        return;
+    }
+
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
     document.getElementById('timerDisplay').textContent = formatDuration(elapsed);
 }
 
 function formatDuration(seconds) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
+    const totalSeconds = Math.max(0, seconds);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
