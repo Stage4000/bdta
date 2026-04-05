@@ -201,12 +201,12 @@ class EmailService {
 
         try {
             $lookup_queries = [
-                'SELECT id FROM clients WHERE LOWER(email) = LOWER(?) ORDER BY id ASC LIMIT 1',
-                'SELECT client_id FROM client_contacts WHERE LOWER(email) = LOWER(?) ORDER BY is_primary DESC, client_id ASC LIMIT 1',
-                'SELECT client_id FROM bookings WHERE client_id IS NOT NULL AND LOWER(client_email) = LOWER(?) ORDER BY id DESC LIMIT 1',
+                'clients' => 'SELECT id FROM clients WHERE LOWER(email) = LOWER(?) ORDER BY id ASC LIMIT 1',
+                'client_contacts' => 'SELECT client_id FROM client_contacts WHERE LOWER(email) = LOWER(?) ORDER BY is_primary DESC, client_id ASC LIMIT 1',
+                'bookings' => 'SELECT client_id FROM bookings WHERE client_id IS NOT NULL AND LOWER(client_email) = LOWER(?) ORDER BY id DESC LIMIT 1',
             ];
 
-            foreach ($lookup_queries as $lookup_query) {
+            foreach ($lookup_queries as $lookup_source => $lookup_query) {
                 $stmt = $conn->prepare($lookup_query);
                 $stmt->execute([$lookup_email]);
                 $matched_client_id = self::normalizeResolvedClientId($stmt->fetchColumn());
@@ -215,7 +215,9 @@ class EmailService {
                 }
             }
         } catch (Throwable $e) {
-            error_log('[MailRouter] Failed to resolve client by recipient email for history logging: ' . $e->getMessage());
+            error_log('[MailRouter] Failed to resolve client by recipient email for history logging'
+                . (isset($lookup_source) ? ' via ' . $lookup_source : '')
+                . ': ' . $e->getMessage());
         }
 
         return null;

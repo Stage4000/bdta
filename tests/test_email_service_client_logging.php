@@ -91,6 +91,7 @@ require_once dirname(__DIR__) . '/backend/includes/email_service.php';
 $exit_code = 0;
 
 try {
+    $expected_logged_email_count = 7;
     $email_service = new EmailService();
     $result = $email_service->sendGenericEmail(
         'client@example.com',
@@ -171,7 +172,7 @@ try {
     assertEmailServiceClientLogging($result['success'] === false, 'Expected booking-snapshot recipient fallback email send to fail without an SMTP host.');
 
     $logged_emails = $conn->query('SELECT client_id, status, to_email, subject, mail_type, error_message FROM client_emails ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
-    assertEmailServiceClientLogging(count($logged_emails) === 7, 'Expected all automated email attempts to be recorded in client_emails.');
+    assertEmailServiceClientLogging(count($logged_emails) === $expected_logged_email_count, 'Expected all automated email attempts to be recorded in client_emails.');
 
     foreach ($logged_emails as $logged_email) {
         assertEmailServiceClientLogging((int) ($logged_email['client_id'] ?? 0) === 123, 'Expected logged automated email to keep the client_id.');
