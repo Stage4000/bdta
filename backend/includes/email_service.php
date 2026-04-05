@@ -158,8 +158,15 @@ class EmailService {
             return $client_id > 0 ? $client_id : null;
         }
 
+        if ($client_id === false || $client_id === null) {
+            return null;
+        }
+
         if (is_string($client_id)) {
             $normalized_client_id = safe_int(trim($client_id));
+            if ($normalized_client_id === false) {
+                return null;
+            }
             return $normalized_client_id > 0 ? $normalized_client_id : null;
         }
 
@@ -200,6 +207,7 @@ class EmailService {
         }
 
         try {
+            $lookup_source = '';
             $lookup_queries = [
                 'clients' => 'SELECT id FROM clients WHERE LOWER(email) = LOWER(?) ORDER BY id ASC LIMIT 1',
                 'client_contacts' => 'SELECT client_id FROM client_contacts WHERE LOWER(email) = LOWER(?) ORDER BY is_primary DESC, client_id ASC LIMIT 1',
@@ -216,7 +224,7 @@ class EmailService {
             }
         } catch (Throwable $e) {
             error_log('[MailRouter] Failed to resolve client by recipient email for history logging'
-                . (isset($lookup_source) ? ' via ' . $lookup_source : '')
+                . ($lookup_source !== '' ? ' via ' . $lookup_source : '')
                 . ': ' . $e->getMessage());
         }
 
