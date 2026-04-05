@@ -163,10 +163,11 @@ class EmailService {
         }
 
         if (is_string($client_id)) {
-            $normalized_client_id = safe_int(trim($client_id));
-            if ($normalized_client_id === false) {
+            $trimmed_client_id = trim($client_id);
+            if ($trimmed_client_id === '' || !is_numeric($trimmed_client_id)) {
                 return null;
             }
+            $normalized_client_id = safe_int($trimmed_client_id);
             return $normalized_client_id > 0 ? $normalized_client_id : null;
         }
 
@@ -206,17 +207,19 @@ class EmailService {
             return null;
         }
 
+        $normalized_lookup_email = strtolower($lookup_email);
+
         try {
             $lookup_source = '';
             $lookup_queries = [
-                'clients' => 'SELECT id FROM clients WHERE LOWER(email) = LOWER(?) ORDER BY id ASC LIMIT 1',
-                'client_contacts' => 'SELECT client_id FROM client_contacts WHERE LOWER(email) = LOWER(?) ORDER BY is_primary DESC, client_id ASC LIMIT 1',
-                'bookings' => 'SELECT client_id FROM bookings WHERE client_id IS NOT NULL AND LOWER(client_email) = LOWER(?) ORDER BY id DESC LIMIT 1',
+                'clients' => 'SELECT id FROM clients WHERE LOWER(email) = ? ORDER BY id ASC LIMIT 1',
+                'client_contacts' => 'SELECT client_id FROM client_contacts WHERE LOWER(email) = ? ORDER BY is_primary DESC, client_id ASC LIMIT 1',
+                'bookings' => 'SELECT client_id FROM bookings WHERE client_id IS NOT NULL AND LOWER(client_email) = ? ORDER BY id DESC LIMIT 1',
             ];
 
             foreach ($lookup_queries as $lookup_source => $lookup_query) {
                 $stmt = $conn->prepare($lookup_query);
-                $stmt->execute([$lookup_email]);
+                $stmt->execute([$normalized_lookup_email]);
                 $matched_client_id = self::normalizeResolvedClientId($stmt->fetchColumn());
                 if ($matched_client_id !== null) {
                     return $matched_client_id;
