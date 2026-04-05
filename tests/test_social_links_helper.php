@@ -60,6 +60,11 @@ assertTrue(str_contains($rendered, 'bdta-social-icon-bluesky'), 'Expected Bluesk
 assertTrue(str_contains($rendered, 'Podcast'), 'Expected custom link labels to render.');
 assertTrue(!str_contains($rendered, 'javascript:alert(1)'), 'Expected invalid URLs to be excluded from rendered markup.');
 
+$literalReplacement = '<a href="https://example.com/?ref=$campaign">Price $5</a>';
+$literalRendered = bdta_replace_public_social_links_slot($html, 'events', $literalReplacement);
+assertTrue(str_contains($literalRendered, 'https://example.com/?ref=$campaign'), 'Expected replacement URLs containing $ to remain unchanged.');
+assertTrue(str_contains($literalRendered, 'Price $5'), 'Expected replacement text containing $ to remain unchanged.');
+
 $empty = bdta_apply_public_social_links($html, []);
 assertTrue(!str_contains($empty, 'old contact markup'), 'Expected placeholders to still be replaced when no links exist.');
 assertTrue(!str_contains($empty, 'Follow Us'), 'Expected empty social sections to be hidden.');
