@@ -347,7 +347,16 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                             </p>
                         </div>
                     <?php endif; ?>
-                    
+
+                    <?php if ($current_category === 'social'): ?>
+                        <div class="alert alert-info mb-4">
+                            <h6><i class="fas fa-share-nodes"></i> Social Links</h6>
+                            <p class="mb-0 small">
+                                Any social link left blank will stay hidden on the public website. Custom links use the label field for the button name and a generic link icon on the front-end.
+                            </p>
+                        </div>
+                    <?php endif; ?>
+                     
                     <form method="POST" action="" id="settings-form">
                         <input type="hidden" name="category" value="<?= escape($current_category) ?>">
                         
