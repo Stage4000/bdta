@@ -18,6 +18,14 @@ function assertTrue(bool $condition, string $message): void
 }
 
 $upload_path = '/backend/uploads/blog_covers/cover-example.webp';
+$upload_dir = dirname(__DIR__) . '/backend/uploads/blog_covers';
+$upload_file_path = $upload_dir . '/cover-example.webp';
+
+if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true) && !is_dir($upload_dir)) {
+    throw new RuntimeException('Unable to create the temporary blog cover upload directory.');
+}
+
+file_put_contents($upload_file_path, 'cover-photo-test');
 
 assertTrue(
     bdta_is_blog_cover_photo_upload_path($upload_path),
@@ -65,5 +73,7 @@ assertTrue(
     ),
     'Expected the filesystem helper to map the public upload path to the repo-local file path.'
 );
+
+unlink($upload_file_path);
 
 echo "Blog cover photo helper tests passed.\n";

@@ -15,7 +15,18 @@ function bdta_get_blog_cover_photo_filesystem_path(string $cover_photo): string
         return '';
     }
 
-    return dirname(__DIR__, 2) . trim($cover_photo);
+    $uploads_root = realpath(dirname(__DIR__, 2) . '/backend/uploads/blog_covers');
+    $resolved_path = realpath(dirname(__DIR__, 2) . trim($cover_photo));
+    if ($uploads_root === false || $resolved_path === false) {
+        return '';
+    }
+
+    $normalized_uploads_root = rtrim($uploads_root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    if (!str_starts_with($resolved_path, $normalized_uploads_root)) {
+        return '';
+    }
+
+    return $resolved_path;
 }
 
 function bdta_get_blog_cover_photo_meta_url(string $cover_photo, ?string $base_url = null): string

@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         mkdir($upload_dir, 0755, true);
                     }
 
-                    $filename = 'blog_cover_' . ($post_id > 0 ? $post_id . '_' : '') . uniqid('', true) . '.' . $mime_to_ext[$mime_type];
+                    $filename = 'blog_cover_' . ($post_id > 0 ? (int) $post_id . '_' : '') . uniqid('', true) . '.' . $mime_to_ext[$mime_type];
                     $dest_path = $upload_dir . $filename;
 
                     if (!move_uploaded_file($tmp_path, $dest_path)) {

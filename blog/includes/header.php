@@ -29,7 +29,7 @@
     <meta property="og:image" content="<?php echo escape($resolved_meta_og_image); ?>">
     <meta name="twitter:image" content="<?php echo escape($resolved_meta_og_image); ?>">
     <?php endif; ?>
-    <meta name="twitter:card" content="<?php echo $resolved_meta_og_image !== '' ? 'summary_large_image' : 'summary'; ?>">
+    <meta name="twitter:card" content="<?php echo escape($resolved_meta_og_image !== '' ? 'summary_large_image' : 'summary'); ?>">
     <title><?php echo $resolved_page_title !== '' ? escape($resolved_page_title) . ' - ' : ''; ?>Brook's Dog Training Academy</title>
     <script src="/assets/js/theme-init.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
