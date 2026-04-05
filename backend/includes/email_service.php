@@ -162,16 +162,13 @@ class EmailService {
             return null;
         }
 
-        if (is_string($client_id)) {
-            $trimmed_client_id = trim($client_id);
-            if ($trimmed_client_id === '' || !is_numeric($trimmed_client_id)) {
-                return null;
-            }
-            $normalized_client_id = safe_int($trimmed_client_id);
-            return $normalized_client_id > 0 ? $normalized_client_id : null;
+        $trimmed_client_id = trim($client_id);
+        if ($trimmed_client_id === '' || !is_numeric($trimmed_client_id)) {
+            return null;
         }
 
-        return null;
+        $normalized_client_id = safe_int($trimmed_client_id);
+        return $normalized_client_id > 0 ? $normalized_client_id : null;
     }
 
     private function shouldUseRecipientLookupForHistory(string $mail_type, bool $allow_history_recipient_lookup = false): bool {
@@ -209,8 +206,8 @@ class EmailService {
 
         $normalized_lookup_email = strtolower($lookup_email);
 
+        $lookup_source = null;
         try {
-            $lookup_source = '';
             $lookup_queries = [
                 'clients' => 'SELECT id FROM clients WHERE LOWER(email) = ? ORDER BY id ASC LIMIT 1',
                 'client_contacts' => 'SELECT client_id FROM client_contacts WHERE LOWER(email) = ? ORDER BY is_primary DESC, client_id ASC LIMIT 1',
@@ -227,7 +224,7 @@ class EmailService {
             }
         } catch (Throwable $e) {
             error_log('[MailRouter] Failed to resolve client by recipient email for history logging'
-                . ($lookup_source !== '' ? ' via ' . $lookup_source : '')
+                . ($lookup_source !== null ? ' via ' . $lookup_source : '')
                 . ': ' . $e->getMessage());
         }
 
