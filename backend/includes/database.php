@@ -4,6 +4,8 @@
  * MySQL-only database bootstrap and schema management.
  */
 
+require_once __DIR__ . '/social_links.php';
+
 // Load environment variables
 require_once __DIR__ . '/env_loader.php';
 EnvLoader::load();
@@ -1256,9 +1258,7 @@ class Database {
             ['time_rounding', '15', 'select', 'time_tracking', 'Time Rounding', 'Round time entries to nearest X minutes (0, 5, 10, 15, 30)', 0],
             
             // Social Media
-            ['facebook_url', 'https://www.facebook.com/BrooksDogTrainingAcademy', 'url', 'social', 'Facebook URL', 'Facebook page URL', 0],
-            ['instagram_url', 'https://www.instagram.com/brooksdogtrainingacademy', 'url', 'social', 'Instagram URL', 'Instagram profile URL', 0],
-            ['linktree_url', 'https://linktr.ee/brooksdogtrainingacademy', 'url', 'social', 'Linktree URL', 'Linktree URL', 0],
+            ...bdta_get_social_settings_seed_rows(),
             
             // Theme Settings
             ['theme_primary_color', '#9a0073', 'color', 'theme', 'Primary Color', 'Main branding color used for buttons, links, and highlights', 0],
@@ -2126,6 +2126,9 @@ class Database {
         // Add theme customization settings for existing installations
         $this->addThemeSettings();
 
+        // Add social link settings for existing installations
+        $this->addSocialSettings();
+
         // Add Tawk.to chat widget settings for existing installations
         $this->addTawkToSettings();
 
@@ -2480,6 +2483,27 @@ class Database {
         ");
 
         foreach ($theme_settings as $setting) {
+            $check->execute([$setting[0]]);
+            if ($check->fetchColumn() == 0) {
+                try {
+                    $insert->execute($setting);
+                } catch (PDOException $e) {
+                    // Already exists, ignore
+                }
+            }
+        }
+    }
+
+    private function addSocialSettings(): void {
+        $social_settings = bdta_get_social_settings_seed_rows();
+
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $insert = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($social_settings as $setting) {
             $check->execute([$setting[0]]);
             if ($check->fetchColumn() == 0) {
                 try {
