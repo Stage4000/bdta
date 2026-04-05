@@ -54,7 +54,17 @@ function bdta_is_localhost_base_url(string $base_url): bool
         return false;
     }
 
-    return in_array(strtolower($host), ['localhost', '127.0.0.1', '::1'], true);
+    $normalized_host = trim(strtolower($host), '[]');
+    if ($normalized_host === 'localhost' || $normalized_host === '::1') {
+        return true;
+    }
+
+    if (filter_var($normalized_host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+        return false;
+    }
+
+    $ipv4 = ip2long($normalized_host);
+    return $ipv4 !== false && ($ipv4 & 0xff000000) === 0x7f000000;
 }
 
 /**

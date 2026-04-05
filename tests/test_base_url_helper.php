@@ -34,8 +34,28 @@ try {
         'Expected localhost hostnames without the seeded port to still count as localhost placeholders.'
     );
     assertBaseUrlHelperTest(
+        bdta_is_localhost_base_url('http://localhost:80') === true,
+        'Expected localhost URLs on the default HTTP port to count as localhost placeholders.'
+    );
+    assertBaseUrlHelperTest(
+        bdta_is_localhost_base_url('https://localhost:443') === true,
+        'Expected localhost URLs on the default HTTPS port to count as localhost placeholders.'
+    );
+    assertBaseUrlHelperTest(
         bdta_is_localhost_base_url('https://127.0.0.1:8080/') === true,
         'Expected loopback IP base URLs to count as localhost placeholders.'
+    );
+    assertBaseUrlHelperTest(
+        bdta_is_localhost_base_url('http://127.0.0.2') === true,
+        'Expected the entire 127.0.0.0/8 range to count as loopback placeholders.'
+    );
+    assertBaseUrlHelperTest(
+        bdta_is_localhost_base_url('http://[::1]') === true,
+        'Expected IPv6 loopback URLs to count as localhost placeholders.'
+    );
+    assertBaseUrlHelperTest(
+        bdta_is_localhost_base_url('https://[::1]:443') === true,
+        'Expected IPv6 loopback URLs on the default HTTPS port to count as localhost placeholders.'
     );
     assertBaseUrlHelperTest(
         bdta_is_default_localhost_base_url('http://localhost:8080') === false,
