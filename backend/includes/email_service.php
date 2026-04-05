@@ -197,13 +197,12 @@ class EmailService {
                 'SELECT id FROM clients WHERE LOWER(email) = LOWER(?) ORDER BY id ASC LIMIT 1',
                 'SELECT client_id FROM client_contacts WHERE LOWER(email) = LOWER(?) ORDER BY is_primary DESC, client_id ASC LIMIT 1',
                 'SELECT client_id FROM bookings WHERE client_id IS NOT NULL AND LOWER(client_email) = LOWER(?) ORDER BY id DESC LIMIT 1',
-                "SELECT client_id FROM client_emails WHERE LOWER(to_email) = LOWER(?) OR LOWER(from_email) = LOWER(?) ORDER BY id DESC LIMIT 1",
+                'SELECT client_id FROM client_emails WHERE LOWER(to_email) = LOWER(?) ORDER BY id DESC LIMIT 1',
             ];
 
             foreach ($lookup_queries as $lookup_query) {
                 $stmt = $conn->prepare($lookup_query);
-                $params = str_contains($lookup_query, 'from_email') ? [$lookup_email, $lookup_email] : [$lookup_email];
-                $stmt->execute($params);
+                $stmt->execute([$lookup_email]);
                 $matched_client_id = self::normalizeResolvedClientId($stmt->fetchColumn());
                 if ($matched_client_id !== null) {
                     return $matched_client_id;
