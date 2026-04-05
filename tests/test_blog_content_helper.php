@@ -86,4 +86,8 @@ assertBlogContentTest(strpos($fallback_output, 'data:text/html') === false, 'Exp
 assertBlogContentTest(strpos($fallback_output, '<iframe') === false, 'Expected fallback sanitizer to remove iframe elements.');
 assertBlogContentTest(strpos($fallback_output, '<p>Keep me</p>') !== false, 'Expected fallback sanitizer to preserve safe markup.');
 
+$fallback_safe_data_image = '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB">';
+$fallback_safe_data_image_output = bdta_sanitize_blog_post_content_fallback($fallback_safe_data_image);
+assertBlogContentTest(strpos($fallback_safe_data_image_output, 'data:image/png;base64') !== false, 'Expected fallback sanitizer to preserve safe inline image data URLs.');
+
 echo "Blog content helper tests passed.\n";

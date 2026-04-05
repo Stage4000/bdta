@@ -102,9 +102,27 @@ function bdta_sanitize_blog_post_tag_attributes_fallback(string $attributes): st
     );
     $sanitized = $sanitized === null ? $attributes : $sanitized;
 
-    $sanitized_urls = preg_replace(
-        '/\s+(href|src|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript|data)\s*:[^"]*"|\'\s*(?:javascript|vbscript|data)\s*:[^\']*\'|(?:javascript|vbscript|data)\s*:[^\s>]+)/i',
-        '',
+    $sanitized_urls = preg_replace_callback(
+        '/\s+(href|src|xlink:href)\s*=\s*("[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+)/i',
+        static function (array $matches): string {
+            $attribute_name = strtolower($matches[1]);
+            $raw_value = trim($matches[2]);
+            $quote = '';
+
+            if ($raw_value !== '' && ($raw_value[0] === '"' || $raw_value[0] === '\'')) {
+                $quote = $raw_value[0];
+                $raw_value = substr($raw_value, 1, -1);
+            }
+
+            $allow_data_image = $attribute_name === 'src' || $attribute_name === 'xlink:href';
+            if (!bdta_is_safe_blog_post_url(trim($raw_value), $allow_data_image)) {
+                return '';
+            }
+
+            $serialized_value = $quote !== '' ? $quote . $raw_value . $quote : $raw_value;
+
+            return ' ' . $matches[1] . '=' . $serialized_value;
+        },
         $sanitized
     );
 
