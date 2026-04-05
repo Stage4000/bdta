@@ -1477,11 +1477,11 @@ function onTimeslotTypeChange(sel) {
     const pointDiv   = entry.querySelector('.timeslot-point-inputs');
     const rangeDiv   = entry.querySelector('.timeslot-range-inputs');
     if (sel.value === 'range') {
-        pointDiv.style.setProperty('display', 'none', 'important');
-        rangeDiv.style.removeProperty('display');
+        pointDiv.classList.add('timeslot-hidden');
+        rangeDiv.classList.remove('timeslot-hidden');
     } else {
-        rangeDiv.style.setProperty('display', 'none', 'important');
-        pointDiv.style.removeProperty('display');
+        rangeDiv.classList.add('timeslot-hidden');
+        pointDiv.classList.remove('timeslot-hidden');
     }
     serializeSpecificDates();
 }
