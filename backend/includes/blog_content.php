@@ -70,8 +70,8 @@ function bdta_sanitize_blog_post_content_fallback(string $html): string
         '/<([a-z][a-z0-9-]*)(\s[^<>]*?)?(\/?)>/i',
         static function (array $matches): string {
             $tag = strtolower($matches[1]);
-            $raw_attributes = $matches[2] ?? '';
-            $self_closing = $matches[3] ?? '';
+            $raw_attributes = $matches[2];
+            $self_closing = $matches[3];
 
             if (in_array($tag, ['html', 'body', 'head'], true)) {
                 return '';
