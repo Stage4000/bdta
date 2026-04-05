@@ -123,8 +123,6 @@ function bdta_sanitize_blog_post_tag_attributes_fallback(string $attributes): st
                 $raw_value = substr($raw_value, 1, -1);
             }
 
-            $raw_value = trim($raw_value, "\"'");
-
             $allow_data_image = $attribute_name === 'src';
             if (!bdta_is_safe_blog_post_url(trim($raw_value), $allow_data_image)) {
                 return '';
@@ -208,15 +206,15 @@ function bdta_clean_blog_post_attributes(DOMElement $element): void
             continue;
         }
 
+        if ($name === 'srcdoc') {
+            $attrs_to_remove[] = $attribute->name;
+            continue;
+        }
+
         if ($name === 'href' || $name === 'src') {
             if (!bdta_is_safe_blog_post_url($value, $name === 'src')) {
                 $attrs_to_remove[] = $attribute->name;
             }
-            continue;
-        }
-
-        if ($name === 'srcdoc') {
-            $attrs_to_remove[] = $attribute->name;
             continue;
         }
 
