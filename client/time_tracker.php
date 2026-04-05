@@ -125,9 +125,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             ");
             $stmt->execute([
-                safe_int($timer['client_id'] ?? 0),
-                scalar_string($timer['service_type'] ?? ''),
-                scalar_string($timer['description'] ?? ''),
+                $timer['client_id'],
+                $timer['service_type'],
+                $timer['description'],
                 $date,
                 $start_time_str,
                 $end_time_str,

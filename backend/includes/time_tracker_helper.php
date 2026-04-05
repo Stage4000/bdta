@@ -33,7 +33,12 @@ function bdta_normalize_active_timer(mixed $timer): ?array
 
 /**
  * @param array{start_time: int, client_id: int, service_type: string, description: string} $timer
- * @return array{active: true, start_time: int, elapsed: int, timer: array{start_time: int, client_id: int, service_type: string, description: string}}
+ * @return array{
+ *   active: true,
+ *   start_time: int,
+ *   elapsed: int,
+ *   timer: array{start_time: int, client_id: int, service_type: string, description: string}
+ * }
  */
 function bdta_active_timer_status_payload(array $timer, ?int $now = null): array
 {
@@ -48,6 +53,9 @@ function bdta_active_timer_status_payload(array $timer, ?int $now = null): array
     ];
 }
 
+/**
+ * @param array{start_time: int, client_id: int, service_type: string, description: string} $timer
+ */
 function bdta_active_timer_has_valid_start_time(array $timer, ?int $now = null, int $future_tolerance_seconds = 300): bool
 {
     $current_time = $now ?? time();

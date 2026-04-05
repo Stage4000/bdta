@@ -17,7 +17,9 @@ try {
         'service_type' => ' Training Session ',
         'description' => ' Working on leash skills ',
     ]);
-    assertTimeTrackerHelper($normalized !== null, 'Expected valid active timers to normalize.');
+    if ($normalized === null) {
+        throw new RuntimeException('Expected valid active timers to normalize.');
+    }
     assertTimeTrackerHelper($normalized['start_time'] === 1712280000, 'Expected numeric start times to be preserved.');
     assertTimeTrackerHelper($normalized['client_id'] === 12, 'Expected numeric client ids to be preserved.');
     assertTimeTrackerHelper($normalized['service_type'] === 'Training Session', 'Expected service types to be trimmed.');
@@ -29,7 +31,10 @@ try {
         'service_type' => 'Consultation',
         'description' => '',
     ]));
-    assertTimeTrackerHelper($from_json !== null && $from_json['client_id'] === 9, 'Expected JSON timer payloads to normalize.');
+    if ($from_json === null) {
+        throw new RuntimeException('Expected JSON timer payloads to normalize.');
+    }
+    assertTimeTrackerHelper($from_json['client_id'] === 9, 'Expected JSON timer payloads to normalize.');
 
     assertTimeTrackerHelper(
         bdta_normalize_active_timer([
@@ -62,15 +67,15 @@ try {
         'service_type' => 'Training Session',
         'description' => 'Leash work',
     ], 1712280900);
-    assertTimeTrackerHelper($status_payload['active'] === true, 'Expected status payloads to mark the timer active.');
+    assertTimeTrackerHelper($status_payload['active'], 'Expected status payloads to mark the timer active.');
     assertTimeTrackerHelper($status_payload['elapsed'] === 900, 'Expected status payloads to expose elapsed seconds.');
     assertTimeTrackerHelper($status_payload['timer']['description'] === 'Leash work', 'Expected status payloads to include the full timer metadata.');
     assertTimeTrackerHelper(
-        bdta_active_timer_has_valid_start_time($status_payload['timer'], 1712280900) === true,
+        bdta_active_timer_has_valid_start_time($status_payload['timer'], 1712280900),
         'Expected current timers to pass future-time validation.'
     );
     assertTimeTrackerHelper(
-        bdta_active_timer_has_valid_start_time($status_payload['timer'], 1712279500) === false,
+        !bdta_active_timer_has_valid_start_time($status_payload['timer'], 1712279500),
         'Expected timers too far in the future to fail validation.'
     );
 
