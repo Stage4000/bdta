@@ -66,7 +66,7 @@ function bdta_sanitize_blog_post_content_fallback(string $html): string
     $sanitized = $without_wrappers === null ? $sanitized : $without_wrappers;
 
     $with_sanitized_attributes = preg_replace_callback(
-        '/<([a-z][a-z0-9:-]*)(\s[^<>]*?)?(\/?)>/i',
+        '/<([a-z][a-z0-9-]*)(\s[^<>]*?)?(\/?)>/i',
         static function (array $matches): string {
             $tag = strtolower($matches[1]);
 
@@ -89,7 +89,7 @@ function bdta_sanitize_blog_post_content_fallback(string $html): string
 function bdta_sanitize_blog_post_tag_attributes_fallback(string $attributes): string
 {
     $sanitized = preg_replace(
-        '/\s+on[a-z0-9:_-]+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+)/i',
+        '/\s+on[a-z0-9_-]+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+)/i',
         '',
         $attributes
     );
