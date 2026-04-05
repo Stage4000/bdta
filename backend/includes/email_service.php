@@ -27,7 +27,7 @@ use PHPMailer\PHPMailer\Exception;
 /**
  * @phpstan-type AssocRow array<string, mixed>
  * @phpstan-type MailResult array{success: bool, message: string}
- * @phpstan-type MailOptions array{cc?: list<string>, bcc?: list<string>, context?: array<string, mixed>, client_id?: int|string|null}
+ * @phpstan-type MailOptions array{cc?: list<string>, bcc?: list<string>, context?: array<string, mixed>, client_id?: int|string|null, allow_history_recipient_lookup?: bool}
  * @phpstan-type RenderedTemplate array{subject: string, body_html: string, body_text: string}
  */
 class EmailService {
@@ -170,19 +170,30 @@ class EmailService {
         return null;
     }
 
-    private function resolveClientIdForHistory(int|string|null $client_id, string $to, string $mail_type): int|string|null {
-        if (is_int($client_id)) {
-            return $client_id > 0 ? $client_id : null;
+    private function shouldUseRecipientLookupForHistory(string $mail_type, bool $allow_history_recipient_lookup = false): bool {
+        if (in_array($mail_type, self::CLIENT_HISTORY_RECIPIENT_LOOKUP_TYPES, true)) {
+            return true;
         }
 
-        if (is_string($client_id)) {
-            $trimmed_client_id = trim($client_id);
-            if ($trimmed_client_id !== '') {
-                return $trimmed_client_id;
-            }
+        return $mail_type === self::MAIL_TYPE_GENERIC && $allow_history_recipient_lookup;
+    }
+
+    private function resolveClientIdForHistory(
+        int|string|null $client_id,
+        string $to,
+        string $mail_type,
+        bool $allow_history_recipient_lookup = false
+    ): ?int {
+        $resolved_client_id = self::normalizeResolvedClientId($client_id);
+        if ($resolved_client_id !== null) {
+            return $resolved_client_id;
         }
 
         if ($mail_type === self::MAIL_TYPE_COMPOSE || $mail_type === self::MAIL_TYPE_PASSWORD_RESET) {
+            return null;
+        }
+
+        if (!$this->shouldUseRecipientLookupForHistory($mail_type, $allow_history_recipient_lookup)) {
             return null;
         }
 
@@ -342,7 +353,12 @@ class EmailService {
         $cc        = $options['cc']      ?? [];
         $bcc       = $options['bcc']     ?? [];
         $context   = $options['context'] ?? [];
-        $client_id = $this->resolveClientIdForHistory($options['client_id'] ?? null, $to, $mail_type);
+        $client_id = $this->resolveClientIdForHistory(
+            $options['client_id'] ?? null,
+            $to,
+            $mail_type,
+            (bool) ($options['allow_history_recipient_lookup'] ?? false)
+        );
 
         // ── Pre-send log entry ────────────────────────────────────────────────
         $log_prefix = '[MailRouter]';
@@ -1306,12 +1322,22 @@ HTML;
      * @param string   $text_body Plain-text version (auto-derived from HTML when empty).
      * @param string   $mail_type One of the EmailService::MAIL_TYPE_* constants.
      *                            Defaults to MAIL_TYPE_GENERIC for backward compatibility.
-     * @param int|null $client_id Client ID for logging to client email history (optional).
+     * @param int|string|null $client_id Client ID for logging to client email history (optional).
+     * @param bool     $allow_history_recipient_lookup Allow recipient-based client history lookup for MAIL_TYPE_GENERIC when no client_id is provided.
      * @return MailResult
      */
-    public function sendGenericEmail(string $to, string $subject, string $html_body, string $text_body = '', string $mail_type = self::MAIL_TYPE_GENERIC, int|string|null $client_id = null): array {
+    public function sendGenericEmail(
+        string $to,
+        string $subject,
+        string $html_body,
+        string $text_body = '',
+        string $mail_type = self::MAIL_TYPE_GENERIC,
+        int|string|null $client_id = null,
+        bool $allow_history_recipient_lookup = false
+    ): array {
         return $this->routeMail($mail_type, $to, $subject, $html_body, $text_body, [
-            'client_id' => $client_id,
+            'client_id'                     => $client_id,
+            'allow_history_recipient_lookup' => $allow_history_recipient_lookup,
         ]);
     }
 

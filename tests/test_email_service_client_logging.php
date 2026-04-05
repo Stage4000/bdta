@@ -142,9 +142,19 @@ try {
     $result = $email_service->routeMail(
         EmailService::MAIL_TYPE_GENERIC,
         'client@example.com',
+        'Generic automated email without explicit history lookup',
+        '<p>Hello generic no opt-in</p>',
+        'Hello generic no opt-in'
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected generic email without opt-in to still fail without an SMTP host.');
+
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_GENERIC,
+        'client@example.com',
         'Generic automated email resolved by recipient',
         '<p>Hello generic fallback</p>',
-        'Hello generic fallback'
+        'Hello generic fallback',
+        ['allow_history_recipient_lookup' => true]
     );
     assertEmailServiceClientLogging($result['success'] === false, 'Expected generic recipient fallback email send to fail without an SMTP host.');
 
@@ -153,7 +163,8 @@ try {
         'Legacy Main Contact <legacy-main-contact@example.com>',
         'Generic automated email resolved by booking snapshot recipient',
         '<p>Hello legacy booking fallback</p>',
-        'Hello legacy booking fallback'
+        'Hello legacy booking fallback',
+        ['allow_history_recipient_lookup' => true]
     );
     assertEmailServiceClientLogging($result['success'] === false, 'Expected booking-snapshot recipient fallback email send to fail without an SMTP host.');
 
@@ -179,6 +190,7 @@ try {
     assertEmailServiceClientLogging(($logged_emails[6]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected booking-snapshot fallback email to keep the generic mail type.');
     assertEmailServiceClientLogging(($logged_emails[6]['subject'] ?? '') === 'Generic automated email resolved by booking snapshot recipient', 'Expected booking-snapshot fallback email to be logged.');
     assertEmailServiceClientLogging(($logged_emails[6]['to_email'] ?? '') === 'Legacy Main Contact <legacy-main-contact@example.com>', 'Expected booking-snapshot fallback email to preserve the original recipient string in the log row.');
+    assertEmailServiceClientLogging(!in_array('Generic automated email without explicit history lookup', array_column($logged_emails, 'subject'), true), 'Expected generic email without explicit history lookup opt-in to stay out of client_emails.');
 
     echo "Email service automated client logging test passed.\n";
 } catch (Throwable $e) {
