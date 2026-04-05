@@ -102,8 +102,15 @@ function bdta_sanitize_blog_post_tag_attributes_fallback(string $attributes): st
     );
     $sanitized = $sanitized === null ? $attributes : $sanitized;
 
+    $sanitized = preg_replace(
+        '/\s+xlink:href\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+)/i',
+        '',
+        $sanitized
+    );
+    $sanitized = $sanitized === null ? $attributes : $sanitized;
+
     $sanitized_urls = preg_replace_callback(
-        '/\s+(href|src|xlink:href)\s*=\s*("[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+)/i',
+        '/\s+(href|src)\s*=\s*("[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+)/i',
         static function (array $matches): string {
             $attribute_name = strtolower($matches[1]);
             $raw_value = trim($matches[2]);
@@ -192,7 +199,12 @@ function bdta_clean_blog_post_attributes(DOMElement $element): void
             continue;
         }
 
-        if ($name === 'href' || $name === 'src' || $name === 'xlink:href') {
+        if ($name === 'xlink:href') {
+            $attrs_to_remove[] = $attribute->name;
+            continue;
+        }
+
+        if ($name === 'href' || $name === 'src') {
             if (!bdta_is_safe_blog_post_url($value, $name === 'src')) {
                 $attrs_to_remove[] = $attribute->name;
             }
