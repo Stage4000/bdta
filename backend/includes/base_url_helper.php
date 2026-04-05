@@ -61,14 +61,19 @@ function bdta_is_localhost_base_url(string $base_url): bool
 
     if (filter_var($normalized_host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
         $ipv6 = inet_pton($normalized_host);
-        $ipv6_loopback = inet_pton('::1');
-        return $ipv6 !== false && $ipv6_loopback !== false && $ipv6 === $ipv6_loopback;
+        static $ipv6_loopback = null;
+        if (!is_string($ipv6_loopback)) {
+            $ipv6_loopback = inet_pton('::1');
+        }
+
+        return $ipv6 !== false && is_string($ipv6_loopback) && $ipv6 === $ipv6_loopback;
     }
 
     if (filter_var($normalized_host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
         $ipv4_octets = explode('.', $normalized_host);
         // Check whether the first octet places the address in the 127.0.0.0/8 loopback range.
-        return ($ipv4_octets[0] ?? '') === '127';
+        $first_octet = $ipv4_octets[0] ?? null;
+        return $first_octet === '127';
     }
 
     return false;
