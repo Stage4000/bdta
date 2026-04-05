@@ -137,8 +137,17 @@ try {
     );
     assertEmailServiceClientLogging($result['success'] === false, 'Expected contact-recipient fallback email send to fail without an SMTP host.');
 
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_GENERIC,
+        'client@example.com',
+        'Generic automated email resolved by recipient',
+        '<p>Hello generic fallback</p>',
+        'Hello generic fallback'
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected generic recipient fallback email send to fail without an SMTP host.');
+
     $logged_emails = $conn->query('SELECT client_id, status, to_email, subject, mail_type, error_message FROM client_emails ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
-    assertEmailServiceClientLogging(count($logged_emails) === 5, 'Expected all automated email attempts to be recorded in client_emails.');
+    assertEmailServiceClientLogging(count($logged_emails) === 6, 'Expected all automated email attempts to be recorded in client_emails.');
 
     foreach ($logged_emails as $logged_email) {
         assertEmailServiceClientLogging((int) ($logged_email['client_id'] ?? 0) === 123, 'Expected logged automated email to keep the client_id.');
@@ -154,6 +163,8 @@ try {
     assertEmailServiceClientLogging(($logged_emails[3]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CANCELLATION, 'Expected booking cancellation fallback email to keep the cancellation mail type.');
     assertEmailServiceClientLogging(($logged_emails[4]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CONFIRMATION, 'Expected contact-recipient fallback email to keep the confirmation mail type.');
     assertEmailServiceClientLogging(($logged_emails[4]['to_email'] ?? '') === 'ALT-CONTACT@example.com', 'Expected contact-recipient fallback email to preserve the original recipient casing in the log row.');
+    assertEmailServiceClientLogging(($logged_emails[5]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected generic automated fallback email to keep the generic mail type.');
+    assertEmailServiceClientLogging(($logged_emails[5]['subject'] ?? '') === 'Generic automated email resolved by recipient', 'Expected generic automated fallback email to be logged.');
 
     echo "Email service automated client logging test passed.\n";
 } catch (Throwable $e) {

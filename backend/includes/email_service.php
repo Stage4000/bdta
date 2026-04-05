@@ -141,7 +141,7 @@ class EmailService {
             }
         }
 
-        if (!in_array($mail_type, self::CLIENT_HISTORY_RECIPIENT_LOOKUP_TYPES, true)) {
+        if ($mail_type === self::MAIL_TYPE_COMPOSE || $mail_type === self::MAIL_TYPE_PASSWORD_RESET) {
             return null;
         }
 
