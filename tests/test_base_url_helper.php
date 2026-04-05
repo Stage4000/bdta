@@ -58,6 +58,10 @@ try {
         'Expected IPv6 loopback URLs on the default HTTPS port to count as localhost placeholders.'
     );
     assertBaseUrlHelperTest(
+        bdta_is_localhost_base_url('http://[0:0:0:0:0:0:0:1]') === true,
+        'Expected expanded IPv6 loopback URLs to count as localhost placeholders.'
+    );
+    assertBaseUrlHelperTest(
         bdta_is_default_localhost_base_url('http://localhost:8080') === false,
         'Expected non-default localhost ports not to be treated as the seeded placeholder.'
     );

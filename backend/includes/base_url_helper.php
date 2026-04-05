@@ -55,17 +55,21 @@ function bdta_is_localhost_base_url(string $base_url): bool
     }
 
     $normalized_host = trim(strtolower($host), '[]');
-    if ($normalized_host === 'localhost' || $normalized_host === '::1') {
+    if ($normalized_host === 'localhost') {
         return true;
+    }
+
+    if (filter_var($normalized_host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+        return inet_pton($normalized_host) === inet_pton('::1');
     }
 
     if (filter_var($normalized_host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
         return false;
     }
 
-    $ipv4 = ip2long($normalized_host);
+    $ipv4_octets = explode('.', $normalized_host);
     // Check whether the address is in the 127.0.0.0/8 loopback range.
-    return $ipv4 !== false && ((($ipv4 >> 24) & 0xff) === 0x7f);
+    return ($ipv4_octets[0] ?? '') === '127';
 }
 
 /**
