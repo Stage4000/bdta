@@ -288,14 +288,8 @@ function bdta_apply_public_social_links(string $html, ?array $links = null): str
 
 function bdta_render_social_link_icon(string $icon): string {
     if ($icon === 'custom:bluesky-butterfly') {
-        return bdta_get_bluesky_butterfly_icon_svg();
+        return '<span class="bdta-social-icon bdta-social-icon-bluesky" aria-hidden="true"></span>';
     }
 
     return '<i class="' . htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') . '" aria-hidden="true"></i>';
-}
-
-function bdta_get_bluesky_butterfly_icon_svg(): string {
-    return <<<'SVG'
-<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false" fill="currentColor"><path d="M6.335 4.75c1.587 1.19 3.293 3.603 4.165 5.399.873-1.796 2.578-4.209 4.165-5.4 1.145-.858 3-1.522 3 1.117 0 .527-.302 4.432-.48 5.066-.618 2.203-2.87 2.764-4.873 2.422 3.501.598 4.392 2.578 2.468 4.559-3.653 3.762-5.25-.944-5.66-2.15-.075-.221-.11-.324-.12-.236-.01-.088-.046.015-.12.236-.41 1.206-2.007 5.912-5.66 2.15-1.924-1.98-1.033-3.96 2.469-4.559-2.004.342-4.256-.219-4.873-2.422-.178-.634-.48-4.539-.48-5.066 0-2.639 1.854-1.975 3-1.117Z"/></svg>
-SVG;
 }

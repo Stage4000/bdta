@@ -56,7 +56,7 @@ $rendered = bdta_apply_public_social_links($html, $links);
 assertTrue(!str_contains($rendered, 'old events markup'), 'Expected events placeholder content to be replaced.');
 assertTrue(str_contains($rendered, 'https://youtube.com/@bdta'), 'Expected configured built-in links to render.');
 assertTrue(str_contains($rendered, 'fas fa-house'), 'Expected Nextdoor house icon markup to render.');
-assertTrue(str_contains($rendered, '<svg viewBox="0 0 24 24"'), 'Expected Bluesky butterfly SVG markup to render.');
+assertTrue(str_contains($rendered, 'bdta-social-icon-bluesky'), 'Expected Bluesky butterfly icon markup to render.');
 assertTrue(str_contains($rendered, 'Podcast'), 'Expected custom link labels to render.');
 assertTrue(!str_contains($rendered, 'javascript:alert(1)'), 'Expected invalid URLs to be excluded from rendered markup.');
 
