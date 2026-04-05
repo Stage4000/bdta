@@ -165,7 +165,11 @@ function bdta_is_safe_blog_post_url(string $url, bool $allow_data_image = false)
         return false;
     }
 
-    if (preg_match('/^(https?:|mailto:|tel:|\/|#|\.\.?\/)/i', $url) === 1) {
+    if (preg_match('/^(https?:|mailto:|tel:)/i', $url) === 1) {
+        return true;
+    }
+
+    if ($url[0] === '#' || $url[0] === '?') {
         return true;
     }
 
@@ -173,7 +177,15 @@ function bdta_is_safe_blog_post_url(string $url, bool $allow_data_image = false)
         return true;
     }
 
-    return false;
+    if (strpos($url, '//') === 0 || strpos($url, '../') === 0) {
+        return false;
+    }
+
+    if ($url[0] === '/' || strpos($url, './') === 0) {
+        return true;
+    }
+
+    return preg_match('/^[^:\s][^:\s]*(?:[?#].*)?$/', $url) === 1;
 }
 
 function bdta_sanitize_blog_post_style(string $style): string

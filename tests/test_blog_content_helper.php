@@ -31,6 +31,12 @@ assertBlogContentTest(strpos($sanitized_attributes, 'onclick=') === false, 'Expe
 assertBlogContentTest(strpos($sanitized_attributes, 'onerror=') === false, 'Expected image event handlers to be removed.');
 assertBlogContentTest(strpos($sanitized_attributes, 'rel="noopener noreferrer"') !== false, 'Expected external target=_blank links to receive rel protection.');
 
+$relative_paths = '<a href="../private/asset.css">Bad path</a><a href="/blog/good">Good path</a><img src="images/photo.jpg">';
+$sanitized_paths = bdta_sanitize_blog_post_content($relative_paths);
+assertBlogContentTest(strpos($sanitized_paths, '../private/asset.css') === false, 'Expected parent-relative URLs to be removed.');
+assertBlogContentTest(strpos($sanitized_paths, 'href="/blog/good"') !== false, 'Expected root-relative URLs to be preserved.');
+assertBlogContentTest(strpos($sanitized_paths, 'src="images/photo.jpg"') !== false, 'Expected simple relative asset URLs to be preserved.');
+
 $wrapped_document = <<<HTML
 <html>
   <head>
