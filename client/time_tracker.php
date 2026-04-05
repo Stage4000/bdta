@@ -216,7 +216,11 @@ include '../backend/includes/header.php';
 </div>
 
 <script>
-const ACTIVE_TIMER_STORAGE_KEY = 'bdtaActiveTimer:<?= safe_int($_SESSION['admin_id'] ?? 0) ?>';
+const ACTIVE_TIMER_STORAGE_KEY = <?= json_encode(sprintf(
+    'bdtaActiveTimer:%s:%d',
+    scalar_string($_SESSION['user_type'] ?? 'admin'),
+    safe_int($_SESSION['admin_id'] ?? 0)
+)) ?>;
 let timerInterval = null;
 let startTime = null;
 
@@ -399,7 +403,11 @@ function normalizeActiveTimer(timer) {
     const serviceType = typeof timer.service_type === 'string' ? timer.service_type.trim() : '';
     const description = typeof timer.description === 'string' ? timer.description : '';
 
-    if (!Number.isFinite(startTimeValue) || startTimeValue <= 0 || !Number.isFinite(clientId) || clientId <= 0 || !serviceType) {
+    const hasValidStartTime = Number.isFinite(startTimeValue) && startTimeValue > 0;
+    const hasValidClientId = Number.isFinite(clientId) && clientId > 0;
+    const hasServiceType = serviceType !== '';
+
+    if (!hasValidStartTime || !hasValidClientId || !hasServiceType) {
         return null;
     }
 
