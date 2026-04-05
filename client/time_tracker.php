@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            // Small client/server clock skew is tolerated, so clamp slightly-future times to "now" before saving.
+            // Small client/server clock skew is tolerated, so clamp slightly-future start times down to the stop time before saving.
             $start_time = min($timer['start_time'], $end_time);
             $duration_seconds = max(0, $end_time - $start_time);
             $duration_minutes = round($duration_seconds / 60);
@@ -445,7 +445,8 @@ function normalizeActiveTimer(timer) {
 
 function getStoredActiveTimer() {
     try {
-        return normalizeActiveTimer(JSON.parse(localStorage.getItem(ACTIVE_TIMER_STORAGE_KEY) || 'null'));
+        const storedTimer = localStorage.getItem(ACTIVE_TIMER_STORAGE_KEY);
+        return normalizeActiveTimer(storedTimer ? JSON.parse(storedTimer) : null);
     } catch (error) {
         clearActiveTimer();
         return null;
