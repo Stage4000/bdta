@@ -75,7 +75,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tmp_path = array_string_value($cover_photo_upload, 'tmp_name');
             $orig_name = array_string_value($cover_photo_upload, 'name');
             $file_size = array_int_value($cover_photo_upload, 'size');
-            $allowed_mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
             $mime_to_ext = [
                 'image/jpeg' => 'jpg',
                 'image/png' => 'png',

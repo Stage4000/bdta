@@ -36,7 +36,7 @@ $page_title = $post_title;
 $meta_description = $post_excerpt;
 $meta_og_title = $post_title;
 $meta_og_description = $post_excerpt;
-$meta_og_image = bdta_get_blog_cover_photo_meta_url($post_cover_photo);
+$meta_og_image = bdta_get_blog_cover_photo_meta_url($post_cover_photo, getDynamicBaseUrl());
 $meta_og_type = 'article';
 require_once 'includes/header.php';
 ?>
