@@ -11,12 +11,19 @@ function bdta_is_blog_cover_photo_upload_path(string $cover_photo): bool
 
 function bdta_get_blog_cover_photo_filesystem_path(string $cover_photo): string
 {
-    if (!bdta_is_blog_cover_photo_upload_path($cover_photo)) {
+    $path = trim($cover_photo);
+    $prefix = '/backend/uploads/blog_covers/';
+    if (!bdta_is_blog_cover_photo_upload_path($path)) {
         return '';
     }
 
     $uploads_root = realpath(dirname(__DIR__, 2) . '/backend/uploads/blog_covers');
-    $resolved_path = realpath(dirname(__DIR__, 2) . trim($cover_photo));
+    $relative_path = substr($path, strlen($prefix));
+    if ($relative_path === '' || str_contains($relative_path, '/')) {
+        return '';
+    }
+
+    $resolved_path = realpath(dirname(__DIR__, 2) . '/backend/uploads/blog_covers/' . $relative_path);
     if ($uploads_root === false || $resolved_path === false) {
         return '';
     }

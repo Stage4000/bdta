@@ -97,18 +97,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $hasError = true;
                 } else {
                     $upload_dir = __DIR__ . '/../backend/uploads/blog_covers/';
-                    if (!is_dir($upload_dir)) {
-                        mkdir($upload_dir, 0755, true);
+                    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true) && !is_dir($upload_dir)) {
+                        setFlashMessage('Failed to create the blog cover photo upload directory.', 'error');
+                        $hasError = true;
                     }
 
                     $filename = 'blog_cover_' . ($post_id > 0 ? (int) $post_id . '_' : '') . uniqid('', true) . '.' . $mime_to_ext[$mime_type];
                     $dest_path = $upload_dir . $filename;
 
-                    if (!move_uploaded_file($tmp_path, $dest_path)) {
-                        setFlashMessage('Failed to save the uploaded cover photo.', 'error');
-                        $hasError = true;
-                    } else {
-                        $new_cover_photo = '/backend/uploads/blog_covers/' . $filename;
+                    if (!$hasError) {
+                        if (!move_uploaded_file($tmp_path, $dest_path)) {
+                            setFlashMessage('Failed to save the uploaded cover photo.', 'error');
+                            $hasError = true;
+                        } else {
+                            $new_cover_photo = '/backend/uploads/blog_covers/' . $filename;
+                        }
                     }
                 }
             }
