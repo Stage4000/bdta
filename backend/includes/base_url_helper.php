@@ -62,7 +62,7 @@ function bdta_is_localhost_base_url(string $base_url): bool
     if (filter_var($normalized_host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
         $ipv6 = inet_pton($normalized_host);
         static $ipv6_loopback = null;
-        if (!is_string($ipv6_loopback)) {
+        if ($ipv6_loopback === null) {
             $ipv6_loopback = inet_pton('::1');
         }
 
@@ -72,8 +72,7 @@ function bdta_is_localhost_base_url(string $base_url): bool
     if (filter_var($normalized_host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
         $ipv4_octets = explode('.', $normalized_host);
         // Check whether the first octet places the address in the 127.0.0.0/8 loopback range.
-        $first_octet = $ipv4_octets[0] ?? null;
-        return $first_octet === '127';
+        return $ipv4_octets[0] === '127';
     }
 
     return false;
