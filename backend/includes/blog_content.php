@@ -70,13 +70,14 @@ function bdta_sanitize_blog_post_content_fallback(string $html): string
         '/<([a-z][a-z0-9-]*)(\s[^<>]*?)?(\/?)>/i',
         static function (array $matches): string {
             $tag = strtolower($matches[1]);
+            $raw_attributes = $matches[2] ?? '';
+            $self_closing = $matches[3] ?? '';
 
             if (in_array($tag, ['html', 'body', 'head'], true)) {
                 return '';
             }
 
-            $attributes = ($matches[2] ?? '') !== '' ? bdta_sanitize_blog_post_tag_attributes_fallback($matches[2]) : '';
-            $self_closing = $matches[3] ?? '';
+            $attributes = $raw_attributes !== '' ? bdta_sanitize_blog_post_tag_attributes_fallback($raw_attributes) : '';
 
             return '<' . $matches[1] . $attributes . $self_closing . '>';
         },
