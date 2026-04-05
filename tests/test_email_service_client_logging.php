@@ -103,6 +103,7 @@ try {
 
     assertEmailServiceClientLogging($result['success'] === false, 'Expected the email send to fail without an SMTP host.');
 
+    // Use mixed-case recipient text to verify client lookup is case-insensitive.
     $result = $email_service->routeMail(
         EmailService::MAIL_TYPE_WORKFLOW,
         'CLIENT@example.com',
@@ -130,6 +131,7 @@ try {
     );
     assertEmailServiceClientLogging($result['success'] === false, 'Expected booking cancellation fallback email send to fail without an SMTP host.');
 
+    // Use mixed-case recipient text to verify contact-email lookup is case-insensitive.
     $result = $email_service->routeMail(
         EmailService::MAIL_TYPE_BOOKING_CONFIRMATION,
         'ALT-CONTACT@example.com',
