@@ -444,7 +444,7 @@ class Database {
         return $stmt->fetchColumn() !== false;
     }
 
-    private function tableCollation(string $tableName): string {
+    private function tableCollation(string $tableName): ?string {
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
             throw new InvalidArgumentException("Invalid table name: $tableName");
         }
@@ -457,7 +457,12 @@ class Database {
             LIMIT 1
         ");
         $stmt->execute([$tableName]);
-        return strtolower(scalar_string($stmt->fetchColumn()));
+        $collation = $stmt->fetchColumn();
+        if (!is_string($collation) || $collation === '') {
+            return null;
+        }
+
+        return strtolower($collation);
     }
     
     /**
@@ -2175,7 +2180,8 @@ class Database {
                 error_log("Migration: could not create client_emails message_id index - " . $e->getMessage());
             }
         }
-        if (!str_starts_with($this->tableCollation('client_emails'), 'utf8mb4_')) {
+        $client_emails_collation = $this->tableCollation('client_emails');
+        if ($client_emails_collation === null || !str_starts_with($client_emails_collation, 'utf8mb4_')) {
             try {
                 $this->conn->exec(self::MYSQL_CLIENT_EMAILS_UTF8MB4_SQL);
             } catch (PDOException $e) {
