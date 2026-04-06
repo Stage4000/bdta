@@ -2,6 +2,7 @@
 
 /**
  * @param array<string, mixed> $contract
+ * @return string HTML fragment for the Bootstrap-styled public contract page
  */
 function bdta_render_contract_client_contact_info(array $contract): string {
     $client_name = trim((string)($contract['client_name'] ?? ''));

@@ -23,9 +23,9 @@ try {
     bdta_assert_true(str_contains($full_html, '<strong>Address:</strong><br>'), 'Expected address label to be rendered when present.');
     bdta_assert_true(str_contains($full_html, '123 Training Lane'), 'Expected first line of address to be rendered.');
     bdta_assert_true(str_contains($full_html, 'Unit 4'), 'Expected second line of address to be rendered.');
+    $expected_address_html = nl2br(htmlspecialchars("123 Training Lane\nUnit 4", ENT_QUOTES, 'UTF-8'));
     bdta_assert_true(
-        str_contains($full_html, "123 Training Lane<br />")
-        || str_contains($full_html, "123 Training Lane<br>"),
+        str_contains($full_html, $expected_address_html),
         'Expected address newlines to be converted into HTML line breaks.'
     );
 
