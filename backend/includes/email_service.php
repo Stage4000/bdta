@@ -217,7 +217,7 @@ class EmailService {
 
         $normalized_lookup_email = strtolower($lookup_email);
 
-        $lookup_source = null;
+        $lookup_source = 'recipient lookup';
         try {
             $lookup_queries = [
                 'clients' => 'SELECT id FROM clients WHERE LOWER(email) = ? ORDER BY id ASC LIMIT 1',
@@ -235,7 +235,7 @@ class EmailService {
             }
         } catch (Throwable $e) {
             error_log('[MailRouter] Failed to resolve client by recipient email for history logging'
-                . ($lookup_source !== null ? ' via ' . $lookup_source : '')
+                . ' via ' . $lookup_source
                 . ': ' . $e->getMessage());
         }
 
