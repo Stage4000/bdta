@@ -12,7 +12,7 @@ function bdta_read_file(string $path): string {
     $contents = file_get_contents($path);
 
     if ($contents === false) {
-        fwrite(STDERR, "Failed to read {$path}" . PHP_EOL);
+        fwrite(STDERR, "Test setup failed: unable to read {$path}" . PHP_EOL);
         exit(1);
     }
 
