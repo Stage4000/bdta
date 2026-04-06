@@ -1,6 +1,7 @@
 #!/usr/bin/env php
 <?php
 
+require_once dirname(__DIR__) . '/backend/public/includes/public_contract_access.php';
 require_once dirname(__DIR__) . '/backend/public/includes/public_contract_contact_info.php';
 
 function bdta_assert_true(bool $condition, string $message): void {
@@ -29,6 +30,17 @@ try {
         'Expected address newlines to be converted into HTML line breaks.'
     );
 
+    $public_html = bdta_render_contract_client_contact_info([
+        'client_name' => 'Jane Client',
+        'client_email' => 'jane@example.com',
+        'client_phone' => '555-3300',
+        'client_address' => "123 Training Lane\nUnit 4",
+    ], false);
+    bdta_assert_true(str_contains($public_html, '<strong>For:</strong> Jane Client<br>'), 'Expected public contact block to keep the client name.');
+    bdta_assert_true(!str_contains($public_html, '<strong>Email:</strong>'), 'Expected public contact block to hide email without an authorized token.');
+    bdta_assert_true(!str_contains($public_html, '<strong>Phone:</strong>'), 'Expected public contact block to hide phone without an authorized token.');
+    bdta_assert_true(!str_contains($public_html, '<strong>Address:</strong>'), 'Expected public contact block to hide address without an authorized token.');
+
     $minimal_html = bdta_render_contract_client_contact_info([
         'client_name' => 'Only Name',
         'client_email' => '',
@@ -45,6 +57,18 @@ try {
         'client_name' => '   ',
     ]);
     bdta_assert_true(str_contains($fallback_html, '<strong>For:</strong> Client<br>'), 'Expected a safe fallback label when the client name is blank.');
+
+    $access_token = bdta_generate_contract_access_token();
+    bdta_assert_true(strlen($access_token) === 32, 'Expected generated contract access tokens to be 32 hex characters long.');
+    bdta_assert_true(ctype_xdigit($access_token), 'Expected generated contract access tokens to be hexadecimal.');
+    bdta_assert_true(
+        bdta_contract_has_valid_access_token(['access_token' => $access_token], $access_token),
+        'Expected matching contract access tokens to be authorized.'
+    );
+    bdta_assert_true(
+        !bdta_contract_has_valid_access_token(['access_token' => $access_token], $access_token . 'x'),
+        'Expected mismatched contract access tokens to be rejected.'
+    );
 
     echo "Public contract contact info test passed.\n";
 } catch (Throwable $e) {

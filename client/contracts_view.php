@@ -21,6 +21,15 @@ if (!is_array($contract)) {
     redirect('contracts_list.php');
 }
 
+require_once '../backend/public/includes/public_contract_access.php';
+
+if (array_string_value($contract, 'access_token') === '') {
+    $new_access_token = bdta_generate_contract_access_token();
+    $token_stmt = $conn->prepare("UPDATE contracts SET access_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    $token_stmt->execute([$new_access_token, $id]);
+    $contract['access_token'] = $new_access_token;
+}
+
 // Handle delete action
 if (isset($_POST['delete_contract'])) {
     $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
@@ -60,7 +69,7 @@ if (isset($_POST['change_status'])) {
 
 // Generate public link dynamically from current request
 $base_url = getDynamicBaseUrl();
-$public_link = $base_url . '/backend/public/contract.php?id=' . $id;
+$public_link = $base_url . '/backend/public/contract.php?token=' . rawurlencode(array_string_value($contract, 'access_token'));
 
 // Fetch audit log for this contract
 $log_stmt = $conn->prepare("

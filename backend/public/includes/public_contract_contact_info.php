@@ -4,7 +4,7 @@
  * @param array<string, mixed> $contract
  * @return string HTML fragment for the Bootstrap-styled public contract page
  */
-function bdta_render_contract_client_contact_info(array $contract): string {
+function bdta_render_contract_client_contact_info(array $contract, bool $show_private_contact_details = true): string {
     $client_name = trim((string)($contract['client_name'] ?? ''));
     $client_email = trim((string)($contract['client_email'] ?? ''));
     $client_phone = trim((string)($contract['client_phone'] ?? ''));
@@ -12,15 +12,15 @@ function bdta_render_contract_client_contact_info(array $contract): string {
 
     $html = '<strong>For:</strong> ' . htmlspecialchars($client_name !== '' ? $client_name : 'Client', ENT_QUOTES, 'UTF-8') . '<br>';
 
-    if ($client_email !== '') {
+    if ($show_private_contact_details && $client_email !== '') {
         $html .= '<strong>Email:</strong> ' . htmlspecialchars($client_email, ENT_QUOTES, 'UTF-8') . '<br>';
     }
 
-    if ($client_phone !== '') {
+    if ($show_private_contact_details && $client_phone !== '') {
         $html .= '<strong>Phone:</strong> ' . htmlspecialchars($client_phone, ENT_QUOTES, 'UTF-8') . '<br>';
     }
 
-    if ($client_address !== '') {
+    if ($show_private_contact_details && $client_address !== '') {
         $html .= '<strong>Address:</strong><br>';
         $html .= '<span class="d-inline-block ms-3">' . nl2br(htmlspecialchars($client_address, ENT_QUOTES, 'UTF-8')) . '</span><br>';
     }

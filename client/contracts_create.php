@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/public/includes/public_contract_access.php';
 requireLogin();
 
 $db = new Database();
@@ -73,12 +74,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Create new contract
                 $contract_number = 'CON-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+                $access_token = bdta_generate_contract_access_token();
                 
                 $stmt = $conn->prepare("
-                    INSERT INTO contracts (contract_number, client_id, title, description, contract_text, created_date, effective_date, status) 
-                    VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?, 'draft')
+                    INSERT INTO contracts (contract_number, client_id, title, description, contract_text, created_date, effective_date, status, access_token) 
+                    VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?, 'draft', ?)
                 ");
-                $stmt->execute([$contract_number, $client_id, $title, $description, $contract_text, $effective_date]);
+                $stmt->execute([$contract_number, $client_id, $title, $description, $contract_text, $effective_date, $access_token]);
                 setFlashMessage('Contract created successfully!', 'success');
                 redirect('contracts_list.php');
             }
