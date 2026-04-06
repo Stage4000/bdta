@@ -58,6 +58,27 @@ $conn->exec('
         updated_at TEXT
     )
 ');
+$conn->exec("
+    CREATE TABLE unmatched_emails (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id TEXT,
+        from_email TEXT NOT NULL,
+        from_name TEXT,
+        to_email TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        body_html TEXT,
+        body_text TEXT,
+        received_at TEXT,
+        direction TEXT DEFAULT 'incoming',
+        is_assigned INTEGER DEFAULT 0,
+        assigned_to_client_id INTEGER,
+        assigned_at TEXT,
+        assigned_by INTEGER,
+        is_archived INTEGER DEFAULT 0,
+        archived_at TEXT,
+        created_at TEXT
+    )
+");
 
 $insert = $conn->prepare('INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, ?)');
 foreach ([
@@ -97,6 +118,7 @@ try {
         'Booking confirmation resolved by recipient',
         'Booking cancellation resolved by recipient',
         'Booking confirmation resolved by contact recipient',
+        'Generic automated email without explicit history lookup',
         'Generic automated email resolved by recipient',
         'Generic automated email resolved by booking snapshot recipient',
     ];
@@ -179,8 +201,44 @@ try {
     );
     assertEmailServiceClientLogging($result['success'] === false, 'Expected booking-snapshot recipient fallback email send to fail without an SMTP host.');
 
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_GENERIC,
+        'unmatched@example.com',
+        'Generic automated email routed to unmatched UI',
+        '<p>Hello unmatched fallback</p>',
+        'Hello unmatched fallback'
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected unmatched fallback email send to fail without an SMTP host.');
+
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_PASSWORD_RESET,
+        'user-reset@example.com',
+        'Password reset stays out of platform history',
+        '<p>Password reset</p>',
+        'Password reset'
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected password reset email send to fail without an SMTP host.');
+
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_GENERIC,
+        'admin-notification@example.com',
+        'Admin notification stays out of platform history',
+        '<p>Admin notification</p>',
+        'Admin notification',
+        ['skip_platform_logging' => true]
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected skipped platform logging email send to fail without an SMTP host.');
+
     $logged_emails = $conn->query('SELECT client_id, status, to_email, subject, mail_type, error_message FROM client_emails ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
     assertEmailServiceClientLogging(count($logged_emails) === count($expected_logged_subjects), 'Expected all automated email attempts to be recorded in client_emails.');
+
+    $unmatched_emails = $conn->query('SELECT from_email, from_name, to_email, subject, direction FROM unmatched_emails ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
+    assertEmailServiceClientLogging(count($unmatched_emails) === 1, 'Expected only non-client automated emails to be recorded in unmatched_emails.');
+    assertEmailServiceClientLogging(($unmatched_emails[0]['to_email'] ?? '') === 'unmatched@example.com', 'Expected unmatched automated email to preserve the recipient address.');
+    assertEmailServiceClientLogging(($unmatched_emails[0]['subject'] ?? '') === 'Generic automated email routed to unmatched UI', 'Expected unmatched automated email to keep the subject.');
+    assertEmailServiceClientLogging(($unmatched_emails[0]['direction'] ?? '') === 'outgoing', 'Expected unmatched automated email to be marked as outgoing.');
+    assertEmailServiceClientLogging(($unmatched_emails[0]['from_email'] ?? '') === 'bookings@example.com', 'Expected unmatched automated email to use the configured sender address.');
+    assertEmailServiceClientLogging(($unmatched_emails[0]['from_name'] ?? '') === 'BDTA Test', 'Expected unmatched automated email to use the configured sender name.');
 
     foreach ($logged_emails as $logged_email) {
         assertEmailServiceClientLogging((int) ($logged_email['client_id'] ?? 0) === 123, 'Expected logged automated email to keep the client_id.');
@@ -200,12 +258,15 @@ try {
     assertEmailServiceClientLogging(($logged_emails[3]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CANCELLATION, 'Expected booking cancellation fallback email to keep the cancellation mail type.');
     assertEmailServiceClientLogging(($logged_emails[4]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CONFIRMATION, 'Expected contact-recipient fallback email to keep the confirmation mail type.');
     assertEmailServiceClientLogging(($logged_emails[4]['to_email'] ?? '') === 'ALT-CONTACT@example.com', 'Expected contact-recipient fallback email to preserve the original recipient casing in the log row.');
-    assertEmailServiceClientLogging(($logged_emails[5]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected generic automated fallback email to keep the generic mail type.');
-    assertEmailServiceClientLogging(($logged_emails[5]['subject'] ?? '') === $expected_logged_subjects[5], 'Expected generic automated fallback email to be logged.');
-    assertEmailServiceClientLogging(($logged_emails[6]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected booking-snapshot fallback email to keep the generic mail type.');
-    assertEmailServiceClientLogging(($logged_emails[6]['subject'] ?? '') === $expected_logged_subjects[6], 'Expected booking-snapshot fallback email to be logged.');
-    assertEmailServiceClientLogging(($logged_emails[6]['to_email'] ?? '') === 'Legacy Main Contact <legacy-main-contact@example.com>', 'Expected booking-snapshot fallback email to preserve the original recipient string in the log row.');
-    assertEmailServiceClientLogging(!in_array('Generic automated email without explicit history lookup', array_column($logged_emails, 'subject'), true), 'Expected generic email without explicit history lookup opt-in to stay out of client_emails.');
+    assertEmailServiceClientLogging(($logged_emails[5]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected generic automated email without explicit lookup to keep the generic mail type.');
+    assertEmailServiceClientLogging(($logged_emails[5]['subject'] ?? '') === $expected_logged_subjects[5], 'Expected generic automated email without explicit lookup to now be logged to client_emails.');
+    assertEmailServiceClientLogging(($logged_emails[6]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected generic automated fallback email to keep the generic mail type.');
+    assertEmailServiceClientLogging(($logged_emails[6]['subject'] ?? '') === $expected_logged_subjects[6], 'Expected generic automated fallback email to be logged.');
+    assertEmailServiceClientLogging(($logged_emails[7]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected booking-snapshot fallback email to keep the generic mail type.');
+    assertEmailServiceClientLogging(($logged_emails[7]['subject'] ?? '') === $expected_logged_subjects[7], 'Expected booking-snapshot fallback email to be logged.');
+    assertEmailServiceClientLogging(($logged_emails[7]['to_email'] ?? '') === 'Legacy Main Contact <legacy-main-contact@example.com>', 'Expected booking-snapshot fallback email to preserve the original recipient string in the log row.');
+    assertEmailServiceClientLogging(!in_array('Password reset stays out of platform history', array_column($logged_emails, 'subject'), true), 'Expected password reset emails to stay out of client_emails.');
+    assertEmailServiceClientLogging(!in_array('Admin notification stays out of platform history', array_column($logged_emails, 'subject'), true), 'Expected skipped platform logging emails to stay out of client_emails.');
 
     echo "Email service automated client logging test passed.\n";
 } catch (Throwable $e) {

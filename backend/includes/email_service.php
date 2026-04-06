@@ -27,7 +27,7 @@ use PHPMailer\PHPMailer\Exception;
 /**
  * @phpstan-type AssocRow array<string, mixed>
  * @phpstan-type MailResult array{success: bool, message: string}
- * @phpstan-type MailOptions array{cc?: list<string>, bcc?: list<string>, context?: array<string, mixed>, client_id?: int|string|null, allow_history_recipient_lookup?: bool}
+ * @phpstan-type MailOptions array{cc?: list<string>, bcc?: list<string>, context?: array<string, mixed>, client_id?: int|string|null, allow_history_recipient_lookup?: bool, skip_platform_logging?: bool}
  * @phpstan-type RenderedTemplate array{subject: string, body_html: string, body_text: string}
  */
 class EmailService {
@@ -176,7 +176,15 @@ class EmailService {
             return true;
         }
 
-        return $mail_type === self::MAIL_TYPE_GENERIC && $allow_history_recipient_lookup;
+        if ($mail_type === self::MAIL_TYPE_GENERIC) {
+            return true;
+        }
+
+        return $allow_history_recipient_lookup;
+    }
+
+    private function shouldSkipPlatformLogging(string $mail_type, bool $skip_platform_logging = false): bool {
+        return $skip_platform_logging || $mail_type === self::MAIL_TYPE_PASSWORD_RESET;
     }
 
     private function resolveClientIdForHistory(
@@ -358,12 +366,18 @@ class EmailService {
         $cc        = $options['cc']      ?? [];
         $bcc       = $options['bcc']     ?? [];
         $context   = $options['context'] ?? [];
-        $client_id = $this->resolveClientIdForHistory(
-            $options['client_id'] ?? null,
-            $to,
+        $skip_platform_logging = $this->shouldSkipPlatformLogging(
             $mail_type,
-            (bool) ($options['allow_history_recipient_lookup'] ?? false)
+            (bool) ($options['skip_platform_logging'] ?? false)
         );
+        $client_id = $skip_platform_logging
+            ? self::normalizeResolvedClientId($options['client_id'] ?? null)
+            : $this->resolveClientIdForHistory(
+                $options['client_id'] ?? null,
+                $to,
+                $mail_type,
+                (bool) ($options['allow_history_recipient_lookup'] ?? false)
+            );
 
         // ── Pre-send log entry ────────────────────────────────────────────────
         $log_prefix = '[MailRouter]';
@@ -396,15 +410,16 @@ class EmailService {
         }
 
         // ── Persist to client email history ──────────────────────────────────
-        // Skip MAIL_TYPE_COMPOSE (already logged by client_emails_api.php before send)
-        // and MAIL_TYPE_PASSWORD_RESET (not a client-facing communication).
         if (
-            $client_id
+            !$skip_platform_logging
             && $mail_type !== self::MAIL_TYPE_COMPOSE
-            && $mail_type !== self::MAIL_TYPE_PASSWORD_RESET
             && $this->getClientEmailLogConnection()
         ) {
-            $this->logToClientEmails($client_id, $to, $subject, $html_body, $text_body, $result, $mail_type);
+            if ($client_id) {
+                $this->logToClientEmails($client_id, $to, $subject, $html_body, $text_body, $result, $mail_type);
+            } else {
+                $this->logToUnmatchedEmails($to, $subject, $html_body, $text_body);
+            }
         }
 
         return $result;
@@ -459,6 +474,37 @@ class EmailService {
             ]);
         } catch (\Exception $e) {
             error_log('[MailRouter] Failed to log email to client_emails: ' . $e->getMessage());
+        }
+    }
+
+    private function logToUnmatchedEmails(string $to, string $subject, string $html_body, string $text_body): void {
+        try {
+            if ($this->conn === null) {
+                return;
+            }
+
+            $now  = currentUtcDateTime();
+            $stmt = $this->conn->prepare("
+                INSERT INTO unmatched_emails (
+                    from_email, from_name, to_email, subject,
+                    body_html, body_text, received_at, direction, created_at
+                ) VALUES (
+                    ?, ?, ?, ?,
+                    ?, ?, ?, 'outgoing', ?
+                )
+            ");
+            $stmt->execute([
+                $this->from_email,
+                $this->from_name,
+                $to,
+                $subject,
+                $html_body,
+                $text_body,
+                $now,
+                $now,
+            ]);
+        } catch (\Exception $e) {
+            error_log('[MailRouter] Failed to log email to unmatched_emails: ' . $e->getMessage());
         }
     }
 
@@ -876,7 +922,9 @@ HTML;
             . (!empty($reason) ? "Reason: {$reason}\n" : '')
             . "Booking ID: #{$booking_id}\n";
 
-        return $this->routeMail(self::MAIL_TYPE_GENERIC, $admin_email, $subject, $html_body, $text_body);
+        return $this->routeMail(self::MAIL_TYPE_GENERIC, $admin_email, $subject, $html_body, $text_body, [
+            'skip_platform_logging' => true,
+        ]);
     }
 
     /**
