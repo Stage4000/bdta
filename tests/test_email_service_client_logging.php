@@ -239,6 +239,8 @@ try {
     assertEmailServiceClientLogging(($unmatched_emails[0]['direction'] ?? '') === 'outgoing', 'Expected unmatched automated email to be marked as outgoing.');
     assertEmailServiceClientLogging(($unmatched_emails[0]['from_email'] ?? '') === 'bookings@example.com', 'Expected unmatched automated email to use the configured sender address.');
     assertEmailServiceClientLogging(($unmatched_emails[0]['from_name'] ?? '') === 'BDTA Test', 'Expected unmatched automated email to use the configured sender name.');
+    assertEmailServiceClientLogging(!in_array('Password reset stays out of platform history', array_column($unmatched_emails, 'subject'), true), 'Expected password reset emails to stay out of unmatched_emails.');
+    assertEmailServiceClientLogging(!in_array('Admin notification stays out of platform history', array_column($unmatched_emails, 'subject'), true), 'Expected skipped platform logging email to stay out of unmatched_emails.');
 
     foreach ($logged_emails as $logged_email) {
         assertEmailServiceClientLogging((int) ($logged_email['client_id'] ?? 0) === 123, 'Expected logged automated email to keep the client_id.');

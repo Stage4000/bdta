@@ -176,9 +176,9 @@ class EmailService {
             return true;
         }
 
-        // Generic mail now resolves recipient history by default so every
-        // non-excluded outgoing email lands in either client_emails or
-        // unmatched_emails within the platform UI.
+        // Generic mail now resolves recipient history by default so generic
+        // outgoing email lands in either client_emails or unmatched_emails
+        // within the platform UI.
         if ($mail_type === self::MAIL_TYPE_GENERIC) {
             return true;
         }
