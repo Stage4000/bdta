@@ -23,7 +23,11 @@ try {
     bdta_assert_true(str_contains($full_html, '<strong>Address:</strong><br>'), 'Expected address label to be rendered when present.');
     bdta_assert_true(str_contains($full_html, '123 Training Lane'), 'Expected first line of address to be rendered.');
     bdta_assert_true(str_contains($full_html, 'Unit 4'), 'Expected second line of address to be rendered.');
-    bdta_assert_true(str_contains($full_html, "123 Training Lane<br"), 'Expected address newlines to be converted into HTML line breaks.');
+    bdta_assert_true(
+        str_contains($full_html, "123 Training Lane<br />")
+        || str_contains($full_html, "123 Training Lane<br>"),
+        'Expected address newlines to be converted into HTML line breaks.'
+    );
 
     $minimal_html = bdta_render_contract_client_contact_info([
         'client_name' => 'Only Name',
