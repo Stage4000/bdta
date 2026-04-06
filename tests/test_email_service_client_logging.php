@@ -266,7 +266,7 @@ try {
     assertEmailServiceClientLogging(($logged_emails[7]['subject'] ?? '') === $expected_logged_subjects[7], 'Expected booking-snapshot fallback email to be logged.');
     assertEmailServiceClientLogging(($logged_emails[7]['to_email'] ?? '') === 'Legacy Main Contact <legacy-main-contact@example.com>', 'Expected booking-snapshot fallback email to preserve the original recipient string in the log row.');
     assertEmailServiceClientLogging(!in_array('Password reset stays out of platform history', array_column($logged_emails, 'subject'), true), 'Expected password reset emails to stay out of client_emails.');
-    assertEmailServiceClientLogging(!in_array('Admin notification stays out of platform history', array_column($logged_emails, 'subject'), true), 'Expected skipped platform logging emails to stay out of client_emails.');
+    assertEmailServiceClientLogging(!in_array('Admin notification stays out of platform history', array_column($logged_emails, 'subject'), true), 'Expected skipped platform logging email to stay out of client_emails.');
 
     echo "Email service automated client logging test passed.\n";
 } catch (Throwable $e) {

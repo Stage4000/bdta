@@ -176,6 +176,9 @@ class EmailService {
             return true;
         }
 
+        // Generic mail now resolves recipient history by default so every
+        // non-excluded outgoing email lands in either client_emails or
+        // unmatched_emails within the platform UI.
         if ($mail_type === self::MAIL_TYPE_GENERIC) {
             return true;
         }
@@ -1376,7 +1379,7 @@ HTML;
      * @param string   $mail_type One of the EmailService::MAIL_TYPE_* constants.
      *                            Defaults to MAIL_TYPE_GENERIC for backward compatibility.
      * @param int|string|null $client_id Client ID for logging to client email history (optional).
-     * @param bool $allow_history_recipient_lookup Allow recipient-based client history lookup for generic mail when no client_id is provided.
+     * @param bool $allow_history_recipient_lookup Retained for backward compatibility; generic mail now resolves recipient-based history by default, and this flag still enables lookup for custom mail types.
      * @return MailResult
      */
     public function sendGenericEmail(
