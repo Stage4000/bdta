@@ -443,6 +443,22 @@ class Database {
         $stmt->execute([$tableName, $indexName]);
         return $stmt->fetchColumn() !== false;
     }
+
+    private function tableCollation(string $tableName): string {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
+            throw new InvalidArgumentException("Invalid table name: $tableName");
+        }
+
+        $stmt = $this->conn->prepare("
+            SELECT TABLE_COLLATION
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$tableName]);
+        return strtolower(scalar_string($stmt->fetchColumn()));
+    }
     
     /**
      * Check if a table exists
@@ -2159,10 +2175,12 @@ class Database {
                 error_log("Migration: could not create client_emails message_id index - " . $e->getMessage());
             }
         }
-        try {
-            $this->conn->exec(self::MYSQL_CLIENT_EMAILS_UTF8MB4_SQL);
-        } catch (PDOException $e) {
-            error_log("Migration: could not convert client_emails to utf8mb4 - " . $e->getMessage());
+        if (!str_starts_with($this->tableCollation('client_emails'), 'utf8mb4_')) {
+            try {
+                $this->conn->exec(self::MYSQL_CLIENT_EMAILS_UTF8MB4_SQL);
+            } catch (PDOException $e) {
+                error_log("Migration: could not convert client_emails to utf8mb4 - " . $e->getMessage());
+            }
         }
         if (!$this->indexExists('unmatched_emails', 'idx_unmatched_emails_message_id')) {
             try {

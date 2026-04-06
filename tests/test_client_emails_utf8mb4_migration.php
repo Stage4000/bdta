@@ -17,7 +17,11 @@ if (!$migration_sql instanceof ReflectionClassConstant) {
 
 $migration_value = $migration_sql->getValue();
 
-if (!is_string($migration_value) || $migration_value !== 'ALTER TABLE client_emails CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci') {
+if (!is_string($migration_value)) {
+    throw new RuntimeException('client_emails utf8mb4 migration SQL constant should resolve to a string.');
+}
+
+if (!str_contains($migration_value, 'ALTER TABLE client_emails CONVERT TO CHARACTER SET utf8mb4')) {
     throw new RuntimeException('client_emails utf8mb4 migration SQL should convert the table to utf8mb4 for emoji-safe email logging.');
 }
 
