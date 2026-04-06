@@ -9,7 +9,11 @@ function bdta_contract_string_value(mixed $value): string {
         return $value;
     }
 
-    if (is_int($value) || is_float($value) || is_bool($value)) {
+    if (is_bool($value)) {
+        return $value ? '1' : '0';
+    }
+
+    if (is_int($value) || is_float($value)) {
         return (string) $value;
     }
 
