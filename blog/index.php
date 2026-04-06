@@ -35,7 +35,7 @@ require_once 'includes/header.php';
                     <div class="col-md-6 col-lg-4">
                         <div class="card h-100 border-0 shadow-sm hover-lift">
                             <?php if ($post_cover_photo !== ''): ?>
-                            <img src="<?php echo escape($post_cover_photo); ?>" class="card-img-top" alt="<?php echo escape($post_title); ?>" style="height: 220px; object-fit: cover;">
+                            <img src="<?php echo escape($post_cover_photo); ?>" class="card-img-top" alt="<?php echo escape($post_title); ?>" loading="lazy" decoding="async" style="height: 220px; object-fit: cover;">
                             <?php endif; ?>
                             <div class="card-body p-4">
                                 <h5 class="card-title fw-bold"><?php echo escape($post_title); ?></h5>

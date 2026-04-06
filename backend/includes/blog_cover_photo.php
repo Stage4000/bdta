@@ -11,7 +11,7 @@ function bdta_is_valid_blog_cover_photo_path(string $path): bool
 
     if (filter_var($path, FILTER_VALIDATE_URL)) {
         $scheme = strtolower((string) parse_url($path, PHP_URL_SCHEME));
-        return in_array($scheme, ['http', 'https'], true);
+        return $scheme === 'https';
     }
 
     return str_starts_with($path, '/') && !str_starts_with($path, '//') && !str_contains($path, '..');

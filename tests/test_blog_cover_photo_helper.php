@@ -22,6 +22,10 @@ assertBlogCoverPhotoTest(
     'Expected HTTPS blog cover photo URLs to be accepted.'
 );
 assertBlogCoverPhotoTest(
+    bdta_is_valid_blog_cover_photo_path('http://example.com/example.jpg') === false,
+    'Expected HTTP blog cover photo URLs to be rejected to avoid mixed-content issues.'
+);
+assertBlogCoverPhotoTest(
     bdta_is_valid_blog_cover_photo_path('javascript:alert(1)') === false,
     'Expected non-HTTP blog cover photo URLs to be rejected.'
 );
