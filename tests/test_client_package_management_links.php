@@ -19,7 +19,7 @@ function bdta_read_file(string $path, string $label): string {
         } else {
             $error_reason = 'read error';
         }
-        fwrite(STDERR, 'Test setup failed: unable to read ' . $label . ' (' . $error_reason . ')' . PHP_EOL);
+        fwrite(STDERR, sprintf('Test setup failed: unable to read %s (%s)', $label, $error_reason) . PHP_EOL);
         exit(1);
     }
 
