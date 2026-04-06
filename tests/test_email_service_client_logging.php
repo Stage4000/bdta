@@ -231,6 +231,7 @@ try {
 
     $logged_emails = $conn->query('SELECT client_id, status, to_email, subject, mail_type, error_message FROM client_emails ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
     assertEmailServiceClientLogging(count($logged_emails) === count($expected_logged_subjects), 'Expected all non-excluded automated email attempts to be recorded in client_emails.');
+    assertEmailServiceClientLogging(array_column($logged_emails, 'subject') === $expected_logged_subjects, 'Expected client_emails subjects to match the logged automated email subjects in order.');
 
     $unmatched_emails = $conn->query('SELECT from_email, from_name, to_email, subject, direction FROM unmatched_emails ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
     assertEmailServiceClientLogging(count($unmatched_emails) === 1, 'Expected only non-client automated emails to be recorded in unmatched_emails.');

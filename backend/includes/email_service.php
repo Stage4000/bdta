@@ -1379,7 +1379,7 @@ HTML;
      * @param string   $mail_type One of the EmailService::MAIL_TYPE_* constants.
      *                            Defaults to MAIL_TYPE_GENERIC for backward compatibility.
      * @param int|string|null $client_id Client ID for logging to client email history (optional).
-     * @param bool $allow_history_recipient_lookup Retained for backward compatibility; generic mail now resolves recipient-based history by default, and this flag still enables lookup for custom mail types.
+     * @param bool $allow_history_recipient_lookup Retained for backward compatibility; generic mail now resolves recipient-based history by default, and this flag remains available for non-generic callers that still rely on opt-in lookup behavior.
      * @return MailResult
      */
     public function sendGenericEmail(
