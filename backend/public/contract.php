@@ -10,6 +10,7 @@
 require_once '../includes/config.php';
 require_once '../includes/database.php';
 require_once __DIR__ . '/includes/public_error_page.php';
+require_once __DIR__ . '/includes/public_contract_contact_info.php';
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -19,7 +20,7 @@ $action = scalar_string($_POST['action'] ?? '');
 
 // Get contract
 $stmt = $conn->prepare("
-    SELECT co.*, c.name as client_name, c.email as client_email
+    SELECT co.*, c.name as client_name, c.email as client_email, c.phone as client_phone, c.address as client_address
     FROM contracts co
     INNER JOIN clients c ON co.client_id = c.id
     WHERE co.id = ?
@@ -40,6 +41,9 @@ $contract_status = array_string_value($contract, 'status');
 $contract_number = array_string_value($contract, 'contract_number');
 $contract_title = array_string_value($contract, 'title');
 $contract_client_name = array_string_value($contract, 'client_name');
+$contract_client_email = array_string_value($contract, 'client_email');
+$contract_client_phone = array_string_value($contract, 'client_phone');
+$contract_client_address = array_string_value($contract, 'client_address');
 $contract_effective_date = array_string_value($contract, 'effective_date');
 $contract_description = array_string_value($contract, 'description');
 $contract_text = array_string_value($contract, 'contract_text');
@@ -114,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
 
         // Reload contract data
         $stmt = $conn->prepare("
-            SELECT co.*, c.name as client_name, c.email as client_email
+            SELECT co.*, c.name as client_name, c.email as client_email, c.phone as client_phone, c.address as client_address
             FROM contracts co
             INNER JOIN clients c ON co.client_id = c.id
             WHERE co.id = ?
@@ -128,6 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
         $contract_number = array_string_value($contract, 'contract_number');
         $contract_title = array_string_value($contract, 'title');
         $contract_client_name = array_string_value($contract, 'client_name');
+        $contract_client_email = array_string_value($contract, 'client_email');
+        $contract_client_phone = array_string_value($contract, 'client_phone');
+        $contract_client_address = array_string_value($contract, 'client_address');
         $contract_effective_date = array_string_value($contract, 'effective_date');
         $contract_description = array_string_value($contract, 'description');
         $contract_text = array_string_value($contract, 'contract_text');
@@ -264,7 +271,7 @@ $page_title = 'Contract ' . $contract_number;
                     <h3 class="mb-3"><?= htmlspecialchars($contract_title) ?></h3>
 
                     <div class="mb-3">
-                        <strong>For:</strong> <?= htmlspecialchars($contract_client_name) ?><br>
+                        <?= bdta_render_contract_client_contact_info($contract) ?>
                         <?php if ($contract_effective_date !== ''): ?>
                             <strong>Effective Date:</strong> <?= date('F j, Y', safe_timestamp(strtotime($contract_effective_date))) ?>
                         <?php endif; ?>
