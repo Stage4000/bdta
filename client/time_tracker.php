@@ -170,8 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 include '../backend/includes/header.php';
 
-$active_timer_storage_user_type = scalar_string($_SESSION['user_type'] ?? 'admin');
-$active_timer_storage_user_id = safe_int($_SESSION['admin_id'] ?? 0);
+$active_timer_storage_key = bdta_active_timer_storage_key($_SESSION['user_type'] ?? 'admin', $_SESSION['admin_id'] ?? 0);
 $time_tracker_csrf_token = csrfToken();
 ?>
 
@@ -251,11 +250,7 @@ $time_tracker_csrf_token = csrfToken();
 </div>
 
 <script>
-const ACTIVE_TIMER_STORAGE_KEY = <?= json_encode(sprintf(
-    'bdtaActiveTimer:%s:%d',
-    $active_timer_storage_user_type,
-    $active_timer_storage_user_id
-)) ?>;
+const ACTIVE_TIMER_STORAGE_KEY = <?= json_encode($active_timer_storage_key) ?>;
 const TIME_TRACKER_CSRF_TOKEN = <?= json_encode($time_tracker_csrf_token) ?>;
 let timerInterval = null;
 let startTime = null;
@@ -479,6 +474,10 @@ function saveActiveTimer(timer) {
     } catch (error) {
         console.warn(error);
     }
+
+    if (window.bdtaActiveTimerIndicator && typeof window.bdtaActiveTimerIndicator.setActiveTimer === 'function') {
+        window.bdtaActiveTimerIndicator.setActiveTimer(normalizedTimer);
+    }
 }
 
 function clearActiveTimer() {
@@ -486,6 +485,10 @@ function clearActiveTimer() {
         localStorage.removeItem(ACTIVE_TIMER_STORAGE_KEY);
     } catch (error) {
         console.warn(error);
+    }
+
+    if (window.bdtaActiveTimerIndicator && typeof window.bdtaActiveTimerIndicator.clearActiveTimer === 'function') {
+        window.bdtaActiveTimerIndicator.clearActiveTimer();
     }
 }
 
