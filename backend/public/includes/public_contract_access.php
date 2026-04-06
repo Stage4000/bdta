@@ -1,6 +1,7 @@
 <?php
 
 const BDTA_CONTRACT_ACCESS_TOKEN_BYTES = 16;
+// bin2hex() expands each byte into two hexadecimal characters.
 const BDTA_CONTRACT_ACCESS_TOKEN_LENGTH = BDTA_CONTRACT_ACCESS_TOKEN_BYTES * 2;
 
 function bdta_generate_contract_access_token(): string {

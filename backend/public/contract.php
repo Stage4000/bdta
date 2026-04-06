@@ -50,6 +50,7 @@ if (!$contract) {
 }
 
 $contract_status = array_string_value($contract, 'status');
+$contract_id = array_int_value($contract, 'id');
 $contract_number = array_string_value($contract, 'contract_number');
 $contract_title = array_string_value($contract, 'title');
 $contract_effective_date = array_string_value($contract, 'effective_date');
@@ -59,7 +60,6 @@ $contract_signature_typed_name = array_string_value($contract, 'signature_typed_
 $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
 $contract_signed_date = array_string_value($contract, 'signed_date');
 $contract_signature_data = array_string_value($contract, 'signature_data');
-$contract_id = array_int_value($contract, 'id');
 $can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
 
 // Check if contract is viewable
