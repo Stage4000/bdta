@@ -57,5 +57,17 @@ assertBlogCoverPhotoTest(
     bdta_get_blog_cover_photo_absolute_url('/backend/uploads/blog/example.jpg') === 'http://localhost:8000/backend/uploads/blog/example.jpg',
     'Expected helper to fall back to the default localhost base URL when none is provided.'
 );
+assertBlogCoverPhotoTest(
+    bdta_get_blog_cover_photo_local_path('/backend/uploads/blog/example.jpg') === dirname(__DIR__) . '/backend/uploads/blog/example.jpg',
+    'Expected upload-directory cover photo paths to resolve to local filesystem paths.'
+);
+assertBlogCoverPhotoTest(
+    bdta_get_blog_cover_photo_local_path('https://cdn.example.com/cover.jpg') === '',
+    'Expected absolute cover photo URLs to have no local filesystem path.'
+);
+assertBlogCoverPhotoTest(
+    bdta_get_blog_cover_photo_local_path('/backend/uploads/blog/nested/example.jpg') === '',
+    'Expected nested cover photo paths to be rejected for local deletion.'
+);
 
 echo "Blog cover photo helper tests passed.\n";

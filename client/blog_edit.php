@@ -36,7 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cover_photo = $existing_cover_photo;
     $remove_cover_photo = isset($_POST['remove_cover_photo']);
     $new_cover_photo_path = '';
-    $new_cover_photo_file_path = '';
     $hasError = false;
 
     if ($publish_date_input) {
@@ -92,10 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'image/gif' => 'gif',
                     ];
                     if (!in_array($extension, $allowed_exts, true)) {
-                        $extension = $mime_to_ext[$mime_type] ?? 'jpg';
+                        $extension = $mime_to_ext[$mime_type];
                     }
 
-                    $upload_dir = dirname(__DIR__) . '/backend/uploads/blog/';
+                    $upload_dir = bdta_get_blog_cover_photo_upload_directory() . '/';
                     if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true) && !is_dir($upload_dir)) {
                         setFlashMessage('Failed to prepare the cover photo upload directory.', 'error');
                         $hasError = true;
@@ -129,7 +128,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $hasError = true;
                             } else {
                                 $new_cover_photo_path = '/backend/uploads/blog/' . $filename;
-                                $new_cover_photo_file_path = $destination_path;
                             }
                         }
                     }
@@ -180,18 +178,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (
                 $old_cover_photo_to_delete !== ''
-                && str_starts_with($old_cover_photo_to_delete, '/backend/uploads/blog/')
-                && !str_contains($old_cover_photo_to_delete, '..')
             ) {
-                $old_cover_photo_path = dirname(__DIR__) . $old_cover_photo_to_delete;
-                if (is_file($old_cover_photo_path)) {
-                    unlink($old_cover_photo_path);
-                }
+                bdta_delete_blog_cover_photo_file($old_cover_photo_to_delete);
             }
             redirect('blog_list.php');
         } catch (PDOException $e) {
-            if ($new_cover_photo_file_path !== '' && is_file($new_cover_photo_file_path)) {
-                unlink($new_cover_photo_file_path);
+            if ($new_cover_photo_path !== '') {
+                bdta_delete_blog_cover_photo_file($new_cover_photo_path);
             }
             setFlashMessage('Error: ' . $e->getMessage(), 'error');
         }
