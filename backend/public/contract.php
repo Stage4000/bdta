@@ -16,7 +16,7 @@ require_once __DIR__ . '/includes/public_contract_contact_info.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$requested_contract_id = safe_int($_GET['id'] ?? 0);
+$legacy_id = safe_int($_GET['id'] ?? 0);
 $contract_token = trim(scalar_string($_GET['token'] ?? ''));
 $action = scalar_string($_POST['action'] ?? '');
 
@@ -36,7 +36,7 @@ if ($contract_token !== '') {
         INNER JOIN clients c ON co.client_id = c.id
         WHERE co.id = ?
     ");
-    $stmt->execute([$requested_contract_id]);
+    $stmt->execute([$legacy_id]);
 }
 $contract = $stmt->fetch(PDO::FETCH_ASSOC);
 

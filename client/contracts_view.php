@@ -23,29 +23,27 @@ if (!is_array($contract)) {
 
 require_once '../backend/public/includes/public_contract_access.php';
 
-if (array_string_value($contract, 'access_token') === '') {
-    $new_access_token = bdta_generate_contract_access_token();
-    $token_stmt = $conn->prepare("
-        UPDATE contracts
-        SET access_token = CASE
-                WHEN access_token IS NULL OR access_token = '' THEN ?
-                ELSE access_token
-            END,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    ");
-    $token_stmt->execute([$new_access_token, $id]);
-    $refresh_stmt = $conn->prepare("
-        SELECT co.*, c.name as client_name, c.email as client_email
-        FROM contracts co
-        JOIN clients c ON co.client_id = c.id
-        WHERE co.id = ?
-    ");
-    $refresh_stmt->execute([$id]);
-    $refreshed_contract = $refresh_stmt->fetch(PDO::FETCH_ASSOC);
-    if (is_array($refreshed_contract)) {
-        $contract = $refreshed_contract;
-    }
+$new_access_token = bdta_generate_contract_access_token();
+$token_stmt = $conn->prepare("
+    UPDATE contracts
+    SET access_token = CASE
+            WHEN access_token IS NULL OR access_token = '' THEN ?
+            ELSE access_token
+        END,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+");
+$token_stmt->execute([$new_access_token, $id]);
+$refresh_stmt = $conn->prepare("
+    SELECT co.*, c.name as client_name, c.email as client_email
+    FROM contracts co
+    JOIN clients c ON co.client_id = c.id
+    WHERE co.id = ?
+");
+$refresh_stmt->execute([$id]);
+$refreshed_contract = $refresh_stmt->fetch(PDO::FETCH_ASSOC);
+if (is_array($refreshed_contract)) {
+    $contract = $refreshed_contract;
 }
 
 // Handle delete action
