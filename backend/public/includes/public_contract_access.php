@@ -6,12 +6,13 @@ const BDTA_CONTRACT_ACCESS_TOKEN_LENGTH = BDTA_CONTRACT_ACCESS_TOKEN_BYTES * 2;
 
 /**
  * Normalize contract helper input into a string for trimming/comparison.
- * Unsupported values (including arrays, objects, resources, and null) fall back to ''.
+ * Boolean values normalize to '1'/'0' and unsupported values (including arrays,
+ * objects, resources, and null) fall back to ''.
  *
  * @param mixed $value The value to normalize to a string.
  * @return string The normalized string value.
  */
-function bdta_contract_string_value(mixed $value): string {
+function bdta_normalize_to_string(mixed $value): string {
     if (is_string($value)) {
         return $value;
     }
@@ -36,7 +37,7 @@ function bdta_generate_contract_access_token(): string {
  * @param array<string, mixed> $contract
  */
 function bdta_contract_has_valid_access_token(array $contract, string $provided_token): bool {
-    $stored_token = trim(bdta_contract_string_value($contract['access_token'] ?? ''));
+    $stored_token = trim(bdta_normalize_to_string($contract['access_token'] ?? ''));
     $provided_token = trim($provided_token);
 
     return $stored_token !== ''
