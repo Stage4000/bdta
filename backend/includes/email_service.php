@@ -486,7 +486,7 @@ class EmailService {
                 return;
             }
 
-            $now  = currentUtcDateTime();
+            $timestamp = currentUtcDateTime();
             $stmt = $this->conn->prepare("
                 INSERT INTO unmatched_emails (
                     from_email, from_name, to_email, subject,
@@ -503,8 +503,8 @@ class EmailService {
                 $subject,
                 $html_body,
                 $text_body,
-                $now,
-                $now,
+                $timestamp,
+                $timestamp,
             ]);
         } catch (\Exception $e) {
             error_log('[MailRouter] Failed to log email to unmatched_emails: ' . $e->getMessage());
