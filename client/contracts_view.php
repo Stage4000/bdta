@@ -26,12 +26,9 @@ require_once '../backend/public/includes/public_contract_access.php';
 $new_access_token = bdta_generate_contract_access_token();
 $token_stmt = $conn->prepare("
     UPDATE contracts
-    SET access_token = CASE
-            WHEN access_token IS NULL OR access_token = '' THEN ?
-            ELSE access_token
-        END,
+    SET access_token = COALESCE(NULLIF(access_token, ''), ?),
         updated_at = CASE
-            WHEN access_token IS NULL OR access_token = '' THEN CURRENT_TIMESTAMP
+            WHEN NULLIF(access_token, '') IS NULL THEN CURRENT_TIMESTAMP
             ELSE updated_at
         END
     WHERE id = ?

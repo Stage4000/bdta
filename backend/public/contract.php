@@ -21,23 +21,15 @@ $contract_token = trim(scalar_string($_GET['token'] ?? ''));
 $action = scalar_string($_POST['action'] ?? '');
 
 // Get contract
-if ($contract_token !== '') {
-    $stmt = $conn->prepare("
-        SELECT co.*, c.name as client_name, c.email as client_email, c.phone as client_phone, c.address as client_address
-        FROM contracts co
-        INNER JOIN clients c ON co.client_id = c.id
-        WHERE co.access_token = ?
-    ");
-    $stmt->execute([$contract_token]);
-} else {
-    $stmt = $conn->prepare("
-        SELECT co.*, c.name as client_name, c.email as client_email, c.phone as client_phone, c.address as client_address
-        FROM contracts co
-        INNER JOIN clients c ON co.client_id = c.id
-        WHERE co.id = ?
-    ");
-    $stmt->execute([$legacy_id]);
-}
+$contract_lookup_column = $contract_token !== '' ? 'co.access_token' : 'co.id';
+$contract_lookup_value = $contract_token !== '' ? $contract_token : (string)$legacy_id;
+$stmt = $conn->prepare("
+    SELECT co.*, c.name as client_name, c.email as client_email, c.phone as client_phone, c.address as client_address
+    FROM contracts co
+    INNER JOIN clients c ON co.client_id = c.id
+    WHERE {$contract_lookup_column} = ?
+");
+$stmt->execute([$contract_lookup_value]);
 $contract = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$contract) {
