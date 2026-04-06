@@ -59,7 +59,10 @@ try {
     bdta_assert_true(str_contains($fallback_html, '<strong>For:</strong> Client<br>'), 'Expected a safe fallback label when the client name is blank.');
 
     $access_token = bdta_generate_contract_access_token();
-    bdta_assert_true(strlen($access_token) === 32, 'Expected generated contract access tokens to be 32 hex characters long.');
+    bdta_assert_true(
+        strlen($access_token) === BDTA_CONTRACT_ACCESS_TOKEN_LENGTH,
+        'Expected generated contract access tokens to be the configured hex length.'
+    );
     bdta_assert_true(ctype_xdigit($access_token), 'Expected generated contract access tokens to be hexadecimal.');
     bdta_assert_true(
         bdta_contract_has_valid_access_token(['access_token' => $access_token], $access_token),
@@ -69,6 +72,9 @@ try {
         !bdta_contract_has_valid_access_token(['access_token' => $access_token], $access_token . 'x'),
         'Expected mismatched contract access tokens to be rejected.'
     );
+    $access_state = bdta_get_contract_access_state(['id' => 42, 'access_token' => $access_token], $access_token);
+    bdta_assert_true($access_state['contract_id'] === 42, 'Expected contract access state to report the contract id.');
+    bdta_assert_true($access_state['can_view_private_contact_details'] === true, 'Expected contract access state to authorize matching tokens.');
 
     echo "Public contract contact info test passed.\n";
 } catch (Throwable $e) {
