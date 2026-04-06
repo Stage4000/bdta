@@ -8,22 +8,22 @@ function bdta_assert(bool $condition, string $message): void {
     }
 }
 
-function bdta_read_file(string $path): string {
+function bdta_read_file(string $path, string $label): string {
     $contents = file_get_contents($path);
 
     if ($contents === false) {
         $error_reason = !file_exists($path)
             ? 'file not found'
             : (!is_readable($path) ? 'file not readable' : 'read error');
-        fwrite(STDERR, 'Test setup failed: unable to read ' . basename($path) . ' (' . $error_reason . ')' . PHP_EOL);
+        fwrite(STDERR, 'Test setup failed: unable to read ' . $label . ' (' . $error_reason . ')' . PHP_EOL);
         exit(1);
     }
 
     return $contents;
 }
 
-$clients_view = bdta_read_file(dirname(__DIR__) . '/client/clients_view.php');
-$clients_edit = bdta_read_file(dirname(__DIR__) . '/client/clients_edit.php');
+$clients_view = bdta_read_file(dirname(__DIR__) . '/client/clients_view.php', 'client view template');
+$clients_edit = bdta_read_file(dirname(__DIR__) . '/client/clients_edit.php', 'client edit template');
 
 $credits_summary_guard = "if (!empty(\$pkg_credits_summary))";
 $credits_summary_guard_pos = strpos($clients_view, $credits_summary_guard);
