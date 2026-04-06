@@ -4,12 +4,12 @@
  * @param array<string, mixed> $contract
  */
 function bdta_render_contract_client_contact_info(array $contract): string {
-    $client_name = (string)($contract['client_name'] ?? '');
+    $client_name = trim((string)($contract['client_name'] ?? ''));
     $client_email = trim((string)($contract['client_email'] ?? ''));
     $client_phone = trim((string)($contract['client_phone'] ?? ''));
     $client_address = trim((string)($contract['client_address'] ?? ''));
 
-    $html = '<strong>For:</strong> ' . htmlspecialchars($client_name, ENT_QUOTES, 'UTF-8') . '<br>';
+    $html = '<strong>For:</strong> ' . htmlspecialchars($client_name !== '' ? $client_name : 'Client', ENT_QUOTES, 'UTF-8') . '<br>';
 
     if ($client_email !== '') {
         $html .= '<strong>Email:</strong> ' . htmlspecialchars($client_email, ENT_QUOTES, 'UTF-8') . '<br>';
