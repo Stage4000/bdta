@@ -14,7 +14,7 @@ function bdta_read_file(string $path): string {
     if ($contents === false) {
         $error_reason = !file_exists($path)
             ? 'file not found'
-            : (is_readable($path) ? 'read error' : 'file not readable');
+            : (!is_readable($path) ? 'file not readable' : 'read error');
         fwrite(STDERR, 'Test setup failed: unable to read ' . basename($path) . ' (' . $error_reason . ')' . PHP_EOL);
         exit(1);
     }
