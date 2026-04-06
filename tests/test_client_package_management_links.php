@@ -8,11 +8,19 @@ function bdta_assert(bool $condition, string $message): void {
     }
 }
 
-$clients_view = file_get_contents(dirname(__DIR__) . '/client/clients_view.php');
-$clients_edit = file_get_contents(dirname(__DIR__) . '/client/clients_edit.php');
+function bdta_read_file(string $path): string {
+    $contents = file_get_contents($path);
 
-bdta_assert($clients_view !== false, 'Failed to read client/clients_view.php');
-bdta_assert($clients_edit !== false, 'Failed to read client/clients_edit.php');
+    if ($contents === false) {
+        fwrite(STDERR, "Failed to read {$path}" . PHP_EOL);
+        exit(1);
+    }
+
+    return $contents;
+}
+
+$clients_view = bdta_read_file(dirname(__DIR__) . '/client/clients_view.php');
+$clients_edit = bdta_read_file(dirname(__DIR__) . '/client/clients_edit.php');
 
 $credits_summary_guard = "if (!empty(\$pkg_credits_summary))";
 $credits_summary_guard_pos = strpos($clients_view, $credits_summary_guard);
