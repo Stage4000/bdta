@@ -115,6 +115,7 @@ function safe_float(mixed $value): float {
 class Database {
     private const MYSQL_CLIENT_NAME_PHONE_INDEX_SQL = 'CREATE INDEX idx_clients_name_phone ON clients(name(128), phone(32))';
     private const MYSQL_CLIENT_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_client_emails_message_id ON client_emails(direction(8), message_id(160))';
+    private const MYSQL_CLIENT_EMAILS_UTF8MB4_SQL = 'ALTER TABLE client_emails CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
     private const MYSQL_UNMATCHED_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id(191))';
 
     private static ?SafePDO $sharedConnection = null;
@@ -2157,6 +2158,11 @@ class Database {
             } catch (PDOException $e) {
                 error_log("Migration: could not create client_emails message_id index - " . $e->getMessage());
             }
+        }
+        try {
+            $this->conn->exec(self::MYSQL_CLIENT_EMAILS_UTF8MB4_SQL);
+        } catch (PDOException $e) {
+            error_log("Migration: could not convert client_emails to utf8mb4 - " . $e->getMessage());
         }
         if (!$this->indexExists('unmatched_emails', 'idx_unmatched_emails_message_id')) {
             try {
