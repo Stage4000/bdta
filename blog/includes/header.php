@@ -7,6 +7,7 @@ $og_description = isset($og_description) ? scalar_string($og_description) : '';
 $og_image = isset($og_image) ? scalar_string($og_image) : '';
 $og_type = isset($og_type) && scalar_string($og_type) !== '' ? scalar_string($og_type) : 'website';
 $browser_title = $seo_title !== '' ? $seo_title : (isset($page_title) ? scalar_string($page_title) : '');
+$og_image_alt = isset($og_image_alt) && scalar_string($og_image_alt) !== '' ? scalar_string($og_image_alt) : $browser_title;
 $twitter_card = $og_image !== '' ? 'summary_large_image' : 'summary';
 ?>
 <!DOCTYPE html>
@@ -32,6 +33,9 @@ $twitter_card = $og_image !== '' ? 'summary_large_image' : 'summary';
     <?php if ($og_image !== ''): ?>
     <meta property="og:image" content="<?php echo escape($og_image); ?>">
     <meta name="twitter:image" content="<?php echo escape($og_image); ?>">
+    <?php if ($og_image_alt !== ''): ?>
+    <meta name="twitter:image:alt" content="<?php echo escape($og_image_alt); ?>">
+    <?php endif; ?>
     <?php endif; ?>
     <meta name="twitter:card" content="<?php echo escape($twitter_card); ?>">
     <meta name="color-scheme" content="light dark">
