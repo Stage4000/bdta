@@ -218,13 +218,11 @@ include '../backend/includes/header.php';
                             </dd>
                         <?php endif; ?>
 
-                        <?php if (!empty($pkg_credits_summary)): ?>
-                            <dd>
-                                <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-wallet"></i> Manage Credits
-                                </a>
-                            </dd>
-                        <?php endif; ?>
+                        <dd>
+                            <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-wallet"></i> Manage Credits &amp; Packages
+                            </a>
+                        </dd>
                         
                         <?php if ($client['notes']): ?>
                             <dt>Notes:</dt>

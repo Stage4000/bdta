@@ -67,7 +67,7 @@ include '../backend/includes/header.php';
                             <i class="fas fa-dog"></i> Add Pet
                         </a>
                         <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-info me-2">
-                            <i class="fas fa-wallet"></i> Manage Credits
+                            <i class="fas fa-wallet"></i> Manage Credits &amp; Packages
                         </a>
                         <a href="client_set_password.php?client_id=<?= $id ?>" class="btn btn-warning me-2">
                             <i class="fas fa-key"></i> Set Portal Password
