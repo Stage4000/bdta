@@ -78,8 +78,8 @@ try {
     );
 
     bdta_assert_true(bdta_normalize_to_string('abc') === 'abc', 'Expected strings to remain unchanged.');
-    bdta_assert_true(bdta_normalize_to_string(true) === '1', 'Expected true to normalize to 1.');
-    bdta_assert_true(bdta_normalize_to_string(false) === '0', 'Expected false to normalize to 0.');
+    bdta_assert_true(bdta_normalize_to_string(true) === '1', 'Expected true to normalize to the string "1".');
+    bdta_assert_true(bdta_normalize_to_string(false) === '0', 'Expected false to normalize to the string "0".');
     bdta_assert_true(bdta_normalize_to_string(42) === '42', 'Expected integers to normalize to strings.');
     bdta_assert_true(bdta_normalize_to_string(3.5) === '3.5', 'Expected floats to normalize to strings.');
     bdta_assert_true(bdta_normalize_to_string(null) === '', 'Expected null to normalize to an empty string.');
