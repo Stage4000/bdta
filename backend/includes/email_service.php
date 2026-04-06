@@ -186,8 +186,8 @@ class EmailService {
         return $allow_history_recipient_lookup;
     }
 
-    private function shouldSkipPlatformLogging(string $mail_type, bool $skip_platform_logging = false): bool {
-        return $skip_platform_logging || $mail_type === self::MAIL_TYPE_PASSWORD_RESET;
+    private function shouldSkipPlatformLogging(string $mail_type, bool $explicit_skip = false): bool {
+        return $explicit_skip || $mail_type === self::MAIL_TYPE_PASSWORD_RESET;
     }
 
     private function resolveClientIdForHistory(
