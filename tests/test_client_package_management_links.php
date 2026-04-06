@@ -12,7 +12,9 @@ function bdta_read_file(string $path): string {
     $contents = file_get_contents($path);
 
     if ($contents === false) {
-        fwrite(STDERR, "Test setup failed: unable to read {$path}" . PHP_EOL);
+        $last_error = error_get_last();
+        $error_detail = is_array($last_error) && isset($last_error['message']) ? ' (' . $last_error['message'] . ')' : '';
+        fwrite(STDERR, "Test setup failed: unable to read {$path}{$error_detail}" . PHP_EOL);
         exit(1);
     }
 
