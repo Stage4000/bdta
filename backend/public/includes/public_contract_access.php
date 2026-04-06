@@ -4,6 +4,18 @@ const BDTA_CONTRACT_ACCESS_TOKEN_BYTES = 16;
 // bin2hex() expands each byte into two hexadecimal characters.
 const BDTA_CONTRACT_ACCESS_TOKEN_LENGTH = BDTA_CONTRACT_ACCESS_TOKEN_BYTES * 2;
 
+function bdta_contract_string_value(mixed $value): string {
+    if (is_string($value)) {
+        return $value;
+    }
+
+    if (is_int($value) || is_float($value) || is_bool($value)) {
+        return (string) $value;
+    }
+
+    return '';
+}
+
 function bdta_generate_contract_access_token(): string {
     return bin2hex(random_bytes(BDTA_CONTRACT_ACCESS_TOKEN_BYTES));
 }
@@ -12,7 +24,7 @@ function bdta_generate_contract_access_token(): string {
  * @param array<string, mixed> $contract
  */
 function bdta_contract_has_valid_access_token(array $contract, string $provided_token): bool {
-    $stored_token = trim((string)($contract['access_token'] ?? ''));
+    $stored_token = trim(bdta_contract_string_value($contract['access_token'] ?? ''));
     $provided_token = trim($provided_token);
 
     return $stored_token !== ''
