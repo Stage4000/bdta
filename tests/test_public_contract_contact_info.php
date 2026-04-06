@@ -10,6 +10,10 @@ function bdta_assert_true(bool $condition, string $message): void {
     }
 }
 
+function bdta_assert_false(bool $condition, string $message): void {
+    bdta_assert_true(!$condition, $message);
+}
+
 try {
     $full_html = bdta_render_contract_client_contact_info([
         'client_name' => 'Jane Client',
@@ -37,9 +41,9 @@ try {
         'client_address' => "123 Training Lane\nUnit 4",
     ], false);
     bdta_assert_true(str_contains($public_html, '<strong>For:</strong> Jane Client<br>'), 'Expected public contact block to keep the client name.');
-    bdta_assert_true(!str_contains($public_html, '<strong>Email:</strong>'), 'Expected public contact block to hide email without an authorized token.');
-    bdta_assert_true(!str_contains($public_html, '<strong>Phone:</strong>'), 'Expected public contact block to hide phone without an authorized token.');
-    bdta_assert_true(!str_contains($public_html, '<strong>Address:</strong>'), 'Expected public contact block to hide address without an authorized token.');
+    bdta_assert_false(str_contains($public_html, '<strong>Email:</strong>'), 'Expected public contact block to hide email without an authorized token.');
+    bdta_assert_false(str_contains($public_html, '<strong>Phone:</strong>'), 'Expected public contact block to hide phone without an authorized token.');
+    bdta_assert_false(str_contains($public_html, '<strong>Address:</strong>'), 'Expected public contact block to hide address without an authorized token.');
 
     $minimal_html = bdta_render_contract_client_contact_info([
         'client_name' => 'Only Name',
@@ -49,9 +53,9 @@ try {
     ]);
 
     bdta_assert_true(str_contains($minimal_html, '<strong>For:</strong> Only Name<br>'), 'Expected client name to always be rendered.');
-    bdta_assert_true(!str_contains($minimal_html, '<strong>Email:</strong>'), 'Expected blank email to be omitted.');
-    bdta_assert_true(!str_contains($minimal_html, '<strong>Phone:</strong>'), 'Expected blank phone to be omitted.');
-    bdta_assert_true(!str_contains($minimal_html, '<strong>Address:</strong>'), 'Expected blank address to be omitted.');
+    bdta_assert_false(str_contains($minimal_html, '<strong>Email:</strong>'), 'Expected blank email to be omitted.');
+    bdta_assert_false(str_contains($minimal_html, '<strong>Phone:</strong>'), 'Expected blank phone to be omitted.');
+    bdta_assert_false(str_contains($minimal_html, '<strong>Address:</strong>'), 'Expected blank address to be omitted.');
 
     $fallback_html = bdta_render_contract_client_contact_info([
         'client_name' => '   ',
