@@ -30,7 +30,10 @@ $token_stmt = $conn->prepare("
             WHEN access_token IS NULL OR access_token = '' THEN ?
             ELSE access_token
         END,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = CASE
+            WHEN access_token IS NULL OR access_token = '' THEN CURRENT_TIMESTAMP
+            ELSE updated_at
+        END
     WHERE id = ?
 ");
 $token_stmt->execute([$new_access_token, $id]);

@@ -807,7 +807,7 @@ class Database {
                     description TEXT,
                     contract_text TEXT NOT NULL,
                     status TEXT DEFAULT 'draft',
-                    access_token VARCHAR(64),
+                    access_token VARCHAR(32),
                     created_date DATE NOT NULL,
                     effective_date DATE,
                     expiration_date DATE,
@@ -1461,7 +1461,7 @@ class Database {
         }
 
         if (!in_array('access_token', $contract_column_names)) {
-            $this->execSQL("ALTER TABLE contracts ADD COLUMN access_token VARCHAR(64)");
+            $this->execSQL("ALTER TABLE contracts ADD COLUMN access_token VARCHAR(32)");
         }
         
         // Update form_submissions table to add reminder tracking
