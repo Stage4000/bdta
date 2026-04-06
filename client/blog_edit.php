@@ -64,7 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tmp_path = array_string_value($cover_photo_upload, 'tmp_name');
         $original_name = array_string_value($cover_photo_upload, 'name');
         $file_size = array_int_value($cover_photo_upload, 'size');
-        $allowed_mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        $mime_to_ext = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+        ];
+        $allowed_mime = array_keys($mime_to_ext);
         $allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
         $max_size = 5 * 1024 * 1024;
 
@@ -84,50 +90,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $hasError = true;
                 } else {
                     $extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
-                    $mime_to_ext = [
-                        'image/jpeg' => 'jpg',
-                        'image/png' => 'png',
-                        'image/webp' => 'webp',
-                        'image/gif' => 'gif',
-                    ];
-                    if (!in_array($extension, $allowed_exts, true)) {
-                        $extension = $mime_to_ext[$mime_type];
+                    $extension_from_mime = array_string_value($mime_to_ext, $mime_type);
+                    if ($extension_from_mime === '') {
+                        setFlashMessage('Cover photo type could not be validated.', 'error');
+                        $hasError = true;
+                    } elseif (!in_array($extension, $allowed_exts, true)) {
+                        $extension = $extension_from_mime;
                     }
 
-                    $upload_dir = bdta_get_blog_cover_photo_upload_directory() . '/';
-                    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true) && !is_dir($upload_dir)) {
-                        setFlashMessage('Failed to prepare the cover photo upload directory.', 'error');
-                        $hasError = true;
-                    } else {
-                        try {
-                            $filename = 'blog_cover_' . bin2hex(random_bytes(16)) . '.' . $extension;
-                        } catch (Throwable $e) {
-                            $filename = '';
-                        }
-
-                        if ($filename === '') {
-                            setFlashMessage('Failed to generate a secure cover photo filename.', 'error');
+                    if (!$hasError) {
+                        $upload_dir = bdta_get_blog_cover_photo_upload_directory() . '/';
+                        if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true) && !is_dir($upload_dir)) {
+                            setFlashMessage('Failed to prepare the cover photo upload directory.', 'error');
                             $hasError = true;
                         } else {
-                            $destination_path = $upload_dir . $filename;
-                            while (file_exists($destination_path)) {
-                                try {
-                                    $filename = 'blog_cover_' . bin2hex(random_bytes(16)) . '.' . $extension;
-                                } catch (Throwable $e) {
-                                    $filename = '';
-                                    break;
-                                }
-                                $destination_path = $upload_dir . $filename;
+                            try {
+                                $filename = 'blog_cover_' . bin2hex(random_bytes(16)) . '.' . $extension;
+                            } catch (Throwable $e) {
+                                $filename = '';
                             }
 
                             if ($filename === '') {
-                                setFlashMessage('Failed to generate a unique cover photo filename.', 'error');
-                                $hasError = true;
-                            } elseif (!move_uploaded_file($tmp_path, $destination_path)) {
-                                setFlashMessage('Failed to save the uploaded cover photo.', 'error');
+                                setFlashMessage('Failed to generate a secure cover photo filename.', 'error');
                                 $hasError = true;
                             } else {
-                                $new_cover_photo_path = '/backend/uploads/blog/' . $filename;
+                                $destination_path = $upload_dir . $filename;
+                                while (file_exists($destination_path)) {
+                                    try {
+                                        $filename = 'blog_cover_' . bin2hex(random_bytes(16)) . '.' . $extension;
+                                    } catch (Throwable $e) {
+                                        $filename = '';
+                                        break;
+                                    }
+                                    $destination_path = $upload_dir . $filename;
+                                }
+
+                                if ($filename === '') {
+                                    setFlashMessage('Failed to generate a unique cover photo filename.', 'error');
+                                    $hasError = true;
+                                } elseif (!move_uploaded_file($tmp_path, $destination_path)) {
+                                    setFlashMessage('Failed to save the uploaded cover photo.', 'error');
+                                    $hasError = true;
+                                } else {
+                                    $new_cover_photo_path = '/backend/uploads/blog/' . $filename;
+                                }
                             }
                         }
                     }
