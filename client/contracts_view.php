@@ -21,6 +21,31 @@ if (!is_array($contract)) {
     redirect('contracts_list.php');
 }
 
+require_once '../backend/public/includes/public_contract_access.php';
+
+$new_access_token = bdta_generate_contract_access_token();
+$token_stmt = $conn->prepare("
+    UPDATE contracts
+    SET access_token = COALESCE(NULLIF(access_token, ''), ?),
+        updated_at = CASE
+            WHEN NULLIF(access_token, '') IS NULL THEN CURRENT_TIMESTAMP
+            ELSE updated_at
+        END
+    WHERE id = ?
+");
+$token_stmt->execute([$new_access_token, $id]);
+$refresh_stmt = $conn->prepare("
+    SELECT co.*, c.name as client_name, c.email as client_email
+    FROM contracts co
+    JOIN clients c ON co.client_id = c.id
+    WHERE co.id = ?
+");
+$refresh_stmt->execute([$id]);
+$refreshed_contract = $refresh_stmt->fetch(PDO::FETCH_ASSOC);
+if (is_array($refreshed_contract)) {
+    $contract = $refreshed_contract;
+}
+
 // Handle delete action
 if (isset($_POST['delete_contract'])) {
     $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
@@ -60,7 +85,7 @@ if (isset($_POST['change_status'])) {
 
 // Generate public link dynamically from current request
 $base_url = getDynamicBaseUrl();
-$public_link = $base_url . '/backend/public/contract.php?id=' . $id;
+$public_link = $base_url . '/backend/public/contract.php?token=' . rawurlencode(array_string_value($contract, 'access_token'));
 
 // Fetch audit log for this contract
 $log_stmt = $conn->prepare("

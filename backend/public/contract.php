@@ -10,21 +10,26 @@
 require_once '../includes/config.php';
 require_once '../includes/database.php';
 require_once __DIR__ . '/includes/public_error_page.php';
+require_once __DIR__ . '/includes/public_contract_access.php';
+require_once __DIR__ . '/includes/public_contract_contact_info.php';
 
 $db = new Database();
 $conn = $db->getConnection();
 
-$contract_id = safe_int($_GET['id'] ?? 0);
+$legacy_id = safe_int($_GET['id'] ?? 0);
+$contract_token = trim(scalar_string($_GET['token'] ?? ''));
 $action = scalar_string($_POST['action'] ?? '');
 
 // Get contract
+$contract_lookup_column = $contract_token !== '' ? 'co.access_token' : 'co.id';
+$contract_lookup_value = $contract_token !== '' ? $contract_token : (string)$legacy_id;
 $stmt = $conn->prepare("
-    SELECT co.*, c.name as client_name, c.email as client_email
+    SELECT co.*, c.name as client_name, c.email as client_email, c.phone as client_phone, c.address as client_address
     FROM contracts co
     INNER JOIN clients c ON co.client_id = c.id
-    WHERE co.id = ?
+    WHERE {$contract_lookup_column} = ?
 ");
-$stmt->execute([$contract_id]);
+$stmt->execute([$contract_lookup_value]);
 $contract = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$contract) {
@@ -37,9 +42,9 @@ if (!$contract) {
 }
 
 $contract_status = array_string_value($contract, 'status');
+$contract_id = array_int_value($contract, 'id');
 $contract_number = array_string_value($contract, 'contract_number');
 $contract_title = array_string_value($contract, 'title');
-$contract_client_name = array_string_value($contract, 'client_name');
 $contract_effective_date = array_string_value($contract, 'effective_date');
 $contract_description = array_string_value($contract, 'description');
 $contract_text = array_string_value($contract, 'contract_text');
@@ -47,6 +52,7 @@ $contract_signature_typed_name = array_string_value($contract, 'signature_typed_
 $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
 $contract_signed_date = array_string_value($contract, 'signed_date');
 $contract_signature_data = array_string_value($contract, 'signature_data');
+$can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
 
 // Check if contract is viewable
 $can_sign = in_array($contract_status, ['sent'], true);
@@ -114,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
 
         // Reload contract data
         $stmt = $conn->prepare("
-            SELECT co.*, c.name as client_name, c.email as client_email
+            SELECT co.*, c.name as client_name, c.email as client_email, c.phone as client_phone, c.address as client_address
             FROM contracts co
             INNER JOIN clients c ON co.client_id = c.id
             WHERE co.id = ?
@@ -127,7 +133,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
         $contract_status = array_string_value($contract, 'status');
         $contract_number = array_string_value($contract, 'contract_number');
         $contract_title = array_string_value($contract, 'title');
-        $contract_client_name = array_string_value($contract, 'client_name');
         $contract_effective_date = array_string_value($contract, 'effective_date');
         $contract_description = array_string_value($contract, 'description');
         $contract_text = array_string_value($contract, 'contract_text');
@@ -135,6 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
         $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
         $contract_signed_date = array_string_value($contract, 'signed_date');
         $contract_signature_data = array_string_value($contract, 'signature_data');
+        $can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
 
         $already_signed = true;
         $can_sign       = false;
@@ -264,7 +270,7 @@ $page_title = 'Contract ' . $contract_number;
                     <h3 class="mb-3"><?= htmlspecialchars($contract_title) ?></h3>
 
                     <div class="mb-3">
-                        <strong>For:</strong> <?= htmlspecialchars($contract_client_name) ?><br>
+                        <?= bdta_render_contract_client_contact_info($contract, $can_view_private_contact_details) ?>
                         <?php if ($contract_effective_date !== ''): ?>
                             <strong>Effective Date:</strong> <?= date('F j, Y', safe_timestamp(strtotime($contract_effective_date))) ?>
                         <?php endif; ?>
