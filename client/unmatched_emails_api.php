@@ -407,8 +407,10 @@ if ($method === 'GET') {
 
             require_once '../backend/includes/email_service.php';
             $emailService = new EmailService();
-            $result = $emailService->sendGenericEmail(
+            $result = $emailService->sendComposeEmail(
                 $to_email,
+                [],
+                [],
                 $subject,
                 $body_html,
                 $body_text ?: strip_tags($body_html)

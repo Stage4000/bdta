@@ -27,12 +27,25 @@ use PHPMailer\PHPMailer\Exception;
 /**
  * @phpstan-type AssocRow array<string, mixed>
  * @phpstan-type MailResult array{success: bool, message: string}
- * @phpstan-type MailOptions array{cc?: list<string>, bcc?: list<string>, context?: array<string, mixed>, client_id?: int|string|null}
+ * @phpstan-type MailOptions array{cc?: list<string>, bcc?: list<string>, context?: array<string, mixed>, client_id?: int|string|null, allow_history_recipient_lookup?: bool, skip_platform_logging?: bool}
  * @phpstan-type RenderedTemplate array{subject: string, body_html: string, body_text: string}
  */
 class EmailService {
 
     private const SMTP_TRANSPORTS = ['smtp', 'sendgrid', 'mailgun', 'ses'];
+    private const CLIENT_HISTORY_RECIPIENT_LOOKUP_TYPES = [
+        self::MAIL_TYPE_BOOKING_CONFIRMATION,
+        self::MAIL_TYPE_BOOKING_REMINDER,
+        self::MAIL_TYPE_PAYMENT_RECEIPT,
+        self::MAIL_TYPE_INVOICE,
+        self::MAIL_TYPE_INVOICE_REMINDER,
+        self::MAIL_TYPE_QUOTE,
+        self::MAIL_TYPE_CONTRACT_REMINDER,
+        self::MAIL_TYPE_QUOTE_REMINDER,
+        self::MAIL_TYPE_FORM_REMINDER,
+        self::MAIL_TYPE_BOOKING_CANCELLATION,
+        self::MAIL_TYPE_WORKFLOW,
+    ];
 
     // ─── Mail type constants ──────────────────────────────────────────────────
     // Pass one of these to routeMail() / sendGenericEmail() so that every
@@ -96,6 +109,137 @@ class EmailService {
         // getDynamicBaseUrl() handles both HTTP and CLI contexts internally.
         $this->base_url = $base_url ?? getDynamicBaseUrl();
         $this->conn     = $conn;
+    }
+
+    private function getClientEmailLogConnection(): ?PDO {
+        if ($this->conn instanceof PDO) {
+            return $this->conn;
+        }
+
+        try {
+            $db = new Database();
+            $this->conn = $db->getConnection();
+        } catch (Throwable $e) {
+            error_log('[MailRouter] Failed to resolve DB connection for client email logging: ' . $e->getMessage());
+        }
+
+        return $this->conn;
+    }
+
+    private static function normalizeHistoryLookupEmail(string $email): string {
+        $trimmed_email = trim($email);
+        if ($trimmed_email === '') {
+            return '';
+        }
+
+        if (preg_match('/<([^<>]+)>/', $trimmed_email, $matches) === 1) {
+            $candidate = trim($matches[1]);
+            if ($candidate !== '') {
+                $trimmed_email = $candidate;
+            }
+        }
+
+        foreach ([',', ';'] as $delimiter) {
+            $delimiter_position = strpos($trimmed_email, $delimiter);
+            if ($delimiter_position !== false) {
+                $candidate = trim(substr($trimmed_email, 0, $delimiter_position));
+                if ($candidate !== '') {
+                    $trimmed_email = $candidate;
+                }
+                break;
+            }
+        }
+
+        return trim($trimmed_email);
+    }
+
+    private static function normalizeResolvedClientId(int|string|false|null $client_id): ?int {
+        if (is_int($client_id)) {
+            return $client_id > 0 ? $client_id : null;
+        }
+
+        if ($client_id === false || $client_id === null) {
+            return null;
+        }
+
+        $trimmed_client_id = trim($client_id);
+        if ($trimmed_client_id === '' || !is_numeric($trimmed_client_id)) {
+            return null;
+        }
+
+        $normalized_client_id = safe_int($trimmed_client_id);
+        return $normalized_client_id > 0 ? $normalized_client_id : null;
+    }
+
+    private function shouldUseRecipientLookupForHistory(string $mail_type, bool $allow_history_recipient_lookup = false): bool {
+        if (in_array($mail_type, self::CLIENT_HISTORY_RECIPIENT_LOOKUP_TYPES, true)) {
+            return true;
+        }
+
+        // Generic mail now resolves recipient history by default so generic
+        // outgoing email lands in either client_emails or unmatched_emails
+        // within the platform UI.
+        if ($mail_type === self::MAIL_TYPE_GENERIC) {
+            return true;
+        }
+
+        return $allow_history_recipient_lookup;
+    }
+
+    private function shouldSkipPlatformLogging(string $mail_type, bool $explicit_skip = false): bool {
+        return $explicit_skip || $mail_type === self::MAIL_TYPE_PASSWORD_RESET;
+    }
+
+    private function resolveClientIdForHistory(
+        int|string|null $client_id,
+        string $to,
+        string $mail_type,
+        bool $allow_history_recipient_lookup = false
+    ): ?int {
+        $resolved_client_id = self::normalizeResolvedClientId($client_id);
+        if ($resolved_client_id !== null) {
+            return $resolved_client_id;
+        }
+
+        if ($mail_type === self::MAIL_TYPE_COMPOSE || $mail_type === self::MAIL_TYPE_PASSWORD_RESET) {
+            return null;
+        }
+
+        if (!$this->shouldUseRecipientLookupForHistory($mail_type, $allow_history_recipient_lookup)) {
+            return null;
+        }
+
+        $conn = $this->getClientEmailLogConnection();
+        $lookup_email = self::normalizeHistoryLookupEmail($to);
+        if ($conn === null || $lookup_email === '') {
+            return null;
+        }
+
+        $normalized_lookup_email = strtolower($lookup_email);
+
+        $lookup_source = 'recipient lookup';
+        try {
+            $lookup_queries = [
+                'clients' => 'SELECT id FROM clients WHERE LOWER(email) = ? ORDER BY id ASC LIMIT 1',
+                'client_contacts' => 'SELECT client_id FROM client_contacts WHERE LOWER(email) = ? ORDER BY is_primary DESC, client_id ASC LIMIT 1',
+                'bookings' => 'SELECT client_id FROM bookings WHERE client_id IS NOT NULL AND LOWER(client_email) = ? ORDER BY id DESC LIMIT 1',
+            ];
+
+            foreach ($lookup_queries as $lookup_source => $lookup_query) {
+                $stmt = $conn->prepare($lookup_query);
+                $stmt->execute([$normalized_lookup_email]);
+                $matched_client_id = self::normalizeResolvedClientId($stmt->fetchColumn());
+                if ($matched_client_id !== null) {
+                    return $matched_client_id;
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('[MailRouter] Failed to resolve client by recipient email for history logging'
+                . ' via ' . $lookup_source
+                . ': ' . $e->getMessage());
+        }
+
+        return null;
     }
 
     private static function settingString(string $key, string $default = ''): string {
@@ -222,10 +366,21 @@ class EmailService {
             $text_body = strip_tags($html_body);
         }
 
-        $cc        = $options['cc']        ?? [];
-        $bcc       = $options['bcc']       ?? [];
-        $context   = $options['context']   ?? [];
-        $client_id = $options['client_id'] ?? null;
+        $cc        = $options['cc']      ?? [];
+        $bcc       = $options['bcc']     ?? [];
+        $context   = $options['context'] ?? [];
+        $skip_platform_logging = $this->shouldSkipPlatformLogging(
+            $mail_type,
+            (bool) ($options['skip_platform_logging'] ?? false)
+        );
+        $client_id = $skip_platform_logging
+            ? self::normalizeResolvedClientId($options['client_id'] ?? null)
+            : $this->resolveClientIdForHistory(
+                $options['client_id'] ?? null,
+                $to,
+                $mail_type,
+                (bool) ($options['allow_history_recipient_lookup'] ?? false)
+            );
 
         // ── Pre-send log entry ────────────────────────────────────────────────
         $log_prefix = '[MailRouter]';
@@ -258,15 +413,16 @@ class EmailService {
         }
 
         // ── Persist to client email history ──────────────────────────────────
-        // Skip MAIL_TYPE_COMPOSE (already logged by client_emails_api.php before send)
-        // and MAIL_TYPE_PASSWORD_RESET (not a client-facing communication).
         if (
-            $client_id
-            && $this->conn
+            !$skip_platform_logging
             && $mail_type !== self::MAIL_TYPE_COMPOSE
-            && $mail_type !== self::MAIL_TYPE_PASSWORD_RESET
+            && $this->getClientEmailLogConnection()
         ) {
-            $this->logToClientEmails($client_id, $to, $subject, $html_body, $text_body, $result, $mail_type);
+            if ($client_id) {
+                $this->logToClientEmails($client_id, $to, $subject, $html_body, $text_body, $result, $mail_type);
+            } else {
+                $this->logToUnmatchedEmails($to, $subject, $html_body, $text_body);
+            }
         }
 
         return $result;
@@ -321,6 +477,37 @@ class EmailService {
             ]);
         } catch (\Exception $e) {
             error_log('[MailRouter] Failed to log email to client_emails: ' . $e->getMessage());
+        }
+    }
+
+    private function logToUnmatchedEmails(string $to, string $subject, string $html_body, string $text_body): void {
+        try {
+            if ($this->conn === null) {
+                return;
+            }
+
+            $timestamp = currentUtcDateTime();
+            $stmt = $this->conn->prepare("
+                INSERT INTO unmatched_emails (
+                    from_email, from_name, to_email, subject,
+                    body_html, body_text, received_at, direction, created_at
+                ) VALUES (
+                    ?, ?, ?, ?,
+                    ?, ?, ?, 'outgoing', ?
+                )
+            ");
+            $stmt->execute([
+                $this->from_email,
+                $this->from_name,
+                $to,
+                $subject,
+                $html_body,
+                $text_body,
+                $timestamp,
+                $timestamp,
+            ]);
+        } catch (\Exception $e) {
+            error_log('[MailRouter] Failed to log email to unmatched_emails: ' . $e->getMessage());
         }
     }
 
@@ -738,7 +925,9 @@ HTML;
             . (!empty($reason) ? "Reason: {$reason}\n" : '')
             . "Booking ID: #{$booking_id}\n";
 
-        return $this->routeMail(self::MAIL_TYPE_GENERIC, $admin_email, $subject, $html_body, $text_body);
+        return $this->routeMail(self::MAIL_TYPE_GENERIC, $admin_email, $subject, $html_body, $text_body, [
+            'skip_platform_logging' => true,
+        ]);
     }
 
     /**
@@ -1189,12 +1378,22 @@ HTML;
      * @param string   $text_body Plain-text version (auto-derived from HTML when empty).
      * @param string   $mail_type One of the EmailService::MAIL_TYPE_* constants.
      *                            Defaults to MAIL_TYPE_GENERIC for backward compatibility.
-     * @param int|null $client_id Client ID for logging to client email history (optional).
+     * @param int|string|null $client_id Client ID for logging to client email history (optional).
+     * @param bool $allow_history_recipient_lookup Retained for backward compatibility; generic mail now resolves recipient-based history by default, and this flag remains available for non-generic callers that still rely on opt-in lookup behavior.
      * @return MailResult
      */
-    public function sendGenericEmail(string $to, string $subject, string $html_body, string $text_body = '', string $mail_type = self::MAIL_TYPE_GENERIC, int|string|null $client_id = null): array {
+    public function sendGenericEmail(
+        string $to,
+        string $subject,
+        string $html_body,
+        string $text_body = '',
+        string $mail_type = self::MAIL_TYPE_GENERIC,
+        int|string|null $client_id = null,
+        bool $allow_history_recipient_lookup = false
+    ): array {
         return $this->routeMail($mail_type, $to, $subject, $html_body, $text_body, [
-            'client_id' => $client_id,
+            'client_id'                     => $client_id,
+            'allow_history_recipient_lookup' => $allow_history_recipient_lookup,
         ]);
     }
 
