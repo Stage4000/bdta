@@ -19,13 +19,16 @@ $credits_summary_guard_pos = strpos($clients_view, $credits_summary_guard);
 $credits_summary_end_pos = $credits_summary_guard_pos === false
     ? false
     : strpos($clients_view, '<?php endif; ?>', $credits_summary_guard_pos);
+$manage_label_pos = strpos($clients_view, '<dt>Packages &amp; Credits:</dt>');
 $manage_link_pos = strpos($clients_view, 'credits_manage.php?client_id=<?= $id ?>');
 
 // This is a source-level regression test that verifies the client-view template keeps the
 // credit summary conditional while leaving the management link after that conditional ends.
 bdta_assert($credits_summary_guard_pos !== false, 'Client view should keep the credit-summary conditional.');
 bdta_assert($credits_summary_end_pos !== false, 'Client view should still close the credit-summary conditional.');
+bdta_assert($manage_label_pos !== false, 'Client view should label the package and credit management action in the client details list.');
 bdta_assert($manage_link_pos !== false, 'Client view should include a link to credit/package management.');
+bdta_assert($manage_label_pos < $manage_link_pos, 'Client view should render the package and credit management label before the action link.');
 bdta_assert($credits_summary_end_pos < $manage_link_pos, 'Client view should leave the management link outside the credit-summary conditional.');
 bdta_assert(str_contains($clients_view, 'Manage Credits &amp; Packages'), 'Client view should advertise package assignment access.');
 

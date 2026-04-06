@@ -218,6 +218,7 @@ include '../backend/includes/header.php';
                             </dd>
                         <?php endif; ?>
 
+                        <dt>Packages &amp; Credits:</dt>
                         <dd>
                             <a href="credits_manage.php?client_id=<?= $id ?>" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-wallet"></i> Manage Credits &amp; Packages
