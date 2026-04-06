@@ -111,7 +111,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $hasError = true;
                         } else {
                             $destination_path = $upload_dir . $filename;
-                            if (!move_uploaded_file($tmp_path, $destination_path)) {
+                            while (file_exists($destination_path)) {
+                                try {
+                                    $filename = 'blog_cover_' . bin2hex(random_bytes(16)) . '.' . $extension;
+                                } catch (Throwable $e) {
+                                    $filename = '';
+                                    break;
+                                }
+                                $destination_path = $upload_dir . $filename;
+                            }
+
+                            if ($filename === '') {
+                                setFlashMessage('Failed to generate a unique cover photo filename.', 'error');
+                                $hasError = true;
+                            } elseif (!move_uploaded_file($tmp_path, $destination_path)) {
                                 setFlashMessage('Failed to save the uploaded cover photo.', 'error');
                                 $hasError = true;
                             } else {
