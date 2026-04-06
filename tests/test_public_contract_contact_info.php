@@ -77,6 +77,18 @@ try {
         'Expected mismatched contract access tokens to be rejected.'
     );
 
+    bdta_assert_true(bdta_normalize_to_string('abc') === 'abc', 'Expected strings to remain unchanged.');
+    bdta_assert_true(bdta_normalize_to_string(true) === '1', 'Expected true to normalize to 1.');
+    bdta_assert_true(bdta_normalize_to_string(false) === '0', 'Expected false to normalize to 0.');
+    bdta_assert_true(bdta_normalize_to_string(42) === '42', 'Expected integers to normalize to strings.');
+    bdta_assert_true(bdta_normalize_to_string(3.5) === '3.5', 'Expected floats to normalize to strings.');
+    bdta_assert_true(bdta_normalize_to_string(null) === '', 'Expected null to normalize to an empty string.');
+    bdta_assert_true(bdta_normalize_to_string(['unexpected']) === '', 'Expected arrays to normalize to an empty string.');
+    bdta_assert_true(
+        bdta_normalize_to_string((object) ['value' => 'unexpected']) === '',
+        'Expected objects to normalize to an empty string.'
+    );
+
     echo "Public contract contact info test passed.\n";
 } catch (Throwable $e) {
     echo "\n✗ TEST FAILED\n";

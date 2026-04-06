@@ -25,7 +25,8 @@ function bdta_normalize_to_string(mixed $value): string {
         return (string) $value;
     }
 
-    // Keep unsupported values non-renderable instead of coercing them.
+    // Keep unsupported values non-renderable so public contract pages fail closed
+    // on unexpected data instead of rendering debug-ish placeholders to clients.
     return '';
 }
 
