@@ -16,9 +16,17 @@ require_once __DIR__ . '/includes/public_contract_contact_info.php';
 $db = new Database();
 $conn = $db->getConnection();
 
-$contract_id = safe_int($_GET['id'] ?? 0);
+$requested_contract_id = safe_int($_GET['id'] ?? 0);
 $contract_token = trim(scalar_string($_GET['token'] ?? ''));
 $action = scalar_string($_POST['action'] ?? '');
+
+/**
+ * @param array<string, mixed> $contract
+ */
+function bdta_sync_contract_access_state(array $contract, string $contract_token, int &$contract_id, bool &$can_view_private_contact_details): void {
+    $contract_id = array_int_value($contract, 'id');
+    $can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
+}
 
 // Get contract
 if ($contract_token !== '') {
@@ -36,7 +44,7 @@ if ($contract_token !== '') {
         INNER JOIN clients c ON co.client_id = c.id
         WHERE co.id = ?
     ");
-    $stmt->execute([$contract_id]);
+    $stmt->execute([$requested_contract_id]);
 }
 $contract = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -59,8 +67,9 @@ $contract_signature_typed_name = array_string_value($contract, 'signature_typed_
 $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
 $contract_signed_date = array_string_value($contract, 'signed_date');
 $contract_signature_data = array_string_value($contract, 'signature_data');
-$can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
-$contract_id = array_int_value($contract, 'id');
+$contract_id = 0;
+$can_view_private_contact_details = false;
+bdta_sync_contract_access_state($contract, $contract_token, $contract_id, $can_view_private_contact_details);
 
 // Check if contract is viewable
 $can_sign = in_array($contract_status, ['sent'], true);
@@ -148,8 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
         $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
         $contract_signed_date = array_string_value($contract, 'signed_date');
         $contract_signature_data = array_string_value($contract, 'signature_data');
-        $can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
-        $contract_id = array_int_value($contract, 'id');
+        bdta_sync_contract_access_state($contract, $contract_token, $contract_id, $can_view_private_contact_details);
 
         $already_signed = true;
         $can_sign       = false;
