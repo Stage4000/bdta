@@ -72,8 +72,8 @@ try {
         bdta_contract_has_valid_access_token(['access_token' => $access_token], $access_token),
         'Expected matching contract access tokens to be authorized.'
     );
-    bdta_assert_true(
-        !bdta_contract_has_valid_access_token(['access_token' => $access_token], $access_token . 'x'),
+    bdta_assert_false(
+        bdta_contract_has_valid_access_token(['access_token' => $access_token], $access_token . 'x'),
         'Expected mismatched contract access tokens to be rejected.'
     );
     $access_state = bdta_get_contract_access_state(['id' => 42, 'access_token' => $access_token], $access_token);
