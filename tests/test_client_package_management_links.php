@@ -14,7 +14,15 @@ $clients_edit = file_get_contents(dirname(__DIR__) . '/client/clients_edit.php')
 bdta_assert($clients_view !== false, 'Failed to read client/clients_view.php');
 bdta_assert($clients_edit !== false, 'Failed to read client/clients_edit.php');
 
-bdta_assert(substr_count($clients_view, "if (!empty(\$pkg_credits_summary))") === 1, 'Client view should only conditionally hide the credit summary, not the management link.');
+// This is a source-level regression test that verifies the client-view template keeps the
+// credit summary conditional while leaving the management link outside that conditional block.
+bdta_assert(
+    preg_match(
+        '/if \(!empty\(\$pkg_credits_summary\)\):.*?endif;.*?credits_manage\.php\?client_id=<\?= \$id \?>/s',
+        $clients_view
+    ) === 1,
+    'Client view should keep the credit summary conditional while leaving the management link available for every client.'
+);
 bdta_assert(str_contains($clients_view, 'credits_manage.php?client_id=<?= $id ?>'), 'Client view should include a link to credit/package management.');
 bdta_assert(str_contains($clients_view, 'Manage Credits &amp; Packages'), 'Client view should advertise package assignment access.');
 
