@@ -34,16 +34,16 @@ try {
         'Expected address newlines to be converted into HTML line breaks.'
     );
 
-    $public_html = bdta_render_contract_client_contact_info([
+    $restricted_html = bdta_render_contract_client_contact_info([
         'client_name' => 'Jane Client',
         'client_email' => 'jane@example.com',
         'client_phone' => '555-3300',
         'client_address' => "123 Training Lane\nUnit 4",
     ], false);
-    bdta_assert_true(str_contains($public_html, '<strong>For:</strong> Jane Client<br>'), 'Expected public contact block to keep the client name.');
-    bdta_assert_false(str_contains($public_html, '<strong>Email:</strong>'), 'Expected public contact block to hide email without an authorized token.');
-    bdta_assert_false(str_contains($public_html, '<strong>Phone:</strong>'), 'Expected public contact block to hide phone without an authorized token.');
-    bdta_assert_false(str_contains($public_html, '<strong>Address:</strong>'), 'Expected public contact block to hide address without an authorized token.');
+    bdta_assert_true(str_contains($restricted_html, '<strong>For:</strong> Jane Client<br>'), 'Expected restricted contact block to keep the client name.');
+    bdta_assert_false(str_contains($restricted_html, '<strong>Email:</strong>'), 'Expected restricted contact block to hide email without an authorized token.');
+    bdta_assert_false(str_contains($restricted_html, '<strong>Phone:</strong>'), 'Expected restricted contact block to hide phone without an authorized token.');
+    bdta_assert_false(str_contains($restricted_html, '<strong>Address:</strong>'), 'Expected restricted contact block to hide address without an authorized token.');
 
     $minimal_html = bdta_render_contract_client_contact_info([
         'client_name' => 'Only Name',
@@ -76,9 +76,6 @@ try {
         bdta_contract_has_valid_access_token(['access_token' => $access_token], $access_token . 'x'),
         'Expected mismatched contract access tokens to be rejected.'
     );
-    $access_state = bdta_get_contract_access_state(['id' => 42, 'access_token' => $access_token], $access_token);
-    bdta_assert_true($access_state['contract_id'] === 42, 'Expected contract access state to report the contract id.');
-    bdta_assert_true($access_state['can_view_private_contact_details'] === true, 'Expected contract access state to authorize matching tokens.');
 
     echo "Public contract contact info test passed.\n";
 } catch (Throwable $e) {

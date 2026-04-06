@@ -18,19 +18,3 @@ function bdta_contract_has_valid_access_token(array $contract, string $provided_
         && $provided_token !== ''
         && hash_equals($stored_token, $provided_token);
 }
-
-/**
- * @param array<string, mixed> $contract
- * @return array{contract_id: int, can_view_private_contact_details: bool}
- */
-function bdta_get_contract_access_state(array $contract, string $provided_token): array {
-    $contract_id = 0;
-    if (isset($contract['id']) && preg_match('/^\d+$/', (string)$contract['id']) === 1) {
-        $contract_id = (int)$contract['id'];
-    }
-
-    return [
-        'contract_id' => $contract_id,
-        'can_view_private_contact_details' => bdta_contract_has_valid_access_token($contract, $provided_token),
-    ];
-}

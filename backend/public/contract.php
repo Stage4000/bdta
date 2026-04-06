@@ -59,9 +59,8 @@ $contract_signature_typed_name = array_string_value($contract, 'signature_typed_
 $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
 $contract_signed_date = array_string_value($contract, 'signed_date');
 $contract_signature_data = array_string_value($contract, 'signature_data');
-$contract_access_state = bdta_get_contract_access_state($contract, $contract_token);
-$contract_id = $contract_access_state['contract_id'];
-$can_view_private_contact_details = $contract_access_state['can_view_private_contact_details'];
+$contract_id = array_int_value($contract, 'id');
+$can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
 
 // Check if contract is viewable
 $can_sign = in_array($contract_status, ['sent'], true);
@@ -149,9 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
         $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
         $contract_signed_date = array_string_value($contract, 'signed_date');
         $contract_signature_data = array_string_value($contract, 'signature_data');
-        $contract_access_state = bdta_get_contract_access_state($contract, $contract_token);
-        $contract_id = $contract_access_state['contract_id'];
-        $can_view_private_contact_details = $contract_access_state['can_view_private_contact_details'];
+        $can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
 
         $already_signed = true;
         $can_sign       = false;
