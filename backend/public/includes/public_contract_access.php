@@ -7,6 +7,9 @@ const BDTA_CONTRACT_ACCESS_TOKEN_LENGTH = BDTA_CONTRACT_ACCESS_TOKEN_BYTES * 2;
 /**
  * Normalize contract helper input into a string for trimming/comparison.
  * Unsupported values (including arrays, objects, resources, and null) fall back to ''.
+ *
+ * @param mixed $value The value to normalize to a string.
+ * @return string The normalized string value.
  */
 function bdta_contract_string_value(mixed $value): string {
     if (is_string($value)) {
