@@ -476,7 +476,7 @@ function saveActiveTimer(timer) {
     }
 
     if (window.bdtaActiveTimerIndicator && typeof window.bdtaActiveTimerIndicator.setActiveTimer === 'function') {
-        window.bdtaActiveTimerIndicator.setActiveTimer(normalizedTimer);
+        window.bdtaActiveTimerIndicator.setActiveTimer(normalizedTimer, { persist: false });
     }
 }
 
@@ -488,7 +488,7 @@ function clearActiveTimer() {
     }
 
     if (window.bdtaActiveTimerIndicator && typeof window.bdtaActiveTimerIndicator.clearActiveTimer === 'function') {
-        window.bdtaActiveTimerIndicator.clearActiveTimer();
+        window.bdtaActiveTimerIndicator.clearActiveTimer({ clearStorage: false });
     }
 }
 

@@ -31,6 +31,21 @@ function bdta_normalize_active_timer(mixed $timer): ?array
     ];
 }
 
+/**
+ * @return array{start_time: int, client_id: int, service_type: string, description: string}|null
+ */
+function bdta_normalize_valid_active_timer(mixed $timer, ?int $now = null, int $future_tolerance_seconds = 300): ?array
+{
+    $normalized_timer = bdta_normalize_active_timer($timer);
+    if ($normalized_timer === null) {
+        return null;
+    }
+
+    return bdta_active_timer_has_valid_start_time($normalized_timer, $now, $future_tolerance_seconds)
+        ? $normalized_timer
+        : null;
+}
+
 function bdta_active_timer_storage_key(mixed $user_type, mixed $user_id): string
 {
     $normalized_user_type = bdta_time_tracker_string($user_type);
