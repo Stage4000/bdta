@@ -528,7 +528,7 @@ if (!$is_pending_request) {
 }
 
 $message = $is_pending_request
-    ? 'Your appointment request has been received. We\'ll review it and email you once it is confirmed. Your eligible credit will be applied when the appointment is confirmed.'
+    ? 'Your appointment request has been received. We\'ll review it and email you once it is confirmed. If your appointment is confirmed and still eligible at that time, we\'ll attempt to apply your credit.'
     : 'Your appointment has been successfully booked and a credit has been applied. Check your email for details and calendar links.';
 
 echo json_encode([

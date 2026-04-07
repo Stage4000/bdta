@@ -25,6 +25,7 @@ $cleanup = [
     'client_ids' => [],
     'booking_ids' => [],
     'form_template_ids' => [],
+    'appointment_type_ids' => [],
 ];
 
 try {
@@ -230,7 +231,86 @@ try {
         throw new RuntimeException('Mapped pet name should be used when creating the booking pet link.');
     }
 
-    echo "✓ Profile-mapped required form values feed public booking location and pet summary data\n\n";
+    echo "✓ Profile-mapped required form values feed public booking location and pet summary data\n";
+
+    $conn->prepare("
+        INSERT INTO appointment_types (name, duration_minutes, is_active, requires_admin_confirmation)
+        VALUES (?, 60, 1, 1)
+    ")->execute(['Pending Approval Type ' . $suffix]);
+    $pending_type_id = (int) $conn->lastInsertId();
+    $cleanup['appointment_type_ids'][] = $pending_type_id;
+
+    $conn->prepare("
+        INSERT INTO appointment_types (name, duration_minutes, is_active, requires_admin_confirmation)
+        VALUES (?, 60, 1, 0)
+    ")->execute(['Immediate Confirmation Type ' . $suffix]);
+    $confirmed_type_id = (int) $conn->lastInsertId();
+    $cleanup['appointment_type_ids'][] = $confirmed_type_id;
+
+    $pending_result = api_booking_create_booking($conn, [
+        'client_name' => 'Pending Approval ' . $suffix,
+        'client_email' => 'pending-' . $suffix . '@example.com',
+        'client_phone' => '555-1212',
+        'service_type' => 'Pending Approval Service',
+        'appointment_type_id' => $pending_type_id,
+        'appointment_date' => date('Y-m-d', strtotime('+7 days')),
+        'appointment_time' => '13:00',
+        'location_type' => 'custom_address',
+        'location_value' => '42 Pending Lane',
+    ]);
+    if (($pending_result['success'] ?? false) !== true) {
+        throw new RuntimeException('Pending-approval public booking should succeed.');
+    }
+    if (($pending_result['booking_status'] ?? '') !== 'pending') {
+        throw new RuntimeException('Pending-approval public booking should return a pending booking status.');
+    }
+    if (($pending_result['calendar_links']['google_calendar'] ?? '') !== ''
+        || ($pending_result['calendar_links']['ical_download'] ?? '') !== ''
+    ) {
+        throw new RuntimeException('Pending-approval public booking should not expose calendar links before confirmation.');
+    }
+    $pending_booking_id = safe_int($pending_result['booking_id'] ?? 0);
+    if ($pending_booking_id <= 0) {
+        throw new RuntimeException('Pending-approval public booking should return a booking ID.');
+    }
+    $cleanup['booking_ids'][] = $pending_booking_id;
+    $pending_status_stmt = $conn->prepare("SELECT status FROM bookings WHERE id = ?");
+    $pending_status_stmt->execute([$pending_booking_id]);
+    if (scalar_string($pending_status_stmt->fetchColumn()) !== 'pending') {
+        throw new RuntimeException('Pending-approval public booking should persist a pending booking record.');
+    }
+
+    $confirmed_result = api_booking_create_booking($conn, [
+        'client_name' => 'Confirmed Booking ' . $suffix,
+        'client_email' => 'confirmed-' . $suffix . '@example.com',
+        'client_phone' => '555-3434',
+        'service_type' => 'Immediate Confirmation Service',
+        'appointment_type_id' => $confirmed_type_id,
+        'appointment_date' => date('Y-m-d', strtotime('+8 days')),
+        'appointment_time' => '15:30',
+        'location_type' => 'custom_address',
+        'location_value' => '84 Confirmed Ave',
+    ]);
+    if (($confirmed_result['success'] ?? false) !== true) {
+        throw new RuntimeException('Immediate-confirmation public booking should succeed.');
+    }
+    if (($confirmed_result['booking_status'] ?? '') !== 'confirmed') {
+        throw new RuntimeException('Immediate-confirmation public booking should return a confirmed booking status.');
+    }
+    if (($confirmed_result['calendar_links']['ical_download'] ?? '') === '') {
+        throw new RuntimeException('Immediate-confirmation public booking should expose an iCal download link.');
+    }
+    $confirmed_booking_id = safe_int($confirmed_result['booking_id'] ?? 0);
+    if ($confirmed_booking_id <= 0) {
+        throw new RuntimeException('Immediate-confirmation public booking should return a booking ID.');
+    }
+    $cleanup['booking_ids'][] = $confirmed_booking_id;
+    $pending_status_stmt->execute([$confirmed_booking_id]);
+    if (scalar_string($pending_status_stmt->fetchColumn()) !== 'confirmed') {
+        throw new RuntimeException('Immediate-confirmation public booking should persist a confirmed booking record.');
+    }
+
+    echo "✓ Public booking flow returns pending vs confirmed status and calendar links based on appointment confirmation requirements\n\n";
     echo "=== Form Funnel Tests Passed! ===\n";
 } catch (Throwable $e) {
     echo "✗ Error: " . $e->getMessage() . "\n";
@@ -253,6 +333,12 @@ try {
             $placeholders = implode(',', array_fill(0, count($cleanup['form_template_ids']), '?'));
             $stmt = $conn->prepare("DELETE FROM form_templates WHERE id IN ($placeholders)");
             $stmt->execute($cleanup['form_template_ids']);
+        }
+
+        if ($cleanup['appointment_type_ids'] !== []) {
+            $placeholders = implode(',', array_fill(0, count($cleanup['appointment_type_ids']), '?'));
+            $stmt = $conn->prepare("DELETE FROM appointment_types WHERE id IN ($placeholders)");
+            $stmt->execute($cleanup['appointment_type_ids']);
         }
     }
 }
