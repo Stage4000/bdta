@@ -110,6 +110,7 @@ include '../backend/includes/header.php';
                                     <select name="template_type" class="form-select" required>
                                         <option value="">Select type...</option>
                                          <option value="booking_confirmation" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_confirmation' ? 'selected' : ''; ?>>Booking Confirmation</option>
+                                         <option value="booking_request" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_request' ? 'selected' : ''; ?>>Booking Request</option>
                                          <option value="booking_reminder" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_reminder' ? 'selected' : ''; ?>>Booking Reminder</option>
                                          <option value="booking_cancellation" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_cancellation' ? 'selected' : ''; ?>>Booking Cancellation</option>
                                          <option value="payment_receipt" <?php echo array_string_value($template ?? [], 'template_type') === 'payment_receipt' ? 'selected' : ''; ?>>Payment Receipt</option>

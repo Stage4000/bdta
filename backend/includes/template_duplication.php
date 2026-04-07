@@ -84,8 +84,10 @@ function duplicateAppointmentType(PDO $conn, int $appointment_type_id): int
                 default_amount,
                 location_types,
                 confirmation_template_id,
+                booking_request_template_id,
                 reminder_template_id,
-                cancellation_template_id
+                cancellation_template_id,
+                requires_admin_confirmation
             )
             SELECT
                 ?, description, duration_minutes,
@@ -108,8 +110,10 @@ function duplicateAppointmentType(PDO $conn, int $appointment_type_id): int
                 default_amount,
                 location_types,
                 confirmation_template_id,
+                booking_request_template_id,
                 reminder_template_id,
-                cancellation_template_id
+                cancellation_template_id,
+                requires_admin_confirmation
             FROM appointment_types
             WHERE id = ?
         ");

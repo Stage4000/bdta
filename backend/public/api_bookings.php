@@ -104,6 +104,8 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
     $notes = array_string_value($data, 'notes');
     $appointment_type_id_value = safe_int($data['appointment_type_id'] ?? 0);
     $duration_minutes = safe_int($data['duration_minutes'] ?? 60);
+    $apt_type = [];
+    $requires_admin_confirmation = false;
 
     try {
         if (!filter_var($client_email, FILTER_VALIDATE_EMAIL)) {
@@ -121,9 +123,10 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
 
         if ($appointment_type_id_value > 0) {
-            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id FROM appointment_types WHERE id = ?");
+            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id, requires_admin_confirmation FROM appointment_types WHERE id = ?");
             $stmt->execute([$appointment_type_id_value]);
             $apt_type = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+            $requires_admin_confirmation = $apt_type !== [] && array_int_value($apt_type, 'requires_admin_confirmation') === 1;
             if ($apt_type !== [] && !empty($apt_type['is_mini_session'])) {
                 $location_type = 'fixed';
                 $location = array_string_value($apt_type, 'mini_session_location');
@@ -147,6 +150,9 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 }
             }
         }
+
+        $is_pending_request = $requires_admin_confirmation;
+        $initial_status = $is_pending_request ? 'pending' : 'confirmed';
 
         if ($location_type !== 'fixed') {
             if (empty($location_type) || !in_array($location_type, $allowed_location_types)) {
@@ -221,6 +227,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 $pkg_credit_id_to_use = array_int_value($credit_row, 'id');
             }
         }
+        $package_credit_id_for_booking = $is_pending_request ? null : $pkg_credit_id_to_use;
 
         $contract_typed_name = trim(array_string_value($data, 'contract_typed_name'));
         $allowed_sig_fonts = ['font-dancing', 'font-pacifico', 'font-satisfy', 'font-great-vibes', 'font-allura'];
@@ -285,7 +292,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
 
         $stmt = $conn->prepare("
             INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $client_id,
@@ -300,11 +307,12 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             $duration_minutes,
             $location,
             $location_type,
-            $pkg_credit_id_to_use,
+            $package_credit_id_for_booking,
             $contract_accepted,
             $contract_accepted_at,
             $contract_accepted ? $contract_typed_name : null,
-            $contract_accepted ? $contract_sig_font : null
+            $contract_accepted ? $contract_sig_font : null,
+            $initial_status
         ]);
 
         $booking_id = safe_int($conn->lastInsertId());
@@ -438,7 +446,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
 
         $workflow_helper->checkAppointmentTriggers(scalar_string($booking_id));
 
-        if ($pkg_credit_id_to_use) {
+        if ($pkg_credit_id_to_use && !$is_pending_request) {
             $conn->prepare("
                 UPDATE client_package_credits
                 SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
@@ -470,57 +478,76 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
 
         $conn->commit();
 
-        require_once __DIR__ . '/../includes/icalendar.php';
-        $base_url = getDynamicBaseUrl();
         $google_calendar_link = '';
-        $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
-        try {
-            $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
-        } catch (Throwable $e) {
-            error_log('api_booking_create_booking: calendar link generation failed for booking #' . $booking_id . ': ' . $e->getMessage());
+        $ical_download_link = '';
+        if (!$is_pending_request) {
+            require_once __DIR__ . '/../includes/icalendar.php';
+            $base_url = getDynamicBaseUrl();
+            $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
+            try {
+                $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
+            } catch (Throwable $e) {
+                error_log('api_booking_create_booking: calendar link generation failed for booking #' . $booking_id . ': ' . $e->getMessage());
+            }
         }
 
         $email_result = ['success' => false];
         try {
             $email_service = new EmailService(null, $conn);
-            $email_result = $email_service->sendBookingConfirmation($booking);
+            $email_result = $is_pending_request
+                ? $email_service->sendBookingRequest($booking)
+                : $email_service->sendBookingConfirmation($booking);
         } catch (Throwable $e) {
-            error_log('api_booking_create_booking: confirmation email failed for booking #' . $booking_id . ': ' . $e->getMessage());
+            error_log('api_booking_create_booking: booking email failed for booking #' . $booking_id . ': ' . $e->getMessage());
         }
 
         $google_result = ['success' => false, 'message' => 'Google Calendar integration not configured'];
-        try {
-            if (GoogleCalendarIntegration::isOAuthConfigured()) {
-                $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-                while (($admin_row = api_booking_db_row($stmt_admins->fetch(PDO::FETCH_ASSOC))) !== []) {
-                    $google_result = GoogleCalendarIntegration::addEventOAuth($booking, array_int_value($admin_row, 'admin_user_id'));
-                    if ($google_result['success']) {
-                        break;
+        if (!$is_pending_request) {
+            try {
+                if (GoogleCalendarIntegration::isOAuthConfigured()) {
+                    $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+                    while (($admin_row = api_booking_db_row($stmt_admins->fetch(PDO::FETCH_ASSOC))) !== []) {
+                        $google_result = GoogleCalendarIntegration::addEventOAuth($booking, array_int_value($admin_row, 'admin_user_id'));
+                        if ($google_result['success']) {
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (!$google_result['success']) {
-                $google_calendar = new GoogleCalendarIntegration();
-                if ($google_calendar->isConfigured()) {
-                    $google_result = $google_calendar->addEvent($booking);
+                if (!$google_result['success']) {
+                    $google_calendar = new GoogleCalendarIntegration();
+                    if ($google_calendar->isConfigured()) {
+                        $google_result = $google_calendar->addEvent($booking);
+                    }
                 }
-            }
 
-            if (!empty($google_result['event_id'])) {
-                $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
-                     ->execute([$google_result['event_id'], $booking_id]);
+                if (!empty($google_result['event_id'])) {
+                    $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
+                         ->execute([$google_result['event_id'], $booking_id]);
+                }
+            } catch (Throwable $e) {
+                $google_result = ['success' => false, 'message' => 'Google Calendar sync failed'];
+                error_log('api_booking_create_booking: Google Calendar sync failed for booking #' . $booking_id . ': ' . $e->getMessage());
             }
-        } catch (Throwable $e) {
-            $google_result = ['success' => false, 'message' => 'Google Calendar sync failed'];
-            error_log('api_booking_create_booking: Google Calendar sync failed for booking #' . $booking_id . ': ' . $e->getMessage());
+        }
+
+        $credit_applied = $pkg_credit_id_to_use !== null && !$is_pending_request;
+        $pending_credit_requested = $pkg_credit_id_to_use !== null && $is_pending_request;
+        $message = $is_pending_request
+            ? 'Your appointment request has been received. We\'ll review it and email you once it is confirmed.'
+            : 'Your appointment has been successfully booked. Check your email for confirmation details and calendar links.';
+        if ($credit_applied) {
+            $message = 'Your appointment has been successfully booked and a credit has been applied. Check your email for confirmation details and calendar links.';
+        } elseif ($pending_credit_requested) {
+            $message .= ' Your eligible credit will be applied when the appointment is confirmed.';
         }
 
         return [
             'success' => true,
-            'message' => 'Booking created successfully!',
+            'message' => $message,
             'booking_id' => $booking_id,
-            'credit_applied' => $pkg_credit_id_to_use !== null,
+            'booking_status' => $initial_status,
+            'credit_applied' => $credit_applied,
             'calendar_links' => [
                 'google_calendar' => $google_calendar_link,
                 'ical_download' => $ical_download_link

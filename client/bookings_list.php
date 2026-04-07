@@ -21,11 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
     $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
     $stmt->execute([$booking_id]);
     $booking_row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $previous_status = $booking_row ? scalar_string($booking_row['status']) : '';
 
     $stmt = $conn->prepare("UPDATE bookings SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     $stmt->execute([$status, $booking_id]);
 
     if ($booking_row) {
+        $updated_booking = $booking_row;
+        $updated_booking['status'] = $status;
         $pkg_credit_id = (int)($booking_row['package_credit_id'] ?? 0);
         $admin_id = $_SESSION['admin_id'] ?? null;
 
@@ -48,6 +51,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
         if ($status === 'cancelled' && !empty($booking_row['client_email'])) {
             $email_service = new EmailService(null, $conn);
             $email_service->sendBookingCancellation($booking_row);
+        }
+
+        if ($status === 'confirmed' && $previous_status !== 'confirmed') {
+            if (!empty($booking_row['client_email'])) {
+                $email_service = new EmailService(null, $conn);
+                $email_service->sendBookingConfirmation($updated_booking);
+            }
+
+            if (empty($booking_row['google_event_id'])) {
+                $gcal_event_id = null;
+                if (GoogleCalendarIntegration::isOAuthConfigured()) {
+                    $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+                    while ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
+                        $cal_result = GoogleCalendarIntegration::addEventOAuth($updated_booking, (int)$admin_row['admin_user_id']);
+                        if (!empty($cal_result['success'])) {
+                            $gcal_event_id = $cal_result['event_id'] ?? null;
+                            break;
+                        }
+                    }
+                }
+                if (!$gcal_event_id) {
+                    $google_calendar = new GoogleCalendarIntegration();
+                    if ($google_calendar->isConfigured()) {
+                        $svc_result = $google_calendar->addEvent($updated_booking);
+                        $gcal_event_id = $svc_result['event_id'] ?? null;
+                    }
+                }
+                if ($gcal_event_id) {
+                    $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")->execute([$gcal_event_id, $booking_id]);
+                }
+            }
         }
 
         if ($status === 'cancelled' && $pkg_credit_id > 0) {

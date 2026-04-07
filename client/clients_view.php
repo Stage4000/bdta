@@ -928,6 +928,7 @@ function getStatusBadge(status) {
 function getMailTypeLabel(mailType) {
     const labels = {
         'booking_confirmation': 'Booking Confirmation',
+        'booking_request':      'Booking Request',
         'booking_reminder':     'Booking Reminder',
         'booking_cancellation': 'Cancellation',
         'payment_receipt':      'Payment Receipt',

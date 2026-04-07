@@ -65,8 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     $portal_available = isset($_POST['portal_available']) ? 1 : 0;
     $confirmation_template_id = !empty($_POST['confirmation_template_id']) ? safe_int($_POST['confirmation_template_id']) : null;
+    $booking_request_template_id = !empty($_POST['booking_request_template_id']) ? safe_int($_POST['booking_request_template_id']) : null;
     $reminder_template_id     = !empty($_POST['reminder_template_id'])     ? safe_int($_POST['reminder_template_id'])     : null;
     $cancellation_template_id = !empty($_POST['cancellation_template_id']) ? safe_int($_POST['cancellation_template_id']) : null;
+    $requires_admin_confirmation = isset($_POST['requires_admin_confirmation']) ? 1 : 0;
     
     // Handle Mini Sessions configuration
     $is_mini_session = isset($_POST['is_mini_session']) ? 1 : 0;
@@ -237,8 +239,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     default_amount = ?,
                     location_types = ?,
                     confirmation_template_id = ?,
+                    booking_request_template_id = ?,
                     reminder_template_id = ?,
                     cancellation_template_id = ?,
+                    requires_admin_confirmation = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -262,8 +266,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $default_amount,
                 $location_types_json,
                 $confirmation_template_id,
+                $booking_request_template_id,
                 $reminder_template_id,
                 $cancellation_template_id,
+                $requires_admin_confirmation,
                 $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
@@ -298,9 +304,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     default_amount,
                     location_types,
                     confirmation_template_id,
+                    booking_request_template_id,
                     reminder_template_id,
-                    cancellation_template_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    cancellation_template_id,
+                    requires_admin_confirmation
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -323,8 +331,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $default_amount,
                 $location_types_json,
                 $confirmation_template_id,
+                $booking_request_template_id,
                 $reminder_template_id,
-                $cancellation_template_id
+                $cancellation_template_id,
+                $requires_admin_confirmation
             ]);
             $id = safe_int($conn->lastInsertId());
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
@@ -406,8 +416,9 @@ $existing_specific_dates_json = htmlspecialchars(scalar_string(json_encode($exis
 // Load all active contract templates for the dropdown
 $all_contract_templates = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
-// Load email templates for confirmation/reminder/cancellation overrides
+// Load email templates for confirmation/request/reminder/cancellation overrides
 $confirmation_templates  = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_confirmation' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$booking_request_templates = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_request' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 $reminder_templates      = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_reminder'     AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 $cancellation_templates  = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_cancellation' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -445,6 +456,7 @@ $type_available_end_time = array_string_value($type_row, 'available_end_time', '
 $type_time_slot_interval = array_int_value($type_row, 'time_slot_interval', 30);
 $type_contract_template_id = array_int_value($type_row, 'contract_template_id');
 $type_confirmation_template_id = array_int_value($type_row, 'confirmation_template_id');
+$type_booking_request_template_id = array_int_value($type_row, 'booking_request_template_id');
 $type_reminder_template_id = array_int_value($type_row, 'reminder_template_id');
 $type_cancellation_template_id = array_int_value($type_row, 'cancellation_template_id');
 $type_auto_invoice = array_int_value($type_row, 'auto_invoice') === 1;
@@ -464,6 +476,7 @@ $type_location_types = decode_json_assoc(array_string_value($type_row, 'location
 $type_unique_link = array_string_value($type_row, 'unique_link');
 $type_is_active = !isset($type) || array_int_value($type_row, 'is_active', 1) === 1;
 $type_portal_available = array_int_value($type_row, 'portal_available') === 1;
+$type_requires_admin_confirmation = array_int_value($type_row, 'requires_admin_confirmation') === 1;
 $type_per_day_data = [];
 foreach (decode_json_assoc(array_string_value($type_row, 'per_day_schedule')) as $day_key => $day_value) {
     if (ctype_digit($day_key) && is_array($day_value)) {
@@ -1111,7 +1124,7 @@ include __DIR__ . '/../backend/includes/header.php';
 
                 <h6 class="border-bottom pb-2 mb-3">Email Template Overrides</h6>
                 <p class="text-muted small mb-3">
-                    Optionally assign specific email templates for confirmations and reminders sent for this appointment type.
+                    Optionally assign specific email templates for confirmations, pending booking requests, reminders, and cancellations sent for this appointment type.
                     If left blank, the system-wide default template (configured in 
                     <a href="email_template_defaults.php">Email Template Defaults</a>) will be used.
                 </p>
@@ -1133,6 +1146,25 @@ include __DIR__ . '/../backend/includes/header.php';
                         </select>
                         <div class="form-text">Override the booking confirmation email for this appointment type.</div>
                     </div>
+                    <div class="col-md-6">
+                        <label for="booking_request_template_id" class="form-label">Booking Request Email Template</label>
+                        <select class="form-select" id="booking_request_template_id" name="booking_request_template_id">
+                            <option value="">— Use system default —</option>
+                            <?php foreach ($booking_request_templates as $tmpl): ?>
+                                <?php
+                                $tmpl_id = array_int_value($tmpl, 'id');
+                                $tmpl_name = array_string_value($tmpl, 'name');
+                                ?>
+                                <option value="<?= $tmpl_id ?>"
+                                    <?= $type_booking_request_template_id === $tmpl_id ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl_name) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Used when this appointment type requires admin confirmation and the request remains pending.</div>
+                    </div>
+                </div>
+                <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label for="reminder_template_id" class="form-label">Reminder Email Template</label>
                         <select class="form-select" id="reminder_template_id" name="reminder_template_id">
@@ -1191,6 +1223,16 @@ include __DIR__ . '/../backend/includes/header.php';
                                 Available in Client Portal
                             </label>
                             <div class="form-text">Allow clients to book this type directly from the client portal</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="requires_admin_confirmation" name="requires_admin_confirmation"
+                                   <?= $type_requires_admin_confirmation ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="requires_admin_confirmation">
+                                Require admin confirmation
+                            </label>
+                            <div class="form-text">Client bookings for this appointment type stay pending until an admin confirms them. Admin-created bookings are still confirmed immediately.</div>
                         </div>
                     </div>
                 </div>

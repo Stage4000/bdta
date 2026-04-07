@@ -90,7 +90,7 @@ $stmt = $conn->prepare("
            is_mini_session, mini_session_location,
            is_field_rental, field_rental_location,
            is_group_class, group_class_location,
-           location_types
+           location_types, requires_admin_confirmation
     FROM appointment_types
     WHERE id = ? AND is_active = 1
 ");
@@ -100,6 +100,10 @@ if ($apt_type === []) {
     echo json_encode(['error' => 'Invalid or inactive appointment type.']);
     exit;
 }
+
+$requires_admin_confirmation = array_int_value($apt_type, 'requires_admin_confirmation') === 1;
+$is_pending_request = $requires_admin_confirmation;
+$initial_status = $is_pending_request ? 'pending' : 'confirmed';
 
 // ── Verify that the client actually has credits for this appointment type ─
 $stmt = $conn->prepare("
@@ -257,7 +261,7 @@ $stmt = $conn->prepare("
          location, location_type, package_credit_id,
          contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font,
          status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ");
 $stmt->execute([
     $client_id,
@@ -272,11 +276,12 @@ $stmt->execute([
     array_int_value($apt_type, 'duration_minutes', 60),
     $location,
     $location_type,
-    $pkg_credit_id,
+    $is_pending_request ? null : $pkg_credit_id,
     $contract_accepted,
     $contract_accepted_at,
     $contract_accepted ? $contract_typed_name : null,
     $contract_accepted ? $contract_sig_font   : null,
+    $initial_status,
 ]);
 $booking_id = (int)$conn->lastInsertId();
 
@@ -465,23 +470,25 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
 $workflow_helper->checkAppointmentTriggers($booking_id);
 
 // ── Deduct credit ─────────────────────────────────────────────────────────
-$conn->prepare("
-    UPDATE client_package_credits
-    SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-")->execute([$pkg_credit_id]);
+if (!$is_pending_request) {
+    $conn->prepare("
+        UPDATE client_package_credits
+        SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    ")->execute([$pkg_credit_id]);
 
-$conn->prepare("
-    INSERT INTO package_credit_transactions
-        (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
-    VALUES (?, ?, ?, 'consume', -1, ?, ?, NULL)
-")->execute([
-    $pkg_credit_id,
-    $client_id,
-    $appointment_type_id,
-    $booking_id,
-    "Credit applied at booking #{$booking_id} via client portal credit booking",
-]);
+    $conn->prepare("
+        INSERT INTO package_credit_transactions
+            (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
+        VALUES (?, ?, ?, 'consume', -1, ?, ?, NULL)
+    ")->execute([
+        $pkg_credit_id,
+        $client_id,
+        $appointment_type_id,
+        $booking_id,
+        "Credit applied at booking #{$booking_id} via client portal credit booking",
+    ]);
+}
 
 // ── Log activity ──────────────────────────────────────────────────────────
 logClientActivity($client_id, 'booking_created', 'Created booking #' . $booking_id . ' for ' . array_string_value($apt_type, 'name'), $conn);
@@ -500,22 +507,36 @@ if (!$booking) {
 }
 
 $base_url          = getDynamicBaseUrl();
-$google_cal_link   = ICalendarGenerator::generateGoogleCalendarLink($booking);
-$ical_link         = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
+$google_cal_link   = '';
+$ical_link         = '';
+if (!$is_pending_request) {
+    $google_cal_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
+    $ical_link       = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
+}
 
 $email_service = new EmailService(null, $conn);
-$email_result  = $email_service->sendBookingConfirmation($booking);
+$email_result  = $is_pending_request
+    ? $email_service->sendBookingRequest($booking)
+    : $email_service->sendBookingConfirmation($booking);
 
-$google_calendar = new GoogleCalendarIntegration();
 $gcal_result = ['success' => false];
-if ($google_calendar->isConfigured()) {
-    $gcal_result = $google_calendar->addEvent($booking);
+if (!$is_pending_request) {
+    $google_calendar = new GoogleCalendarIntegration();
+    if ($google_calendar->isConfigured()) {
+        $gcal_result = $google_calendar->addEvent($booking);
+    }
 }
+
+$message = $is_pending_request
+    ? 'Your appointment request has been received. We\'ll review it and email you once it is confirmed. Your eligible credit will be applied when the appointment is confirmed.'
+    : 'Your appointment has been successfully booked and a credit has been applied. Check your email for details and calendar links.';
 
 echo json_encode([
     'success'              => true,
     'booking_id'           => $booking_id,
-    'credit_applied'       => true,
+    'booking_status'       => $initial_status,
+    'message'              => $message,
+    'credit_applied'       => !$is_pending_request,
     'calendar_links'       => [
         'google_calendar' => $google_cal_link,
         'ical_download'   => $ical_link,
