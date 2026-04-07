@@ -533,13 +533,15 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
 
         $credit_applied = $pkg_credit_id_to_use !== null && !$is_pending_request;
         $pending_credit_requested = $pkg_credit_id_to_use !== null && $is_pending_request;
-        $message = $is_pending_request
-            ? 'Your appointment request has been received. We\'ll review it and email you once it is confirmed.'
-            : 'Your appointment has been successfully booked. Check your email for confirmation details and calendar links.';
-        if ($credit_applied) {
+        if ($is_pending_request) {
+            $message = 'Your appointment request has been received. We\'ll review it and email you once it is confirmed.';
+            if ($pending_credit_requested) {
+                $message .= ' Your eligible credit will be applied when the appointment is confirmed.';
+            }
+        } elseif ($credit_applied) {
             $message = 'Your appointment has been successfully booked and a credit has been applied. Check your email for confirmation details and calendar links.';
-        } elseif ($pending_credit_requested) {
-            $message .= ' Your eligible credit will be applied when the appointment is confirmed.';
+        } else {
+            $message = 'Your appointment has been successfully booked. Check your email for confirmation details and calendar links.';
         }
 
         return [
