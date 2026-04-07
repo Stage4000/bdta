@@ -693,8 +693,8 @@ include '../portal/includes/header.php';
         <div class="modal-content">
             <div class="modal-body text-center p-5">
                 <i class="fas fa-circle-check text-success mb-3" style="font-size:4rem;"></i>
-                <h3 class="mb-2">Booking Confirmed!</h3>
-                <p class="text-muted mb-4">Your appointment has been successfully booked. Check your email for details and calendar links.</p>
+                <h3 class="mb-2">Booking Submitted!</h3>
+                <p class="text-muted mb-4">Your booking details have been received.</p>
                 <a href="<?= PORTAL_URL ?>appointments.php" class="btn btn-primary btn-lg">View My Appointments</a>
             </div>
         </div>
@@ -1276,6 +1276,14 @@ include '../portal/includes/header.php';
         .then(r => r.json())
         .then(data => {
             if (data.success) {
+                const modalTitle = document.querySelector('#successModal h3');
+                const modalBody = document.querySelector('#successModal p.text-muted');
+                if (modalTitle) {
+                    modalTitle.textContent = data.booking_status === 'pending' ? 'Request Received!' : 'Booking Confirmed!';
+                }
+                if (modalBody) {
+                    modalBody.textContent = data.message || 'Your booking details have been received.';
+                }
                 new bootstrap.Modal(document.getElementById('successModal')).show();
             } else {
                 showAlert(escapeHtml(data.error || 'Booking failed. Please try again.'), 'danger');

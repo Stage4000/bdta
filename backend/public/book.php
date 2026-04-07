@@ -1256,8 +1256,8 @@ if (isset($error_mode) && $error_mode) {
                     <div class="mb-4">
                         <i class="fas fa-check-circle-fill text-success" style="font-size: 4rem;"></i>
                     </div>
-                    <h2 class="mb-3">Booking Confirmed!</h2>
-                    <p class="text-muted mb-4">Your appointment has been successfully booked. Check your email for confirmation details and calendar links.</p>
+                    <h2 class="mb-3">Booking Submitted!</h2>
+                    <p class="text-muted mb-4">Your booking details have been received.</p>
                     <a href="/" class="btn btn-primary btn-lg">Back to Home</a>
                 </div>
             </div>
@@ -1972,11 +1972,13 @@ if (isset($error_mode) && $error_mode) {
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    if (data.credit_applied) {
-                        const modalBody = document.querySelector('#successModal .modal-body p.text-muted');
-                        if (modalBody) {
-                            modalBody.innerHTML = 'Your appointment has been successfully booked and a credit has been applied. Check your email for confirmation details and calendar links.';
-                        }
+                    const modalTitle = document.querySelector('#successModal .modal-body h2');
+                    const modalBody = document.querySelector('#successModal .modal-body p.text-muted');
+                    if (modalTitle) {
+                        modalTitle.textContent = data.booking_status === 'pending' ? 'Request Received!' : 'Booking Confirmed!';
+                    }
+                    if (modalBody) {
+                        modalBody.textContent = data.message || 'Your booking details have been received.';
                     }
                     new bootstrap.Modal(document.getElementById('successModal')).show();
                 } else {

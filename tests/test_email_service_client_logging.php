@@ -116,6 +116,7 @@ try {
         'Automated client logging regression',
         'Workflow email resolved by recipient',
         'Booking confirmation resolved by recipient',
+        'Booking request resolved by recipient',
         'Booking cancellation resolved by recipient',
         'Booking confirmation resolved by contact recipient',
         'Generic automated email without explicit history lookup',
@@ -152,6 +153,15 @@ try {
         'Hello confirmation fallback'
     );
     assertEmailServiceClientLogging($result['success'] === false, 'Expected booking confirmation fallback email send to fail without an SMTP host.');
+
+    $result = $email_service->routeMail(
+        EmailService::MAIL_TYPE_BOOKING_REQUEST,
+        'client@example.com',
+        'Booking request resolved by recipient',
+        '<p>Hello request fallback</p>',
+        'Hello request fallback'
+    );
+    assertEmailServiceClientLogging($result['success'] === false, 'Expected booking request fallback email send to fail without an SMTP host.');
 
     $result = $email_service->routeMail(
         EmailService::MAIL_TYPE_BOOKING_CANCELLATION,
@@ -258,16 +268,17 @@ try {
     assertEmailServiceClientLogging(($logged_emails[0]['mail_type'] ?? '') === EmailService::MAIL_TYPE_WORKFLOW, 'Expected explicit workflow email to keep the workflow mail type.');
     assertEmailServiceClientLogging(($logged_emails[1]['mail_type'] ?? '') === EmailService::MAIL_TYPE_WORKFLOW, 'Expected workflow fallback email to keep the workflow mail type.');
     assertEmailServiceClientLogging(($logged_emails[2]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CONFIRMATION, 'Expected booking confirmation fallback email to keep the confirmation mail type.');
-    assertEmailServiceClientLogging(($logged_emails[3]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CANCELLATION, 'Expected booking cancellation fallback email to keep the cancellation mail type.');
-    assertEmailServiceClientLogging(($logged_emails[4]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CONFIRMATION, 'Expected contact-recipient fallback email to keep the confirmation mail type.');
-    assertEmailServiceClientLogging(($logged_emails[4]['to_email'] ?? '') === 'ALT-CONTACT@example.com', 'Expected contact-recipient fallback email to preserve the original recipient casing in the log row.');
-    assertEmailServiceClientLogging(($logged_emails[5]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected generic automated email without explicit lookup to keep the generic mail type.');
-    assertEmailServiceClientLogging(($logged_emails[5]['subject'] ?? '') === $expected_logged_subjects[5], 'Expected generic automated email without explicit lookup to now be logged to client_emails.');
-    assertEmailServiceClientLogging(($logged_emails[6]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected generic automated fallback email to keep the generic mail type.');
-    assertEmailServiceClientLogging(($logged_emails[6]['subject'] ?? '') === $expected_logged_subjects[6], 'Expected generic automated fallback email to be logged.');
-    assertEmailServiceClientLogging(($logged_emails[7]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected booking-snapshot fallback email to keep the generic mail type.');
-    assertEmailServiceClientLogging(($logged_emails[7]['subject'] ?? '') === $expected_logged_subjects[7], 'Expected booking-snapshot fallback email to be logged.');
-    assertEmailServiceClientLogging(($logged_emails[7]['to_email'] ?? '') === 'Legacy Main Contact <legacy-main-contact@example.com>', 'Expected booking-snapshot fallback email to preserve the original recipient string in the log row.');
+    assertEmailServiceClientLogging(($logged_emails[3]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_REQUEST, 'Expected booking request fallback email to keep the request mail type.');
+    assertEmailServiceClientLogging(($logged_emails[4]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CANCELLATION, 'Expected booking cancellation fallback email to keep the cancellation mail type.');
+    assertEmailServiceClientLogging(($logged_emails[5]['mail_type'] ?? '') === EmailService::MAIL_TYPE_BOOKING_CONFIRMATION, 'Expected contact-recipient fallback email to keep the confirmation mail type.');
+    assertEmailServiceClientLogging(($logged_emails[5]['to_email'] ?? '') === 'ALT-CONTACT@example.com', 'Expected contact-recipient fallback email to preserve the original recipient casing in the log row.');
+    assertEmailServiceClientLogging(($logged_emails[6]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected generic automated email without explicit lookup to keep the generic mail type.');
+    assertEmailServiceClientLogging(($logged_emails[6]['subject'] ?? '') === $expected_logged_subjects[6], 'Expected generic automated email without explicit lookup to now be logged to client_emails.');
+    assertEmailServiceClientLogging(($logged_emails[7]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected generic automated fallback email to keep the generic mail type.');
+    assertEmailServiceClientLogging(($logged_emails[7]['subject'] ?? '') === $expected_logged_subjects[7], 'Expected generic automated fallback email to be logged.');
+    assertEmailServiceClientLogging(($logged_emails[8]['mail_type'] ?? '') === EmailService::MAIL_TYPE_GENERIC, 'Expected booking-snapshot fallback email to keep the generic mail type.');
+    assertEmailServiceClientLogging(($logged_emails[8]['subject'] ?? '') === $expected_logged_subjects[8], 'Expected booking-snapshot fallback email to be logged.');
+    assertEmailServiceClientLogging(($logged_emails[8]['to_email'] ?? '') === 'Legacy Main Contact <legacy-main-contact@example.com>', 'Expected booking-snapshot fallback email to preserve the original recipient string in the log row.');
     assertEmailServiceClientLogging(!in_array('Password reset stays out of platform history', array_column($logged_emails, 'subject'), true), 'Expected password reset emails to stay out of client_emails.');
     assertEmailServiceClientLogging(!in_array('Admin notification stays out of platform history', array_column($logged_emails, 'subject'), true), 'Expected skipped platform logging email to stay out of client_emails.');
 

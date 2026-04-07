@@ -35,6 +35,7 @@ class EmailService {
     private const SMTP_TRANSPORTS = ['smtp', 'sendgrid', 'mailgun', 'ses'];
     private const CLIENT_HISTORY_RECIPIENT_LOOKUP_TYPES = [
         self::MAIL_TYPE_BOOKING_CONFIRMATION,
+        self::MAIL_TYPE_BOOKING_REQUEST,
         self::MAIL_TYPE_BOOKING_REMINDER,
         self::MAIL_TYPE_PAYMENT_RECEIPT,
         self::MAIL_TYPE_INVOICE,
@@ -54,6 +55,9 @@ class EmailService {
 
     /** Booking confirmation sent to the client immediately after a booking is created. */
     const MAIL_TYPE_BOOKING_CONFIRMATION = 'booking_confirmation';
+
+    /** Booking request acknowledgment sent when an appointment is awaiting admin confirmation. */
+    const MAIL_TYPE_BOOKING_REQUEST      = 'booking_request';
 
     /** Reminder sent to the client ahead of an upcoming appointment. */
     const MAIL_TYPE_BOOKING_REMINDER     = 'booking_reminder';
@@ -519,7 +523,7 @@ class EmailService {
      * Look up the applicable email template for a given task type and optional appointment type.
      * Priority: appointment-type override → rule template → system default → null (use hardcoded fallback).
      *
-     * @param string   $template_type      One of: booking_confirmation, booking_reminder, payment_receipt, …
+     * @param string   $template_type      One of: booking_confirmation, booking_request, booking_reminder, payment_receipt, …
      * @param int|null $appointment_type_id  ID of the appointment type (for per-type overrides)
      * @param int|null $rule_template_id     Template ID from the specific reminder rule being processed
      * @return AssocRow|null Row from email_templates, or null
@@ -532,6 +536,7 @@ class EmailService {
         // Column name in appointment_types for the override
         $override_col_map = [
             'booking_confirmation' => 'confirmation_template_id',
+            'booking_request'      => 'booking_request_template_id',
             'booking_reminder'     => 'reminder_template_id',
             'booking_cancellation' => 'cancellation_template_id',
         ];
@@ -539,6 +544,7 @@ class EmailService {
         // Setting key for the system-wide default
         $default_setting_map = [
             'booking_confirmation' => 'default_confirmation_template_id',
+            'booking_request'      => 'default_booking_request_template_id',
             'booking_reminder'     => 'default_reminder_template_id',
             'payment_receipt'      => 'default_payment_receipt_template_id',
             'booking_cancellation' => 'default_cancellation_template_id',
@@ -548,7 +554,7 @@ class EmailService {
         if ($appointment_type_id && isset($override_col_map[$template_type])) {
             $col = $override_col_map[$template_type];
             // Whitelist the column name to prevent any future SQL injection risk
-            $allowed_cols = ['confirmation_template_id', 'reminder_template_id', 'cancellation_template_id'];
+            $allowed_cols = ['confirmation_template_id', 'booking_request_template_id', 'reminder_template_id', 'cancellation_template_id'];
             if (!in_array($col, $allowed_cols, true)) {
                 // Should never happen since $override_col_map is hardcoded
                 return null;
@@ -736,6 +742,50 @@ HTML;
         
         // Route through central mail router
         return $this->routeMail(self::MAIL_TYPE_BOOKING_CONFIRMATION, $to, $subject, $html_body, $text_body, [
+            'client_id' => self::rowId($booking),
+        ]);
+    }
+
+    /**
+     * Send a booking request acknowledgement email to the client.
+     *
+     * @param AssocRow $booking
+     * @return MailResult
+     */
+    public function sendBookingRequest(array $booking): array {
+        $to = self::rowString($booking, 'client_email');
+        if (empty($to)) {
+            return ['success' => false, 'message' => 'No client email address on file'];
+        }
+
+        $appointment_date = self::rowString($booking, 'appointment_date');
+        $appointment_time = self::rowString($booking, 'appointment_time');
+        $appointment_type_id = ($booking['appointment_type_id'] ?? null) !== null ? safe_int($booking['appointment_type_id']) : 0;
+
+        $date = date('l, F j, Y', safe_timestamp(strtotime($appointment_date)));
+        $time = date('g:i A', safe_timestamp(strtotime($appointment_time)));
+
+        $db_template = $this->getTemplateForTask('booking_request', $appointment_type_id > 0 ? $appointment_type_id : null);
+
+        if ($db_template) {
+            $variables = array_merge(
+                $this->buildBookingVariables($booking, $date, $time, '', ''),
+                [
+                    'booking_status' => 'pending',
+                    'status' => 'pending',
+                ]
+            );
+            $rendered  = $this->renderTemplate($db_template, $variables);
+            $subject   = $rendered['subject'];
+            $html_body = $rendered['body_html'];
+            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+        } else {
+            $subject   = 'Appointment Request Received - ' . self::settingString('site_name', "Brook's Dog Training Academy");
+            $html_body = $this->getBookingRequestEmailHTML($booking, $date, $time);
+            $text_body = $this->getBookingRequestEmailText($booking, $date, $time);
+        }
+
+        return $this->routeMail(self::MAIL_TYPE_BOOKING_REQUEST, $to, $subject, $html_body, $text_body, [
             'client_id' => self::rowId($booking),
         ]);
     }
@@ -1581,6 +1631,61 @@ Brook's Dog Training Academy
 © 2024 Brook's Dog Training Academy | "Teaching Humans to Speak Dog"
 This is an automated confirmation email.
 TEXT;
+    }
+
+    /**
+     * @param AssocRow $booking
+     */
+    private function getBookingRequestEmailHTML(array $booking, string $date, string $time): string {
+        $client_name = self::rowString($booking, 'client_name');
+        $service_type = self::rowString($booking, 'service_type');
+        $duration_minutes = self::rowString($booking, 'duration_minutes');
+        $location = $this->formatLocationForEmail($booking);
+        $business_name = self::settingString('site_name', "Brook's Dog Training Academy");
+        $business_email = self::settingString('business_email', 'bookings@brooksdogtrainingacademy.com');
+
+        return self::wrapEmailHtml("
+            <h1>Appointment Request Received</h1>
+            <p>Dear " . htmlspecialchars($client_name) . ",</p>
+            <p>Thank you for your booking request. We have received it and it is currently pending review.</p>
+            <div class=\"details-box\">
+                <h2>Requested Appointment Details</h2>
+                <p><strong>Service:</strong> " . htmlspecialchars($service_type) . "</p>
+                <p><strong>Date:</strong> " . htmlspecialchars($date) . "</p>
+                <p><strong>Time:</strong> " . htmlspecialchars($time) . "</p>
+                <p><strong>Duration:</strong> " . htmlspecialchars($duration_minutes) . " minutes</p>
+                <p><strong>Location:</strong> " . htmlspecialchars($location) . "</p>
+            </div>
+            <p>An administrator will review your request shortly. You will receive another email as soon as your appointment is confirmed.</p>
+            <p>If you have any questions, please contact us at <a href=\"mailto:" . htmlspecialchars($business_email) . "\">" . htmlspecialchars($business_email) . "</a>.</p>
+            <p>Best regards,<br>" . htmlspecialchars($business_name) . "</p>
+        ");
+    }
+
+    /**
+     * @param AssocRow $booking
+     */
+    private function getBookingRequestEmailText(array $booking, string $date, string $time): string {
+        $client_name = self::rowString($booking, 'client_name');
+        $service_type = self::rowString($booking, 'service_type');
+        $duration_minutes = self::rowString($booking, 'duration_minutes');
+        $location = $this->formatLocationForEmail($booking);
+        $business_name = self::settingString('site_name', "Brook's Dog Training Academy");
+        $business_email = self::settingString('business_email', 'bookings@brooksdogtrainingacademy.com');
+
+        return "APPOINTMENT REQUEST RECEIVED - {$business_name}\n\n"
+            . "Dear {$client_name},\n\n"
+            . "Thank you for your booking request. We have received it and it is currently pending review.\n\n"
+            . "REQUESTED APPOINTMENT DETAILS\n"
+            . "-----------------------------\n"
+            . "Service: {$service_type}\n"
+            . "Date: {$date}\n"
+            . "Time: {$time}\n"
+            . "Duration: {$duration_minutes} minutes\n"
+            . "Location: {$location}\n\n"
+            . "An administrator will review your request shortly. You will receive another email as soon as your appointment is confirmed.\n\n"
+            . "Questions? Contact us at {$business_email}.\n\n"
+            . "Best regards,\n{$business_name}";
     }
 
     /**

@@ -21,6 +21,13 @@ $task_types = [
         'icon'        => 'calendar-check',
         'color'       => 'primary',
     ],
+    'booking_request' => [
+        'label'       => 'Booking Request',
+        'description' => 'Sent automatically when a booking request is received and is awaiting admin confirmation.',
+        'setting_key' => 'default_booking_request_template_id',
+        'icon'        => 'hourglass-half',
+        'color'       => 'secondary',
+    ],
     'booking_reminder' => [
         'label'       => 'Booking Reminder',
         'description' => 'Sent automatically before an upcoming appointment.',

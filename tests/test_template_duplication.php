@@ -91,14 +91,16 @@ try {
     $conn->prepare("
         INSERT INTO appointment_types (
             name, description, duration_minutes, requires_forms, is_active, unique_link,
-            portal_available, available_days, available_start_time, available_end_time, time_slot_interval
+            portal_available, available_days, available_start_time, available_end_time, time_slot_interval,
+            booking_request_template_id, requires_admin_confirmation
         )
-        VALUES (?, ?, 45, 0, 1, ?, 1, ?, '09:00', '17:00', 30)
+        VALUES (?, ?, 45, 0, 1, ?, 1, ?, '09:00', '17:00', 30, ?, 1)
     ")->execute([
         'Appointment Duplicate Type ' . $suffix,
         'Appointment source ' . $suffix,
         'source-link-' . $suffix,
         json_encode([1, 3, 5]),
+        $email_template_id,
     ]);
     $appointment_type_id = (int) $conn->lastInsertId();
     $cleanup['appointment_type_ids'][] = $appointment_type_id;
@@ -150,7 +152,8 @@ try {
     $cleanup['appointment_type_ids'][] = $duplicated_appointment_type_id;
 
     $appointment_stmt = $conn->prepare("
-        SELECT name, description, duration_minutes, unique_link, portal_available, available_days
+        SELECT name, description, duration_minutes, unique_link, portal_available, available_days,
+               booking_request_template_id, requires_admin_confirmation
         FROM appointment_types
         WHERE id = ?
     ");
@@ -164,6 +167,8 @@ try {
         || $appointment_copy['unique_link'] === 'source-link-' . $suffix
         || (int) $appointment_copy['portal_available'] !== 1
         || $appointment_copy['available_days'] !== json_encode([1, 3, 5])
+        || (int) $appointment_copy['booking_request_template_id'] !== $email_template_id
+        || (int) $appointment_copy['requires_admin_confirmation'] !== 1
     ) {
         throw new RuntimeException('Appointment type duplication did not preserve fields or regenerate the unique link.');
     }
