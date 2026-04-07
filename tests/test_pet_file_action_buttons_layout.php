@@ -9,19 +9,19 @@ function bdta_assert(bool $condition, string $message): void
     }
 }
 
-function bdta_read_file(string $path): string
+function bdta_read_file(string $path, string $label): string
 {
     $contents = file_get_contents($path);
 
     if ($contents === false) {
-        fwrite(STDERR, 'Test setup failed: unable to read pets_edit.php' . PHP_EOL);
+        fwrite(STDERR, sprintf('Test setup failed: unable to read %s', $label) . PHP_EOL);
         exit(1);
     }
 
     return $contents;
 }
 
-$pets_edit = bdta_read_file(dirname(__DIR__) . '/client/pets_edit.php');
+$pets_edit = bdta_read_file(dirname(__DIR__) . '/client/pets_edit.php', 'pets_edit.php');
 
 bdta_assert(
     str_contains($pets_edit, '<div class="card-body d-flex flex-column ${isImage ? \'pt-2\' : \'\'}">'),
