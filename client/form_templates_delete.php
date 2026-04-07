@@ -20,7 +20,7 @@ if (isset($_GET['id'])) {
         // Check if template has submissions
         $stmt = $conn->prepare("SELECT COUNT(*) FROM form_submissions WHERE template_id = ?");
         $stmt->execute([$id]);
-        $submission_count = $stmt->fetchColumn();
+        $submission_count = safe_int($stmt->fetchColumn());
         
         if ($submission_count > 0) {
             $_SESSION['flash_message'] = "Cannot delete template - it has $submission_count submission(s). Mark it as inactive instead.";

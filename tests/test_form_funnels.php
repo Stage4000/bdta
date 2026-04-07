@@ -105,11 +105,11 @@ try {
         throw new RuntimeException('Appointment-linked form links should resolve both client and booking context.');
     }
 
-    $missing_client_id = (int) $conn->query("SELECT COALESCE(MAX(id), 0) FROM clients")->fetchColumn() + 1;
+    $missing_client_id = safe_int($conn->query("SELECT COALESCE(MAX(id), 0) FROM clients")->fetchColumn()) + 1;
     $exists_stmt = $conn->prepare("SELECT COUNT(*) FROM clients WHERE id = ?");
     while (true) {
         $exists_stmt->execute([$missing_client_id]);
-        if ((int) $exists_stmt->fetchColumn() === 0) {
+        if (safe_int($exists_stmt->fetchColumn()) === 0) {
             break;
         }
         $missing_client_id++;
@@ -124,11 +124,11 @@ try {
     $missing_address_email = 'missing-address-' . $suffix . '@example.com';
     $client_count_stmt = $conn->prepare("SELECT COUNT(*) FROM clients WHERE email = ?");
     $client_count_stmt->execute([$missing_address_email]);
-    $client_count_before = (int) $client_count_stmt->fetchColumn();
+    $client_count_before = safe_int($client_count_stmt->fetchColumn());
 
     $booking_count_stmt = $conn->prepare("SELECT COUNT(*) FROM bookings WHERE client_email = ?");
     $booking_count_stmt->execute([$missing_address_email]);
-    $booking_count_before = (int) $booking_count_stmt->fetchColumn();
+    $booking_count_before = safe_int($booking_count_stmt->fetchColumn());
 
     $result = api_booking_create_booking($conn, [
         'client_name' => 'Missing Address ' . $suffix,
@@ -145,13 +145,13 @@ try {
     }
 
     $client_count_stmt->execute([$missing_address_email]);
-    $client_count_after = (int) $client_count_stmt->fetchColumn();
+    $client_count_after = safe_int($client_count_stmt->fetchColumn());
     if ($client_count_after !== $client_count_before) {
         throw new RuntimeException('Failed booking attempts must not create a new client record.');
     }
 
     $booking_count_stmt->execute([$missing_address_email]);
-    $booking_count_after = (int) $booking_count_stmt->fetchColumn();
+    $booking_count_after = safe_int($booking_count_stmt->fetchColumn());
     if ($booking_count_after !== $booking_count_before) {
         throw new RuntimeException('Failed booking attempts must not create a booking record.');
     }
@@ -225,7 +225,7 @@ try {
         LIMIT 1
     ");
     $pet_stmt->execute([$mapped_booking_id]);
-    $linked_pet_name = (string) $pet_stmt->fetchColumn();
+    $linked_pet_name = scalar_string($pet_stmt->fetchColumn());
     if ($linked_pet_name !== 'Pixel') {
         throw new RuntimeException('Mapped pet name should be used when creating the booking pet link.');
     }

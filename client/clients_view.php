@@ -117,7 +117,7 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $summary_row) {
 // Get email count
 $stmt = $conn->prepare("SELECT COUNT(*) as email_count FROM client_emails WHERE client_id = ?");
 $stmt->execute([$id]);
-$email_count = $stmt->fetchColumn();
+$email_count = safe_int($stmt->fetchColumn());
 
 // Get client contacts
 $stmt = $conn->prepare("SELECT * FROM client_contacts WHERE client_id = ? ORDER BY is_primary DESC, name ASC");

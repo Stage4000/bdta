@@ -138,7 +138,7 @@ try {
 
     $stmt = $conn->prepare("SELECT COUNT(*) FROM package_credit_transactions WHERE client_id = ? AND appointment_type_id = ? AND transaction_type = 'adjustment'");
     $stmt->execute([$client_id, $apt_type_id]);
-    $count = (int)$stmt->fetchColumn();
+    $count = safe_int($stmt->fetchColumn());
 
     assert($count === 2, "Expected 2 audit log entries, got $count");
     echo "  ✓ 2 audit log entries found for credit adjustments\n\n";
@@ -186,7 +186,7 @@ try {
           AND (cpc.total_credits - cpc.used_credits) > 0
     ");
     $stmt->execute([$client_id, $other_apt_type_id]);
-    $other_count = (int)$stmt->fetchColumn();
+    $other_count = safe_int($stmt->fetchColumn());
 
     assert($other_count === 0, 'Credits for Test Session must not appear for Other Session');
     echo "  ✓ Credits for 'Test Session' do not appear for 'Other Session'\n\n";

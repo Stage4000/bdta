@@ -12,12 +12,12 @@ $content = $conn->query("SELECT * FROM portal_content WHERE id = 1")->fetch(PDO:
 // Open invoices count
 $stmt = $conn->prepare("SELECT COUNT(*) FROM invoices WHERE client_id = ? AND status NOT IN ('paid','refunded','cancelled','void')");
 $stmt->execute([$client_id]);
-$open_invoices = $stmt->fetchColumn();
+$open_invoices = safe_int($stmt->fetchColumn());
 
 // Upcoming appointments count
 $stmt = $conn->prepare("SELECT COUNT(*) FROM bookings WHERE client_email = (SELECT email FROM clients WHERE id = ?) AND appointment_date >= CURDATE()");
 $stmt->execute([$client_id]);
-$upcoming_appointments = $stmt->fetchColumn();
+$upcoming_appointments = safe_int($stmt->fetchColumn());
 
 // Total available credits across all appointment types
 $stmt = $conn->prepare("
@@ -29,13 +29,13 @@ $stmt = $conn->prepare("
       AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
 ");
 $stmt->execute([$client_id]);
-$credit_balance = intval($stmt->fetchColumn());
+$credit_balance = safe_int($stmt->fetchColumn());
 $pkg_credits = $credit_balance;
 
 // Pending agreements (unsigned contracts)
 $stmt = $conn->prepare("SELECT COUNT(*) FROM contracts WHERE client_id = ? AND status = 'pending'");
 $stmt->execute([$client_id]);
-$pending_agreements = $stmt->fetchColumn();
+$pending_agreements = safe_int($stmt->fetchColumn());
 
 // Recent activity
 $stmt = $conn->prepare("SELECT * FROM client_activity_log WHERE client_id = ? ORDER BY created_at DESC LIMIT 5");

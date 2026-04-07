@@ -62,11 +62,11 @@ if ($booking === []) {
 // Verify the booking belongs to this client (by client_id or email)
 $stmt = $conn->prepare("SELECT email FROM clients WHERE id = ?");
 $stmt->execute([$client_id]);
-$client_email = $stmt->fetchColumn();
+$client_email = scalar_string($stmt->fetchColumn() ?? '');
 
 $belongs = (
     safe_int($booking['client_id'] ?? 0) === $client_id ||
-    (!empty($client_email) && strtolower(scalar_string($booking['client_email'] ?? '')) === strtolower((string) $client_email))
+    ($client_email !== '' && strtolower(scalar_string($booking['client_email'] ?? '')) === strtolower($client_email))
 );
 if (!$belongs) {
     echo json_encode(['error' => 'Access denied.']);
@@ -141,7 +141,7 @@ if ($action === 'cancel') {
             WHERE client_package_credit_id = ? AND booking_id = ? AND transaction_type = 'refund'
         ");
         $stmt->execute([$pkg_credit_id, $booking_id]);
-        if (!(int)$stmt->fetchColumn()) {
+        if (!safe_int($stmt->fetchColumn())) {
             $conn->prepare("
                 UPDATE client_package_credits
                 SET used_credits = used_credits - 1, updated_at = CURRENT_TIMESTAMP

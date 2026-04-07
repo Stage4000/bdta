@@ -62,7 +62,7 @@ try {
     if ($next_value === false) {
         throw new RuntimeException('Failed to load updated next_run value.');
     }
-    $updated_next_run = (string) $next_value;
+    $updated_next_run = scalar_string($next_value);
 
     if ($updated_next_run === '') {
         throw new RuntimeException('Task next_run was not updated.');
