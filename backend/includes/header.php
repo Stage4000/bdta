@@ -33,6 +33,7 @@
     <script src="/client/pwa-register.js" defer></script>
 </head>
 <body>
+    <?php require_once __DIR__ . '/time_tracker_helper.php'; ?>
     <?php $flash = getFlashMessage(); ?>
     <?php if ($flash): ?>
     <div class="position-fixed top-0 end-0 p-3 app-toast-container">
@@ -46,6 +47,182 @@
     <?php endif; ?>
     
     <?php if (isLoggedIn()): ?>
+    <?php
+        $bdta_active_timer = bdta_normalize_active_timer($_SESSION['active_timer'] ?? null);
+        $bdta_active_timer_storage_key = bdta_active_timer_storage_key($_SESSION['user_type'] ?? 'admin', $_SESSION['admin_id'] ?? 0);
+    ?>
+    <a
+        id="appActiveTimerIndicator"
+        class="app-active-timer d-none"
+        href="time_tracker.php"
+        aria-live="polite"
+        aria-label="Open the running timer"
+    >
+        <span class="app-active-timer__status">
+            <i class="fas fa-stopwatch" aria-hidden="true"></i>
+            <span>Timer running</span>
+        </span>
+        <span id="appActiveTimerIndicatorTime" class="app-active-timer__time">00:00:00</span>
+        <span id="appActiveTimerIndicatorMeta" class="app-active-timer__meta"></span>
+    </a>
+    <script>
+    (function() {
+        const indicator = document.getElementById('appActiveTimerIndicator');
+        const timeElement = document.getElementById('appActiveTimerIndicatorTime');
+        const metaElement = document.getElementById('appActiveTimerIndicatorMeta');
+        const storageKey = <?= json_encode($bdta_active_timer_storage_key) ?>;
+        const serverTimer = <?= json_encode($bdta_active_timer) ?>;
+        let timerInterval = null;
+        let currentTimer = null;
+
+        function normalizeActiveTimer(timer) {
+            if (!timer || typeof timer !== 'object') {
+                return null;
+            }
+
+            const startTimeValue = Number(timer.start_time);
+            const clientId = Number(timer.client_id);
+            const serviceType = typeof timer.service_type === 'string' ? timer.service_type.trim() : '';
+            const description = typeof timer.description === 'string' ? timer.description.trim() : '';
+
+            if (!Number.isFinite(startTimeValue) || startTimeValue <= 0 || !Number.isFinite(clientId) || clientId <= 0 || serviceType === '') {
+                return null;
+            }
+
+            return {
+                start_time: Math.floor(startTimeValue),
+                client_id: Math.floor(clientId),
+                service_type: serviceType,
+                description: description
+            };
+        }
+
+        function formatDuration(seconds) {
+            const totalSeconds = Math.max(0, seconds);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const secs = totalSeconds % 60;
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function updateDuration() {
+            if (!currentTimer) {
+                timeElement.textContent = '00:00:00';
+                return;
+            }
+
+            const elapsed = Math.floor(Date.now() / 1000) - currentTimer.start_time;
+            timeElement.textContent = formatDuration(elapsed);
+        }
+
+        function stopTimerUpdate() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function startTimerUpdate() {
+            stopTimerUpdate();
+            updateDuration();
+            timerInterval = window.setInterval(updateDuration, 1000);
+        }
+
+        function renderTimer(timer) {
+            currentTimer = timer;
+            metaElement.textContent = timer.service_type;
+            indicator.classList.remove('d-none');
+            indicator.title = timer.description !== ''
+                ? `${timer.service_type} — ${timer.description}`
+                : timer.service_type;
+            startTimerUpdate();
+        }
+
+        function hideTimer() {
+            currentTimer = null;
+            stopTimerUpdate();
+            indicator.classList.add('d-none');
+            indicator.removeAttribute('title');
+            metaElement.textContent = '';
+            timeElement.textContent = '00:00:00';
+        }
+
+        function loadStoredTimer() {
+            try {
+                const storedTimer = localStorage.getItem(storageKey);
+                return normalizeActiveTimer(storedTimer ? JSON.parse(storedTimer) : null);
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function persistTimer(timer) {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(timer));
+            } catch (error) {
+                console.warn(error);
+            }
+        }
+
+        function clearStoredTimer() {
+            try {
+                localStorage.removeItem(storageKey);
+            } catch (error) {
+                console.warn(error);
+            }
+        }
+
+        function setActiveTimer(timer, options = {}) {
+            const normalizedTimer = normalizeActiveTimer(timer);
+            if (!normalizedTimer) {
+                clearActiveTimer(options);
+                return;
+            }
+
+            if (options.persist !== false) {
+                persistTimer(normalizedTimer);
+            }
+
+            renderTimer(normalizedTimer);
+        }
+
+        function clearActiveTimer(options = {}) {
+            if (options.clearStorage !== false) {
+                clearStoredTimer();
+            }
+
+            hideTimer();
+        }
+
+        const initialTimer = serverTimer || loadStoredTimer();
+        if (initialTimer) {
+            setActiveTimer(initialTimer, { persist: !!serverTimer });
+        }
+
+        window.addEventListener('storage', function(event) {
+            if (event.key !== storageKey) {
+                return;
+            }
+
+            if (!event.newValue) {
+                clearActiveTimer({ clearStorage: false });
+                return;
+            }
+
+            try {
+                setActiveTimer(JSON.parse(event.newValue), { persist: false });
+            } catch (error) {
+                clearActiveTimer({ clearStorage: false });
+            }
+        });
+
+        window.bdtaActiveTimerIndicator = {
+            setActiveTimer,
+            clearActiveTimer,
+            formatDuration
+        };
+    })();
+    </script>
     <div class="container-fluid">
         <div class="row">
             <!-- Mobile menu toggle button -->

@@ -31,6 +31,16 @@ function bdta_normalize_active_timer(mixed $timer): ?array
     ];
 }
 
+function bdta_active_timer_storage_key(mixed $user_type, mixed $user_id): string
+{
+    $normalized_user_type = bdta_time_tracker_string($user_type);
+    if ($normalized_user_type === '') {
+        $normalized_user_type = 'admin';
+    }
+
+    return sprintf('bdtaActiveTimer:%s:%d', $normalized_user_type, max(0, bdta_time_tracker_int($user_id)));
+}
+
 /**
  * @param array{start_time: int, client_id: int, service_type: string, description: string} $timer
  * @return array{

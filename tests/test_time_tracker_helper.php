@@ -35,6 +35,14 @@ try {
         throw new RuntimeException('Expected JSON timer payloads to normalize.');
     }
     assertTimeTrackerHelper($from_json['client_id'] === 9, 'Expected JSON timer payloads to normalize.');
+    assertTimeTrackerHelper(
+        bdta_active_timer_storage_key('admin', 7) === 'bdtaActiveTimer:admin:7',
+        'Expected active timer storage keys to stay consistent across admin pages.'
+    );
+    assertTimeTrackerHelper(
+        bdta_active_timer_storage_key('  ', -4) === 'bdtaActiveTimer:admin:0',
+        'Expected active timer storage keys to normalize blank user types and negative ids.'
+    );
 
     assertTimeTrackerHelper(
         bdta_normalize_active_timer([
