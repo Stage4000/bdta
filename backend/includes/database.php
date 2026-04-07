@@ -69,6 +69,9 @@ class SafePDOStatement extends PDOStatement {
     }
 
     /**
+     * Returns null for aggregate queries over empty sets, a scalar for fetched column values,
+     * and false when no row is available.
+     *
      * @return scalar|false|null
      */
     public function fetchColumn(int $column = 0): mixed {

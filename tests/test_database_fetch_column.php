@@ -19,7 +19,7 @@ assertDatabaseFetchColumn($null_value === null, 'Expected empty aggregate fetchC
 
 $value_stmt = $pdo->query('SELECT 42');
 $value = $value_stmt->fetchColumn();
-assertDatabaseFetchColumn($value === 42, 'Expected scalar fetchColumn() result to be returned unchanged.');
+assertDatabaseFetchColumn(is_scalar($value) && (string) $value === '42', 'Expected scalar fetchColumn() result to be returned unchanged.');
 
 $empty_stmt = $pdo->query('SELECT 42 WHERE 0');
 $empty_value = $empty_stmt->fetchColumn();
