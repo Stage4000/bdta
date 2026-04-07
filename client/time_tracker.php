@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Get default hourly rate
             $rate_stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'default_hourly_rate'");
             $rate_value = $rate_stmt->fetchColumn();
-            $hourly_rate = is_numeric($rate_value) && $rate_value != 0 ? (float) $rate_value : 75.0;
+            $hourly_rate = is_numeric($rate_value) && (float) $rate_value !== 0.0 ? (float) $rate_value : 75.0;
             
             $total_amount = ($duration_minutes / 60) * $hourly_rate;
             

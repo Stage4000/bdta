@@ -62,7 +62,7 @@ if ($booking === []) {
 // Verify the booking belongs to this client (by client_id or email)
 $stmt = $conn->prepare("SELECT email FROM clients WHERE id = ?");
 $stmt->execute([$client_id]);
-$client_email = scalar_string($stmt->fetchColumn() ?? '');
+$client_email = scalar_string($stmt->fetchColumn() ?: '');
 
 $belongs = (
     safe_int($booking['client_id'] ?? 0) === $client_id ||
