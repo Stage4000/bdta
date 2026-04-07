@@ -69,11 +69,15 @@ class SafePDOStatement extends PDOStatement {
     }
 
     /**
-     * @return string|false
+     * @return scalar|false|null
      */
-    public function fetchColumn(int $column = 0): string|false {
-        /** @var string|false $result */
+    public function fetchColumn(int $column = 0): mixed {
         $result = parent::fetchColumn($column);
+        if ($result === false || is_scalar($result) || $result === null) {
+            return $result;
+        }
+
+        /** @var false $result */
         return $result;
     }
 }
