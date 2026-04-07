@@ -266,7 +266,7 @@ $offset = ($page - 1) * $per_page;
 // Count transactions
 $stmt = $conn->prepare("SELECT COUNT(*) FROM package_credit_transactions WHERE client_id = ?");
 $stmt->execute([$client_id]);
-$total_transactions = (int)$stmt->fetchColumn();
+$total_transactions = safe_int($stmt->fetchColumn());
 $total_pages = ceil($total_transactions / $per_page);
 
 // Build a MySQL LIMIT clause from safe integer inputs.

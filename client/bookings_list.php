@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
                 WHERE client_package_credit_id = ? AND booking_id = ? AND transaction_type = 'refund'
             ");
             $stmt->execute([$pkg_credit_id, $booking_id]);
-            $already_refunded = (int)$stmt->fetchColumn();
+            $already_refunded = safe_int($stmt->fetchColumn());
 
             if (!$already_refunded) {
                 $conn->prepare("

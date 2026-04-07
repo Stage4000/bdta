@@ -134,7 +134,7 @@ try {
 
     $reminder_lookup = $conn->prepare("SELECT COUNT(*) FROM booking_reminders_sent WHERE booking_id = ?");
     $reminder_lookup->execute([$rule_booking_id]);
-    assertBookingReminderTest((int) $reminder_lookup->fetchColumn() === 0, 'Failed reminder attempts must not be recorded as sent.');
+    assertBookingReminderTest(safe_int($reminder_lookup->fetchColumn()) === 0, 'Failed reminder attempts must not be recorded as sent.');
 
     $legacy_method = (new ReflectionClass(BookingReminderTask::class))->getMethod('executeLegacy');
     $legacy_method->setAccessible(true);

@@ -15,14 +15,14 @@ $db = new Database();
 $conn = $db->getConnection();
 
 $table_stmt = $conn->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()");
-$table_count = $table_stmt->fetchColumn();
+$table_count = safe_int($table_stmt->fetchColumn());
 
 $counts = [];
 $tables_to_check = ['clients', 'bookings', 'blog_posts', 'invoices'];
 foreach ($tables_to_check as $table) {
     try {
         $stmt = $conn->query("SELECT COUNT(*) FROM $table");
-        $counts[$table] = $stmt->fetchColumn();
+        $counts[$table] = safe_int($stmt->fetchColumn());
     } catch (Throwable $e) {
         $counts[$table] = 0;
     }

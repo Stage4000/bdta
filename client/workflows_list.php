@@ -83,7 +83,7 @@ include '../backend/includes/header.php';
                                                     // Get step count
                                                     $stmt = $conn->prepare("SELECT COUNT(*) FROM workflow_steps WHERE workflow_id = ?");
                                                     $stmt->execute([$workflow['id']]);
-                                                    echo $stmt->fetchColumn(); 
+                                                    echo safe_int($stmt->fetchColumn()); 
                                                     ?>
                                                 </h4>
                                                 <small class="text-muted">Steps</small>

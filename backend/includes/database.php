@@ -69,10 +69,13 @@ class SafePDOStatement extends PDOStatement {
     }
 
     /**
-     * @return string|false
+     * Returns null for aggregate queries over empty sets, scalar values for typical fetched
+     * columns, stream resources for LOB columns, and false when no row is available or when
+     * fetchColumn() fails under non-exception error modes.
+     *
+     * @return mixed
      */
-    public function fetchColumn(int $column = 0): string|false {
-        /** @var string|false $result */
+    public function fetchColumn(int $column = 0): mixed {
         $result = parent::fetchColumn($column);
         return $result;
     }

@@ -170,7 +170,7 @@ try {
 
     $association_stmt = $conn->prepare("SELECT COUNT(*) FROM appointment_type_forms WHERE appointment_type_id = ? AND form_template_id = ?");
     $association_stmt->execute([$duplicated_appointment_type_id, $form_template_id]);
-    if ((int) $association_stmt->fetchColumn() !== 1) {
+    if (safe_int($association_stmt->fetchColumn()) !== 1) {
         throw new RuntimeException('Appointment type duplicate did not copy form associations.');
     }
 

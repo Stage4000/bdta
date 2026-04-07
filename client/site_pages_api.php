@@ -49,13 +49,13 @@ switch ($action) {
         // Ensure uniqueness
         $check = $conn->prepare("SELECT COUNT(*) FROM site_pages WHERE slug = ?");
         $check->execute([$slug]);
-        if ($check->fetchColumn() > 0) {
+        if (safe_int($check->fetchColumn()) > 0) {
             $slug = $slug . '-' . time();
         }
 
         // Calculate sort_order before INSERT to avoid subquery race condition
         $max_order_stmt = $conn->query("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM site_pages");
-        $next_order = intval($max_order_stmt->fetchColumn());
+        $next_order = safe_int($max_order_stmt->fetchColumn());
 
         $stmt = $conn->prepare(
             "INSERT INTO site_pages (slug, title, html_content, css_content, is_homepage, is_published, sort_order, updated_by)
@@ -230,8 +230,8 @@ switch ($action) {
         $stmt->execute([$id]);
         $row = $conn->prepare("SELECT is_published FROM site_pages WHERE id=?");
         $row->execute([$id]);
-        $val = $row->fetchColumn();
-        echo json_encode(['success' => true, 'is_published' => intval($val)]);
+        $val = safe_int($row->fetchColumn());
+        echo json_encode(['success' => true, 'is_published' => $val]);
         break;
 
     // ------------------------------------------------------------------ REORDER
