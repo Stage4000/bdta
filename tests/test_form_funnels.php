@@ -24,7 +24,7 @@ function form_funnel_calendar_links(array $result): array {
     ];
 }
 
-function form_funnels_booking_status(PDOStatement $stmt, int $booking_id): string {
+function form_funnel_booking_status(PDOStatement $stmt, int $booking_id): string {
     $stmt->execute([$booking_id]);
     return scalar_string($stmt->fetchColumn());
 }
@@ -300,7 +300,7 @@ try {
     }
     $cleanup['booking_ids'][] = $pending_booking_id;
     $booking_status_stmt = $conn->prepare("SELECT status FROM bookings WHERE id = ?");
-    if (form_funnels_booking_status($booking_status_stmt, $pending_booking_id) !== 'pending') {
+    if (form_funnel_booking_status($booking_status_stmt, $pending_booking_id) !== 'pending') {
         throw new RuntimeException('Pending-approval public booking should persist a pending booking record.');
     }
 
@@ -330,7 +330,7 @@ try {
         throw new RuntimeException('Immediate-confirmation public booking should return a booking ID.');
     }
     $cleanup['booking_ids'][] = $confirmed_booking_id;
-    if (form_funnels_booking_status($booking_status_stmt, $confirmed_booking_id) !== 'confirmed') {
+    if (form_funnel_booking_status($booking_status_stmt, $confirmed_booking_id) !== 'confirmed') {
         throw new RuntimeException('Immediate-confirmation public booking should persist a confirmed booking record.');
     }
 
