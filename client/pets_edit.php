@@ -509,7 +509,7 @@ include '../backend/includes/header.php';
                         <i class="fas ${icon} ${iconColor}" style="font-size: 3rem;"></i>
                     </div>
                 `}
-                <div class="card-body ${isImage ? 'pt-2' : ''}">
+                <div class="card-body d-flex flex-column ${isImage ? 'pt-2' : ''}">
                     <h6 class="card-title text-truncate" title="${escapeHtml(file.original_name)}">
                         ${escapeHtml(file.original_name)}
                     </h6>
@@ -519,15 +519,15 @@ include '../backend/includes/header.php';
                             ${fileSize} • ${uploadDate}
                         </small>
                     </p>
-                    <div class="btn-group btn-group-sm w-100" role="group">
-                        <a href="pet_files_view.php?id=${file.id}" target="_blank" class="btn btn-outline-primary">
-                            <i class="fas fa-eye"></i> View
+                    <div class="d-grid gap-1 mt-auto">
+                        <a href="pet_files_view.php?id=${file.id}" target="_blank" class="btn btn-sm btn-outline-primary text-nowrap">
+                            <i class="fas fa-eye me-1"></i> View
                         </a>
-                        <a href="pet_files_view.php?id=${file.id}&download=1" class="btn btn-outline-secondary">
-                            <i class="fas fa-download"></i> Download
+                        <a href="pet_files_view.php?id=${file.id}&download=1" class="btn btn-sm btn-outline-secondary text-nowrap">
+                            <i class="fas fa-download me-1"></i> Download
                         </a>
-                        <button type="button" class="btn btn-outline-danger" onclick="deleteFile(${file.id})">
-                            <i class="fas fa-trash"></i> Delete
+                        <button type="button" class="btn btn-sm btn-outline-danger text-nowrap" onclick="deleteFile(${file.id})">
+                            <i class="fas fa-trash me-1"></i> Delete
                         </button>
                     </div>
                 </div>
