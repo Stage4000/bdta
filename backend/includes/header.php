@@ -48,21 +48,23 @@
     
     <?php if (isLoggedIn()): ?>
     <?php
-        $bdta_active_timer = bdta_normalize_active_timer($_SESSION['active_timer'] ?? null);
+        $bdta_active_timer = bdta_normalize_valid_active_timer($_SESSION['active_timer'] ?? null);
+        if ($bdta_active_timer === null) {
+            unset($_SESSION['active_timer']);
+        }
         $bdta_active_timer_storage_key = bdta_active_timer_storage_key($_SESSION['user_type'] ?? 'admin', $_SESSION['admin_id'] ?? 0);
     ?>
     <a
         id="appActiveTimerIndicator"
         class="app-active-timer d-none"
         href="time_tracker.php"
-        aria-live="polite"
         aria-label="Open the running timer"
     >
         <span class="app-active-timer__status">
             <i class="fas fa-stopwatch" aria-hidden="true"></i>
             <span>Timer running</span>
         </span>
-        <span id="appActiveTimerIndicatorTime" class="app-active-timer__time">00:00:00</span>
+        <span id="appActiveTimerIndicatorTime" class="app-active-timer__time" aria-hidden="true">00:00:00</span>
         <span id="appActiveTimerIndicatorMeta" class="app-active-timer__meta"></span>
     </a>
     <script>
@@ -72,6 +74,7 @@
         const metaElement = document.getElementById('appActiveTimerIndicatorMeta');
         const storageKey = <?= json_encode($bdta_active_timer_storage_key) ?>;
         const serverTimer = <?= json_encode($bdta_active_timer) ?>;
+        const ACTIVE_TIMER_FUTURE_TOLERANCE_SECONDS = 300;
         let timerInterval = null;
         let currentTimer = null;
 
@@ -85,7 +88,12 @@
             const serviceType = typeof timer.service_type === 'string' ? timer.service_type.trim() : '';
             const description = typeof timer.description === 'string' ? timer.description.trim() : '';
 
-            if (!Number.isFinite(startTimeValue) || startTimeValue <= 0 || !Number.isFinite(clientId) || clientId <= 0 || serviceType === '') {
+            const nowInSeconds = Math.floor(Date.now() / 1000);
+            const hasValidStartTime = Number.isFinite(startTimeValue)
+                && startTimeValue > 0
+                && startTimeValue <= (nowInSeconds + ACTIVE_TIMER_FUTURE_TOLERANCE_SECONDS);
+
+            if (!hasValidStartTime || !Number.isFinite(clientId) || clientId <= 0 || serviceType === '') {
                 return null;
             }
 

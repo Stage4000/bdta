@@ -86,6 +86,25 @@ try {
         !bdta_active_timer_has_valid_start_time($status_payload['timer'], 1712279500),
         'Expected timers too far in the future to fail validation.'
     );
+    $validated_timer = bdta_normalize_valid_active_timer([
+        'start_time' => 1712280900,
+        'client_id' => 14,
+        'service_type' => 'Board and Train',
+        'description' => 'Follow-up',
+    ], 1712280900);
+    if ($validated_timer === null) {
+        throw new RuntimeException('Expected valid timers to survive normalization and future-time validation.');
+    }
+    assertTimeTrackerHelper($validated_timer['client_id'] === 14, 'Expected validated timers to preserve timer metadata.');
+    assertTimeTrackerHelper(
+        bdta_normalize_valid_active_timer([
+            'start_time' => 1712281301,
+            'client_id' => 14,
+            'service_type' => 'Board and Train',
+            'description' => 'Follow-up',
+        ], 1712280900) === null,
+        'Expected validated timers to reject start times beyond the allowed future tolerance.'
+    );
 
     echo "Time tracker helper tests passed.\n";
 } catch (Throwable $e) {
