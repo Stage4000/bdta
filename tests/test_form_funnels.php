@@ -5,6 +5,31 @@ require_once dirname(__DIR__) . '/backend/includes/database.php';
 require_once dirname(__DIR__) . '/backend/includes/form_types.php';
 require_once dirname(__DIR__) . '/backend/includes/public_form_context.php';
 
+/**
+ * @param array<string, mixed> $result
+ * @return array{google_calendar: string, ical_download: string}
+ */
+function form_funnel_calendar_links(array $result): array {
+    $calendar_links = $result['calendar_links'] ?? null;
+    if (!is_array($calendar_links)) {
+        return [
+            'google_calendar' => '',
+            'ical_download' => '',
+        ];
+    }
+
+    return [
+        'google_calendar' => scalar_string($calendar_links['google_calendar'] ?? ''),
+        'ical_download' => scalar_string($calendar_links['ical_download'] ?? ''),
+    ];
+}
+
+function form_funnel_booking_status(PDO $conn, int $booking_id): string {
+    $stmt = $conn->prepare("SELECT status FROM bookings WHERE id = ?");
+    $stmt->execute([$booking_id]);
+    return scalar_string($stmt->fetchColumn());
+}
+
 $original_request_method = $_SERVER['REQUEST_METHOD'] ?? null;
 $_SERVER['REQUEST_METHOD'] = 'CLI';
 $original_cwd = getcwd();
@@ -264,8 +289,9 @@ try {
     if (($pending_result['booking_status'] ?? '') !== 'pending') {
         throw new RuntimeException('Pending-approval public booking should return a pending booking status.');
     }
-    if (($pending_result['calendar_links']['google_calendar'] ?? '') !== ''
-        || ($pending_result['calendar_links']['ical_download'] ?? '') !== ''
+    $pending_calendar_links = form_funnel_calendar_links($pending_result);
+    if ($pending_calendar_links['google_calendar'] !== ''
+        || $pending_calendar_links['ical_download'] !== ''
     ) {
         throw new RuntimeException('Pending-approval public booking should not expose calendar links before confirmation.');
     }
@@ -274,9 +300,7 @@ try {
         throw new RuntimeException('Pending-approval public booking should return a booking ID.');
     }
     $cleanup['booking_ids'][] = $pending_booking_id;
-    $pending_status_stmt = $conn->prepare("SELECT status FROM bookings WHERE id = ?");
-    $pending_status_stmt->execute([$pending_booking_id]);
-    if (scalar_string($pending_status_stmt->fetchColumn()) !== 'pending') {
+    if (form_funnel_booking_status($conn, $pending_booking_id) !== 'pending') {
         throw new RuntimeException('Pending-approval public booking should persist a pending booking record.');
     }
 
@@ -297,7 +321,8 @@ try {
     if (($confirmed_result['booking_status'] ?? '') !== 'confirmed') {
         throw new RuntimeException('Immediate-confirmation public booking should return a confirmed booking status.');
     }
-    if (($confirmed_result['calendar_links']['ical_download'] ?? '') === '') {
+    $confirmed_calendar_links = form_funnel_calendar_links($confirmed_result);
+    if ($confirmed_calendar_links['ical_download'] === '') {
         throw new RuntimeException('Immediate-confirmation public booking should expose an iCal download link.');
     }
     $confirmed_booking_id = safe_int($confirmed_result['booking_id'] ?? 0);
@@ -305,8 +330,7 @@ try {
         throw new RuntimeException('Immediate-confirmation public booking should return a booking ID.');
     }
     $cleanup['booking_ids'][] = $confirmed_booking_id;
-    $pending_status_stmt->execute([$confirmed_booking_id]);
-    if (scalar_string($pending_status_stmt->fetchColumn()) !== 'confirmed') {
+    if (form_funnel_booking_status($conn, $confirmed_booking_id) !== 'confirmed') {
         throw new RuntimeException('Immediate-confirmation public booking should persist a confirmed booking record.');
     }
 

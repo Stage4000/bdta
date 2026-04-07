@@ -27,6 +27,31 @@ function assertPublicBookingConfirmation(bool $condition, string $message): void
     }
 }
 
+/**
+ * @param array<string, mixed> $result
+ * @return array{google_calendar: string, ical_download: string}
+ */
+function publicBookingCalendarLinks(array $result): array {
+    $calendar_links = $result['calendar_links'] ?? null;
+    if (!is_array($calendar_links)) {
+        return [
+            'google_calendar' => '',
+            'ical_download' => '',
+        ];
+    }
+
+    return [
+        'google_calendar' => scalar_string($calendar_links['google_calendar'] ?? ''),
+        'ical_download' => scalar_string($calendar_links['ical_download'] ?? ''),
+    ];
+}
+
+function publicBookingStatus(SafePDO $conn, int $booking_id): string {
+    $status_stmt = $conn->prepare('SELECT status FROM bookings WHERE id = ?');
+    $status_stmt->execute([$booking_id]);
+    return scalar_string($status_stmt->fetchColumn());
+}
+
 $conn = new SafePDO('sqlite::memory:');
 $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
@@ -214,13 +239,12 @@ $pending_result = api_booking_create_booking($conn, [
 
 assertPublicBookingConfirmation(($pending_result['success'] ?? false) === true, 'Expected pending-approval booking to succeed.');
 assertPublicBookingConfirmation(($pending_result['booking_status'] ?? '') === 'pending', 'Expected pending-approval booking to return booking_status=pending.');
-assertPublicBookingConfirmation(($pending_result['calendar_links']['google_calendar'] ?? '') === '', 'Expected pending-approval booking to omit Google Calendar links.');
-assertPublicBookingConfirmation(($pending_result['calendar_links']['ical_download'] ?? '') === '', 'Expected pending-approval booking to omit iCal links.');
+$pending_calendar_links = publicBookingCalendarLinks($pending_result);
+assertPublicBookingConfirmation($pending_calendar_links['google_calendar'] === '', 'Expected pending-approval booking to omit Google Calendar links.');
+assertPublicBookingConfirmation($pending_calendar_links['ical_download'] === '', 'Expected pending-approval booking to omit iCal links.');
 $pending_booking_id = safe_int($pending_result['booking_id'] ?? 0);
 assertPublicBookingConfirmation($pending_booking_id > 0, 'Expected pending-approval booking to return a booking id.');
-$status_stmt = $conn->prepare('SELECT status FROM bookings WHERE id = ?');
-$status_stmt->execute([$pending_booking_id]);
-assertPublicBookingConfirmation(scalar_string($status_stmt->fetchColumn()) === 'pending', 'Expected pending-approval booking to persist with pending status.');
+assertPublicBookingConfirmation(publicBookingStatus($conn, $pending_booking_id) === 'pending', 'Expected pending-approval booking to persist with pending status.');
 
 $confirmed_result = api_booking_create_booking($conn, [
     'client_name' => 'Confirmed Client',
@@ -236,11 +260,11 @@ $confirmed_result = api_booking_create_booking($conn, [
 
 assertPublicBookingConfirmation(($confirmed_result['success'] ?? false) === true, 'Expected immediately-confirmed booking to succeed.');
 assertPublicBookingConfirmation(($confirmed_result['booking_status'] ?? '') === 'confirmed', 'Expected immediately-confirmed booking to return booking_status=confirmed.');
-assertPublicBookingConfirmation(($confirmed_result['calendar_links']['ical_download'] ?? '') !== '', 'Expected immediately-confirmed booking to include an iCal link.');
+$confirmed_calendar_links = publicBookingCalendarLinks($confirmed_result);
+assertPublicBookingConfirmation($confirmed_calendar_links['ical_download'] !== '', 'Expected immediately-confirmed booking to include an iCal link.');
 $confirmed_booking_id = safe_int($confirmed_result['booking_id'] ?? 0);
 assertPublicBookingConfirmation($confirmed_booking_id > 0, 'Expected immediately-confirmed booking to return a booking id.');
-$status_stmt->execute([$confirmed_booking_id]);
-assertPublicBookingConfirmation(scalar_string($status_stmt->fetchColumn()) === 'confirmed', 'Expected immediately-confirmed booking to persist with confirmed status.');
+assertPublicBookingConfirmation(publicBookingStatus($conn, $confirmed_booking_id) === 'confirmed', 'Expected immediately-confirmed booking to persist with confirmed status.');
 
 resetPublicBookingConfirmationState($conn);
 
