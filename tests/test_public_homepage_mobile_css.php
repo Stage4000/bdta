@@ -4,7 +4,7 @@ $cssPath = dirname(__DIR__) . '/assets/css/public/site.css';
 $css = file_get_contents($cssPath);
 
 if (!is_string($css) || $css === '') {
-    throw new RuntimeException('Expected public site CSS to be readable.');
+    throw new RuntimeException('Failed to read public site CSS file or file is empty.');
 }
 
 $mobileBreakpointStart = strpos($css, '@media (max-width: 767.98px)');
@@ -18,7 +18,7 @@ $mobileCss = $nextMediaStart === false
     : substr($css, $mobileBreakpointStart, $nextMediaStart - $mobileBreakpointStart);
 
 if (!is_string($mobileCss) || $mobileCss === '') {
-    throw new RuntimeException('Expected mobile CSS block to be readable.');
+    throw new RuntimeException('Failed to extract mobile CSS block.');
 }
 
 if (!preg_match('/html,\s*body\s*\{(?P<rule>[^}]*)\}/s', $mobileCss, $rootRuleMatches)) {
