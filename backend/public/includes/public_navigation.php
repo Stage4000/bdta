@@ -104,8 +104,7 @@ CSS;
 }
 
 function bdta_wrap_imported_page_html(string $html): string {
-    $trimmedHtml = ltrim($html);
-    if ($html === '' || str_starts_with($trimmedHtml, '<div class="bdta-imported-page">') || str_starts_with($trimmedHtml, "<div class='bdta-imported-page'>")) {
+    if ($html === '' || preg_match('/^\s*<div class=(["\'])bdta-imported-page\1>/', $html) === 1) {
         return $html;
     }
 
