@@ -38,6 +38,11 @@ function bdta_get_imported_page_runtime_css(): string {
     margin-left: auto !important;
     margin-right: auto !important;
 }
+.bdta-imported-page > .root,
+.bdta-imported-page #wb_root {
+    width: 100%;
+    max-width: 100%;
+}
 .bdta-imported-page .bdta-import-layout,
 .bdta-imported-page .bdta-import-block {
     box-sizing: border-box;
@@ -72,6 +77,26 @@ function bdta_get_imported_page_runtime_css(): string {
     .bdta-imported-page [id^="wb_header_"] > .wb_content,
     .bdta-imported-page [id^="wb_header_"] .wb_content.wb-layout-horizontal {
         flex-wrap: wrap !important;
+    }
+    .bdta-imported-page [id^="wb_main_"],
+    .bdta-imported-page [id^="wb_main_"] > .wb_content,
+    .bdta-imported-page [id^="wb_main_"] .wb_content.wb-layout-horizontal,
+    .bdta-imported-page [id^="wb_main_"] .wb_content.wb-layout-vertical {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    .bdta-imported-page [id^="wb_main_"] .wb_content.wb-layout-horizontal {
+        flex-wrap: wrap !important;
+    }
+    .bdta-imported-page [id^="wb_main_"] .wb_content.wb-layout-horizontal > .wb-layout-element,
+    .bdta-imported-page [id^="wb_main_"] .wb_content.wb-layout-vertical > .wb-layout-element {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        flex: 1 1 100% !important;
     }
     .bdta-imported-page [id^="wb_header_"] .wb_content.wb-layout-horizontal > .wb_element {
         min-width: 0 !important;
