@@ -53,14 +53,16 @@ HTML;
 
     $runtimeCss = bdta_get_imported_page_runtime_css();
     assertTrue(str_contains($runtimeCss, 'min-width: 0 !important;'), 'Expected runtime CSS to include imported mobile width override.');
-    assertTrue(str_contains($runtimeCss, 'align-items: center;'), 'Expected runtime CSS to center imported page content.');
+    assertTrue(str_contains($runtimeCss, 'overflow-x: clip;'), 'Expected runtime CSS to clip imported page horizontal overflow.');
     assertTrue(str_contains($runtimeCss, '.bdta-imported-page .bdta-import-stack-phone,'), 'Expected runtime CSS to widen stacked imported layouts on mobile.');
     assertTrue(str_contains($runtimeCss, '.bdta-imported-page > .root,'), 'Expected runtime CSS to constrain the imported root container width.');
     assertTrue(str_contains($runtimeCss, '[id^="wb_header_"] .wb_content.wb-layout-horizontal'), 'Expected runtime CSS to target imported site header rows on mobile.');
     assertTrue(str_contains($runtimeCss, 'flex-wrap: wrap !important;'), 'Expected runtime CSS to wrap imported site header rows on mobile.');
     assertTrue(str_contains($runtimeCss, '[id^="wb_main_"] .wb_content.wb-layout-horizontal'), 'Expected runtime CSS to target imported main content rows on mobile.');
+    assertTrue(str_contains($runtimeCss, '[id^="wb_main_"] .wb_content.wb-layout-horizontal > .wb_element,'), 'Expected runtime CSS to stack imported main child elements on mobile.');
     assertTrue(str_contains($runtimeCss, '[id^="wb_main_"] .wb_content.wb-layout-horizontal > .wb-layout-element'), 'Expected runtime CSS to stack imported main layout elements on mobile.');
     assertTrue(str_contains($runtimeCss, 'flex: 1 1 100% !important;'), 'Expected runtime CSS to let imported mobile layout elements consume a full wrapped row.');
+    assertTrue(str_contains($runtimeCss, '[id^="wb_main_"] img,'), 'Expected runtime CSS to constrain imported main media width on mobile.');
     assertTrue(str_contains($runtimeCss, '[data-plugin="tawkto"]'), 'Expected runtime CSS to target the imported header Tawk placeholder on mobile.');
     assertTrue(str_contains($runtimeCss, 'flex: 0 0 0 !important;'), 'Expected runtime CSS to fully collapse the imported header Tawk placeholder width on mobile.');
     assertTrue(str_contains($runtimeCss, 'overflow: hidden !important;'), 'Expected runtime CSS to hide the imported header Tawk placeholder overflow on mobile.');

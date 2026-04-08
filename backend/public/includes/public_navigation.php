@@ -27,12 +27,9 @@ function bdta_current_public_nav_context(): string {
 function bdta_get_imported_page_runtime_css(): string {
     return <<<'CSS'
 .bdta-imported-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
 }
 .bdta-imported-page > .bdta-import-layout {
     margin-left: auto !important;
@@ -42,6 +39,9 @@ function bdta_get_imported_page_runtime_css(): string {
 .bdta-imported-page #wb_root {
     width: 100%;
     max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: clip;
 }
 .bdta-imported-page .bdta-import-layout,
 .bdta-imported-page .bdta-import-block {
@@ -89,6 +89,7 @@ function bdta_get_imported_page_runtime_css(): string {
     .bdta-imported-page [id^="wb_main_"] .wb_content.wb-layout-horizontal {
         flex-wrap: wrap !important;
     }
+    .bdta-imported-page [id^="wb_main_"] .wb_content.wb-layout-horizontal > .wb_element,
     .bdta-imported-page [id^="wb_main_"] .wb_content.wb-layout-horizontal > .wb-layout-element,
     .bdta-imported-page [id^="wb_main_"] .wb_content.wb-layout-vertical > .wb-layout-element {
         width: 100% !important;
@@ -97,6 +98,18 @@ function bdta_get_imported_page_runtime_css(): string {
         margin-left: 0 !important;
         margin-right: 0 !important;
         flex: 1 1 100% !important;
+    }
+    .bdta-imported-page [id^="wb_main_"] .wb_content,
+    .bdta-imported-page [id^="wb_main_"] .wb_element {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    .bdta-imported-page [id^="wb_main_"] img,
+    .bdta-imported-page [id^="wb_main_"] svg,
+    .bdta-imported-page [id^="wb_main_"] video,
+    .bdta-imported-page [id^="wb_main_"] iframe {
+        max-width: 100% !important;
+        height: auto !important;
     }
     .bdta-imported-page [id^="wb_header_"] .wb_content.wb-layout-horizontal > .wb_element {
         min-width: 0 !important;
