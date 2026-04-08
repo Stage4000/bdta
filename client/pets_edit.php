@@ -519,7 +519,7 @@ include '../backend/includes/header.php';
                             ${fileSize} • ${uploadDate}
                         </small>
                     </p>
-                    <div class="d-grid gap-1 mt-auto">
+                    <div class="d-grid gap-1 mt-auto col-10 mx-auto">
                         <a href="pet_files_view.php?id=${file.id}" target="_blank" class="btn btn-sm btn-outline-primary text-nowrap">
                             <i class="fas fa-eye me-1"></i> View
                         </a>

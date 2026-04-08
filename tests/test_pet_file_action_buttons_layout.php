@@ -28,8 +28,8 @@ bdta_assert(
     'Uploaded file cards should use a flex column body so the action buttons stay anchored cleanly.'
 );
 bdta_assert(
-    str_contains($pets_edit, '<div class="d-grid gap-1 mt-auto">'),
-    'Uploaded file action buttons should use a stacked grid layout instead of a shrinking button group.'
+    str_contains($pets_edit, '<div class="d-grid gap-1 mt-auto col-10 mx-auto">'),
+    'Uploaded file action buttons should use a centered stacked grid layout instead of a shrinking button group.'
 );
 bdta_assert(
     str_contains($pets_edit, 'class="btn btn-sm btn-outline-primary text-nowrap"'),
