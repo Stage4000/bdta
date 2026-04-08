@@ -48,9 +48,18 @@ HTML;
     assertTrue(str_contains($runtimeCss, 'min-width: 0 !important;'), 'Expected runtime CSS to include imported mobile width override.');
     assertTrue(str_contains($runtimeCss, 'align-items: center;'), 'Expected runtime CSS to center imported page content.');
     assertTrue(str_contains($runtimeCss, '.bdta-imported-page .bdta-import-stack-phone,'), 'Expected runtime CSS to widen stacked imported layouts on mobile.');
-    assertTrue(str_contains($runtimeCss, '[id^="wb_header_"] .wb_content.wb-layout-horizontal'), 'Expected runtime CSS to wrap imported site header rows on mobile.');
-    assertTrue(str_contains($runtimeCss, '[data-plugin="tawkto"]'), 'Expected runtime CSS to collapse imported header Tawk placeholder width on mobile.');
-    assertTrue(str_contains($runtimeCss, '.wb-menu-mobile'), 'Expected runtime CSS to keep the imported mobile menu aligned inside the header.');
+    assertTrue(
+        str_contains($runtimeCss, '[id^="wb_header_"] .wb_content.wb-layout-horizontal') && str_contains($runtimeCss, 'flex-wrap: wrap !important;'),
+        'Expected runtime CSS to wrap imported site header rows on mobile.'
+    );
+    assertTrue(
+        str_contains($runtimeCss, '[data-plugin="tawkto"]') && str_contains($runtimeCss, 'flex: 0 0 0 !important;') && str_contains($runtimeCss, 'overflow: hidden !important;'),
+        'Expected runtime CSS to collapse imported header Tawk placeholder width on mobile.'
+    );
+    assertTrue(
+        str_contains($runtimeCss, '.wb-menu-mobile') && str_contains($runtimeCss, 'margin-left: auto !important;'),
+        'Expected runtime CSS to keep the imported mobile menu aligned inside the header.'
+    );
 
     echo "Public navigation helper test passed.\n";
 } finally {
