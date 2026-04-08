@@ -44,6 +44,13 @@ HTML;
     );
     assertTrue(!str_contains($factSheetHtml, 'Dog Training Fact Sheet'), 'Expected Dog Training Fact Sheet nav link to be removed.');
 
+    $importedHtml = '<div id="wb_root" class="root wb-layout-vertical"><div class="wb_element"></div></div>';
+    $wrappedImportedHtml = bdta_wrap_imported_page_html($importedHtml);
+    assertTrue(str_starts_with($wrappedImportedHtml, '<div class="bdta-imported-page">'), 'Expected imported page HTML to be wrapped for runtime CSS targeting.');
+    assertTrue(str_contains($wrappedImportedHtml, $importedHtml), 'Expected imported page HTML wrapper to preserve the original markup.');
+    assertSameString($wrappedImportedHtml, bdta_wrap_imported_page_html($wrappedImportedHtml), 'Expected imported page HTML not to be wrapped twice.');
+    assertSameString($baseHtml, bdta_wrap_imported_page_html($baseHtml), 'Expected non-imported public HTML not to be wrapped.');
+
     $runtimeCss = bdta_get_imported_page_runtime_css();
     assertTrue(str_contains($runtimeCss, 'min-width: 0 !important;'), 'Expected runtime CSS to include imported mobile width override.');
     assertTrue(str_contains($runtimeCss, 'align-items: center;'), 'Expected runtime CSS to center imported page content.');

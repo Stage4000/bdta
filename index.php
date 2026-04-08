@@ -107,7 +107,7 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     </style>
 </head>
 <body>
-    <?php echo bdta_sync_public_navigation_links(bdta_apply_public_social_links((string) $page['html_content'])); ?>
+    <?php echo bdta_wrap_imported_page_html(bdta_sync_public_navigation_links(bdta_apply_public_social_links((string) $page['html_content']))); ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- AOS Animation Library -->

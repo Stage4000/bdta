@@ -101,6 +101,18 @@ function bdta_get_imported_page_runtime_css(): string {
 CSS;
 }
 
+function bdta_wrap_imported_page_html(string $html): string {
+    if ($html === '' || str_contains($html, 'class="bdta-imported-page"') || str_contains($html, "class='bdta-imported-page'")) {
+        return $html;
+    }
+
+    if (!preg_match('/\bid=(["\'])wb_root\1/', $html)) {
+        return $html;
+    }
+
+    return '<div class="bdta-imported-page">' . $html . '</div>';
+}
+
 function bdta_sync_public_navigation_links(string $html): string {
     $directoryLink = '/page.php?slug=directory';
     if (!str_contains($html, 'href="' . $directoryLink . '"')) {
