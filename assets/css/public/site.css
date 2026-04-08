@@ -444,6 +444,26 @@ footer a:hover {
 }
 
 @media (max-width: 767.98px) {
+    html,
+    body {
+        overflow-x: clip;
+    }
+
+    main,
+    .hero-section,
+    .homepage-section,
+    .homepage-section-alt,
+    footer {
+        overflow-x: clip;
+    }
+
+    [data-aos],
+    [data-aos].aos-animate {
+        opacity: 1 !important;
+        transform: none !important;
+        transition-property: none !important;
+    }
+
     h1.display-3 {
         font-size: 2.5rem;
     }

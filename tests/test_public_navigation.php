@@ -44,10 +44,45 @@ HTML;
     );
     assertTrue(!str_contains($factSheetHtml, 'Dog Training Fact Sheet'), 'Expected Dog Training Fact Sheet nav link to be removed.');
 
+    $importedHtml = '<div id="wb_root" class="root wb-layout-vertical"><div class="wb-layout-element"></div></div>';
+    $wrappedImportedHtml = bdta_wrap_imported_page_html($importedHtml);
+    assertTrue(str_starts_with($wrappedImportedHtml, '<div class="bdta-imported-page">'), 'Expected imported page HTML to be wrapped for runtime CSS targeting.');
+    assertTrue(str_contains($wrappedImportedHtml, $importedHtml), 'Expected imported page HTML wrapper to preserve the original markup.');
+    assertSameString($wrappedImportedHtml, bdta_wrap_imported_page_html($wrappedImportedHtml), 'Expected imported page HTML not to be wrapped twice.');
+    assertSameString($baseHtml, bdta_wrap_imported_page_html($baseHtml), 'Expected non-imported public HTML not to be wrapped.');
+
     $runtimeCss = bdta_get_imported_page_runtime_css();
     assertTrue(str_contains($runtimeCss, 'min-width: 0 !important;'), 'Expected runtime CSS to include imported mobile width override.');
-    assertTrue(str_contains($runtimeCss, 'align-items: center;'), 'Expected runtime CSS to center imported page content.');
-    assertTrue(str_contains($runtimeCss, '.bdta-imported-page .bdta-import-stack-phone,'), 'Expected runtime CSS to widen stacked imported layouts on mobile.');
+    assertTrue(str_contains($runtimeCss, ':is(.bdta-imported-page, body > #wb_root)'), 'Expected runtime CSS to support wrapped and full-document imported pages.');
+    assertTrue(str_contains($runtimeCss, 'body > #wb_root'), 'Expected runtime CSS to support imported full-document fallback pages.');
+    assertTrue(str_contains($runtimeCss, 'overflow-x: clip;'), 'Expected runtime CSS to clip imported page horizontal overflow.');
+    assertTrue(str_contains($runtimeCss, '.bdta-import-stack-phone,'), 'Expected runtime CSS to widen stacked imported layouts on mobile.');
+    assertTrue(str_contains($runtimeCss, '.bdta-imported-page > .root,'), 'Expected runtime CSS to constrain the imported root container width.');
+    assertTrue(str_contains($runtimeCss, '[id^="wb_header_"] .wb_content.wb-layout-horizontal'), 'Expected runtime CSS to target imported site header rows on mobile.');
+    assertTrue(str_contains($runtimeCss, 'flex-wrap: wrap !important;'), 'Expected runtime CSS to wrap imported site header rows on mobile.');
+    assertTrue(str_contains($runtimeCss, '[id^="wb_main_"] .wb_content.wb-layout-horizontal'), 'Expected runtime CSS to target imported main content rows on mobile.');
+    assertTrue(str_contains($runtimeCss, '[id^="wb_main_"] .wb_content.wb-layout-horizontal > .wb_element,'), 'Expected runtime CSS to stack imported main child elements on mobile.');
+    assertTrue(str_contains($runtimeCss, '[id^="wb_main_"] .wb_content.wb-layout-horizontal > .wb-layout-element'), 'Expected runtime CSS to stack imported main layout elements on mobile.');
+    assertTrue(str_contains($runtimeCss, 'flex: 1 1 100% !important;'), 'Expected runtime CSS to let imported mobile layout elements consume a full wrapped row.');
+    assertTrue(str_contains($runtimeCss, '[id^="wb_main_"] img,'), 'Expected runtime CSS to constrain imported main media width on mobile.');
+    assertTrue(str_contains($runtimeCss, '[data-plugin="tawkto"]'), 'Expected runtime CSS to target the imported header Tawk placeholder on mobile.');
+    assertTrue(str_contains($runtimeCss, 'flex: 0 0 0 !important;'), 'Expected runtime CSS to fully collapse the imported header Tawk placeholder width on mobile.');
+    assertTrue(str_contains($runtimeCss, 'overflow: hidden !important;'), 'Expected runtime CSS to hide the imported header Tawk placeholder overflow on mobile.');
+    assertTrue(str_contains($runtimeCss, '.wb-menu-mobile'), 'Expected runtime CSS to target the imported mobile menu on mobile.');
+    assertTrue(str_contains($runtimeCss, 'margin-left: auto !important;'), 'Expected runtime CSS to keep the imported mobile menu aligned inside the header.');
+
+    $fullDocumentHtml = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Imported</title></head>
+<body><div id="wb_root" class="root wb-layout-vertical"></div></body>
+</html>
+HTML;
+    $styledFullDocumentHtml = bdta_inject_imported_page_runtime_css($fullDocumentHtml);
+    assertTrue(str_contains($styledFullDocumentHtml, '<style>'), 'Expected imported full-document HTML to receive runtime CSS in the head.');
+    assertTrue(str_contains($styledFullDocumentHtml, 'body > #wb_root'), 'Expected injected runtime CSS to support imported full-document fallback pages.');
+    assertSameString($styledFullDocumentHtml, bdta_inject_imported_page_runtime_css($styledFullDocumentHtml), 'Expected imported full-document HTML not to receive duplicate runtime CSS.');
+    assertSameString($baseHtml, bdta_inject_imported_page_runtime_css($baseHtml), 'Expected non-imported HTML not to receive injected runtime CSS.');
 
     echo "Public navigation helper test passed.\n";
 } finally {

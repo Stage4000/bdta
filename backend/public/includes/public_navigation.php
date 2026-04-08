@@ -1,5 +1,7 @@
 <?php
 
+const BDTA_IMPORTED_PAGE_ROOT_ID = 'wb_root';
+
 function bdta_current_public_nav_context(): string {
     $slugValue = $_GET['slug'] ?? '';
     $slug = is_string($slugValue) ? trim($slugValue) : '';
@@ -24,51 +26,152 @@ function bdta_current_public_nav_context(): string {
 
 function bdta_get_imported_page_runtime_css(): string {
     return <<<'CSS'
-.bdta-imported-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    overflow-x: hidden;
+:is(.bdta-imported-page, body > #wb_root) {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
 }
 .bdta-imported-page > .bdta-import-layout {
     margin-left: auto !important;
     margin-right: auto !important;
+}
+.bdta-imported-page > .root,
+.bdta-imported-page #wb_root,
+body > #wb_root {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: clip;
 }
 .bdta-imported-page .bdta-import-layout,
 .bdta-imported-page .bdta-import-block {
     box-sizing: border-box;
 }
 @media (max-width: 767.98px) {
-    .bdta-imported-page .bdta-import-stack-phone,
-    .bdta-imported-page .bdta-import-layout,
-    .bdta-imported-page .bdta-import-block {
+    :is(.bdta-imported-page, body > #wb_root) .bdta-import-stack-phone,
+    :is(.bdta-imported-page, body > #wb_root) .bdta-import-layout,
+    :is(.bdta-imported-page, body > #wb_root) .bdta-import-block {
         width: 100% !important;
         min-width: 0 !important;
         max-width: 100% !important;
     }
-    .bdta-imported-page .bdta-import-block {
+    :is(.bdta-imported-page, body > #wb_root) .bdta-import-block {
         margin-left: auto !important;
         margin-right: auto !important;
     }
-    .bdta-imported-page .bdta-import-image {
+    :is(.bdta-imported-page, body > #wb_root) .bdta-import-image {
         width: 100%;
         height: auto;
     }
-    .bdta-imported-page a,
-    .bdta-imported-page p,
-    .bdta-imported-page h1,
-    .bdta-imported-page h2,
-    .bdta-imported-page h3,
-    .bdta-imported-page h4,
-    .bdta-imported-page h5,
-    .bdta-imported-page h6,
-    .bdta-imported-page span {
+    :is(.bdta-imported-page, body > #wb_root) a,
+    :is(.bdta-imported-page, body > #wb_root) p,
+    :is(.bdta-imported-page, body > #wb_root) h1,
+    :is(.bdta-imported-page, body > #wb_root) h2,
+    :is(.bdta-imported-page, body > #wb_root) h3,
+    :is(.bdta-imported-page, body > #wb_root) h4,
+    :is(.bdta-imported-page, body > #wb_root) h5,
+    :is(.bdta-imported-page, body > #wb_root) h6,
+    :is(.bdta-imported-page, body > #wb_root) span {
         overflow-wrap: break-word;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_header_"] > .wb_content,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_header_"] .wb_content.wb-layout-horizontal {
+        flex-wrap: wrap !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"],
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] > .wb_content,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] .wb_content.wb-layout-horizontal,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] .wb_content.wb-layout-vertical {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] .wb_content.wb-layout-horizontal {
+        flex-wrap: wrap !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] .wb_content.wb-layout-horizontal > .wb_element,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] .wb_content.wb-layout-horizontal > .wb-layout-element,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] .wb_content.wb-layout-vertical > .wb-layout-element {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        flex: 1 1 100% !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] .wb_content,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] .wb_element {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] img,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] svg,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] video,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_main_"] iframe {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_header_"] .wb_content.wb-layout-horizontal > .wb_element {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_header_"] [data-plugin="TextArea"] {
+        flex: 1 1 12rem !important;
+        width: auto !important;
+        margin-right: auto !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_header_"] [data-plugin="TextArea"] a,
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_header_"] [data-plugin="TextArea"] span {
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_header_"] [data-plugin="tawkto"] {
+        width: 0 !important;
+        height: 0 !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        flex: 0 0 0 !important;
+        overflow: hidden !important;
+    }
+    :is(.bdta-imported-page, body > #wb_root) [id^="wb_header_"] .wb-menu-mobile {
+        margin-left: auto !important;
     }
 }
 CSS;
+}
+
+function bdta_inject_imported_page_runtime_css(string $html): string {
+    $importedRootIdPattern = preg_quote(BDTA_IMPORTED_PAGE_ROOT_ID, '/');
+    if (preg_match('/\bid\s*=\s*(?:"' . $importedRootIdPattern . '"|\'' . $importedRootIdPattern . '\')/', $html) !== 1) {
+        return $html;
+    }
+
+    $styleTag = "<style>\n" . bdta_get_imported_page_runtime_css() . "\n</style>";
+    if (str_contains($html, $styleTag)) {
+        return $html;
+    }
+
+    if (preg_match('/<\/head>/i', $html) === 1) {
+        return preg_replace('/<\/head>/i', $styleTag . "\n</head>", $html, 1) ?? $html;
+    }
+
+    return $styleTag . $html;
+}
+
+function bdta_wrap_imported_page_html(string $html): string {
+    $trimmedHtml = trim($html);
+    if ($trimmedHtml === '' || preg_match('/^<div class=(["\'])bdta-imported-page\1>/', $trimmedHtml) === 1) {
+        return $html;
+    }
+
+    $importedRootIdPattern = preg_quote(BDTA_IMPORTED_PAGE_ROOT_ID, '/');
+    if (preg_match('/\bid\s*=\s*(?:"' . $importedRootIdPattern . '"|\'' . $importedRootIdPattern . '\')/', $html) !== 1) {
+        return $html;
+    }
+
+    return '<div class="bdta-imported-page">' . $html . '</div>';
 }
 
 function bdta_sync_public_navigation_links(string $html): string {
