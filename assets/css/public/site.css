@@ -421,6 +421,26 @@ footer a:hover {
    Responsive Design
    ========================================== */
 @media (max-width: 991.98px) {
+    .navbar-brand {
+        flex: 1 1 auto;
+        max-width: calc(100% - 4.5rem);
+        min-width: 0;
+        margin-right: 0;
+        font-size: 0.95rem;
+        line-height: 1.2;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .navbar-toggler {
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+
+    .navbar-collapse {
+        flex-basis: 100%;
+    }
+
     .navbar-nav .nav-link::after {
         display: none;
     }
