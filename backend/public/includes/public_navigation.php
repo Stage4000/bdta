@@ -104,11 +104,12 @@ CSS;
 }
 
 function bdta_wrap_imported_page_html(string $html): string {
-    if ($html === '' || preg_match('/^\s*<div class=(["\'])bdta-imported-page\1>/', $html) === 1) {
+    $trimmedHtml = trim($html);
+    if ($trimmedHtml === '' || preg_match('/^<div class=(["\'])bdta-imported-page\1>/', $trimmedHtml) === 1) {
         return $html;
     }
 
-    if (!str_contains($html, 'id="' . BDTA_IMPORTED_PAGE_ROOT_ID . '"') && !str_contains($html, "id='" . BDTA_IMPORTED_PAGE_ROOT_ID . "'")) {
+    if (preg_match('/\bid\s*=\s*(?:"' . BDTA_IMPORTED_PAGE_ROOT_ID . '"|\'' . BDTA_IMPORTED_PAGE_ROOT_ID . '\'|' . BDTA_IMPORTED_PAGE_ROOT_ID . ')(?=[\s>])/', $html) !== 1) {
         return $html;
     }
 
