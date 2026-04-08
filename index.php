@@ -35,6 +35,7 @@ if (!$page || trim($page['html_content']) === '') {
 
         $html = scalar_string($html);
         $html = bdta_apply_public_social_links($html);
+        $html = bdta_inject_imported_page_runtime_css($html);
         $widget = bdta_get_tawk_to_widget_script();
         if ($widget !== '') {
             $html = preg_replace('/<\/body>/i', $widget . "\n</body>", $html, 1) ?? $html;
