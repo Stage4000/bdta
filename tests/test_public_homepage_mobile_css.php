@@ -3,8 +3,12 @@
 $cssPath = dirname(__DIR__) . '/assets/css/public/site.css';
 $css = file_get_contents($cssPath);
 
-if (!is_string($css) || $css === '') {
-    throw new RuntimeException('Failed to read public site CSS file or file is empty.');
+if ($css === false) {
+    throw new RuntimeException('Failed to read public site CSS file.');
+}
+
+if ($css === '') {
+    throw new RuntimeException('Public site CSS file is empty.');
 }
 
 $mobileBreakpointStart = strpos($css, '@media (max-width: 767.98px)');
