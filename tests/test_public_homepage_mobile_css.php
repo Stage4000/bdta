@@ -11,32 +11,19 @@ if (!str_contains($css, '@media (max-width: 767.98px)')) {
     throw new RuntimeException('Expected public site CSS to include the mobile breakpoint.');
 }
 
-if (!preg_match('/@media\s*\(max-width:\s*767\.98px\)\s*\{(?P<block>.*)\}\s*$/s', $css, $matches)) {
-    throw new RuntimeException('Expected public site CSS to expose the mobile breakpoint block.');
-}
-
-$mobileCss = $matches['block'];
-
-if (
-    !str_contains($mobileCss, 'html,')
-    || !str_contains($mobileCss, 'body')
-    || !str_contains($mobileCss, 'overflow-x: clip;')
-) {
+if (!preg_match('/@media\s*\(max-width:\s*767\.98px\)\s*\{[\s\S]*?html,\s*body\s*\{[\s\S]*?overflow-x:\s*clip;[\s\S]*?\}/', $css)) {
     throw new RuntimeException('Expected mobile CSS to clip root horizontal overflow.');
 }
 
-if (
-    !str_contains($mobileCss, '[data-aos],')
-    || !str_contains($mobileCss, '[data-aos].aos-animate')
-) {
+if (!preg_match('/@media\s*\(max-width:\s*767\.98px\)\s*\{[\s\S]*?\[data-aos\],\s*\[data-aos\]\.aos-animate\s*\{/', $css)) {
     throw new RuntimeException('Expected mobile CSS to target animated homepage sections.');
 }
 
-if (!str_contains($mobileCss, 'transform: none !important;')) {
+if (!preg_match('/@media\s*\(max-width:\s*767\.98px\)\s*\{[\s\S]*?\[data-aos\],\s*\[data-aos\]\.aos-animate\s*\{[\s\S]*?transform:\s*none\s*!important;/', $css)) {
     throw new RuntimeException('Expected mobile CSS to neutralize mobile AOS transforms.');
 }
 
-if (!str_contains($mobileCss, 'transition-property: none !important;')) {
+if (!preg_match('/@media\s*\(max-width:\s*767\.98px\)\s*\{[\s\S]*?\[data-aos\],\s*\[data-aos\]\.aos-animate\s*\{[\s\S]*?transition-property:\s*none\s*!important;/', $css)) {
     throw new RuntimeException('Expected mobile CSS to disable mobile AOS transition-driven offsets.');
 }
 
