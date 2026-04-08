@@ -1,5 +1,7 @@
 <?php
 
+const BDTA_IMPORTED_PAGE_ROOT_ID = 'wb_root';
+
 function bdta_current_public_nav_context(): string {
     $slugValue = $_GET['slug'] ?? '';
     $slug = is_string($slugValue) ? trim($slugValue) : '';
@@ -102,11 +104,12 @@ CSS;
 }
 
 function bdta_wrap_imported_page_html(string $html): string {
-    if ($html === '' || str_contains($html, 'class="bdta-imported-page"') || str_contains($html, "class='bdta-imported-page'")) {
+    $trimmedHtml = ltrim($html);
+    if ($html === '' || str_starts_with($trimmedHtml, '<div class="bdta-imported-page">') || str_starts_with($trimmedHtml, "<div class='bdta-imported-page'>")) {
         return $html;
     }
 
-    if (!str_contains($html, 'id="wb_root"') && !str_contains($html, "id='wb_root'")) {
+    if (!str_contains($html, 'id="' . BDTA_IMPORTED_PAGE_ROOT_ID . '"') && !str_contains($html, "id='" . BDTA_IMPORTED_PAGE_ROOT_ID . "'")) {
         return $html;
     }
 
