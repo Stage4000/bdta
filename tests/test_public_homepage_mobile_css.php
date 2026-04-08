@@ -11,20 +11,27 @@ if (!str_contains($css, '@media (max-width: 767.98px)')) {
     throw new RuntimeException('Expected public site CSS to include the mobile breakpoint.');
 }
 
-if (!preg_match('/@media\s*\(max-width:\s*767\.98px\)\s*\{[\s\S]*?html,\s*body\s*\{[\s\S]*?overflow-x:\s*clip;[\s\S]*?\}/', $css)) {
+$mobileBreakpointStart = strpos($css, '@media (max-width: 767.98px)');
+if ($mobileBreakpointStart === false) {
+    throw new RuntimeException('Expected public site CSS to expose the mobile breakpoint block.');
+}
+
+$nextMediaStart = strpos($css, '@media', $mobileBreakpointStart + 1);
+$mobileCss = $nextMediaStart === false
+    ? substr($css, $mobileBreakpointStart)
+    : substr($css, $mobileBreakpointStart, $nextMediaStart - $mobileBreakpointStart);
+
+if (!is_string($mobileCss) || $mobileCss === '') {
+    throw new RuntimeException('Expected mobile CSS block to be readable.');
+}
+
+if (!preg_match('/html,\s*body\s*\{[\s\S]*?overflow-x:\s*clip;[\s\S]*?\}/', $mobileCss)) {
     throw new RuntimeException('Expected mobile CSS to clip root horizontal overflow.');
 }
 
-if (!preg_match('/@media\s*\(max-width:\s*767\.98px\)\s*\{[\s\S]*?\[data-aos\],\s*\[data-aos\]\.aos-animate\s*\{/', $css)) {
+$aosMobileRulePattern = '/\[data-aos\],\s*\[data-aos\]\.aos-animate\s*\{[\s\S]*?transform:\s*none\s*!important;[\s\S]*?transition-property:\s*none\s*!important;[\s\S]*?\}/';
+if (!preg_match($aosMobileRulePattern, $mobileCss)) {
     throw new RuntimeException('Expected mobile CSS to target animated homepage sections.');
-}
-
-if (!preg_match('/@media\s*\(max-width:\s*767\.98px\)\s*\{[\s\S]*?\[data-aos\],\s*\[data-aos\]\.aos-animate\s*\{[\s\S]*?transform:\s*none\s*!important;/', $css)) {
-    throw new RuntimeException('Expected mobile CSS to neutralize mobile AOS transforms.');
-}
-
-if (!preg_match('/@media\s*\(max-width:\s*767\.98px\)\s*\{[\s\S]*?\[data-aos\],\s*\[data-aos\]\.aos-animate\s*\{[\s\S]*?transition-property:\s*none\s*!important;/', $css)) {
-    throw new RuntimeException('Expected mobile CSS to disable mobile AOS transition-driven offsets.');
 }
 
 echo "Public homepage mobile CSS test passed.\n";
