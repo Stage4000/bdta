@@ -105,11 +105,12 @@ CSS;
 
 function bdta_wrap_imported_page_html(string $html): string {
     $trimmedHtml = trim($html);
-    if ($trimmedHtml === '' || preg_match('/^<div class=(["\'])bdta-imported-page\1>/', $trimmedHtml) === 1) {
+    if ($trimmedHtml === '' || preg_match('/^(?:<!--.*?-->\s*)*<div class=(["\'])bdta-imported-page\1>/s', $trimmedHtml) === 1) {
         return $html;
     }
 
-    if (preg_match('/\bid\s*=\s*(?:"' . BDTA_IMPORTED_PAGE_ROOT_ID . '"|\'' . BDTA_IMPORTED_PAGE_ROOT_ID . '\'|' . BDTA_IMPORTED_PAGE_ROOT_ID . ')(?=[\s>])/', $html) !== 1) {
+    $importedRootIdPattern = preg_quote(BDTA_IMPORTED_PAGE_ROOT_ID, '/');
+    if (preg_match('/\bid\s*=\s*(?:"' . $importedRootIdPattern . '"|\'' . $importedRootIdPattern . '\'|' . $importedRootIdPattern . ')(?=[\s>])/', $html) !== 1) {
         return $html;
     }
 
