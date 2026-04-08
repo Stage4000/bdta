@@ -67,6 +67,36 @@ function bdta_get_imported_page_runtime_css(): string {
     .bdta-imported-page span {
         overflow-wrap: break-word;
     }
+    .bdta-imported-page [id^="wb_header_"] > .wb_content,
+    .bdta-imported-page [id^="wb_header_"] .wb_content.wb-layout-horizontal {
+        flex-wrap: wrap !important;
+    }
+    .bdta-imported-page [id^="wb_header_"] .wb_content.wb-layout-horizontal > .wb_element {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    .bdta-imported-page [id^="wb_header_"] [data-plugin="TextArea"] {
+        flex: 1 1 12rem !important;
+        width: auto !important;
+        margin-right: auto !important;
+    }
+    .bdta-imported-page [id^="wb_header_"] [data-plugin="TextArea"] a,
+    .bdta-imported-page [id^="wb_header_"] [data-plugin="TextArea"] span {
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+    .bdta-imported-page [id^="wb_header_"] [data-plugin="tawkto"] {
+        width: 0 !important;
+        height: 0 !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        flex: 0 0 0 !important;
+        overflow: hidden !important;
+    }
+    .bdta-imported-page [id^="wb_header_"] .wb-menu-mobile {
+        margin-left: auto !important;
+    }
 }
 CSS;
 }
