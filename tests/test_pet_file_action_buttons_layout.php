@@ -28,20 +28,20 @@ bdta_assert(
     'Uploaded file cards should use a flex column body so the action buttons stay anchored cleanly.'
 );
 bdta_assert(
-    str_contains($pets_edit, '<div class="d-flex flex-column align-items-center gap-1 mt-auto">'),
-    'Uploaded file action buttons should use a centered stacked layout instead of a shrinking button group.'
+    str_contains($pets_edit, '<div class="d-grid gap-1 mt-auto col-10 mx-auto">'),
+    'Uploaded file action buttons should use a centered stacked grid layout instead of a shrinking button group.'
 );
 bdta_assert(
-    str_contains($pets_edit, 'class="btn btn-sm btn-outline-primary text-nowrap w-75"'),
-    'The View action should stay centered and keep its label on one line.'
+    str_contains($pets_edit, 'class="btn btn-sm btn-outline-primary text-nowrap"'),
+    'The View action should keep its label on one line.'
 );
 bdta_assert(
-    str_contains($pets_edit, 'class="btn btn-sm btn-outline-secondary text-nowrap w-75"'),
-    'The Download action should stay centered and keep its label on one line.'
+    str_contains($pets_edit, 'class="btn btn-sm btn-outline-secondary text-nowrap"'),
+    'The Download action should keep its label on one line.'
 );
 bdta_assert(
-    str_contains($pets_edit, 'class="btn btn-sm btn-outline-danger text-nowrap w-75"'),
-    'The Delete action should stay centered and keep its label on one line.'
+    str_contains($pets_edit, 'class="btn btn-sm btn-outline-danger text-nowrap"'),
+    'The Delete action should keep its label on one line.'
 );
 bdta_assert(
     !str_contains($pets_edit, '<div class="btn-group btn-group-sm w-100" role="group">'),

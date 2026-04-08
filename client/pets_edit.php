@@ -519,14 +519,14 @@ include '../backend/includes/header.php';
                             ${fileSize} • ${uploadDate}
                         </small>
                     </p>
-                    <div class="d-flex flex-column align-items-center gap-1 mt-auto">
-                        <a href="pet_files_view.php?id=${file.id}" target="_blank" class="btn btn-sm btn-outline-primary text-nowrap w-75">
+                    <div class="d-grid gap-1 mt-auto col-10 mx-auto">
+                        <a href="pet_files_view.php?id=${file.id}" target="_blank" class="btn btn-sm btn-outline-primary text-nowrap">
                             <i class="fas fa-eye me-1"></i> View
                         </a>
-                        <a href="pet_files_view.php?id=${file.id}&download=1" class="btn btn-sm btn-outline-secondary text-nowrap w-75">
+                        <a href="pet_files_view.php?id=${file.id}&download=1" class="btn btn-sm btn-outline-secondary text-nowrap">
                             <i class="fas fa-download me-1"></i> Download
                         </a>
-                        <button type="button" class="btn btn-sm btn-outline-danger text-nowrap w-75" onclick="deleteFile(${file.id})">
+                        <button type="button" class="btn btn-sm btn-outline-danger text-nowrap" onclick="deleteFile(${file.id})">
                             <i class="fas fa-trash me-1"></i> Delete
                         </button>
                     </div>
