@@ -21,7 +21,7 @@ $mobileCss = $nextMediaStart === false
     ? substr($css, $mobileBreakpointStart)
     : substr($css, $mobileBreakpointStart, $nextMediaStart - $mobileBreakpointStart);
 
-if (!is_string($mobileCss) || $mobileCss === '') {
+if ($mobileCss === '') {
     throw new RuntimeException('Failed to extract mobile CSS block.');
 }
 
