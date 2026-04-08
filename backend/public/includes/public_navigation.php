@@ -102,11 +102,11 @@ CSS;
 }
 
 function bdta_wrap_imported_page_html(string $html): string {
-    if ($html === '' || preg_match('/\bclass=(["\'])[^"\']*\bbdta-imported-page\b[^"\']*\1/', $html) === 1) {
+    if ($html === '' || str_contains($html, 'class="bdta-imported-page"') || str_contains($html, "class='bdta-imported-page'")) {
         return $html;
     }
 
-    if (!preg_match('/\bid=(["\'])wb_root\1/', $html)) {
+    if (!str_contains($html, 'id="wb_root"') && !str_contains($html, "id='wb_root'")) {
         return $html;
     }
 
