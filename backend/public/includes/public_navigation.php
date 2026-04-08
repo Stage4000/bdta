@@ -102,7 +102,7 @@ CSS;
 }
 
 function bdta_wrap_imported_page_html(string $html): string {
-    if ($html === '' || str_contains($html, 'class="bdta-imported-page"') || str_contains($html, "class='bdta-imported-page'")) {
+    if ($html === '' || preg_match('/\bclass=(["\'])[^"\']*\bbdta-imported-page\b[^"\']*\1/', $html) === 1) {
         return $html;
     }
 

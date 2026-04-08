@@ -44,7 +44,7 @@ HTML;
     );
     assertTrue(!str_contains($factSheetHtml, 'Dog Training Fact Sheet'), 'Expected Dog Training Fact Sheet nav link to be removed.');
 
-    $importedHtml = '<div id="wb_root" class="root wb-layout-vertical"><div class="wb_element"></div></div>';
+    $importedHtml = '<div id="wb_root" class="root wb-layout-vertical"><div class="wb-layout-element"></div></div>';
     $wrappedImportedHtml = bdta_wrap_imported_page_html($importedHtml);
     assertTrue(str_starts_with($wrappedImportedHtml, '<div class="bdta-imported-page">'), 'Expected imported page HTML to be wrapped for runtime CSS targeting.');
     assertTrue(str_contains($wrappedImportedHtml, $importedHtml), 'Expected imported page HTML wrapper to preserve the original markup.');
