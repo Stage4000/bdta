@@ -115,7 +115,7 @@ include '../portal/includes/header.php';
                             $book_url = '/backend/public/book.php?type=' . intval($atype['id']);
                         }
                         ?>
-                        <a href="<?php echo escape($book_url); ?>" class="btn btn-sm btn-primary" target="_blank">
+                        <a href="<?php echo escape($book_url); ?>" class="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center" target="_blank">
                             Book Now
                         </a>
                     </div>
