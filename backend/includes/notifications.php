@@ -94,6 +94,22 @@ function bdta_notification_current_path(string $fallback): string {
     return bdta_notification_sanitize_path($request_uri, $fallback);
 }
 
+/**
+ * @param list<int|string> $values
+ */
+function bdta_notification_bind_values(PDOStatement $stmt, array $values): void {
+    foreach ($values as $index => $value) {
+        $stmt->bindValue($index + 1, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+}
+
+/**
+ * @return list<string>
+ */
+function bdta_notification_client_invoice_excluded_statuses(): array {
+    return ['draft', 'paid', 'refunded', 'cancelled', 'void'];
+}
+
 function bdta_create_notification(
     PDO $conn,
     string $audience,
@@ -216,9 +232,10 @@ function bdta_get_persistent_notifications(PDO $conn, string $audience, int $rec
           AND recipient_id = ?
           AND deleted_at IS NULL
         ORDER BY created_at DESC, id DESC
-        LIMIT " . $limit . "
+        LIMIT ?
     ");
-    $stmt->execute([strtolower(trim($audience)), $recipient_id]);
+    bdta_notification_bind_values($stmt, [strtolower(trim($audience)), $recipient_id, $limit]);
+    $stmt->execute();
 
     $notifications = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -238,16 +255,19 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
 
     $limit = max(1, min(50, $limit));
     $notifications = [];
+    $invoice_excluded_statuses = bdta_notification_client_invoice_excluded_statuses();
+    $invoice_status_placeholders = implode(', ', array_fill(0, count($invoice_excluded_statuses), '?'));
 
     $invoice_stmt = $conn->prepare("
         SELECT id, invoice_number, status, due_date, total_amount, created_at
         FROM invoices
         WHERE client_id = ?
-          AND LOWER(TRIM(COALESCE(status, ''))) NOT IN ('draft', 'paid', 'refunded', 'cancelled', 'void')
+          AND LOWER(TRIM(COALESCE(status, ''))) NOT IN (" . $invoice_status_placeholders . ")
         ORDER BY created_at DESC, id DESC
-        LIMIT " . $limit . "
+        LIMIT ?
     ");
-    $invoice_stmt->execute([$client_id]);
+    bdta_notification_bind_values($invoice_stmt, [$client_id, ...$invoice_excluded_statuses, $limit]);
+    $invoice_stmt->execute();
     foreach ($invoice_stmt->fetchAll(PDO::FETCH_ASSOC) as $invoice) {
         $invoice_id = isset($invoice['id']) ? (int) $invoice['id'] : 0;
         if ($invoice_id <= 0) {
@@ -288,9 +308,10 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
         WHERE client_id = ?
           AND status IN ('sent', 'viewed')
         ORDER BY created_at DESC
-        LIMIT " . $limit . "
+        LIMIT ?
     ");
-    $quote_stmt->execute([$client_id]);
+    bdta_notification_bind_values($quote_stmt, [$client_id, $limit]);
+    $quote_stmt->execute();
     foreach ($quote_stmt->fetchAll(PDO::FETCH_ASSOC) as $quote) {
         $quote_id = isset($quote['id']) ? (int) $quote['id'] : 0;
         if ($quote_id <= 0) {
@@ -321,9 +342,10 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
         WHERE client_id = ?
           AND status = 'sent'
         ORDER BY created_at DESC
-        LIMIT " . $limit . "
+        LIMIT ?
     ");
-    $contract_stmt->execute([$client_id]);
+    bdta_notification_bind_values($contract_stmt, [$client_id, $limit]);
+    $contract_stmt->execute();
     foreach ($contract_stmt->fetchAll(PDO::FETCH_ASSOC) as $contract) {
         $contract_id = isset($contract['id']) ? (int) $contract['id'] : 0;
         if ($contract_id <= 0) {
@@ -361,13 +383,17 @@ function bdta_get_client_sticky_notification_count(PDO $conn, int $client_id): i
         return 0;
     }
 
+    $invoice_excluded_statuses = bdta_notification_client_invoice_excluded_statuses();
+    $invoice_status_placeholders = implode(', ', array_fill(0, count($invoice_excluded_statuses), '?'));
+
     $invoice_stmt = $conn->prepare("
         SELECT COUNT(*)
         FROM invoices
         WHERE client_id = ?
-          AND LOWER(TRIM(COALESCE(status, ''))) NOT IN ('draft', 'paid', 'refunded', 'cancelled', 'void')
+          AND LOWER(TRIM(COALESCE(status, ''))) NOT IN (" . $invoice_status_placeholders . ")
     ");
-    $invoice_stmt->execute([$client_id]);
+    bdta_notification_bind_values($invoice_stmt, [$client_id, ...$invoice_excluded_statuses]);
+    $invoice_stmt->execute();
 
     $quote_stmt = $conn->prepare("
         SELECT COUNT(*)
