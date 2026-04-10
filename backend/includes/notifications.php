@@ -119,6 +119,15 @@ function bdta_notification_client_invoice_status_placeholders(): string {
     return implode(', ', array_fill(0, count(bdta_notification_client_invoice_excluded_statuses()), '?'));
 }
 
+/**
+ * @param array<string, mixed> $invoice
+ */
+function bdta_notification_should_include_sticky_invoice(array $invoice): bool {
+    $status = strtolower(trim((string) ($invoice['status'] ?? '')));
+
+    return $status !== 'draft' && bdta_invoice_is_payable($invoice);
+}
+
 function bdta_create_notification(
     PDO $conn,
     string $audience,
@@ -270,7 +279,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
         SELECT id, invoice_number, status, due_date, total_amount, created_at
         FROM invoices
         WHERE client_id = ?
-          AND LOWER(TRIM(COALESCE(status, ''))) NOT IN (" . bdta_notification_client_invoice_status_placeholders() . ")
+          AND COALESCE(status, '') NOT IN (" . bdta_notification_client_invoice_status_placeholders() . ")
         ORDER BY created_at DESC, id DESC
         LIMIT ?
     ");
@@ -278,7 +287,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
     $invoice_stmt->execute();
     foreach ($invoice_stmt->fetchAll(PDO::FETCH_ASSOC) as $invoice) {
         $invoice_id = isset($invoice['id']) ? (int) $invoice['id'] : 0;
-        if ($invoice_id <= 0) {
+        if ($invoice_id <= 0 || !bdta_notification_should_include_sticky_invoice($invoice)) {
             continue;
         }
 
@@ -393,7 +402,7 @@ function bdta_get_client_sticky_notification_count(PDO $conn, int $client_id): i
         SELECT COUNT(*)
         FROM invoices
         WHERE client_id = ?
-          AND LOWER(TRIM(COALESCE(status, ''))) NOT IN (" . bdta_notification_client_invoice_status_placeholders() . ")
+          AND COALESCE(status, '') NOT IN (" . bdta_notification_client_invoice_status_placeholders() . ")
     ");
     bdta_notification_bind_values($invoice_stmt, [$client_id, ...$invoice_excluded_statuses]);
     $invoice_stmt->execute();
