@@ -115,8 +115,20 @@ function bdta_notification_client_invoice_excluded_statuses(): array {
     return $statuses;
 }
 
+/**
+ * Matches the fixed-size exclusion list returned by bdta_notification_client_invoice_excluded_statuses().
+ */
 function bdta_notification_client_invoice_status_placeholders(): string {
-    return implode(', ', array_fill(0, count(bdta_notification_client_invoice_excluded_statuses()), '?'));
+    return '?, ?, ?, ?, ?';
+}
+
+function bdta_notification_fetch_count(PDOStatement $stmt): int {
+    $count = $stmt->fetchColumn();
+    if ($count === false) {
+        throw new RuntimeException('Failed to fetch notification count.');
+    }
+
+    return (int) $count;
 }
 
 /**
@@ -425,9 +437,9 @@ function bdta_get_client_sticky_notification_count(PDO $conn, int $client_id): i
     bdta_notification_bind_values($contract_stmt, [$client_id]);
     $contract_stmt->execute();
 
-    $invoice_count = (int) $invoice_stmt->fetchColumn();
-    $quote_count = (int) $quote_stmt->fetchColumn();
-    $contract_count = (int) $contract_stmt->fetchColumn();
+    $invoice_count = bdta_notification_fetch_count($invoice_stmt);
+    $quote_count = bdta_notification_fetch_count($quote_stmt);
+    $contract_count = bdta_notification_fetch_count($contract_stmt);
 
     return $invoice_count + $quote_count + $contract_count;
 }
