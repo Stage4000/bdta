@@ -425,9 +425,11 @@ function bdta_get_client_sticky_notification_count(PDO $conn, int $client_id): i
     bdta_notification_bind_values($contract_stmt, [$client_id]);
     $contract_stmt->execute();
 
-    return (int) $invoice_stmt->fetchColumn()
-        + (int) $quote_stmt->fetchColumn()
-        + (int) $contract_stmt->fetchColumn();
+    $invoice_count = (int) $invoice_stmt->fetchColumn();
+    $quote_count = (int) $quote_stmt->fetchColumn();
+    $contract_count = (int) $contract_stmt->fetchColumn();
+
+    return $invoice_count + $quote_count + $contract_count;
 }
 
 /**
