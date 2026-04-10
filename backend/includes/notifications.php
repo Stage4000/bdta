@@ -95,6 +95,8 @@ function bdta_notification_current_path(string $fallback): string {
 }
 
 /**
+ * Bind positional PDO statement values using integer parameter types for ints and strings for everything else.
+ *
  * @param list<int|string> $values
  */
 function bdta_notification_bind_values(PDOStatement $stmt, array $values): void {
@@ -401,7 +403,8 @@ function bdta_get_client_sticky_notification_count(PDO $conn, int $client_id): i
         WHERE client_id = ?
           AND status IN ('sent', 'viewed')
     ");
-    $quote_stmt->execute([$client_id]);
+    bdta_notification_bind_values($quote_stmt, [$client_id]);
+    $quote_stmt->execute();
 
     $contract_stmt = $conn->prepare("
         SELECT COUNT(*)
@@ -409,7 +412,8 @@ function bdta_get_client_sticky_notification_count(PDO $conn, int $client_id): i
         WHERE client_id = ?
           AND status = 'sent'
     ");
-    $contract_stmt->execute([$client_id]);
+    bdta_notification_bind_values($contract_stmt, [$client_id]);
+    $contract_stmt->execute();
 
     return (int) $invoice_stmt->fetchColumn()
         + (int) $quote_stmt->fetchColumn()
