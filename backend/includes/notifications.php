@@ -19,7 +19,7 @@ function bdta_notification_normalize_row(array $row): array {
         'id' => $persistent_id !== null ? (string) $persistent_id : $title . '-' . md5($message . $created_at . $url),
         'persistent_id' => $persistent_id,
         'entity_type' => trim(bdta_notification_string($row['entity_type'] ?? 'notification')),
-        'entity_id' => (int) ($row['entity_id'] ?? 0),
+        'entity_id' => bdta_notification_int($row['entity_id'] ?? 0),
         'title' => $title !== '' ? $title : 'Notification',
         'message' => $message,
         'url' => $url,
@@ -81,6 +81,10 @@ function bdta_notification_string(mixed $value): string {
     return '';
 }
 
+function bdta_notification_int(mixed $value): int {
+    return is_int($value) ? $value : (is_numeric($value) ? (int) $value : 0);
+}
+
 function bdta_notification_escape(mixed $value): string {
     return htmlspecialchars(bdta_notification_string($value), ENT_QUOTES, 'UTF-8');
 }
@@ -110,7 +114,7 @@ function bdta_notification_current_path(string $fallback): string {
 /**
  * Bind positional PDO statement values using integer parameter types for ints and strings for everything else.
  *
- * @param list<int|string> $values
+ * @param list<int|string|null> $values
  */
 function bdta_notification_bind_values(PDOStatement $stmt, array $values): void {
     foreach ($values as $index => $value) {
@@ -538,6 +542,7 @@ function bdta_get_notification_by_id(PDO $conn, string $audience, int $recipient
         return null;
     }
 
+    /** @var array<string, mixed> $row */
     return bdta_notification_normalize_row($row);
 }
 
