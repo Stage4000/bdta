@@ -130,7 +130,7 @@ if (array_string_value($session, 'payment_intent') === '') {
 }
 $payment_intent_id = array_string_value($session, 'payment_intent');
 
-$conn->prepare("
+$invoice_update = $conn->prepare("
     UPDATE invoices
     SET status = 'paid',
         payment_method = 'credit_card',
@@ -138,7 +138,9 @@ $conn->prepare("
         stripe_payment_intent_id = ?,
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND status NOT IN ('paid', 'refunded', 'void', 'cancelled')
-")->execute([$payment_intent_id, $id]);
+");
+$invoice_update->execute([$payment_intent_id, $id]);
+$invoice_marked_paid = $invoice_update->rowCount() > 0;
 
 // Send payment receipt email
 require_once '../backend/includes/email_service.php';
@@ -155,6 +157,17 @@ if ($result['success']) {
 if ($client_id !== null) {
     // Only log activity for portal-logged-in users (guest doesn't have client_activity_log entry)
     logClientActivity($client_id, 'invoice_paid', 'Paid invoice #' . $invoice['invoice_number'] . ' via Stripe', $conn);
+}
+
+if ($invoice_marked_paid) {
+    bdta_create_admin_notifications(
+        $conn,
+        'invoice',
+        $id,
+        'Invoice paid',
+        'Invoice #' . array_string_value($invoice, 'invoice_number') . ' was paid by ' . array_string_value($invoice, 'client_name', array_string_value($invoice, 'client_email')),
+        '/client/invoices_view.php?id=' . $id
+    );
 }
 
 setFlashMessage('Payment successful! A receipt has been sent to ' . escape($invoice['client_email']) . '.', 'success');

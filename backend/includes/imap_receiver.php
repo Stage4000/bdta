@@ -312,6 +312,16 @@ class ImapEmailReceiver {
             $received_date,
             currentUtcDateTime()
         ]);
+
+        $email_id = safe_int($this->conn->lastInsertId());
+        bdta_create_admin_notifications(
+            $this->conn,
+            'email',
+            $email_id,
+            'New client email received',
+            ($subject !== '' ? $subject : 'New email') . ' from ' . ($from_email !== '' ? $from_email : 'unknown sender'),
+            '/client/clients_view.php?id=' . $client_id . '#emails'
+        );
     }
 
     private function isDuplicateEmail(string $message_id, string $from_email, string $subject, string $received_date): bool {
@@ -537,5 +547,15 @@ class ImapEmailReceiver {
             $received_date,
             currentUtcDateTime()
         ]);
+
+        $email_id = safe_int($this->conn->lastInsertId());
+        bdta_create_admin_notifications(
+            $this->conn,
+            'email',
+            $email_id,
+            'New unmatched email received',
+            ($subject !== '' ? $subject : 'New email') . ' from ' . ($from_email !== '' ? $from_email : 'unknown sender'),
+            '/client/unmatched_emails_list.php'
+        );
     }
 }

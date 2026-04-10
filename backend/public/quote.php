@@ -63,6 +63,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
         $stmt->execute([$quote_id]);
         $quote_status = 'accepted';
         $quote['status'] = 'accepted';
+        bdta_create_admin_notifications(
+            $conn,
+            'quote',
+            $quote_id,
+            'Quote accepted',
+            array_string_value($quote, 'client_name', 'Client') . ' accepted quote ' . $quote_quote_number,
+            '/client/quotes_view.php?id=' . $quote_id
+        );
         $message = '<div class="alert alert-success">Quote accepted! We will contact you shortly.</div>';
     } elseif ($action == 'decline') {
         $stmt = $conn->prepare("UPDATE quotes SET status = 'declined', declined_at = CURRENT_TIMESTAMP WHERE id = ?");

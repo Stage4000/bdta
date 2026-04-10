@@ -84,6 +84,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
             }
         }
 
+        if ($previous_status !== $status && !empty($booking_row['client_id'])) {
+            $client_notification_title = null;
+            if ($status === 'confirmed') {
+                $client_notification_title = 'Appointment request confirmed';
+            } elseif ($status === 'cancelled' && $previous_status === 'pending') {
+                $client_notification_title = 'Appointment request denied';
+            }
+
+            if ($client_notification_title !== null) {
+                bdta_create_notification(
+                    $conn,
+                    'portal',
+                    safe_int($booking_row['client_id']),
+                    'booking',
+                    $booking_id,
+                    $client_notification_title,
+                    scalar_string($booking_row['service_type']) . ' on ' . scalar_string($booking_row['appointment_date']),
+                    '/portal/appointments.php'
+                );
+            }
+        }
+
         if ($status === 'cancelled' && $pkg_credit_id > 0) {
             // Refund credit: check that a consume transaction exists (avoid double-refund)
             $stmt = $conn->prepare("

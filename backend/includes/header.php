@@ -48,6 +48,20 @@
     
     <?php if (isLoggedIn()): ?>
     <?php
+        if (!isset($conn) || !($conn instanceof PDO)) {
+            $header_db = new Database();
+            $conn = $header_db->getConnection();
+        }
+        bdta_render_notification_widget(
+            $conn,
+            'admin',
+            safe_int($_SESSION['admin_id'] ?? 0),
+            '/client/notification_action.php',
+            '/client/notification_redirect.php',
+            '/client/index.php'
+        );
+    ?>
+    <?php
         $bdta_active_timer = bdta_normalize_valid_active_timer($_SESSION['active_timer'] ?? null);
         if ($bdta_active_timer === null) {
             unset($_SESSION['active_timer']);

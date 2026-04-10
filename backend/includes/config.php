@@ -6,6 +6,7 @@
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/session_config.php';
 require_once __DIR__ . '/base_url_helper.php';
+require_once __DIR__ . '/notifications.php';
 
 /**
  * Resolve the system timezone from admin settings with a safe fallback.

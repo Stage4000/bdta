@@ -316,6 +316,18 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         ]);
 
         $booking_id = safe_int($conn->lastInsertId());
+        $booking_notification_title = $initial_status === 'pending'
+            ? 'New appointment request'
+            : 'New appointment booked';
+        $booking_notification_message = $client_name . ' booked ' . $service_type . ' for ' . $appointment_date;
+        bdta_create_admin_notifications(
+            $conn,
+            'booking',
+            $booking_id,
+            $booking_notification_title,
+            $booking_notification_message,
+            '/client/bookings_list.php'
+        );
 
         if (!empty($pet_ids)) {
             foreach ($pet_ids as $pet_id) {

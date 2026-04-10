@@ -168,6 +168,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
                         $conn->commit();
+                        bdta_create_notification(
+                            $conn,
+                            'portal',
+                            $client_id,
+                            'package',
+                            safe_int($cp_id),
+                            'Package credits added',
+                            "A new '" . array_string_value($package, 'name') . "' package has been added to your account.",
+                            '/portal/credits.php'
+                        );
                         $_SESSION['flash_message'] = "Package '" . array_string_value($package, 'name') . "' assigned successfully!";
                         $_SESSION['flash_type'] = "success";
                     } catch (PDOException $e) {
@@ -242,6 +252,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ")->execute([$cpc_id, $client_id, $appointment_type_id, $amount, $notes, safe_int($_SESSION['admin_id'] ?? 0)]);
 
                         $conn->commit();
+                        $adjustment_message = $amount > 0
+                            ? 'An admin added ' . $amount . ' credit(s) for ' . array_string_value($apt_type_row, 'name') . '.'
+                            : 'An admin adjusted your ' . array_string_value($apt_type_row, 'name') . ' credits.';
+                        bdta_create_notification(
+                            $conn,
+                            'portal',
+                            $client_id,
+                            'credit',
+                            $cpc_id,
+                            'Credits updated',
+                            $adjustment_message,
+                            '/portal/credits.php'
+                        );
                         $_SESSION['flash_message'] = "Credit adjustment applied for " . array_string_value($apt_type_row, 'name') . "!";
                         $_SESSION['flash_type'] = "success";
                     }

@@ -2017,6 +2017,24 @@ class Database {
             )
         ");
 
+        // Create notifications table for admin and portal notification centers
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                audience TEXT NOT NULL,
+                recipient_id INTEGER NOT NULL,
+                entity_type TEXT NOT NULL,
+                entity_id INTEGER DEFAULT 0,
+                title TEXT NOT NULL,
+                message TEXT,
+                url TEXT NOT NULL,
+                is_read INTEGER DEFAULT 0,
+                read_at TIMESTAMP NULL,
+                deleted_at TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+
         // Create appointment_type_forms join table for many-to-many relationship
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS appointment_type_forms (
