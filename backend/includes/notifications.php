@@ -36,6 +36,10 @@ function bdta_notification_sanitize_path(string $path, string $default = ''): st
         return $default;
     }
 
+    if ($path[0] === '\\') {
+        return $default;
+    }
+
     $parts = parse_url($path);
     if ($parts === false) {
         return $default;
@@ -52,6 +56,10 @@ function bdta_notification_sanitize_path(string $path, string $default = ''): st
 
     if ($normalized_path[0] !== '/') {
         $normalized_path = '/' . ltrim($normalized_path, '/');
+    }
+
+    if (strncmp($normalized_path, '//', 2) === 0 || $normalized_path[0] === '\\') {
+        return $default;
     }
 
     $query = isset($parts['query']) && $parts['query'] !== '' ? '?' . $parts['query'] : '';
@@ -194,10 +202,12 @@ function bdta_delete_notification(PDO $conn, string $audience, int $recipient_id
 /**
  * @return list<array<string, mixed>>
  */
-function bdta_get_persistent_notifications(PDO $conn, string $audience, int $recipient_id): array {
+function bdta_get_persistent_notifications(PDO $conn, string $audience, int $recipient_id, int $limit = 15): array {
     if ($recipient_id <= 0) {
         return [];
     }
+
+    $limit = max(1, min(100, $limit));
 
     $stmt = $conn->prepare("
         SELECT id, entity_type, entity_id, title, message, url, is_read, created_at
@@ -206,6 +216,7 @@ function bdta_get_persistent_notifications(PDO $conn, string $audience, int $rec
           AND recipient_id = ?
           AND deleted_at IS NULL
         ORDER BY created_at DESC, id DESC
+        LIMIT " . $limit . "
     ");
     $stmt->execute([strtolower(trim($audience)), $recipient_id]);
 
@@ -220,18 +231,21 @@ function bdta_get_persistent_notifications(PDO $conn, string $audience, int $rec
 /**
  * @return list<array<string, mixed>>
  */
-function bdta_get_client_sticky_notifications(PDO $conn, int $client_id): array {
+function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $limit = 15): array {
     if ($client_id <= 0) {
         return [];
     }
 
+    $limit = max(1, min(50, $limit));
     $notifications = [];
 
     $invoice_stmt = $conn->prepare("
         SELECT id, invoice_number, status, due_date, total_amount, created_at
         FROM invoices
         WHERE client_id = ?
+          AND LOWER(TRIM(COALESCE(status, ''))) NOT IN ('draft', 'paid', 'refunded', 'cancelled', 'void')
         ORDER BY created_at DESC, id DESC
+        LIMIT " . $limit . "
     ");
     $invoice_stmt->execute([$client_id]);
     foreach ($invoice_stmt->fetchAll(PDO::FETCH_ASSOC) as $invoice) {
@@ -240,8 +254,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id): array 
             continue;
         }
 
-        $invoice_status = strtolower(trim((string) ($invoice['status'] ?? 'draft')));
-        if ($invoice_status === 'draft' || !bdta_invoice_is_payable($invoice)) {
+        if (!bdta_invoice_is_payable($invoice)) {
             continue;
         }
 
@@ -275,6 +288,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id): array 
         WHERE client_id = ?
           AND status IN ('sent', 'viewed')
         ORDER BY created_at DESC
+        LIMIT " . $limit . "
     ");
     $quote_stmt->execute([$client_id]);
     foreach ($quote_stmt->fetchAll(PDO::FETCH_ASSOC) as $quote) {
@@ -307,6 +321,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id): array 
         WHERE client_id = ?
           AND status = 'sent'
         ORDER BY created_at DESC
+        LIMIT " . $limit . "
     ");
     $contract_stmt->execute([$client_id]);
     foreach ($contract_stmt->fetchAll(PDO::FETCH_ASSOC) as $contract) {
@@ -341,13 +356,47 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id): array 
     return $notifications;
 }
 
+function bdta_get_client_sticky_notification_count(PDO $conn, int $client_id): int {
+    if ($client_id <= 0) {
+        return 0;
+    }
+
+    $invoice_stmt = $conn->prepare("
+        SELECT COUNT(*)
+        FROM invoices
+        WHERE client_id = ?
+          AND LOWER(TRIM(COALESCE(status, ''))) NOT IN ('draft', 'paid', 'refunded', 'cancelled', 'void')
+    ");
+    $invoice_stmt->execute([$client_id]);
+
+    $quote_stmt = $conn->prepare("
+        SELECT COUNT(*)
+        FROM quotes
+        WHERE client_id = ?
+          AND status IN ('sent', 'viewed')
+    ");
+    $quote_stmt->execute([$client_id]);
+
+    $contract_stmt = $conn->prepare("
+        SELECT COUNT(*)
+        FROM contracts
+        WHERE client_id = ?
+          AND status = 'sent'
+    ");
+    $contract_stmt->execute([$client_id]);
+
+    return (int) $invoice_stmt->fetchColumn()
+        + (int) $quote_stmt->fetchColumn()
+        + (int) $contract_stmt->fetchColumn();
+}
+
 /**
  * @return list<array<string, mixed>>
  */
 function bdta_get_notifications(PDO $conn, string $audience, int $recipient_id, int $limit = 15): array {
-    $notifications = bdta_get_persistent_notifications($conn, $audience, $recipient_id);
+    $notifications = bdta_get_persistent_notifications($conn, $audience, $recipient_id, $limit);
     if (strtolower(trim($audience)) === 'portal') {
-        $notifications = array_merge($notifications, bdta_get_client_sticky_notifications($conn, $recipient_id));
+        $notifications = array_merge($notifications, bdta_get_client_sticky_notifications($conn, $recipient_id, $limit));
     }
 
     usort($notifications, static function (array $left, array $right): int {
@@ -380,7 +429,7 @@ function bdta_get_unread_notification_count(PDO $conn, string $audience, int $re
     $count = (int) $stmt->fetchColumn();
 
     if (strtolower(trim($audience)) === 'portal') {
-        $count += count(bdta_get_client_sticky_notifications($conn, $recipient_id));
+        $count += bdta_get_client_sticky_notification_count($conn, $recipient_id);
     }
 
     return $count;

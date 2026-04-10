@@ -508,26 +508,30 @@ function bdta_finalize_package_purchase(
         }
 
         $package_name = scalar_string($package['name'] ?? 'Package');
-        bdta_create_admin_notifications(
-            $conn,
-            'package',
-            $client_package_id,
-            'Package purchased',
-            $buyer_name . ' purchased ' . $package_name,
-            '/client/credits_manage.php?client_id=' . $client_id
-        );
-        bdta_create_notification(
-            $conn,
-            'portal',
-            $client_id,
-            'package',
-            $client_package_id,
-            'Package credits added',
-            'Your ' . $package_name . ' credits are now available in the portal.',
-            '/portal/credits.php'
-        );
-
         $conn->commit();
+
+        try {
+            bdta_create_admin_notifications(
+                $conn,
+                'package',
+                $client_package_id,
+                'Package purchased',
+                $buyer_name . ' purchased ' . $package_name,
+                '/client/credits_manage.php?client_id=' . $client_id
+            );
+            bdta_create_notification(
+                $conn,
+                'portal',
+                $client_id,
+                'package',
+                $client_package_id,
+                'Package credits added',
+                'Your ' . $package_name . ' credits are now available in the portal.',
+                '/portal/credits.php'
+            );
+        } catch (Throwable $notificationError) {
+            error_log('Package checkout notification creation failed: ' . $notificationError->getMessage());
+        }
 
         return [
             'client_id' => $client_id,

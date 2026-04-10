@@ -8,9 +8,9 @@ function assertSameValue(string $label, mixed $expected, mixed $actual): void {
     }
 }
 
-function assertTrue(string $label, bool $condition): void {
+function assertTrue(bool $condition, string $message): void {
     if (!$condition) {
-        fwrite(STDERR, $label . " failed.\n");
+        fwrite(STDERR, $message . " failed.\n");
         exit(1);
     }
 }
@@ -133,18 +133,23 @@ assertSameValue('portal notifications include stored and sticky items', 5, count
 assertSameValue('latest sticky quote notification sorts first', 'quote', $portal_notifications[0]['entity_type']);
 assertSameValue('sent unpaid invoices remain sticky for the portal client', 'invoice', $portal_notifications[1]['entity_type']);
 assertSameValue('sent invoice notification has correct URL', '/portal/invoice_view.php?id=1', $portal_notifications[1]['url']);
-assertTrue('draft invoices are excluded from sticky notifications', !str_contains(json_encode($portal_notifications), 'INV-301'));
-assertTrue('sticky quote remains unread', $portal_notifications[0]['is_read'] === false);
-assertTrue('sticky quote cannot be manually deleted', $portal_notifications[0]['can_delete'] === false);
+assertTrue(!str_contains((string) json_encode($portal_notifications), 'INV-301'), 'draft invoices are excluded from sticky notifications');
+assertTrue($portal_notifications[0]['is_read'] === false, 'sticky quote remains unread');
+assertTrue($portal_notifications[0]['can_delete'] === false, 'sticky quote cannot be manually deleted');
 assertSameValue('sticky contract notification uses token link', '/backend/public/contract.php?token=securetoken', $portal_notifications[2]['url']);
+
+$limited_persistent_notifications = bdta_get_persistent_notifications($conn, 'portal', 7, 1);
+assertSameValue('persistent notifications query honors limit', 1, count($limited_persistent_notifications));
 
 $portal_unread = bdta_get_unread_notification_count($conn, 'portal', 7);
 assertSameValue('portal unread count includes sticky and persistent unread items', 4, $portal_unread);
 
 $read_notification = bdta_get_notification_by_id($conn, 'portal', 7, 4);
-assertTrue('matching notification can be loaded for redirect', $read_notification !== null);
+assertTrue($read_notification !== null, 'matching notification can be loaded for redirect');
 assertSameValue('notification URLs stay internal', '/portal/credits.php', bdta_notification_sanitize_path('/portal/credits.php'));
 assertSameValue('external notification URLs are rejected', '/portal/index.php', bdta_notification_sanitize_path('https://example.com/bad', '/portal/index.php'));
+assertSameValue('protocol-relative notification URLs are rejected', '/portal/index.php', bdta_notification_sanitize_path('//example.com/escape', '/portal/index.php'));
+assertSameValue('backslash-prefixed notification URLs are rejected', '/portal/index.php', bdta_notification_sanitize_path('\\example.com\\escape', '/portal/index.php'));
 
 $_SERVER['REQUEST_URI'] = '/portal/credits.php';
 ob_start();
@@ -158,10 +163,10 @@ bdta_render_notification_widget(
 );
 $html = ob_get_clean();
 
-assertTrue('rendered widget includes toggle button', is_string($html) && str_contains($html, 'app-notification-toggle'));
-assertTrue('rendered widget includes slide-out panel', is_string($html) && str_contains($html, 'app-notification-panel'));
-assertTrue('rendered widget includes action endpoint', is_string($html) && str_contains($html, '/portal/notification_action.php'));
-assertTrue('rendered widget includes redirect endpoint', is_string($html) && str_contains($html, '/portal/notification_redirect.php?id=3'));
-assertTrue('rendered widget includes sticky invoice destination', is_string($html) && str_contains($html, '/portal/invoice_view.php?id=1'));
+assertTrue(is_string($html) && str_contains($html, 'app-notification-toggle'), 'rendered widget includes toggle button');
+assertTrue(is_string($html) && str_contains($html, 'app-notification-panel'), 'rendered widget includes slide-out panel');
+assertTrue(is_string($html) && str_contains($html, '/portal/notification_action.php'), 'rendered widget includes action endpoint');
+assertTrue(is_string($html) && str_contains($html, '/portal/notification_redirect.php?id=3'), 'rendered widget includes redirect endpoint');
+assertTrue(is_string($html) && str_contains($html, '/portal/invoice_view.php?id=1'), 'rendered widget includes sticky invoice destination');
 
 echo "Notification helper tests passed.\n";
