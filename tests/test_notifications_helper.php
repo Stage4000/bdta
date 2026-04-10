@@ -64,6 +64,15 @@ $conn->exec("
         status TEXT NOT NULL,
         created_at TEXT NOT NULL
     );
+    CREATE TABLE invoices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER NOT NULL,
+        invoice_number TEXT NOT NULL,
+        status TEXT NOT NULL,
+        due_date TEXT NULL,
+        total_amount REAL NOT NULL,
+        created_at TEXT NOT NULL
+    );
 ");
 
 $conn->exec("INSERT INTO admin_users (username) VALUES ('one'), ('two')");
@@ -107,16 +116,25 @@ $conn->exec("
         (7, 'C-200', 'Training Agreement', 'securetoken', 'sent', '2026-04-10 09:00:00'),
         (7, 'C-201', 'Old Contract', NULL, 'signed', '2026-04-08 08:00:00');
 ");
+$conn->exec("
+    INSERT INTO invoices (client_id, invoice_number, status, due_date, total_amount, created_at)
+    VALUES
+        (7, 'INV-300', 'sent', '2026-04-15', 120.50, '2026-04-10 09:30:00'),
+        (7, 'INV-301', 'draft', '2026-04-16', 75.00, '2026-04-10 09:45:00'),
+        (7, 'INV-302', 'paid', '2026-04-17', 33.00, '2026-04-10 09:50:00');
+");
 
 $portal_notifications = bdta_get_notifications($conn, 'portal', 7, 10);
-assertSameValue('portal notifications include stored and sticky items', 4, count($portal_notifications));
+assertSameValue('portal notifications include stored and sticky items', 5, count($portal_notifications));
 assertSameValue('latest sticky quote notification sorts first', 'quote', $portal_notifications[0]['entity_type']);
+assertSameValue('sent unpaid invoices remain sticky for the portal client', 'invoice', $portal_notifications[1]['entity_type']);
+assertSameValue('draft invoices do not create sticky notifications', '/portal/invoice_view.php?id=1', $portal_notifications[1]['url']);
 assertTrue('sticky quote remains unread', $portal_notifications[0]['is_read'] === false);
 assertTrue('sticky quote cannot be manually deleted', $portal_notifications[0]['can_delete'] === false);
-assertSameValue('sticky contract notification uses token link', '/backend/public/contract.php?token=securetoken', $portal_notifications[1]['url']);
+assertSameValue('sticky contract notification uses token link', '/backend/public/contract.php?token=securetoken', $portal_notifications[2]['url']);
 
 $portal_unread = bdta_get_unread_notification_count($conn, 'portal', 7);
-assertSameValue('portal unread count includes sticky and persistent unread items', 3, $portal_unread);
+assertSameValue('portal unread count includes sticky and persistent unread items', 4, $portal_unread);
 
 $read_notification = bdta_get_notification_by_id($conn, 'portal', 7, 4);
 assertTrue('matching notification can be loaded for redirect', $read_notification !== null);
@@ -139,5 +157,6 @@ assertTrue('rendered widget includes toggle button', is_string($html) && str_con
 assertTrue('rendered widget includes slide-out panel', is_string($html) && str_contains($html, 'app-notification-panel'));
 assertTrue('rendered widget includes action endpoint', is_string($html) && str_contains($html, '/portal/notification_action.php'));
 assertTrue('rendered widget includes redirect endpoint', is_string($html) && str_contains($html, '/portal/notification_redirect.php?id=3'));
+assertTrue('rendered widget includes sticky invoice destination', is_string($html) && str_contains($html, '/portal/invoice_view.php?id=1'));
 
 echo "Notification helper tests passed.\n";

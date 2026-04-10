@@ -225,6 +225,44 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id): array 
 
     $notifications = [];
 
+    $invoice_stmt = $conn->prepare("
+        SELECT id, invoice_number, status, due_date, total_amount, created_at
+        FROM invoices
+        WHERE client_id = ?
+          AND status NOT IN ('draft', 'paid', 'refunded', 'cancelled', 'void')
+        ORDER BY created_at DESC, id DESC
+    ");
+    $invoice_stmt->execute([$client_id]);
+    foreach ($invoice_stmt->fetchAll(PDO::FETCH_ASSOC) as $invoice) {
+        $invoice_id = isset($invoice['id']) ? (int) $invoice['id'] : 0;
+        if ($invoice_id <= 0) {
+            continue;
+        }
+
+        $invoice_number = trim((string) ($invoice['invoice_number'] ?? ('#' . $invoice_id)));
+        $due_date = trim((string) ($invoice['due_date'] ?? ''));
+        $total_amount = isset($invoice['total_amount']) ? (float) $invoice['total_amount'] : 0.0;
+        $message = $invoice_number . ' — $' . number_format($total_amount, 2);
+        if ($due_date !== '') {
+            $message .= ' due ' . $due_date;
+        }
+
+        $notifications[] = [
+            'id' => 'invoice-' . $invoice_id,
+            'persistent_id' => null,
+            'entity_type' => 'invoice',
+            'entity_id' => $invoice_id,
+            'title' => 'Invoice awaiting payment',
+            'message' => $message,
+            'url' => '/portal/invoice_view.php?id=' . $invoice_id,
+            'created_at' => trim((string) ($invoice['created_at'] ?? '')),
+            'is_read' => false,
+            'can_mark_read' => false,
+            'can_delete' => false,
+            'is_sticky' => true,
+        ];
+    }
+
     $quote_stmt = $conn->prepare("
         SELECT id, quote_number, title, created_at
         FROM quotes

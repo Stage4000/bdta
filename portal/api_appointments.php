@@ -183,6 +183,14 @@ if ($action === 'cancel') {
         $email_service->sendBookingCancellation($booking, $reason);
     }
     $email_service->sendAdminBookingChangeNotification($booking, 'cancellation', $reason);
+    bdta_create_admin_notifications(
+        $conn,
+        'booking',
+        $booking_id,
+        'Booking cancelled',
+        array_string_value($booking, 'client_name', 'Client') . ' cancelled booking #' . $booking_id . ' for ' . array_string_value($booking, 'appointment_date') . '.',
+        '/client/bookings_list.php'
+    );
 
     echo json_encode(['success' => true, 'message' => 'Your appointment has been cancelled.']);
     exit;
@@ -332,6 +340,14 @@ if ($action === 'reschedule') {
         $email_service->sendBookingReschedule($updated_booking, array_string_value($booking, 'appointment_date'), array_string_value($booking, 'appointment_time'), $reason);
     }
     $email_service->sendAdminBookingChangeNotification($updated_booking, 'reschedule', $reason, array_string_value($booking, 'appointment_date'), array_string_value($booking, 'appointment_time'));
+    bdta_create_admin_notifications(
+        $conn,
+        'booking',
+        $booking_id,
+        'Booking rescheduled',
+        array_string_value($booking, 'client_name', 'Client') . ' moved booking #' . $booking_id . ' from ' . array_string_value($booking, 'appointment_date') . ' ' . array_string_value($booking, 'appointment_time') . ' to ' . $new_date . ' ' . $new_time_hhmm . '.',
+        '/client/bookings_list.php'
+    );
 
     echo json_encode([
         'success'  => true,
