@@ -58,7 +58,7 @@ function bdta_notification_sanitize_path(string $path, string $default = ''): st
         $normalized_path = '/' . ltrim($normalized_path, '/');
     }
 
-    if (strncmp($normalized_path, '//', 2) === 0 || $normalized_path[0] === '\\') {
+    if (strncmp($normalized_path, '//', 2) === 0) {
         return $default;
     }
 
@@ -273,10 +273,6 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
     foreach ($invoice_stmt->fetchAll(PDO::FETCH_ASSOC) as $invoice) {
         $invoice_id = isset($invoice['id']) ? (int) $invoice['id'] : 0;
         if ($invoice_id <= 0) {
-            continue;
-        }
-
-        if (!bdta_invoice_is_payable($invoice)) {
             continue;
         }
 
