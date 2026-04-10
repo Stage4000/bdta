@@ -3,21 +3,22 @@
 require_once __DIR__ . '/invoice_status.php';
 
 /**
+ * @param array<string, mixed> $row
  * @return array<string, mixed>
  */
 function bdta_notification_normalize_row(array $row): array {
     $notification_id = $row['id'] ?? null;
     $persistent_id = is_numeric($notification_id) ? (int) $notification_id : null;
-    $title = trim((string) ($row['title'] ?? 'Notification'));
-    $message = trim((string) ($row['message'] ?? ''));
-    $created_at = trim((string) ($row['created_at'] ?? ''));
-    $url = bdta_notification_sanitize_path((string) ($row['url'] ?? ''), '#');
+    $title = trim(bdta_notification_string($row['title'] ?? 'Notification'));
+    $message = trim(bdta_notification_string($row['message'] ?? ''));
+    $created_at = trim(bdta_notification_string($row['created_at'] ?? ''));
+    $url = bdta_notification_sanitize_path(bdta_notification_string($row['url'] ?? ''), '#');
     $is_read = !empty($row['is_read']);
 
     return [
         'id' => $persistent_id !== null ? (string) $persistent_id : $title . '-' . md5($message . $created_at . $url),
         'persistent_id' => $persistent_id,
-        'entity_type' => trim((string) ($row['entity_type'] ?? 'notification')),
+        'entity_type' => trim(bdta_notification_string($row['entity_type'] ?? 'notification')),
         'entity_id' => (int) ($row['entity_id'] ?? 0),
         'title' => $title !== '' ? $title : 'Notification',
         'message' => $message,
@@ -68,8 +69,20 @@ function bdta_notification_sanitize_path(string $path, string $default = ''): st
     return $normalized_path . $query . $fragment;
 }
 
+function bdta_notification_string(mixed $value): string {
+    if (is_string($value)) {
+        return $value;
+    }
+
+    if (is_int($value) || is_float($value) || is_bool($value)) {
+        return (string) $value;
+    }
+
+    return '';
+}
+
 function bdta_notification_escape(mixed $value): string {
-    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    return htmlspecialchars(bdta_notification_string($value), ENT_QUOTES, 'UTF-8');
 }
 
 function bdta_notification_format_time(string $created_at): string {
@@ -90,7 +103,7 @@ function bdta_notification_format_time(string $created_at): string {
 }
 
 function bdta_notification_current_path(string $fallback): string {
-    $request_uri = trim((string) ($_SERVER['REQUEST_URI'] ?? ''));
+    $request_uri = trim(bdta_notification_string($_SERVER['REQUEST_URI'] ?? ''));
     return bdta_notification_sanitize_path($request_uri, $fallback);
 }
 
@@ -101,6 +114,11 @@ function bdta_notification_current_path(string $fallback): string {
  */
 function bdta_notification_bind_values(PDOStatement $stmt, array $values): void {
     foreach ($values as $index => $value) {
+        if ($value === null) {
+            $stmt->bindValue($index + 1, null, PDO::PARAM_NULL);
+            continue;
+        }
+
         $stmt->bindValue($index + 1, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
     }
 }
@@ -135,7 +153,7 @@ function bdta_notification_fetch_count(PDOStatement $stmt): int {
  * @param array<string, mixed> $invoice
  */
 function bdta_notification_should_include_sticky_invoice(array $invoice): bool {
-    $status = strtolower(trim((string) ($invoice['status'] ?? '')));
+    $status = strtolower(trim(bdta_notification_string($invoice['status'] ?? '')));
 
     return $status !== 'draft' && bdta_invoice_is_payable($invoice);
 }
@@ -201,7 +219,12 @@ function bdta_create_admin_notifications(
     string $message,
     string $url
 ): void {
-    $admins = $conn->query("SELECT id FROM admin_users")->fetchAll(PDO::FETCH_ASSOC);
+    $admin_stmt = $conn->query("SELECT id FROM admin_users");
+    if (!$admin_stmt instanceof PDOStatement) {
+        return;
+    }
+
+    $admins = $admin_stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($admins as $admin) {
         $admin_id = isset($admin['id']) ? (int) $admin['id'] : 0;
         if ($admin_id <= 0) {
@@ -454,10 +477,13 @@ function bdta_get_notifications(PDO $conn, string $audience, int $recipient_id, 
     }
 
     usort($notifications, static function (array $left, array $right): int {
-        $left_time = strtotime((string) ($left['created_at'] ?? '')) ?: 0;
-        $right_time = strtotime((string) ($right['created_at'] ?? '')) ?: 0;
+        $left_time = strtotime(bdta_notification_string($left['created_at'] ?? '')) ?: 0;
+        $right_time = strtotime(bdta_notification_string($right['created_at'] ?? '')) ?: 0;
         if ($left_time === $right_time) {
-            return strcmp((string) ($right['id'] ?? ''), (string) ($left['id'] ?? ''));
+            return strcmp(
+                bdta_notification_string($right['id'] ?? ''),
+                bdta_notification_string($left['id'] ?? '')
+            );
         }
 
         return $right_time <=> $left_time;
@@ -575,10 +601,12 @@ function bdta_render_notification_widget(
                     <ul class="app-notification-list list-unstyled mb-0">
                         <?php foreach ($notifications as $notification): ?>
                             <?php
-                            $persistent_id = $notification['persistent_id'];
+                            $persistent_id = isset($notification['persistent_id']) && is_int($notification['persistent_id'])
+                                ? $notification['persistent_id']
+                                : null;
                             $item_url = $persistent_id !== null
                                 ? $redirect_url . '?id=' . rawurlencode((string) $persistent_id)
-                                : (string) ($notification['url'] ?? '#');
+                                : bdta_notification_string($notification['url'] ?? '#');
                             $item_url = bdta_notification_sanitize_path($item_url, '#');
                             $is_unread = empty($notification['is_read']);
                             ?>
@@ -589,7 +617,7 @@ function bdta_render_notification_widget(
                                             <?php echo $is_unread ? 'Unread' : 'Read'; ?>
                                         </span>
                                         <?php if (!empty($notification['created_at'])): ?>
-                                            <time class="app-notification-item__time"><?php echo bdta_notification_escape(bdta_notification_format_time((string) $notification['created_at'])); ?></time>
+                                            <time class="app-notification-item__time"><?php echo bdta_notification_escape(bdta_notification_format_time(bdta_notification_string($notification['created_at']))); ?></time>
                                         <?php endif; ?>
                                     </div>
                                     <h3 class="app-notification-item__title"><?php echo bdta_notification_escape($notification['title'] ?? 'Notification'); ?></h3>
@@ -603,7 +631,7 @@ function bdta_render_notification_widget(
                                         <?php if (!empty($notification['can_mark_read']) && $persistent_id !== null): ?>
                                             <form method="post" action="<?php echo bdta_notification_escape($action_url); ?>">
                                                 <input type="hidden" name="csrf_token" value="<?php echo bdta_notification_escape($csrf); ?>">
-                                                <input type="hidden" name="notification_id" value="<?php echo $persistent_id; ?>">
+                                                <input type="hidden" name="notification_id" value="<?php echo bdta_notification_escape($persistent_id); ?>">
                                                 <input type="hidden" name="action" value="read">
                                                 <input type="hidden" name="return_to" value="<?php echo bdta_notification_escape($current_path); ?>">
                                                 <button type="submit" class="btn btn-outline-primary btn-sm">Mark read</button>
@@ -613,7 +641,7 @@ function bdta_render_notification_widget(
                                         <?php if (!empty($notification['can_delete']) && $persistent_id !== null): ?>
                                             <form method="post" action="<?php echo bdta_notification_escape($action_url); ?>">
                                                 <input type="hidden" name="csrf_token" value="<?php echo bdta_notification_escape($csrf); ?>">
-                                                <input type="hidden" name="notification_id" value="<?php echo $persistent_id; ?>">
+                                                <input type="hidden" name="notification_id" value="<?php echo bdta_notification_escape($persistent_id); ?>">
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="return_to" value="<?php echo bdta_notification_escape($current_path); ?>">
                                                 <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>

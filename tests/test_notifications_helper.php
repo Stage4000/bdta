@@ -20,11 +20,16 @@ function csrfToken(): string {
 }
 
 function formatDateTime(mixed $date_time, string $format = 'M j, Y g:i A'): string {
-    return (string) $date_time;
+    return is_scalar($date_time) ? (string) $date_time : '';
 }
 
+/**
+ * @param array<string|int, mixed> $row
+ */
 function array_string_value(array $row, string|int $key, string $default = ''): string {
-    return isset($row[$key]) ? (string) $row[$key] : $default;
+    $value = $row[$key] ?? $default;
+
+    return is_scalar($value) ? (string) $value : $default;
 }
 
 require_once dirname(__DIR__) . '/backend/includes/notifications.php';
@@ -89,7 +94,12 @@ bdta_create_admin_notifications(
     '/client/bookings_list.php'
 );
 
-$admin_count = (int) $conn->query("SELECT COUNT(*) FROM notifications WHERE audience = 'admin'")->fetchColumn();
+$admin_count_stmt = $conn->query("SELECT COUNT(*) FROM notifications WHERE audience = 'admin'");
+if (!$admin_count_stmt instanceof PDOStatement) {
+    fwrite(STDERR, "failed to query admin notification count.\n");
+    exit(1);
+}
+$admin_count = (int) $admin_count_stmt->fetchColumn();
 assertSameValue('create admin notifications for each admin user', 2, $admin_count);
 
 bdta_create_notification($conn, 'portal', 7, 'credit', 15, 'Credits updated', 'Your credits were updated.', '/portal/credits.php');

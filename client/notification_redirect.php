@@ -11,7 +11,7 @@ $notification = bdta_get_notification_by_id($conn, 'admin', $admin_id, $notifica
 
 if ($notification !== null && !empty($notification['persistent_id'])) {
     bdta_mark_notification_read($conn, 'admin', $admin_id, $notification_id);
-    redirect(bdta_notification_sanitize_path((string) ($notification['url'] ?? ''), '/client/index.php'));
+    redirect(bdta_notification_sanitize_path(bdta_notification_string($notification['url'] ?? ''), '/client/index.php'));
 }
 
 redirect('/client/index.php');

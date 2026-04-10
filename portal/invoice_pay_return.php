@@ -163,7 +163,7 @@ if ($invoice_marked_paid) {
     bdta_create_admin_notifications(
         $conn,
         'invoice',
-        $id,
+        safe_int($id),
         'Invoice paid',
         'Invoice #' . array_string_value($invoice, 'invoice_number') . ' was paid by ' . array_string_value($invoice, 'client_name', array_string_value($invoice, 'client_email')),
         '/client/invoices_view.php?id=' . $id
