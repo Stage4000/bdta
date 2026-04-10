@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/invoice_status.php';
+
 /**
  * @return array<string, mixed>
  */
@@ -229,13 +231,17 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id): array 
         SELECT id, invoice_number, status, due_date, total_amount, created_at
         FROM invoices
         WHERE client_id = ?
-          AND status NOT IN ('draft', 'paid', 'refunded', 'cancelled', 'void')
         ORDER BY created_at DESC, id DESC
     ");
     $invoice_stmt->execute([$client_id]);
     foreach ($invoice_stmt->fetchAll(PDO::FETCH_ASSOC) as $invoice) {
         $invoice_id = isset($invoice['id']) ? (int) $invoice['id'] : 0;
         if ($invoice_id <= 0) {
+            continue;
+        }
+
+        $invoice_status = strtolower(trim((string) ($invoice['status'] ?? 'draft')));
+        if ($invoice_status === 'draft' || !bdta_invoice_is_payable(is_array($invoice) ? $invoice : [])) {
             continue;
         }
 

@@ -23,6 +23,10 @@ function formatDateTime(mixed $date_time, string $format = 'M j, Y g:i A'): stri
     return (string) $date_time;
 }
 
+function array_string_value(array $row, string|int $key, string $default = ''): string {
+    return isset($row[$key]) ? (string) $row[$key] : $default;
+}
+
 require_once dirname(__DIR__) . '/backend/includes/notifications.php';
 
 $conn = new PDO('sqlite::memory:');
@@ -128,7 +132,8 @@ $portal_notifications = bdta_get_notifications($conn, 'portal', 7, 10);
 assertSameValue('portal notifications include stored and sticky items', 5, count($portal_notifications));
 assertSameValue('latest sticky quote notification sorts first', 'quote', $portal_notifications[0]['entity_type']);
 assertSameValue('sent unpaid invoices remain sticky for the portal client', 'invoice', $portal_notifications[1]['entity_type']);
-assertSameValue('draft invoices do not create sticky notifications', '/portal/invoice_view.php?id=1', $portal_notifications[1]['url']);
+assertSameValue('sent invoice notification has correct URL', '/portal/invoice_view.php?id=1', $portal_notifications[1]['url']);
+assertTrue('draft invoices are excluded from sticky notifications', !str_contains(json_encode($portal_notifications), 'INV-301'));
 assertTrue('sticky quote remains unread', $portal_notifications[0]['is_read'] === false);
 assertTrue('sticky quote cannot be manually deleted', $portal_notifications[0]['can_delete'] === false);
 assertSameValue('sticky contract notification uses token link', '/backend/public/contract.php?token=securetoken', $portal_notifications[2]['url']);
