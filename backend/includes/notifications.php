@@ -241,7 +241,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id): array 
         }
 
         $invoice_status = strtolower(trim((string) ($invoice['status'] ?? 'draft')));
-        if ($invoice_status === 'draft' || !bdta_invoice_is_payable(is_array($invoice) ? $invoice : [])) {
+        if ($invoice_status === 'draft' || !bdta_invoice_is_payable($invoice)) {
             continue;
         }
 
@@ -260,7 +260,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id): array 
             'entity_id' => $invoice_id,
             'title' => 'Invoice awaiting payment',
             'message' => $message,
-            'url' => '/portal/invoice_view.php?id=' . $invoice_id,
+            'url' => '/portal/invoice_view.php?id=' . rawurlencode((string) $invoice_id),
             'created_at' => trim((string) ($invoice['created_at'] ?? '')),
             'is_read' => false,
             'can_mark_read' => false,
