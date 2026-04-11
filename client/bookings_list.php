@@ -32,6 +32,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
         $pkg_credit_id = (int)($booking_row['package_credit_id'] ?? 0);
         $admin_id = $_SESSION['admin_id'] ?? null;
 
+        if ($previous_status !== $status) {
+            bdta_create_admin_notifications(
+                $conn,
+                'booking',
+                $booking_id,
+                'Booking status changed',
+                'Booking #' . $booking_id . ' for ' . scalar_string($booking_row['client_name']) . ' changed from ' . $previous_status . ' to ' . $status . '.',
+                '/client/bookings_list.php'
+            );
+        }
+
         // Remove the event from Google Calendar when a booking is cancelled
         if ($status === 'cancelled' && !empty($booking_row['google_event_id'])) {
             $gcal_event_id = $booking_row['google_event_id'];
@@ -81,6 +92,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
                 if ($gcal_event_id) {
                     $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")->execute([$gcal_event_id, $booking_id]);
                 }
+            }
+        }
+
+        if ($previous_status !== $status && !empty($booking_row['client_id'])) {
+            $client_notification_title = null;
+            if ($status === 'confirmed') {
+                $client_notification_title = 'Appointment request confirmed';
+            } elseif ($status === 'cancelled' && $previous_status === 'pending') {
+                $client_notification_title = 'Appointment request denied';
+            }
+
+            if ($client_notification_title !== null) {
+                bdta_create_notification(
+                    $conn,
+                    'portal',
+                    safe_int($booking_row['client_id']),
+                    'booking',
+                    $booking_id,
+                    $client_notification_title,
+                    scalar_string($booking_row['service_type']) . ' on ' . scalar_string($booking_row['appointment_date']),
+                    '/portal/appointments.php'
+                );
             }
         }
 

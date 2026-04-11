@@ -284,6 +284,18 @@ $stmt->execute([
     $initial_status,
 ]);
 $booking_id = (int)$conn->lastInsertId();
+$booking_notification_title = $initial_status === 'pending'
+    ? 'New appointment request'
+    : 'New appointment booked';
+$booking_notification_message = trim(scalar_string($data['client_name'] ?? 'Client')) . ' booked ' . array_string_value($apt_type, 'name') . ' for ' . scalar_string($data['appointment_date'] ?? '');
+bdta_create_admin_notifications(
+    $conn,
+    'booking',
+    $booking_id,
+    $booking_notification_title,
+    $booking_notification_message,
+    '/client/bookings_list.php'
+);
 
 // ── Link pets ─────────────────────────────────────────────────────────────
 foreach ($pet_ids as $pid) {

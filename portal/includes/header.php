@@ -50,6 +50,22 @@
         </div>
     </div>
     <?php endif; ?>
+    <?php if (isPortalLoggedIn()): ?>
+    <?php
+        if (!isset($conn) || !($conn instanceof PDO)) {
+            $header_db = new Database();
+            $conn = $header_db->getConnection();
+        }
+        bdta_render_notification_widget(
+            $conn,
+            'portal',
+            portalClientId(),
+            '/portal/notification_action.php',
+            '/portal/notification_redirect.php',
+            '/portal/index.php'
+        );
+    ?>
+    <?php endif; ?>
 
     <div class="container-fluid">
         <div class="row">

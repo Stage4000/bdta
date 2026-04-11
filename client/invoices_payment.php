@@ -119,6 +119,17 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
                     $admin_id
                 ]);
             }
+
+            bdta_create_notification(
+                $conn,
+                'portal',
+                (int) $client_id,
+                'package',
+                (int) $cp_id,
+                'Package credits added',
+                "Your '{$package_name}' package credits are now available.",
+                '/portal/credits.php'
+            );
         }
     }
 }

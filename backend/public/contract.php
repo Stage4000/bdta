@@ -118,6 +118,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
             $signed_at,
         ]);
 
+        bdta_create_admin_notifications(
+            $conn,
+            'contract',
+            $contract_id,
+            'Contract signed',
+            array_string_value($contract, 'client_name', 'Client') . ' signed contract ' . $contract_number,
+            '/client/contracts_view.php?id=' . $contract_id
+        );
+
         // Reload contract data
         $stmt = $conn->prepare("
             SELECT co.*, c.name as client_name, c.email as client_email, c.phone as client_phone, c.address as client_address
