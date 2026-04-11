@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="../assets/css/shared-ui.css">
     <link rel="stylesheet" href="../assets/css/mobile.css">
     <link rel="manifest" href="/client/manifest.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="/client/apple-touch-icon.png">
     <?php
     require_once __DIR__ . '/theme_palette.php';
     $theme_palette = bdta_get_theme_palette();

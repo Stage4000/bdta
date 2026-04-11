@@ -71,6 +71,7 @@ $page_title = 'Login';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous">
     <link rel="stylesheet" href="/assets/css/auth-pages.css">
     <link rel="manifest" href="/client/manifest.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="/client/apple-touch-icon.png">
     <meta name="theme-color" content="#9a0073">
 </head>
 <body>
