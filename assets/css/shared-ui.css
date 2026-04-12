@@ -477,6 +477,10 @@ body.app-notification-panel-open {
 }
 
 @media (max-width: 768px) {
+    .app-mobile-navbar .navbar-toggler {
+        margin-right: 4.25rem;
+    }
+
     .app-notification-widget {
         top: 0.8rem;
         right: 0.8rem;
