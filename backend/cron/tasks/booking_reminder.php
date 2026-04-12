@@ -376,7 +376,7 @@ class BookingReminderTask {
                     ❌ Cancel Appointment
                 </a>
             </div>
-             
+
             <div style="text-align: center; margin: 30px 0;">
                 <a href="{$google_link}" class="button" target="_blank">
                     📅 Add to Google Calendar

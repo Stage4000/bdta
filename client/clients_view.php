@@ -152,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
 
         $new_time_hhmm = substr($new_time, 0, 5);
         $new_datetime = strtotime($new_date . ' ' . $new_time_hhmm);
-        if ($new_datetime === false || $new_datetime <= time()) {
+        if ($new_datetime === false || $new_datetime < time()) {
             setFlashMessage('The new appointment time must be in the future.', 'danger');
             redirect($client_view_url);
         }

@@ -1559,21 +1559,21 @@ HTML;
                 </a>
             </div>
             
-             <p><small>The iCal file works with Apple Calendar, Outlook, and most other calendar applications.</small></p>
+            <p><small>The iCal file works with Apple Calendar, Outlook, and most other calendar applications.</small></p>
 
-             <h3>Need to Make a Change?</h3>
-             <p>You can manage this appointment online using the links below:</p>
+            <h3>Need to Make a Change?</h3>
+            <p>You can manage this appointment online using the links below:</p>
 
-             <div style="text-align: center; margin: 30px 0;">
-                 <a href="{$reschedule_link}" class="button" target="_blank">
-                     🔄 Reschedule Appointment
-                 </a>
-                 <a href="{$cancel_link}" class="button button-secondary" target="_blank">
-                     ❌ Cancel Appointment
-                 </a>
-             </div>
-             
-             <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{$reschedule_link}" class="button" target="_blank">
+                    🔄 Reschedule Appointment
+                </a>
+                <a href="{$cancel_link}" class="button button-secondary" target="_blank">
+                    ❌ Cancel Appointment
+                </a>
+            </div>
+
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
             
             <h3>What to Expect</h3>
             <p>Please arrive 5 minutes early. If you need to reschedule or have any questions, please contact us at:</p>
