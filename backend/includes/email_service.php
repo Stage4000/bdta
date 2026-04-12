@@ -17,6 +17,7 @@
 
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/booking_action_links.php';
 require_once __DIR__ . '/phpmailer/src/Exception.php';
 require_once __DIR__ . '/phpmailer/src/PHPMailer.php';
 require_once __DIR__ . '/phpmailer/src/SMTP.php';
@@ -1455,7 +1456,8 @@ HTML;
      */
     private function buildBookingVariables(array $booking, string $date, string $time, string $google_link, string $ical_link): array {
         $formatted_location = $this->formatLocationForEmail($booking);
-        $booking_link       = $this->base_url . '/portal/appointments.php';
+        $booking_id         = self::rowId($booking);
+        $booking_link       = bdta_build_portal_booking_link($this->base_url, $booking_id);
         return [
             'client_name'          => self::rowString($booking, 'client_name'),
             'client_email'         => self::rowString($booking, 'client_email'),
@@ -1466,6 +1468,8 @@ HTML;
             'location'             => $formatted_location,
             'appointment_location' => $formatted_location,
             'booking_link'         => $booking_link,
+            'booking_reschedule_link' => bdta_build_portal_booking_link($this->base_url, $booking_id, 'reschedule'),
+            'booking_cancel_link'     => bdta_build_portal_booking_link($this->base_url, $booking_id, 'cancel'),
             'google_calendar_link' => $google_link,
             'ical_link'            => $ical_link,
             'business_name'        => self::settingString('site_name', "Brook's Dog Training Academy"),
@@ -1502,6 +1506,9 @@ HTML;
         $service_type = self::rowString($booking, 'service_type');
         $duration_minutes = self::rowString($booking, 'duration_minutes');
         $location = $this->formatLocationForEmail($booking);
+        $booking_id = self::rowId($booking);
+        $reschedule_link = bdta_build_portal_booking_link($this->base_url, $booking_id, 'reschedule');
+        $cancel_link = bdta_build_portal_booking_link($this->base_url, $booking_id, 'cancel');
 
         return <<<HTML
 <!DOCTYPE html>
@@ -1552,9 +1559,21 @@ HTML;
                 </a>
             </div>
             
-            <p><small>The iCal file works with Apple Calendar, Outlook, and most other calendar applications.</small></p>
-            
-            <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+             <p><small>The iCal file works with Apple Calendar, Outlook, and most other calendar applications.</small></p>
+
+             <h3>Need to Make a Change?</h3>
+             <p>You can manage this appointment online using the links below:</p>
+
+             <div style="text-align: center; margin: 30px 0;">
+                 <a href="{$reschedule_link}" class="button" target="_blank">
+                     🔄 Reschedule Appointment
+                 </a>
+                 <a href="{$cancel_link}" class="button button-secondary" target="_blank">
+                     ❌ Cancel Appointment
+                 </a>
+             </div>
+             
+             <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
             
             <h3>What to Expect</h3>
             <p>Please arrive 5 minutes early. If you need to reschedule or have any questions, please contact us at:</p>
@@ -1588,6 +1607,9 @@ HTML;
         $service_type = self::rowString($booking, 'service_type');
         $duration_minutes = self::rowString($booking, 'duration_minutes');
         $location = $this->formatLocationForEmail($booking);
+        $booking_id = self::rowId($booking);
+        $reschedule_link = bdta_build_portal_booking_link($this->base_url, $booking_id, 'reschedule');
+        $cancel_link = bdta_build_portal_booking_link($this->base_url, $booking_id, 'cancel');
 
         return <<<TEXT
 BOOKING CONFIRMED - Brook's Dog Training Academy
@@ -1612,6 +1634,11 @@ Google Calendar: {$google_link}
 
 Download iCal file: {$ical_link}
 (Works with Apple Calendar, Outlook, and most calendar apps)
+
+MANAGE YOUR APPOINTMENT
+-----------------------
+Reschedule: {$reschedule_link}
+Cancel: {$cancel_link}
 
 WHAT TO EXPECT
 --------------

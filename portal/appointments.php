@@ -576,6 +576,34 @@ function showToast(msg, type) {
     msgEl.textContent = msg;
     new bootstrap.Toast(toast, { delay: 4000 }).show();
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var params = new URLSearchParams(window.location.search);
+    var bookingId = params.get('booking_id');
+    var action = params.get('action');
+    if (!bookingId || (action !== 'cancel' && action !== 'reschedule')) {
+        return;
+    }
+
+    var selector = action === 'reschedule'
+        ? '[data-booking-id="' + bookingId + '"][data-type-id]'
+        : '[data-booking-id="' + bookingId + '"][data-datetime]';
+    var trigger = document.querySelector(selector);
+    if (!trigger) {
+        return;
+    }
+
+    if (action === 'cancel') {
+        showCancelModal(trigger);
+    } else {
+        showRescheduleModal(trigger);
+    }
+
+    var cleanedUrl = new URL(window.location.href);
+    cleanedUrl.searchParams.delete('booking_id');
+    cleanedUrl.searchParams.delete('action');
+    window.history.replaceState({}, document.title, cleanedUrl.pathname + cleanedUrl.search + cleanedUrl.hash);
+});
 </script>
 
 <?php include '../portal/includes/footer.php'; ?>

@@ -8,6 +8,7 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 require_once dirname(dirname(__DIR__)) . '/includes/settings.php';
+require_once dirname(dirname(__DIR__)) . '/includes/booking_action_links.php';
 
 /**
  * @phpstan-type BookingRow array<string, mixed>
@@ -256,6 +257,7 @@ class BookingReminderTask {
         $appointment_date = scalar_string($booking['appointment_date'] ?? '');
         $appointment_time = scalar_string($booking['appointment_time'] ?? '');
         $booking_id = scalar_string($booking['id'] ?? '');
+        $booking_id_int = safe_int($booking['id'] ?? 0);
         $client_email = scalar_string($booking['client_email'] ?? '');
         $client_id = $booking['client_id'] ?? null;
         
@@ -283,7 +285,9 @@ class BookingReminderTask {
                 'appointment_type'     => $booking['service_type']      ?? '',
                 'duration'             => $booking['duration_minutes']  ?? '',
                 'appointment_location' => $email_service->formatLocationForEmail($booking),
-                'booking_link'         => getDynamicBaseUrl() . '/portal/appointments.php',
+                'booking_link'         => bdta_build_portal_booking_link(getDynamicBaseUrl(), $booking_id_int),
+                'booking_reschedule_link' => bdta_build_portal_booking_link(getDynamicBaseUrl(), $booking_id_int, 'reschedule'),
+                'booking_cancel_link'     => bdta_build_portal_booking_link(getDynamicBaseUrl(), $booking_id_int, 'cancel'),
                 'google_calendar_link' => $google_link,
                 'ical_link'            => $ical_link,
                 'business_name'        => Settings::get('site_name',      "Brook's Dog Training Academy"),
@@ -322,6 +326,9 @@ class BookingReminderTask {
         $client_name  = htmlspecialchars(scalar_string($booking['client_name'] ?? ''));
         $service_type = htmlspecialchars(scalar_string($booking['service_type'] ?? ''));
         $duration     = htmlspecialchars(scalar_string($booking['duration_minutes'] ?? ''));
+        $booking_id   = safe_int($booking['id'] ?? 0);
+        $reschedule_link = htmlspecialchars(bdta_build_portal_booking_link(getDynamicBaseUrl(), $booking_id, 'reschedule'));
+        $cancel_link = htmlspecialchars(bdta_build_portal_booking_link(getDynamicBaseUrl(), $booking_id, 'cancel'));
         
         return <<<HTML
 <!DOCTYPE html>
@@ -360,7 +367,16 @@ class BookingReminderTask {
             </div>
             
             <p>Please arrive 5 minutes early. If you need to reschedule or have any questions, please contact us as soon as possible.</p>
-            
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{$reschedule_link}" class="button" target="_blank">
+                    🔄 Reschedule Appointment
+                </a>
+                <a href="{$cancel_link}" class="button button-secondary" target="_blank">
+                    ❌ Cancel Appointment
+                </a>
+            </div>
+             
             <div style="text-align: center; margin: 30px 0;">
                 <a href="{$google_link}" class="button" target="_blank">
                     📅 Add to Google Calendar
@@ -393,6 +409,9 @@ HTML;
         $client_name  = scalar_string($booking['client_name'] ?? '');
         $service_type = scalar_string($booking['service_type'] ?? '');
         $duration     = scalar_string($booking['duration_minutes'] ?? '');
+        $booking_id   = safe_int($booking['id'] ?? 0);
+        $reschedule_link = bdta_build_portal_booking_link(getDynamicBaseUrl(), $booking_id, 'reschedule');
+        $cancel_link = bdta_build_portal_booking_link(getDynamicBaseUrl(), $booking_id, 'cancel');
         
         return <<<TEXT
 APPOINTMENT REMINDER - Brook's Dog Training Academy
@@ -409,6 +428,11 @@ Time: {$time}
 Duration: {$duration} minutes
 
 Please arrive 5 minutes early. If you need to reschedule or have any questions, please contact us as soon as possible.
+
+MANAGE YOUR APPOINTMENT
+-----------------------
+Reschedule: {$reschedule_link}
+Cancel: {$cancel_link}
 
 ADD TO CALENDAR
 ---------------
