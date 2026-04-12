@@ -93,7 +93,7 @@ function bdta_append_public_portal_return(string $url, string $portal_return): s
     $portal_path = bdta_public_portal_return_sanitize_path($portal_return, '');
 
     if ($public_url === '') {
-        return $url;
+        return '';
     }
 
     if ($portal_path === '' || !str_starts_with($portal_path, bdta_public_portal_base_path())) {
