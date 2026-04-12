@@ -40,6 +40,11 @@ try {
             === '/backend/public/book.php?type=2',
         'External return destinations must be rejected.'
     );
+    bdta_assert(
+        bdta_append_public_portal_return('/backend/public/book.php?type=2', '/portal/../client/index.php')
+            === '/backend/public/book.php?type=2',
+        'Portal return paths with traversal segments must be rejected.'
+    );
 
     $_GET['portal_return'] = '/portal/appointments.php';
     bdta_assert(
@@ -51,6 +56,12 @@ try {
     bdta_assert(
         bdta_public_portal_return_path() === '',
         'Non-portal return paths should not be accepted.'
+    );
+
+    $_GET['portal_return'] = '/portal/%2E%2E/client/index.php';
+    bdta_assert(
+        bdta_public_portal_return_path() === '',
+        'Encoded traversal segments should not be accepted.'
     );
 
     $contract_page = bdta_read(dirname(__DIR__) . '/backend/public/contract.php');

@@ -18,6 +18,22 @@ function bdta_public_portal_base_path(): string
     return defined('PORTAL_URL') ? PORTAL_URL : '/portal/';
 }
 
+function bdta_public_portal_return_path_is_safe(string $path): bool
+{
+    $decoded_path = rawurldecode($path);
+    if ($decoded_path === '' || str_contains($decoded_path, '\\')) {
+        return false;
+    }
+
+    foreach (explode('/', $decoded_path) as $segment) {
+        if ($segment === '.' || $segment === '..') {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 function bdta_public_portal_return_sanitize_path(string $path, string $default = ''): string
 {
     $path = trim($path);
@@ -48,6 +64,10 @@ function bdta_public_portal_return_sanitize_path(string $path, string $default =
     }
 
     if (strncmp($normalized_path, '//', 2) === 0) {
+        return $default;
+    }
+
+    if (!bdta_public_portal_return_path_is_safe($normalized_path)) {
         return $default;
     }
 
