@@ -8,9 +8,14 @@
   "background_color": "#ffffff",
   "icons": [
     {
-      "src": "/client/pwa-icon.svg",
-      "type": "image/svg+xml",
-      "sizes": "any"
+      "src": "/client/pwa-icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/client/pwa-icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ]
 }
