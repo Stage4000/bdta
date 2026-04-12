@@ -22,7 +22,7 @@ function bdta_read(string $path): string
     return $contents;
 }
 
-$original_get = $_GET ?? [];
+$original_get = $_GET;
 
 try {
     bdta_assert(
