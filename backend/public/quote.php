@@ -4,6 +4,7 @@
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
+require_once '../includes/public_portal_return.php';
 require_once __DIR__ . '/includes/public_error_page.php';
 
 $db = new Database();
@@ -11,6 +12,7 @@ $conn = $db->getConnection();
 
 $quote_id = safe_int($_GET['id'] ?? 0);
 $action = scalar_string($_POST['action'] ?? '');
+$portal_return = bdta_public_portal_return_path();
 
 // Get quote
 $stmt = $conn->prepare("
@@ -141,6 +143,13 @@ $page_title = 'Quote ' . $quote_quote_number;
                         </div>
                     </div>
                     <div class="card-body">
+                        <?php if ($portal_return !== ''): ?>
+                            <div class="d-flex justify-content-end mb-3">
+                                <a href="<?= escape($portal_return) ?>" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Back to Client Portal
+                                </a>
+                            </div>
+                        <?php endif; ?>
                         <?= $message ?>
                         
                         <?php if ($is_expired && $can_respond): ?>

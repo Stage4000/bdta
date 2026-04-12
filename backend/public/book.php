@@ -5,6 +5,7 @@
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
+require_once '../includes/public_portal_return.php';
 
 /**
  * @return array<string, mixed>
@@ -56,6 +57,7 @@ function public_book_string_list(mixed $value): array {
 
 $db = new Database();
 $conn = $db->getConnection();
+$portal_return = bdta_public_portal_return_path();
 
 // Get appointment type from URL - supports both numeric ID and unique link
 $appointment_type_id = 0;
@@ -656,6 +658,13 @@ if (isset($error_mode) && $error_mode) {
             <?php else: ?>
                 <h1><i class="fas fa-calendar-check me-2"></i>Book Your Appointment</h1>
                 <p class="booking-subtitle mb-0">Schedule your dog training session with Brook's Dog Training Academy</p>
+            <?php endif; ?>
+            <?php if ($portal_return !== ''): ?>
+                <div class="mt-3">
+                    <a href="<?= escape($portal_return) ?>" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Client Portal
+                    </a>
+                </div>
             <?php endif; ?>
         </div>
         
@@ -1258,7 +1267,9 @@ if (isset($error_mode) && $error_mode) {
                     </div>
                     <h2 class="mb-3">Booking Submitted!</h2>
                     <p class="text-muted mb-4">Your booking details have been received.</p>
-                    <a href="/" class="btn btn-primary btn-lg">Back to Home</a>
+                    <a href="<?= escape($portal_return !== '' ? $portal_return : '/') ?>" class="btn btn-primary btn-lg">
+                        <?= $portal_return !== '' ? 'Back to Client Portal' : 'Back to Home' ?>
+                    </a>
                 </div>
             </div>
         </div>
