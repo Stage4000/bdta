@@ -44,7 +44,7 @@ function bdta_public_portal_return_sanitize_path(string $path, string $default =
     }
 
     if ($normalized_path[0] !== '/') {
-        $normalized_path = '/' . ltrim($normalized_path, '/');
+        $normalized_path = '/' . $normalized_path;
     }
 
     if (strncmp($normalized_path, '//', 2) === 0) {

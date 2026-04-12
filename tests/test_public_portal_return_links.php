@@ -72,8 +72,12 @@ try {
         'Public booking page should render a client portal return action.'
     );
     bdta_assert(
-        str_contains($book_page, "\$portal_return !== '' ? 'Back to Client Portal' : 'Back to Home'"),
-        'Public booking success modal should return to the portal when the booking started there.'
+        str_contains($book_page, "escape(\$portal_return !== '' ? \$portal_return : '/')"),
+        'Public booking success modal should switch its destination between the portal and home.'
+    );
+    bdta_assert(
+        str_contains($book_page, "'Back to Client Portal' : 'Back to Home'"),
+        'Public booking success modal should switch its label between the portal and home.'
     );
     bdta_assert(
         str_contains($agreements_page, "bdta_append_public_portal_return("),
