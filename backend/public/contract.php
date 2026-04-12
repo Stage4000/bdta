@@ -9,6 +9,7 @@
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
+require_once '../includes/public_portal_return.php';
 require_once __DIR__ . '/includes/public_error_page.php';
 require_once __DIR__ . '/includes/public_contract_access.php';
 require_once __DIR__ . '/includes/public_contract_contact_info.php';
@@ -19,6 +20,7 @@ $conn = $db->getConnection();
 $legacy_id = safe_int($_GET['id'] ?? 0);
 $contract_token = trim(scalar_string($_GET['token'] ?? ''));
 $action = scalar_string($_POST['action'] ?? '');
+$portal_return = bdta_public_portal_return_path();
 
 // Get contract
 $contract_lookup_column = $contract_token !== '' ? 'co.access_token' : 'co.id';
@@ -274,6 +276,13 @@ $page_title = 'Contract ' . $contract_number;
                 </div>
 
                 <div class="card-body p-4">
+                    <?php if ($portal_return !== ''): ?>
+                        <div class="d-flex justify-content-end mb-3">
+                            <a href="<?= escape($portal_return) ?>" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Client Portal
+                            </a>
+                        </div>
+                    <?php endif; ?>
                     <?= $message ?>
 
                     <h3 class="mb-3"><?= htmlspecialchars($contract_title) ?></h3>

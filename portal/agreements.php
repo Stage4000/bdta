@@ -2,6 +2,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/follow_up_notes.php';
 require_once '../backend/includes/form_types.php';
+require_once '../backend/includes/public_portal_return.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -60,8 +61,11 @@ include '../portal/includes/header.php';
                     'cancelled' => 'dark',
                     default     => 'secondary',
                 };
-                $base_url = getDynamicBaseUrl();
                 $can_view = in_array($status, ['sent', 'signed']);
+                $contract_url = bdta_append_public_portal_return(
+                    '/backend/public/contract.php?id=' . intval($c['id']),
+                    PORTAL_URL . 'agreements.php'
+                );
                 ?>
                 <tr>
                     <td><?php echo escape($c['title'] ?? ''); ?></td>
@@ -70,7 +74,7 @@ include '../portal/includes/header.php';
                     <td>
                         <?php if ($can_view): ?>
                             <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
-                                <a href="<?php echo $base_url; ?>/backend/public/contract.php?id=<?php echo intval($c['id']); ?>"
+                                <a href="<?php echo escape($contract_url); ?>"
                                    class="btn btn-sm btn-outline-primary table-action-btn">
                                     <i class="fas fa-eye me-1"></i><?php echo $status === 'signed' ? 'View' : 'View &amp; Sign'; ?>
                                 </a>
@@ -82,7 +86,7 @@ include '../portal/includes/header.php';
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end">
                                         <li>
-                                            <a class="dropdown-item" href="<?php echo $base_url; ?>/backend/public/contract.php?id=<?php echo intval($c['id']); ?>">
+                                            <a class="dropdown-item" href="<?php echo escape($contract_url); ?>">
                                                 <i class="fas fa-eye me-2 text-primary"></i><?php echo $status === 'signed' ? 'View' : 'View &amp; Sign'; ?>
                                             </a>
                                         </li>

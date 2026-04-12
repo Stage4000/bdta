@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/public_portal_return.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -114,6 +115,7 @@ include '../portal/includes/header.php';
                         } else {
                             $book_url = '/backend/public/book.php?type=' . intval($atype['id']);
                         }
+                        $book_url = bdta_append_public_portal_return($book_url, PORTAL_URL . 'appointments.php');
                         ?>
                         <a href="<?php echo escape($book_url); ?>" class="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center" target="_blank">
                             Book Now

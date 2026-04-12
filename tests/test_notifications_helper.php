@@ -141,12 +141,13 @@ $conn->exec("
 $portal_notifications = bdta_get_notifications($conn, 'portal', 7, 10);
 assertSameValue('portal notifications include stored and sticky items', 5, count($portal_notifications));
 assertSameValue('latest sticky quote notification sorts first', 'quote', $portal_notifications[0]['entity_type']);
+assertSameValue('sticky quote notification includes portal return path', '/backend/public/quote.php?id=1&portal_return=%2Fportal%2Fquotes.php', $portal_notifications[0]['url']);
 assertSameValue('sent unpaid invoices remain sticky for the portal client', 'invoice', $portal_notifications[1]['entity_type']);
 assertSameValue('sent invoice notification has correct URL', '/portal/invoice_view.php?id=1', $portal_notifications[1]['url']);
 assertTrue(!str_contains((string) json_encode($portal_notifications), 'INV-301'), 'draft invoices are excluded from sticky notifications');
 assertTrue($portal_notifications[0]['is_read'] === false, 'sticky quote remains unread');
 assertTrue($portal_notifications[0]['can_delete'] === false, 'sticky quote cannot be manually deleted');
-assertSameValue('sticky contract notification uses token link', '/backend/public/contract.php?token=securetoken', $portal_notifications[2]['url']);
+assertSameValue('sticky contract notification uses token link with portal return path', '/backend/public/contract.php?token=securetoken&portal_return=%2Fportal%2Fagreements.php', $portal_notifications[2]['url']);
 
 $limited_persistent_notifications = bdta_get_persistent_notifications($conn, 'portal', 7, 1);
 assertSameValue('persistent notifications query honors limit', 1, count($limited_persistent_notifications));

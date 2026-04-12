@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/invoice_status.php';
+require_once __DIR__ . '/public_portal_return.php';
 
 /**
  * @param array<string, mixed> $row
@@ -379,7 +380,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
             'entity_id' => $quote_id,
             'title' => 'Quote awaiting your response',
             'message' => $quote_number . ' — ' . $title,
-            'url' => '/backend/public/quote.php?id=' . $quote_id,
+            'url' => bdta_append_public_portal_return('/backend/public/quote.php?id=' . $quote_id, '/portal/quotes.php'),
             'created_at' => trim((string) ($quote['created_at'] ?? '')),
             'is_read' => false,
             'can_mark_read' => false,
@@ -410,6 +411,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
         $contract_url = $access_token !== ''
             ? '/backend/public/contract.php?token=' . rawurlencode($access_token)
             : '/backend/public/contract.php?id=' . $contract_id;
+        $contract_url = bdta_append_public_portal_return($contract_url, '/portal/agreements.php');
 
         $notifications[] = [
             'id' => 'contract-' . $contract_id,
