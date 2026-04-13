@@ -67,6 +67,7 @@ try {
     $contract_page = bdta_read(dirname(__DIR__) . '/backend/public/contract.php');
     $quote_page = bdta_read(dirname(__DIR__) . '/backend/public/quote.php');
     $book_page = bdta_read(dirname(__DIR__) . '/backend/public/book.php');
+    $booking_api = bdta_read(dirname(__DIR__) . '/backend/public/api_bookings.php');
     $agreements_page = bdta_read(dirname(__DIR__) . '/portal/agreements.php');
     $appointments_page = bdta_read(dirname(__DIR__) . '/portal/appointments.php');
 
@@ -95,8 +96,16 @@ try {
         'Public booking page should prefill the built-in contact fields for portal clients.'
     );
     bdta_assert(
-        str_contains($book_page, 'public_book_portal_prefill_value($portal_prefill_profile, $bi_map)'),
-        'Public booking page should also prefill mapped booking intake fields for portal clients.'
+        str_contains($book_page, 'public_book_portal_prefill_value($portal_prefill_profile, $bi_map)') &&
+        str_contains($book_page, 'Which pet(s) is this booking for?') &&
+        str_contains($book_page, 'portal-pet-checkbox') &&
+        str_contains($book_page, 'togglePortalPet(this)'),
+        'Public booking page should prefill mapped intake fields and render portal pet selection controls.'
+    );
+    bdta_assert(
+        str_contains($booking_api, "\$requested_pet_ids = array_values(array_filter(array_map('safe_int', (array)(\$data['pet_ids'] ?? []))))") &&
+        str_contains($booking_api, 'SELECT id FROM pets WHERE client_id = ? AND is_active = 1 AND id IN ($placeholders)'),
+        'Public booking API should accept selected portal pet IDs and validate ownership before using them.'
     );
     bdta_assert(
         str_contains($book_page, "escape(\$portal_return !== '' ? \$portal_return : '/')"),
