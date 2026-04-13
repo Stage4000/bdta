@@ -12,6 +12,16 @@ require_once __DIR__ . '/../backend/includes/admin_users.php';
 requireLogin();
 
 header('Content-Type: application/json');
+$admin_user_id = safe_int($_SESSION['admin_id'] ?? 0);
+if (scalar_string($_SESSION['user_type'] ?? '') !== 'admin' || $admin_user_id <= 0) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'tests' => [],
+        'error' => 'You do not have permission to access database tools.',
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
 
 $db = new Database();
 $conn = $db->getConnection();

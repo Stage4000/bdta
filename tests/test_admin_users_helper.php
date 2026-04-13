@@ -68,5 +68,13 @@ $filtered_settings = bdta_filter_api_key_settings([
 ], false);
 assertSameValue('non-sensitive settings remain visible', 1, count($filtered_settings));
 assertSameValue('non-sensitive settings key preserved', 'email_from_address', $filtered_settings[0]['key']);
+$filtered_setting_keys = array_column($filtered_settings, 'key');
+assertSameValue('only safe setting key remains', ['email_from_address'], $filtered_setting_keys);
+assertTrue(!in_array('smtp_host', $filtered_setting_keys, true), 'Expected SMTP settings to be filtered.');
+assertTrue(!in_array('imap_host', $filtered_setting_keys, true), 'Expected IMAP settings to be filtered.');
+assertTrue(!in_array('tawk_to_property_id', $filtered_setting_keys, true), 'Expected Tawk.to IDs to be filtered.');
+assertTrue(!in_array('db_password', $filtered_setting_keys, true), 'Expected database settings to be filtered.');
+assertTrue(!in_array('sendgrid_api_key', $filtered_setting_keys, true), 'Expected API keys to be filtered.');
+assertTrue(!in_array('google_oauth_client_secret', $filtered_setting_keys, true), 'Expected OAuth secrets to be filtered.');
 
 fwrite(STDOUT, "Admin user helper tests passed.\n");

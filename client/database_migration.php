@@ -11,6 +11,11 @@ require_once __DIR__ . '/../backend/includes/admin_users.php';
 requireLogin();
 
 $page_title = 'Database Tools';
+$admin_user_id = safe_int($_SESSION['admin_id'] ?? 0);
+if (scalar_string($_SESSION['user_type'] ?? '') !== 'admin' || $admin_user_id <= 0) {
+    setFlashMessage('You do not have permission to access database tools.', 'danger');
+    redirect(ADMIN_URL . 'settings.php?category=general');
+}
 
 $db = new Database();
 $conn = $db->getConnection();
