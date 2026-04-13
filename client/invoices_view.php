@@ -7,6 +7,7 @@ requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
+$can_modify_accounting = !bdta_session_admin_is_accountant($_SESSION);
 
 $id = safe_int($_GET['id'] ?? 0);
 $stmt = $conn->prepare("
@@ -35,6 +36,11 @@ $can_pay_invoice = bdta_invoice_is_payable($invoice);
 $can_void_invoice = bdta_invoice_can_void($invoice);
 $can_refund_invoice = bdta_invoice_can_refund($invoice, $refunded_total);
 $csrf_token_value = scalar_string($_SESSION['csrf_token'] ?? '');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$can_modify_accounting) {
+    setFlashMessage('Your accountant account has read-only invoice access.', 'danger');
+    redirect('invoices_view.php?id=' . $id);
+}
 
 // Handle "Send Receipt" POST action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
@@ -190,32 +196,32 @@ include '../backend/includes/header.php';
             <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2><i class="fas fa-file-invoice me-2"></i>Invoice: <?= escape($invoice['invoice_number']) ?></h2>
                     <div>
-                        <?php if ($can_pay_invoice): ?>
+                        <?php if ($can_modify_accounting && $can_pay_invoice): ?>
                             <?php if (empty($installments)): ?>
                                 <a href="invoices_payment.php?id=<?= $id ?>" class="btn btn-success">
                                     <i class="fas fa-credit-card"></i> Record Payment
                                 </a>
                             <?php endif; ?>
-                        <form method="POST" class="d-inline">
-                            <input type="hidden" name="send_invoice" value="1">
-                            <button type="submit" class="btn btn-primary"
-                                    title="<?= !empty($invoice['invoice_sent_at']) ? 'Last sent: ' . escape(formatDateTime($invoice['invoice_sent_at'])) : 'Invoice not yet sent' ?>">
-                                <i class="fas fa-paper-plane"></i>
-                                <?= !empty($invoice['invoice_sent_at']) ? 'Resend Invoice' : 'Send Invoice' ?>
-                            </button>
-                        </form>
+                            <form method="POST" class="d-inline">
+                                <input type="hidden" name="send_invoice" value="1">
+                                <button type="submit" class="btn btn-primary"
+                                        title="<?= !empty($invoice['invoice_sent_at']) ? 'Last sent: ' . escape(formatDateTime($invoice['invoice_sent_at'])) : 'Invoice not yet sent' ?>">
+                                    <i class="fas fa-paper-plane"></i>
+                                    <?= !empty($invoice['invoice_sent_at']) ? 'Resend Invoice' : 'Send Invoice' ?>
+                                </button>
+                            </form>
                         <?php endif; ?>
-                    <?php if ($can_void_invoice): ?>
+                    <?php if ($can_modify_accounting && $can_void_invoice): ?>
                         <button class="btn btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#voidInvoiceForm" aria-expanded="false" aria-controls="voidInvoiceForm">
                             <i class="fas fa-ban"></i> Void Invoice
                         </button>
                     <?php endif; ?>
-                    <?php if ($can_refund_invoice): ?>
+                    <?php if ($can_modify_accounting && $can_refund_invoice): ?>
                         <button class="btn btn-outline-warning" type="button" data-bs-toggle="collapse" data-bs-target="#refundInvoiceForm" aria-expanded="false" aria-controls="refundInvoiceForm">
                             <i class="fas fa-rotate-left"></i> Record Refund
                         </button>
                     <?php endif; ?>
-                    <?php if (in_array(array_string_value($invoice, 'status'), ['paid', 'refunded'], true)): ?>
+                    <?php if ($can_modify_accounting && in_array(array_string_value($invoice, 'status'), ['paid', 'refunded'], true)): ?>
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="send_receipt" value="1">
                             <button type="submit" class="btn btn-outline-success"
@@ -276,57 +282,59 @@ include '../backend/includes/header.php';
                         </div>
                     </div>
 
-                    <div class="collapse mb-4" id="voidInvoiceForm">
-                        <div class="card border-dark">
-                            <div class="card-header bg-dark text-white">Void Invoice</div>
-                            <div class="card-body">
-                                <form method="POST">
-                                    <input type="hidden" name="void_invoice" value="1">
-                                    <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
-                                    <div class="mb-3">
-                                        <label class="form-label">Reason for voiding</label>
-                                        <textarea class="form-control" name="void_reason" rows="3" placeholder="Optional note explaining why this invoice is being voided"></textarea>
-                                    </div>
-                                    <button type="submit" class="btn btn-dark">
-                                        <i class="fas fa-ban"></i> Confirm Void
-                                    </button>
-                                </form>
+                    <?php if ($can_modify_accounting): ?>
+                        <div class="collapse mb-4" id="voidInvoiceForm">
+                            <div class="card border-dark">
+                                <div class="card-header bg-dark text-white">Void Invoice</div>
+                                <div class="card-body">
+                                    <form method="POST">
+                                        <input type="hidden" name="void_invoice" value="1">
+                                        <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
+                                        <div class="mb-3">
+                                            <label class="form-label">Reason for voiding</label>
+                                            <textarea class="form-control" name="void_reason" rows="3" placeholder="Optional note explaining why this invoice is being voided"></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-dark">
+                                            <i class="fas fa-ban"></i> Confirm Void
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="collapse mb-4" id="refundInvoiceForm">
-                        <div class="card border-warning">
-                            <div class="card-header bg-warning-subtle">Record Refund</div>
-                            <div class="card-body">
-                                <form method="POST">
-                                    <input type="hidden" name="refund_invoice" value="1">
-                                    <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
-                                    <div class="row">
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Refund Amount</label>
-                                            <input type="number" class="form-control" name="refund_amount" min="0.01" max="<?= escape(number_format($net_amount, 2, '.', '')) ?>" step="0.01" value="<?= escape(number_format($net_amount, 2, '.', '')) ?>" required>
+                        <div class="collapse mb-4" id="refundInvoiceForm">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning-subtle">Record Refund</div>
+                                <div class="card-body">
+                                    <form method="POST">
+                                        <input type="hidden" name="refund_invoice" value="1">
+                                        <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Refund Amount</label>
+                                                <input type="number" class="form-control" name="refund_amount" min="0.01" max="<?= escape(number_format($net_amount, 2, '.', '')) ?>" step="0.01" value="<?= escape(number_format($net_amount, 2, '.', '')) ?>" required>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Refund Date</label>
+                                                <input type="date" class="form-control" name="refund_date" value="<?= escape(date('Y-m-d')) ?>" required>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Refund Method</label>
+                                                <input type="text" class="form-control" value="<?= escape(ucwords(str_replace('_', ' ', array_string_value($invoice, 'payment_method', 'other')))) ?>" disabled>
+                                            </div>
                                         </div>
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Refund Date</label>
-                                            <input type="date" class="form-control" name="refund_date" value="<?= escape(date('Y-m-d')) ?>" required>
+                                        <div class="mb-3">
+                                            <label class="form-label">Refund note</label>
+                                            <textarea class="form-control" name="refund_note" rows="3" placeholder="Optional note explaining the refund"></textarea>
                                         </div>
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Refund Method</label>
-                                            <input type="text" class="form-control" value="<?= escape(ucwords(str_replace('_', ' ', array_string_value($invoice, 'payment_method', 'other')))) ?>" disabled>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Refund note</label>
-                                        <textarea class="form-control" name="refund_note" rows="3" placeholder="Optional note explaining the refund"></textarea>
-                                    </div>
-                                    <button type="submit" class="btn btn-warning">
-                                        <i class="fas fa-rotate-left"></i> Confirm Refund
-                                    </button>
-                                </form>
+                                        <button type="submit" class="btn btn-warning">
+                                            <i class="fas fa-rotate-left"></i> Confirm Refund
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    <?php endif; ?>
                     
                     <!-- Line Items -->
                     <div class="table-responsive mb-4">
@@ -463,7 +471,7 @@ include '../backend/includes/header.php';
                                     <th>Status</th>
                                     <th>Paid Date</th>
                                     <th>Method</th>
-                                    <?php if ($can_pay_invoice): ?>
+                                    <?php if ($can_modify_accounting && $can_pay_invoice): ?>
                                         <th>Action</th>
                                     <?php endif; ?>
                                 </tr>
@@ -494,7 +502,7 @@ include '../backend/includes/header.php';
                                         </td>
                                         <td><?= $inst['payment_date'] ? formatDate($inst['payment_date']) : '—' ?></td>
                                         <td><?= $inst['payment_method'] ? escape(ucwords(str_replace('_', ' ', $inst['payment_method']))) : '—' ?></td>
-                                     <?php if ($can_pay_invoice): ?>
+                                     <?php if ($can_modify_accounting && $can_pay_invoice): ?>
                                             <td>
                                                 <?php if ($inst['status'] === 'unpaid'): ?>
                                                     <a href="invoices_payment.php?id=<?= $id ?>&installment_id=<?= $inst['id'] ?>"
@@ -511,7 +519,7 @@ include '../backend/includes/header.php';
                                 <tr class="table-light">
                                     <td><strong>Total Paid</strong></td>
                                      <td><strong>$<?= number_format((float) $paid_amount, 2) ?></strong></td>
-                                     <td colspan="<?= $can_pay_invoice ? 5 : 4 ?>">
+                                      <td colspan="<?= ($can_modify_accounting && $can_pay_invoice) ? 5 : 4 ?>">
                                           Remaining: <strong>$<?= number_format(safe_float($invoice['total_amount']) - (float) $paid_amount, 2) ?></strong>
                                       </td>
                                  </tr>

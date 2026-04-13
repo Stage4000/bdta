@@ -4,9 +4,14 @@ requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
+$can_modify_accounting = !bdta_session_admin_is_accountant($_SESSION);
 
 // Handle deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
+    if (!$can_modify_accounting) {
+        setFlashMessage('Your accountant account has read-only expense access.', 'danger');
+        redirect('expenses_list.php');
+    }
     if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
         setFlashMessage('Invalid request.', 'danger');
         redirect('expenses_list.php');
@@ -39,9 +44,11 @@ include '../backend/includes/header.php';
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-receipt me-2"></i>Expense Tracking</h2>
-        <a href="expenses_edit.php" class="btn btn-primary">
-            <i class="fas fa-circle-plus"></i> Add Expense
-        </a>
+        <?php if ($can_modify_accounting): ?>
+            <a href="expenses_edit.php" class="btn btn-primary">
+                <i class="fas fa-circle-plus"></i> Add Expense
+            </a>
+        <?php endif; ?>
     </div>
 
     <?php $flash = getFlashMessage(); if ($flash): ?>
@@ -107,42 +114,46 @@ include '../backend/includes/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
-                                        <a href="expenses_edit.php?id=<?= $expense['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
-                                            <i class="fas fa-pencil"></i>
-                                        </a>
-                                        <form method="post" class="d-inline" onsubmit="return confirm('Delete this expense?')">
-                                            <input type="hidden" name="delete_id" value="<?= $expense['id'] ?>">
-                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                    <div class="d-md-none table-action-dropdown">
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="fas fa-ellipsis-v"></i>
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li>
-                                                    <a class="dropdown-item" href="expenses_edit.php?id=<?= $expense['id'] ?>">
-                                                        <i class="fas fa-pencil me-2 text-primary"></i>Edit
-                                                    </a>
-                                                </li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li>
-                                                    <form method="post" onsubmit="return confirm('Delete this expense?')">
-                                                        <input type="hidden" name="delete_id" value="<?= $expense['id'] ?>">
-                                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                                        <button type="submit" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent">
-                                                            <i class="fas fa-trash me-2"></i>Delete
-                                                        </button>
-                                                    </form>
-                                                </li>
-                                            </ul>
+                                    <?php if ($can_modify_accounting): ?>
+                                        <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                            <a href="expenses_edit.php?id=<?= $expense['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
+                                                <i class="fas fa-pencil"></i>
+                                            </a>
+                                            <form method="post" class="d-inline" onsubmit="return confirm('Delete this expense?')">
+                                                <input type="hidden" name="delete_id" value="<?= $expense['id'] ?>">
+                                                <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
-                                    </div>
+                                        <div class="d-md-none table-action-dropdown">
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle table-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li>
+                                                        <a class="dropdown-item" href="expenses_edit.php?id=<?= $expense['id'] ?>">
+                                                            <i class="fas fa-pencil me-2 text-primary"></i>Edit
+                                                        </a>
+                                                    </li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <form method="post" onsubmit="return confirm('Delete this expense?')">
+                                                            <input type="hidden" name="delete_id" value="<?= $expense['id'] ?>">
+                                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                            <button type="submit" class="dropdown-item text-danger w-100 text-start border-0 bg-transparent">
+                                                                <i class="fas fa-trash me-2"></i>Delete
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    <?php else: ?>
+                                        <span class="text-muted small">Read only</span>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; endif; ?>

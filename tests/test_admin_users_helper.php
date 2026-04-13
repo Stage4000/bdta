@@ -38,15 +38,17 @@ $conn->exec("
     VALUES
         (1, 'admin', 'hash', 'admin@example.com', 'main', 1, 1),
         (2, 'beta', 'hash', 'beta@example.com', 'standard', 1, 0),
-        (3, 'alpha', 'hash', 'alpha@example.com', 'standard', 0, 0)
+        (3, 'alpha', 'hash', 'alpha@example.com', 'standard', 0, 0),
+        (4, 'accounting', 'hash', 'accounting@example.com', 'accountant', 1, 1)
 ");
 
 $admin_users = bdta_list_admin_users($conn);
 assertSameValue('main admin sorted first', 'admin', $admin_users[0]['username']);
 assertTrue($admin_users[0]['is_main_account'] === true, 'Expected seeded admin account to be flagged as main.');
 assertTrue($admin_users[0]['can_manage_api_keys'] === true, 'Expected main admin to retain API-key access.');
-assertSameValue('secondary admin alphabetical order', 'alpha', $admin_users[1]['username']);
-assertTrue($admin_users[2]['can_manage_admin_users'] === true, 'Expected delegated admin-user management permission to be preserved.');
+assertSameValue('secondary admin alphabetical order', 'accounting', $admin_users[1]['username']);
+assertSameValue('tertiary admin alphabetical order', 'alpha', $admin_users[2]['username']);
+assertTrue($admin_users[3]['can_manage_admin_users'] === true, 'Expected delegated admin-user management permission to be preserved.');
 
 $current_admin = bdta_current_admin_user($conn, ['user_type' => 'admin', 'admin_id' => 2]);
 assertTrue($current_admin !== null, 'Expected current admin lookup to return an admin user.');
@@ -91,5 +93,18 @@ assertTrue(bdta_session_is_authenticated_admin(['user_type' => 'admin', 'admin_i
 assertTrue(bdta_session_is_authenticated_admin(['user_type' => 'client', 'admin_id' => 2]) === false, 'Expected non-admin session helper to fail.');
 assertTrue(bdta_current_admin_can_manage_api_key_settings($conn, ['user_type' => 'admin', 'admin_id' => 1]) === true, 'Expected main admin helper to allow API-key settings.');
 assertTrue(bdta_current_admin_can_manage_api_key_settings($conn, ['user_type' => 'admin', 'admin_id' => 2]) === false, 'Expected delegated admin without API-key access to remain restricted.');
+$accountant_admin = bdta_current_admin_user($conn, ['user_type' => 'admin', 'admin_id' => 4]);
+assertTrue($accountant_admin !== null, 'Expected accountant admin lookup to return an admin user.');
+assertSameValue('accountant account type preserved', 'accountant', $accountant_admin['account_type']);
+assertTrue(bdta_admin_user_is_accountant($accountant_admin) === true, 'Expected accountant helper to flag accountant accounts.');
+assertTrue(bdta_admin_user_can_manage_admin_users($accountant_admin) === false, 'Expected accountant accounts to stay unable to manage admin users.');
+assertTrue(bdta_admin_user_can_manage_api_keys($accountant_admin) === false, 'Expected accountant accounts to stay unable to manage API keys.');
+assertTrue(bdta_admin_user_can_modify_accounting($accountant_admin) === false, 'Expected accountant accounts to remain read-only for accounting records.');
+assertTrue(bdta_admin_user_can_modify_accounting($current_admin) === true, 'Expected standard admin accounts to retain accounting write access.');
+assertTrue(bdta_session_admin_is_accountant(['user_type' => 'admin', 'admin_account_type' => 'accountant']) === true, 'Expected accountant session helper to detect accountant admins.');
+assertTrue(bdta_session_admin_is_accountant(['user_type' => 'client', 'admin_account_type' => 'accountant']) === false, 'Expected non-admin accountant session helper to fail.');
+assertTrue(bdta_is_accountant_allowed_admin_path('/client/invoices_list.php') === true, 'Expected invoices list to remain available to accountant accounts.');
+assertTrue(bdta_is_accountant_allowed_admin_path('/client/reports_export.php') === true, 'Expected report exports to remain available to accountant accounts.');
+assertTrue(bdta_is_accountant_allowed_admin_path('/client/settings.php') === false, 'Expected settings page to remain unavailable to accountant accounts.');
 
 fwrite(STDOUT, "Admin user helper tests passed.\n");

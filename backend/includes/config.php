@@ -7,6 +7,7 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/session_config.php';
 require_once __DIR__ . '/base_url_helper.php';
 require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/admin_users.php';
 
 /**
  * Resolve the system timezone from admin settings with a safe fallback.
@@ -123,10 +124,47 @@ function isLoggedIn(): bool {
     return isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id']);
 }
 
+function bdta_refresh_session_admin_account_type(): void
+{
+    if (
+        !isLoggedIn()
+        || scalar_string($_SESSION['user_type'] ?? '') !== 'admin'
+    ) {
+        return;
+    }
+
+    if (!empty($_SESSION['admin_account_type'])) {
+        return;
+    }
+
+    $db = new Database();
+    $conn = $db->getConnection();
+    $admin_user = bdta_find_admin_user($conn, safe_int($_SESSION['admin_id'] ?? 0));
+    $_SESSION['admin_account_type'] = is_array($admin_user) ? $admin_user['account_type'] : 'standard';
+}
+
+function bdta_enforce_admin_account_access(): void
+{
+    if (!bdta_session_admin_is_accountant($_SESSION)) {
+        return;
+    }
+
+    $current_path = scalar_string($_SERVER['PHP_SELF'] ?? '');
+    if (bdta_is_accountant_allowed_admin_path($current_path)) {
+        return;
+    }
+
+    setFlashMessage('Your accountant account can only access invoices, expenses, and financial reports.', 'danger');
+    redirect(ADMIN_URL . 'invoices_list.php');
+}
+
 function requireLogin(): void {
     if (!isLoggedIn()) {
         redirect(ADMIN_URL . 'login.php');
     }
+
+    bdta_refresh_session_admin_account_type();
+    bdta_enforce_admin_account_access();
 }
 
 function setFlashMessage(string $message, string $type = 'info'): void {

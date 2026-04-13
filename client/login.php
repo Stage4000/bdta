@@ -21,13 +21,15 @@ if (isPostRequest()) {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (is_array($user) && password_verify($password, array_string_value($user, 'password_hash'))) {
+            $normalized_admin_user = bdta_normalize_admin_user($user);
             refreshSessionAfterAuthentication();
-            $_SESSION['admin_id'] = $user['id'];
-            $_SESSION['admin_username'] = $user['username'];
+            $_SESSION['admin_id'] = $normalized_admin_user['id'];
+            $_SESSION['admin_username'] = $normalized_admin_user['username'];
+            $_SESSION['admin_account_type'] = $normalized_admin_user['account_type'];
             $_SESSION['is_admin'] = true;
             $_SESSION['user_type'] = 'admin';
             setFlashMessage('Welcome back!', 'success');
-            redirect('index.php');
+            redirect($normalized_admin_user['account_type'] === 'accountant' ? 'invoices_list.php' : 'index.php');
         } else {
             // Check clients table for admin clients
             $stmt = $conn->prepare("SELECT id, name, email, password_hash, is_admin FROM clients WHERE email = ? AND is_admin = 1 AND COALESCE(is_archived, 0) = 0 AND password_hash IS NOT NULL AND password_hash != ''");
@@ -39,6 +41,7 @@ if (isPostRequest()) {
                 $_SESSION['admin_id'] = $client['id'];
                 $_SESSION['admin_username'] = $client['name'];
                 $_SESSION['admin_email'] = $client['email'];
+                unset($_SESSION['admin_account_type']);
                 $_SESSION['is_admin'] = true;
                 $_SESSION['user_type'] = 'client';
                 

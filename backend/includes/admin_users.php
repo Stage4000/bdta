@@ -77,6 +77,17 @@ function bdta_is_valid_admin_username(string $username): bool
     return preg_match('/^(?=.{3,64}$)[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$/', $username) === 1;
 }
 
+function bdta_normalize_admin_account_type(mixed $value, bool $is_main_account = false): string
+{
+    if ($is_main_account) {
+        return 'main';
+    }
+
+    $account_type = strtolower(trim(bdta_admin_users_scalar($value)));
+
+    return $account_type === 'accountant' ? 'accountant' : 'standard';
+}
+
 /**
  * @param array<string, mixed> $row
  */
@@ -95,20 +106,16 @@ function bdta_is_main_admin_account(array $row): bool
 function bdta_normalize_admin_user(array $row): array
 {
     $is_main_account = bdta_is_main_admin_account($row);
-    $account_type = strtolower(trim(bdta_admin_users_scalar($row['account_type'] ?? 'standard')));
-    if ($is_main_account) {
-        $account_type = 'main';
-    } elseif ($account_type === '') {
-        $account_type = 'standard';
-    }
+    $account_type = bdta_normalize_admin_account_type($row['account_type'] ?? 'standard', $is_main_account);
+    $is_accountant = $account_type === 'accountant';
 
     return [
         'id' => bdta_admin_users_int($row['id'] ?? 0),
         'username' => bdta_admin_users_scalar($row['username'] ?? ''),
         'email' => bdta_admin_users_scalar($row['email'] ?? ''),
         'account_type' => $account_type,
-        'can_manage_admin_users' => $is_main_account || bdta_admin_users_int($row['can_manage_admin_users'] ?? 0) === 1,
-        'can_manage_api_keys' => $is_main_account || bdta_admin_users_int($row['can_manage_api_keys'] ?? 0) === 1,
+        'can_manage_admin_users' => $is_main_account || (!$is_accountant && bdta_admin_users_int($row['can_manage_admin_users'] ?? 0) === 1),
+        'can_manage_api_keys' => $is_main_account || (!$is_accountant && bdta_admin_users_int($row['can_manage_api_keys'] ?? 0) === 1),
         'is_main_account' => $is_main_account,
     ];
 }
@@ -210,6 +217,54 @@ function bdta_admin_user_can_manage_admin_users(?array $admin_user): bool
 function bdta_admin_user_can_manage_api_keys(?array $admin_user): bool
 {
     return is_array($admin_user) && (!empty($admin_user['is_main_account']) || !empty($admin_user['can_manage_api_keys']));
+}
+
+/**
+ * @param array{id: int, username: string, email: string, account_type: string, can_manage_admin_users: bool, can_manage_api_keys: bool, is_main_account: bool}|null $admin_user
+ */
+function bdta_admin_user_is_accountant(?array $admin_user): bool
+{
+    return is_array($admin_user) && ($admin_user['account_type'] ?? '') === 'accountant';
+}
+
+/**
+ * @param array{id: int, username: string, email: string, account_type: string, can_manage_admin_users: bool, can_manage_api_keys: bool, is_main_account: bool}|null $admin_user
+ */
+function bdta_admin_user_can_modify_accounting(?array $admin_user): bool
+{
+    return is_array($admin_user) && !bdta_admin_user_is_accountant($admin_user);
+}
+
+/**
+ * @return list<string>
+ */
+function bdta_accountant_allowed_admin_paths(): array
+{
+    return [
+        'change_password.php',
+        'expenses_list.php',
+        'invoices_list.php',
+        'invoices_view.php',
+        'logout.php',
+        'notification_action.php',
+        'notification_redirect.php',
+        'reports_export.php',
+        'reports_financial.php',
+    ];
+}
+
+function bdta_is_accountant_allowed_admin_path(string $path): bool
+{
+    return in_array(basename(trim($path)), bdta_accountant_allowed_admin_paths(), true);
+}
+
+/**
+ * @param array<string, mixed> $session
+ */
+function bdta_session_admin_is_accountant(array $session): bool
+{
+    return bdta_admin_users_scalar($session['user_type'] ?? '') === 'admin'
+        && bdta_normalize_admin_account_type($session['admin_account_type'] ?? 'standard') === 'accountant';
 }
 
 /**

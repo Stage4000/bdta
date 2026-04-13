@@ -5,6 +5,7 @@ requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
+$can_modify_accounting = !bdta_session_admin_is_accountant($_SESSION);
 
 $client_filter = safe_int($_GET['client_id'] ?? 0);
 
@@ -37,9 +38,11 @@ include '../backend/includes/header.php';
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-file-invoice me-2"></i>Invoice Management</h2>
-        <a href="invoices_create.php<?= $client_filter > 0 ? "?client_id=$client_filter" : '' ?>" class="btn btn-primary">
-            <i class="fas fa-circle-plus"></i> Create Invoice
-        </a>
+        <?php if ($can_modify_accounting): ?>
+            <a href="invoices_create.php<?= $client_filter > 0 ? "?client_id=$client_filter" : '' ?>" class="btn btn-primary">
+                <i class="fas fa-circle-plus"></i> Create Invoice
+            </a>
+        <?php endif; ?>
     </div>
 
     <?php $flash = getFlashMessage(); if ($flash): ?>
@@ -112,12 +115,12 @@ include '../backend/includes/header.php';
                                         <a href="invoices_view.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-info table-action-btn" title="View" aria-label="View">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <?php if ($invoice['status'] === 'draft'): ?>
+                                        <?php if ($can_modify_accounting && $invoice['status'] === 'draft'): ?>
                                             <a href="invoices_create.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit" aria-label="Edit">
                                                 <i class="fas fa-pencil"></i>
                                             </a>
                                         <?php endif; ?>
-                                        <?php if (bdta_invoice_is_payable($invoice)): ?>
+                                        <?php if ($can_modify_accounting && bdta_invoice_is_payable($invoice)): ?>
                                             <a href="invoices_payment.php?id=<?= $invoice['id'] ?>" class="btn btn-sm btn-outline-success table-action-btn" title="Pay" aria-label="Pay">
                                                 <i class="fas fa-credit-card"></i>
                                             </a>
@@ -134,14 +137,14 @@ include '../backend/includes/header.php';
                                                         <i class="fas fa-eye me-2 text-info"></i>View
                                                     </a>
                                                 </li>
-                                                <?php if ($invoice['status'] === 'draft'): ?>
+                                                <?php if ($can_modify_accounting && $invoice['status'] === 'draft'): ?>
                                                     <li>
                                                         <a class="dropdown-item" href="invoices_create.php?id=<?= $invoice['id'] ?>">
                                                             <i class="fas fa-pencil me-2 text-primary"></i>Edit
                                                         </a>
                                                     </li>
                                                 <?php endif; ?>
-                                                <?php if (bdta_invoice_is_payable($invoice)): ?>
+                                                <?php if ($can_modify_accounting && bdta_invoice_is_payable($invoice)): ?>
                                                     <li>
                                                         <a class="dropdown-item" href="invoices_payment.php?id=<?= $invoice['id'] ?>">
                                                             <i class="fas fa-credit-card me-2 text-success"></i>Pay
