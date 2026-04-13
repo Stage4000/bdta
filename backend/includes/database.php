@@ -139,7 +139,7 @@ class Database {
     private function getColumnNameFromDefinition(string $column_definition): string {
         $trimmed_definition = trim($column_definition);
         $parts = preg_split('/\s+/', $trimmed_definition, 2);
-        $column_name = trim(scalar_string($parts[0] ?? ''), '`');
+        $column_name = trim(scalar_string($parts[0] ?? ''), "`\"[]");
         if ($column_name === '' || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $column_name) !== 1) {
             throw new InvalidArgumentException('Invalid column definition: ' . $column_definition);
         }
@@ -532,6 +532,7 @@ class Database {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
+            $this->getTableColumns('admin_users');
 
             $this->ensureTableColumn('admin_users', "account_type TEXT NOT NULL DEFAULT 'standard'");
             $this->ensureTableColumn('admin_users', 'can_manage_admin_users INTEGER NOT NULL DEFAULT 0');
