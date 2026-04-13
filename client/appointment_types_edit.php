@@ -17,7 +17,7 @@ $db = new Database();
 $conn = $db->getConnection();
 
 $admin_stmt = $conn->query("SELECT id, username, email FROM admin_users ORDER BY username ASC, email ASC");
-$admin_users = $admin_stmt instanceof PDOStatement ? $admin_stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+$admin_users = $admin_stmt->fetchAll(PDO::FETCH_ASSOC);
 $valid_admin_ids = array_map(static fn(array $admin): int => safe_int($admin['id'] ?? 0), $admin_users);
 
 $id = safe_int($_GET['id'] ?? 0);

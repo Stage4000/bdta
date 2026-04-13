@@ -235,10 +235,6 @@ class GoogleCalendarIntegration {
         // of the OAuth token helpers even though this query currently has no inputs.
         $stmt = $conn->prepare("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id LIMIT 1");
         $stmt->execute();
-        if (!$stmt instanceof PDOStatement) {
-            return 0;
-        }
-
         return safe_int($stmt->fetchColumn());
     }
 
@@ -252,9 +248,6 @@ class GoogleCalendarIntegration {
         // of the OAuth token helpers even though this query currently has no inputs.
         $stmt = $conn->prepare("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
         $stmt->execute();
-        if (!$stmt instanceof PDOStatement) {
-            return [];
-        }
 
         $admin_user_ids = [];
         $preferred_present = false;

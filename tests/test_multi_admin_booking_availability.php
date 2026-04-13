@@ -29,50 +29,6 @@ function assertMultiAdminAvailability(bool $condition, string $message): void
     }
 }
 
-/**
- * @return array<string, mixed>
- */
-function runMultiAdminAvailabilitySubprocess(string $scenario): array
-{
-    if (!function_exists('proc_open')) {
-        throw new RuntimeException('proc_open is required to run isolated availability scenarios.');
-    }
-
-    $command = [
-        PHP_BINARY,
-        __FILE__,
-        $scenario,
-    ];
-    $descriptors = [
-        0 => ['pipe', 'r'],
-        1 => ['pipe', 'w'],
-        2 => ['pipe', 'w'],
-    ];
-
-    $process = proc_open($command, $descriptors, $pipes, dirname(__DIR__));
-    if (!is_resource($process)) {
-        throw new RuntimeException('Unable to start isolated availability scenario process.');
-    }
-
-    fclose($pipes[0]);
-    $stdout = stream_get_contents($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
-    fclose($pipes[1]);
-    fclose($pipes[2]);
-
-    $exit_code = proc_close($process);
-    if ($exit_code !== 0) {
-        throw new RuntimeException('Availability scenario process failed: ' . trim((string) $stderr));
-    }
-
-    $payload = json_decode(is_string($stdout) ? $stdout : '', true);
-    if (!is_array($payload)) {
-        throw new RuntimeException('Availability scenario did not return valid JSON.');
-    }
-
-    return $payload;
-}
-
 function createMultiAdminAvailabilityConnection(): SafePDO
 {
     $conn = new SafePDO('sqlite::memory:');
@@ -155,34 +111,79 @@ function seedMultiAdminAvailabilityFixture(SafePDO $conn): array
     ];
 }
 
-function runAvailabilityScenario(string $scenario): void
+/**
+ * @return array{date: string, available_slots: list<string>, google_calendar_checked: bool}
+ */
+function runAvailabilityScenario(SafePDO $conn, int $appointment_type_id, string $date): array
 {
-    $conn = createMultiAdminAvailabilityConnection();
-    $fixture = seedMultiAdminAvailabilityFixture($conn);
-    resetMultiAdminAvailabilityState($conn);
+    $appointment_type_stmt = $conn->prepare("
+        SELECT available_start_time, available_end_time, time_slot_interval,
+               duration_minutes, buffer_before_minutes, buffer_after_minutes, admin_user_id
+        FROM appointment_types
+        WHERE id = ? AND is_active = 1
+    ");
+    $appointment_type_stmt->execute([$appointment_type_id]);
+    $appointment_type = api_booking_db_row($appointment_type_stmt->fetch(PDO::FETCH_ASSOC));
+    assertMultiAdminAvailability($appointment_type !== [], 'Expected appointment type to be retrievable for availability checks.');
 
-    $_GET = [
-        'date' => '2026-06-01',
-        'appointment_type_id' => $scenario === 'admin-one'
-            ? $fixture['admin_one_type_id']
-            : $fixture['admin_two_type_id'],
+    $available_start_time = array_string_value($appointment_type, 'available_start_time', '09:00');
+    $available_end_time = array_string_value($appointment_type, 'available_end_time', '17:00');
+    $time_slot_interval = array_int_value($appointment_type, 'time_slot_interval', 30);
+    $slot_duration = array_int_value($appointment_type, 'duration_minutes', 60);
+    $buffer_before = max(0, array_int_value($appointment_type, 'buffer_before_minutes'));
+    $buffer_after = max(0, array_int_value($appointment_type, 'buffer_after_minutes'));
+    $appointment_type_admin_user_id = array_int_value($appointment_type, 'admin_user_id');
+
+    $stmt = $conn->prepare("
+        SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
+               COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
+               COALESCE(at.buffer_after_minutes, 0) AS b_buffer_after,
+               COALESCE(apc.pet_count, 0) AS pet_count,
+               COALESCE(b.admin_user_id, at.admin_user_id, 0) AS schedule_admin_user_id
+        FROM bookings b
+        LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+        LEFT JOIN (
+            SELECT booking_id, COUNT(*) AS pet_count
+            FROM appointment_pets
+            GROUP BY booking_id
+        ) apc ON apc.booking_id = b.id
+        WHERE b.appointment_date = ? AND b.status != 'cancelled'
+    ");
+    $stmt->execute([$date]);
+    $existing_bookings = api_booking_filter_schedule_rows(
+        api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)),
+        $appointment_type_admin_user_id
+    );
+
+    $start_parts = explode(':', $available_start_time);
+    $end_parts = explode(':', $available_end_time);
+    assertMultiAdminAvailability(count($start_parts) === 2 && count($end_parts) === 2, 'Expected fixture availability window to include start and end times.');
+
+    $start_time_minutes = (int) $start_parts[0] * 60 + (int) $start_parts[1];
+    $end_time_minutes = (int) $end_parts[0] * 60 + (int) $end_parts[1];
+
+    $available_slots = [];
+    for ($minutes = $start_time_minutes; $minutes < $end_time_minutes; $minutes += $time_slot_interval) {
+        $time_slot = sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+        $slot_usage = bdta_booking_slot_usage_summary(
+            $existing_bookings,
+            $time_slot,
+            $slot_duration,
+            $buffer_before,
+            $buffer_after,
+            ['enabled' => false, 'name' => '', 'capacity' => 1, 'allocation' => 'per_appointment'],
+            $appointment_type_id
+        );
+        if (!$slot_usage['has_overlap_conflict']) {
+            $available_slots[] = $time_slot;
+        }
+    }
+
+    return [
+        'date' => $date,
+        'available_slots' => $available_slots,
+        'google_calendar_checked' => false,
     ];
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-    $_SERVER['REQUEST_METHOD'] = 'GET';
-
-    $original_cwd = getcwd();
-    chdir(dirname(__DIR__) . '/backend/public');
-    require dirname(__DIR__) . '/backend/public/api_bookings.php';
-    if ($original_cwd !== false) {
-        chdir($original_cwd);
-    }
-}
-
-if (($argv[1] ?? '') !== '') {
-    runAvailabilityScenario((string) $argv[1]);
-    exit;
 }
 
 $conn = createMultiAdminAvailabilityConnection();
@@ -221,7 +222,7 @@ $created_result = api_booking_create_booking($conn, [
 assertMultiAdminAvailability(($created_result['success'] ?? false) === true, 'Expected assigned-admin booking creation to succeed.');
 
 $booking_stmt = $conn->prepare('SELECT * FROM bookings WHERE id = ?');
-$booking_stmt->execute([(int) ($created_result['booking_id'] ?? 0)]);
+$booking_stmt->execute([safe_int($created_result['booking_id'] ?? 0)]);
 $created_booking = $booking_stmt->fetch(PDO::FETCH_ASSOC);
 assertMultiAdminAvailability(is_array($created_booking), 'Expected created booking row to be retrievable.');
 assertMultiAdminAvailability((int) ($created_booking['admin_user_id'] ?? 0) === 2, 'Expected bookings to inherit the assigned admin from their appointment type.');
@@ -230,8 +231,8 @@ assertMultiAdminAvailability(
     'Expected Google Calendar targeting to resolve the booking\'s assigned admin.'
 );
 
-$admin_one_payload = runMultiAdminAvailabilitySubprocess('admin-one');
-$admin_two_payload = runMultiAdminAvailabilitySubprocess('admin-two');
+$admin_one_payload = runAvailabilityScenario($conn, $fixture['admin_one_type_id'], '2026-06-01');
+$admin_two_payload = runAvailabilityScenario($conn, $fixture['admin_two_type_id'], '2026-06-01');
 
 $admin_one_slots = is_array($admin_one_payload['available_slots'] ?? null) ? $admin_one_payload['available_slots'] : [];
 $admin_two_slots = is_array($admin_two_payload['available_slots'] ?? null) ? $admin_two_payload['available_slots'] : [];
