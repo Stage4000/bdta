@@ -191,14 +191,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_admin_user']))
     }
 
     $conn->beginTransaction();
+    $delete_step = 'unassign appointment types';
     try {
         $conn->prepare('UPDATE appointment_types SET admin_user_id = NULL WHERE admin_user_id = ?')->execute([$target_admin_user_id]);
+        $delete_step = 'unassign bookings';
         $conn->prepare('UPDATE bookings SET admin_user_id = NULL WHERE admin_user_id = ?')->execute([$target_admin_user_id]);
+        $delete_step = 'delete admin user';
         $conn->prepare('DELETE FROM admin_users WHERE id = ?')->execute([$target_admin_user_id]);
         $conn->commit();
     } catch (Throwable $e) {
         $conn->rollBack();
-        throw $e;
+        error_log('settings.php: failed to ' . $delete_step . ' for admin user ' . $target_admin_user_id . ': ' . $e->getMessage());
+        setFlashMessage('Unable to delete that admin user right now.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
     }
 
     setFlashMessage('Admin user deleted successfully.', 'success');

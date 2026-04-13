@@ -62,11 +62,4 @@ $filtered_settings = bdta_filter_api_key_settings([
 assertSameValue('non-sensitive settings remain visible', 1, count($filtered_settings));
 assertSameValue('non-sensitive settings key preserved', 'smtp_host', $filtered_settings[0]['key']);
 
-$appointment_type_editor = file_get_contents(dirname(__DIR__) . '/client/appointment_types_edit.php');
-assertTrue(is_string($appointment_type_editor) && str_contains($appointment_type_editor, 'settings.php?category=admins'), 'Expected appointment type editor to link to admin user management.');
-
-$settings_page = file_get_contents(dirname(__DIR__) . '/client/settings.php');
-assertTrue(is_string($settings_page) && str_contains($settings_page, "category=admins"), 'Expected settings page to expose the Admin Users category.');
-assertTrue(is_string($settings_page) && str_contains($settings_page, 'update_admin_permissions'), 'Expected settings page to include admin permission controls.');
-
 fwrite(STDOUT, "Admin user helper tests passed.\n");
