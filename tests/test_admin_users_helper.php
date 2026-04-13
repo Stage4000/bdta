@@ -95,6 +95,7 @@ assertTrue(bdta_current_admin_can_manage_api_key_settings($conn, ['user_type' =>
 assertTrue(bdta_current_admin_can_manage_api_key_settings($conn, ['user_type' => 'admin', 'admin_id' => 2]) === false, 'Expected delegated admin without API-key access to remain restricted.');
 $accountant_admin = bdta_current_admin_user($conn, ['user_type' => 'admin', 'admin_id' => 4]);
 assertTrue($accountant_admin !== null, 'Expected accountant admin lookup to return an admin user.');
+/** @var array{id: int, username: string, email: string, account_type: string, can_manage_admin_users: bool, can_manage_api_keys: bool, is_main_account: bool} $accountant_admin */
 assertSameValue('accountant account type preserved', 'accountant', $accountant_admin['account_type']);
 assertTrue(bdta_admin_user_is_accountant($accountant_admin) === true, 'Expected accountant helper to flag accountant accounts.');
 assertTrue(bdta_admin_user_can_manage_admin_users($accountant_admin) === false, 'Expected accountant accounts to stay unable to manage admin users.');

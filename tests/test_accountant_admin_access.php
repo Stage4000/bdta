@@ -17,7 +17,7 @@ function bdta_assert_not_contains(string $contents, string $needle, string $mess
     }
 }
 
-function bdta_read_file(string $path): string
+function bdta_read_accountant_access_file(string $path): string
 {
     $contents = file_get_contents($path);
     if ($contents === false) {
@@ -29,12 +29,12 @@ function bdta_read_file(string $path): string
 }
 
 $root = dirname(__DIR__);
-$settings = bdta_read_file($root . '/client/settings.php');
-$config = bdta_read_file($root . '/backend/includes/config.php');
-$header = bdta_read_file($root . '/backend/includes/header.php');
-$invoicesList = bdta_read_file($root . '/client/invoices_list.php');
-$expensesList = bdta_read_file($root . '/client/expenses_list.php');
-$invoicesView = bdta_read_file($root . '/client/invoices_view.php');
+$settings = bdta_read_accountant_access_file($root . '/client/settings.php');
+$config = bdta_read_accountant_access_file($root . '/backend/includes/config.php');
+$header = bdta_read_accountant_access_file($root . '/backend/includes/header.php');
+$invoicesList = bdta_read_accountant_access_file($root . '/client/invoices_list.php');
+$expensesList = bdta_read_accountant_access_file($root . '/client/expenses_list.php');
+$invoicesView = bdta_read_accountant_access_file($root . '/client/invoices_view.php');
 
 bdta_assert_contains($settings, 'name="new_admin_account_type"', 'Admin settings should expose an account type selector when creating admin users.');
 bdta_assert_contains($settings, 'Accountant (read-only accounting)', 'Admin settings should label the accountant account type clearly.');
