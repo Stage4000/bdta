@@ -51,6 +51,11 @@ function bdta_admin_users_int(mixed $value): int
     return is_numeric($value) ? (int) $value : 0;
 }
 
+function bdta_is_valid_admin_username(string $username): bool
+{
+    return preg_match('/^[A-Za-z0-9._-]{3,64}$/', $username) === 1;
+}
+
 /**
  * @param array<string, mixed> $row
  */

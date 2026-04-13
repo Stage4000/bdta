@@ -502,19 +502,28 @@ class Database {
                 )
             ");
 
-            $admin_account_type_stmt = $this->conn->query("SHOW COLUMNS FROM admin_users LIKE 'account_type'");
-            if ($admin_account_type_stmt->fetch() === false) {
+            try {
                 $this->execSQL("ALTER TABLE admin_users ADD COLUMN account_type TEXT NOT NULL DEFAULT 'standard'");
+            } catch (Throwable $e) {
+                if (stripos($e->getMessage(), 'Duplicate column name') === false) {
+                    throw $e;
+                }
             }
 
-            $admin_manage_users_stmt = $this->conn->query("SHOW COLUMNS FROM admin_users LIKE 'can_manage_admin_users'");
-            if ($admin_manage_users_stmt->fetch() === false) {
+            try {
                 $this->execSQL("ALTER TABLE admin_users ADD COLUMN can_manage_admin_users INTEGER NOT NULL DEFAULT 0");
+            } catch (Throwable $e) {
+                if (stripos($e->getMessage(), 'Duplicate column name') === false) {
+                    throw $e;
+                }
             }
 
-            $admin_manage_api_keys_stmt = $this->conn->query("SHOW COLUMNS FROM admin_users LIKE 'can_manage_api_keys'");
-            if ($admin_manage_api_keys_stmt->fetch() === false) {
+            try {
                 $this->execSQL("ALTER TABLE admin_users ADD COLUMN can_manage_api_keys INTEGER NOT NULL DEFAULT 0");
+            } catch (Throwable $e) {
+                if (stripos($e->getMessage(), 'Duplicate column name') === false) {
+                    throw $e;
+                }
             }
             
             // Blog posts table

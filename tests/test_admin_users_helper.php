@@ -53,6 +53,8 @@ assertTrue($current_admin !== null, 'Expected current admin lookup to return an 
 assertTrue(bdta_admin_user_can_manage_admin_users($current_admin) === true, 'Expected delegated admin to manage admin users.');
 assertTrue(bdta_admin_user_can_manage_api_keys($current_admin) === false, 'Expected delegated admin without API-key access to be restricted.');
 assertTrue(bdta_current_admin_user($conn, ['user_type' => 'client', 'admin_id' => 2]) === null, 'Expected non-admin sessions not to map to admin_users records.');
+assertTrue(bdta_is_valid_admin_username('trainer.one') === true, 'Expected valid admin usernames to pass validation.');
+assertTrue(bdta_is_valid_admin_username('bad user') === false, 'Expected spaces to be rejected in admin usernames.');
 
 $filtered_settings = bdta_filter_api_key_settings([
     ['key' => 'smtp_host', 'label' => 'SMTP Host'],

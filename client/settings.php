@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_admin_user'])) {
     $email = trim(scalar_string($_POST['new_admin_email'] ?? ''));
     $password = scalar_string($_POST['new_admin_password'] ?? '');
 
-    if ($username === '' || preg_match('/^[A-Za-z0-9._-]{3,64}$/', $username) !== 1) {
+    if ($username === '' || !bdta_is_valid_admin_username($username)) {
         setFlashMessage('Enter a username using 3-64 letters, numbers, dots, underscores, or dashes.', 'danger');
         redirect(ADMIN_URL . 'settings.php?category=admins');
     }
