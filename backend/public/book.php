@@ -55,9 +55,56 @@ function public_book_string_list(mixed $value): array {
     return $strings;
 }
 
+/**
+ * @param array<string, string> $portal_profile
+ */
+function public_book_portal_prefill_value(array $portal_profile, string $mapping): string
+{
+    return match ($mapping) {
+        'client.name' => $portal_profile['name'] ?? '',
+        'client.email' => $portal_profile['email'] ?? '',
+        'client.phone' => $portal_profile['phone'] ?? '',
+        'client.address' => $portal_profile['address'] ?? '',
+        default => '',
+    };
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 $portal_return = bdta_public_portal_return_path();
+$portal_prefill_profile = [
+    'name' => '',
+    'email' => '',
+    'phone' => '',
+    'address' => '',
+];
+$portal_prefill_pets = [];
+
+if (isPortalLoggedIn()) {
+    $portal_client_id = (int) portalClientId();
+    if ($portal_client_id > 0) {
+        $stmt = $conn->prepare("SELECT name, email, phone, address FROM clients WHERE id = ?");
+        $stmt->execute([$portal_client_id]);
+        $portal_client = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (is_array($portal_client)) {
+            $portal_prefill_profile = [
+                'name' => public_book_string($portal_client, 'name'),
+                'email' => public_book_string($portal_client, 'email'),
+                'phone' => public_book_string($portal_client, 'phone'),
+                'address' => public_book_string($portal_client, 'address'),
+            ];
+        }
+
+        $stmt = $conn->prepare("
+            SELECT id, name, species, breed, date_of_birth, source, spayed_neutered, vaccines_current
+            FROM pets
+            WHERE client_id = ? AND is_active = 1
+            ORDER BY name
+        ");
+        $stmt->execute([$portal_client_id]);
+        $portal_prefill_pets = public_book_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+}
 
 // Get appointment type from URL - supports both numeric ID and unique link
 $appointment_type_id = 0;
@@ -318,6 +365,26 @@ if (isset($error_mode) && $error_mode) {
             color: #9ca3af;
             cursor: not-allowed;
         }
+
+        .pet-option {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: white;
+        }
+
+        .pet-option:hover {
+            border-color: var(--primary-color);
+            background: #eff6ff;
+        }
+
+        .pet-option.selected {
+            border-color: var(--primary-color);
+            background: #eff6ff;
+        }
         
         .form-step {
             display: none;
@@ -561,6 +628,16 @@ if (isset($error_mode) && $error_mode) {
         [data-bs-theme="dark"] .time-slot.unavailable {
             background: #1f2937;
             color: #6b7280;
+        }
+        [data-bs-theme="dark"] .pet-option {
+            border-color: #374151;
+            background: #111827;
+            color: #e5e7eb;
+        }
+        [data-bs-theme="dark"] .pet-option.selected {
+            background: rgba(154, 0, 115, 0.18);
+            border-color: #9a0073;
+            color: #f5d0fe;
         }
         [data-bs-theme="dark"] .alert-info {
             background: #172554;
@@ -834,6 +911,11 @@ if (isset($error_mode) && $error_mode) {
                             $bi_ph   = htmlspecialchars(array_string_value($bifield, 'placeholder'));
                             $bi_type = array_string_value($bifield, 'type', 'text');
                             $bi_map  = array_string_value($bifield, 'profile_mapping');
+                            $bi_prefill = public_book_portal_prefill_value($portal_prefill_profile, $bi_map);
+                            $bi_prefill_trimmed = trim($bi_prefill);
+                            $bi_matches = static function (mixed $option) use ($bi_prefill_trimmed): bool {
+                                return $bi_prefill_trimmed !== '' && $bi_prefill_trimmed === trim(scalar_string($option));
+                            };
                             $bi_label = array_string_value($bifield, 'label');
                             $bi_description = array_string_value($bifield, 'description');
                             $bi_options = public_book_string_list($bifield['options'] ?? []);
@@ -854,7 +936,7 @@ if (isset($error_mode) && $error_mode) {
                                       data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
                                       placeholder="<?= $bi_ph ?>"
                                       rows="3"
-                                      <?= $bi_req ? 'required' : '' ?>></textarea>
+                                      <?= $bi_req ? 'required' : '' ?>><?= htmlspecialchars($bi_prefill) ?></textarea>
                             <?php break; case 'select': ?>
                                 <select class="form-select form-select-lg"
                                     data-booking-intake-field="<?= $bifi ?>"
@@ -862,7 +944,7 @@ if (isset($error_mode) && $error_mode) {
                                     <?= $bi_req ? 'required' : '' ?>>
                                 <option value="">— Select —</option>
                                 <?php foreach ($bi_options as $bi_opt): ?>
-                                    <option value="<?= htmlspecialchars($bi_opt) ?>"><?= htmlspecialchars($bi_opt) ?></option>
+                                    <option value="<?= htmlspecialchars($bi_opt) ?>" <?= $bi_matches($bi_opt) ? 'selected' : '' ?>><?= htmlspecialchars($bi_opt) ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <?php break; case 'radio': ?>
@@ -874,6 +956,7 @@ if (isset($error_mode) && $error_mode) {
                                        name="<?= $bi_fn ?>"
                                        id="<?= $bi_fn ?>_<?= $bi_oi ?>"
                                        value="<?= htmlspecialchars($bi_opt) ?>"
+                                       <?= $bi_matches($bi_opt) ? 'checked' : '' ?>
                                        <?= ($bi_req && $bi_oi === 0) ? 'required' : '' ?>>
                                 <label class="form-check-label" for="<?= $bi_fn ?>_<?= $bi_oi ?>"><?= htmlspecialchars($bi_opt) ?></label>
                             </div>
@@ -885,17 +968,19 @@ if (isset($error_mode) && $error_mode) {
                                        data-booking-intake-field="<?= $bifi ?>"
                                        data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
                                        id="<?= $bi_fn ?>_<?= $bi_oi ?>"
-                                       value="<?= htmlspecialchars($bi_opt) ?>">
+                                       value="<?= htmlspecialchars($bi_opt) ?>"
+                                       <?= $bi_matches($bi_opt) ? 'checked' : '' ?>>
                                 <label class="form-check-label" for="<?= $bi_fn ?>_<?= $bi_oi ?>"><?= htmlspecialchars($bi_opt) ?></label>
                             </div>
                             <?php endforeach;
                             break; default: ?>
                             <input type="<?= htmlspecialchars(in_array($bi_type, ['phone']) ? 'tel' : $bi_type) ?>"
-                                   class="form-control form-control-lg"
-                                   data-booking-intake-field="<?= $bifi ?>"
-                                   data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
-                                   placeholder="<?= $bi_ph ?>"
-                                   <?= $bi_req ? 'required' : '' ?>>
+                                    class="form-control form-control-lg"
+                                    data-booking-intake-field="<?= $bifi ?>"
+                                    data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
+                                    placeholder="<?= $bi_ph ?>"
+                                    value="<?= htmlspecialchars($bi_prefill) ?>"
+                                    <?= $bi_req ? 'required' : '' ?>>
                             <?php break; endswitch; ?>
                         </div>
                         <?php endforeach; ?>
@@ -903,29 +988,61 @@ if (isset($error_mode) && $error_mode) {
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Your Name *</label>
                             <input type="text" class="form-control form-control-lg" name="client_name" 
-                                   id="clientName" required placeholder="John Doe">
+                                   id="clientName" required placeholder="John Doe" value="<?= escape($portal_prefill_profile['name']) ?>">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Email Address *</label>
                             <input type="email" class="form-control form-control-lg" name="client_email" 
-                                   id="clientEmail" required placeholder="john@example.com">
+                                   id="clientEmail" required placeholder="john@example.com" value="<?= escape($portal_prefill_profile['email']) ?>">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Phone Number</label>
                             <input type="tel" class="form-control form-control-lg" name="client_phone" 
-                                   id="clientPhone" placeholder="(555) 123-4567">
+                                   id="clientPhone" placeholder="(555) 123-4567" value="<?= escape($portal_prefill_profile['phone']) ?>">
                         </div>
+                        <?php if (!isPortalLoggedIn()): ?>
                         <div class="col-12 mb-3">
                             <label class="form-label">Dog's Name(s)</label>
                             <input type="text" class="form-control form-control-lg" name="dog_names" 
-                                   id="dogNames" placeholder="e.g., Max, Bella">
+                                    id="dogNames" placeholder="e.g., Max, Bella">
                             <small class="text-muted">If you have multiple dogs, separate with commas</small>
                         </div>
+                        <?php endif; ?>
                         <div class="col-12 mb-3">
                             <label class="form-label">Additional Notes</label>
                             <textarea class="form-control" name="notes" id="notes" rows="3" 
-                                      placeholder="Tell us about your dog's needs, behavior concerns, or any special requirements..."></textarea>
+                                       placeholder="Tell us about your dog's needs, behavior concerns, or any special requirements..."></textarea>
                         </div>
+                        <?php if (isPortalLoggedIn()): ?>
+                        <div class="col-12 mb-4">
+                            <label class="form-label fw-bold">Which pet(s) is this booking for?</label>
+                            <input type="hidden" name="dog_names" id="dogNames" data-portal-pet-field="1" value="">
+                            <?php if ($portal_prefill_pets === []): ?>
+                            <div class="alert alert-info py-2 mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                No pets on file. Manage pets in <a href="<?= escape(PORTAL_URL . 'pets.php') ?>">My Pets</a>.
+                            </div>
+                            <?php else: ?>
+                            <div id="portalPetList">
+                                <?php foreach ($portal_prefill_pets as $pet): ?>
+                                <div class="pet-option d-flex align-items-center gap-2" data-pet-id="<?= public_book_int($pet, 'id') ?>">
+                                    <input type="checkbox" class="form-check-input portal-pet-checkbox"
+                                           id="portalPet<?= public_book_int($pet, 'id') ?>"
+                                           data-pet-id="<?= public_book_int($pet, 'id') ?>"
+                                           onchange="togglePortalPet(this)">
+                                    <label class="mb-0 d-flex align-items-center gap-2 flex-grow-1" for="portalPet<?= public_book_int($pet, 'id') ?>">
+                                        <span class="fw-semibold"><?= escape(public_book_string($pet, 'name')) ?></span>
+                                    <?php if (public_book_string($pet, 'breed') !== ''): ?>
+                                        <span class="text-muted small">(<?= escape(public_book_string($pet, 'breed')) ?>)</span>
+                                    <?php endif; ?>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <small class="text-muted">Manage pets in <a href="<?= escape(PORTAL_URL . 'pets.php') ?>">My Pets</a>.</small>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
                         <?php endif; ?>
 
                         <!-- Location -->
@@ -1331,6 +1448,10 @@ if (isset($error_mode) && $error_mode) {
             ? json_encode(public_book_assoc_rows($booking_intake_form['fields']), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
             : 'null' ?>;
         const bookingIntakeFormId = <?= ($booking_intake_form) ? public_book_int($booking_intake_form, 'id') : 'null' ?>;
+        const portalPetNames = {};
+        <?php foreach ($portal_prefill_pets as $pet): ?>
+        portalPetNames[<?= public_book_int($pet, 'id') ?>] = <?= json_encode(public_book_string($pet, 'name'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        <?php endforeach; ?>
 
         function normalizeMappedFormValue(value) {
             if (Array.isArray(value)) {
@@ -1429,6 +1550,34 @@ if (isset($error_mode) && $error_mode) {
         // Pending booking payload waiting for overwrite confirmation
         let pendingBookingPayload = null;
 
+        function getSelectedPortalPetIds() {
+            return Array.from(document.querySelectorAll('.portal-pet-checkbox'))
+                .filter(function (cb) { return cb.checked; })
+                .map(function (cb) { return parseInt(cb.dataset.petId, 10); })
+                .filter(function (petId) { return !isNaN(petId) && petId > 0; });
+        }
+
+        function getSelectedPortalPetNames() {
+            return getSelectedPortalPetIds().map(function (petId) {
+                return portalPetNames[petId] || ('Pet #' + petId);
+            });
+        }
+
+        function syncSelectedPortalPets() {
+            const dogNamesInput = document.querySelector('#dogNames[data-portal-pet-field="1"]');
+            if (dogNamesInput) {
+                dogNamesInput.value = getSelectedPortalPetNames().join(', ');
+            }
+        }
+
+        window.togglePortalPet = function (checkbox) {
+            const petOption = checkbox ? checkbox.closest('.pet-option') : null;
+            if (petOption) {
+                petOption.classList.toggle('selected', !!checkbox.checked);
+            }
+            syncSelectedPortalPets();
+        };
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             // Only initialize form elements if they exist (not on error page)
@@ -1472,6 +1621,11 @@ if (isset($error_mode) && $error_mode) {
                 // Form submission
                 bookingForm.addEventListener('submit', submitBooking);
             }
+
+            document.querySelectorAll('.portal-pet-checkbox').forEach(function (checkbox) {
+                window.togglePortalPet(checkbox);
+            });
+            syncSelectedPortalPets();
         });
         
         function nextStep() {
@@ -1856,12 +2010,14 @@ if (isset($error_mode) && $error_mode) {
             const mappedFormValues = getMappedFormValues(formResponses);
             const intakeMappedValues = bookingIntakeFields ? getBookingIntakeValues() : null;
             const combinedMappedValues = mergeProfileMappedValues(intakeMappedValues, mappedFormValues);
+            const selectedPortalPetNames = getSelectedPortalPetNames();
+            const portalDogNames = selectedPortalPetNames.join(', ');
             let email = '', dogNames = '';
             if (bookingIntakeFields) {
                 const confirmName = combinedMappedValues.client_name;
                 const confirmEmail = combinedMappedValues.client_email;
                 const confirmPhone = combinedMappedValues.client_phone;
-                const confirmDogs = combinedMappedValues.dog_names;
+                const confirmDogs = portalDogNames || combinedMappedValues.dog_names;
                 document.getElementById('confirmName').textContent  = confirmName || 'Not provided';
                 document.getElementById('confirmEmail').textContent = confirmEmail || 'Not provided';
                 document.getElementById('confirmPhone').textContent = confirmPhone || 'Not provided';
@@ -1872,7 +2028,7 @@ if (isset($error_mode) && $error_mode) {
                 const confirmName = document.getElementById('clientName').value || mappedFormValues.client_name;
                 const confirmEmail = document.getElementById('clientEmail').value || mappedFormValues.client_email;
                 const confirmPhone = document.getElementById('clientPhone').value || mappedFormValues.client_phone;
-                const confirmDogs = document.getElementById('dogNames').value || mappedFormValues.dog_names;
+                const confirmDogs = portalDogNames || document.getElementById('dogNames').value || mappedFormValues.dog_names;
                 document.getElementById('confirmName').textContent  = confirmName || 'Not provided';
                 document.getElementById('confirmEmail').textContent = confirmEmail || 'Not provided';
                 document.getElementById('confirmPhone').textContent = confirmPhone || 'Not provided';
@@ -2207,6 +2363,8 @@ if (isset($error_mode) && $error_mode) {
 
             const formResponses = collectFormResponses();
             const mappedFormValues = getMappedFormValues(formResponses);
+            const selectedPortalPetIds = getSelectedPortalPetIds();
+            const selectedPortalDogNames = getSelectedPortalPetNames().join(', ');
 
             // Gather client info — from dynamic intake form or hardcoded fields
             let client_name, client_email, client_phone, client_address, dog_names, notes;
@@ -2218,7 +2376,7 @@ if (isset($error_mode) && $error_mode) {
                 client_email   = combinedMappedValues.client_email;
                 client_phone   = combinedMappedValues.client_phone;
                 client_address = combinedMappedValues.client_address;
-                dog_names      = combinedMappedValues.dog_names;
+                dog_names      = selectedPortalDogNames || combinedMappedValues.dog_names;
                 notes          = combinedMappedValues.notes;
                 booking_intake_field_values = iv.intake_field_values;
             } else {
@@ -2226,7 +2384,7 @@ if (isset($error_mode) && $error_mode) {
                 client_email   = document.getElementById('clientEmail').value || mappedFormValues.client_email;
                 client_phone   = document.getElementById('clientPhone').value || mappedFormValues.client_phone;
                 client_address = mappedFormValues.client_address;
-                dog_names      = document.getElementById('dogNames').value || mappedFormValues.dog_names;
+                dog_names      = selectedPortalDogNames || document.getElementById('dogNames').value || mappedFormValues.dog_names;
                 notes          = document.getElementById('notes').value || mappedFormValues.notes;
             }
 
@@ -2240,6 +2398,7 @@ if (isset($error_mode) && $error_mode) {
                 client_phone: client_phone,
                 client_address: client_address,
                 dog_names: dog_names,
+                pet_ids: selectedPortalPetIds,
                 notes: notes,
                 // Default to 60 minutes if appointment type duration is not available
                 duration_minutes: selectedTypeDuration ?? 60,

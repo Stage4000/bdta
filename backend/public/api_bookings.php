@@ -262,9 +262,28 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             $client_id = safe_int($conn->lastInsertId());
         }
 
-        $dog_names = array_string_value($data, 'dog_names');
         $pet_ids = [];
-        if (!empty($dog_names)) {
+        $requested_pet_ids = [];
+        $pet_ids_raw = $data['pet_ids'] ?? [];
+        if (is_array($pet_ids_raw) && $pet_ids_raw !== []) {
+            $requested_pet_ids = array_values(array_filter(
+                array_unique(array_map('safe_int', $pet_ids_raw)),
+                static fn (int $pet_id): bool => $pet_id > 0
+            ));
+            $requested_pet_ids = array_slice($requested_pet_ids, 0, 100);
+        }
+        $portal_client_id = isPortalLoggedIn() ? portalClientId() : 0;
+
+        if ($requested_pet_ids !== [] && $client_id > 0 && $portal_client_id === $client_id) {
+            $placeholders = implode(', ', array_fill(0, count($requested_pet_ids), '?'));
+            // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- placeholder count comes from safe_int()-sanitized positive pet IDs and every value is bound separately.
+            $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND is_active = 1 AND id IN ($placeholders)");
+            $stmt->execute(array_merge([$client_id], $requested_pet_ids));
+            $pet_ids = array_map('safe_int', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+        }
+
+        $dog_names = array_string_value($data, 'dog_names');
+        if ($pet_ids === [] && !empty($dog_names)) {
             $names = array_filter(
                 array_map('trim', explode(',', $dog_names)),
                 fn($n) => $n !== ''
