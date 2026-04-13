@@ -1456,7 +1456,7 @@ HTML;
      */
     private function buildBookingVariables(array $booking, string $date, string $time, string $google_link, string $ical_link): array {
         $formatted_location = $this->formatLocationForEmail($booking);
-        $booking_id         = self::rowId($booking);
+        $booking_id         = safe_int($booking['id'] ?? 0);
         $booking_link       = bdta_build_portal_booking_link($this->base_url, $booking_id);
         return [
             'client_name'          => self::rowString($booking, 'client_name'),
@@ -1506,7 +1506,7 @@ HTML;
         $service_type = self::rowString($booking, 'service_type');
         $duration_minutes = self::rowString($booking, 'duration_minutes');
         $location = $this->formatLocationForEmail($booking);
-        $booking_id = self::rowId($booking);
+        $booking_id = safe_int($booking['id'] ?? 0);
         $reschedule_link = bdta_build_portal_booking_link($this->base_url, $booking_id, 'reschedule');
         $cancel_link = bdta_build_portal_booking_link($this->base_url, $booking_id, 'cancel');
 
@@ -1607,7 +1607,7 @@ HTML;
         $service_type = self::rowString($booking, 'service_type');
         $duration_minutes = self::rowString($booking, 'duration_minutes');
         $location = $this->formatLocationForEmail($booking);
-        $booking_id = self::rowId($booking);
+        $booking_id = safe_int($booking['id'] ?? 0);
         $reschedule_link = bdta_build_portal_booking_link($this->base_url, $booking_id, 'reschedule');
         $cancel_link = bdta_build_portal_booking_link($this->base_url, $booking_id, 'cancel');
 

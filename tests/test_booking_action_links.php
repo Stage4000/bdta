@@ -11,11 +11,11 @@ function bdta_assert_test(bool $condition, string $message): void
     }
 }
 
-function bdta_read_file(string $path): string
+function bdta_read_file(string $path, string $label): string
 {
     $contents = file_get_contents($path);
     if ($contents === false) {
-        fwrite(STDERR, 'Unable to read fixture: ' . $path . PHP_EOL);
+        fwrite(STDERR, 'Unable to read fixture: ' . $label . ' (' . $path . ')' . PHP_EOL);
         exit(1);
     }
 
@@ -39,12 +39,12 @@ bdta_assert_test(
     'Unexpected actions should be ignored.'
 );
 
-$email_service = bdta_read_file(dirname(__DIR__) . '/backend/includes/email_service.php');
-$booking_reminder = bdta_read_file(dirname(__DIR__) . '/backend/cron/tasks/booking_reminder.php');
-$portal_appointments = bdta_read_file(dirname(__DIR__) . '/portal/appointments.php');
-$clients_view = bdta_read_file(dirname(__DIR__) . '/client/clients_view.php');
-$templates_edit = bdta_read_file(dirname(__DIR__) . '/client/email_templates_edit.php');
-$templates_list = bdta_read_file(dirname(__DIR__) . '/client/email_templates_list.php');
+$email_service = bdta_read_file(dirname(__DIR__) . '/backend/includes/email_service.php', 'email service fixture');
+$booking_reminder = bdta_read_file(dirname(__DIR__) . '/backend/cron/tasks/booking_reminder.php', 'booking reminder fixture');
+$portal_appointments = bdta_read_file(dirname(__DIR__) . '/portal/appointments.php', 'portal appointments fixture');
+$clients_view = bdta_read_file(dirname(__DIR__) . '/client/clients_view.php', 'client view fixture');
+$templates_edit = bdta_read_file(dirname(__DIR__) . '/client/email_templates_edit.php', 'email templates edit fixture');
+$templates_list = bdta_read_file(dirname(__DIR__) . '/client/email_templates_list.php', 'email templates list fixture');
 
 bdta_assert_test(
     str_contains($email_service, "'booking_reschedule_link'") && str_contains($email_service, "'booking_cancel_link'"),
