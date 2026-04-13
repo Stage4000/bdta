@@ -12,15 +12,6 @@ require_once __DIR__ . '/../backend/includes/admin_users.php';
 requireLogin();
 
 header('Content-Type: application/json');
-if (!bdta_session_is_authenticated_admin($_SESSION)) {
-    http_response_code(403);
-    echo json_encode([
-        'success' => false,
-        'tests' => [],
-        'error' => 'You do not have permission to access database tools.',
-    ], JSON_PRETTY_PRINT);
-    exit;
-}
 
 $db = new Database();
 $conn = $db->getConnection();

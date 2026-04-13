@@ -11,10 +11,6 @@ require_once __DIR__ . '/../backend/includes/admin_users.php';
 requireLogin();
 
 $page_title = 'Database Tools';
-if (!bdta_session_is_authenticated_admin($_SESSION)) {
-    setFlashMessage('You do not have permission to access database tools.', 'danger');
-    redirect(ADMIN_URL . 'settings.php?category=general');
-}
 
 $db = new Database();
 $conn = $db->getConnection();
