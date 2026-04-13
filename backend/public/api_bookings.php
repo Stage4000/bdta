@@ -1344,8 +1344,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $google_calendar_checked = false;
     if (GoogleCalendarIntegration::isOAuthConfigured()) {
         try {
-            $calendar_admin_user_id = ($appointment_type_admin_user_id ?? 0) > 0
-                ? ($appointment_type_admin_user_id ?? 0)
+            $calendar_admin_user_id = $appointment_type_admin_user_id > 0
+                ? $appointment_type_admin_user_id
                 : GoogleCalendarIntegration::getAnyConnectedOAuthAdminUserId();
             if ($calendar_admin_user_id > 0) {
                 $google_busy_periods = GoogleCalendarIntegration::getFreeBusy($date, $calendar_admin_user_id);

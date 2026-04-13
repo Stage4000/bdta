@@ -45,7 +45,9 @@ $base_url = getDynamicBaseUrl();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = scalar_string($_POST['name'] ?? '');
     $description = scalar_string($_POST['description'] ?? '');
-    $admin_user_id = !empty($_POST['admin_user_id']) ? safe_int($_POST['admin_user_id']) : null;
+    $admin_user_id = isset($_POST['admin_user_id']) && $_POST['admin_user_id'] !== ''
+        ? safe_int($_POST['admin_user_id'])
+        : null;
     if ($admin_user_id !== null && !in_array($admin_user_id, $valid_admin_ids, true)) {
         $admin_user_id = null;
     }
