@@ -76,6 +76,22 @@ function api_booking_string_list(mixed $value): array {
 }
 
 /**
+ * @param list<array<string, mixed>> $rows
+ * @return list<array<string, mixed>>
+ */
+function api_booking_filter_schedule_rows(array $rows, int $admin_user_id): array {
+    $normalized_rows = api_booking_assoc_rows($rows);
+    if ($admin_user_id <= 0) {
+        return $normalized_rows;
+    }
+
+    return array_values(array_filter(
+        $normalized_rows,
+        static fn(array $row): bool => array_int_value($row, 'schedule_admin_user_id') === $admin_user_id
+    ));
+}
+
+/**
  * @param array<string, mixed> $data
  * @return array<string, mixed>
  */
@@ -972,7 +988,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         SELECT b.appointment_date, b.appointment_time, b.duration_minutes, b.appointment_type_id,
                COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
                COALESCE(at.buffer_after_minutes,  0) AS b_buffer_after,
-               COALESCE(apc.pet_count, 0) AS pet_count
+               COALESCE(apc.pet_count, 0) AS pet_count,
+               COALESCE(b.admin_user_id, at.admin_user_id, 0) AS schedule_admin_user_id
         FROM bookings b
         LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
         LEFT JOIN (
@@ -981,10 +998,12 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             GROUP BY booking_id
         ) apc ON apc.booking_id = b.id
         WHERE b.appointment_date BETWEEN ? AND ? AND b.status != 'cancelled'
-          AND (? = 0 OR COALESCE(b.admin_user_id, at.admin_user_id, 0) = ?)
     ");
-    $stmt->execute([$from_date, $to_date, $ad_admin_user_id, $ad_admin_user_id]);
-    $all_bookings_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->execute([$from_date, $to_date]);
+    $all_bookings_rows = api_booking_filter_schedule_rows(
+        assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)),
+        $ad_admin_user_id
+    );
 
     // Group bookings by date
     $bookings_by_date = [];
@@ -1303,7 +1322,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
                COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
                COALESCE(at.buffer_after_minutes,  0) AS b_buffer_after,
-               COALESCE(apc.pet_count, 0) AS pet_count
+               COALESCE(apc.pet_count, 0) AS pet_count,
+               COALESCE(b.admin_user_id, at.admin_user_id, 0) AS schedule_admin_user_id
         FROM bookings b
         LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
         LEFT JOIN (
@@ -1312,10 +1332,12 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             GROUP BY booking_id
         ) apc ON apc.booking_id = b.id
         WHERE b.appointment_date = ? AND b.status != 'cancelled'
-          AND (? = 0 OR COALESCE(b.admin_user_id, at.admin_user_id, 0) = ?)
     ");
-    $stmt->execute([$date, $appointment_type_admin_user_id ?? 0, $appointment_type_admin_user_id ?? 0]);
-    $existing_bookings = api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $stmt->execute([$date]);
+    $existing_bookings = api_booking_filter_schedule_rows(
+        assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)),
+        $appointment_type_admin_user_id
+    );
 
     // Query Google Calendar for busy periods on this date (best-effort; errors are non-fatal)
     $google_busy_periods = [];
