@@ -652,7 +652,10 @@ include __DIR__ . '/../backend/includes/header.php';
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <div class="form-text">Assign this appointment type, schedule, and calendar sync to a specific admin.</div>
+                        <div class="form-text">
+                            Assign this appointment type, schedule, and calendar sync to a specific admin.
+                            <a href="settings.php?category=admins">Manage admin users</a>.
+                        </div>
                     </div>
                 </div>
 
