@@ -133,12 +133,9 @@ function bdta_refresh_session_admin_account_type(): void
         return;
     }
 
-    if (!empty($_SESSION['admin_account_type'])) {
-        return;
-    }
-
-    // New logins populate this in client/login.php. This fallback only backfills older
-    // authenticated admin sessions that predate the accountant-account feature.
+    // New logins populate this in client/login.php, but existing sessions may outlive
+    // account-type changes in admin_users. Refresh the current type from the database
+    // so restrictions take effect without forcing a logout.
     $db = new Database();
     $conn = $db->getConnection();
     $admin_user = bdta_find_admin_user($conn, safe_int($_SESSION['admin_id'] ?? 0));

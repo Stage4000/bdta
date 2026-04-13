@@ -644,17 +644,12 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                                                     </form>
                                                 <?php else: ?>
                                                     <div class="d-flex flex-wrap gap-2">
-                                                        <?php if (bdta_admin_user_is_accountant($admin_user)): ?>
-                                                            <span class="badge text-bg-info">Read-only invoices &amp; expenses</span>
-                                                            <span class="badge text-bg-info">Financial report export access</span>
-                                                        <?php else: ?>
-                                                            <span class="badge text-bg-<?= $admin_user['can_manage_admin_users'] ? 'success' : 'light' ?>">
-                                                                <?= $admin_user['can_manage_admin_users'] ? 'Can manage admin users' : 'Cannot manage admin users' ?>
-                                                            </span>
-                                                            <span class="badge text-bg-<?= $admin_user['can_manage_api_keys'] ? 'success' : 'light' ?>">
-                                                                <?= $admin_user['can_manage_api_keys'] ? 'Can access API-key settings' : 'No API-key settings access' ?>
-                                                            </span>
-                                                        <?php endif; ?>
+                                                        <span class="badge text-bg-<?= $admin_user['can_manage_admin_users'] ? 'success' : 'light' ?>">
+                                                            <?= $admin_user['can_manage_admin_users'] ? 'Can manage admin users' : 'Cannot manage admin users' ?>
+                                                        </span>
+                                                        <span class="badge text-bg-<?= $admin_user['can_manage_api_keys'] ? 'success' : 'light' ?>">
+                                                            <?= $admin_user['can_manage_api_keys'] ? 'Can access API-key settings' : 'No API-key settings access' ?>
+                                                        </span>
                                                     </div>
                                                 <?php endif; ?>
                                             </td>

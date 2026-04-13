@@ -62,7 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
 
 // Handle "Send Invoice" POST action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice'])) {
-    if (!$can_pay_invoice) {
+    $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+
+    if ($submitted_csrf_token === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
+        setFlashMessage('Invalid request.', 'danger');
+    } elseif (!$can_pay_invoice) {
         setFlashMessage('Only unpaid invoices can be sent.', 'warning');
     } else {
         // Ensure a secure payment token exists for the guest pay link
@@ -204,6 +208,7 @@ include '../backend/includes/header.php';
                             <?php endif; ?>
                             <form method="POST" class="d-inline">
                                 <input type="hidden" name="send_invoice" value="1">
+                                <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
                                 <button type="submit" class="btn btn-primary"
                                         title="<?= !empty($invoice['invoice_sent_at']) ? 'Last sent: ' . escape(formatDateTime($invoice['invoice_sent_at'])) : 'Invoice not yet sent' ?>">
                                     <i class="fas fa-paper-plane"></i>
