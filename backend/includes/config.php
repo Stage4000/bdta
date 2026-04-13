@@ -152,18 +152,19 @@ function bdta_refresh_session_admin_account_type(): void
             $session_cookie_secure = !empty($cookie_params['secure']);
             $session_cookie_http_only = !empty($cookie_params['httponly']);
             $session_cookie_clear_time = time() - (60 * 60);
-            $session_cookie_name = session_name();
-            if ($session_cookie_name !== false && $session_cookie_name !== '') {
-                setcookie(
-                    $session_cookie_name,
-                    '',
-                    $session_cookie_clear_time,
-                    $session_cookie_path,
-                    $session_cookie_domain,
-                    $session_cookie_secure,
-                    $session_cookie_http_only
-                );
+            $session_cookie_name = scalar_string(session_name());
+            if ($session_cookie_name === '') {
+                $session_cookie_name = 'PHPSESSID';
             }
+            setcookie(
+                $session_cookie_name,
+                '',
+                $session_cookie_clear_time,
+                $session_cookie_path,
+                $session_cookie_domain,
+                $session_cookie_secure,
+                $session_cookie_http_only
+            );
         }
         session_destroy();
         redirect(ADMIN_URL . 'login.php');
