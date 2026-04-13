@@ -106,5 +106,6 @@ assertTrue(bdta_session_admin_is_accountant(['user_type' => 'client', 'admin_acc
 assertTrue(bdta_is_accountant_allowed_admin_path('/client/invoices_list.php') === true, 'Expected invoices list to remain available to accountant accounts.');
 assertTrue(bdta_is_accountant_allowed_admin_path('/client/reports_export.php') === true, 'Expected report exports to remain available to accountant accounts.');
 assertTrue(bdta_is_accountant_allowed_admin_path('/client/settings.php') === false, 'Expected settings page to remain unavailable to accountant accounts.');
+assertTrue(bdta_is_accountant_allowed_admin_path('/client/../settings.php') === false, 'Expected accountant path helper to reject traversal-style paths.');
 
 fwrite(STDOUT, "Admin user helper tests passed.\n");

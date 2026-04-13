@@ -137,6 +137,8 @@ function bdta_refresh_session_admin_account_type(): void
         return;
     }
 
+    // New logins populate this in client/login.php. This fallback only backfills older
+    // authenticated admin sessions that predate the accountant-account feature.
     $db = new Database();
     $conn = $db->getConnection();
     $admin_user = bdta_find_admin_user($conn, safe_int($_SESSION['admin_id'] ?? 0));
@@ -149,12 +151,12 @@ function bdta_enforce_admin_account_access(): void
         return;
     }
 
-    $current_path = scalar_string($_SERVER['PHP_SELF'] ?? '');
+    $current_path = scalar_string($_SERVER['SCRIPT_NAME'] ?? '');
     if (bdta_is_accountant_allowed_admin_path($current_path)) {
         return;
     }
 
-    setFlashMessage('Your accountant account can only access invoices, expenses, and financial reports.', 'danger');
+    setFlashMessage('Access denied. Accountant accounts can only access invoices, expenses, and financial reports.', 'danger');
     redirect(ADMIN_URL . 'invoices_list.php');
 }
 

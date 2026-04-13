@@ -6,6 +6,14 @@
 /**
  * @return list<string>
  */
+function bdta_valid_admin_account_types(): array
+{
+    return ['standard', 'accountant'];
+}
+
+/**
+ * @return list<string>
+ */
 function bdta_api_key_setting_keys(): array
 {
     return [
@@ -85,7 +93,7 @@ function bdta_normalize_admin_account_type(mixed $value, bool $is_main_account =
 
     $account_type = strtolower(trim(bdta_admin_users_scalar($value)));
 
-    return $account_type === 'accountant' ? 'accountant' : 'standard';
+    return in_array($account_type, bdta_valid_admin_account_types(), true) ? $account_type : 'standard';
 }
 
 /**
@@ -255,7 +263,12 @@ function bdta_accountant_allowed_admin_paths(): array
 
 function bdta_is_accountant_allowed_admin_path(string $path): bool
 {
-    return in_array(basename(trim($path)), bdta_accountant_allowed_admin_paths(), true);
+    $normalized_path = str_replace('\\', '/', trim($path));
+    if ($normalized_path === '' || str_contains($normalized_path, '..')) {
+        return false;
+    }
+
+    return in_array(basename($normalized_path), bdta_accountant_allowed_admin_paths(), true);
 }
 
 /**

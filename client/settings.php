@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_admin_user'])) {
     $username = trim(scalar_string($_POST['new_admin_username'] ?? ''));
     $email = trim(scalar_string($_POST['new_admin_email'] ?? ''));
     $password = scalar_string($_POST['new_admin_password'] ?? '');
-    $account_type = bdta_normalize_admin_account_type($_POST['new_admin_account_type'] ?? 'standard');
+    $requested_account_type = scalar_string($_POST['new_admin_account_type'] ?? 'standard');
 
     if ($username === '' || !bdta_is_valid_admin_username($username)) {
         setFlashMessage('Username must be 3-64 characters and contain only letters, numbers, dots, underscores, or dashes.', 'danger');
@@ -125,6 +125,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_admin_user'])) {
         setFlashMessage('Admin user passwords must be at least 8 characters long.', 'danger');
         redirect(ADMIN_URL . 'settings.php?category=admins');
     }
+
+    if (!in_array($requested_account_type, bdta_valid_admin_account_types(), true)) {
+        setFlashMessage('Select a valid admin account type.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    $account_type = bdta_normalize_admin_account_type($requested_account_type);
 
     $existing_admin_stmt = $conn->prepare('SELECT id FROM admin_users WHERE username = ? LIMIT 1');
     $existing_admin_stmt->execute([$username]);
@@ -161,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_admin_permissi
     }
 
     if (bdta_admin_user_is_accountant($target_admin_user)) {
-        setFlashMessage('Accountant accounts always use fixed read-only accounting access.', 'danger');
+        setFlashMessage('Accountant account permissions cannot be modified because they always use fixed read-only accounting access.', 'danger');
         redirect(ADMIN_URL . 'settings.php?category=admins');
     }
 
