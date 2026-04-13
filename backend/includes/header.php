@@ -300,8 +300,37 @@
                         $unmatchedOpen    = $isUnmatched || $isEmailSigs || $isEmailTpls;
                         $workflowsOpen    = $isWorkflows || $isScheduled;
                         $settingsOpen     = $isSettings || $isChangePwd;
+                        $isAccountantAdmin = bdta_session_admin_is_accountant($_SESSION);
                     ?>
                     <ul class="nav flex-column">
+                        <?php if ($isAccountantAdmin): ?>
+                            <li class="nav-item">
+                                <a class="nav-link <?php echo $isInvoices ? 'active' : ''; ?>" href="invoices_list.php">
+                                    <i class="fas fa-file-invoice me-2"></i> Invoices
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?php echo $isExpenses ? 'active' : ''; ?>" href="expenses_list.php">
+                                    <i class="fas fa-receipt me-2"></i> Expenses
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?php echo $isFinancial ? 'active' : ''; ?>" href="reports_financial.php">
+                                    <i class="fas fa-chart-line me-2"></i> Financial Reports
+                                </a>
+                            </li>
+                            <li><hr class="sidebar-divider"></li>
+                            <li class="nav-item">
+                                <a class="nav-link <?php echo $isChangePwd ? 'active' : ''; ?>" href="change_password.php">
+                                    <i class="fas fa-key me-2"></i> Change Password
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="logout.php">
+                                    <i class="fas fa-arrow-right-from-bracket me-2"></i> Logout
+                                </a>
+                            </li>
+                        <?php else: ?>
 
                         <!-- 1. Dashboard -->
                         <li class="nav-item">
@@ -553,6 +582,7 @@
                                 </ul>
                             </div>
                         </li>
+                        <?php endif; ?>
 
                         <!-- Dark Mode Toggle -->
                         <li><hr class="sidebar-divider"></li>

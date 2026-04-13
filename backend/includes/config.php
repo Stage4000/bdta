@@ -7,6 +7,7 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/session_config.php';
 require_once __DIR__ . '/base_url_helper.php';
 require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/admin_users.php';
 
 /**
  * Resolve the system timezone from admin settings with a safe fallback.
@@ -123,10 +124,76 @@ function isLoggedIn(): bool {
     return isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id']);
 }
 
+function bdta_refresh_session_admin_account_type(): void
+{
+    if (!bdta_session_admin_account_type_needs_refresh($_SESSION)) {
+        return;
+    }
+
+    // New logins populate this in client/login.php, but existing sessions may outlive
+    // account-type changes in admin_users. Refresh the current type from the database
+    // when the session account type is missing or stale so restrictions take effect
+    // without forcing a logout while avoiding a query on every admin page load.
+    $db = new Database();
+    $conn = $db->getConnection();
+    $admin_user = bdta_find_admin_user($conn, safe_int($_SESSION['admin_id'] ?? 0));
+    if (!is_array($admin_user)) {
+        $session_is_active = session_status() === PHP_SESSION_ACTIVE;
+        $cookie_params = $session_is_active ? session_get_cookie_params() : [];
+        session_unset();
+        if ($session_is_active) {
+            $session_cookie_path = scalar_string($cookie_params['path'] ?? '');
+            if ($session_cookie_path === '') {
+                $session_cookie_path = '/';
+            }
+            $session_cookie_domain = scalar_string($cookie_params['domain'] ?? '');
+            $session_cookie_secure = !empty($cookie_params['secure']);
+            $session_cookie_http_only = !empty($cookie_params['httponly']);
+            $session_cookie_clear_time = time() - (60 * 60);
+            $session_cookie_name = scalar_string(session_name());
+            if ($session_cookie_name === '') {
+                $session_cookie_name = 'PHPSESSID';
+            }
+            setcookie(
+                $session_cookie_name,
+                '',
+                $session_cookie_clear_time,
+                $session_cookie_path,
+                $session_cookie_domain,
+                $session_cookie_secure,
+                $session_cookie_http_only
+            );
+        }
+        session_destroy();
+        redirect(ADMIN_URL . 'login.php');
+    }
+
+    $_SESSION['admin_account_type'] = $admin_user['account_type'];
+    $_SESSION['admin_account_type_refreshed_at'] = time();
+}
+
+function bdta_enforce_admin_account_access(): void
+{
+    if (!bdta_session_admin_is_accountant($_SESSION)) {
+        return;
+    }
+
+    $current_path = scalar_string($_SERVER['SCRIPT_NAME'] ?? '');
+    if (bdta_is_accountant_allowed_admin_path($current_path)) {
+        return;
+    }
+
+    setFlashMessage('Access denied. Accountant accounts can only access invoices, expenses, and financial reports.', 'danger');
+    redirect(ADMIN_URL . 'invoices_list.php');
+}
+
 function requireLogin(): void {
     if (!isLoggedIn()) {
         redirect(ADMIN_URL . 'login.php');
     }
+
+    bdta_refresh_session_admin_account_type();
+    bdta_enforce_admin_account_access();
 }
 
 function setFlashMessage(string $message, string $type = 'info'): void {

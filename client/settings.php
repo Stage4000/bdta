@@ -109,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_admin_user'])) {
     $username = trim(scalar_string($_POST['new_admin_username'] ?? ''));
     $email = trim(scalar_string($_POST['new_admin_email'] ?? ''));
     $password = scalar_string($_POST['new_admin_password'] ?? '');
+    $requested_account_type = scalar_string($_POST['new_admin_account_type'] ?? 'standard');
 
     if ($username === '' || !bdta_is_valid_admin_username($username)) {
         setFlashMessage('Username must be 3-64 characters and contain only letters, numbers, dots, underscores, or dashes.', 'danger');
@@ -125,6 +126,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_admin_user'])) {
         redirect(ADMIN_URL . 'settings.php?category=admins');
     }
 
+    if (!in_array($requested_account_type, bdta_valid_admin_account_types(), true)) {
+        setFlashMessage('Select a valid admin account type.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    $account_type = bdta_normalize_admin_account_type($requested_account_type);
+
     $existing_admin_stmt = $conn->prepare('SELECT id FROM admin_users WHERE username = ? LIMIT 1');
     $existing_admin_stmt->execute([$username]);
     if ($existing_admin_stmt->fetch() !== false) {
@@ -135,9 +143,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_admin_user'])) {
     $password_hash = password_hash($password, PASSWORD_DEFAULT);
     $create_admin_stmt = $conn->prepare("
         INSERT INTO admin_users (username, password_hash, email, account_type, can_manage_admin_users, can_manage_api_keys)
-        VALUES (?, ?, ?, 'standard', 0, 0)
+        VALUES (?, ?, ?, ?, 0, 0)
     ");
-    $create_admin_stmt->execute([$username, $password_hash, $email]);
+    $create_admin_stmt->execute([$username, $password_hash, $email, $account_type]);
 
     setFlashMessage('Admin user created successfully.', 'success');
     redirect(ADMIN_URL . 'settings.php?category=admins');
@@ -156,6 +164,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_admin_permissi
 
     if ($target_admin_user === null || !empty($target_admin_user['is_main_account'])) {
         setFlashMessage('The main admin account permissions cannot be changed.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    if (bdta_admin_user_is_accountant($target_admin_user)) {
+        setFlashMessage('Accountant account permissions cannot be modified because they always use fixed read-only accounting access.', 'danger');
         redirect(ADMIN_URL . 'settings.php?category=admins');
     }
 
@@ -541,6 +554,13 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                                             <label for="new_admin_password" class="form-label">Temporary Password</label>
                                             <input type="password" class="form-control" id="new_admin_password" name="new_admin_password" minlength="8" required>
                                         </div>
+                                        <div class="col-md-4">
+                                            <label for="new_admin_account_type" class="form-label">Account Type</label>
+                                            <select class="form-select" id="new_admin_account_type" name="new_admin_account_type">
+                                                <option value="standard">Standard</option>
+                                                <option value="accountant">Accountant (read-only accounting)</option>
+                                            </select>
+                                        </div>
                                         <div class="col-12 d-flex justify-content-end">
                                             <button type="submit" name="add_admin_user" class="btn btn-primary">
                                                 <i class="fas fa-user-plus"></i> Add Admin User
@@ -581,6 +601,12 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                                                     <div class="d-flex flex-wrap gap-2 mt-2">
                                                         <span class="badge text-bg-success">Manage admin users</span>
                                                         <span class="badge text-bg-success">Access API-key settings</span>
+                                                    </div>
+                                                <?php elseif (bdta_admin_user_is_accountant($admin_user)): ?>
+                                                    <div class="small text-muted">Fixed for accountant accounts.</div>
+                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                        <span class="badge text-bg-info">Read-only invoices &amp; expenses</span>
+                                                        <span class="badge text-bg-info">Financial report export access</span>
                                                     </div>
                                                 <?php elseif ($is_main_admin_account): ?>
                                                     <form method="POST" action="?category=admins" class="d-flex flex-column gap-2">
