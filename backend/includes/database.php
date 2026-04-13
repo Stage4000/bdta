@@ -129,17 +129,22 @@ class Database {
     private string $db_name;
     private string $db_user;
     private string $db_password;
+    /** @var array<string, list<string>> */
+    private array $tableColumnsCache = [];
 
     private function failConfiguration(string $message): never {
         die('Database configuration failed: ' . $message);
     }
 
     private function getColumnNameFromDefinition(string $column_definition): string {
-        if (preg_match('/^\s*`?([A-Za-z_][A-Za-z0-9_]*)`?\s+/', $column_definition, $matches) !== 1) {
+        $trimmed_definition = trim($column_definition);
+        $parts = preg_split('/\s+/', $trimmed_definition, 2);
+        $column_name = trim(scalar_string($parts[0] ?? ''), '`');
+        if ($column_name === '' || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $column_name) !== 1) {
             throw new InvalidArgumentException('Invalid column definition: ' . $column_definition);
         }
 
-        return scalar_string($matches[1]);
+        return $column_name;
     }
 
     private function ensureTableColumn(string $table, string $column_definition): void {
@@ -437,6 +442,10 @@ class Database {
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
             throw new InvalidArgumentException("Invalid table name: $tableName");
         }
+
+        if (isset($this->tableColumnsCache[$tableName])) {
+            return $this->tableColumnsCache[$tableName];
+        }
         
         $stmt = $this->conn->prepare("
             SELECT COLUMN_NAME
@@ -445,7 +454,8 @@ class Database {
             AND TABLE_NAME = ?
         ");
         $stmt->execute([$tableName]);
-        return array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        $this->tableColumnsCache[$tableName] = array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        return $this->tableColumnsCache[$tableName];
     }
 
     private function indexExists(string $tableName, string $indexName): bool {
