@@ -55,6 +55,7 @@ assertTrue(bdta_admin_user_can_manage_api_keys($current_admin) === false, 'Expec
 assertTrue(bdta_current_admin_user($conn, ['user_type' => 'client', 'admin_id' => 2]) === null, 'Expected non-admin sessions not to map to admin_users records.');
 assertTrue(bdta_is_valid_admin_username('trainer.one') === true, 'Expected valid admin usernames to pass validation.');
 assertTrue(bdta_is_valid_admin_username('bad user') === false, 'Expected spaces to be rejected in admin usernames.');
+assertTrue(bdta_is_valid_admin_username('bad..user') === false, 'Expected repeated separators to be rejected in admin usernames.');
 
 $filtered_settings = bdta_filter_api_key_settings([
     ['key' => 'smtp_host', 'label' => 'SMTP Host'],

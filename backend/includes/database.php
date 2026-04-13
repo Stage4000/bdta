@@ -1227,12 +1227,6 @@ class Database {
                         can_manage_api_keys = 1
                     WHERE username = 'admin'
                 ")->execute();
-
-                $this->conn->prepare("
-                    UPDATE admin_users
-                    SET account_type = 'standard'
-                    WHERE username <> 'admin' AND (account_type IS NULL OR account_type = '')
-                ")->execute();
                 $this->conn->commit();
             } catch (Throwable $e) {
                 if ($this->conn->inTransaction()) {

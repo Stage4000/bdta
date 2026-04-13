@@ -53,7 +53,7 @@ function bdta_admin_users_int(mixed $value): int
 
 function bdta_is_valid_admin_username(string $username): bool
 {
-    return preg_match('/^[A-Za-z0-9._-]{3,64}$/', $username) === 1;
+    return preg_match('/^(?=.{3,64}$)[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$/', $username) === 1;
 }
 
 /**
