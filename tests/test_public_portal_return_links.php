@@ -84,7 +84,8 @@ try {
     );
     bdta_assert(
         str_contains($book_page, 'public_book_portal_prefill_value(') &&
-        str_contains($book_page, '$portal_prefill_profile = ['),
+        str_contains($book_page, '$portal_prefill_profile = [') &&
+        str_contains($book_page, "'client.address' => \$portal_profile['address'] ?? ''"),
         'Public booking page should define portal-aware prefill data for booking forms.'
     );
     bdta_assert(

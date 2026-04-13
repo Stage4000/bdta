@@ -873,7 +873,7 @@ if (isset($error_mode) && $error_mode) {
                             $bi_map  = array_string_value($bifield, 'profile_mapping');
                             $bi_prefill = public_book_portal_prefill_value($portal_prefill_profile, $bi_map);
                             $bi_prefill_trimmed = trim($bi_prefill);
-                            $bi_prefill_matches_option = static function (mixed $option) use ($bi_prefill_trimmed): bool {
+                            $bi_matches = static function (mixed $option) use ($bi_prefill_trimmed): bool {
                                 return $bi_prefill_trimmed !== '' && $bi_prefill_trimmed === trim(scalar_string($option));
                             };
                             $bi_label = array_string_value($bifield, 'label');
@@ -904,7 +904,7 @@ if (isset($error_mode) && $error_mode) {
                                     <?= $bi_req ? 'required' : '' ?>>
                                 <option value="">— Select —</option>
                                 <?php foreach ($bi_options as $bi_opt): ?>
-                                    <option value="<?= htmlspecialchars($bi_opt) ?>" <?= $bi_prefill_matches_option($bi_opt) ? 'selected' : '' ?>><?= htmlspecialchars($bi_opt) ?></option>
+                                    <option value="<?= htmlspecialchars($bi_opt) ?>" <?= $bi_matches($bi_opt) ? 'selected' : '' ?>><?= htmlspecialchars($bi_opt) ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <?php break; case 'radio': ?>
@@ -916,7 +916,7 @@ if (isset($error_mode) && $error_mode) {
                                        name="<?= $bi_fn ?>"
                                        id="<?= $bi_fn ?>_<?= $bi_oi ?>"
                                        value="<?= htmlspecialchars($bi_opt) ?>"
-                                       <?= $bi_prefill_matches_option($bi_opt) ? 'checked' : '' ?>
+                                       <?= $bi_matches($bi_opt) ? 'checked' : '' ?>
                                        <?= ($bi_req && $bi_oi === 0) ? 'required' : '' ?>>
                                 <label class="form-check-label" for="<?= $bi_fn ?>_<?= $bi_oi ?>"><?= htmlspecialchars($bi_opt) ?></label>
                             </div>
@@ -929,7 +929,7 @@ if (isset($error_mode) && $error_mode) {
                                        data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
                                        id="<?= $bi_fn ?>_<?= $bi_oi ?>"
                                        value="<?= htmlspecialchars($bi_opt) ?>"
-                                       <?= $bi_prefill_matches_option($bi_opt) ? 'checked' : '' ?>>
+                                       <?= $bi_matches($bi_opt) ? 'checked' : '' ?>>
                                 <label class="form-check-label" for="<?= $bi_fn ?>_<?= $bi_oi ?>"><?= htmlspecialchars($bi_opt) ?></label>
                             </div>
                             <?php endforeach;
