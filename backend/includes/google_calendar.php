@@ -228,6 +228,145 @@ class GoogleCalendarIntegration {
         return is_array($row) ? $row : null;
     }
 
+    public static function getAnyConnectedOAuthAdminUserId(): int {
+        $db   = new Database();
+        $conn = $db->getConnection();
+        // Use a prepared statement here to keep read paths consistent with the rest
+        // of the OAuth token helpers even though this query currently has no inputs.
+        $stmt = $conn->prepare("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id LIMIT 1");
+        $stmt->execute();
+        return safe_int($stmt->fetchColumn());
+    }
+
+    /**
+     * @return list<int>
+     */
+    private static function getConnectedOAuthAdminUserIds(?int $preferred_admin_user_id = null): array {
+        $db   = new Database();
+        $conn = $db->getConnection();
+        // Use a prepared statement here to keep read paths consistent with the rest
+        // of the OAuth token helpers even though this query currently has no inputs.
+        $stmt = $conn->prepare("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+        $stmt->execute();
+
+        $admin_user_ids = [];
+        $preferred_present = false;
+        while (($admin_row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+            $admin_user_id = safe_int($admin_row['admin_user_id'] ?? 0);
+            if ($admin_user_id <= 0) {
+                continue;
+            }
+            if ($preferred_admin_user_id !== null && $admin_user_id === $preferred_admin_user_id) {
+                $preferred_present = true;
+                continue;
+            }
+            $admin_user_ids[] = $admin_user_id;
+        }
+
+        $admin_user_ids = array_values(array_unique($admin_user_ids));
+        if ($preferred_admin_user_id !== null && $preferred_admin_user_id > 0 && $preferred_present) {
+            array_unshift($admin_user_ids, $preferred_admin_user_id);
+        }
+
+        return $admin_user_ids;
+    }
+
+    public static function getAppointmentTypeAdminUserId(int $appointment_type_id): int {
+        if ($appointment_type_id <= 0) {
+            return 0;
+        }
+
+        $db   = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("SELECT admin_user_id FROM appointment_types WHERE id = ? LIMIT 1");
+        $stmt->execute([$appointment_type_id]);
+        return safe_int($stmt->fetchColumn());
+    }
+
+    /**
+     * @param BookingRow $booking
+     */
+    public static function getBookingAdminUserId(array $booking): int {
+        $booking_admin_user_id = safe_int($booking['admin_user_id'] ?? 0);
+        if ($booking_admin_user_id > 0) {
+            return $booking_admin_user_id;
+        }
+
+        return self::getAppointmentTypeAdminUserId(safe_int($booking['appointment_type_id'] ?? 0));
+    }
+
+    /**
+     * @param BookingRow $booking
+     * @return CalendarResult
+     */
+    public static function addEventForBooking(array $booking): array {
+        $google_result = ['success' => false, 'message' => 'Google Calendar integration not configured'];
+
+        if (self::isOAuthConfigured()) {
+            $target_admin_user_id = self::getBookingAdminUserId($booking);
+            foreach (self::getConnectedOAuthAdminUserIds($target_admin_user_id > 0 ? $target_admin_user_id : null) as $admin_user_id) {
+                $google_result = self::addEventOAuth($booking, $admin_user_id);
+                if (!empty($google_result['success'])) {
+                    break;
+                }
+            }
+        }
+
+        if (empty($google_result['success'])) {
+            $google_calendar = new self();
+            if ($google_calendar->isConfigured()) {
+                $google_result = $google_calendar->addEvent($booking);
+            }
+        }
+
+        return $google_result;
+    }
+
+    /**
+     * @param BookingRow $booking
+     * @return CalendarResult
+     */
+    public static function updateEventForBooking(array $booking, string $event_id): array {
+        $google_result = ['success' => false, 'message' => 'Google Calendar integration not configured'];
+
+        if (self::isOAuthConfigured()) {
+            $target_admin_user_id = self::getBookingAdminUserId($booking);
+            foreach (self::getConnectedOAuthAdminUserIds($target_admin_user_id > 0 ? $target_admin_user_id : null) as $admin_user_id) {
+                $google_result = self::updateEventOAuth($booking, $event_id, $admin_user_id);
+                if (!empty($google_result['success'])) {
+                    break;
+                }
+            }
+        }
+
+        if (empty($google_result['success'])) {
+            $google_calendar = new self();
+            if ($google_calendar->isConfigured()) {
+                $google_result = $google_calendar->updateEvent($booking, $event_id);
+            }
+        }
+
+        return $google_result;
+    }
+
+    /**
+     * @param BookingRow $booking
+     */
+    public static function deleteEventForBooking(string $event_id, array $booking): bool {
+        if (!self::isOAuthConfigured()) {
+            return false;
+        }
+
+        $target_admin_user_id = self::getBookingAdminUserId($booking);
+        foreach (self::getConnectedOAuthAdminUserIds($target_admin_user_id > 0 ? $target_admin_user_id : null) as $admin_user_id) {
+            if (self::deleteEventOAuth($event_id, $admin_user_id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Get a valid access token for the given admin user, refreshing if necessary.
      * Returns the access token string or null on failure.

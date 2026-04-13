@@ -5,8 +5,19 @@
  */
 
 require_once __DIR__ . '/../backend/includes/config.php';
+require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/admin_users.php';
 
 requireLogin();
+
+$db = new Database();
+$conn = $db->getConnection();
+if (!bdta_current_admin_can_manage_api_key_settings($conn, $_SESSION)) {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'You do not have permission to access database tools.']);
+    exit;
+}
 
 $action = $_GET['action'] ?? 'backup_mysql';
 if ($action !== 'backup_mysql' && $action !== 'backup') {

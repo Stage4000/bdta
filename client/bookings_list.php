@@ -46,15 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
         // Remove the event from Google Calendar when a booking is cancelled
         if ($status === 'cancelled' && !empty($booking_row['google_event_id'])) {
             $gcal_event_id = $booking_row['google_event_id'];
-            if (GoogleCalendarIntegration::isOAuthConfigured()) {
-                $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-                while ($tok_row = $stmt_tok->fetch(PDO::FETCH_ASSOC)) {
-                    if (GoogleCalendarIntegration::deleteEventOAuth($gcal_event_id, (int)$tok_row['admin_user_id'])) {
-                        // Clear stored event ID so a future re-activation doesn't try to delete again
-                        $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
-                        break;
-                    }
-                }
+            if (GoogleCalendarIntegration::deleteEventForBooking($gcal_event_id, $booking_row)) {
+                // Clear stored event ID so a future re-activation doesn't try to delete again
+                $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
             }
         }
 
@@ -71,24 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isse
             }
 
             if (empty($booking_row['google_event_id'])) {
-                $gcal_event_id = null;
-                if (GoogleCalendarIntegration::isOAuthConfigured()) {
-                    $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-                    while ($admin_row = $stmt_admins->fetch(PDO::FETCH_ASSOC)) {
-                        $cal_result = GoogleCalendarIntegration::addEventOAuth($updated_booking, (int)$admin_row['admin_user_id']);
-                        if (!empty($cal_result['success'])) {
-                            $gcal_event_id = $cal_result['event_id'] ?? null;
-                            break;
-                        }
-                    }
-                }
-                if (!$gcal_event_id) {
-                    $google_calendar = new GoogleCalendarIntegration();
-                    if ($google_calendar->isConfigured()) {
-                        $svc_result = $google_calendar->addEvent($updated_booking);
-                        $gcal_event_id = $svc_result['event_id'] ?? null;
-                    }
-                }
+                $gcal_result = GoogleCalendarIntegration::addEventForBooking($updated_booking);
+                $gcal_event_id = $gcal_result['event_id'] ?? null;
                 if ($gcal_event_id) {
                     $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")->execute([$gcal_event_id, $booking_id]);
                 }

@@ -91,7 +91,7 @@ $stmt = $conn->prepare("
            is_mini_session, mini_session_location,
            is_field_rental, field_rental_location,
            is_group_class, group_class_location,
-           location_types, requires_admin_confirmation,
+           location_types, requires_admin_confirmation, admin_user_id,
            uses_resource, resource_name, resource_capacity, resource_allocation,
            buffer_before_minutes, buffer_after_minutes
     FROM appointment_types
@@ -107,6 +107,7 @@ if ($apt_type === []) {
 $requires_admin_confirmation = array_int_value($apt_type, 'requires_admin_confirmation') === 1;
 $is_pending_request = $requires_admin_confirmation;
 $initial_status = $is_pending_request ? 'pending' : 'confirmed';
+$appointment_type_admin_user_id = array_int_value($apt_type, 'admin_user_id');
 $resource_config = bdta_booking_resource_config($apt_type);
 
 // ── Verify that the client actually has credits for this appointment type ─
@@ -293,16 +294,17 @@ if (!empty($resource_config['enabled'])) {
 // ── Insert booking ────────────────────────────────────────────────────────
 $stmt = $conn->prepare("
     INSERT INTO bookings
-        (client_id, appointment_type_id, client_name, client_email, client_phone,
+        (client_id, appointment_type_id, admin_user_id, client_name, client_email, client_phone,
          service_type, appointment_date, appointment_time, notes, duration_minutes,
          location, location_type, package_credit_id,
          contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font,
          status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ");
 $stmt->execute([
     $client_id,
     $appointment_type_id,
+    $appointment_type_admin_user_id > 0 ? $appointment_type_admin_user_id : null,
     trim(scalar_string($data['client_name'] ?? '')),
     trim(scalar_string($data['client_email'] ?? '')),
     trim(scalar_string($data['client_phone'] ?? '')),
@@ -570,9 +572,10 @@ $email_result  = $is_pending_request
 
 $gcal_result = ['success' => false];
 if (!$is_pending_request) {
-    $google_calendar = new GoogleCalendarIntegration();
-    if ($google_calendar->isConfigured()) {
-        $gcal_result = $google_calendar->addEvent($booking);
+    $gcal_result = GoogleCalendarIntegration::addEventForBooking($booking);
+    if (!empty($gcal_result['event_id'])) {
+        $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
+             ->execute([$gcal_result['event_id'], $booking_id]);
     }
 }
 

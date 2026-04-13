@@ -129,9 +129,35 @@ class Database {
     private string $db_name;
     private string $db_user;
     private string $db_password;
+    /** @var array<string, list<string>> */
+    private array $tableColumnsCache = [];
 
     private function failConfiguration(string $message): never {
         die('Database configuration failed: ' . $message);
+    }
+
+    private function getColumnNameFromDefinition(string $column_definition): string {
+        $trimmed_definition = trim($column_definition);
+        $parts = preg_split('/\s+/', $trimmed_definition, 2);
+        $column_name = trim(scalar_string($parts[0] ?? ''), '`"[]');
+        if ($column_name === '' || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $column_name) !== 1) {
+            throw new InvalidArgumentException('Invalid column definition: ' . $column_definition);
+        }
+
+        return $column_name;
+    }
+
+    private function ensureTableColumn(string $table, string $column_definition): void {
+        if (!in_array($table, ['admin_users'], true)) {
+            throw new InvalidArgumentException('Unsupported table for schema update: ' . $table);
+        }
+
+        $column_name = $this->getColumnNameFromDefinition($column_definition);
+        if (in_array($column_name, $this->getTableColumns($table), true)) {
+            return;
+        }
+
+        $this->execSQL("ALTER TABLE {$table} ADD COLUMN {$column_definition}");
     }
     
     public function __construct() {
@@ -416,6 +442,10 @@ class Database {
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
             throw new InvalidArgumentException("Invalid table name: $tableName");
         }
+
+        if (isset($this->tableColumnsCache[$tableName])) {
+            return $this->tableColumnsCache[$tableName];
+        }
         
         $stmt = $this->conn->prepare("
             SELECT COLUMN_NAME
@@ -424,7 +454,8 @@ class Database {
             AND TABLE_NAME = ?
         ");
         $stmt->execute([$tableName]);
-        return array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        $this->tableColumnsCache[$tableName] = array_map('scalar_string', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        return $this->tableColumnsCache[$tableName];
     }
 
     private function indexExists(string $tableName, string $indexName): bool {
@@ -495,9 +526,19 @@ class Database {
                     username TEXT UNIQUE NOT NULL,
                     password_hash TEXT NOT NULL,
                     email TEXT NOT NULL,
+                    account_type TEXT NOT NULL DEFAULT 'standard',
+                    can_manage_admin_users INTEGER NOT NULL DEFAULT 0,
+                    can_manage_api_keys INTEGER NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
+            // Prime the schema cache once so the subsequent ensureTableColumn() checks
+            // reuse the same admin_users column list instead of re-querying metadata.
+            $this->getTableColumns('admin_users');
+
+            $this->ensureTableColumn('admin_users', "account_type TEXT NOT NULL DEFAULT 'standard'");
+            $this->ensureTableColumn('admin_users', 'can_manage_admin_users INTEGER NOT NULL DEFAULT 0');
+            $this->ensureTableColumn('admin_users', 'can_manage_api_keys INTEGER NOT NULL DEFAULT 0');
             
             // Blog posts table
             $this->execSQL("
@@ -523,6 +564,7 @@ class Database {
                     client_name TEXT NOT NULL,
                     client_email TEXT NOT NULL,
                     client_phone TEXT,
+                    admin_user_id INTEGER,
                     service_type TEXT NOT NULL,
                     appointment_date DATE NOT NULL,
                     appointment_time TIME NOT NULL,
@@ -630,6 +672,7 @@ class Database {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     description TEXT,
+                    admin_user_id INTEGER,
                     duration_minutes INTEGER DEFAULT 60,
                     buffer_before_minutes INTEGER DEFAULT 0,
                     buffer_after_minutes INTEGER DEFAULT 0,
@@ -1182,17 +1225,34 @@ class Database {
                 )
             ");
             
-            // Create default admin if not exists
-            $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
-            $stmt->execute(['admin']);
-            
-            if (!$stmt->fetch()) {
-                $password_hash = password_hash('admin123', PASSWORD_DEFAULT);
-                $stmt = $this->conn->prepare("
-                    INSERT INTO admin_users (username, password_hash, email) 
-                    VALUES (?, ?, ?)
-                ");
-                $stmt->execute(['admin', $password_hash, 'admin@brooksdogtrainingacademy.com']);
+            $this->conn->beginTransaction();
+            try {
+                // Create default admin if not exists
+                $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
+                $stmt->execute(['admin']);
+                
+                if (!$stmt->fetch()) {
+                    $password_hash = password_hash('admin123', PASSWORD_DEFAULT);
+                    $stmt = $this->conn->prepare("
+                        INSERT INTO admin_users (username, password_hash, email, account_type, can_manage_admin_users, can_manage_api_keys) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute(['admin', $password_hash, 'admin@brooksdogtrainingacademy.com', 'main', 1, 1]);
+                }
+
+                $this->conn->prepare("
+                    UPDATE admin_users
+                    SET account_type = 'main',
+                        can_manage_admin_users = 1,
+                        can_manage_api_keys = 1
+                    WHERE username = 'admin'
+                ")->execute();
+                $this->conn->commit();
+            } catch (Throwable $e) {
+                if ($this->conn->inTransaction()) {
+                    $this->conn->rollBack();
+                }
+                throw $e;
             }
             
             // Initialize default settings if table is empty
@@ -1611,6 +1671,10 @@ class Database {
         
         // Add unique_link column to appointment_types table
         $apt_column_names = $this->getTableColumns('appointment_types');
+
+        if (!in_array('admin_user_id', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN admin_user_id INTEGER DEFAULT NULL");
+        }
         
         if (!in_array('unique_link', $apt_column_names)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN unique_link VARCHAR(255)");
@@ -2214,6 +2278,9 @@ class Database {
         // Add google_event_id column to bookings so cancelled bookings can be
         // removed from the connected Google Calendar
         $booking_col_names_gcal = $this->getTableColumns('bookings');
+        if (!in_array('admin_user_id', $booking_col_names_gcal)) {
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN admin_user_id INTEGER DEFAULT NULL");
+        }
         if (!in_array('google_event_id', $booking_col_names_gcal)) {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN google_event_id TEXT DEFAULT NULL");
         }

@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/settings.php';
+require_once __DIR__ . '/../backend/includes/admin_users.php';
 
 requireLogin();
 
@@ -21,7 +22,8 @@ function getCategoryIcon(string $category): string {
         'social' => 'share-nodes',
         'database' => 'database',
         'theme' => 'palette',
-        'advanced' => 'gear'
+        'advanced' => 'gear',
+        'admins' => 'users'
     ];
     return $icons[$category] ?? 'gear';
 }
@@ -71,16 +73,168 @@ function getSelectOptions(string $key): array {
 }
 
 $page_title = 'Settings';
+$db = new Database();
+$conn = $db->getConnection();
+$current_admin_user = bdta_current_admin_user($conn, $_SESSION);
+$is_main_admin_account = is_array($current_admin_user) && !empty($current_admin_user['is_main_account']);
+$can_manage_admin_users = bdta_admin_user_can_manage_admin_users($current_admin_user);
+$can_manage_api_keys = bdta_admin_user_can_manage_api_keys($current_admin_user);
 
 // Get all categories
 $categories = Settings::getCategories();
+$categories[] = 'admins';
+$categories = array_values(array_unique($categories));
+sort($categories);
+if (!$can_manage_api_keys) {
+    $categories = array_values(array_filter(
+        $categories,
+        static fn (string $category): bool => $category !== 'database'
+    ));
+}
 $current_category = scalar_string($_GET['category'] ?? 'general');
+
+if (!$can_manage_api_keys && $current_category === 'database') {
+    setFlashMessage('You do not have permission to access database settings.', 'danger');
+    redirect(ADMIN_URL . 'settings.php?category=general');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_admin_user'])) {
+    requireValidCsrfToken(ADMIN_URL . 'settings.php?category=admins');
+
+    if (!$can_manage_admin_users) {
+        setFlashMessage('You do not have permission to add admin users.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    $username = trim(scalar_string($_POST['new_admin_username'] ?? ''));
+    $email = trim(scalar_string($_POST['new_admin_email'] ?? ''));
+    $password = scalar_string($_POST['new_admin_password'] ?? '');
+
+    if ($username === '' || !bdta_is_valid_admin_username($username)) {
+        setFlashMessage('Username must be 3-64 characters and contain only letters, numbers, dots, underscores, or dashes.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        setFlashMessage('Enter a valid email address for the admin user.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    if (strlen($password) < 8) {
+        setFlashMessage('Admin user passwords must be at least 8 characters long.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    $existing_admin_stmt = $conn->prepare('SELECT id FROM admin_users WHERE username = ? LIMIT 1');
+    $existing_admin_stmt->execute([$username]);
+    if ($existing_admin_stmt->fetch() !== false) {
+        setFlashMessage('That admin username is already in use.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+    $create_admin_stmt = $conn->prepare("
+        INSERT INTO admin_users (username, password_hash, email, account_type, can_manage_admin_users, can_manage_api_keys)
+        VALUES (?, ?, ?, 'standard', 0, 0)
+    ");
+    $create_admin_stmt->execute([$username, $password_hash, $email]);
+
+    setFlashMessage('Admin user created successfully.', 'success');
+    redirect(ADMIN_URL . 'settings.php?category=admins');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_admin_permissions'])) {
+    requireValidCsrfToken(ADMIN_URL . 'settings.php?category=admins');
+
+    if (!$is_main_admin_account) {
+        setFlashMessage('Only the main admin account can change admin permissions.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    $target_admin_user_id = safe_int($_POST['target_admin_user_id'] ?? 0);
+    $target_admin_user = bdta_find_admin_user($conn, $target_admin_user_id);
+
+    if ($target_admin_user === null || !empty($target_admin_user['is_main_account'])) {
+        setFlashMessage('The main admin account permissions cannot be changed.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    $update_permissions_stmt = $conn->prepare("
+        UPDATE admin_users
+        SET can_manage_admin_users = ?, can_manage_api_keys = ?
+        WHERE id = ?
+    ");
+    $update_permissions_stmt->execute([
+        isset($_POST['can_manage_admin_users']) ? 1 : 0,
+        isset($_POST['can_manage_api_keys']) ? 1 : 0,
+        $target_admin_user_id,
+    ]);
+
+    setFlashMessage('Admin permissions updated.', 'success');
+    redirect(ADMIN_URL . 'settings.php?category=admins');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_admin_user'])) {
+    requireValidCsrfToken(ADMIN_URL . 'settings.php?category=admins');
+
+    if (!$can_manage_admin_users) {
+        setFlashMessage('You do not have permission to delete admin users.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    $target_admin_user_id = safe_int($_POST['target_admin_user_id'] ?? 0);
+    $target_admin_user = bdta_find_admin_user($conn, $target_admin_user_id);
+    $current_admin_user_id = safe_int($_SESSION['admin_id'] ?? 0);
+
+    if ($target_admin_user === null) {
+        setFlashMessage('That admin user could not be found.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    if (!empty($target_admin_user['is_main_account'])) {
+        setFlashMessage('The main admin account cannot be deleted.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    if ($target_admin_user_id === $current_admin_user_id) {
+        setFlashMessage('You cannot delete the admin account you are currently using.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    $conn->beginTransaction();
+    $delete_step = 'unassign appointment types';
+    try {
+        $conn->prepare('UPDATE appointment_types SET admin_user_id = NULL WHERE admin_user_id = ?')->execute([$target_admin_user_id]);
+        $delete_step = 'unassign bookings';
+        $conn->prepare('UPDATE bookings SET admin_user_id = NULL WHERE admin_user_id = ?')->execute([$target_admin_user_id]);
+        $delete_step = 'delete admin user';
+        $conn->prepare('DELETE FROM admin_users WHERE id = ?')->execute([$target_admin_user_id]);
+        $conn->commit();
+    } catch (Throwable $e) {
+        $conn->rollBack();
+        error_log('settings.php: failed to ' . $delete_step . ' for admin user ' . $target_admin_user_id . ': ' . $e->getMessage());
+        setFlashMessage('Unable to delete that admin user right now.', 'danger');
+        redirect(ADMIN_URL . 'settings.php?category=admins');
+    }
+
+    setFlashMessage('Admin user deleted successfully.', 'success');
+    redirect(ADMIN_URL . 'settings.php?category=admins');
+}
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     try {
         // Get all settings for current category to validate keys
-        $valid_settings = Settings::getCategory($current_category);
+        $category_settings = Settings::getCategory($current_category);
+        $valid_settings = bdta_filter_api_key_settings($category_settings, $can_manage_api_keys);
+        if (
+            !$can_manage_api_keys
+            && count($category_settings) > 0
+            && count($valid_settings) === 0
+        ) {
+            setFlashMessage('You do not have permission to change API-key or global integration settings.', 'danger');
+            redirect(ADMIN_URL . 'settings.php?category=' . urlencode($current_category));
+        }
         $valid_keys = array_column($valid_settings, 'key');
         
         // Special handling for database category - only update .env file
@@ -220,7 +374,10 @@ function updateEnvFile(array $updates): void {
 }
 
 // Get settings for current category
-$settings = Settings::getCategory($current_category);
+$settings = $current_category === 'admins'
+    ? []
+    : bdta_filter_api_key_settings(Settings::getCategory($current_category), $can_manage_api_keys);
+$admin_users = $current_category === 'admins' ? bdta_list_admin_users($conn) : [];
 
 // For booking category: load available booking intake form templates for the dropdown
 $booking_form_templates = [];
@@ -356,112 +513,264 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                             </p>
                         </div>
                     <?php endif; ?>
-                     
-                    <form method="POST" action="" id="settings-form">
-                        <input type="hidden" name="category" value="<?= escape($current_category) ?>">
-                        
-                        <?php foreach ($settings as $setting): ?>
-                            <div class="mb-3">
-                                <label for="<?= escape($setting['key']) ?>" class="form-label">
-                                    <?= escape($setting['label']) ?>
-                                    <?php if ($setting['is_secret']): ?>
-                                        <i class="fas fa-shield-halved text-warning" title="Sensitive data"></i>
-                                    <?php endif; ?>
-                                </label>
-                                
-                                <?php if ($setting['key'] === 'default_booking_form_id'): ?>
-                                    <select class="form-select" id="default_booking_form_id" name="default_booking_form_id">
-                                        <option value="0" <?= safe_int($setting['actual_value']) === 0 ? 'selected' : '' ?>>— Use default fields (Name, Email, Phone, Pet Name, Notes) —</option>
-                                        <?php foreach ($booking_form_templates as $bft): ?>
-                                            <option value="<?= (int)$bft['id'] ?>" <?= safe_int($setting['actual_value']) === (int)$bft['id'] ? 'selected' : '' ?>>
-                                                <?= escape($bft['name']) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <?php if (empty($booking_form_templates)): ?>
-                                    <div class="form-text text-muted">
-                                        No Booking Intake Form templates exist yet.
-                                        <a href="form_templates_edit.php">Create one</a> with Form Type set to <strong>Booking Intake Form</strong>.
-                                    </div>
-                                    <?php else: ?>
-                                    <div class="form-text"><?= escape($setting['description']) ?> <a href="form_templates_list.php">Manage form templates</a>.</div>
-                                    <?php endif; ?>
-
-                                <?php elseif ($setting['type'] === 'textarea'): ?>
-                                    <textarea 
-                                        class="form-control" 
-                                        id="<?= escape($setting['key']) ?>" 
-                                        name="<?= escape($setting['key']) ?>"
-                                        rows="3"><?= escape($setting['actual_value']) ?></textarea>
-                                
-                                <?php elseif ($setting['type'] === 'checkbox'): ?>
-                                    <div class="form-check">
-                                        <input 
-                                            class="form-check-input" 
-                                            type="checkbox" 
-                                            id="<?= escape($setting['key']) ?>" 
-                                            name="<?= escape($setting['key']) ?>"
-                                            value="1"
-                                            <?= $setting['actual_value'] ? 'checked' : '' ?>>
-                                        <label class="form-check-label" for="<?= escape($setting['key']) ?>">
-                                            Enabled
-                                        </label>
-                                    </div>
-                                
-                                <?php elseif ($setting['type'] === 'select'): ?>
-                                    <select class="form-select" id="<?= escape($setting['key']) ?>" name="<?= escape($setting['key']) ?>">
-                                        <?php 
-                                        $options = getSelectOptions(array_string_value($setting, 'key'));
-                                        foreach ($options as $value => $label): 
-                                        ?>
-                                            <option value="<?= escape(scalar_string($value)) ?>" <?= $setting['actual_value'] == $value ? 'selected' : '' ?>>
-                                                <?= escape($label) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-
-                                <?php elseif ($setting['type'] === 'color'): ?>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <input 
-                                            type="color" 
-                                            class="form-control form-control-color theme-color-input"
-                                            id="<?= escape($setting['key']) ?>" 
-                                            name="<?= escape($setting['key']) ?>"
-                                            value="<?= escape($setting['actual_value']) ?>"
-                                            data-color-key="<?= escape($setting['key']) ?>"
-                                            title="Choose color">
-                                        <input 
-                                            type="text"
-                                            class="form-control font-monospace color-hex-display"
-                                            style="max-width: 110px;"
-                                            value="<?= escape($setting['actual_value']) ?>"
-                                            data-for="<?= escape($setting['key']) ?>"
-                                            placeholder="#000000"
-                                            maxlength="7"
-                                            aria-label="Hex color value for <?= escape($setting['label']) ?>">
-                                    </div>
-                                
-                                <?php else: ?>
-                                    <input 
-                                        type="<?= escape($setting['type']) ?>" 
-                                        class="form-control" 
-                                        id="<?= escape($setting['key']) ?>" 
-                                        name="<?= escape($setting['key']) ?>"
-                                        value="<?= escape($setting['actual_value']) ?>">
-                                <?php endif; ?>
-                                
-                                <?php if ($setting['description'] && $setting['key'] !== 'default_booking_form_id'): ?>
-                                    <div class="form-text"><?= escape($setting['description']) ?></div>
-                                <?php endif; ?>
-                            </div>
-                        <?php endforeach; ?>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                            <button type="submit" name="save_settings" class="btn btn-primary">
-                                <i class="fas fa-check-lg"></i> Save Settings
-                            </button>
+                    
+                    <?php if ($current_category === 'admins'): ?>
+                        <div class="alert alert-info mb-4">
+                            <h6><i class="fas fa-users"></i> Admin User Management</h6>
+                            <p class="mb-0 small">
+                                The default <strong>admin</strong> account is created automatically if one does not exist.
+                                The main admin account always keeps admin-user and API-key access. Other admin users can be granted those permissions here.
+                            </p>
                         </div>
-                    </form>
+
+                        <?php if ($can_manage_admin_users): ?>
+                            <div class="card border-0 bg-light mb-4">
+                                <div class="card-body">
+                                    <h6 class="card-title mb-3"><i class="fas fa-user-plus"></i> Add Admin User</h6>
+                                    <form method="POST" action="?category=admins" class="row g-3">
+                                        <?= csrfInput() ?>
+                                        <div class="col-md-4">
+                                            <label for="new_admin_username" class="form-label">Username</label>
+                                            <input type="text" class="form-control" id="new_admin_username" name="new_admin_username" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="new_admin_email" class="form-label">Email</label>
+                                            <input type="email" class="form-control" id="new_admin_email" name="new_admin_email" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="new_admin_password" class="form-label">Temporary Password</label>
+                                            <input type="password" class="form-control" id="new_admin_password" name="new_admin_password" minlength="8" required>
+                                        </div>
+                                        <div class="col-12 d-flex justify-content-end">
+                                            <button type="submit" name="add_admin_user" class="btn btn-primary">
+                                                <i class="fas fa-user-plus"></i> Add Admin User
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Admin User</th>
+                                        <th scope="col">Account Type</th>
+                                        <th scope="col">Permissions</th>
+                                        <th scope="col" class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($admin_users as $admin_user): ?>
+                                        <tr>
+                                            <td>
+                                                <div class="fw-semibold"><?= escape($admin_user['username']) ?></div>
+                                                <?php if ($admin_user['email'] !== ''): ?>
+                                                    <div class="text-muted small"><?= escape($admin_user['email']) ?></div>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <span class="badge text-bg-<?= $admin_user['is_main_account'] ? 'primary' : 'secondary' ?>">
+                                                    <?= escape(ucfirst($admin_user['account_type'])) ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <?php if ($admin_user['is_main_account']): ?>
+                                                    <div class="small text-muted">Fixed for the default/main admin account.</div>
+                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                        <span class="badge text-bg-success">Manage admin users</span>
+                                                        <span class="badge text-bg-success">Access API-key settings</span>
+                                                    </div>
+                                                <?php elseif ($is_main_admin_account): ?>
+                                                    <form method="POST" action="?category=admins" class="d-flex flex-column gap-2">
+                                                        <?= csrfInput() ?>
+                                                        <input type="hidden" name="target_admin_user_id" value="<?= (int) $admin_user['id'] ?>">
+                                                        <div class="form-check">
+                                                            <input
+                                                                class="form-check-input"
+                                                                type="checkbox"
+                                                                id="can_manage_admin_users_<?= (int) $admin_user['id'] ?>"
+                                                                name="can_manage_admin_users"
+                                                                value="1"
+                                                                <?= $admin_user['can_manage_admin_users'] ? 'checked' : '' ?>>
+                                                            <label class="form-check-label" for="can_manage_admin_users_<?= (int) $admin_user['id'] ?>">
+                                                                Manage admin users
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input
+                                                                class="form-check-input"
+                                                                type="checkbox"
+                                                                id="can_manage_api_keys_<?= (int) $admin_user['id'] ?>"
+                                                                name="can_manage_api_keys"
+                                                                value="1"
+                                                                <?= $admin_user['can_manage_api_keys'] ? 'checked' : '' ?>>
+                                                            <label class="form-check-label" for="can_manage_api_keys_<?= (int) $admin_user['id'] ?>">
+                                                                Access API-key settings
+                                                            </label>
+                                                        </div>
+                                                        <div>
+                                                            <button type="submit" name="update_admin_permissions" class="btn btn-sm btn-outline-primary">
+                                                                <i class="fas fa-save"></i> Save Permissions
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <span class="badge text-bg-<?= $admin_user['can_manage_admin_users'] ? 'success' : 'light' ?>">
+                                                            <?= $admin_user['can_manage_admin_users'] ? 'Can manage admin users' : 'Cannot manage admin users' ?>
+                                                        </span>
+                                                        <span class="badge text-bg-<?= $admin_user['can_manage_api_keys'] ? 'success' : 'light' ?>">
+                                                            <?= $admin_user['can_manage_api_keys'] ? 'Can access API-key settings' : 'No API-key settings access' ?>
+                                                        </span>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="text-end">
+                                                <?php if (
+                                                    !$admin_user['is_main_account']
+                                                    && $can_manage_admin_users
+                                                    && (int) $admin_user['id'] !== safe_int($_SESSION['admin_id'] ?? 0)
+                                                ): ?>
+                                                    <form method="POST" action="?category=admins" onsubmit="return confirm('Delete this admin user? Their appointment assignments will be cleared.');">
+                                                        <?= csrfInput() ?>
+                                                        <input type="hidden" name="target_admin_user_id" value="<?= (int) $admin_user['id'] ?>">
+                                                        <button type="submit" name="delete_admin_user" class="btn btn-sm btn-outline-danger">
+                                                            <i class="fas fa-trash"></i> Delete
+                                                        </button>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <span class="text-muted small">No changes available</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="form-text">
+                            Google Calendar connection controls remain available in the <a href="?category=calendar">Calendar</a> settings for each admin account.
+                            API-key and global integration settings stay limited to admins with API-key access.
+                        </div>
+                    <?php else: ?>
+                        <?php if (!$can_manage_api_keys && $current_category === 'calendar'): ?>
+                            <div class="alert alert-info mb-4">
+                                <i class="fas fa-circle-info"></i>
+                                Global Google Calendar credentials and other API-key settings are managed separately.
+                                Your personal Google Calendar connection controls remain available below.
+                            </div>
+                        <?php endif; ?>
+
+                        <form method="POST" action="" id="settings-form">
+                            <input type="hidden" name="category" value="<?= escape($current_category) ?>">
+                            
+                            <?php foreach ($settings as $setting): ?>
+                                <div class="mb-3">
+                                    <label for="<?= escape($setting['key']) ?>" class="form-label">
+                                        <?= escape($setting['label']) ?>
+                                        <?php if ($setting['is_secret']): ?>
+                                            <i class="fas fa-shield-halved text-warning" title="Sensitive data"></i>
+                                        <?php endif; ?>
+                                    </label>
+                                    
+                                    <?php if ($setting['key'] === 'default_booking_form_id'): ?>
+                                        <select class="form-select" id="default_booking_form_id" name="default_booking_form_id">
+                                            <option value="0" <?= safe_int($setting['actual_value']) === 0 ? 'selected' : '' ?>>— Use default fields (Name, Email, Phone, Pet Name, Notes) —</option>
+                                            <?php foreach ($booking_form_templates as $bft): ?>
+                                                <option value="<?= (int)$bft['id'] ?>" <?= safe_int($setting['actual_value']) === (int)$bft['id'] ? 'selected' : '' ?>>
+                                                    <?= escape($bft['name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <?php if (empty($booking_form_templates)): ?>
+                                        <div class="form-text text-muted">
+                                            No Booking Intake Form templates exist yet.
+                                            <a href="form_templates_edit.php">Create one</a> with Form Type set to <strong>Booking Intake Form</strong>.
+                                        </div>
+                                        <?php else: ?>
+                                        <div class="form-text"><?= escape($setting['description']) ?> <a href="form_templates_list.php">Manage form templates</a>.</div>
+                                        <?php endif; ?>
+
+                                    <?php elseif ($setting['type'] === 'textarea'): ?>
+                                        <textarea 
+                                            class="form-control" 
+                                            id="<?= escape($setting['key']) ?>" 
+                                            name="<?= escape($setting['key']) ?>"
+                                            rows="3"><?= escape($setting['actual_value']) ?></textarea>
+                                    
+                                    <?php elseif ($setting['type'] === 'checkbox'): ?>
+                                        <div class="form-check">
+                                            <input 
+                                                class="form-check-input" 
+                                                type="checkbox" 
+                                                id="<?= escape($setting['key']) ?>" 
+                                                name="<?= escape($setting['key']) ?>"
+                                                value="1"
+                                                <?= $setting['actual_value'] ? 'checked' : '' ?>>
+                                            <label class="form-check-label" for="<?= escape($setting['key']) ?>">
+                                                Enabled
+                                            </label>
+                                        </div>
+                                    
+                                    <?php elseif ($setting['type'] === 'select'): ?>
+                                        <select class="form-select" id="<?= escape($setting['key']) ?>" name="<?= escape($setting['key']) ?>">
+                                            <?php 
+                                            $options = getSelectOptions(array_string_value($setting, 'key'));
+                                            foreach ($options as $value => $label): 
+                                            ?>
+                                                <option value="<?= escape(scalar_string($value)) ?>" <?= $setting['actual_value'] == $value ? 'selected' : '' ?>>
+                                                    <?= escape($label) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+
+                                    <?php elseif ($setting['type'] === 'color'): ?>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <input 
+                                                type="color" 
+                                                class="form-control form-control-color theme-color-input"
+                                                id="<?= escape($setting['key']) ?>" 
+                                                name="<?= escape($setting['key']) ?>"
+                                                value="<?= escape($setting['actual_value']) ?>"
+                                                data-color-key="<?= escape($setting['key']) ?>"
+                                                title="Choose color">
+                                            <input 
+                                                type="text"
+                                                class="form-control font-monospace color-hex-display"
+                                                style="max-width: 110px;"
+                                                value="<?= escape($setting['actual_value']) ?>"
+                                                data-for="<?= escape($setting['key']) ?>"
+                                                placeholder="#000000"
+                                                maxlength="7"
+                                                aria-label="Hex color value for <?= escape($setting['label']) ?>">
+                                        </div>
+                                    
+                                    <?php else: ?>
+                                        <input 
+                                            type="<?= escape($setting['type']) ?>" 
+                                            class="form-control" 
+                                            id="<?= escape($setting['key']) ?>" 
+                                            name="<?= escape($setting['key']) ?>"
+                                            value="<?= escape($setting['actual_value']) ?>">
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($setting['description'] && $setting['key'] !== 'default_booking_form_id'): ?>
+                                        <div class="form-text"><?= escape($setting['description']) ?></div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                            
+                            <?php if ($settings !== []): ?>
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                                    <button type="submit" name="save_settings" class="btn btn-primary">
+                                        <i class="fas fa-check-lg"></i> Save Settings
+                                    </button>
+                                </div>
+                            <?php endif; ?>
+                        </form>
+                    <?php endif; ?>
                     
                     <?php if ($current_category === 'database'): ?>
                         <!-- Database Utilities -->

@@ -27,7 +27,9 @@ $offset = ($page - 1) * $per_page;
 // Get appointment types
 // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-callable.tainted-callable, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- safe int-cast LIMIT/OFFSET via $db->buildLimitClause().
 $stmt = $conn->prepare("
-    SELECT * FROM appointment_types
+    SELECT appointment_types.*, admin_users.username AS admin_username, admin_users.email AS admin_email
+    FROM appointment_types
+    LEFT JOIN admin_users ON admin_users.id = appointment_types.admin_user_id
     ORDER BY is_active DESC, name ASC" . $db->buildLimitClause($per_page, $offset)
 );
 $stmt->execute();
@@ -90,6 +92,7 @@ include __DIR__ . '/../backend/includes/header.php';
                         <thead>
                             <tr>
                                 <th>Name</th>
+                                <th>Assigned Admin</th>
                                 <th>Duration</th>
                                 <th>Schedule</th>
                                 <th>Buffers</th>
@@ -127,13 +130,23 @@ include __DIR__ . '/../backend/includes/header.php';
                                 $resource_allocation = array_string_value($type, 'resource_allocation', 'per_appointment');
                                 $is_active = array_int_value($type, 'is_active') === 1;
                                 $unique_link = array_string_value($type, 'unique_link');
-                                $type_id = array_int_value($type, 'id');
-                                ?>
+                                 $type_id = array_int_value($type, 'id');
+                                 $admin_username = array_string_value($type, 'admin_username');
+                                 $admin_email = array_string_value($type, 'admin_email');
+                                 $assigned_admin_label = trim($admin_username !== '' ? $admin_username : $admin_email);
+                                 ?>
                                 <tr>
                                     <td>
                                         <strong><?= htmlspecialchars($type_name) ?></strong>
                                         <?php if ($type_description !== ''): ?>
                                             <br><small class="text-muted appointment-type-description-preview" title="<?= htmlspecialchars($type_description) ?>"><?= htmlspecialchars($type_description) ?></small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($assigned_admin_label !== ''): ?>
+                                            <span class="badge bg-secondary"><?= htmlspecialchars($assigned_admin_label) ?></span>
+                                        <?php else: ?>
+                                            <span class="text-muted">Shared</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>

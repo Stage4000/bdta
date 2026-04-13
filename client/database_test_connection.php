@@ -7,10 +7,23 @@
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/env_loader.php';
 require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/admin_users.php';
 
 requireLogin();
 
 header('Content-Type: application/json');
+
+$db = new Database();
+$conn = $db->getConnection();
+if (!bdta_current_admin_can_manage_api_key_settings($conn, $_SESSION)) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'tests' => [],
+        'error' => 'You do not have permission to access database tools.',
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
 
 EnvLoader::load();
 
