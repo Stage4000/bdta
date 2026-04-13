@@ -214,9 +214,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_admin_user']))
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     try {
         // Get all settings for current category to validate keys
-        $valid_settings = Settings::getCategory($current_category);
-        $valid_settings = bdta_filter_api_key_settings($valid_settings, $can_manage_api_keys);
-        if (!$can_manage_api_keys && $valid_settings === []) {
+        $category_settings = Settings::getCategory($current_category);
+        $valid_settings = bdta_filter_api_key_settings($category_settings, $can_manage_api_keys);
+        if (!$can_manage_api_keys && $category_settings !== [] && $valid_settings === []) {
             setFlashMessage('You do not have permission to change API-key or global integration settings.', 'danger');
             redirect(ADMIN_URL . 'settings.php?category=' . urlencode($current_category));
         }
