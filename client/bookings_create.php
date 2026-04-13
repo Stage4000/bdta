@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/booking_resources.php';
 require_once '../backend/includes/email_service.php';
 require_once '../backend/includes/google_calendar.php';
 require_once '../backend/includes/workflow_helper.php';
@@ -191,6 +192,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($errors)) {
                 setFlashMessage(implode('<br>', $errors), 'danger');
             } else {
+            $resource_config = bdta_booking_resource_config($apt_type);
+            if (!empty($resource_config['enabled'])) {
+                $stmt = $conn->prepare("
+                    SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
+                           COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
+                           COALESCE(at.buffer_after_minutes, 0) AS b_buffer_after,
+                           COALESCE(ap_counts.pet_count, 0) AS pet_count
+                    FROM bookings b
+                    LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+                    LEFT JOIN (
+                        SELECT booking_id, COUNT(*) AS pet_count
+                        FROM appointment_pets
+                        GROUP BY booking_id
+                    ) ap_counts ON ap_counts.booking_id = b.id
+                    WHERE b.appointment_date = ? AND b.status != 'cancelled' AND b.appointment_type_id = ?
+                ");
+                $stmt->execute([$booking_date, $appointment_type_id]);
+                $existing_resource_bookings = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+                if (!bdta_booking_resource_has_capacity(
+                    $resource_config,
+                    $existing_resource_bookings,
+                    scalar_string($booking_time),
+                    array_int_value($apt_type, 'duration_minutes', 60),
+                    max(0, array_int_value($apt_type, 'buffer_before_minutes')),
+                    max(0, array_int_value($apt_type, 'buffer_after_minutes')),
+                    bdta_booking_resource_units($resource_config, count($pets)),
+                    $appointment_type_id
+                )) {
+                    $resource_label = trim($resource_config['name']);
+                    $errors[] = 'No ' . ($resource_label !== '' ? $resource_label : 'resource') . ' units are available for this time slot.';
+                }
+            }
+
+            if (!empty($errors)) {
+                setFlashMessage(implode('<br>', $errors), 'danger');
+            } else {
             // Create booking
             $pets_json = json_encode($pets);
             $pkg_cred_col = $use_package_credit && is_array($package_credit_row)
@@ -313,6 +350,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['success'] = "Booking created successfully!";
             header('Location: bookings_list.php');
             exit;
+            }
             } // end location validation else
         } // end outer errors else
     } catch (Exception $e) {

@@ -121,6 +121,10 @@ include __DIR__ . '/../backend/includes/header.php';
                                 $max_participants = array_int_value($type, 'max_participants', 1);
                                 $is_mini_session = array_int_value($type, 'is_mini_session') === 1;
                                 $is_field_rental = array_int_value($type, 'is_field_rental') === 1;
+                                $uses_resource = array_int_value($type, 'uses_resource') === 1;
+                                $resource_name = array_string_value($type, 'resource_name', 'Resource');
+                                $resource_capacity = max(1, array_int_value($type, 'resource_capacity', 1));
+                                $resource_allocation = array_string_value($type, 'resource_allocation', 'per_appointment');
                                 $is_active = array_int_value($type, 'is_active') === 1;
                                 $unique_link = array_string_value($type, 'unique_link');
                                 $type_id = array_int_value($type, 'id');
@@ -220,6 +224,10 @@ include __DIR__ . '/../backend/includes/header.php';
                                                 <span class="badge bg-warning text-dark">
                                                     <i class="fas fa-tree"></i> Field Rental
                                                 </span>
+                                            <?php endif; ?>
+                                            <?php if ($uses_resource): ?>
+                                                <br><span class="badge bg-dark"><?= htmlspecialchars($resource_name) ?> × <?= $resource_capacity ?></span>
+                                                <br><span class="text-muted"><?= $resource_allocation === 'per_pet' ? 'Allocated per pet' : 'Allocated per appointment' ?></span>
                                             <?php endif; ?>
                                         </small>
                                     </td>

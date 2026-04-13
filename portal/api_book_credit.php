@@ -5,6 +5,7 @@
  * Supports both booking creation and inline pet addition.
  */
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/booking_resources.php';
 header('Content-Type: application/json');
 
 // Must be a logged-in portal client
@@ -90,7 +91,9 @@ $stmt = $conn->prepare("
            is_mini_session, mini_session_location,
            is_field_rental, field_rental_location,
            is_group_class, group_class_location,
-           location_types, requires_admin_confirmation
+           location_types, requires_admin_confirmation,
+           uses_resource, resource_name, resource_capacity, resource_allocation,
+           buffer_before_minutes, buffer_after_minutes
     FROM appointment_types
     WHERE id = ? AND is_active = 1
 ");
@@ -104,6 +107,7 @@ if ($apt_type === []) {
 $requires_admin_confirmation = array_int_value($apt_type, 'requires_admin_confirmation') === 1;
 $is_pending_request = $requires_admin_confirmation;
 $initial_status = $is_pending_request ? 'pending' : 'confirmed';
+$resource_config = bdta_booking_resource_config($apt_type);
 
 // ── Verify that the client actually has credits for this appointment type ─
 $stmt = $conn->prepare("
@@ -250,6 +254,39 @@ if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
         $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND is_active = 1 AND id IN ($placeholders)");
         $stmt->execute(array_merge([$client_id], $requested_pet_ids));
         $pet_ids = array_map('safe_int', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+    }
+}
+
+if (!empty($resource_config['enabled'])) {
+    $stmt = $conn->prepare("
+        SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
+               COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
+               COALESCE(at.buffer_after_minutes, 0) AS b_buffer_after,
+               COALESCE(apc.pet_count, 0) AS pet_count
+        FROM bookings b
+        LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+        LEFT JOIN (
+            SELECT booking_id, COUNT(*) AS pet_count
+            FROM appointment_pets
+            GROUP BY booking_id
+        ) apc ON apc.booking_id = b.id
+        WHERE b.appointment_date = ? AND b.status != 'cancelled' AND b.appointment_type_id = ?
+    ");
+    $stmt->execute([scalar_string($data['appointment_date'] ?? ''), $appointment_type_id]);
+    $existing_resource_bookings = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+    if (!bdta_booking_resource_has_capacity(
+        $resource_config,
+        $existing_resource_bookings,
+        scalar_string($data['appointment_time'] ?? ''),
+        array_int_value($apt_type, 'duration_minutes', 60),
+        max(0, array_int_value($apt_type, 'buffer_before_minutes')),
+        max(0, array_int_value($apt_type, 'buffer_after_minutes')),
+        bdta_booking_resource_units($resource_config, count($pet_ids)),
+        $appointment_type_id
+    )) {
+        $resource_label = trim($resource_config['name']);
+        echo json_encode(['error' => 'No ' . ($resource_label !== '' ? $resource_label : 'resource') . ' units are available for this time slot.']);
+        exit;
     }
 }
 
