@@ -97,21 +97,25 @@ function bdta_normalize_admin_user(array $row): array
  */
 function bdta_list_admin_users(PDO $conn): array
 {
-    $stmt = $conn->query("
+    $stmt = $conn->prepare("
         SELECT id, username, email, account_type, can_manage_admin_users, can_manage_api_keys
         FROM admin_users
         ORDER BY CASE WHEN username = 'admin' THEN 0 ELSE 1 END, username ASC, email ASC
     ");
     if (!$stmt instanceof PDOStatement) {
-        return [];
+        throw new RuntimeException('Failed to prepare admin user list query.');
     }
+    $stmt->execute();
 
     $users = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        if (is_array($row)) {
-            /** @var array<string, mixed> $row */
-            $users[] = bdta_normalize_admin_user($row);
+        if (!is_array($row)) {
+            continue;
         }
+
+        /** @var array<string, mixed> $normalized_row */
+        $normalized_row = $row;
+        $users[] = bdta_normalize_admin_user($normalized_row);
     }
 
     return $users;
@@ -135,8 +139,9 @@ function bdta_find_admin_user(PDO $conn, int $admin_user_id): ?array
         return null;
     }
 
-    /** @var array<string, mixed> $row */
-    return bdta_normalize_admin_user($row);
+    /** @var array<string, mixed> $normalized_row */
+    $normalized_row = $row;
+    return bdta_normalize_admin_user($normalized_row);
 }
 
 /**
