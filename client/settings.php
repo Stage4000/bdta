@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_admin_user'])) {
     $password = scalar_string($_POST['new_admin_password'] ?? '');
 
     if ($username === '' || !bdta_is_valid_admin_username($username)) {
-        setFlashMessage('Enter a username using 3-64 letters, numbers, dots, underscores, or dashes.', 'danger');
+        setFlashMessage('Username must be 3-64 characters and contain only letters, numbers, dots, underscores, or dashes.', 'danger');
         redirect(ADMIN_URL . 'settings.php?category=admins');
     }
 

@@ -133,6 +133,16 @@ class Database {
     private function failConfiguration(string $message): never {
         die('Database configuration failed: ' . $message);
     }
+
+    private function ensureTableColumn(string $table, string $column_definition): void {
+        try {
+            $this->execSQL("ALTER TABLE {$table} ADD COLUMN {$column_definition}");
+        } catch (Throwable $e) {
+            if (stripos($e->getMessage(), 'duplicate column name') === false) {
+                throw $e;
+            }
+        }
+    }
     
     public function __construct() {
         if (self::$sharedConnection !== null) {
@@ -502,29 +512,9 @@ class Database {
                 )
             ");
 
-            try {
-                $this->execSQL("ALTER TABLE admin_users ADD COLUMN account_type TEXT NOT NULL DEFAULT 'standard'");
-            } catch (Throwable $e) {
-                if (stripos($e->getMessage(), 'Duplicate column name') === false) {
-                    throw $e;
-                }
-            }
-
-            try {
-                $this->execSQL("ALTER TABLE admin_users ADD COLUMN can_manage_admin_users INTEGER NOT NULL DEFAULT 0");
-            } catch (Throwable $e) {
-                if (stripos($e->getMessage(), 'Duplicate column name') === false) {
-                    throw $e;
-                }
-            }
-
-            try {
-                $this->execSQL("ALTER TABLE admin_users ADD COLUMN can_manage_api_keys INTEGER NOT NULL DEFAULT 0");
-            } catch (Throwable $e) {
-                if (stripos($e->getMessage(), 'Duplicate column name') === false) {
-                    throw $e;
-                }
-            }
+            $this->ensureTableColumn('admin_users', "account_type TEXT NOT NULL DEFAULT 'standard'");
+            $this->ensureTableColumn('admin_users', 'can_manage_admin_users INTEGER NOT NULL DEFAULT 0');
+            $this->ensureTableColumn('admin_users', 'can_manage_api_keys INTEGER NOT NULL DEFAULT 0');
             
             // Blog posts table
             $this->execSQL("
