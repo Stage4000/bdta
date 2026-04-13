@@ -235,8 +235,8 @@ assertMultiAdminAvailability(
 $admin_one_payload = runAvailabilityScenario($conn, $fixture['admin_one_type_id'], '2026-06-01');
 $admin_two_payload = runAvailabilityScenario($conn, $fixture['admin_two_type_id'], '2026-06-01');
 
-$admin_one_slots = is_array($admin_one_payload['available_slots'] ?? null) ? $admin_one_payload['available_slots'] : [];
-$admin_two_slots = is_array($admin_two_payload['available_slots'] ?? null) ? $admin_two_payload['available_slots'] : [];
+$admin_one_slots = $admin_one_payload['available_slots'];
+$admin_two_slots = $admin_two_payload['available_slots'];
 
 assertMultiAdminAvailability(!in_array('10:00', $admin_one_slots, true), 'Expected an admin\'s own booking to block that admin\'s schedule.');
 assertMultiAdminAvailability(in_array('10:00', $admin_two_slots, true), 'Expected one admin\'s booking to remain available for a different assigned admin.');
