@@ -85,7 +85,18 @@ $categories = Settings::getCategories();
 $categories[] = 'admins';
 $categories = array_values(array_unique($categories));
 sort($categories);
+if (!$can_manage_api_keys) {
+    $categories = array_values(array_filter(
+        $categories,
+        static fn (string $category): bool => $category !== 'database'
+    ));
+}
 $current_category = scalar_string($_GET['category'] ?? 'general');
+
+if (!$can_manage_api_keys && $current_category === 'database') {
+    setFlashMessage('You do not have permission to access database settings.', 'danger');
+    redirect(ADMIN_URL . 'settings.php?category=general');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_admin_user'])) {
     requireValidCsrfToken(ADMIN_URL . 'settings.php?category=admins');

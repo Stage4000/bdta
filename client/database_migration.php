@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/admin_users.php';
 
 requireLogin();
 
@@ -13,6 +14,11 @@ $page_title = 'Database Tools';
 
 $db = new Database();
 $conn = $db->getConnection();
+$current_admin_user = bdta_current_admin_user($conn, $_SESSION);
+if (!bdta_admin_user_can_manage_api_keys($current_admin_user)) {
+    setFlashMessage('You do not have permission to access database tools.', 'danger');
+    redirect(ADMIN_URL . 'settings.php?category=general');
+}
 
 $table_stmt = $conn->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()");
 $table_count = safe_int($table_stmt->fetchColumn());

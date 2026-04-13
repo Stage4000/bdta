@@ -5,8 +5,20 @@
  */
 
 require_once __DIR__ . '/../backend/includes/config.php';
+require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/admin_users.php';
 
 requireLogin();
+
+$db = new Database();
+$conn = $db->getConnection();
+$current_admin_user = bdta_current_admin_user($conn, $_SESSION);
+if (!bdta_admin_user_can_manage_api_keys($current_admin_user)) {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'You do not have permission to access database tools.']);
+    exit;
+}
 
 $format = $_GET['format'] ?? 'sql';
 if ($format !== 'sql') {

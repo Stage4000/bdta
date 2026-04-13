@@ -58,11 +58,15 @@ assertTrue(bdta_is_valid_admin_username('bad user') === false, 'Expected spaces 
 assertTrue(bdta_is_valid_admin_username('bad..user') === false, 'Expected repeated separators to be rejected in admin usernames.');
 
 $filtered_settings = bdta_filter_api_key_settings([
+    ['key' => 'email_from_address', 'label' => 'From Email Address'],
     ['key' => 'smtp_host', 'label' => 'SMTP Host'],
+    ['key' => 'imap_host', 'label' => 'IMAP Host'],
+    ['key' => 'tawk_to_property_id', 'label' => 'Tawk.to Property ID'],
+    ['key' => 'db_password', 'label' => 'Database Password'],
     ['key' => 'sendgrid_api_key', 'label' => 'SendGrid API Key'],
     ['key' => 'google_oauth_client_secret', 'label' => 'OAuth Secret'],
 ], false);
 assertSameValue('non-sensitive settings remain visible', 1, count($filtered_settings));
-assertSameValue('non-sensitive settings key preserved', 'smtp_host', $filtered_settings[0]['key']);
+assertSameValue('non-sensitive settings key preserved', 'email_from_address', $filtered_settings[0]['key']);
 
 fwrite(STDOUT, "Admin user helper tests passed.\n");
