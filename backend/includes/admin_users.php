@@ -167,20 +167,33 @@ function bdta_find_admin_user(PDO $conn, int $admin_user_id): ?array
 
 /**
  * @param array<string, mixed> $session
+ */
+function bdta_session_is_authenticated_admin(array $session): bool
+{
+    return bdta_admin_users_scalar($session['user_type'] ?? '') === 'admin'
+        && bdta_admin_users_int($session['admin_id'] ?? 0) > 0;
+}
+
+/**
+ * @param array<string, mixed> $session
  * @return array{id: int, username: string, email: string, account_type: string, can_manage_admin_users: bool, can_manage_api_keys: bool, is_main_account: bool}|null
  */
 function bdta_current_admin_user(PDO $conn, array $session): ?array
 {
-    if (bdta_admin_users_scalar($session['user_type'] ?? '') !== 'admin') {
+    if (!bdta_session_is_authenticated_admin($session)) {
         return null;
     }
 
     $admin_user_id = bdta_admin_users_int($session['admin_id'] ?? 0);
-    if ($admin_user_id <= 0) {
-        return null;
-    }
-
     return bdta_find_admin_user($conn, $admin_user_id);
+}
+
+/**
+ * @param array<string, mixed> $session
+ */
+function bdta_current_admin_can_manage_api_key_settings(PDO $conn, array $session): bool
+{
+    return bdta_admin_user_can_manage_api_keys(bdta_current_admin_user($conn, $session));
 }
 
 /**

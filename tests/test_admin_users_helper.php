@@ -76,5 +76,20 @@ assertTrue(!in_array('tawk_to_property_id', $filtered_setting_keys, true), 'Expe
 assertTrue(!in_array('db_password', $filtered_setting_keys, true), 'Expected database settings to be filtered.');
 assertTrue(!in_array('sendgrid_api_key', $filtered_setting_keys, true), 'Expected API keys to be filtered.');
 assertTrue(!in_array('google_oauth_client_secret', $filtered_setting_keys, true), 'Expected OAuth secrets to be filtered.');
+$multi_filtered_settings = bdta_filter_api_key_settings([
+    ['key' => 'email_from_address', 'label' => 'From Email Address'],
+    ['key' => 'email_from_name', 'label' => 'From Name'],
+    ['key' => 'smtp_port', 'label' => 'SMTP Port'],
+    ['key' => 'db_host', 'label' => 'Database Host'],
+], false);
+assertSameValue(
+    'multiple safe settings remain visible',
+    ['email_from_address', 'email_from_name'],
+    array_column($multi_filtered_settings, 'key')
+);
+assertTrue(bdta_session_is_authenticated_admin(['user_type' => 'admin', 'admin_id' => 2]) === true, 'Expected authenticated admin session helper to pass.');
+assertTrue(bdta_session_is_authenticated_admin(['user_type' => 'client', 'admin_id' => 2]) === false, 'Expected non-admin session helper to fail.');
+assertTrue(bdta_current_admin_can_manage_api_key_settings($conn, ['user_type' => 'admin', 'admin_id' => 1]) === true, 'Expected main admin helper to allow API-key settings.');
+assertTrue(bdta_current_admin_can_manage_api_key_settings($conn, ['user_type' => 'admin', 'admin_id' => 2]) === false, 'Expected delegated admin without API-key access to remain restricted.');
 
 fwrite(STDOUT, "Admin user helper tests passed.\n");

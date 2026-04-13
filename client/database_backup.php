@@ -10,10 +10,16 @@ require_once __DIR__ . '/../backend/includes/admin_users.php';
 
 requireLogin();
 
+if (!bdta_session_is_authenticated_admin($_SESSION)) {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'You do not have permission to access database tools.']);
+    exit;
+}
+
 $db = new Database();
 $conn = $db->getConnection();
-$current_admin_user = bdta_current_admin_user($conn, $_SESSION);
-if (!bdta_admin_user_can_manage_api_keys($current_admin_user)) {
+if (!bdta_current_admin_can_manage_api_key_settings($conn, $_SESSION)) {
     http_response_code(403);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'You do not have permission to access database tools.']);

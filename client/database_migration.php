@@ -11,16 +11,14 @@ require_once __DIR__ . '/../backend/includes/admin_users.php';
 requireLogin();
 
 $page_title = 'Database Tools';
-$admin_user_id = safe_int($_SESSION['admin_id'] ?? 0);
-if (scalar_string($_SESSION['user_type'] ?? '') !== 'admin' || $admin_user_id <= 0) {
+if (!bdta_session_is_authenticated_admin($_SESSION)) {
     setFlashMessage('You do not have permission to access database tools.', 'danger');
     redirect(ADMIN_URL . 'settings.php?category=general');
 }
 
 $db = new Database();
 $conn = $db->getConnection();
-$current_admin_user = bdta_current_admin_user($conn, $_SESSION);
-if (!bdta_admin_user_can_manage_api_keys($current_admin_user)) {
+if (!bdta_current_admin_can_manage_api_key_settings($conn, $_SESSION)) {
     setFlashMessage('You do not have permission to access database tools.', 'danger');
     redirect(ADMIN_URL . 'settings.php?category=general');
 }
