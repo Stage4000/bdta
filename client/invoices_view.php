@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice'])) {
     $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
 
-    if ($submitted_csrf_token === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
+    if ($csrf_token_value === '' || $submitted_csrf_token === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
         setFlashMessage('Invalid request.', 'danger');
     } elseif (!$can_pay_invoice) {
         setFlashMessage('Only unpaid invoices can be sent.', 'warning');

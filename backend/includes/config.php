@@ -139,7 +139,35 @@ function bdta_refresh_session_admin_account_type(): void
     $db = new Database();
     $conn = $db->getConnection();
     $admin_user = bdta_find_admin_user($conn, safe_int($_SESSION['admin_id'] ?? 0));
-    $_SESSION['admin_account_type'] = is_array($admin_user) ? $admin_user['account_type'] : 'standard';
+    if (!is_array($admin_user)) {
+        $session_is_active = session_status() === PHP_SESSION_ACTIVE;
+        $cookie_params = $session_is_active ? session_get_cookie_params() : [];
+        session_unset();
+        if ($session_is_active) {
+            $session_cookie_path = scalar_string($cookie_params['path'] ?? '');
+            if ($session_cookie_path === '') {
+                $session_cookie_path = '/';
+            }
+            $session_cookie_domain = scalar_string($cookie_params['domain'] ?? '');
+            $session_cookie_secure = !empty($cookie_params['secure']);
+            $session_cookie_http_only = !empty($cookie_params['httponly']);
+            $session_cookie_clear_time = time() - (60 * 60);
+            setcookie(
+                session_name(),
+                '',
+                $session_cookie_clear_time,
+                $session_cookie_path,
+                $session_cookie_domain,
+                $session_cookie_secure,
+                $session_cookie_http_only
+            );
+        }
+        session_destroy();
+        redirect(ADMIN_URL . 'login.php');
+        return;
+    }
+
+    $_SESSION['admin_account_type'] = $admin_user['account_type'];
 }
 
 function bdta_enforce_admin_account_access(): void
