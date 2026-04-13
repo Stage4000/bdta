@@ -262,9 +262,14 @@ if (!empty($resource_config['enabled'])) {
         SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
                COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
                COALESCE(at.buffer_after_minutes, 0) AS b_buffer_after,
-               COALESCE((SELECT COUNT(*) FROM appointment_pets ap WHERE ap.booking_id = b.id), 0) AS pet_count
+               COALESCE(apc.pet_count, 0) AS pet_count
         FROM bookings b
         LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+        LEFT JOIN (
+            SELECT booking_id, COUNT(*) AS pet_count
+            FROM appointment_pets
+            GROUP BY booking_id
+        ) apc ON apc.booking_id = b.id
         WHERE b.appointment_date = ? AND b.status != 'cancelled' AND b.appointment_type_id = ?
     ");
     $stmt->execute([scalar_string($data['appointment_date'] ?? ''), $appointment_type_id]);

@@ -41,6 +41,10 @@ function bdta_booking_resource_units(array $resource_config, int $pet_count): in
     return 1;
 }
 
+function bdta_booking_resource_capacity_available(array $resource_config, int $used_units, int $requested_units): bool {
+    return $used_units + max(1, $requested_units) <= max(1, array_int_value($resource_config, 'capacity', 1));
+}
+
 /**
  * @param array<string, mixed> $booking_row
  */
@@ -68,6 +72,83 @@ function bdta_booking_windows_overlap(
 
 /**
  * @param list<array<string, mixed>> $existing_bookings
+ * @return array{exact_type_slot_count: int, has_overlap_conflict: bool, overlapping_resource_units: int}
+ */
+function bdta_booking_slot_usage_summary(
+    array $existing_bookings,
+    string $appointment_time,
+    int $duration_minutes,
+    int $buffer_before_minutes,
+    int $buffer_after_minutes,
+    array $resource_config = [],
+    ?int $appointment_type_id = null
+): array {
+    $proposed_start_minutes = bdta_booking_time_to_minutes($appointment_time);
+    if ($proposed_start_minutes === null) {
+        return [
+            'exact_type_slot_count' => 0,
+            'has_overlap_conflict' => false,
+            'overlapping_resource_units' => 0,
+        ];
+    }
+
+    $exact_type_slot_count = 0;
+    $has_overlap_conflict = false;
+    $overlapping_resource_units = 0;
+    $seen_windows = [];
+    $exact_time = substr(trim($appointment_time), 0, 5);
+    $resource_enabled = !empty($resource_config['enabled']);
+
+    foreach ($existing_bookings as $booking_row) {
+        $row_appointment_type_id = array_int_value($booking_row, 'appointment_type_id');
+        $row_time = substr(array_string_value($booking_row, 'appointment_time'), 0, 5);
+
+        if ($appointment_type_id !== null && $row_appointment_type_id === $appointment_type_id && $row_time === $exact_time) {
+            $exact_type_slot_count++;
+        }
+
+        $existing_start_minutes = bdta_booking_time_to_minutes($row_time);
+        if ($existing_start_minutes === null) {
+            continue;
+        }
+
+        $existing_duration_minutes = max(1, array_int_value($booking_row, 'duration_minutes', 60));
+        $existing_buffer_before_minutes = max(0, array_int_value($booking_row, 'b_buffer_before'));
+        $existing_buffer_after_minutes = max(0, array_int_value($booking_row, 'b_buffer_after'));
+
+        if (!bdta_booking_windows_overlap(
+            $proposed_start_minutes,
+            $duration_minutes,
+            $buffer_before_minutes,
+            $buffer_after_minutes,
+            $existing_start_minutes,
+            $existing_duration_minutes,
+            $existing_buffer_before_minutes,
+            $existing_buffer_after_minutes
+        )) {
+            continue;
+        }
+
+        if ($resource_enabled && ($appointment_type_id === null || $row_appointment_type_id === $appointment_type_id)) {
+            $overlapping_resource_units += bdta_booking_resource_units_for_booking($resource_config, $booking_row);
+        }
+
+        $window_key = ($existing_start_minutes - $existing_buffer_before_minutes) . '-' . ($existing_start_minutes + $existing_duration_minutes + $existing_buffer_after_minutes);
+        if (!isset($seen_windows[$window_key])) {
+            $seen_windows[$window_key] = true;
+            $has_overlap_conflict = true;
+        }
+    }
+
+    return [
+        'exact_type_slot_count' => $exact_type_slot_count,
+        'has_overlap_conflict' => $has_overlap_conflict,
+        'overlapping_resource_units' => $overlapping_resource_units,
+    ];
+}
+
+/**
+ * @param list<array<string, mixed>> $existing_bookings
  */
 function bdta_booking_resource_has_capacity(
     array $resource_config,
@@ -87,36 +168,15 @@ function bdta_booking_resource_has_capacity(
     if ($proposed_start_minutes === null) {
         return false;
     }
+    $usage = bdta_booking_slot_usage_summary(
+        $existing_bookings,
+        $appointment_time,
+        $duration_minutes,
+        $buffer_before_minutes,
+        $buffer_after_minutes,
+        $resource_config,
+        $appointment_type_id
+    );
 
-    $used_units = 0;
-    foreach ($existing_bookings as $booking_row) {
-        if ($appointment_type_id !== null && array_int_value($booking_row, 'appointment_type_id') !== $appointment_type_id) {
-            continue;
-        }
-
-        $existing_start_minutes = bdta_booking_time_to_minutes(array_string_value($booking_row, 'appointment_time'));
-        if ($existing_start_minutes === null) {
-            continue;
-        }
-
-        if (!bdta_booking_windows_overlap(
-            $proposed_start_minutes,
-            $duration_minutes,
-            $buffer_before_minutes,
-            $buffer_after_minutes,
-            $existing_start_minutes,
-            array_int_value($booking_row, 'duration_minutes', 60),
-            array_int_value($booking_row, 'b_buffer_before'),
-            array_int_value($booking_row, 'b_buffer_after')
-        )) {
-            continue;
-        }
-
-        $used_units += bdta_booking_resource_units_for_booking($resource_config, $booking_row);
-        if ($used_units + $requested_units > max(1, array_int_value($resource_config, 'capacity', 1))) {
-            return false;
-        }
-    }
-
-    return true;
+    return bdta_booking_resource_capacity_available($resource_config, $usage['overlapping_resource_units'], $requested_units);
 }

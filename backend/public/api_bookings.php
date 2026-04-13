@@ -301,9 +301,14 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
                        COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
                        COALESCE(at.buffer_after_minutes, 0) AS b_buffer_after,
-                       COALESCE((SELECT COUNT(*) FROM appointment_pets ap WHERE ap.booking_id = b.id), 0) AS pet_count
+                       COALESCE(apc.pet_count, 0) AS pet_count
                 FROM bookings b
                 LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+                LEFT JOIN (
+                    SELECT booking_id, COUNT(*) AS pet_count
+                    FROM appointment_pets
+                    GROUP BY booking_id
+                ) apc ON apc.booking_id = b.id
                 WHERE b.appointment_date = ? AND b.status != 'cancelled' AND b.appointment_type_id = ?
             ");
             $stmt->execute([$appointment_date, $appointment_type_id_value]);
@@ -960,9 +965,14 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         SELECT b.appointment_date, b.appointment_time, b.duration_minutes, b.appointment_type_id,
                COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
                COALESCE(at.buffer_after_minutes,  0) AS b_buffer_after,
-               COALESCE((SELECT COUNT(*) FROM appointment_pets ap WHERE ap.booking_id = b.id), 0) AS pet_count
+               COALESCE(apc.pet_count, 0) AS pet_count
         FROM bookings b
         LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+        LEFT JOIN (
+            SELECT booking_id, COUNT(*) AS pet_count
+            FROM appointment_pets
+            GROUP BY booking_id
+        ) apc ON apc.booking_id = b.id
         WHERE b.appointment_date BETWEEN ? AND ? AND b.status != 'cancelled'
     ");
     $stmt->execute([$from_date, $to_date]);
@@ -1008,11 +1018,12 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $available_dates = [];
     foreach ($candidate_dates as $check_date) {
         $existing_bookings = $bookings_by_date[$check_date] ?? [];
+        $normalized_existing_bookings = api_booking_assoc_rows($existing_bookings);
 
         // Pre-compute booking counts per slot for group classes to avoid O(n²) in the slot loop
         $group_slot_counts = [];
         if ($ad_is_group) {
-            foreach ($existing_bookings as $bk) {
+            foreach ($normalized_existing_bookings as $bk) {
                 $bt = substr(array_string_value($bk, 'appointment_time'), 0, 5);
                 if (array_int_value($bk, 'appointment_type_id') === $appointment_type_id) {
                     $group_slot_counts[$bt] = ($group_slot_counts[$bt] ?? 0) + 1;
@@ -1089,14 +1100,22 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             $hour         = intdiv($tm, 60);
             $min          = $tm % 60;
             $slot_str     = sprintf('%02d:%02d', $hour, $min);
-            $slot_end     = $tm + $ad_duration;
-            $slot_buf_s   = $tm       - $ad_buf_before;
-            $slot_buf_e   = $slot_end + $ad_buf_after;
+            $slot_usage   = bdta_booking_slot_usage_summary(
+                $normalized_existing_bookings,
+                $slot_str,
+                $ad_duration,
+                $ad_buf_before,
+                $ad_buf_after,
+                $ad_resource,
+                $appointment_type_id
+            );
+            $resource_available = empty($ad_resource['enabled'])
+                || bdta_booking_resource_capacity_available($ad_resource, $slot_usage['overlapping_resource_units'], 1);
 
             if ($ad_is_group) {
-                $count = $group_slot_counts[$slot_str] ?? 0;
+                $count = $slot_usage['exact_type_slot_count'] ?: ($group_slot_counts[$slot_str] ?? 0);
                 if ($count < $ad_max_part) {
-                    if (!bdta_booking_resource_has_capacity($ad_resource, $existing_bookings, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, 1, $appointment_type_id)) {
+                    if (!$resource_available) {
                         continue;
                     }
                     // Also check Google Calendar
@@ -1107,32 +1126,10 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                     break;
                 }
             } else {
-                $slot_free    = true;
-                $seen_windows = [];
-                foreach ($existing_bookings as $bk) {
-                    $bt = substr(array_string_value($bk, 'appointment_time'), 0, 5);
-                    $bp = explode(':', $bt);
-                    if (count($bp) !== 2) continue;
-                    $b_s   = (int)$bp[0] * 60 + (int)$bp[1];
-                    $b_dur = max(1, array_int_value($bk, 'duration_minutes', 60));
-                    $b_bb  = max(0, array_int_value($bk, 'b_buffer_before'));
-                    $b_ba  = max(0, array_int_value($bk, 'b_buffer_after'));
-                    $b_bs  = $b_s - $b_bb;
-                    $b_be  = $b_s + $b_dur + $b_ba;
-                    $wkey  = $b_bs . '-' . $b_be;
-                    if (isset($seen_windows[$wkey])) continue;
-                    $seen_windows[$wkey] = true;
-                    if ($slot_buf_s < $b_be && $b_bs < $slot_buf_e) {
-                        $slot_free = false;
-                        break;
-                    }
-                }
+                $slot_free = !$slot_usage['has_overlap_conflict'] && $resource_available;
                 // Also check Google Calendar
                 if ($slot_free && !empty($gcal_busy_periods)) {
                     $slot_free = ad_slot_passes_gcal($check_date, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, $gcal_busy_periods);
-                }
-                if ($slot_free) {
-                    $slot_free = bdta_booking_resource_has_capacity($ad_resource, $existing_bookings, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, 1, $appointment_type_id);
                 }
                 if ($slot_free) {
                     $has_available = true;
@@ -1295,13 +1292,18 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
                COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
                COALESCE(at.buffer_after_minutes,  0) AS b_buffer_after,
-               COALESCE((SELECT COUNT(*) FROM appointment_pets ap WHERE ap.booking_id = b.id), 0) AS pet_count
+               COALESCE(apc.pet_count, 0) AS pet_count
         FROM bookings b
         LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+        LEFT JOIN (
+            SELECT booking_id, COUNT(*) AS pet_count
+            FROM appointment_pets
+            GROUP BY booking_id
+        ) apc ON apc.booking_id = b.id
         WHERE b.appointment_date = ? AND b.status != 'cancelled'
     ");
     $stmt->execute([$date]);
-    $existing_bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $existing_bookings = api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 
     // Query Google Calendar for busy periods on this date (best-effort; errors are non-fatal)
     $google_busy_periods = [];
@@ -1378,13 +1380,17 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         $hour = intdiv($time_minutes, 60);
         $minute = $time_minutes % 60;
         $time_slot = sprintf('%02d:%02d', $hour, $minute);
-        $time_slot_end_minutes = $time_minutes + $slot_duration;
-
-        // The buffered window for this proposed slot:
-        //   starts $buffer_before minutes before the slot
-        //   ends   $buffer_after  minutes after the slot ends
-        $slot_buffered_start = $time_minutes - $buffer_before;
-        $slot_buffered_end   = $time_slot_end_minutes + $buffer_after;
+        $slot_usage = bdta_booking_slot_usage_summary(
+            $existing_bookings,
+            $time_slot,
+            $slot_duration,
+            $buffer_before,
+            $buffer_after,
+            $resource_config,
+            $appointment_type_id
+        );
+        $resource_available = empty($resource_config['enabled'])
+            || bdta_booking_resource_capacity_available($resource_config, $slot_usage['overlapping_resource_units'], 1);
         
         // Check if slot is available
         $is_available = true;
@@ -1393,59 +1399,15 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         if ($is_group_class && $appointment_type_id) {
             // Group class: count existing participants for this exact slot and type.
             // Allow booking as long as capacity is not yet reached.
-            $participant_count = 0;
-            foreach ($existing_bookings as $booking) {
-                $b_time = substr(array_string_value($booking, 'appointment_time'), 0, 5);
-                if ($b_time === $time_slot && array_int_value($booking, 'appointment_type_id') === $appointment_type_id) {
-                    $participant_count++;
-                }
-            }
+            $participant_count = $slot_usage['exact_type_slot_count'];
             if ($participant_count >= $max_participants) {
                 $is_available = false;
             }
         } else {
-            // Regular appointment: block if any existing booking's buffered window overlaps
-            // with the proposed slot's buffered window.
-            // De-duplicate by buffered [start, end) window so that group-class bookings (multiple
-            // rows at the same time) are treated as a single occupancy block.
-            $seen_windows = [];
-            foreach ($existing_bookings as $booking) {
-                $b_time   = substr(array_string_value($booking, 'appointment_time'), 0, 5);
-                $b_parts  = explode(':', $b_time);
-                if (count($b_parts) !== 2) continue;
-                $b_start        = (int)$b_parts[0] * 60 + (int)$b_parts[1];
-                $b_dur          = max(1, array_int_value($booking, 'duration_minutes', 60));
-                $b_buf_before   = max(0, array_int_value($booking, 'b_buffer_before'));
-                $b_buf_after    = max(0, array_int_value($booking, 'b_buffer_after'));
-                // Existing booking's buffered window
-                $b_buf_start    = $b_start - $b_buf_before;
-                $b_buf_end      = $b_start + $b_dur + $b_buf_after;
-                $win_key        = $b_buf_start . '-' . $b_buf_end;
-
-                if (isset($seen_windows[$win_key])) {
-                    continue; // Already evaluated this time window
-                }
-                $seen_windows[$win_key] = true;
-
-                // Two intervals [A,B) and [C,D) overlap iff A < D && C < B
-                if ($slot_buffered_start < $b_buf_end && $b_buf_start < $slot_buffered_end) {
-                    $is_available = false;
-                    break;
-                }
-            }
+            $is_available = !$slot_usage['has_overlap_conflict'];
         }
-
-        if ($is_available && !empty($resource_config['enabled']) && $appointment_type_id) {
-            $is_available = bdta_booking_resource_has_capacity(
-                $resource_config,
-                api_booking_assoc_rows($existing_bookings),
-                $time_slot,
-                $slot_duration,
-                $buffer_before,
-                $buffer_after,
-                1,
-                $appointment_type_id
-            );
+        if ($is_available) {
+            $is_available = $resource_available;
         }
 
         // ── Google Calendar busy-period check ────────────────────────────────
