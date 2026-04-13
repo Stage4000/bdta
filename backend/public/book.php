@@ -80,7 +80,7 @@ $portal_prefill_profile = [
 ];
 
 if (isPortalLoggedIn()) {
-    $portal_client_id = portalClientId();
+    $portal_client_id = (int) portalClientId();
     if ($portal_client_id > 0) {
         $stmt = $conn->prepare("SELECT name, email, phone, address FROM clients WHERE id = ?");
         $stmt->execute([$portal_client_id]);
@@ -872,8 +872,9 @@ if (isset($error_mode) && $error_mode) {
                             $bi_type = array_string_value($bifield, 'type', 'text');
                             $bi_map  = array_string_value($bifield, 'profile_mapping');
                             $bi_prefill = public_book_portal_prefill_value($portal_prefill_profile, $bi_map);
-                            $bi_prefill_matches_option = static function (mixed $option) use ($bi_prefill): bool {
-                                return trim($bi_prefill) !== '' && trim($bi_prefill) === trim(scalar_string($option));
+                            $bi_prefill_trimmed = trim($bi_prefill);
+                            $bi_prefill_matches_option = static function (mixed $option) use ($bi_prefill_trimmed): bool {
+                                return $bi_prefill_trimmed !== '' && $bi_prefill_trimmed === trim(scalar_string($option));
                             };
                             $bi_label = array_string_value($bifield, 'label');
                             $bi_description = array_string_value($bifield, 'description');

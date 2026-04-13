@@ -83,9 +83,9 @@ try {
         'Public booking page should render a client portal return action.'
     );
     bdta_assert(
-        str_contains($book_page, 'if (isPortalLoggedIn())') &&
-        str_contains($book_page, "SELECT name, email, phone, address FROM clients WHERE id = ?"),
-        'Public booking page should load the logged-in portal client profile for prefill.'
+        str_contains($book_page, 'public_book_portal_prefill_value(') &&
+        str_contains($book_page, '$portal_prefill_profile = ['),
+        'Public booking page should define portal-aware prefill data for booking forms.'
     );
     bdta_assert(
         str_contains($book_page, "value=\"<?= escape(\$portal_prefill_profile['name']) ?>\"") &&
