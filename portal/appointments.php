@@ -581,14 +581,19 @@ document.addEventListener('DOMContentLoaded', function() {
     var params = new URLSearchParams(window.location.search);
     var bookingId = params.get('booking_id');
     var action = params.get('action');
-    if (!bookingId || (action !== 'cancel' && action !== 'reschedule')) {
+    if (!bookingId || !/^\d+$/.test(bookingId) || (action !== 'cancel' && action !== 'reschedule')) {
         return;
     }
 
     var selector = action === 'reschedule'
         ? '[data-booking-id="' + bookingId + '"][data-type-id]'
         : '[data-booking-id="' + bookingId + '"][data-datetime]';
-    var trigger = document.querySelector(selector);
+    var trigger;
+    try {
+        trigger = document.querySelector(selector);
+    } catch (e) {
+        return;
+    }
     if (!trigger) {
         return;
     }

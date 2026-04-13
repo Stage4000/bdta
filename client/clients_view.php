@@ -5,6 +5,16 @@ require_once '../backend/includes/follow_up_notes.php';
 require_once '../backend/includes/invoice_status.php';
 requireLogin();
 
+function bdta_booking_action_request_ip(): string
+{
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $forwarded = trim(explode(',', scalar_string($_SERVER['HTTP_X_FORWARDED_FOR']))[0]);
+        return filter_var($forwarded, FILTER_VALIDATE_IP) ? $forwarded : scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
+    }
+
+    return scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -35,7 +45,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
     $booking_id = safe_int($_POST['booking_id'] ?? 0);
 
     $stmt = $conn->prepare("
-        SELECT b.*, at.duration_minutes AS appointment_type_duration_minutes
+        SELECT b.*,
+               at.duration_minutes AS appointment_type_duration_minutes,
+               at.advance_booking_min_days,
+               at.advance_booking_max_days
         FROM bookings b
         LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
         WHERE b.id = ? AND b.client_id = ?
@@ -55,6 +68,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
         redirect($client_view_url);
     }
 
+    $booking_start_ts = strtotime(
+        array_string_value($booking_for_action, 'appointment_date') . ' ' . array_string_value($booking_for_action, 'appointment_time')
+    );
+    if ($booking_start_ts === false || $booking_start_ts <= time()) {
+        setFlashMessage('Only upcoming bookings can be updated here.', 'warning');
+        redirect($client_view_url);
+    }
+
+    $client_ip = bdta_booking_action_request_ip();
     $email_service = new EmailService(null, $conn);
 
     if ($booking_action === 'cancel') {
@@ -115,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
             $id,
             array_string_value($booking_for_action, 'appointment_date'),
             array_string_value($booking_for_action, 'appointment_time'),
-            scalar_string($_SERVER['REMOTE_ADDR'] ?? ''),
+            $client_ip,
         ]);
 
         if (!empty($booking_for_action['client_email'])) {
@@ -152,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
 
         $new_time_hhmm = substr($new_time, 0, 5);
         $new_datetime = strtotime($new_date . ' ' . $new_time_hhmm);
-        if ($new_datetime === false || $new_datetime < time()) {
+        if ($new_datetime === false || $new_datetime <= time()) {
             setFlashMessage('The new appointment time must be in the future.', 'danger');
             redirect($client_view_url);
         }
@@ -160,6 +182,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
         $apt_type_id = safe_int($booking_for_action['appointment_type_id'] ?? 0);
         if ($apt_type_id <= 0) {
             setFlashMessage('This booking cannot be rescheduled from the client profile because it has no appointment type.', 'warning');
+            redirect($client_view_url);
+        }
+
+        $advance_booking_min_days = safe_int($booking_for_action['advance_booking_min_days'] ?? 0);
+        $advance_booking_max_days = safe_int($booking_for_action['advance_booking_max_days'] ?? 365);
+        $days_until = ($new_datetime - time()) / 86400;
+
+        if ($advance_booking_min_days > 0 && $days_until < $advance_booking_min_days) {
+            setFlashMessage("This appointment type must be booked at least {$advance_booking_min_days} day(s) in advance.", 'danger');
+            redirect($client_view_url);
+        }
+
+        if ($days_until > $advance_booking_max_days) {
+            setFlashMessage("This appointment type can only be booked up to {$advance_booking_max_days} day(s) in advance.", 'danger');
             redirect($client_view_url);
         }
 
@@ -240,7 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
             $old_time,
             $new_date,
             $new_time_hhmm,
-            scalar_string($_SERVER['REMOTE_ADDR'] ?? ''),
+            $client_ip,
         ]);
 
         $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
@@ -285,7 +321,7 @@ $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get appointments (past and upcoming)
 $stmt = $conn->prepare("
-    SELECT b.*, at.name as appointment_type_name, at.advance_booking_min_days, at.duration_minutes AS appointment_type_duration_minutes
+    SELECT b.*, at.name as appointment_type_name, at.advance_booking_min_days, at.advance_booking_max_days, at.duration_minutes AS appointment_type_duration_minutes
     FROM bookings b
     LEFT JOIN appointment_types at ON b.appointment_type_id = at.id
     WHERE b.client_id = ?

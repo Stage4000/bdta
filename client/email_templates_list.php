@@ -50,7 +50,7 @@ include '../backend/includes/header.php';
 
             <div class="alert alert-info">
                 <i class="fas fa-circle-info me-1"></i>
-                Booking confirmation and reminder templates can use
+                Booking-related templates can use
                 <code>{{booking_link}}</code>,
                 <code>{{booking_reschedule_link}}</code>, and
                 <code>{{booking_cancel_link}}</code>

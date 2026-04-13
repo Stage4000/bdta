@@ -63,9 +63,10 @@ bdta_assert_test(
     'Built-in booking reminder text should include booking management links.'
 );
 bdta_assert_test(
-    str_contains($portal_appointments, 'new URLSearchParams(window.location.search)') &&
-    str_contains($portal_appointments, "params.get('action')"),
-    'Portal appointments page should honor booking action deep links from emails.'
+    str_contains($portal_appointments, '!/^\\d+$/.test(bookingId)') &&
+    str_contains($portal_appointments, 'try {') &&
+    str_contains($portal_appointments, 'document.querySelector(selector);'),
+    'Portal appointments page should validate booking ids before querying the DOM for deep-linked booking actions.'
 );
 bdta_assert_test(
     str_contains($clients_view, "name=\"booking_action\" value=\"reschedule\"") &&
@@ -77,14 +78,21 @@ bdta_assert_test(
     'Client view should include admin cancellation controls.'
 );
 bdta_assert_test(
+    str_contains($clients_view, 'Only upcoming bookings can be updated here.') &&
+    str_contains($clients_view, 'advance_booking_max_days') &&
+    str_contains($clients_view, 'bdta_booking_action_request_ip'),
+    'Client view booking actions should enforce upcoming-only rules, advance windows, and validated proxy-aware audit IPs.'
+);
+bdta_assert_test(
     str_contains($templates_edit, '{{booking_reschedule_link}}') &&
     str_contains($templates_edit, '{{booking_cancel_link}}'),
     'Email template editor should document the new booking action variables.'
 );
 bdta_assert_test(
+    str_contains($templates_list, 'Booking-related templates can use') &&
     str_contains($templates_list, '{{booking_reschedule_link}}') &&
     str_contains($templates_list, '{{booking_cancel_link}}'),
-    'Email templates list should highlight the new booking action variables.'
+    'Email templates list should highlight the new booking action variables for booking-related templates.'
 );
 
 echo "Booking action link checks passed.\n";
