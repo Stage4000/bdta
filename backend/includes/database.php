@@ -1227,7 +1227,7 @@ class Database {
                 $this->conn->prepare("
                     UPDATE admin_users
                     SET account_type = 'standard'
-                    WHERE username <> 'admin' AND COALESCE(account_type, '') = ''
+                    WHERE username <> 'admin' AND (account_type IS NULL OR account_type = '')
                 ")->execute();
                 $this->conn->commit();
             } catch (Throwable $e) {

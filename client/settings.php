@@ -216,7 +216,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         // Get all settings for current category to validate keys
         $category_settings = Settings::getCategory($current_category);
         $valid_settings = bdta_filter_api_key_settings($category_settings, $can_manage_api_keys);
-        if (!$can_manage_api_keys && $category_settings !== [] && $valid_settings === []) {
+        if (
+            !$can_manage_api_keys
+            && count($category_settings) > 0
+            && count($valid_settings) === 0
+            && count($category_settings) !== count($valid_settings)
+        ) {
             setFlashMessage('You do not have permission to change API-key or global integration settings.', 'danger');
             redirect(ADMIN_URL . 'settings.php?category=' . urlencode($current_category));
         }
@@ -618,7 +623,7 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                                                     && $can_manage_admin_users
                                                     && (int) $admin_user['id'] !== safe_int($_SESSION['admin_id'] ?? 0)
                                                 ): ?>
-                                                    <form method="POST" action="?category=admins" onsubmit="return confirm('Delete this admin user? Their appointment assignments will be unassigned.');">
+                                                    <form method="POST" action="?category=admins" onsubmit="return confirm('Delete this admin user? Their appointment assignments will be cleared.');">
                                                         <?= csrfInput() ?>
                                                         <input type="hidden" name="target_admin_user_id" value="<?= (int) $admin_user['id'] ?>">
                                                         <button type="submit" name="delete_admin_user" class="btn btn-sm btn-outline-danger">
