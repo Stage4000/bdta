@@ -26,6 +26,7 @@ if (isPostRequest()) {
             $_SESSION['admin_id'] = $normalized_admin_user['id'];
             $_SESSION['admin_username'] = $normalized_admin_user['username'];
             $_SESSION['admin_account_type'] = $normalized_admin_user['account_type'];
+            $_SESSION['admin_account_type_refreshed_at'] = time();
             $_SESSION['is_admin'] = true;
             $_SESSION['user_type'] = 'admin';
             setFlashMessage('Welcome back!', 'success');
@@ -42,6 +43,7 @@ if (isPostRequest()) {
                 $_SESSION['admin_username'] = $client['name'];
                 $_SESSION['admin_email'] = $client['email'];
                 unset($_SESSION['admin_account_type']);
+                unset($_SESSION['admin_account_type_refreshed_at']);
                 $_SESSION['is_admin'] = true;
                 $_SESSION['user_type'] = 'client';
                 

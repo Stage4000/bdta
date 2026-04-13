@@ -126,16 +126,14 @@ function isLoggedIn(): bool {
 
 function bdta_refresh_session_admin_account_type(): void
 {
-    if (
-        !isLoggedIn()
-        || scalar_string($_SESSION['user_type'] ?? '') !== 'admin'
-    ) {
+    if (!bdta_session_admin_account_type_needs_refresh($_SESSION)) {
         return;
     }
 
     // New logins populate this in client/login.php, but existing sessions may outlive
     // account-type changes in admin_users. Refresh the current type from the database
-    // so restrictions take effect without forcing a logout.
+    // when the session account type is missing or stale so restrictions take effect
+    // without forcing a logout while avoiding a query on every admin page load.
     $db = new Database();
     $conn = $db->getConnection();
     $admin_user = bdta_find_admin_user($conn, safe_int($_SESSION['admin_id'] ?? 0));
@@ -171,6 +169,7 @@ function bdta_refresh_session_admin_account_type(): void
     }
 
     $_SESSION['admin_account_type'] = $admin_user['account_type'];
+    $_SESSION['admin_account_type_refreshed_at'] = time();
 }
 
 function bdta_enforce_admin_account_access(): void

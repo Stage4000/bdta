@@ -280,6 +280,33 @@ function bdta_session_admin_is_accountant(array $session): bool
         && bdta_normalize_admin_account_type($session['admin_account_type'] ?? 'standard') === 'accountant';
 }
 
+function bdta_admin_account_type_refresh_ttl_seconds(): int
+{
+    return 300;
+}
+
+/**
+ * @param array<string, mixed> $session
+ */
+function bdta_session_admin_account_type_needs_refresh(array $session, ?int $now = null): bool
+{
+    if (!bdta_session_is_authenticated_admin($session)) {
+        return false;
+    }
+
+    if (bdta_admin_users_scalar($session['admin_account_type'] ?? '') === '') {
+        return true;
+    }
+
+    $last_refreshed_at = bdta_admin_users_int($session['admin_account_type_refreshed_at'] ?? 0);
+    if ($last_refreshed_at <= 0) {
+        return true;
+    }
+
+    $current_time = $now ?? time();
+    return ($current_time - $last_refreshed_at) >= bdta_admin_account_type_refresh_ttl_seconds();
+}
+
 /**
  * @param list<array<string, mixed>> $settings
  * @return list<array<string, mixed>>
