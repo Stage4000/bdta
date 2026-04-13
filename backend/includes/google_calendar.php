@@ -239,6 +239,35 @@ class GoogleCalendarIntegration {
         return safe_int($stmt->fetchColumn());
     }
 
+    /**
+     * @return list<int>
+     */
+    private static function getConnectedOAuthAdminUserIds(?int $preferred_admin_user_id = null): array {
+        $db   = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+        if (!$stmt instanceof PDOStatement) {
+            return [];
+        }
+
+        $admin_user_ids = [];
+        while (($admin_row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+            $admin_user_id = safe_int($admin_row['admin_user_id'] ?? 0);
+            if ($admin_user_id <= 0) {
+                continue;
+            }
+            $admin_user_ids[] = $admin_user_id;
+        }
+
+        $admin_user_ids = array_values(array_unique($admin_user_ids));
+        if ($preferred_admin_user_id !== null && $preferred_admin_user_id > 0) {
+            $admin_user_ids = array_values(array_diff($admin_user_ids, [$preferred_admin_user_id]));
+            array_unshift($admin_user_ids, $preferred_admin_user_id);
+        }
+
+        return $admin_user_ids;
+    }
+
     public static function getAppointmentTypeAdminUserId(int $appointment_type_id): int {
         if ($appointment_type_id <= 0) {
             return 0;
@@ -272,19 +301,10 @@ class GoogleCalendarIntegration {
 
         if (self::isOAuthConfigured()) {
             $target_admin_user_id = self::getBookingAdminUserId($booking);
-            if ($target_admin_user_id > 0) {
-                $google_result = self::addEventOAuth($booking, $target_admin_user_id);
-            } else {
-                $db   = new Database();
-                $conn = $db->getConnection();
-                $stmt = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-                if ($stmt instanceof PDOStatement) {
-                    while (($admin_row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
-                        $google_result = self::addEventOAuth($booking, safe_int($admin_row['admin_user_id'] ?? 0));
-                        if (!empty($google_result['success'])) {
-                            break;
-                        }
-                    }
+            foreach (self::getConnectedOAuthAdminUserIds($target_admin_user_id > 0 ? $target_admin_user_id : null) as $admin_user_id) {
+                $google_result = self::addEventOAuth($booking, $admin_user_id);
+                if (!empty($google_result['success'])) {
+                    break;
                 }
             }
         }
@@ -308,19 +328,10 @@ class GoogleCalendarIntegration {
 
         if (self::isOAuthConfigured()) {
             $target_admin_user_id = self::getBookingAdminUserId($booking);
-            if ($target_admin_user_id > 0) {
-                $google_result = self::updateEventOAuth($booking, $event_id, $target_admin_user_id);
-            } else {
-                $db   = new Database();
-                $conn = $db->getConnection();
-                $stmt = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-                if ($stmt instanceof PDOStatement) {
-                    while (($admin_row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
-                        $google_result = self::updateEventOAuth($booking, $event_id, safe_int($admin_row['admin_user_id'] ?? 0));
-                        if (!empty($google_result['success'])) {
-                            break;
-                        }
-                    }
+            foreach (self::getConnectedOAuthAdminUserIds($target_admin_user_id > 0 ? $target_admin_user_id : null) as $admin_user_id) {
+                $google_result = self::updateEventOAuth($booking, $event_id, $admin_user_id);
+                if (!empty($google_result['success'])) {
+                    break;
                 }
             }
         }
@@ -344,19 +355,8 @@ class GoogleCalendarIntegration {
         }
 
         $target_admin_user_id = self::getBookingAdminUserId($booking);
-        if ($target_admin_user_id > 0) {
-            return self::deleteEventOAuth($event_id, $target_admin_user_id);
-        }
-
-        $db   = new Database();
-        $conn = $db->getConnection();
-        $stmt = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-        if (!$stmt instanceof PDOStatement) {
-            return false;
-        }
-
-        while (($admin_row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
-            if (self::deleteEventOAuth($event_id, safe_int($admin_row['admin_user_id'] ?? 0))) {
+        foreach (self::getConnectedOAuthAdminUserIds($target_admin_user_id > 0 ? $target_admin_user_id : null) as $admin_user_id) {
+            if (self::deleteEventOAuth($event_id, $admin_user_id)) {
                 return true;
             }
         }

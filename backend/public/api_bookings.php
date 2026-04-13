@@ -87,7 +87,10 @@ function api_booking_filter_schedule_rows(array $rows, int $admin_user_id): arra
 
     return array_values(array_filter(
         $normalized_rows,
-        static fn(array $row): bool => array_int_value($row, 'schedule_admin_user_id') === $admin_user_id
+        static function (array $row) use ($admin_user_id): bool {
+            $schedule_admin_user_id = array_int_value($row, 'schedule_admin_user_id');
+            return $schedule_admin_user_id === 0 || $schedule_admin_user_id === $admin_user_id;
+        }
     ));
 }
 

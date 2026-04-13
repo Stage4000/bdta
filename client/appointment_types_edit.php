@@ -272,7 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = ?
             ");
             $stmt->execute([
-                $name, $description, $admin_user_id, $duration_minutes,
+                $name, $description, $duration_minutes, $admin_user_id,
                 $buffer_before_minutes, $buffer_after_minutes,
                 $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,

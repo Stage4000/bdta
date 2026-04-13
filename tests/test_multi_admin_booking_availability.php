@@ -29,6 +29,50 @@ function assertMultiAdminAvailability(bool $condition, string $message): void
     }
 }
 
+/**
+ * @return array<string, mixed>
+ */
+function runMultiAdminAvailabilitySubprocess(string $scenario): array
+{
+    if (!function_exists('proc_open')) {
+        throw new RuntimeException('proc_open is required to run isolated availability scenarios.');
+    }
+
+    $command = [
+        PHP_BINARY,
+        __FILE__,
+        $scenario,
+    ];
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+
+    $process = proc_open($command, $descriptors, $pipes, dirname(__DIR__));
+    if (!is_resource($process)) {
+        throw new RuntimeException('Unable to start isolated availability scenario process.');
+    }
+
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+
+    $exit_code = proc_close($process);
+    if ($exit_code !== 0) {
+        throw new RuntimeException('Availability scenario process failed: ' . trim((string) $stderr));
+    }
+
+    $payload = json_decode(is_string($stdout) ? $stdout : '', true);
+    if (!is_array($payload)) {
+        throw new RuntimeException('Availability scenario did not return valid JSON.');
+    }
+
+    return $payload;
+}
+
 function createMultiAdminAvailabilityConnection(): SafePDO
 {
     $conn = new SafePDO('sqlite::memory:');
@@ -186,15 +230,8 @@ assertMultiAdminAvailability(
     'Expected Google Calendar targeting to resolve the booking\'s assigned admin.'
 );
 
-$command_prefix = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' ';
-$admin_one_output = shell_exec($command_prefix . escapeshellarg('admin-one'));
-$admin_two_output = shell_exec($command_prefix . escapeshellarg('admin-two'));
-
-$admin_one_payload = is_string($admin_one_output) ? json_decode($admin_one_output, true) : null;
-$admin_two_payload = is_string($admin_two_output) ? json_decode($admin_two_output, true) : null;
-
-assertMultiAdminAvailability(is_array($admin_one_payload), 'Expected admin-one availability payload to be valid JSON.');
-assertMultiAdminAvailability(is_array($admin_two_payload), 'Expected admin-two availability payload to be valid JSON.');
+$admin_one_payload = runMultiAdminAvailabilitySubprocess('admin-one');
+$admin_two_payload = runMultiAdminAvailabilitySubprocess('admin-two');
 
 $admin_one_slots = is_array($admin_one_payload['available_slots'] ?? null) ? $admin_one_payload['available_slots'] : [];
 $admin_two_slots = is_array($admin_two_payload['available_slots'] ?? null) ? $admin_two_payload['available_slots'] : [];
