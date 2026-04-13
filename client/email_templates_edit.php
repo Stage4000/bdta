@@ -191,12 +191,14 @@ include '../backend/includes/header.php';
                                 <li><code>{{appointment_location}}</code> — resolves to the appointment address, or <code>Video call: &lt;url&gt;</code>, <code>Phone call — you will call us</code>, <code>Phone call — we will call you</code>, etc.</li>
                             </ul>
                             
-                            <h6 class="small mb-2">Link Variables:</h6>
-                            <ul class="small">
-                                <li><code>{{booking_link}}</code></li>
-                                <li><code>{{invoice_link}}</code></li>
-                                <li><code>{{contract_link}}</code></li>
-                                <li><code>{{quote_link}}</code></li>
+                             <h6 class="small mb-2">Link Variables:</h6>
+                             <ul class="small">
+                                 <li><code>{{booking_link}}</code></li>
+                                 <li><code>{{booking_reschedule_link}}</code></li>
+                                 <li><code>{{booking_cancel_link}}</code></li>
+                                 <li><code>{{invoice_link}}</code></li>
+                                 <li><code>{{contract_link}}</code></li>
+                                 <li><code>{{quote_link}}</code></li>
                                 <li><code>{{form_link}}</code></li>
                             </ul>
 

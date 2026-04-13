@@ -5,6 +5,18 @@ require_once '../backend/includes/follow_up_notes.php';
 require_once '../backend/includes/invoice_status.php';
 requireLogin();
 
+const BDTA_SECONDS_PER_DAY = 60 * 60 * 24;
+
+function bdta_booking_action_request_ip(): string
+{
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $forwarded = trim(explode(',', scalar_string($_SERVER['HTTP_X_FORWARDED_FOR']))[0]);
+        return filter_var($forwarded, FILTER_VALIDATE_IP) ? $forwarded : scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
+    }
+
+    return scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -25,7 +37,277 @@ if (!is_array($client)) {
     redirect('clients_list.php');
 }
 
+$client_view_url = 'clients_view.php?id=' . $id;
 $clientListUrl = !empty($client['is_archived']) ? 'clients_list.php?view=archived' : 'clients_list.php';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
+    requireValidCsrfToken($client_view_url);
+
+    $booking_action = scalar_string($_POST['booking_action']);
+    $booking_id = safe_int($_POST['booking_id'] ?? 0);
+
+    $stmt = $conn->prepare("
+        SELECT b.*,
+               at.duration_minutes AS appointment_type_duration_minutes,
+               at.advance_booking_min_days,
+               at.advance_booking_max_days
+        FROM bookings b
+        LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+        WHERE b.id = ? AND b.client_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$booking_id, $id]);
+    $booking_for_action = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+
+    if ($booking_id <= 0 || $booking_for_action === []) {
+        setFlashMessage('Booking not found for this client.', 'danger');
+        redirect($client_view_url);
+    }
+
+    $booking_status = array_string_value($booking_for_action, 'status');
+    if (!in_array($booking_status, ['pending', 'confirmed'], true)) {
+        setFlashMessage('Only pending or confirmed bookings can be updated here.', 'warning');
+        redirect($client_view_url);
+    }
+
+    $booking_start_ts = strtotime(
+        array_string_value($booking_for_action, 'appointment_date') . ' ' . array_string_value($booking_for_action, 'appointment_time')
+    );
+    if ($booking_start_ts === false || $booking_start_ts <= time()) {
+        setFlashMessage('Only upcoming bookings can be updated here.', 'warning');
+        redirect($client_view_url);
+    }
+
+    $client_ip = bdta_booking_action_request_ip();
+    $email_service = new EmailService(null, $conn);
+
+    if ($booking_action === 'cancel') {
+        $conn->prepare("UPDATE bookings SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$booking_id]);
+
+        if (!empty($booking_for_action['google_event_id']) && GoogleCalendarIntegration::isOAuthConfigured()) {
+            $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+            while (($tok_row = assoc_row($stmt_tok->fetch(PDO::FETCH_ASSOC))) !== []) {
+                if (GoogleCalendarIntegration::deleteEventOAuth(array_string_value($booking_for_action, 'google_event_id'), array_int_value($tok_row, 'admin_user_id'))) {
+                    $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
+                    break;
+                }
+            }
+        }
+
+        $pkg_credit_id = safe_int($booking_for_action['package_credit_id'] ?? 0);
+        $credit_refunded = false;
+        if ($pkg_credit_id > 0) {
+            $stmt = $conn->prepare("
+                SELECT COUNT(*) FROM package_credit_transactions
+                WHERE client_package_credit_id = ? AND booking_id = ? AND transaction_type = 'refund'
+            ");
+            $stmt->execute([$pkg_credit_id, $booking_id]);
+            if (!safe_int($stmt->fetchColumn())) {
+                $conn->prepare("
+                    UPDATE client_package_credits
+                    SET used_credits = used_credits - 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND used_credits > 0
+                ")->execute([$pkg_credit_id]);
+
+                $stmt = $conn->prepare("SELECT appointment_type_id, client_id FROM client_package_credits WHERE id = ?");
+                $stmt->execute([$pkg_credit_id]);
+                $credit_row = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+                if ($credit_row !== []) {
+                    $conn->prepare("
+                        INSERT INTO package_credit_transactions
+                            (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
+                        VALUES (?, ?, ?, 'refund', 1, ?, ?, ?)
+                    ")->execute([
+                        $pkg_credit_id,
+                        array_int_value($credit_row, 'client_id'),
+                        array_int_value($credit_row, 'appointment_type_id'),
+                        $booking_id,
+                        "Credit refunded for cancelled booking #{$booking_id}",
+                        safe_int($_SESSION['admin_id'] ?? 0),
+                    ]);
+                    $credit_refunded = true;
+                }
+            }
+        }
+
+        $conn->prepare("
+            INSERT INTO booking_change_log
+                (booking_id, client_id, change_type, old_date, old_time, initiated_by, ip_address)
+            VALUES (?, ?, 'cancellation', ?, ?, 'admin', ?)
+        ")->execute([
+            $booking_id,
+            $id,
+            array_string_value($booking_for_action, 'appointment_date'),
+            array_string_value($booking_for_action, 'appointment_time'),
+            $client_ip,
+        ]);
+
+        if (!empty($booking_for_action['client_email'])) {
+            $email_service->sendBookingCancellation($booking_for_action);
+        }
+        if (!empty($booking_for_action['client_id'])) {
+            bdta_create_notification(
+                $conn,
+                'portal',
+                safe_int($booking_for_action['client_id']),
+                'booking',
+                $booking_id,
+                'Appointment cancelled',
+                array_string_value($booking_for_action, 'service_type') . ' on ' . array_string_value($booking_for_action, 'appointment_date'),
+                '/portal/appointments.php'
+            );
+        }
+
+        setFlashMessage(
+            $credit_refunded ? 'Booking cancelled and credit refunded.' : 'Booking cancelled.',
+            'success'
+        );
+        redirect($client_view_url);
+    }
+
+    if ($booking_action === 'reschedule') {
+        $new_date = trim(scalar_string($_POST['new_date'] ?? ''));
+        $new_time = trim(scalar_string($_POST['new_time'] ?? ''));
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $new_date) || !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $new_time)) {
+            setFlashMessage('Choose a valid reschedule date and time.', 'danger');
+            redirect($client_view_url);
+        }
+
+        $new_time_hhmm = substr($new_time, 0, 5);
+        $new_datetime = strtotime($new_date . ' ' . $new_time_hhmm);
+        if ($new_datetime === false || $new_datetime <= time()) {
+            setFlashMessage('The new appointment time must be in the future.', 'danger');
+            redirect($client_view_url);
+        }
+
+        $apt_type_id = safe_int($booking_for_action['appointment_type_id'] ?? 0);
+        if ($apt_type_id <= 0) {
+            setFlashMessage('This booking cannot be rescheduled from the client profile because it has no appointment type.', 'warning');
+            redirect($client_view_url);
+        }
+
+        $advance_booking_min_days = safe_int($booking_for_action['advance_booking_min_days'] ?? 0);
+        $advance_booking_max_days = safe_int($booking_for_action['advance_booking_max_days'] ?? 365);
+        $days_until = ($new_datetime - time()) / BDTA_SECONDS_PER_DAY;
+
+        if ($advance_booking_min_days > 0 && $days_until < $advance_booking_min_days) {
+            setFlashMessage("This appointment type must be booked at least {$advance_booking_min_days} day(s) in advance.", 'danger');
+            redirect($client_view_url);
+        }
+
+        if ($days_until > $advance_booking_max_days) {
+            setFlashMessage("This appointment type can only be booked up to {$advance_booking_max_days} day(s) in advance.", 'danger');
+            redirect($client_view_url);
+        }
+
+        $duration = safe_int($booking_for_action['appointment_type_duration_minutes'] ?? $booking_for_action['duration_minutes'] ?? 60);
+        $new_end_dt = new DateTime($new_date . ' ' . $new_time_hhmm . ':00');
+        $new_end_dt->modify("+{$duration} minutes");
+        $new_end_time = $new_end_dt->format('H:i:s');
+
+        $stmt = $conn->prepare("
+            SELECT appointment_time, duration_minutes
+            FROM bookings
+            WHERE appointment_type_id = ?
+              AND appointment_date = ?
+              AND id != ?
+              AND status IN ('pending', 'confirmed')
+              AND appointment_time < ?
+        ");
+        $stmt->execute([$apt_type_id, $new_date, $booking_id, $new_end_time]);
+        $new_start_ts = strtotime($new_date . ' ' . $new_time_hhmm . ':00');
+        $conflict = false;
+        while (($row = assoc_row($stmt->fetch(PDO::FETCH_ASSOC))) !== []) {
+            $existing_start = new DateTime($new_date . ' ' . substr(array_string_value($row, 'appointment_time'), 0, 8));
+            $existing_end = clone $existing_start;
+            $existing_end->modify('+' . safe_int($row['duration_minutes'] ?? 60) . ' minutes');
+            if ($existing_end->getTimestamp() > $new_start_ts) {
+                $conflict = true;
+                break;
+            }
+        }
+
+        if ($conflict) {
+            setFlashMessage('That time slot is no longer available. Please choose another.', 'warning');
+            redirect($client_view_url);
+        }
+
+        $old_date = array_string_value($booking_for_action, 'appointment_date');
+        $old_time = array_string_value($booking_for_action, 'appointment_time');
+
+        $conn->prepare("
+            UPDATE bookings
+            SET appointment_date = ?, appointment_time = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ")->execute([$new_date, $new_time_hhmm, $booking_id]);
+
+        if (!empty($booking_for_action['google_event_id']) && GoogleCalendarIntegration::isOAuthConfigured()) {
+            $updated_booking = array_merge($booking_for_action, [
+                'appointment_date' => $new_date,
+                'appointment_time' => $new_time_hhmm,
+            ]);
+            $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+            $gcal_updated = false;
+            while (($tok_row = assoc_row($stmt_tok->fetch(PDO::FETCH_ASSOC))) !== []) {
+                $result = GoogleCalendarIntegration::updateEventOAuth($updated_booking, array_string_value($booking_for_action, 'google_event_id'), array_int_value($tok_row, 'admin_user_id'));
+                if (!empty($result['success'])) {
+                    $gcal_updated = true;
+                    break;
+                }
+            }
+            if (!$gcal_updated) {
+                $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+                while (($tok_row = assoc_row($stmt_tok->fetch(PDO::FETCH_ASSOC))) !== []) {
+                    if (GoogleCalendarIntegration::deleteEventOAuth(array_string_value($booking_for_action, 'google_event_id'), array_int_value($tok_row, 'admin_user_id'))) {
+                        $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        $conn->prepare("
+            INSERT INTO booking_change_log
+                (booking_id, client_id, change_type, old_date, old_time, new_date, new_time, initiated_by, ip_address)
+            VALUES (?, ?, 'reschedule', ?, ?, ?, ?, 'admin', ?)
+        ")->execute([
+            $booking_id,
+            $id,
+            $old_date,
+            $old_time,
+            $new_date,
+            $new_time_hhmm,
+            $client_ip,
+        ]);
+
+        $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
+        $stmt->execute([$booking_id]);
+        $updated_booking = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+
+        if ($updated_booking !== [] && !empty($updated_booking['client_email'])) {
+            $email_service->sendBookingReschedule($updated_booking, $old_date, $old_time);
+        }
+        if ($updated_booking !== [] && !empty($updated_booking['client_id'])) {
+            bdta_create_notification(
+                $conn,
+                'portal',
+                safe_int($updated_booking['client_id']),
+                'booking',
+                $booking_id,
+                'Appointment rescheduled',
+                array_string_value($updated_booking, 'service_type') . ' moved to ' . $new_date . ' ' . $new_time_hhmm,
+                '/portal/appointments.php'
+            );
+        }
+
+        setFlashMessage('Booking rescheduled.', 'success');
+        redirect($client_view_url);
+    }
+
+    setFlashMessage('Unknown booking action requested.', 'danger');
+    redirect($client_view_url);
+}
 
 // Get client's pets with file count
 $stmt = $conn->prepare("
@@ -41,7 +323,7 @@ $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get appointments (past and upcoming)
 $stmt = $conn->prepare("
-    SELECT b.*, at.name as appointment_type_name
+    SELECT b.*, at.name as appointment_type_name, at.advance_booking_min_days, at.advance_booking_max_days, at.duration_minutes AS appointment_type_duration_minutes
     FROM bookings b
     LEFT JOIN appointment_types at ON b.appointment_type_id = at.id
     WHERE b.client_id = ?
@@ -384,12 +666,44 @@ include '../backend/includes/header.php';
                                 </thead>
                                 <tbody>
                                     <?php foreach ($upcoming_appointments as $apt): ?>
+                                        <?php
+                                        $can_manage_upcoming = in_array(array_string_value($apt, 'status'), ['pending', 'confirmed'], true);
+                                        $can_reschedule_upcoming = $can_manage_upcoming && array_int_value($apt, 'appointment_type_id') > 0;
+                                        $appointment_date_display = formatDate(array_string_value($apt, 'appointment_date'));
+                                        $appointment_time_display = date('g:i A', safe_timestamp(strtotime(array_string_value($apt, 'appointment_time'))));
+                                        ?>
                                         <tr>
-                                            <td><?= formatDate($apt['appointment_date']) ?></td>
-                                            <td><?= date('g:i A', safe_timestamp(strtotime($apt['appointment_time']))) ?></td>
+                                            <td><?= $appointment_date_display ?></td>
+                                            <td><?= $appointment_time_display ?></td>
                                             <td><?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?></td>
                                             <td><span class="badge bg-info"><?= escape($apt['status']) ?></span></td>
-                                            <td><span class="text-muted small">—</span></td>
+                                            <td>
+                                                <?php if ($can_manage_upcoming): ?>
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        <?php if ($can_reschedule_upcoming): ?>
+                                                            <button type="button"
+                                                                    class="btn btn-xs btn-outline-primary"
+                                                                    data-booking-id="<?= (int) $apt['id'] ?>"
+                                                                    data-type-id="<?= (int) $apt['appointment_type_id'] ?>"
+                                                                    data-type-name="<?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?>"
+                                                                    data-min-days="<?= (int) ($apt['advance_booking_min_days'] ?? 0) ?>"
+                                                                    onclick="showAdminRescheduleModal(this)">
+                                                                <i class="fas fa-calendar-alt"></i> Reschedule
+                                                            </button>
+                                                        <?php endif; ?>
+                                                        <form method="POST" class="d-inline" onsubmit="return confirm('Cancel this booking?')">
+                                                            <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
+                                                            <input type="hidden" name="booking_action" value="cancel">
+                                                            <input type="hidden" name="booking_id" value="<?= (int) $apt['id'] ?>">
+                                                            <button type="submit" class="btn btn-xs btn-outline-danger">
+                                                                <i class="fas fa-times-circle"></i> Cancel
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <span class="text-muted small">—</span>
+                                                <?php endif; ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -763,6 +1077,46 @@ include '../backend/includes/header.php';
     </div>
 </div>
 
+<!-- Booking Reschedule Modal -->
+<div class="modal fade" id="adminRescheduleModal" tabindex="-1" aria-labelledby="adminRescheduleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="adminRescheduleModalLabel">
+                    <i class="fas fa-calendar-alt me-2 text-primary"></i>Reschedule Booking
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Select a new date and time for <strong id="adminRescheduleBookingLabel"></strong>.</p>
+                <div class="mb-3">
+                    <label for="adminRescheduleDate" class="form-label">New Date</label>
+                    <input type="date" class="form-control" id="adminRescheduleDate" onchange="loadAdminRescheduleSlots()">
+                </div>
+                <div class="mb-3" id="adminRescheduleTimesSection" style="display:none;">
+                    <label class="form-label">Available Times</label>
+                    <div id="adminRescheduleTimesGrid" class="d-flex flex-wrap gap-2"></div>
+                    <div id="adminRescheduleNoSlots" class="text-muted small d-none">No available times on this date.</div>
+                </div>
+                <div id="adminRescheduleError" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <form method="POST" id="adminRescheduleForm" class="d-flex gap-2">
+                    <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
+                    <input type="hidden" name="booking_action" value="reschedule">
+                    <input type="hidden" name="booking_id" id="adminRescheduleBookingId">
+                    <input type="hidden" name="new_date" id="adminRescheduleDateField">
+                    <input type="hidden" name="new_time" id="adminRescheduleTimeField">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Current Time</button>
+                    <button type="submit" class="btn btn-primary" id="confirmAdminRescheduleBtn" disabled>
+                        Confirm Reschedule
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Email Details Modal -->
 <div class="modal fade" id="emailDetailsModal" tabindex="-1" aria-labelledby="emailDetailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -827,6 +1181,102 @@ include '../backend/includes/header.php';
 // Email management
 const clientId = <?= $id ?>;
 let emailTemplates = [];
+let adminRescheduleBookingId = null;
+let adminRescheduleTypeId = null;
+let adminRescheduleTime = null;
+
+function showAdminRescheduleModal(btn) {
+    adminRescheduleBookingId = parseInt(btn.dataset.bookingId, 10);
+    adminRescheduleTypeId = parseInt(btn.dataset.typeId, 10);
+    adminRescheduleTime = null;
+
+    const minDays = parseInt(btn.dataset.minDays, 10) || 0;
+    const minDate = new Date();
+    minDate.setDate(minDate.getDate() + minDays);
+
+    document.getElementById('adminRescheduleBookingLabel').textContent = btn.dataset.typeName;
+    document.getElementById('adminRescheduleDate').min = minDate.toISOString().split('T')[0];
+    document.getElementById('adminRescheduleDate').value = '';
+    document.getElementById('adminRescheduleTimesGrid').innerHTML = '';
+    document.getElementById('adminRescheduleTimesSection').style.display = 'none';
+    document.getElementById('adminRescheduleNoSlots').classList.add('d-none');
+    document.getElementById('adminRescheduleError').classList.add('d-none');
+    document.getElementById('confirmAdminRescheduleBtn').disabled = true;
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('adminRescheduleModal')).show();
+}
+
+function loadAdminRescheduleSlots() {
+    const date = document.getElementById('adminRescheduleDate').value;
+    const grid = document.getElementById('adminRescheduleTimesGrid');
+    const section = document.getElementById('adminRescheduleTimesSection');
+    const noSlots = document.getElementById('adminRescheduleNoSlots');
+    const errorBox = document.getElementById('adminRescheduleError');
+
+    adminRescheduleTime = null;
+    document.getElementById('confirmAdminRescheduleBtn').disabled = true;
+    document.getElementById('adminRescheduleDateField').value = '';
+    document.getElementById('adminRescheduleTimeField').value = '';
+    section.style.display = 'block';
+    noSlots.classList.add('d-none');
+    errorBox.classList.add('d-none');
+    grid.innerHTML = '<div class="spinner-border spinner-border-sm text-secondary me-2"></div> Loading...';
+
+    if (!date || !adminRescheduleTypeId) {
+        grid.innerHTML = '';
+        return;
+    }
+
+    fetch('/backend/public/api_bookings.php?date=' + encodeURIComponent(date) + '&appointment_type_id=' + adminRescheduleTypeId)
+        .then(response => response.json())
+        .then(data => {
+            grid.innerHTML = '';
+            const slots = Array.isArray(data.available_slots) ? data.available_slots : [];
+            if (slots.length === 0) {
+                noSlots.classList.remove('d-none');
+                if (data.message) {
+                    errorBox.textContent = data.message;
+                    errorBox.classList.remove('d-none');
+                }
+                return;
+            }
+
+            slots.forEach(slot => {
+                const time = typeof slot === 'object' ? (slot.time || '') : slot;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'btn btn-outline-primary btn-sm';
+                button.textContent = formatAdminRescheduleTime(time);
+                button.addEventListener('click', function () {
+                    document.querySelectorAll('#adminRescheduleTimesGrid .btn').forEach(existingButton => {
+                        existingButton.classList.remove('btn-primary');
+                        existingButton.classList.add('btn-outline-primary');
+                    });
+                    button.classList.remove('btn-outline-primary');
+                    button.classList.add('btn-primary');
+                    adminRescheduleTime = time;
+                    document.getElementById('adminRescheduleBookingId').value = adminRescheduleBookingId || '';
+                    document.getElementById('adminRescheduleDateField').value = date;
+                    document.getElementById('adminRescheduleTimeField').value = time;
+                    document.getElementById('confirmAdminRescheduleBtn').disabled = false;
+                });
+                grid.appendChild(button);
+            });
+        })
+        .catch(() => {
+            grid.innerHTML = '<span class="text-danger">Could not load available times.</span>';
+        });
+}
+
+function formatAdminRescheduleTime(value) {
+    if (!value) return value;
+    const parts = value.split(':');
+    let hour = parseInt(parts[0], 10);
+    const minutes = parts[1] || '00';
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12 || 12;
+    return hour + ':' + minutes + ' ' + suffix;
+}
 
 // Load email templates on page load
 async function loadEmailTemplates() {

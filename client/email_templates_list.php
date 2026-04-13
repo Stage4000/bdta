@@ -48,6 +48,15 @@ include '../backend/includes/header.php';
                 </div>
             <?php endif; ?>
 
+            <div class="alert alert-info">
+                <i class="fas fa-circle-info me-1"></i>
+                Booking-related templates can use
+                <code>{{booking_link}}</code>,
+                <code>{{booking_reschedule_link}}</code>, and
+                <code>{{booking_cancel_link}}</code>
+                to send clients directly to the portal booking actions.
+            </div>
+
             <?php if (empty($templates)): ?>
                 <div class="alert alert-info">
                     <i class="fas fa-circle-info"></i>
