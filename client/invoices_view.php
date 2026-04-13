@@ -44,7 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$can_modify_accounting) {
 
 // Handle "Send Receipt" POST action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
-    if (!in_array(array_string_value($invoice, 'status'), ['paid', 'refunded'], true)) {
+    $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+
+    if ($submitted_csrf_token === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
+        setFlashMessage('Invalid request.', 'danger');
+    } elseif (!in_array(array_string_value($invoice, 'status'), ['paid', 'refunded'], true)) {
         setFlashMessage('Cannot send receipt: invoice is not fully paid.', 'danger');
     } else {
         $email_service = new EmailService(null, $conn);
@@ -229,6 +233,7 @@ include '../backend/includes/header.php';
                     <?php if ($can_modify_accounting && in_array(array_string_value($invoice, 'status'), ['paid', 'refunded'], true)): ?>
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="send_receipt" value="1">
+                            <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
                             <button type="submit" class="btn btn-outline-success"
                                     title="<?= $invoice['receipt_sent_at'] ? 'Last sent: ' . escape(formatDateTime($invoice['receipt_sent_at'])) : 'No receipt sent yet' ?>">
                                 <i class="fas fa-receipt"></i>
