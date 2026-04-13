@@ -83,6 +83,21 @@ try {
         'Public booking page should render a client portal return action.'
     );
     bdta_assert(
+        str_contains($book_page, 'if (isPortalLoggedIn())') &&
+        str_contains($book_page, "SELECT name, email, phone, address FROM clients WHERE id = ?"),
+        'Public booking page should load the logged-in portal client profile for prefill.'
+    );
+    bdta_assert(
+        str_contains($book_page, "value=\"<?= escape(\$portal_prefill_profile['name']) ?>\"") &&
+        str_contains($book_page, "value=\"<?= escape(\$portal_prefill_profile['email']) ?>\"") &&
+        str_contains($book_page, "value=\"<?= escape(\$portal_prefill_profile['phone']) ?>\""),
+        'Public booking page should prefill the built-in contact fields for portal clients.'
+    );
+    bdta_assert(
+        str_contains($book_page, 'public_book_portal_prefill_value($portal_prefill_profile, $bi_map)'),
+        'Public booking page should also prefill mapped booking intake fields for portal clients.'
+    );
+    bdta_assert(
         str_contains($book_page, "escape(\$portal_return !== '' ? \$portal_return : '/')"),
         'Public booking success modal should switch its destination between the portal and home.'
     );

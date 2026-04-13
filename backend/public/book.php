@@ -55,9 +55,46 @@ function public_book_string_list(mixed $value): array {
     return $strings;
 }
 
+/**
+ * @param array<string, string> $portal_profile
+ */
+function public_book_portal_prefill_value(array $portal_profile, string $mapping): string
+{
+    return match ($mapping) {
+        'client.name' => $portal_profile['name'] ?? '',
+        'client.email' => $portal_profile['email'] ?? '',
+        'client.phone' => $portal_profile['phone'] ?? '',
+        'client.address' => $portal_profile['address'] ?? '',
+        default => '',
+    };
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 $portal_return = bdta_public_portal_return_path();
+$portal_prefill_profile = [
+    'name' => '',
+    'email' => '',
+    'phone' => '',
+    'address' => '',
+];
+
+if (isPortalLoggedIn()) {
+    $portal_client_id = portalClientId();
+    if ($portal_client_id > 0) {
+        $stmt = $conn->prepare("SELECT name, email, phone, address FROM clients WHERE id = ?");
+        $stmt->execute([$portal_client_id]);
+        $portal_client = public_book_map($stmt->fetch(PDO::FETCH_ASSOC));
+        if ($portal_client !== []) {
+            $portal_prefill_profile = [
+                'name' => public_book_string($portal_client, 'name'),
+                'email' => public_book_string($portal_client, 'email'),
+                'phone' => public_book_string($portal_client, 'phone'),
+                'address' => public_book_string($portal_client, 'address'),
+            ];
+        }
+    }
+}
 
 // Get appointment type from URL - supports both numeric ID and unique link
 $appointment_type_id = 0;
@@ -834,6 +871,7 @@ if (isset($error_mode) && $error_mode) {
                             $bi_ph   = htmlspecialchars(array_string_value($bifield, 'placeholder'));
                             $bi_type = array_string_value($bifield, 'type', 'text');
                             $bi_map  = array_string_value($bifield, 'profile_mapping');
+                            $bi_prefill = public_book_portal_prefill_value($portal_prefill_profile, $bi_map);
                             $bi_label = array_string_value($bifield, 'label');
                             $bi_description = array_string_value($bifield, 'description');
                             $bi_options = public_book_string_list($bifield['options'] ?? []);
@@ -854,7 +892,7 @@ if (isset($error_mode) && $error_mode) {
                                       data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
                                       placeholder="<?= $bi_ph ?>"
                                       rows="3"
-                                      <?= $bi_req ? 'required' : '' ?>></textarea>
+                                      <?= $bi_req ? 'required' : '' ?>><?= htmlspecialchars($bi_prefill) ?></textarea>
                             <?php break; case 'select': ?>
                                 <select class="form-select form-select-lg"
                                     data-booking-intake-field="<?= $bifi ?>"
@@ -862,7 +900,7 @@ if (isset($error_mode) && $error_mode) {
                                     <?= $bi_req ? 'required' : '' ?>>
                                 <option value="">— Select —</option>
                                 <?php foreach ($bi_options as $bi_opt): ?>
-                                    <option value="<?= htmlspecialchars($bi_opt) ?>"><?= htmlspecialchars($bi_opt) ?></option>
+                                    <option value="<?= htmlspecialchars($bi_opt) ?>" <?= $bi_prefill === $bi_opt ? 'selected' : '' ?>><?= htmlspecialchars($bi_opt) ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <?php break; case 'radio': ?>
@@ -874,6 +912,7 @@ if (isset($error_mode) && $error_mode) {
                                        name="<?= $bi_fn ?>"
                                        id="<?= $bi_fn ?>_<?= $bi_oi ?>"
                                        value="<?= htmlspecialchars($bi_opt) ?>"
+                                       <?= $bi_prefill === $bi_opt ? 'checked' : '' ?>
                                        <?= ($bi_req && $bi_oi === 0) ? 'required' : '' ?>>
                                 <label class="form-check-label" for="<?= $bi_fn ?>_<?= $bi_oi ?>"><?= htmlspecialchars($bi_opt) ?></label>
                             </div>
@@ -885,17 +924,19 @@ if (isset($error_mode) && $error_mode) {
                                        data-booking-intake-field="<?= $bifi ?>"
                                        data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
                                        id="<?= $bi_fn ?>_<?= $bi_oi ?>"
-                                       value="<?= htmlspecialchars($bi_opt) ?>">
+                                       value="<?= htmlspecialchars($bi_opt) ?>"
+                                       <?= $bi_prefill === $bi_opt ? 'checked' : '' ?>>
                                 <label class="form-check-label" for="<?= $bi_fn ?>_<?= $bi_oi ?>"><?= htmlspecialchars($bi_opt) ?></label>
                             </div>
                             <?php endforeach;
                             break; default: ?>
                             <input type="<?= htmlspecialchars(in_array($bi_type, ['phone']) ? 'tel' : $bi_type) ?>"
-                                   class="form-control form-control-lg"
-                                   data-booking-intake-field="<?= $bifi ?>"
-                                   data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
-                                   placeholder="<?= $bi_ph ?>"
-                                   <?= $bi_req ? 'required' : '' ?>>
+                                    class="form-control form-control-lg"
+                                    data-booking-intake-field="<?= $bifi ?>"
+                                    data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
+                                    placeholder="<?= $bi_ph ?>"
+                                    value="<?= htmlspecialchars($bi_prefill) ?>"
+                                    <?= $bi_req ? 'required' : '' ?>>
                             <?php break; endswitch; ?>
                         </div>
                         <?php endforeach; ?>
@@ -903,17 +944,17 @@ if (isset($error_mode) && $error_mode) {
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Your Name *</label>
                             <input type="text" class="form-control form-control-lg" name="client_name" 
-                                   id="clientName" required placeholder="John Doe">
+                                   id="clientName" required placeholder="John Doe" value="<?= escape($portal_prefill_profile['name']) ?>">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Email Address *</label>
                             <input type="email" class="form-control form-control-lg" name="client_email" 
-                                   id="clientEmail" required placeholder="john@example.com">
+                                   id="clientEmail" required placeholder="john@example.com" value="<?= escape($portal_prefill_profile['email']) ?>">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Phone Number</label>
                             <input type="tel" class="form-control form-control-lg" name="client_phone" 
-                                   id="clientPhone" placeholder="(555) 123-4567">
+                                   id="clientPhone" placeholder="(555) 123-4567" value="<?= escape($portal_prefill_profile['phone']) ?>">
                         </div>
                         <div class="col-12 mb-3">
                             <label class="form-label">Dog's Name(s)</label>
