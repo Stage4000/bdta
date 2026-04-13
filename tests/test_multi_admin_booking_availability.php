@@ -130,8 +130,8 @@ function runAvailabilityScenario(SafePDO $conn, int $appointment_type_id, string
     $available_end_time = array_string_value($appointment_type, 'available_end_time', '17:00');
     $time_slot_interval = array_int_value($appointment_type, 'time_slot_interval', 30);
     $slot_duration = array_int_value($appointment_type, 'duration_minutes', 60);
-    $buffer_before = max(0, array_int_value($appointment_type, 'buffer_before_minutes'));
-    $buffer_after = max(0, array_int_value($appointment_type, 'buffer_after_minutes'));
+    $buffer_before = max(0, array_int_value($appointment_type, 'buffer_before_minutes', 0));
+    $buffer_after = max(0, array_int_value($appointment_type, 'buffer_after_minutes', 0));
     $appointment_type_admin_user_id = array_int_value($appointment_type, 'admin_user_id');
 
     $stmt = $conn->prepare("
@@ -161,6 +161,7 @@ function runAvailabilityScenario(SafePDO $conn, int $appointment_type_id, string
 
     $start_time_minutes = (int) $start_parts[0] * 60 + (int) $start_parts[1];
     $end_time_minutes = (int) $end_parts[0] * 60 + (int) $end_parts[1];
+    $disabled_resource_config = ['enabled' => false, 'name' => '', 'capacity' => 1, 'allocation' => 'per_appointment'];
 
     $available_slots = [];
     for ($minutes = $start_time_minutes; $minutes < $end_time_minutes; $minutes += $time_slot_interval) {
@@ -171,7 +172,7 @@ function runAvailabilityScenario(SafePDO $conn, int $appointment_type_id, string
             $slot_duration,
             $buffer_before,
             $buffer_after,
-            ['enabled' => false, 'name' => '', 'capacity' => 1, 'allocation' => 'per_appointment'],
+            $disabled_resource_config,
             $appointment_type_id
         );
         if (!$slot_usage['has_overlap_conflict']) {
@@ -222,7 +223,7 @@ $created_result = api_booking_create_booking($conn, [
 assertMultiAdminAvailability(($created_result['success'] ?? false) === true, 'Expected assigned-admin booking creation to succeed.');
 
 $booking_stmt = $conn->prepare('SELECT * FROM bookings WHERE id = ?');
-$booking_stmt->execute([safe_int($created_result['booking_id'] ?? 0)]);
+$booking_stmt->execute([safe_int($created_result['booking_id'] ?? null)]);
 $created_booking = $booking_stmt->fetch(PDO::FETCH_ASSOC);
 assertMultiAdminAvailability(is_array($created_booking), 'Expected created booking row to be retrievable.');
 assertMultiAdminAvailability((int) ($created_booking['admin_user_id'] ?? 0) === 2, 'Expected bookings to inherit the assigned admin from their appointment type.');
