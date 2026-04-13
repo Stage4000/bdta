@@ -523,6 +523,7 @@ class Database {
                     client_name TEXT NOT NULL,
                     client_email TEXT NOT NULL,
                     client_phone TEXT,
+                    admin_user_id INTEGER,
                     service_type TEXT NOT NULL,
                     appointment_date DATE NOT NULL,
                     appointment_time TIME NOT NULL,
@@ -630,6 +631,7 @@ class Database {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     description TEXT,
+                    admin_user_id INTEGER,
                     duration_minutes INTEGER DEFAULT 60,
                     buffer_before_minutes INTEGER DEFAULT 0,
                     buffer_after_minutes INTEGER DEFAULT 0,
@@ -1611,6 +1613,10 @@ class Database {
         
         // Add unique_link column to appointment_types table
         $apt_column_names = $this->getTableColumns('appointment_types');
+
+        if (!in_array('admin_user_id', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN admin_user_id INTEGER DEFAULT NULL");
+        }
         
         if (!in_array('unique_link', $apt_column_names)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN unique_link VARCHAR(255)");
@@ -2214,6 +2220,9 @@ class Database {
         // Add google_event_id column to bookings so cancelled bookings can be
         // removed from the connected Google Calendar
         $booking_col_names_gcal = $this->getTableColumns('bookings');
+        if (!in_array('admin_user_id', $booking_col_names_gcal)) {
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN admin_user_id INTEGER DEFAULT NULL");
+        }
         if (!in_array('google_event_id', $booking_col_names_gcal)) {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN google_event_id TEXT DEFAULT NULL");
         }

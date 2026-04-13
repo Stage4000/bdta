@@ -74,6 +74,7 @@ $conn->exec('
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         client_id INTEGER,
         appointment_type_id INTEGER,
+        admin_user_id INTEGER,
         client_name TEXT,
         client_email TEXT NOT NULL,
         client_phone TEXT,
@@ -98,6 +99,10 @@ $conn->exec('
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         is_active INTEGER DEFAULT 1,
+        admin_user_id INTEGER,
+        duration_minutes INTEGER DEFAULT 60,
+        buffer_before_minutes INTEGER DEFAULT 0,
+        buffer_after_minutes INTEGER DEFAULT 0,
         requires_admin_confirmation INTEGER DEFAULT 0,
         confirmation_template_id INTEGER,
         booking_request_template_id INTEGER,
@@ -110,7 +115,11 @@ $conn->exec('
         is_group_class INTEGER DEFAULT 0,
         group_class_location TEXT,
         location_types TEXT,
-        contract_template_id INTEGER
+        contract_template_id INTEGER,
+        uses_resource INTEGER DEFAULT 0,
+        resource_name TEXT,
+        resource_capacity INTEGER DEFAULT 1,
+        resource_allocation TEXT DEFAULT 'per_appointment'
     )
 ');
 $conn->exec('CREATE TABLE pets (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER, name TEXT, species TEXT, is_active INTEGER, created_at TEXT, updated_at TEXT)');

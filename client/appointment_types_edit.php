@@ -16,6 +16,10 @@ if (!isLoggedIn()) {
 $db = new Database();
 $conn = $db->getConnection();
 
+$admin_stmt = $conn->query("SELECT id, username, email FROM admin_users ORDER BY username ASC, email ASC");
+$admin_users = $admin_stmt instanceof PDOStatement ? $admin_stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+$valid_admin_ids = array_map(static fn(array $admin): int => safe_int($admin['id'] ?? 0), $admin_users);
+
 $id = safe_int($_GET['id'] ?? 0);
 $is_edit = $id > 0;
 
@@ -41,6 +45,10 @@ $base_url = getDynamicBaseUrl();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = scalar_string($_POST['name'] ?? '');
     $description = scalar_string($_POST['description'] ?? '');
+    $admin_user_id = !empty($_POST['admin_user_id']) ? safe_int($_POST['admin_user_id']) : null;
+    if ($admin_user_id !== null && !in_array($admin_user_id, $valid_admin_ids, true)) {
+        $admin_user_id = null;
+    }
     $duration_minutes = safe_int($_POST['duration_minutes'] ?? 60);
     $buffer_before_minutes = safe_int($_POST['buffer_before_minutes'] ?? 0);
     $buffer_after_minutes = safe_int($_POST['buffer_after_minutes'] ?? 0);
@@ -213,6 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 UPDATE appointment_types SET
                     name = ?,
                     description = ?,
+                    admin_user_id = ?,
                     duration_minutes = ?,
                     buffer_before_minutes = ?,
                     buffer_after_minutes = ?,
@@ -261,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = ?
             ");
             $stmt->execute([
-                $name, $description, $duration_minutes,
+                $name, $description, $admin_user_id, $duration_minutes,
                 $buffer_before_minutes, $buffer_after_minutes,
                 $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
@@ -303,6 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $conn->prepare("
                 INSERT INTO appointment_types (
                     name, description, duration_minutes,
+                    admin_user_id,
                     buffer_before_minutes, buffer_after_minutes,
                     use_travel_time_buffer, travel_time_minutes,
                     advance_booking_min_days, advance_booking_max_days,
@@ -330,10 +340,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     resource_name,
                     resource_capacity,
                     resource_allocation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
-                $name, $description, $duration_minutes,
+                $name, $description, $admin_user_id, $duration_minutes,
                 $buffer_before_minutes, $buffer_after_minutes,
                 $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
@@ -464,6 +474,10 @@ if ($is_edit) {
 $selected_form_ids_current = [];
 $type_name = array_string_value($type_row, 'name');
 $type_description = array_string_value($type_row, 'description');
+$type_admin_user_id = array_int_value($type_row, 'admin_user_id');
+if (!$is_edit && $type_admin_user_id <= 0) {
+    $type_admin_user_id = safe_int($_SESSION['admin_id'] ?? 0);
+}
 $type_duration = array_int_value($type_row, 'duration_minutes', 60);
 $type_buffer_before = array_int_value($type_row, 'buffer_before_minutes');
 $type_buffer_after = array_int_value($type_row, 'buffer_after_minutes');
@@ -621,6 +635,22 @@ include __DIR__ . '/../backend/includes/header.php';
                         <label for="description" class="form-label">Description</label>
                         <textarea class="form-control" id="description" name="description" rows="2"><?= htmlspecialchars($type_description) ?></textarea>
                         <div class="form-text">Brief description of this appointment type</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="admin_user_id" class="form-label">Assigned Admin</label>
+                        <select class="form-select" id="admin_user_id" name="admin_user_id">
+                            <option value="">Unassigned / Shared</option>
+                            <?php foreach ($admin_users as $admin_user): ?>
+                                <?php $admin_id_option = safe_int($admin_user['id'] ?? 0); ?>
+                                <option value="<?= $admin_id_option ?>" <?= $type_admin_user_id === $admin_id_option ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars(array_string_value($admin_user, 'username')) ?>
+                                    <?php if (array_string_value($admin_user, 'email') !== ''): ?>
+                                        (<?= htmlspecialchars(array_string_value($admin_user, 'email')) ?>)
+                                    <?php endif; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Assign this appointment type, schedule, and calendar sync to a specific admin.</div>
                     </div>
                 </div>
 

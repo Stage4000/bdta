@@ -123,13 +123,15 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $location_type = trim(array_string_value($data, 'location_type'));
         $location_value = trim(array_string_value($data, 'location_value'));
         $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
+        $appointment_type_admin_user_id = 0;
 
         if ($appointment_type_id_value > 0) {
-            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id, requires_admin_confirmation, uses_resource, resource_name, resource_capacity, resource_allocation, duration_minutes, buffer_before_minutes, buffer_after_minutes FROM appointment_types WHERE id = ?");
+            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id, requires_admin_confirmation, uses_resource, resource_name, resource_capacity, resource_allocation, duration_minutes, buffer_before_minutes, buffer_after_minutes, admin_user_id FROM appointment_types WHERE id = ?");
             $stmt->execute([$appointment_type_id_value]);
             $apt_type = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
             $requires_admin_confirmation = $apt_type !== [] && array_int_value($apt_type, 'requires_admin_confirmation') === 1;
             $resource_config = bdta_booking_resource_config($apt_type);
+            $appointment_type_admin_user_id = array_int_value($apt_type, 'admin_user_id');
             if ($apt_type !== []) {
                 $duration_minutes = array_int_value($apt_type, 'duration_minutes', $duration_minutes);
             }
@@ -350,12 +352,13 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         }
 
         $stmt = $conn->prepare("
-            INSERT INTO bookings (client_id, appointment_type_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO bookings (client_id, appointment_type_id, admin_user_id, client_name, client_email, client_phone, service_type, appointment_date, appointment_time, notes, duration_minutes, location, location_type, package_credit_id, contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $client_id,
             $appointment_type_id_value > 0 ? $appointment_type_id_value : null,
+            $appointment_type_admin_user_id > 0 ? $appointment_type_admin_user_id : null,
             $client_name,
             $client_email,
             $client_phone,
@@ -575,23 +578,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $google_result = ['success' => false, 'message' => 'Google Calendar integration not configured'];
         if (!$is_pending_request) {
             try {
-                if (GoogleCalendarIntegration::isOAuthConfigured()) {
-                    $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-                    while (($admin_row = api_booking_db_row($stmt_admins->fetch(PDO::FETCH_ASSOC))) !== []) {
-                        $google_result = GoogleCalendarIntegration::addEventOAuth($booking, array_int_value($admin_row, 'admin_user_id'));
-                        if ($google_result['success']) {
-                            break;
-                        }
-                    }
-                }
-
-                if (!$google_result['success']) {
-                    $google_calendar = new GoogleCalendarIntegration();
-                    if ($google_calendar->isConfigured()) {
-                        $google_result = $google_calendar->addEvent($booking);
-                    }
-                }
-
+                $google_result = GoogleCalendarIntegration::addEventForBooking($booking);
                 if (!empty($google_result['event_id'])) {
                     $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
                          ->execute([$google_result['event_id'], $booking_id]);
@@ -902,7 +889,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                schedule_type, specific_date, specific_dates, per_day_schedule,
                duration_minutes, is_group_class, max_participants,
                buffer_before_minutes, buffer_after_minutes,
-               advance_booking_min_days, advance_booking_max_days,
+               advance_booking_min_days, advance_booking_max_days, admin_user_id,
                uses_resource, resource_name, resource_capacity, resource_allocation
         FROM appointment_types
         WHERE id = ? AND is_active = 1
@@ -928,6 +915,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $ad_max_part       = max(1, array_int_value($appt_type, 'max_participants', 1));
     $ad_buf_before     = max(0, array_int_value($appt_type, 'buffer_before_minutes'));
     $ad_buf_after      = max(0, array_int_value($appt_type, 'buffer_after_minutes'));
+    $ad_admin_user_id  = array_int_value($appt_type, 'admin_user_id');
     $ad_resource       = bdta_booking_resource_config($appt_type);
     $ad_per_day        = api_booking_assoc_map(array_string_value($appt_type, 'per_day_schedule'));
     // Advance-booking window: honour the appointment type's min/max booking lead time
@@ -993,8 +981,9 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             GROUP BY booking_id
         ) apc ON apc.booking_id = b.id
         WHERE b.appointment_date BETWEEN ? AND ? AND b.status != 'cancelled'
+          AND (? = 0 OR COALESCE(b.admin_user_id, at.admin_user_id, 0) = ?)
     ");
-    $stmt->execute([$from_date, $to_date]);
+    $stmt->execute([$from_date, $to_date, $ad_admin_user_id, $ad_admin_user_id]);
     $all_bookings_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Group bookings by date
@@ -1021,11 +1010,12 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $gcal_busy_periods = [];
     if (GoogleCalendarIntegration::isOAuthConfigured()) {
         try {
-            $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id LIMIT 1");
-            $admin_row = api_booking_db_row($stmt_admins->fetch(PDO::FETCH_ASSOC));
-            if ($admin_row !== []) {
+            $calendar_admin_user_id = $ad_admin_user_id > 0
+                ? $ad_admin_user_id
+                : GoogleCalendarIntegration::getAnyConnectedOAuthAdminUserId();
+            if ($calendar_admin_user_id > 0) {
                 $gcal_busy_periods = GoogleCalendarIntegration::getFreeBusyRange(
-                    $from_date, $to_date, array_int_value($admin_row, 'admin_user_id')
+                    $from_date, $to_date, $calendar_admin_user_id
                 );
             }
         } catch (Exception $e) {
@@ -1191,6 +1181,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $max_participants = 1;
     $buffer_before = 0; // minutes of buffer required before this appointment type
     $buffer_after  = 0; // minutes of buffer required after this appointment type
+    $appointment_type_admin_user_id = 0;
     $appointment_type = [];
     $resource_config = ['enabled' => false, 'name' => '', 'capacity' => 1, 'allocation' => 'per_appointment'];
     
@@ -1201,7 +1192,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                    schedule_type, specific_date, specific_dates, per_day_schedule,
                    duration_minutes, is_group_class, max_participants,
                    buffer_before_minutes, buffer_after_minutes,
-                   uses_resource, resource_name, resource_capacity, resource_allocation
+                   uses_resource, resource_name, resource_capacity, resource_allocation, admin_user_id
             FROM appointment_types 
             WHERE id = ? AND is_active = 1
         ");
@@ -1267,6 +1258,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             $max_participants   = max(1, array_int_value($appointment_type, 'max_participants', 1));
             $buffer_before      = max(0, array_int_value($appointment_type, 'buffer_before_minutes'));
             $buffer_after       = max(0, array_int_value($appointment_type, 'buffer_after_minutes'));
+            $appointment_type_admin_user_id = array_int_value($appointment_type, 'admin_user_id');
             $resource_config    = bdta_booking_resource_config($appointment_type);
         }
     }
@@ -1320,8 +1312,9 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             GROUP BY booking_id
         ) apc ON apc.booking_id = b.id
         WHERE b.appointment_date = ? AND b.status != 'cancelled'
+          AND (? = 0 OR COALESCE(b.admin_user_id, at.admin_user_id, 0) = ?)
     ");
-    $stmt->execute([$date]);
+    $stmt->execute([$date, $appointment_type_admin_user_id ?? 0, $appointment_type_admin_user_id ?? 0]);
     $existing_bookings = api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 
     // Query Google Calendar for busy periods on this date (best-effort; errors are non-fatal)
@@ -1329,12 +1322,11 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $google_calendar_checked = false;
     if (GoogleCalendarIntegration::isOAuthConfigured()) {
         try {
-            // Use the first connected admin's calendar – consistent with how the POST
-            // handler adds events (it iterates all admins and stops on first success).
-            $stmt_admins = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id LIMIT 1");
-            $admin_row = api_booking_db_row($stmt_admins->fetch(PDO::FETCH_ASSOC));
-            if ($admin_row !== []) {
-                $google_busy_periods = GoogleCalendarIntegration::getFreeBusy($date, array_int_value($admin_row, 'admin_user_id'));
+            $calendar_admin_user_id = ($appointment_type_admin_user_id ?? 0) > 0
+                ? ($appointment_type_admin_user_id ?? 0)
+                : GoogleCalendarIntegration::getAnyConnectedOAuthAdminUserId();
+            if ($calendar_admin_user_id > 0) {
+                $google_busy_periods = GoogleCalendarIntegration::getFreeBusy($date, $calendar_admin_user_id);
                 $google_calendar_checked = true;
             }
         } catch (Exception $e) {

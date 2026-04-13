@@ -84,14 +84,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
     if ($booking_action === 'cancel') {
         $conn->prepare("UPDATE bookings SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$booking_id]);
 
-        if (!empty($booking_for_action['google_event_id']) && GoogleCalendarIntegration::isOAuthConfigured()) {
-            $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-            while (($tok_row = assoc_row($stmt_tok->fetch(PDO::FETCH_ASSOC))) !== []) {
-                if (GoogleCalendarIntegration::deleteEventOAuth(array_string_value($booking_for_action, 'google_event_id'), array_int_value($tok_row, 'admin_user_id'))) {
-                    $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
-                    break;
-                }
-            }
+        if (!empty($booking_for_action['google_event_id'])
+            && GoogleCalendarIntegration::deleteEventForBooking(array_string_value($booking_for_action, 'google_event_id'), $booking_for_action)
+        ) {
+            $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
         }
 
         $pkg_credit_id = safe_int($booking_for_action['package_credit_id'] ?? 0);
@@ -247,23 +243,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
                 'appointment_date' => $new_date,
                 'appointment_time' => $new_time_hhmm,
             ]);
-            $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-            $gcal_updated = false;
-            while (($tok_row = assoc_row($stmt_tok->fetch(PDO::FETCH_ASSOC))) !== []) {
-                $result = GoogleCalendarIntegration::updateEventOAuth($updated_booking, array_string_value($booking_for_action, 'google_event_id'), array_int_value($tok_row, 'admin_user_id'));
-                if (!empty($result['success'])) {
-                    $gcal_updated = true;
-                    break;
-                }
-            }
-            if (!$gcal_updated) {
-                $stmt_tok = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
-                while (($tok_row = assoc_row($stmt_tok->fetch(PDO::FETCH_ASSOC))) !== []) {
-                    if (GoogleCalendarIntegration::deleteEventOAuth(array_string_value($booking_for_action, 'google_event_id'), array_int_value($tok_row, 'admin_user_id'))) {
-                        $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
-                        break;
-                    }
-                }
+            $gcal_result = GoogleCalendarIntegration::updateEventForBooking($updated_booking, array_string_value($booking_for_action, 'google_event_id'));
+            if (empty($gcal_result['success'])
+                && GoogleCalendarIntegration::deleteEventForBooking(array_string_value($booking_for_action, 'google_event_id'), $booking_for_action)
+            ) {
+                $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
             }
         }
 
