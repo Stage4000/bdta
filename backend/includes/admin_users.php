@@ -232,7 +232,7 @@ function bdta_admin_user_can_manage_api_keys(?array $admin_user): bool
  */
 function bdta_admin_user_is_accountant(?array $admin_user): bool
 {
-    return isset($admin_user['account_type']) && $admin_user['account_type'] === 'accountant';
+    return is_array($admin_user) && isset($admin_user['account_type']) && $admin_user['account_type'] === 'accountant';
 }
 
 /**
