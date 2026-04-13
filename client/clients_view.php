@@ -5,6 +5,8 @@ require_once '../backend/includes/follow_up_notes.php';
 require_once '../backend/includes/invoice_status.php';
 requireLogin();
 
+const BDTA_SECONDS_PER_DAY = 60 * 60 * 24;
+
 function bdta_booking_action_request_ip(): string
 {
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
@@ -187,7 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
 
         $advance_booking_min_days = safe_int($booking_for_action['advance_booking_min_days'] ?? 0);
         $advance_booking_max_days = safe_int($booking_for_action['advance_booking_max_days'] ?? 365);
-        $days_until = ($new_datetime - time()) / 86400;
+        $days_until = ($new_datetime - time()) / BDTA_SECONDS_PER_DAY;
 
         if ($advance_booking_min_days > 0 && $days_until < $advance_booking_min_days) {
             setFlashMessage("This appointment type must be booked at least {$advance_booking_min_days} day(s) in advance.", 'danger');
