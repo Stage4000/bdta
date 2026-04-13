@@ -1201,32 +1201,41 @@ class Database {
                 )
             ");
             
-            // Create default admin if not exists
-            $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
-            $stmt->execute(['admin']);
-            
-            if (!$stmt->fetch()) {
-                $password_hash = password_hash('admin123', PASSWORD_DEFAULT);
-                $stmt = $this->conn->prepare("
-                    INSERT INTO admin_users (username, password_hash, email, account_type, can_manage_admin_users, can_manage_api_keys) 
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ");
-                $stmt->execute(['admin', $password_hash, 'admin@brooksdogtrainingacademy.com', 'main', 1, 1]);
+            $this->conn->beginTransaction();
+            try {
+                // Create default admin if not exists
+                $stmt = $this->conn->prepare("SELECT id FROM admin_users WHERE username = ?");
+                $stmt->execute(['admin']);
+                
+                if (!$stmt->fetch()) {
+                    $password_hash = password_hash('admin123', PASSWORD_DEFAULT);
+                    $stmt = $this->conn->prepare("
+                        INSERT INTO admin_users (username, password_hash, email, account_type, can_manage_admin_users, can_manage_api_keys) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute(['admin', $password_hash, 'admin@brooksdogtrainingacademy.com', 'main', 1, 1]);
+                }
+
+                $this->conn->prepare("
+                    UPDATE admin_users
+                    SET account_type = 'main',
+                        can_manage_admin_users = 1,
+                        can_manage_api_keys = 1
+                    WHERE username = 'admin'
+                ")->execute();
+
+                $this->conn->prepare("
+                    UPDATE admin_users
+                    SET account_type = 'standard'
+                    WHERE username <> 'admin' AND COALESCE(account_type, '') = ''
+                ")->execute();
+                $this->conn->commit();
+            } catch (Throwable $e) {
+                if ($this->conn->inTransaction()) {
+                    $this->conn->rollBack();
+                }
+                throw $e;
             }
-
-            $this->conn->prepare("
-                UPDATE admin_users
-                SET account_type = 'main',
-                    can_manage_admin_users = 1,
-                    can_manage_api_keys = 1
-                WHERE username = 'admin'
-            ")->execute();
-
-            $this->conn->prepare("
-                UPDATE admin_users
-                SET account_type = 'standard'
-                WHERE username <> 'admin' AND COALESCE(account_type, '') = ''
-            ")->execute();
             
             // Initialize default settings if table is empty
             $stmt = $this->conn->query("SELECT COUNT(*) FROM settings");

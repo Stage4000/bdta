@@ -636,7 +636,7 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                         </div>
 
                         <div class="form-text">
-                            Google Calendar connection controls remain available in <a href="?category=calendar">Calendar</a> for each admin account.
+                            Google Calendar connection controls remain available in the <a href="?category=calendar">Calendar</a> settings for each admin account.
                             API-key and global integration settings stay limited to admins with API-key access.
                         </div>
                     <?php else: ?>
