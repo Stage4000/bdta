@@ -1011,14 +1011,12 @@ if (isset($error_mode) && $error_mode) {
                         <div class="col-12 mb-3">
                             <label class="form-label">Additional Notes</label>
                             <textarea class="form-control" name="notes" id="notes" rows="3" 
-                                      placeholder="Tell us about your dog's needs, behavior concerns, or any special requirements..."></textarea>
+                                       placeholder="Tell us about your dog's needs, behavior concerns, or any special requirements..."></textarea>
                         </div>
-                        <?php endif; ?>
-
                         <?php if (isPortalLoggedIn()): ?>
                         <div class="col-12 mb-4">
                             <label class="form-label fw-bold">Which pet(s) is this booking for?</label>
-                            <input type="hidden" name="dog_names" id="dogNames" value="">
+                            <input type="hidden" name="dog_names" id="dogNames" data-portal-pet-field="1" value="">
                             <?php if ($portal_prefill_pets === []): ?>
                             <div class="alert alert-info py-2 mb-0">
                                 <i class="fas fa-info-circle me-1"></i>
@@ -1027,20 +1025,24 @@ if (isset($error_mode) && $error_mode) {
                             <?php else: ?>
                             <div id="portalPetList">
                                 <?php foreach ($portal_prefill_pets as $pet): ?>
-                                <div class="pet-option d-flex align-items-center gap-2" data-pet-id="<?= public_book_int($pet, 'id') ?>"
-                                     onclick="togglePortalPet(this)">
+                                <div class="pet-option d-flex align-items-center gap-2" data-pet-id="<?= public_book_int($pet, 'id') ?>">
                                     <input type="checkbox" class="form-check-input portal-pet-checkbox"
-                                           data-pet-id="<?= public_book_int($pet, 'id') ?>" style="pointer-events:none;">
-                                    <span class="fw-semibold"><?= escape(public_book_string($pet, 'name')) ?></span>
+                                           id="portalPet<?= public_book_int($pet, 'id') ?>"
+                                           data-pet-id="<?= public_book_int($pet, 'id') ?>"
+                                           onchange="togglePortalPet(this)">
+                                    <label class="mb-0 d-flex align-items-center gap-2 flex-grow-1" for="portalPet<?= public_book_int($pet, 'id') ?>">
+                                        <span class="fw-semibold"><?= escape(public_book_string($pet, 'name')) ?></span>
                                     <?php if (public_book_string($pet, 'breed') !== ''): ?>
-                                    <span class="text-muted small">(<?= escape(public_book_string($pet, 'breed')) ?>)</span>
+                                        <span class="text-muted small">(<?= escape(public_book_string($pet, 'breed')) ?>)</span>
                                     <?php endif; ?>
+                                    </label>
                                 </div>
                                 <?php endforeach; ?>
                             </div>
                             <small class="text-muted">Manage pets in <a href="<?= escape(PORTAL_URL . 'pets.php') ?>">My Pets</a>.</small>
                             <?php endif; ?>
                         </div>
+                        <?php endif; ?>
                         <?php endif; ?>
 
                         <!-- Location -->
@@ -1562,17 +1564,16 @@ if (isset($error_mode) && $error_mode) {
         }
 
         function syncSelectedPortalPets() {
-            const dogNamesInput = document.getElementById('dogNames');
+            const dogNamesInput = document.querySelector('#dogNames[data-portal-pet-field="1"]');
             if (dogNamesInput) {
                 dogNamesInput.value = getSelectedPortalPetNames().join(', ');
             }
         }
 
-        window.togglePortalPet = function (el) {
-            el.classList.toggle('selected');
-            const checkbox = el.querySelector('.portal-pet-checkbox');
-            if (checkbox) {
-                checkbox.checked = el.classList.contains('selected');
+        window.togglePortalPet = function (checkbox) {
+            const petOption = checkbox ? checkbox.closest('.pet-option') : null;
+            if (petOption) {
+                petOption.classList.toggle('selected', !!checkbox.checked);
             }
             syncSelectedPortalPets();
         };
@@ -1621,6 +1622,9 @@ if (isset($error_mode) && $error_mode) {
                 bookingForm.addEventListener('submit', submitBooking);
             }
 
+            document.querySelectorAll('.portal-pet-checkbox').forEach(function (checkbox) {
+                window.togglePortalPet(checkbox);
+            });
             syncSelectedPortalPets();
         });
         
