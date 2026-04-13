@@ -228,11 +228,11 @@ function bdta_admin_user_can_manage_api_keys(?array $admin_user): bool
 }
 
 /**
- * @param array{id: int, username: string, email: string, account_type: string, can_manage_admin_users: bool, can_manage_api_keys: bool, is_main_account: bool}|null $admin_user
+ * @param array<string, mixed>|null $admin_user
  */
 function bdta_admin_user_is_accountant(?array $admin_user): bool
 {
-    return is_array($admin_user) && ($admin_user['account_type'] ?? '') === 'accountant';
+    return is_array($admin_user) && isset($admin_user['account_type']) && $admin_user['account_type'] === 'accountant';
 }
 
 /**

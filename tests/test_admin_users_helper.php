@@ -98,6 +98,7 @@ assertTrue($accountant_admin !== null, 'Expected accountant admin lookup to retu
 /** @var array{id: int, username: string, email: string, account_type: string, can_manage_admin_users: bool, can_manage_api_keys: bool, is_main_account: bool} $accountant_admin */
 assertSameValue('accountant account type preserved', 'accountant', $accountant_admin['account_type']);
 assertTrue(bdta_admin_user_is_accountant(null) === false, 'Expected accountant helper to safely reject null admin users.');
+assertTrue(bdta_admin_user_is_accountant(['id' => 99]) === false, 'Expected accountant helper to safely reject malformed admin-user arrays without an account type.');
 assertTrue(bdta_admin_user_is_accountant($accountant_admin) === true, 'Expected accountant helper to flag accountant accounts.');
 assertTrue(bdta_admin_user_can_manage_admin_users($accountant_admin) === false, 'Expected accountant accounts to stay unable to manage admin users.');
 assertTrue(bdta_admin_user_can_manage_api_keys($accountant_admin) === false, 'Expected accountant accounts to stay unable to manage API keys.');
