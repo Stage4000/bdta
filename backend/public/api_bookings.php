@@ -325,7 +325,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             );
             if (!$resource_available) {
                 $conn->rollBack();
-                $resource_label = trim((string) ($resource_config['name'] ?? ''));
+                $resource_label = trim($resource_config['name']);
                 return ['error' => 'No ' . ($resource_label !== '' ? $resource_label : 'resource') . ' units are available for this time slot.'];
             }
         }

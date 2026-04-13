@@ -192,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($errors)) {
                 setFlashMessage(implode('<br>', $errors), 'danger');
             } else {
-            $resource_config = bdta_booking_resource_config(is_array($apt_type) ? $apt_type : []);
+            $resource_config = bdta_booking_resource_config($apt_type);
             if (!empty($resource_config['enabled'])) {
                 $stmt = $conn->prepare("
                     SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
@@ -220,7 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     bdta_booking_resource_units($resource_config, count($pets)),
                     $appointment_type_id
                 )) {
-                    $resource_label = trim((string) ($resource_config['name'] ?? ''));
+                    $resource_label = trim($resource_config['name']);
                     $errors[] = 'No ' . ($resource_label !== '' ? $resource_label : 'resource') . ' units are available for this time slot.';
                 }
             }

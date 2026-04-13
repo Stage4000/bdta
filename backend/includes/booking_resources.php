@@ -33,19 +33,26 @@ function bdta_booking_time_to_minutes(string $time): ?int {
     return ($hours * 60) + $minutes;
 }
 
+/**
+ * @param array{enabled: bool, name: string, capacity: int, allocation: string} $resource_config
+ */
 function bdta_booking_resource_units(array $resource_config, int $pet_count): int {
-    if (($resource_config['allocation'] ?? 'per_appointment') === 'per_pet') {
+    if ($resource_config['allocation'] === 'per_pet') {
         return max(1, $pet_count);
     }
 
     return 1;
 }
 
+/**
+ * @param array{enabled: bool, name: string, capacity: int, allocation: string} $resource_config
+ */
 function bdta_booking_resource_capacity_available(array $resource_config, int $used_units, int $requested_units): bool {
     return $used_units + max(1, $requested_units) <= max(1, array_int_value($resource_config, 'capacity', 1));
 }
 
 /**
+ * @param array{enabled: bool, name: string, capacity: int, allocation: string} $resource_config
  * @param array<string, mixed> $booking_row
  */
 function bdta_booking_resource_units_for_booking(array $resource_config, array $booking_row): int {
@@ -72,6 +79,7 @@ function bdta_booking_windows_overlap(
 
 /**
  * @param list<array<string, mixed>> $existing_bookings
+ * @param array{enabled: bool, name: string, capacity: int, allocation: string} $resource_config
  * @return array{exact_type_slot_count: int, has_overlap_conflict: bool, overlapping_resource_units: int}
  */
 function bdta_booking_slot_usage_summary(
@@ -80,7 +88,7 @@ function bdta_booking_slot_usage_summary(
     int $duration_minutes,
     int $buffer_before_minutes,
     int $buffer_after_minutes,
-    array $resource_config = [],
+    array $resource_config = ['enabled' => false, 'name' => '', 'capacity' => 1, 'allocation' => 'per_appointment'],
     ?int $appointment_type_id = null
 ): array {
     $proposed_start_minutes = bdta_booking_time_to_minutes($appointment_time);
@@ -148,6 +156,7 @@ function bdta_booking_slot_usage_summary(
 }
 
 /**
+ * @param array{enabled: bool, name: string, capacity: int, allocation: string} $resource_config
  * @param list<array<string, mixed>> $existing_bookings
  */
 function bdta_booking_resource_has_capacity(

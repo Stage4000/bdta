@@ -284,7 +284,7 @@ if (!empty($resource_config['enabled'])) {
         bdta_booking_resource_units($resource_config, count($pet_ids)),
         $appointment_type_id
     )) {
-        $resource_label = trim((string) ($resource_config['name'] ?? ''));
+        $resource_label = trim($resource_config['name']);
         echo json_encode(['error' => 'No ' . ($resource_label !== '' ? $resource_label : 'resource') . ' units are available for this time slot.']);
         exit;
     }
