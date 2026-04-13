@@ -532,6 +532,8 @@ class Database {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
+            // Prime the schema cache once so the subsequent ensureTableColumn() checks
+            // reuse the same admin_users column list instead of re-querying metadata.
             $this->getTableColumns('admin_users');
 
             $this->ensureTableColumn('admin_users', "account_type TEXT NOT NULL DEFAULT 'standard'");
