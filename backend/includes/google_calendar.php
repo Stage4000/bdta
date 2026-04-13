@@ -231,7 +231,10 @@ class GoogleCalendarIntegration {
     public static function getAnyConnectedOAuthAdminUserId(): int {
         $db   = new Database();
         $conn = $db->getConnection();
-        $stmt = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id LIMIT 1");
+        // Use a prepared statement here to keep read paths consistent with the rest
+        // of the OAuth token helpers even though this query currently has no inputs.
+        $stmt = $conn->prepare("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id LIMIT 1");
+        $stmt->execute();
         if (!$stmt instanceof PDOStatement) {
             return 0;
         }
@@ -245,23 +248,30 @@ class GoogleCalendarIntegration {
     private static function getConnectedOAuthAdminUserIds(?int $preferred_admin_user_id = null): array {
         $db   = new Database();
         $conn = $db->getConnection();
-        $stmt = $conn->query("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+        // Use a prepared statement here to keep read paths consistent with the rest
+        // of the OAuth token helpers even though this query currently has no inputs.
+        $stmt = $conn->prepare("SELECT admin_user_id FROM google_oauth_tokens ORDER BY admin_user_id");
+        $stmt->execute();
         if (!$stmt instanceof PDOStatement) {
             return [];
         }
 
         $admin_user_ids = [];
+        $preferred_present = false;
         while (($admin_row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
             $admin_user_id = safe_int($admin_row['admin_user_id'] ?? 0);
             if ($admin_user_id <= 0) {
+                continue;
+            }
+            if ($preferred_admin_user_id !== null && $admin_user_id === $preferred_admin_user_id) {
+                $preferred_present = true;
                 continue;
             }
             $admin_user_ids[] = $admin_user_id;
         }
 
         $admin_user_ids = array_values(array_unique($admin_user_ids));
-        if ($preferred_admin_user_id !== null && $preferred_admin_user_id > 0) {
-            $admin_user_ids = array_values(array_diff($admin_user_ids, [$preferred_admin_user_id]));
+        if ($preferred_admin_user_id !== null && $preferred_admin_user_id > 0 && $preferred_present) {
             array_unshift($admin_user_ids, $preferred_admin_user_id);
         }
 

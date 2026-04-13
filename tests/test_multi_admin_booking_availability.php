@@ -239,6 +239,19 @@ $admin_two_slots = is_array($admin_two_payload['available_slots'] ?? null) ? $ad
 assertMultiAdminAvailability(!in_array('10:00', $admin_one_slots, true), 'Expected an admin\'s own booking to block that admin\'s schedule.');
 assertMultiAdminAvailability(in_array('10:00', $admin_two_slots, true), 'Expected one admin\'s booking to remain available for a different assigned admin.');
 
+$create_type_stmt = $conn->prepare('
+    INSERT INTO appointment_types (name, duration_minutes, admin_user_id, is_active)
+    VALUES (?, ?, ?, 1)
+');
+$create_type_stmt->execute(['Order Check Session', 75, 1]);
+$created_type_id = (int) $conn->lastInsertId();
+$type_stmt = $conn->prepare('SELECT duration_minutes, admin_user_id FROM appointment_types WHERE id = ?');
+$type_stmt->execute([$created_type_id]);
+$created_type = $type_stmt->fetch(PDO::FETCH_ASSOC);
+assertMultiAdminAvailability(is_array($created_type), 'Expected directly created appointment type row to be retrievable.');
+assertMultiAdminAvailability((int) ($created_type['duration_minutes'] ?? 0) === 75, 'Expected appointment type duration_minutes to persist correctly.');
+assertMultiAdminAvailability((int) ($created_type['admin_user_id'] ?? 0) === 1, 'Expected appointment type admin_user_id to persist correctly.');
+
 $appointment_types_edit = file_get_contents(dirname(__DIR__) . '/client/appointment_types_edit.php');
 $appointment_types_list = file_get_contents(dirname(__DIR__) . '/client/appointment_types_list.php');
 assertMultiAdminAvailability(is_string($appointment_types_edit) && str_contains($appointment_types_edit, 'Assigned Admin'), 'Expected appointment type edit screen to expose assigned admin selection.');

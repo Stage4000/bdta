@@ -89,6 +89,9 @@ function api_booking_filter_schedule_rows(array $rows, int $admin_user_id): arra
         $normalized_rows,
         static function (array $row) use ($admin_user_id): bool {
             $schedule_admin_user_id = array_int_value($row, 'schedule_admin_user_id');
+            // Legacy/shared bookings may not have an assigned admin yet. Treat those
+            // rows as conflicts for every admin-specific availability check so older
+            // bookings still block time and cannot be double-booked.
             return $schedule_admin_user_id === 0 || $schedule_admin_user_id === $admin_user_id;
         }
     ));
