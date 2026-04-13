@@ -51,6 +51,20 @@ function bdta_admin_users_int(mixed $value): int
     return is_numeric($value) ? (int) $value : 0;
 }
 
+/**
+ * @param array<mixed, mixed> $row
+ * @return array<string, mixed>
+ */
+function bdta_admin_users_assoc_row(array $row): array
+{
+    $assoc = [];
+    foreach ($row as $key => $value) {
+        $assoc[(string) $key] = $value;
+    }
+
+    return $assoc;
+}
+
 function bdta_is_valid_admin_username(string $username): bool
 {
     return preg_match('/^(?=.{3,64}$)[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$/', $username) === 1;
@@ -102,11 +116,14 @@ function bdta_list_admin_users(PDO $conn): array
         FROM admin_users
         ORDER BY CASE WHEN username = 'admin' THEN 0 ELSE 1 END, username ASC, email ASC
     ");
+    if (!$stmt instanceof PDOStatement) {
+        return [];
+    }
 
     $users = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         if (is_array($row)) {
-            $users[] = bdta_normalize_admin_user($row);
+            $users[] = bdta_normalize_admin_user(bdta_admin_users_assoc_row($row));
         }
     }
 
@@ -127,7 +144,7 @@ function bdta_find_admin_user(PDO $conn, int $admin_user_id): ?array
     $stmt->execute([$admin_user_id]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    return is_array($row) ? bdta_normalize_admin_user($row) : null;
+    return is_array($row) ? bdta_normalize_admin_user(bdta_admin_users_assoc_row($row)) : null;
 }
 
 /**
