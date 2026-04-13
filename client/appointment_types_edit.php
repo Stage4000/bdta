@@ -69,6 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reminder_template_id     = !empty($_POST['reminder_template_id'])     ? safe_int($_POST['reminder_template_id'])     : null;
     $cancellation_template_id = !empty($_POST['cancellation_template_id']) ? safe_int($_POST['cancellation_template_id']) : null;
     $requires_admin_confirmation = isset($_POST['requires_admin_confirmation']) ? 1 : 0;
+    $uses_resource = isset($_POST['uses_resource']) ? 1 : 0;
+    $resource_name = $uses_resource ? scalar_string($_POST['resource_name'] ?? '') : null;
+    $resource_capacity = $uses_resource ? max(1, safe_int($_POST['resource_capacity'] ?? 1)) : 1;
+    $resource_allocation = scalar_string($_POST['resource_allocation'] ?? 'per_appointment');
+    if (!in_array($resource_allocation, ['per_appointment', 'per_pet'], true)) {
+        $resource_allocation = 'per_appointment';
+    }
     
     // Handle Mini Sessions configuration
     $is_mini_session = isset($_POST['is_mini_session']) ? 1 : 0;
@@ -193,6 +200,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($is_group_class && empty(trim($group_class_location ?? ''))) {
         $errors[] = 'Class Location is required for group class appointment types.';
     }
+    if ($uses_resource && empty(trim($resource_name ?? ''))) {
+        $errors[] = 'Resource name is required when resource usage is enabled.';
+    }
     if (!empty($errors)) {
         $error = implode(' ', $errors);
     } else {
@@ -243,6 +253,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     reminder_template_id = ?,
                     cancellation_template_id = ?,
                     requires_admin_confirmation = ?,
+                    uses_resource = ?,
+                    resource_name = ?,
+                    resource_capacity = ?,
+                    resource_allocation = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
@@ -270,6 +284,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $reminder_template_id,
                 $cancellation_template_id,
                 $requires_admin_confirmation,
+                $uses_resource,
+                $resource_name,
+                $resource_capacity,
+                $resource_allocation,
                 $id
             ]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type updated successfully!'];
@@ -307,8 +325,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     booking_request_template_id,
                     reminder_template_id,
                     cancellation_template_id,
-                    requires_admin_confirmation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    requires_admin_confirmation,
+                    uses_resource,
+                    resource_name,
+                    resource_capacity,
+                    resource_allocation
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $duration_minutes,
@@ -334,7 +356,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $booking_request_template_id,
                 $reminder_template_id,
                 $cancellation_template_id,
-                $requires_admin_confirmation
+                $requires_admin_confirmation,
+                $uses_resource,
+                $resource_name,
+                $resource_capacity,
+                $resource_allocation
             ]);
             $id = safe_int($conn->lastInsertId());
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Appointment type created successfully!'];
@@ -477,6 +503,13 @@ $type_unique_link = array_string_value($type_row, 'unique_link');
 $type_is_active = !isset($type) || array_int_value($type_row, 'is_active', 1) === 1;
 $type_portal_available = array_int_value($type_row, 'portal_available') === 1;
 $type_requires_admin_confirmation = array_int_value($type_row, 'requires_admin_confirmation') === 1;
+$type_uses_resource = array_int_value($type_row, 'uses_resource') === 1;
+$type_resource_name = array_string_value($type_row, 'resource_name');
+$type_resource_capacity = max(1, array_int_value($type_row, 'resource_capacity', 1));
+$type_resource_allocation = array_string_value($type_row, 'resource_allocation', 'per_appointment');
+if (!in_array($type_resource_allocation, ['per_appointment', 'per_pet'], true)) {
+    $type_resource_allocation = 'per_appointment';
+}
 $type_per_day_data = [];
 foreach (decode_json_assoc(array_string_value($type_row, 'per_day_schedule')) as $day_key => $day_value) {
     if (ctype_digit($day_key) && is_array($day_value)) {
@@ -999,6 +1032,47 @@ include __DIR__ . '/../backend/includes/header.php';
                             <li>Clients will see the class location when booking</li>
                             <li>Use the availability configuration above to define class schedule</li>
                         </ul>
+                    </div>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-3">Shared Resource Usage</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="uses_resource" name="uses_resource"
+                                   <?= $type_uses_resource ? 'checked' : '' ?>
+                                   onchange="toggleResourceFields()">
+                            <label class="form-check-label" for="uses_resource">
+                                Uses a shared resource
+                            </label>
+                            <div class="form-text">Limit simultaneous bookings by available spaces, kennels, rooms, or similar resources.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="resource_fields" class="<?= $type_uses_resource ? '' : 'appointment-type-section' ?>">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label for="resource_name" class="form-label">Resource Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="resource_name" name="resource_name"
+                                   value="<?= htmlspecialchars($type_resource_name) ?>"
+                                   placeholder="e.g., Kennel Space">
+                            <div class="form-text">Shown in availability messages when the resource is full.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="resource_capacity" class="form-label">Available Units</label>
+                            <input type="number" class="form-control" id="resource_capacity" name="resource_capacity"
+                                   value="<?= $type_resource_capacity ?>" min="1" step="1">
+                            <div class="form-text">Total number of resource units available at the same time.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="resource_allocation" class="form-label">Allocate Resource By</label>
+                            <select class="form-select" id="resource_allocation" name="resource_allocation">
+                                <option value="per_appointment" <?= $type_resource_allocation === 'per_appointment' ? 'selected' : '' ?>>One unit per appointment</option>
+                                <option value="per_pet" <?= $type_resource_allocation === 'per_pet' ? 'selected' : '' ?>>One unit per pet on the booking</option>
+                            </select>
+                            <div class="form-text">Use per-pet allocation for boarding or any service where each pet needs its own space.</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1641,6 +1715,20 @@ function toggleGroupClassFields() {
     updateLocationTypesVisibility();
 }
 
+function toggleResourceFields() {
+    const checkbox = document.getElementById('uses_resource');
+    const fieldsSection = document.getElementById('resource_fields');
+    const resourceName = document.getElementById('resource_name');
+
+    if (checkbox.checked) {
+        setSectionHidden(fieldsSection, false);
+        resourceName.setAttribute('required', 'required');
+    } else {
+        setSectionHidden(fieldsSection, true);
+        resourceName.removeAttribute('required');
+    }
+}
+
 // Show/hide the location options section based on whether this is a fixed-location type
 function updateLocationTypesVisibility() {
     const isMini = document.getElementById('is_mini_session').checked;
@@ -1699,6 +1787,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateAvailabilityPreview();
     toggleFieldRentalFields();
     toggleGroupClassFields();
+    toggleResourceFields();
     togglePerDaySchedule();
     
     // Add event listeners for availability fields

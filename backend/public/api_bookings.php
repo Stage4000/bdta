@@ -1,5 +1,6 @@
 <?php
 require_once '../includes/config.php';
+require_once '../includes/booking_resources.php';
 require_once '../includes/email_service.php';
 require_once '../includes/google_calendar.php';
 require_once '../includes/workflow_helper.php';
@@ -106,6 +107,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
     $duration_minutes = safe_int($data['duration_minutes'] ?? 60);
     $apt_type = [];
     $requires_admin_confirmation = false;
+    $resource_config = ['enabled' => false, 'name' => '', 'capacity' => 1, 'allocation' => 'per_appointment'];
 
     try {
         if (!filter_var($client_email, FILTER_VALIDATE_EMAIL)) {
@@ -123,10 +125,14 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
 
         if ($appointment_type_id_value > 0) {
-            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id, requires_admin_confirmation FROM appointment_types WHERE id = ?");
+            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id, requires_admin_confirmation, uses_resource, resource_name, resource_capacity, resource_allocation, duration_minutes, buffer_before_minutes, buffer_after_minutes FROM appointment_types WHERE id = ?");
             $stmt->execute([$appointment_type_id_value]);
             $apt_type = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
             $requires_admin_confirmation = $apt_type !== [] && array_int_value($apt_type, 'requires_admin_confirmation') === 1;
+            $resource_config = bdta_booking_resource_config($apt_type);
+            if ($apt_type !== []) {
+                $duration_minutes = array_int_value($apt_type, 'duration_minutes', $duration_minutes);
+            }
             if ($apt_type !== [] && !empty($apt_type['is_mini_session'])) {
                 $location_type = 'fixed';
                 $location = array_string_value($apt_type, 'mini_session_location');
@@ -287,6 +293,35 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                         $pet_ids[] = safe_int($conn->lastInsertId());
                     }
                 }
+            }
+        }
+
+        if (!empty($resource_config['enabled']) && $appointment_type_id_value > 0) {
+            $stmt = $conn->prepare("
+                SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
+                       COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
+                       COALESCE(at.buffer_after_minutes, 0) AS b_buffer_after,
+                       COALESCE((SELECT COUNT(*) FROM appointment_pets ap WHERE ap.booking_id = b.id), 0) AS pet_count
+                FROM bookings b
+                LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
+                WHERE b.appointment_date = ? AND b.status != 'cancelled' AND b.appointment_type_id = ?
+            ");
+            $stmt->execute([$appointment_date, $appointment_type_id_value]);
+            $existing_resource_bookings = api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+            $resource_available = bdta_booking_resource_has_capacity(
+                $resource_config,
+                $existing_resource_bookings,
+                $appointment_time,
+                $duration_minutes,
+                max(0, array_int_value($apt_type, 'buffer_before_minutes')),
+                max(0, array_int_value($apt_type, 'buffer_after_minutes')),
+                bdta_booking_resource_units($resource_config, count($pet_ids)),
+                $appointment_type_id_value
+            );
+            if (!$resource_available) {
+                $conn->rollBack();
+                $resource_label = trim((string) ($resource_config['name'] ?? ''));
+                return ['error' => 'No ' . ($resource_label !== '' ? $resource_label : 'resource') . ' units are available for this time slot.'];
             }
         }
 
@@ -843,7 +878,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                schedule_type, specific_date, specific_dates, per_day_schedule,
                duration_minutes, is_group_class, max_participants,
                buffer_before_minutes, buffer_after_minutes,
-               advance_booking_min_days, advance_booking_max_days
+               advance_booking_min_days, advance_booking_max_days,
+               uses_resource, resource_name, resource_capacity, resource_allocation
         FROM appointment_types
         WHERE id = ? AND is_active = 1
     ");
@@ -868,6 +904,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $ad_max_part       = max(1, array_int_value($appt_type, 'max_participants', 1));
     $ad_buf_before     = max(0, array_int_value($appt_type, 'buffer_before_minutes'));
     $ad_buf_after      = max(0, array_int_value($appt_type, 'buffer_after_minutes'));
+    $ad_resource       = bdta_booking_resource_config($appt_type);
     $ad_per_day        = api_booking_assoc_map(array_string_value($appt_type, 'per_day_schedule'));
     // Advance-booking window: honour the appointment type's min/max booking lead time
     $ad_min_days       = max(0, array_int_value($appt_type, 'advance_booking_min_days'));
@@ -922,7 +959,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $stmt = $conn->prepare("
         SELECT b.appointment_date, b.appointment_time, b.duration_minutes, b.appointment_type_id,
                COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
-               COALESCE(at.buffer_after_minutes,  0) AS b_buffer_after
+               COALESCE(at.buffer_after_minutes,  0) AS b_buffer_after,
+               COALESCE((SELECT COUNT(*) FROM appointment_pets ap WHERE ap.booking_id = b.id), 0) AS pet_count
         FROM bookings b
         LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
         WHERE b.appointment_date BETWEEN ? AND ? AND b.status != 'cancelled'
@@ -1058,6 +1096,9 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             if ($ad_is_group) {
                 $count = $group_slot_counts[$slot_str] ?? 0;
                 if ($count < $ad_max_part) {
+                    if (!bdta_booking_resource_has_capacity($ad_resource, $existing_bookings, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, 1, $appointment_type_id)) {
+                        continue;
+                    }
                     // Also check Google Calendar
                     if (!empty($gcal_busy_periods) && !ad_slot_passes_gcal($check_date, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, $gcal_busy_periods)) {
                         continue; // GCal blocks this slot
@@ -1089,6 +1130,9 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 // Also check Google Calendar
                 if ($slot_free && !empty($gcal_busy_periods)) {
                     $slot_free = ad_slot_passes_gcal($check_date, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, $gcal_busy_periods);
+                }
+                if ($slot_free) {
+                    $slot_free = bdta_booking_resource_has_capacity($ad_resource, $existing_bookings, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, 1, $appointment_type_id);
                 }
                 if ($slot_free) {
                     $has_available = true;
@@ -1132,6 +1176,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $buffer_before = 0; // minutes of buffer required before this appointment type
     $buffer_after  = 0; // minutes of buffer required after this appointment type
     $appointment_type = [];
+    $resource_config = ['enabled' => false, 'name' => '', 'capacity' => 1, 'allocation' => 'per_appointment'];
     
     $custom_slot_configs = [];
     if ($appointment_type_id) {
@@ -1139,7 +1184,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             SELECT available_days, available_start_time, available_end_time, time_slot_interval,
                    schedule_type, specific_date, specific_dates, per_day_schedule,
                    duration_minutes, is_group_class, max_participants,
-                   buffer_before_minutes, buffer_after_minutes
+                   buffer_before_minutes, buffer_after_minutes,
+                   uses_resource, resource_name, resource_capacity, resource_allocation
             FROM appointment_types 
             WHERE id = ? AND is_active = 1
         ");
@@ -1205,6 +1251,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             $max_participants   = max(1, array_int_value($appointment_type, 'max_participants', 1));
             $buffer_before      = max(0, array_int_value($appointment_type, 'buffer_before_minutes'));
             $buffer_after       = max(0, array_int_value($appointment_type, 'buffer_after_minutes'));
+            $resource_config    = bdta_booking_resource_config($appointment_type);
         }
     }
     
@@ -1247,7 +1294,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $stmt = $conn->prepare("
         SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
                COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
-               COALESCE(at.buffer_after_minutes,  0) AS b_buffer_after
+               COALESCE(at.buffer_after_minutes,  0) AS b_buffer_after,
+               COALESCE((SELECT COUNT(*) FROM appointment_pets ap WHERE ap.booking_id = b.id), 0) AS pet_count
         FROM bookings b
         LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
         WHERE b.appointment_date = ? AND b.status != 'cancelled'
@@ -1385,6 +1433,19 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                     break;
                 }
             }
+        }
+
+        if ($is_available && !empty($resource_config['enabled']) && $appointment_type_id) {
+            $is_available = bdta_booking_resource_has_capacity(
+                $resource_config,
+                api_booking_assoc_rows($existing_bookings),
+                $time_slot,
+                $slot_duration,
+                $buffer_before,
+                $buffer_after,
+                1,
+                $appointment_type_id
+            );
         }
 
         // ── Google Calendar busy-period check ────────────────────────────────

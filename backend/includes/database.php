@@ -645,6 +645,10 @@ class Database {
                     credit_count INTEGER DEFAULT 1,
                     is_group_class INTEGER DEFAULT 0,
                     max_participants INTEGER DEFAULT 1,
+                    uses_resource INTEGER DEFAULT 0,
+                    resource_name TEXT,
+                    resource_capacity INTEGER DEFAULT 1,
+                    resource_allocation TEXT DEFAULT 'per_appointment',
                     is_active INTEGER DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -2136,6 +2140,23 @@ class Database {
             // Minimum hours before appointment that clients can cancel or reschedule (0 = no restriction)
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN cancellation_notice_hours INTEGER DEFAULT 0");
             $this->execSQL("UPDATE appointment_types SET cancellation_notice_hours = 0 WHERE cancellation_notice_hours IS NULL");
+        }
+
+        $apt_col_names_resources = $this->getTableColumns('appointment_types');
+        if (!in_array('uses_resource', $apt_col_names_resources)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN uses_resource INTEGER DEFAULT 0");
+            $this->execSQL("UPDATE appointment_types SET uses_resource = 0 WHERE uses_resource IS NULL");
+        }
+        if (!in_array('resource_name', $apt_col_names_resources)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN resource_name TEXT");
+        }
+        if (!in_array('resource_capacity', $apt_col_names_resources)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN resource_capacity INTEGER DEFAULT 1");
+            $this->execSQL("UPDATE appointment_types SET resource_capacity = 1 WHERE resource_capacity IS NULL OR resource_capacity < 1");
+        }
+        if (!in_array('resource_allocation', $apt_col_names_resources)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN resource_allocation TEXT DEFAULT 'per_appointment'");
+            $this->execSQL("UPDATE appointment_types SET resource_allocation = 'per_appointment' WHERE resource_allocation IS NULL OR resource_allocation = ''");
         }
 
         // Create booking_change_log table for auditing client-initiated cancellations and reschedules
