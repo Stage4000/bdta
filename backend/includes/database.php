@@ -135,6 +135,10 @@ class Database {
     }
 
     private function ensureTableColumn(string $table, string $column_definition): void {
+        if (!in_array($table, ['admin_users'], true)) {
+            throw new InvalidArgumentException('Unsupported table for schema update: ' . $table);
+        }
+
         try {
             $this->execSQL("ALTER TABLE {$table} ADD COLUMN {$column_definition}");
         } catch (Throwable $e) {
