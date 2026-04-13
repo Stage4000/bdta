@@ -134,18 +134,25 @@ class Database {
         die('Database configuration failed: ' . $message);
     }
 
+    private function getColumnNameFromDefinition(string $column_definition): string {
+        if (preg_match('/^\s*`?([A-Za-z_][A-Za-z0-9_]*)`?\s+/', $column_definition, $matches) !== 1) {
+            throw new InvalidArgumentException('Invalid column definition: ' . $column_definition);
+        }
+
+        return scalar_string($matches[1]);
+    }
+
     private function ensureTableColumn(string $table, string $column_definition): void {
         if (!in_array($table, ['admin_users'], true)) {
             throw new InvalidArgumentException('Unsupported table for schema update: ' . $table);
         }
 
-        try {
-            $this->execSQL("ALTER TABLE {$table} ADD COLUMN {$column_definition}");
-        } catch (Throwable $e) {
-            if (stripos($e->getMessage(), 'duplicate column name') === false) {
-                throw $e;
-            }
+        $column_name = $this->getColumnNameFromDefinition($column_definition);
+        if (in_array($column_name, $this->getTableColumns($table), true)) {
+            return;
         }
+
+        $this->execSQL("ALTER TABLE {$table} ADD COLUMN {$column_definition}");
     }
     
     public function __construct() {
