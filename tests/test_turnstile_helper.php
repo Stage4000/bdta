@@ -1,17 +1,6 @@
 #!/usr/bin/env php
 <?php
 
-class Settings
-{
-    /** @var array<string, string> */
-    public static array $values = [];
-
-    public static function get(string $key, mixed $default = null): mixed
-    {
-        return self::$values[$key] ?? $default;
-    }
-}
-
 function assertTrue(bool $condition, string $message): void
 {
     if (!$condition) {
@@ -25,19 +14,21 @@ function assertContains(string $needle, string $haystack, string $message): void
     assertTrue(str_contains($haystack, $needle), $message);
 }
 
+define('BDTA_TEST_MODE', true);
+require_once dirname(__DIR__) . '/backend/includes/settings.php';
 require_once dirname(__DIR__) . '/backend/includes/turnstile.php';
 
-Settings::$values = [
+Settings::seedCacheForTesting([
     'turnstile_site_key' => '',
     'turnstile_secret_key' => '',
-];
+]);
 assertTrue(bdta_turnstile_is_enabled() === false, 'Expected Turnstile to stay disabled when keys are missing.');
 assertTrue(bdta_get_turnstile_assets_html() === '', 'Expected no assets when Turnstile is disabled.');
 
-Settings::$values = [
+Settings::seedCacheForTesting([
     'turnstile_site_key' => 'site-key-123',
     'turnstile_secret_key' => 'secret-key-456',
-];
+]);
 
 assertTrue(bdta_turnstile_is_enabled() === true, 'Expected Turnstile to be enabled when both keys are present.');
 assertContains('/assets/js/public/turnstile.js', bdta_get_turnstile_assets_html(), 'Expected helper JS asset to be included.');

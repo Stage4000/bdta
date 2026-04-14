@@ -22,7 +22,7 @@ function bdta_turnstile_scalar(mixed $value): string
 
 function bdta_turnstile_setting(string $key): string
 {
-    if (class_exists('Settings') && method_exists('Settings', 'get')) {
+    if (class_exists('Settings')) {
         return trim(bdta_turnstile_scalar(Settings::get($key, '')));
     }
 
@@ -87,8 +87,11 @@ function bdta_inject_turnstile_widgets_into_forms(string $html): string
         $widget_markup = bdta_get_turnstile_widget_markup();
         $html = preg_replace_callback(
             '/<form\b[^>]*>.*?<\/form>/is',
+            /**
+             * @param array{0:string} $matches
+             */
             static function (array $matches) use ($widget_markup): string {
-                $form_html = bdta_turnstile_scalar($matches[0] ?? '');
+                $form_html = bdta_turnstile_scalar($matches[0]);
                 if (
                     $form_html === ''
                     || stripos($form_html, 'bdta-turnstile') !== false

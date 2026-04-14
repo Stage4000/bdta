@@ -77,6 +77,17 @@ class Settings {
     }
 
     /**
+     * @param array<string, mixed> $cache
+     */
+    public static function seedCacheForTesting(array $cache): void {
+        if (!defined('BDTA_TEST_MODE') || BDTA_TEST_MODE !== true) {
+            throw new LogicException('Settings::seedCacheForTesting() is only available in tests.');
+        }
+
+        self::$cache = $cache;
+    }
+
+    /**
      * Update a setting only when its current stored value still matches the expected value.
      * This is used for compare-and-swap style writes where concurrent requests may race
      * to replace a seeded placeholder with a detected runtime value.
