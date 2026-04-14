@@ -8,6 +8,7 @@
 require_once __DIR__ . '/backend/includes/config.php';
 require_once __DIR__ . '/backend/public/includes/public_error_page.php';
 require_once __DIR__ . '/backend/public/includes/public_navigation.php';
+require_once __DIR__ . '/backend/includes/public_notice.php';
 require_once __DIR__ . '/backend/includes/tawk_to.php';
 require_once __DIR__ . '/backend/includes/turnstile.php';
 
@@ -108,6 +109,7 @@ $page_has_turnstile_widget = str_contains($rendered_page_html, 'bdta-turnstile')
 </head>
 <body>
     <?php echo $rendered_page_html; ?>
+    <?php bdta_render_public_notice(); ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/assets/js/theme-toggle.js"></script>
