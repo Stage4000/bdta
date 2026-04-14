@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/bullet_points.php';
 require_once __DIR__ . '/../backend/includes/package_checkout.php';
 
 if (!isLoggedIn()) {
@@ -133,6 +134,7 @@ function package_edit_contract_summary(array $appointment_types_rows, array $sel
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name            = trim(scalar_string($_POST['name'] ?? ''));
     $description     = trim(scalar_string($_POST['description'] ?? ''));
+    $bullet_points   = bdta_normalize_bullet_point_text(scalar_string($_POST['bullet_points'] ?? ''));
     $price           = safe_float($_POST['price'] ?? 0);
     $expiration_days = !empty($_POST['expiration_days']) ? safe_int($_POST['expiration_days']) : null;
     $is_active       = isset($_POST['is_active']) ? 1 : 0;
@@ -176,10 +178,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($is_edit) {
                 $stmt = $conn->prepare("
-                    UPDATE packages SET name=?, description=?, price=?, expiration_days=?, is_active=?, form_template_id=?,
+                    UPDATE packages SET name=?, description=?, bullet_points=?, price=?, expiration_days=?, is_active=?, form_template_id=?,
                     updated_at=CURRENT_TIMESTAMP WHERE id=?
                 ");
-                $stmt->execute([$name, $description, $price, $expiration_days, $is_active, $form_template_id, $id]);
+                $stmt->execute([$name, $description, $bullet_points, $price, $expiration_days, $is_active, $form_template_id, $id]);
                 // Replace items
                 $conn->prepare("DELETE FROM package_items WHERE package_id = ?")->execute([$id]);
                 // Regenerate share token if requested
@@ -191,10 +193,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $share_token = bin2hex(random_bytes(16));
                 $stmt = $conn->prepare("
-                    INSERT INTO packages (name, description, price, expiration_days, is_active, share_token, form_template_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO packages (name, description, bullet_points, price, expiration_days, is_active, share_token, form_template_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$name, $description, $price, $expiration_days, $is_active, $share_token, $form_template_id]);
+                $stmt->execute([$name, $description, $bullet_points, $price, $expiration_days, $is_active, $share_token, $form_template_id]);
                 $id = $conn->lastInsertId();
                 $_SESSION['flash'] = ['type' => 'success', 'message' => 'Package created successfully!'];
             }
@@ -273,6 +275,11 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-12">
                         <label for="description" class="form-label">Description</label>
                         <textarea class="form-control" id="description" name="description" rows="2"><?= htmlspecialchars($package['description'] ?? '') ?></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label for="bullet_points" class="form-label">Public Package Bullet Points</label>
+                        <textarea class="form-control" id="bullet_points" name="bullet_points" rows="4" placeholder="One included highlight per line"><?= htmlspecialchars($_POST['bullet_points'] ?? ($package['bullet_points'] ?? '')) ?></textarea>
+                        <div class="form-text">Optional. These bullets appear on the public package cards and the matching site-editor package module.</div>
                     </div>
                     <div class="col-md-6">
                         <label for="form_template_id" class="form-label">Attached Checkout Form</label>

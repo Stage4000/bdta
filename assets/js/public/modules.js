@@ -39,6 +39,24 @@
         return h + ':' + (m < 10 ? '0' + m : m) + ' ' + ampm;
     }
 
+    function renderBulletSection(points, title, wrapperClass) {
+        if (!Array.isArray(points) || points.length === 0) return '';
+
+        var html = '<div class="' + escH(wrapperClass || 'mb-4') + '">';
+        if (title) {
+            html += '<div class="fw-semibold text-dark small text-uppercase mb-2">' + escH(title) + '</div>';
+        }
+        html += '<ul class="list-unstyled mb-0">';
+        points.forEach(function (point) {
+            html += '<li class="mb-2 d-flex align-items-start">'
+                + '<i class="fas fa-circle-check text-success me-2 mt-1"></i>'
+                + '<span>' + escH(point) + '</span>'
+                + '</li>';
+        });
+        html += '</ul></div>';
+        return html;
+    }
+
     // ---- Packages module ----
 
     function initPackages(sec) {
@@ -64,7 +82,8 @@
 
                     var itemsHtml = '';
                     if (pkg.items && pkg.items.length > 0) {
-                        itemsHtml = '<ul class="list-unstyled mb-4">';
+                        itemsHtml = '<div class="fw-semibold text-dark small text-uppercase mb-2">Credits Included</div>';
+                        itemsHtml += '<ul class="list-unstyled mb-4">';
                         pkg.items.forEach(function (item) {
                             itemsHtml += '<li class="mb-2">'
                                 + '<i class="fas fa-check-circle text-success me-2"></i>'
@@ -73,6 +92,8 @@
                         });
                         itemsHtml += '</ul>';
                     }
+
+                    var bulletPointsHtml = renderBulletSection(pkg.bullet_points, "What's Included");
 
                     var expiryHtml = pkg.expiration_days
                         ? '<small class="text-muted d-block mb-3">Credits valid for ' + pkg.expiration_days + ' days</small>'
@@ -94,7 +115,7 @@
                         + '<h4 class="fw-bold mb-2">' + escH(pkg.name) + '</h4>'
                         + '<p class="text-primary fw-bold fs-5 mb-2">' + escH(priceText) + '</p>'
                         + (pkg.description ? '<p class="text-muted mb-3">' + escH(pkg.description) + '</p>' : '')
-                        + itemsHtml + expiryHtml + ctaHtml
+                        + bulletPointsHtml + itemsHtml + expiryHtml + ctaHtml
                         + '</div></div>';
                     grid.appendChild(col);
                 });
@@ -166,6 +187,8 @@
                         ctaHtml = '<a href="#contact" class="btn btn-sm btn-outline-primary mt-auto">Register</a>';
                     }
 
+                    var bulletPointsHtml = renderBulletSection(evt.bullet_points, "What You'll Learn", 'mb-3');
+
                     var col = document.createElement('div');
                     col.className = 'col-md-6 col-lg-4';
                     // All interpolated values are escaped with escH() before insertion into this fixed template.
@@ -176,6 +199,7 @@
                         + typeBadge
                         + '<h5 class="fw-bold mb-2">' + escH(evt.name) + '</h5>'
                         + (evt.description ? '<p class="text-muted mb-2 small">' + escH(evt.description) + '</p>' : '')
+                        + bulletPointsHtml
                         + '<div class="mb-2">'
                         + (dateStr ? '<p class="mb-1 small"><i class="fas fa-calendar text-primary me-1"></i>' + escH(dateStr) + '</p>' : '')
                         + '<p class="mb-1 small"><i class="fas fa-clock text-primary me-1"></i>' + escH(timeStr) + '</p>'

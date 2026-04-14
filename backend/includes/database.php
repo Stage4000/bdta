@@ -672,6 +672,7 @@ class Database {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     description TEXT,
+                    bullet_points TEXT,
                     admin_user_id INTEGER,
                     duration_minutes INTEGER DEFAULT 60,
                     buffer_before_minutes INTEGER DEFAULT 0,
@@ -1846,6 +1847,7 @@ class Database {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 description TEXT,
+                bullet_points TEXT,
                 price REAL DEFAULT 0,
                 expiration_days INTEGER,
                 is_active INTEGER DEFAULT 1,
@@ -1976,11 +1978,17 @@ class Database {
         if (!in_array('location_types', $apt_col_names_loc)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN location_types TEXT");
         }
+        if (!in_array('bullet_points', $apt_col_names_loc)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN bullet_points TEXT");
+        }
 
         // Add share_token to packages for shareable public links
         $pkg_column_names = $this->getTableColumns('packages');
         if (!in_array('share_token', $pkg_column_names)) {
             $this->execSQL("ALTER TABLE packages ADD COLUMN share_token TEXT");
+        }
+        if (!in_array('bullet_points', $pkg_column_names)) {
+            $this->execSQL("ALTER TABLE packages ADD COLUMN bullet_points TEXT");
         }
         if (!in_array('form_template_id', $pkg_column_names)) {
             $this->execSQL("ALTER TABLE packages ADD COLUMN form_template_id INTEGER");

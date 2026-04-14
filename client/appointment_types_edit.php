@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
+require_once __DIR__ . '/../backend/includes/bullet_points.php';
 
 // Check if user is logged in
 if (!isLoggedIn()) {
@@ -45,6 +46,7 @@ $base_url = getDynamicBaseUrl();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = scalar_string($_POST['name'] ?? '');
     $description = scalar_string($_POST['description'] ?? '');
+    $bullet_points = bdta_normalize_bullet_point_text(scalar_string($_POST['bullet_points'] ?? ''));
     $admin_user_id = isset($_POST['admin_user_id']) && $_POST['admin_user_id'] !== ''
         ? safe_int($_POST['admin_user_id'])
         : null;
@@ -223,6 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 UPDATE appointment_types SET
                     name = ?,
                     description = ?,
+                    bullet_points = ?,
                     admin_user_id = ?,
                     duration_minutes = ?,
                     buffer_before_minutes = ?,
@@ -272,7 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = ?
             ");
             $stmt->execute([
-                $name, $description, $admin_user_id, $duration_minutes,
+                $name, $description, $bullet_points, $admin_user_id, $duration_minutes,
                 $buffer_before_minutes, $buffer_after_minutes,
                 $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
@@ -313,8 +316,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $stmt = $conn->prepare("
                 INSERT INTO appointment_types (
-                    name, description, duration_minutes,
-                    admin_user_id,
+                    name, description, bullet_points, admin_user_id,
+                    duration_minutes,
                     buffer_before_minutes, buffer_after_minutes,
                     use_travel_time_buffer, travel_time_minutes,
                     advance_booking_min_days, advance_booking_max_days,
@@ -342,10 +345,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     resource_name,
                     resource_capacity,
                     resource_allocation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
-                $name, $description, $admin_user_id, $duration_minutes,
+                $name, $description, $bullet_points, $admin_user_id, $duration_minutes,
                 $buffer_before_minutes, $buffer_after_minutes,
                 $use_travel_time_buffer, $travel_time_minutes,
                 $advance_booking_min_days, $advance_booking_max_days,
@@ -509,6 +512,7 @@ $type_credit_count = array_int_value($type_row, 'credit_count', 1);
 $type_is_group_class = array_int_value($type_row, 'is_group_class') === 1;
 $type_max_participants = array_int_value($type_row, 'max_participants', 1);
 $type_group_class_location = array_string_value($type_row, 'group_class_location');
+$type_bullet_points = array_string_value($type_row, 'bullet_points');
 $type_is_mini_session = array_int_value($type_row, 'is_mini_session') === 1;
 $type_mini_session_location = array_string_value($type_row, 'mini_session_location');
 $type_mini_session_topic = array_string_value($type_row, 'mini_session_topic');
@@ -1067,6 +1071,17 @@ include __DIR__ . '/../backend/includes/header.php';
                             <li>Clients will see the class location when booking</li>
                             <li>Use the availability configuration above to define class schedule</li>
                         </ul>
+                    </div>
+                </div>
+
+                <div id="event_bullet_points_section" class="<?= ($type_is_group_class || $type_is_mini_session) ? '' : 'appointment-type-section' ?>">
+                    <h6 class="border-bottom pb-2 mb-3">Public Event Bullet Points</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <label for="bullet_points" class="form-label">What Clients Will Learn / What's Included</label>
+                            <textarea class="form-control" id="bullet_points" name="bullet_points" rows="4" placeholder="One public-facing bullet point per line"><?= htmlspecialchars($_POST['bullet_points'] ?? $type_bullet_points) ?></textarea>
+                            <div class="form-text">Optional. These bullets appear on the public event cards and the matching site-editor event module for group classes and mini sessions.</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1716,6 +1731,7 @@ function toggleMiniSessionFields() {
         locationInput.removeAttribute('required');
     }
     updateLocationTypesVisibility();
+    toggleEventBulletPoints();
 }
 
 // Toggle Field Rental fields
@@ -1748,6 +1764,16 @@ function toggleGroupClassFields() {
         locationInput.removeAttribute('required');
     }
     updateLocationTypesVisibility();
+    toggleEventBulletPoints();
+}
+
+function toggleEventBulletPoints() {
+    const section = document.getElementById('event_bullet_points_section');
+    const isMini = document.getElementById('is_mini_session').checked;
+    const isGroup = document.getElementById('is_group_class').checked;
+    if (section) {
+        setSectionHidden(section, !(isMini || isGroup));
+    }
 }
 
 function toggleResourceFields() {
@@ -1822,6 +1848,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateAvailabilityPreview();
     toggleFieldRentalFields();
     toggleGroupClassFields();
+    toggleEventBulletPoints();
     toggleResourceFields();
     togglePerDaySchedule();
     

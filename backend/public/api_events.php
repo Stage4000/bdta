@@ -11,6 +11,7 @@
 ob_start();
 
 require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/bullet_points.php';
 
 /**
  * @return list<array<string, mixed>>
@@ -42,7 +43,7 @@ try {
 
     // Fetch active group-class and mini-session appointment types with specific date scheduling
     $stmt = $conn->prepare("
-        SELECT id, name, description, default_amount,
+        SELECT id, name, description, bullet_points, default_amount,
                duration_minutes, time_slot_interval,
                schedule_type, specific_date, specific_dates,
                available_start_time, available_end_time,
@@ -180,6 +181,7 @@ try {
                 'id'               => $type_id,
                 'name'             => array_string_value($type, 'name'),
                 'description'      => array_string_value($type, 'description'),
+                'bullet_points'    => bdta_parse_bullet_points(array_string_value($type, 'bullet_points')),
                 'price'            => safe_float($type['default_amount'] ?? 0),
                 'date'             => $date,
                 'start_time'       => $disp_start,

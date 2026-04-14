@@ -436,7 +436,8 @@ function loadPackages() {
                 // Build "What's Included" list
                 var itemsHtml = '';
                 if (pkg.items && pkg.items.length > 0) {
-                    itemsHtml = '<ul class="list-unstyled mb-4">';
+                    itemsHtml = '<div class="fw-semibold text-dark small text-uppercase mb-2">Credits Included</div>';
+                    itemsHtml += '<ul class="list-unstyled mb-4">';
                     pkg.items.forEach(function(item) {
                         itemsHtml += '<li class="mb-2">'
                             + '<i class="fas fa-check-circle text-success me-2"></i>'
@@ -445,6 +446,8 @@ function loadPackages() {
                     });
                     itemsHtml += '</ul>';
                 }
+
+                var bulletPointsHtml = renderBulletSection(pkg.bullet_points, "What's Included");
 
                 // Expiry note
                 var expiryHtml = pkg.expiration_days
@@ -470,6 +473,7 @@ function loadPackages() {
                     + '<h4 class="fw-bold mb-2">' + escapeHtml(pkg.name) + '</h4>'
                     + '<p class="text-primary fw-bold fs-5 mb-2">' + escapeHtml(priceText) + '</p>'
                     + (pkg.description ? '<p class="text-muted mb-3">' + escapeHtml(pkg.description) + '</p>' : '')
+                    + bulletPointsHtml
                     + itemsHtml
                     + expiryHtml
                     + ctaHtml
@@ -555,6 +559,8 @@ function loadEvents() {
                     ctaHtml = '<a href="#contact" class="btn btn-sm btn-outline-primary mt-auto">Register</a>';
                 }
 
+                var bulletPointsHtml = renderBulletSection(evt.bullet_points, "What You'll Learn", 'mb-3');
+
                 var col = document.createElement('div');
                 col.className = 'col-md-6 col-lg-4';
                 col.setAttribute('data-aos', 'fade-up');
@@ -567,6 +573,7 @@ function loadEvents() {
                     + typeBadge
                     + '<h5 class="fw-bold mb-2">' + escapeHtml(evt.name) + '</h5>'
                     + (evt.description ? '<p class="text-muted mb-2 small">' + escapeHtml(evt.description) + '</p>' : '')
+                    + bulletPointsHtml
                     + '<div class="mb-2">'
                     + (dateStr ? '<p class="mb-1 small"><i class="fas fa-calendar text-primary me-1"></i>' + escapeHtml(dateStr) + '</p>' : '')
                     + '<p class="mb-1 small"><i class="fas fa-clock text-primary me-1"></i>' + escapeHtml(timeStr) + '</p>'
@@ -614,4 +621,24 @@ function formatTime(timeStr) {
     var ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12 || 12;
     return h + ':' + (m < 10 ? '0' + m : m) + ' ' + ampm;
+}
+
+function renderBulletSection(points, title, wrapperClass) {
+    if (!Array.isArray(points) || points.length === 0) {
+        return '';
+    }
+
+    var html = '<div class="' + escapeHtml(wrapperClass || 'mb-4') + '">';
+    if (title) {
+        html += '<div class="fw-semibold text-dark small text-uppercase mb-2">' + escapeHtml(title) + '</div>';
+    }
+    html += '<ul class="list-unstyled mb-0">';
+    points.forEach(function(point) {
+        html += '<li class="mb-2 d-flex align-items-start">'
+            + '<i class="fas fa-circle-check text-success me-2 mt-1"></i>'
+            + '<span>' + escapeHtml(point) + '</span>'
+            + '</li>';
+    });
+    html += '</ul></div>';
+    return html;
 }
