@@ -1,7 +1,7 @@
+<?php require_once dirname(__DIR__, 2) . '/includes/turnstile.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php require_once dirname(__DIR__, 2) . '/includes/turnstile.php'; ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">

@@ -2413,9 +2413,10 @@ if (isset($error_mode) && $error_mode) {
                 contract_template_id: document.querySelector('input[name="contract_template_id"]') ? parseInt(document.querySelector('input[name="contract_template_id"]').value) : null,
                 contract_typed_name: document.getElementById('contractTypedName')?.value.trim() || null,
                 contract_signature_font: document.getElementById('contractSignatureFont')?.value || null,
-                turnstile_token: typeof window.bdtaGetTurnstileResponse === 'function'
-                    ? window.bdtaGetTurnstileResponse(document.getElementById('bookingForm'))
-                    : ''
+                turnstile_token:
+                    typeof window.bdtaGetTurnstileResponse === 'function'
+                        ? window.bdtaGetTurnstileResponse(document.getElementById('bookingForm'))
+                        : ''
             };
 
             if (document.querySelector('#bookingForm .bdta-turnstile') && !bookingData.turnstile_token) {
