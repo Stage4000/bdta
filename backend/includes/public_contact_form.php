@@ -4,6 +4,146 @@
  */
 
 /**
+ * Remove the public homepage contact form markup from rendered HTML.
+ */
+function bdta_strip_public_contact_form_markup(string $html): string
+{
+    if ($html === '' || stripos($html, 'id="contactForm"') === false) {
+        return $html;
+    }
+
+    if (!class_exists('DOMDocument')) {
+        return bdta_strip_public_contact_form_markup_fallback($html);
+    }
+
+    $dom = new DOMDocument('1.0', 'UTF-8');
+    $wrapper_id = 'bdta-public-contact-form-root';
+    $previous_errors = libxml_use_internal_errors(true);
+    $encoded_html = mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
+    $dom->loadHTML('<?xml encoding="UTF-8"><div id="' . $wrapper_id . '">' . $encoded_html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    libxml_use_internal_errors($previous_errors);
+
+    $xpath = new DOMXPath($dom);
+    $root_nodes = $xpath->query('//*[@id="' . $wrapper_id . '"]');
+    $root = $root_nodes !== false ? $root_nodes->item(0) : null;
+
+    if (!$root instanceof DOMElement) {
+        return bdta_strip_public_contact_form_markup_fallback($html);
+    }
+
+    $form_nodes = $xpath->query('//*[@id="contactForm"]');
+    if ($form_nodes === false || $form_nodes->length === 0) {
+        return $html;
+    }
+
+    $forms = iterator_to_array($form_nodes);
+    foreach ($forms as $form) {
+        if (!$form instanceof DOMElement) {
+            continue;
+        }
+
+        $container = bdta_find_public_contact_form_container($form);
+        $row = bdta_find_public_contact_row($container ?? $form);
+
+        if ($container instanceof DOMElement && $container->parentNode) {
+            $container->parentNode->removeChild($container);
+        } elseif ($form->parentNode) {
+            bdta_remove_public_contact_form_heading($form);
+            $form->parentNode->removeChild($form);
+        }
+
+        if ($row instanceof DOMElement) {
+            bdta_add_class_name($row, 'justify-content-center');
+        }
+    }
+
+    $sanitized = '';
+    foreach (iterator_to_array($root->childNodes) as $child) {
+        $sanitized .= $dom->saveHTML($child);
+    }
+
+    return trim(str_replace('<?xml encoding="UTF-8">', '', $sanitized));
+}
+
+function bdta_strip_public_contact_form_markup_fallback(string $html): string
+{
+    $patterns = [
+        '/\s*<div\b[^>]*class="[^"]*\bcol-(?:[a-z]+-)?\d+[^"]*"[^>]*>\s*<div\b[^>]*class="[^"]*\bcard\b[^"]*"[^>]*>[\s\S]*?<form\b[^>]*id="contactForm"[^>]*>[\s\S]*?<\/form>[\s\S]*?<\/div>\s*<\/div>/i',
+        '/\s*<form\b[^>]*id="contactForm"[^>]*>[\s\S]*?<\/form>/i',
+    ];
+
+    foreach ($patterns as $pattern) {
+        $updated_html = preg_replace($pattern, '', $html, 1);
+        if ($updated_html !== null && $updated_html !== $html) {
+            $html = $updated_html;
+            break;
+        }
+    }
+
+    $updated_html = preg_replace('/class="([^"]*\brow\b[^"]*)"/i', 'class="$1 justify-content-center"', $html, 1);
+    if ($updated_html !== null) {
+        $html = $updated_html;
+    }
+
+    return $html;
+}
+
+function bdta_find_public_contact_form_container(DOMElement $form): ?DOMElement
+{
+    for ($node = $form; $node instanceof DOMElement; $node = $node->parentNode instanceof DOMElement ? $node->parentNode : null) {
+        $class_name = $node->getAttribute('class');
+        if ($class_name === '') {
+            continue;
+        }
+
+        if (preg_match('/\bcol(?:-[a-z]+)?-\d+\b/i', $class_name) === 1) {
+            return $node;
+        }
+    }
+
+    for ($node = $form; $node instanceof DOMElement; $node = $node->parentNode instanceof DOMElement ? $node->parentNode : null) {
+        if (preg_match('/\bcard\b/i', $node->getAttribute('class')) === 1) {
+            return $node;
+        }
+    }
+
+    return null;
+}
+
+function bdta_find_public_contact_row(DOMElement $node): ?DOMElement
+{
+    for ($current = $node; $current instanceof DOMElement; $current = $current->parentNode instanceof DOMElement ? $current->parentNode : null) {
+        if (preg_match('/\brow\b/i', $current->getAttribute('class')) === 1) {
+            return $current;
+        }
+    }
+
+    return null;
+}
+
+function bdta_remove_public_contact_form_heading(DOMElement $form): void
+{
+    $sibling = $form->previousSibling;
+    while ($sibling !== null && $sibling->nodeType === XML_TEXT_NODE && trim((string) $sibling->textContent) === '') {
+        $sibling = $sibling->previousSibling;
+    }
+
+    if ($sibling instanceof DOMElement && preg_match('/^h[1-6]$/i', $sibling->tagName) === 1 && $sibling->parentNode) {
+        $sibling->parentNode->removeChild($sibling);
+    }
+}
+
+function bdta_add_class_name(DOMElement $element, string $class_name): void
+{
+    $classes = preg_split('/\s+/', trim($element->getAttribute('class'))) ?: [];
+    if (!in_array($class_name, $classes, true)) {
+        $classes[] = $class_name;
+        $element->setAttribute('class', trim(implode(' ', array_filter($classes))));
+    }
+}
+
+/**
  * @param array<string, mixed> $payload
  * @return array{success:bool,error?:string,client_id?:int}
  */

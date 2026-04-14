@@ -18,7 +18,6 @@ onDocumentReady(function() {
     normalizePublicNavigation();
     initNavigation();
     initBackToTop();
-    initContactForm();
     initSmoothScroll();
     loadPackages();
     loadEvents();
@@ -129,76 +128,6 @@ function initBackToTop() {
             top: 0,
             behavior: 'smooth'
         });
-    });
-}
-
-// ==========================================
-// Contact Form
-// ==========================================
-function initContactForm() {
-    const contactForm = document.getElementById('contactForm');
-    const formMessage = document.getElementById('formMessage');
-    
-    if (!contactForm || !formMessage) return;
-    
-    contactForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // Get form values
-        const name = document.getElementById('name').value;
-        const email = document.getElementById('email').value;
-        const phone = document.getElementById('phone').value;
-        const service = document.getElementById('service').value;
-        const message = document.getElementById('message').value;
-        
-        // Validate form
-        if (!name || !email || !message) {
-            setStatusMessage(formMessage, 'Please fill in all required fields.', 'error');
-            return;
-        }
-        
-        if (!validateEmail(email)) {
-            setStatusMessage(formMessage, 'Please enter a valid email address.', 'error');
-            return;
-        }
-        
-        const submitBtn = contactForm.querySelector('button[type="submit"]');
-        const originalButtonHTML = submitBtn.innerHTML;
-        // This fixed template does not interpolate user-controlled values.
-        // nosemgrep
-        submitBtn.innerHTML = '<span class="loading"></span> Sending...';
-        submitBtn.disabled = true;
-        
-        fetchJson('/backend/public/api_contact.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name,
-                email: email,
-                phone: phone,
-                service: service,
-                message: message
-            })
-        })
-            .then(data => {
-                if (!data.success) {
-                    throw new Error(data.error || 'Unable to send message.');
-                }
-
-                contactForm.reset();
-                setStatusMessage(formMessage, 'Thank you for contacting us! We\'ll get back to you within 24 hours.', 'success');
-            })
-            .catch(error => {
-                setStatusMessage(formMessage, error.message || 'Unable to send message right now. Please try again.', 'error');
-            })
-            .finally(() => {
-                // Restoring the original static button markup captured before the loading state.
-                // nosemgrep
-                submitBtn.innerHTML = originalButtonHTML;
-                submitBtn.disabled = false;
-            });
     });
 }
 
