@@ -74,9 +74,9 @@ body.bdta-public-notice-visible {
     }
 }
 </style>
-<div class="bdta-public-notice bg-dark text-white border-top border-secondary-subtle" data-public-notice role="region" aria-label="Public notice">
+<div class="bdta-public-notice bg-dark text-white border-top border-secondary-subtle" data-public-notice aria-label="Site-wide notice">
     <div class="container py-2 small bdta-public-notice__content">
-        <div class="bdta-public-notice__message">{$message}</div>
+        <div class="bdta-public-notice__message" role="status" aria-live="polite">{$message}</div>
         <button type="button" class="btn-close btn-close-white bdta-public-notice__dismiss" data-public-notice-dismiss aria-label="Dismiss notice"></button>
     </div>
 </div>
@@ -93,6 +93,7 @@ body.bdta-public-notice-visible {
         var dismissButton = notice.querySelector('[data-public-notice-dismiss]');
         var body = document.body;
         var root = document.documentElement;
+        var resizeFrame = null;
 
         function syncNoticeHeight() {
             if (notice.hidden) {
@@ -104,9 +105,31 @@ body.bdta-public-notice-visible {
         }
 
         function dismissNotice() {
+            if (resizeFrame !== null && typeof window.cancelAnimationFrame === 'function') {
+                window.cancelAnimationFrame(resizeFrame);
+                resizeFrame = null;
+            }
+
             notice.hidden = true;
             body.classList.remove('bdta-public-notice-visible');
             root.style.removeProperty('--bdta-public-notice-height');
+            window.removeEventListener('resize', scheduleNoticeHeightSync);
+        }
+
+        function scheduleNoticeHeightSync() {
+            if (resizeFrame !== null) {
+                return;
+            }
+
+            if (typeof window.requestAnimationFrame === 'function') {
+                resizeFrame = window.requestAnimationFrame(function () {
+                    resizeFrame = null;
+                    syncNoticeHeight();
+                });
+                return;
+            }
+
+            syncNoticeHeight();
         }
 
         if (dismissButton) {
@@ -114,7 +137,7 @@ body.bdta-public-notice-visible {
         }
 
         syncNoticeHeight();
-        window.addEventListener('resize', syncNoticeHeight);
+        window.addEventListener('resize', scheduleNoticeHeightSync);
     }
 
     if (document.readyState === 'loading') {

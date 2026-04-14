@@ -53,7 +53,8 @@ try {
     assertTrue(str_contains($markup, '&lt;script&gt;alert(1)&lt;/script&gt;'), 'Notice markup should escape HTML content.');
     assertTrue(str_contains($markup, 'position: fixed;'), 'Notice markup should render as a sticky footer notice.');
     assertTrue(str_contains($markup, 'data-public-notice-dismiss'), 'Notice markup should include a dismiss button.');
-    assertTrue(str_contains($markup, "notice.hidden = true;"), 'Notice markup should hide the notice when dismissed.');
+    assertTrue(str_contains($markup, "addEventListener('click', dismissNotice)"), 'Notice markup should wire the dismiss button to a click handler.');
+    assertTrue(str_contains($markup, 'requestAnimationFrame'), 'Notice markup should throttle resize-driven height syncing.');
     assertTrue(!str_contains($markup, 'localStorage') && !str_contains($markup, 'sessionStorage') && !str_contains($markup, 'document.cookie'), 'Dismissal should remain session-scoped in the page only.');
     echo "✓ Enabled notice renders escaped text with line breaks\n";
 
