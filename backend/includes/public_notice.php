@@ -27,7 +27,7 @@ function bdta_get_public_notice_markup(): string {
     $message = nl2br(htmlspecialchars(bdta_get_public_notice_text(), ENT_QUOTES, 'UTF-8'));
 
     return <<<HTML
-<div class="bdta-public-notice bg-dark text-white border-top border-secondary-subtle" data-public-notice role="note">
+<div class="bdta-public-notice bg-dark text-white border-top border-secondary-subtle" data-public-notice role="status">
     <div class="container py-2 small text-center">{$message}</div>
 </div>
 HTML;

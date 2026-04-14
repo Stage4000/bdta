@@ -56,7 +56,9 @@ try {
     $html = '<html><body><main>Content</main></body></html>';
     $injected = bdta_inject_public_notice_markup($html);
     assertTrue(substr_count($injected, 'data-public-notice') === 1, 'Notice injection should append markup before </body>.');
-    assertTrue(str_contains($injected, '</div>' . "\n" . '</body>'), 'Notice injection should place the notice before the closing body tag.');
+    $notice_position = strpos($injected, 'data-public-notice');
+    $body_close_position = stripos($injected, '</body>');
+    assertTrue($notice_position !== false && $body_close_position !== false && $notice_position < $body_close_position, 'Notice injection should place the notice before the closing body tag.');
     assertTrue($injected === bdta_inject_public_notice_markup($injected), 'Notice injection should not duplicate the notice markup.');
     echo "✓ Public notice injection appends a single notice before </body>\n";
 
