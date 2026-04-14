@@ -12,6 +12,7 @@ require_once '../includes/config.php';
 require_once '../includes/database.php';
 require_once '../includes/form_types.php';
 require_once '../includes/public_form_context.php';
+require_once '../includes/turnstile.php';
 require_once '../includes/workflow_helper.php';
 require_once '../includes/follow_up_notes.php';
 require_once __DIR__ . '/includes/public_error_page.php';
@@ -111,6 +112,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), scalar_string($_POST['csrf_token']))) {
         $errors[] = 'Your session expired. Please refresh the page and try again.';
     } else {
+        $turnstile_result = bdta_verify_turnstile_submission($_POST, scalar_string($_SERVER['REMOTE_ADDR'] ?? ''));
+        if (!$turnstile_result['success']) {
+            $errors[] = scalar_string($turnstile_result['error'] ?? 'Please confirm you are not a robot and try again.');
+        }
+
         $submission_id = safe_int($_POST['submission_id'] ?? 0);
         $template_id = safe_int($_POST['template_id'] ?? 0);
         $allow_posted_context = $submission_id === 0 && isLoggedIn();
@@ -316,6 +322,7 @@ require_once __DIR__ . '/includes/public_head.php';
                 <?php if ($submission_id > 0): ?>
                     <input type="hidden" name="submission_id" value="<?= (int) $submission_id ?>">
                 <?php endif; ?>
+                <?php echo bdta_get_turnstile_widget_markup(); ?>
 
                 <h5 class="mb-3">Your Information</h5>
                 <div class="row g-3 mb-4">

@@ -5,6 +5,7 @@
 require_once '../includes/config.php';
 require_once '../includes/database.php';
 require_once '../includes/public_portal_return.php';
+require_once '../includes/turnstile.php';
 require_once __DIR__ . '/includes/public_error_page.php';
 
 $db = new Database();
@@ -60,7 +61,11 @@ if ($quote_status === 'sent') {
 // Handle accept/decline
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $can_respond && !$is_expired) {
-    if ($action == 'accept') {
+    $turnstile_result = bdta_verify_turnstile_submission($_POST, scalar_string($_SERVER['REMOTE_ADDR'] ?? ''));
+
+    if (!$turnstile_result['success']) {
+        $message = '<div class="alert alert-danger">' . htmlspecialchars(scalar_string($turnstile_result['error'] ?? 'Please confirm you are not a robot and try again.'), ENT_QUOTES, 'UTF-8') . '</div>';
+    } elseif ($action == 'accept') {
         $stmt = $conn->prepare("UPDATE quotes SET status = 'accepted', accepted_at = CURRENT_TIMESTAMP WHERE id = ?");
         $stmt->execute([$quote_id]);
         $quote_status = 'accepted';
@@ -211,6 +216,7 @@ $page_title = 'Quote ' . $quote_quote_number;
                         <!-- Action Buttons -->
                         <?php if ($can_respond && !$is_expired): ?>
                             <form method="POST" class="mt-4" onsubmit="return confirm('Are you sure?')">
+                                <?php echo bdta_get_turnstile_widget_markup(['wrapper_class' => 'mb-3']); ?>
                                 <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                                     <button type="submit" name="action" value="decline" class="btn btn-outline-secondary">
                                         <i class="fas fa-circle-xmark me-1"></i>Decline

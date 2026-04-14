@@ -161,6 +161,15 @@ function initContactForm() {
             setStatusMessage(formMessage, 'Please enter a valid email address.', 'error');
             return;
         }
+
+        const turnstileToken = typeof window.bdtaGetTurnstileResponse === 'function'
+            ? window.bdtaGetTurnstileResponse(contactForm)
+            : '';
+        const turnstileWidget = contactForm.querySelector('.bdta-turnstile');
+        if (turnstileWidget && !turnstileToken) {
+            setStatusMessage(formMessage, 'Please confirm you are not a robot and try again.', 'error');
+            return;
+        }
         
         const submitBtn = contactForm.querySelector('button[type="submit"]');
         const originalButtonHTML = submitBtn.innerHTML;
@@ -179,7 +188,8 @@ function initContactForm() {
                 email: email,
                 phone: phone,
                 service: service,
-                message: message
+                message: message,
+                turnstile_token: turnstileToken
             })
         })
             .then(data => {
@@ -188,6 +198,9 @@ function initContactForm() {
                 }
 
                 contactForm.reset();
+                if (typeof window.bdtaResetTurnstile === 'function') {
+                    window.bdtaResetTurnstile(contactForm);
+                }
                 setStatusMessage(formMessage, 'Thank you for contacting us! We\'ll get back to you within 24 hours.', 'success');
             })
             .catch(error => {

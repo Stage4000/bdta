@@ -1344,6 +1344,7 @@ if (isset($error_mode) && $error_mode) {
                             <i class="fas fa-check-circle me-2"></i> Confirm Booking
                         </button>
                     </div>
+                    <?php echo bdta_get_turnstile_widget_markup(); ?>
                 </div>
             </form>
         </div>
@@ -2139,6 +2140,9 @@ if (isset($error_mode) && $error_mode) {
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
+                    if (typeof window.bdtaResetTurnstile === 'function') {
+                        window.bdtaResetTurnstile(document.getElementById('bookingForm'));
+                    }
                     const modalTitle = document.querySelector('#successModal .modal-body h2');
                     const modalBody = document.querySelector('#successModal .modal-body p.text-muted');
                     if (modalTitle) {
@@ -2408,8 +2412,18 @@ if (isset($error_mode) && $error_mode) {
                 form_responses: formResponses,
                 contract_template_id: document.querySelector('input[name="contract_template_id"]') ? parseInt(document.querySelector('input[name="contract_template_id"]').value) : null,
                 contract_typed_name: document.getElementById('contractTypedName')?.value.trim() || null,
-                contract_signature_font: document.getElementById('contractSignatureFont')?.value || null
+                contract_signature_font: document.getElementById('contractSignatureFont')?.value || null,
+                turnstile_token: typeof window.bdtaGetTurnstileResponse === 'function'
+                    ? window.bdtaGetTurnstileResponse(document.getElementById('bookingForm'))
+                    : ''
             };
+
+            if (document.querySelector('#bookingForm .bdta-turnstile') && !bookingData.turnstile_token) {
+                showAlert('Please confirm you are not a robot and try again.', 'warning');
+                submitBtn.disabled = false;
+                spinner.classList.remove('active');
+                return;
+            }
 
             // Include booking intake form data when using a custom form
             if (bookingIntakeFormId && booking_intake_field_values !== null) {
