@@ -1285,6 +1285,8 @@ class Database {
             ['business_phone', '(555) 123-4567', 'text', 'general', 'Business Phone', 'Primary contact phone number', 0],
             ['business_address', 'Sebring, Florida', 'textarea', 'general', 'Business Address', 'Your business address', 0],
             ['founded_year', '2018', 'number', 'general', 'Founded Year', 'Year your business was founded', 0],
+            ['public_notice_enabled', '0', 'checkbox', 'general', 'Enable Public Notice', 'Show a small notice bar at the bottom of public-facing pages.', 0],
+            ['public_notice_text', '', 'textarea', 'general', 'Public Notice Text', 'Message to display in the public notice bar. Leave blank to hide it even when enabled.', 0],
             
             // Email Settings
             ['email_from_address', 'bookings@brooksdogtrainingacademy.com', 'email', 'email', 'From Email Address', 'Email address for outgoing emails', 0],
@@ -2200,6 +2202,9 @@ class Database {
         // Add booking form customization setting
         $this->addBookingFormSetting();
 
+        // Add public notice settings for public-facing pages
+        $this->addPublicNoticeSettings();
+
         // Add cancellation/reschedule advance notice period to appointment_types
         $apt_col_names_notice = $this->getTableColumns('appointment_types');
         if (!in_array('cancellation_notice_hours', $apt_col_names_notice)) {
@@ -2694,6 +2699,15 @@ class Database {
         ];
 
         $this->insertMissingSettingsRows($turnstile_settings);
+    }
+
+    private function addPublicNoticeSettings(): void {
+        $public_notice_settings = [
+            ['public_notice_enabled', '0', 'checkbox', 'general', 'Enable Public Notice', 'Show a small notice bar at the bottom of public-facing pages.', 0],
+            ['public_notice_text', '', 'textarea', 'general', 'Public Notice Text', 'Message to display in the public notice bar. Leave blank to hide it even when enabled.', 0],
+        ];
+
+        $this->insertMissingSettingsRows($public_notice_settings);
     }
 
     /**
