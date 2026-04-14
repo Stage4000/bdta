@@ -171,6 +171,10 @@ $form_access_label = $form_access_state['label'];
 $form_access_help = $form_access_state['help'];
 $show_direct_link_card = $is_edit && bdta_form_type_allows_direct_link($form_type);
 $direct_link_is_public = bdta_form_type_allows_public_submission($form_type) && !$effective_is_internal;
+$json_encode_for_html = static function (array $value, string $fallback = '{}'): string {
+    $json = json_encode($value, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    return $json === false ? $fallback : $json;
+};
 $form_type_js_meta = [];
 foreach ($form_type_options as $type_key => $definition) {
     $client_access_state = bdta_get_form_template_access_state($type_key, 0);
@@ -186,10 +190,7 @@ foreach ($form_type_options as $type_key => $definition) {
         'internalToggleHelp' => $internal_access_state['toggle_help'],
     ];
 }
-$form_type_js_meta_json = json_encode($form_type_js_meta, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-if ($form_type_js_meta_json === false) {
-    $form_type_js_meta_json = '{}';
-}
+$form_type_js_meta_json = $json_encode_for_html($form_type_js_meta);
 $default_form_access = [
     'description' => '',
     'forceInternal' => false,
@@ -200,10 +201,7 @@ $default_form_access = [
     'internalHelp' => 'This template currently requires an admin/staff login to complete.',
     'internalToggleHelp' => 'This template will only be available to admin/staff users.',
 ];
-$default_form_access_json = json_encode($default_form_access, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-if ($default_form_access_json === false) {
-    $default_form_access_json = '{"description":"","forceInternal":false,"clientLabel":"Client facing","clientHelp":"This template can be completed by clients, either during booking or via a shared link.","clientToggleHelp":"Leave this off to allow clients to complete the form.","internalLabel":"Admin only","internalHelp":"This template currently requires an admin/staff login to complete.","internalToggleHelp":"This template will only be available to admin/staff users."}';
-}
+$default_form_access_json = $json_encode_for_html($default_form_access);
 
 require_once '../backend/includes/header.php';
 ?>

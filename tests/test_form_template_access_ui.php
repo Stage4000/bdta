@@ -32,6 +32,7 @@ assertFormTemplateAccessUi(str_contains($edit_page, 'Internal use only'), 'Expec
 
 $list_page = file_get_contents(dirname(__DIR__) . '/client/form_templates_list.php');
 assertFormTemplateAccessUi(is_string($list_page), 'Expected to read the form template list page source.');
-assertFormTemplateAccessUi(str_contains($list_page, "form_templates_edit.php' . (\$type_filter === 'internal' ? '?access=internal' : '')"), 'Expected the Internal Forms tab create action to preserve internal access context.');
+assertFormTemplateAccessUi(str_contains($list_page, '?access=internal'), 'Expected the Internal Forms tab create action to preserve internal access context.');
+assertFormTemplateAccessUi(str_contains($list_page, '$create_template_url'), 'Expected the form template list page to use the shared create-template URL helper.');
 
 echo "Form template access UI regression test passed.\n";
