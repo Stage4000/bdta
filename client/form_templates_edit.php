@@ -27,6 +27,11 @@ $required_frequency = '';
 $appointment_type_id = null;
 $is_internal = 0;
 $is_active = 1;
+$requested_access = scalar_string($_GET['access'] ?? '');
+
+if (!$is_edit && $requested_access === 'internal') {
+    $is_internal = 1;
+}
 
 // If editing, load template
 if ($is_edit) {
@@ -160,23 +165,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $stmt = $conn->query("SELECT id, name FROM appointment_types WHERE is_active = 1 ORDER BY name");
 $appointment_types = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
 $form_type_options = bdta_get_form_type_options();
-$effective_is_internal = $is_internal === 1 || bdta_form_type_forced_internal($form_type) === 1;
-$form_access_label = $effective_is_internal ? 'Admin only' : 'Client facing';
-$form_access_help = $effective_is_internal
-    ? 'This template currently requires an admin/staff login to complete.'
-    : 'This template can be completed by clients, either during booking or via a shared link.';
+$form_access_state = bdta_get_form_template_access_state($form_type, $is_internal);
+$effective_is_internal = $form_access_state['effective_internal'];
+$form_access_label = $form_access_state['label'];
+$form_access_help = $form_access_state['help'];
 $show_direct_link_card = $is_edit && bdta_form_type_allows_direct_link($form_type);
 $direct_link_is_public = bdta_form_type_allows_public_submission($form_type) && !$effective_is_internal;
 $form_type_js_meta = [];
 foreach ($form_type_options as $type_key => $definition) {
-    $type_forces_internal = bdta_form_type_forced_internal($type_key) === 1;
+    $client_access_state = bdta_get_form_template_access_state($type_key, 0);
+    $internal_access_state = bdta_get_form_template_access_state($type_key, 1);
     $form_type_js_meta[$type_key] = [
         'description' => scalar_string($definition['description'] ?? ''),
-        'forceInternal' => $type_forces_internal,
-        'accessLabel' => $type_forces_internal ? 'Admin only' : 'Client facing',
-        'accessHelp' => $type_forces_internal
-            ? 'This template currently requires an admin/staff login to complete.'
-            : 'This template can be completed by clients, either during booking or via a shared link.',
+        'forceInternal' => $client_access_state['forced_internal'],
+        'clientLabel' => $client_access_state['label'],
+        'clientHelp' => $client_access_state['help'],
+        'clientToggleHelp' => $client_access_state['toggle_help'],
+        'internalLabel' => $internal_access_state['label'],
+        'internalHelp' => $internal_access_state['help'],
+        'internalToggleHelp' => $internal_access_state['toggle_help'],
     ];
 }
 $form_type_js_meta_json = json_encode($form_type_js_meta, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
@@ -185,12 +192,17 @@ if ($form_type_js_meta_json === false) {
 }
 $default_form_access = [
     'description' => '',
-    'accessLabel' => bdta_get_form_access_label('client_form'),
-    'accessHelp' => bdta_get_form_access_help('client_form'),
+    'forceInternal' => false,
+    'clientLabel' => 'Client facing',
+    'clientHelp' => 'This template can be completed by clients, either during booking or via a shared link.',
+    'clientToggleHelp' => 'Leave this off to allow clients to complete the form.',
+    'internalLabel' => 'Admin only',
+    'internalHelp' => 'This template currently requires an admin/staff login to complete.',
+    'internalToggleHelp' => 'This template will only be available to admin/staff users.',
 ];
 $default_form_access_json = json_encode($default_form_access, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 if ($default_form_access_json === false) {
-    $default_form_access_json = '{"description":"","accessLabel":"Client facing","accessHelp":"This form type is completed by clients, either during booking or via a shared link."}';
+    $default_form_access_json = '{"description":"","forceInternal":false,"clientLabel":"Client facing","clientHelp":"This template can be completed by clients, either during booking or via a shared link.","clientToggleHelp":"Leave this off to allow clients to complete the form.","internalLabel":"Admin only","internalHelp":"This template currently requires an admin/staff login to complete.","internalToggleHelp":"This template will only be available to admin/staff users."}';
 }
 
 require_once '../backend/includes/header.php';
@@ -409,6 +421,17 @@ require_once '../backend/includes/header.php';
 
                         <div class="mb-3">
                             <label class="form-label">Access</label>
+                            <div class="form-check form-switch mb-2">
+                                <input
+                                    type="checkbox"
+                                    class="form-check-input"
+                                    id="is_internal_toggle"
+                                    <?php echo $form_access_state['effective_internal'] ? 'checked' : ''; ?>
+                                    <?php echo !$form_access_state['can_toggle_internal'] ? 'disabled' : ''; ?>
+                                >
+                                <label class="form-check-label" for="is_internal_toggle">Internal use only</label>
+                            </div>
+                            <small class="form-text text-muted d-block mb-2" id="is_internal_toggle_help"><?php echo htmlspecialchars($form_access_state['toggle_help']); ?></small>
                             <div class="border rounded px-3 py-2 bg-light">
                                 <div class="fw-semibold" id="form_access_label"><?php echo htmlspecialchars($form_access_label); ?></div>
                                 <small class="text-muted d-block" id="form_access_help"><?php echo htmlspecialchars($form_access_help); ?></small>
@@ -496,25 +519,47 @@ const defaultFormAccess = <?= $default_form_access_json ?>;
 function syncFormTypeDetails() {
     const formTypeSelect = document.getElementById('form_type');
     const isInternalInput = document.querySelector('input[name="is_internal"]');
+    const isInternalToggle = document.getElementById('is_internal_toggle');
     const description = document.getElementById('form_type_description');
     const accessLabel = document.getElementById('form_access_label');
     const accessHelp = document.getElementById('form_access_help');
+    const toggleHelp = document.getElementById('is_internal_toggle_help');
 
-    if (!formTypeSelect || !description || !accessLabel || !accessHelp) {
+    if (!formTypeSelect || !description || !accessLabel || !accessHelp || !toggleHelp) {
         return;
     }
 
     const meta = formTypeMeta[formTypeSelect.value] || defaultFormAccess;
-    const isInternal = meta.forceInternal || (isInternalInput && isInternalInput.value === '1');
+    const requestedInternal = isInternalInput && isInternalInput.value === '1';
+    const isInternal = !!meta.forceInternal || requestedInternal;
 
     description.textContent = meta.description || '';
-    accessLabel.textContent = isInternal ? 'Admin only' : (meta.accessLabel || 'Client facing');
+    accessLabel.textContent = isInternal ? (meta.internalLabel || 'Admin only') : (meta.clientLabel || 'Client facing');
     accessHelp.textContent = isInternal
-        ? 'This template currently requires an admin/staff login to complete.'
-        : (meta.accessHelp || '');
+        ? (meta.internalHelp || 'This template currently requires an admin/staff login to complete.')
+        : (meta.clientHelp || '');
+    toggleHelp.textContent = meta.forceInternal
+        ? 'This form type is always internal and cannot be shared with clients.'
+        : (
+            requestedInternal
+                ? (meta.internalToggleHelp || 'This template will only be available to admin/staff users.')
+                : (meta.clientToggleHelp || 'Leave this off to allow clients to complete the form.')
+        );
+
+    if (isInternalToggle) {
+        isInternalToggle.checked = !!meta.forceInternal || requestedInternal;
+        isInternalToggle.disabled = !!meta.forceInternal;
+    }
 }
 
 document.getElementById('form_type')?.addEventListener('change', syncFormTypeDetails);
+document.getElementById('is_internal_toggle')?.addEventListener('change', function () {
+    const isInternalInput = document.querySelector('input[name="is_internal"]');
+    if (isInternalInput) {
+        isInternalInput.value = this.checked ? '1' : '0';
+    }
+    syncFormTypeDetails();
+});
 syncFormTypeDetails();
 
 function addField() {

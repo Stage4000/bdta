@@ -201,6 +201,42 @@ function bdta_get_form_access_help(string $form_type): string
         : 'This form type is completed by clients, either during booking or via a shared link.';
 }
 
+/**
+ * @return array{
+ *   forced_internal: bool,
+ *   requested_internal: bool,
+ *   effective_internal: bool,
+ *   can_toggle_internal: bool,
+ *   label: string,
+ *   help: string,
+ *   toggle_help: string
+ * }
+ */
+function bdta_get_form_template_access_state(string $form_type, int $is_internal = 0): array
+{
+    $forced_internal = bdta_form_type_forced_internal($form_type) === 1;
+    $requested_internal = $is_internal === 1;
+    $effective_internal = $forced_internal || $requested_internal;
+
+    return [
+        'forced_internal' => $forced_internal,
+        'requested_internal' => $requested_internal,
+        'effective_internal' => $effective_internal,
+        'can_toggle_internal' => !$forced_internal,
+        'label' => $effective_internal ? 'Admin only' : 'Client facing',
+        'help' => $effective_internal
+            ? 'This template currently requires an admin/staff login to complete.'
+            : 'This template can be completed by clients, either during booking or via a shared link.',
+        'toggle_help' => $forced_internal
+            ? 'This form type is always internal and cannot be shared with clients.'
+            : (
+                $requested_internal
+                    ? 'This template will only be available to admin/staff users.'
+                    : 'Leave this off to allow clients to complete the form.'
+            ),
+    ];
+}
+
 function bdta_form_type_allows_direct_link(string $form_type): bool
 {
     return !empty(bdta_get_form_type_meta($form_type)['direct_link']);
