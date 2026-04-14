@@ -513,7 +513,7 @@ $type_is_group_class = array_int_value($type_row, 'is_group_class') === 1;
 $type_max_participants = array_int_value($type_row, 'max_participants', 1);
 $type_group_class_location = array_string_value($type_row, 'group_class_location');
 $type_bullet_points = array_string_value($type_row, 'bullet_points');
-$type_bullet_points_form_value = scalar_string($_POST['bullet_points'] ?? $type_bullet_points);
+$type_bullet_points_value = scalar_string($_POST['bullet_points'] ?? $type_bullet_points);
 $type_is_mini_session = array_int_value($type_row, 'is_mini_session') === 1;
 $type_mini_session_location = array_string_value($type_row, 'mini_session_location');
 $type_mini_session_topic = array_string_value($type_row, 'mini_session_topic');
@@ -1080,7 +1080,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="row g-3 mb-4">
                         <div class="col-12">
                             <label for="bullet_points" class="form-label">What Clients Will Learn / What's Included</label>
-                            <textarea class="form-control" id="bullet_points" name="bullet_points" rows="4" placeholder="One public-facing bullet point per line"><?= htmlspecialchars($type_bullet_points_form_value) ?></textarea>
+                            <textarea class="form-control" id="bullet_points" name="bullet_points" rows="4" placeholder="One public-facing bullet point per line"><?= htmlspecialchars($type_bullet_points_value) ?></textarea>
                             <div class="form-text">Optional. These bullet points appear on the public event cards and the matching site-editor event module for group classes and mini sessions.</div>
                         </div>
                     </div>
