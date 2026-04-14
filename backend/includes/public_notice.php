@@ -84,7 +84,7 @@ body.bdta-public-notice-visible {
 (function () {
     function initPublicNotice() {
         var notice = document.querySelector('[data-public-notice]');
-        if (!notice || notice.dataset.initialized) {
+        if (!notice || notice.dataset.initialized === '1') {
             return;
         }
 
@@ -93,10 +93,11 @@ body.bdta-public-notice-visible {
         var dismissButton = notice.querySelector('[data-public-notice-dismiss]');
         var body = document.body;
         var root = document.documentElement;
+        var dismissed = false;
         var resizeFrame = null;
 
         function syncNoticeHeight() {
-            if (notice.hidden) {
+            if (dismissed || !notice.isConnected || notice.hidden) {
                 return;
             }
 
@@ -105,6 +106,9 @@ body.bdta-public-notice-visible {
         }
 
         function dismissNotice() {
+            dismissed = true;
+            window.removeEventListener('resize', scheduleNoticeHeightSync);
+
             if (resizeFrame !== null) {
                 window.cancelAnimationFrame(resizeFrame);
                 resizeFrame = null;
@@ -113,11 +117,10 @@ body.bdta-public-notice-visible {
             notice.hidden = true;
             body.classList.remove('bdta-public-notice-visible');
             root.style.removeProperty('--bdta-public-notice-height');
-            window.removeEventListener('resize', scheduleNoticeHeightSync);
         }
 
         function scheduleNoticeHeightSync() {
-            if (resizeFrame !== null) {
+            if (dismissed || resizeFrame !== null) {
                 return;
             }
 

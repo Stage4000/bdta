@@ -57,6 +57,7 @@ try {
     assertTrue(str_contains($markup, "classList.remove('bdta-public-notice-visible')"), 'Notice markup should remove the body spacing class when dismissed.');
     assertTrue(str_contains($markup, 'requestAnimationFrame'), 'Notice markup should throttle resize-driven height syncing.');
     assertTrue(!str_contains($markup, 'localStorage') && !str_contains($markup, 'sessionStorage') && !str_contains($markup, 'document.cookie'), 'Dismissal should remain session-scoped in the page only.');
+    assertTrue(str_contains(bdta_get_public_notice_markup(), '<div class="bdta-public-notice '), 'A newly rendered page should show the public notice again.');
     echo "✓ Enabled notice renders escaped text with line breaks\n";
 
     $html = '<html><body><main>Content</main></body></html>';
