@@ -36,7 +36,10 @@ HTML;
 $sanitized_html = bdta_strip_public_contact_form_markup($sample_html);
 assertTrue(!str_contains($sanitized_html, 'id="contactForm"'), 'Expected homepage contact form markup to be removed.');
 assertTrue(!str_contains($sanitized_html, 'Send Us a Message'), 'Expected contact form card content to be removed.');
-assertTrue(str_contains($sanitized_html, 'justify-content-center'), 'Expected the remaining contact content to stay centered after removing the form column.');
+assertTrue(
+    preg_match('/class="row[^"]*\bjustify-content-center\b[^"]*"/', $sanitized_html) === 1,
+    'Expected the contact row to stay centered after removing the form column.'
+);
 
 $unchanged_html = '<div class="row"><div class="col-lg-6"><p>No contact form here.</p></div></div>';
 assertTrue(
