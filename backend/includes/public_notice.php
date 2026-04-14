@@ -74,7 +74,7 @@ body.bdta-public-notice-visible {
     }
 }
 </style>
-<div class="bdta-public-notice bg-dark text-white border-top border-secondary-subtle" data-public-notice aria-label="Site-wide notice">
+<div class="bdta-public-notice bg-dark text-white border-top border-secondary-subtle" data-public-notice>
     <div class="container py-2 small bdta-public-notice__content">
         <div class="bdta-public-notice__message" aria-live="polite">{$message}</div>
         <button type="button" class="btn-close btn-close-white bdta-public-notice__dismiss" data-public-notice-dismiss aria-label="Dismiss notice"></button>
