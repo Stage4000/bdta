@@ -10,6 +10,7 @@
 require_once '../includes/config.php';
 require_once '../includes/database.php';
 require_once '../includes/public_portal_return.php';
+require_once '../includes/turnstile.php';
 require_once __DIR__ . '/includes/public_error_page.php';
 require_once __DIR__ . '/includes/public_contract_access.php';
 require_once __DIR__ . '/includes/public_contract_contact_info.php';
@@ -59,6 +60,7 @@ $can_view_private_contact_details = bdta_contract_has_valid_access_token($contra
 // Check if contract is viewable
 $can_sign = in_array($contract_status, ['sent'], true);
 $already_signed = $contract_status === 'signed';
+$page_has_turnstile_widget = $can_sign;
 
 /**
  * Retrieve the real client IP address.
@@ -78,10 +80,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
     $typed_name      = trim(scalar_string($_POST['typed_name'] ?? ''));
     $signature_font  = trim(scalar_string($_POST['signature_font'] ?? 'font-dancing'));
     $client_confirmation = isset($_POST['client_confirmation']);
+    $turnstile_result = bdta_verify_turnstile_submission($_POST, getClientIp());
 
     $allowed_fonts = ['font-dancing', 'font-pacifico', 'font-satisfy', 'font-great-vibes', 'font-allura'];
 
-    if (!$client_confirmation) {
+    if (!$turnstile_result['success']) {
+        $message = '<div class="alert alert-danger">' . htmlspecialchars(scalar_string($turnstile_result['error'] ?? 'Please confirm you are not a robot and try again.'), ENT_QUOTES, 'UTF-8') . '</div>';
+    } elseif (!$client_confirmation) {
         $message = '<div class="alert alert-danger">You must check the confirmation box to sign.</div>';
     } elseif (empty($typed_name)) {
         $message = '<div class="alert alert-danger">Please type your full name as your signature.</div>';
@@ -407,6 +412,8 @@ $page_title = 'Contract ' . $contract_number;
                                     </label>
                                 </div>
 
+                                <?php echo bdta_get_turnstile_widget_markup(); ?>
+
                                 <div class="d-grid gap-2">
                                     <button type="submit" class="btn btn-success btn-lg" id="signBtn">
                                         <i class="fas fa-pen me-2"></i>Sign Contract
@@ -480,4 +487,7 @@ $page_title = 'Contract ' . $contract_number;
     });
 })();
 </script>
+<?php if ($page_has_turnstile_widget): ?>
+<?php echo bdta_get_turnstile_assets_html(); ?>
+<?php endif; ?>
 <?php require_once __DIR__ . '/includes/public_footer.php'; ?>

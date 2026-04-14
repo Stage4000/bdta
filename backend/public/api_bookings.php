@@ -3,6 +3,7 @@ require_once '../includes/config.php';
 require_once '../includes/booking_resources.php';
 require_once '../includes/email_service.php';
 require_once '../includes/google_calendar.php';
+require_once '../includes/turnstile.php';
 require_once '../includes/workflow_helper.php';
 
 header('Content-Type: application/json');
@@ -1485,6 +1486,12 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
 } elseif ($method === 'POST') {
     // Create booking
     $data = decode_json_assoc(scalar_string(file_get_contents('php://input')));
+
+    $turnstile_result = bdta_verify_turnstile_submission($data, scalar_string($_SERVER['REMOTE_ADDR'] ?? ''));
+    if (!$turnstile_result['success']) {
+        echo json_encode(['error' => $turnstile_result['error'] ?? 'Please confirm you are not a robot and try again.']);
+        exit;
+    }
 
     $db = new Database();
     $conn = $db->getConnection();

@@ -64,6 +64,8 @@ $filtered_settings = bdta_filter_api_key_settings([
     ['key' => 'smtp_host', 'label' => 'SMTP Host'],
     ['key' => 'imap_host', 'label' => 'IMAP Host'],
     ['key' => 'tawk_to_property_id', 'label' => 'Tawk.to Property ID'],
+    ['key' => 'turnstile_site_key', 'label' => 'Turnstile Site Key'],
+    ['key' => 'turnstile_secret_key', 'label' => 'Turnstile Secret Key'],
     ['key' => 'db_password', 'label' => 'Database Password'],
     ['key' => 'sendgrid_api_key', 'label' => 'SendGrid API Key'],
     ['key' => 'google_oauth_client_secret', 'label' => 'OAuth Secret'],
@@ -75,6 +77,8 @@ assertSameValue('only safe setting key remains', ['email_from_address'], $filter
 assertTrue(!in_array('smtp_host', $filtered_setting_keys, true), 'Expected SMTP settings to be filtered.');
 assertTrue(!in_array('imap_host', $filtered_setting_keys, true), 'Expected IMAP settings to be filtered.');
 assertTrue(!in_array('tawk_to_property_id', $filtered_setting_keys, true), 'Expected Tawk.to IDs to be filtered.');
+assertTrue(!in_array('turnstile_site_key', $filtered_setting_keys, true), 'Expected Turnstile site key to be filtered.');
+assertTrue(!in_array('turnstile_secret_key', $filtered_setting_keys, true), 'Expected Turnstile secret key to be filtered.');
 assertTrue(!in_array('db_password', $filtered_setting_keys, true), 'Expected database settings to be filtered.');
 assertTrue(!in_array('sendgrid_api_key', $filtered_setting_keys, true), 'Expected API keys to be filtered.');
 assertTrue(!in_array('google_oauth_client_secret', $filtered_setting_keys, true), 'Expected OAuth secrets to be filtered.');

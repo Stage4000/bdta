@@ -197,6 +197,7 @@ if (isset($error_mode) && $error_mode) {
 } else {
     $page_title = "Book an Appointment";
 }
+$page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
 ?>
 <?php require_once __DIR__ . '/includes/public_head.php'; ?>
     <!-- Google Fonts -->
@@ -1335,6 +1336,7 @@ if (isset($error_mode) && $error_mode) {
                         <small class="text-muted d-block mt-1" id="creditRemainingNote"></small>
                     </div>
                     
+                    <?php echo bdta_get_turnstile_widget_markup(['wrapper_class' => 'mt-4']); ?>
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
                             <i class="fas fa-arrow-left me-2"></i> Back
@@ -2139,6 +2141,9 @@ if (isset($error_mode) && $error_mode) {
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
+                    if (typeof window.bdtaResetTurnstile === 'function') {
+                        window.bdtaResetTurnstile(document.getElementById('bookingForm'));
+                    }
                     const modalTitle = document.querySelector('#successModal .modal-body h2');
                     const modalBody = document.querySelector('#successModal .modal-body p.text-muted');
                     if (modalTitle) {
@@ -2365,6 +2370,10 @@ if (isset($error_mode) && $error_mode) {
             const mappedFormValues = getMappedFormValues(formResponses);
             const selectedPortalPetIds = getSelectedPortalPetIds();
             const selectedPortalDogNames = getSelectedPortalPetNames().join(', ');
+            const turnstileToken =
+                typeof window.bdtaGetTurnstileResponse === 'function'
+                    ? window.bdtaGetTurnstileResponse(document.getElementById('bookingForm'))
+                    : '';
 
             // Gather client info — from dynamic intake form or hardcoded fields
             let client_name, client_email, client_phone, client_address, dog_names, notes;
@@ -2408,8 +2417,16 @@ if (isset($error_mode) && $error_mode) {
                 form_responses: formResponses,
                 contract_template_id: document.querySelector('input[name="contract_template_id"]') ? parseInt(document.querySelector('input[name="contract_template_id"]').value) : null,
                 contract_typed_name: document.getElementById('contractTypedName')?.value.trim() || null,
-                contract_signature_font: document.getElementById('contractSignatureFont')?.value || null
+                contract_signature_font: document.getElementById('contractSignatureFont')?.value || null,
+                turnstile_token: turnstileToken
             };
+
+            if (document.querySelector('#bookingForm .bdta-turnstile') && !turnstileToken) {
+                showAlert('Please confirm you are not a robot and try again.', 'warning');
+                submitBtn.disabled = false;
+                spinner.classList.remove('active');
+                return;
+            }
 
             // Include booking intake form data when using a custom form
             if (bookingIntakeFormId && booking_intake_field_values !== null) {
@@ -2483,4 +2500,7 @@ if (isset($error_mode) && $error_mode) {
             });
         })();
     </script>
+<?php if ($page_has_turnstile_widget): ?>
+<?php echo bdta_get_turnstile_assets_html(); ?>
+<?php endif; ?>
 <?php require_once __DIR__ . '/includes/public_footer.php'; ?>

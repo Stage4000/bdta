@@ -1367,6 +1367,8 @@ class Database {
             ['tawk_to_enabled', '0', 'checkbox', 'advanced', 'Enable Tawk.to Chat', 'Load the Tawk.to chat widget on public-facing pages and the client portal. Admin pages remain excluded.', 0],
             ['tawk_to_property_id', '', 'text', 'advanced', 'Tawk.to Property ID', 'Paste the property ID from your Tawk.to embed snippet.', 0],
             ['tawk_to_widget_id', 'default', 'text', 'advanced', 'Tawk.to Widget ID', 'Optional widget ID from the Tawk.to embed snippet. Leave as "default" unless Tawk.to specifies another value.', 0],
+            ['turnstile_site_key', '', 'text', 'advanced', 'Turnstile Site Key', 'Cloudflare Turnstile site key used to render spam protection on public forms.', 0],
+            ['turnstile_secret_key', '', 'password', 'advanced', 'Turnstile Secret Key', 'Cloudflare Turnstile secret key used to verify public form submissions.', 1],
             
         ];
         
@@ -2275,6 +2277,9 @@ class Database {
         // Add Tawk.to chat widget settings for existing installations
         $this->addTawkToSettings();
 
+        // Add Turnstile settings for existing installations
+        $this->addTurnstileSettings();
+
         // Add google_event_id column to bookings so cancelled bookings can be
         // removed from the connected Google Calendar
         $booking_col_names_gcal = $this->getTableColumns('bookings');
@@ -2679,13 +2684,29 @@ class Database {
             ['tawk_to_widget_id', 'default', 'text', 'advanced', 'Tawk.to Widget ID', 'Optional widget ID from the Tawk.to embed snippet. Leave as "default" unless Tawk.to specifies another value.', 0],
         ];
 
+        $this->insertMissingSettingsRows($tawk_settings);
+    }
+
+    private function addTurnstileSettings(): void {
+        $turnstile_settings = [
+            ['turnstile_site_key', '', 'text', 'advanced', 'Turnstile Site Key', 'Cloudflare Turnstile site key used to render spam protection on public forms.', 0],
+            ['turnstile_secret_key', '', 'password', 'advanced', 'Turnstile Secret Key', 'Cloudflare Turnstile secret key used to verify public form submissions.', 1],
+        ];
+
+        $this->insertMissingSettingsRows($turnstile_settings);
+    }
+
+    /**
+     * @param list<array{0:string,1:string,2:string,3:string,4:string,5:string,6:int}> $settings
+     */
+    private function insertMissingSettingsRows(array $settings): void {
         $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
         $insert = $this->conn->prepare("
             INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
 
-        foreach ($tawk_settings as $setting) {
+        foreach ($settings as $setting) {
             $check->execute([$setting[0]]);
             if ($check->fetchColumn() == 0) {
                 try {
