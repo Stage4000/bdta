@@ -2369,6 +2369,10 @@ if (isset($error_mode) && $error_mode) {
             const mappedFormValues = getMappedFormValues(formResponses);
             const selectedPortalPetIds = getSelectedPortalPetIds();
             const selectedPortalDogNames = getSelectedPortalPetNames().join(', ');
+            const turnstileToken =
+                typeof window.bdtaGetTurnstileResponse === 'function'
+                    ? window.bdtaGetTurnstileResponse(document.getElementById('bookingForm'))
+                    : '';
 
             // Gather client info — from dynamic intake form or hardcoded fields
             let client_name, client_email, client_phone, client_address, dog_names, notes;
@@ -2413,13 +2417,10 @@ if (isset($error_mode) && $error_mode) {
                 contract_template_id: document.querySelector('input[name="contract_template_id"]') ? parseInt(document.querySelector('input[name="contract_template_id"]').value) : null,
                 contract_typed_name: document.getElementById('contractTypedName')?.value.trim() || null,
                 contract_signature_font: document.getElementById('contractSignatureFont')?.value || null,
-                turnstile_token:
-                    typeof window.bdtaGetTurnstileResponse === 'function'
-                        ? window.bdtaGetTurnstileResponse(document.getElementById('bookingForm'))
-                        : ''
+                turnstile_token: turnstileToken
             };
 
-            if (document.querySelector('#bookingForm .bdta-turnstile') && !bookingData.turnstile_token) {
+            if (document.querySelector('#bookingForm .bdta-turnstile') && !turnstileToken) {
                 showAlert('Please confirm you are not a robot and try again.', 'warning');
                 submitBtn.disabled = false;
                 spinner.classList.remove('active');
