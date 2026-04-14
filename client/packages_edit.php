@@ -278,7 +278,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                     <div class="col-12">
                         <label for="bullet_points" class="form-label">Public Package Bullet Points</label>
-                        <textarea class="form-control" id="bullet_points" name="bullet_points" rows="4" placeholder="One included highlight per line"><?= htmlspecialchars($_POST['bullet_points'] ?? ($package['bullet_points'] ?? '')) ?></textarea>
+                        <textarea class="form-control" id="bullet_points" name="bullet_points" rows="4" placeholder="One included highlight per line"><?= htmlspecialchars($package['bullet_points'] ?? '') ?></textarea>
                         <div class="form-text">Optional. These bullet points appear on the public package cards and the matching site-editor package module.</div>
                     </div>
                     <div class="col-md-6">

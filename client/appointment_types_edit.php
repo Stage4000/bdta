@@ -1074,7 +1074,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     </div>
                 </div>
 
-                <div id="event_bullet_points_section" class="<?= ($type_is_group_class || $type_is_mini_session) ? '' : 'appointment-type-section' ?>">
+                <div id="event_bullet_points_section" class="appointment-type-section">
                     <h6 class="border-bottom pb-2 mb-3">Public Event Bullet Points</h6>
                     <div class="row g-3 mb-4">
                         <div class="col-12">

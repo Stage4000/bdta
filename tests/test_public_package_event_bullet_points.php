@@ -28,6 +28,7 @@ bdta_assert(
     bdta_parse_bullet_points("One\n\nTwo\r\n Three ") === ['One', 'Two', 'Three'],
     'Bullet-point parsing should return trimmed non-empty lines in order.'
 );
+bdta_assert(bdta_normalize_bullet_point_text(" \n \r\n ") === '', 'Whitespace-only bullet-point text should normalize to an empty string.');
 bdta_assert(bdta_parse_bullet_points(null) === [], 'Null bullet-point text should parse to an empty list.');
 
 $database = bdta_read_file(dirname(__DIR__) . '/backend/includes/database.php', 'database.php');
