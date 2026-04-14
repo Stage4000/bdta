@@ -51,12 +51,16 @@ try {
     assertTrue(str_contains($markup, 'data-public-notice'), 'Enabled notice should render its container markup.');
     assertTrue(str_contains($markup, 'Line 1<br'), 'Notice markup should preserve line breaks.');
     assertTrue(str_contains($markup, '&lt;script&gt;alert(1)&lt;/script&gt;'), 'Notice markup should escape HTML content.');
+    assertTrue(str_contains($markup, 'position: fixed;'), 'Notice markup should render as a sticky footer notice.');
+    assertTrue(str_contains($markup, 'data-public-notice-dismiss'), 'Notice markup should include a dismiss button.');
+    assertTrue(str_contains($markup, "notice.hidden = true;"), 'Notice markup should hide the notice when dismissed.');
+    assertTrue(!str_contains($markup, 'localStorage') && !str_contains($markup, 'sessionStorage') && !str_contains($markup, 'document.cookie'), 'Dismissal should remain session-scoped in the page only.');
     echo "✓ Enabled notice renders escaped text with line breaks\n";
 
     $html = '<html><body><main>Content</main></body></html>';
     $injected = bdta_inject_public_notice_markup($html);
-    assertTrue(substr_count($injected, 'data-public-notice') === 1, 'Notice injection should append markup before </body>.');
-    $notice_position = strpos($injected, 'data-public-notice');
+    assertTrue(substr_count($injected, '<div class="bdta-public-notice ') === 1, 'Notice injection should append markup before </body>.');
+    $notice_position = strpos($injected, '<div class="bdta-public-notice ');
     $body_close_position = stripos($injected, '</body>');
     assertTrue($notice_position !== false && $body_close_position !== false && $notice_position < $body_close_position, 'Notice injection should place the notice before the closing body tag.');
     assertTrue($injected === bdta_inject_public_notice_markup($injected), 'Notice injection should not duplicate the notice markup.');

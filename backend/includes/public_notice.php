@@ -38,9 +38,92 @@ function bdta_get_public_notice_markup(): string {
     $message = nl2br(htmlspecialchars($notice_text, ENT_QUOTES, 'UTF-8'));
 
     return <<<HTML
-<div class="bdta-public-notice bg-dark text-white border-top border-secondary-subtle" data-public-notice role="status">
-    <div class="container py-2 small text-center">{$message}</div>
+<style>
+body.bdta-public-notice-visible {
+    padding-bottom: var(--bdta-public-notice-height, 0px);
+}
+
+.bdta-public-notice {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1080;
+    box-shadow: 0 -0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.bdta-public-notice__content {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.bdta-public-notice__message {
+    flex: 1 1 auto;
+}
+
+.bdta-public-notice__dismiss {
+    flex: 0 0 auto;
+    padding: 0.25rem;
+}
+
+@media (max-width: 575.98px) {
+    .bdta-public-notice__content {
+        gap: 0.75rem;
+    }
+}
+</style>
+<div class="bdta-public-notice bg-dark text-white border-top border-secondary-subtle" data-public-notice role="region" aria-label="Public notice">
+    <div class="container py-2 small bdta-public-notice__content">
+        <div class="bdta-public-notice__message">{$message}</div>
+        <button type="button" class="btn-close btn-close-white bdta-public-notice__dismiss" data-public-notice-dismiss aria-label="Dismiss notice"></button>
+    </div>
 </div>
+<script>
+(function () {
+    function initPublicNotice() {
+        var notice = document.querySelector('[data-public-notice]');
+        if (!notice || notice.dataset.initialized === 'true') {
+            return;
+        }
+
+        notice.dataset.initialized = 'true';
+
+        var dismissButton = notice.querySelector('[data-public-notice-dismiss]');
+        var body = document.body;
+        var root = document.documentElement;
+
+        function syncNoticeHeight() {
+            if (notice.hidden) {
+                return;
+            }
+
+            root.style.setProperty('--bdta-public-notice-height', notice.offsetHeight + 'px');
+            body.classList.add('bdta-public-notice-visible');
+        }
+
+        function dismissNotice() {
+            notice.hidden = true;
+            body.classList.remove('bdta-public-notice-visible');
+            root.style.removeProperty('--bdta-public-notice-height');
+        }
+
+        if (dismissButton) {
+            dismissButton.addEventListener('click', dismissNotice);
+        }
+
+        syncNoticeHeight();
+        window.addEventListener('resize', syncNoticeHeight);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPublicNotice);
+    } else {
+        initPublicNotice();
+    }
+})();
+</script>
 HTML;
 }
 
