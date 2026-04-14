@@ -2,7 +2,7 @@
 /**
  * Public contact form API endpoint.
  *
- * The homepage contact form is temporarily unavailable.
+ * The homepage contact form has been removed.
  */
 
 header('Content-Type: application/json');

@@ -68,6 +68,7 @@ function bdta_strip_public_contact_form_markup(string $html): string
 
 function bdta_strip_public_contact_form_markup_fallback(string $html): string
 {
+    $removed_contact_form = false;
     $patterns = [
         '/\s*<div\b[^>]*class="[^"]*\bcol-(?:[a-z]+-)?\d+[^"]*"[^>]*>\s*<div\b[^>]*class="[^"]*\bcard\b[^"]*"[^>]*>[\s\S]*?<form\b[^>]*id="contactForm"[^>]*>[\s\S]*?<\/form>[\s\S]*?<\/div>\s*<\/div>/i',
         '/\s*<form\b[^>]*id="contactForm"[^>]*>[\s\S]*?<\/form>/i',
@@ -77,11 +78,14 @@ function bdta_strip_public_contact_form_markup_fallback(string $html): string
         $updated_html = preg_replace($pattern, '', $html, 1);
         if ($updated_html !== null && $updated_html !== $html) {
             $html = $updated_html;
+            $removed_contact_form = true;
             break;
         }
     }
 
-    $updated_html = preg_replace('/class="([^"]*\brow\b[^"]*)"/i', 'class="$1 justify-content-center"', $html, 1);
+    $updated_html = $removed_contact_form
+        ? preg_replace('/class="([^"]*\brow\b[^"]*)"/i', 'class="$1 justify-content-center"', $html, 1)
+        : null;
     if ($updated_html !== null) {
         $html = $updated_html;
     }
