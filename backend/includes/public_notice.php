@@ -12,19 +12,18 @@ function bdta_get_public_notice_text(): string {
 }
 
 function bdta_should_render_public_notice(): bool {
-    if (!(bool) Settings::get('public_notice_enabled', false)) {
-        return false;
-    }
-
-    return bdta_get_public_notice_text() !== '';
+    return (bool) Settings::get('public_notice_enabled', false);
 }
 
 function bdta_get_public_notice_markup(): string {
-    if (!bdta_should_render_public_notice()) {
+    $enabled = bdta_should_render_public_notice();
+    $notice_text = bdta_get_public_notice_text();
+
+    if (!$enabled || $notice_text === '') {
         return '';
     }
 
-    $message = nl2br(htmlspecialchars(bdta_get_public_notice_text(), ENT_QUOTES, 'UTF-8'));
+    $message = nl2br(htmlspecialchars($notice_text, ENT_QUOTES, 'UTF-8'));
 
     return <<<HTML
 <div class="bdta-public-notice bg-dark text-white border-top border-secondary-subtle" data-public-notice role="status">
