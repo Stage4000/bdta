@@ -10,6 +10,7 @@
 ob_start();
 
 require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/bullet_points.php';
 
 /**
  * @return array<string, mixed>
@@ -37,7 +38,7 @@ try {
 
     // Fetch active packages that have a share token (purchasable via public link)
     $stmt = $conn->prepare("
-        SELECT id, name, description, price, expiration_days, share_token
+        SELECT id, name, description, bullet_points, price, expiration_days, share_token
         FROM packages
         WHERE is_active = 1 AND share_token IS NOT NULL AND share_token != ''
         ORDER BY name ASC
@@ -85,6 +86,7 @@ try {
             'id'              => $package_id,
             'name'            => array_string_value($package_row, 'name'),
             'description'     => array_string_value($package_row, 'description'),
+            'bullet_points'   => bdta_parse_bullet_points(array_string_value($package_row, 'bullet_points')),
             'price'           => safe_float($package_row['price'] ?? 0),
             'expiration_days' => $expiration_days !== '' ? safe_int($expiration_days) : null,
             'items'           => $items_by_package[$package_id] ?? [],
