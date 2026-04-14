@@ -27,12 +27,7 @@ $required_frequency = '';
 $appointment_type_id = null;
 $is_internal = 0;
 $is_active = 1;
-$access_query_param = scalar_string($_GET['access'] ?? '');
-if ($access_query_param !== '' && $access_query_param !== 'internal') {
-    $access_query_param = '';
-}
-
-if (!$is_edit && $access_query_param === 'internal') {
+if (!$is_edit && scalar_string($_GET['access'] ?? '') === 'internal') {
     $is_internal = 1;
 }
 
