@@ -66,7 +66,12 @@ assertTrue(!str_contains($site_js, '/backend/public/api_contact.php'), 'Expected
 $api_path = dirname(__DIR__) . '/backend/public/api_contact.php';
 ob_start();
 require $api_path;
-$api_json = trim((string) ob_get_clean());
+$api_output = ob_get_clean();
+if ($api_output === false) {
+    throw new RuntimeException('Failed to capture disabled public contact API output.');
+}
+
+$api_json = trim($api_output);
 
 assertTrue(str_contains($api_json, '"success":false'), 'Expected disabled public contact API to reject submissions.');
 assertTrue(str_contains($api_json, 'currently unavailable'), 'Expected disabled public contact API to explain that the form is unavailable.');
