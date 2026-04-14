@@ -1335,6 +1335,7 @@ if (isset($error_mode) && $error_mode) {
                         <small class="text-muted d-block mt-1" id="creditRemainingNote"></small>
                     </div>
                     
+                    <?php echo bdta_get_turnstile_widget_markup(['wrapper_class' => 'mt-4']); ?>
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()">
                             <i class="fas fa-arrow-left me-2"></i> Back
@@ -1344,7 +1345,6 @@ if (isset($error_mode) && $error_mode) {
                             <i class="fas fa-check-circle me-2"></i> Confirm Booking
                         </button>
                     </div>
-                    <?php echo bdta_get_turnstile_widget_markup(); ?>
                 </div>
             </form>
         </div>
