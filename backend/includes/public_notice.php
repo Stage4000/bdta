@@ -84,11 +84,11 @@ body.bdta-public-notice-visible {
 (function () {
     function initPublicNotice() {
         var notice = document.querySelector('[data-public-notice]');
-        if (!notice || notice.dataset.initialized === 'true') {
+        if (!notice || notice.dataset.initialized) {
             return;
         }
 
-        notice.dataset.initialized = 'true';
+        notice.dataset.initialized = '1';
 
         var dismissButton = notice.querySelector('[data-public-notice-dismiss]');
         var body = document.body;
@@ -121,15 +121,10 @@ body.bdta-public-notice-visible {
                 return;
             }
 
-            if (typeof window.requestAnimationFrame === 'function') {
-                resizeFrame = window.requestAnimationFrame(function () {
-                    resizeFrame = null;
-                    syncNoticeHeight();
-                });
-                return;
-            }
-
-            syncNoticeHeight();
+            resizeFrame = window.requestAnimationFrame(function () {
+                resizeFrame = null;
+                syncNoticeHeight();
+            });
         }
 
         if (dismissButton) {
