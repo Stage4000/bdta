@@ -133,7 +133,7 @@ function bdta_add_class_name(DOMElement $element, string $class_name): void
     $existing_class_names = trim($element->getAttribute('class'));
     $classes = $existing_class_names === ''
         ? []
-        : array_values(array_filter(preg_split('/\s+/', $existing_class_names) ?: []));
+        : array_values(array_filter(preg_split('/\s+/', $existing_class_names)));
     if (!in_array($class_name, $classes, true)) {
         $classes[] = $class_name;
         $element->setAttribute('class', trim(implode(' ', array_filter($classes))));
