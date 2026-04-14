@@ -527,7 +527,7 @@ function syncFormTypeDetails() {
 
     const meta = formTypeMeta[formTypeSelect.value] || defaultFormAccess;
     const isRequestedInternal = isInternalInput && isInternalInput.value === '1';
-    const isInternal = !!meta.forceInternal || isRequestedInternal;
+    const isInternal = meta.forceInternal || isRequestedInternal;
 
     description.textContent = meta.description || '';
     accessLabel.textContent = isInternal ? (meta.internalLabel || 'Admin only') : (meta.clientLabel || 'Client facing');
@@ -544,8 +544,8 @@ function syncFormTypeDetails() {
     }
 
     if (isInternalToggle) {
-        isInternalToggle.checked = !!meta.forceInternal || isRequestedInternal;
-        isInternalToggle.disabled = !!meta.forceInternal;
+        isInternalToggle.checked = meta.forceInternal || isRequestedInternal;
+        isInternalToggle.disabled = meta.forceInternal;
     }
 }
 
