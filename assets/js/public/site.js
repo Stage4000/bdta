@@ -623,12 +623,20 @@ function formatTime(timeStr) {
     return h + ':' + (m < 10 ? '0' + m : m) + ' ' + ampm;
 }
 
+function sanitizeClassNames(classNames, fallback) {
+    if (typeof classNames !== 'string' || !/^[A-Za-z0-9 _-]+$/.test(classNames)) {
+        return fallback;
+    }
+    return classNames;
+}
+
 function renderBulletSection(points, title, wrapperClass) {
     if (!Array.isArray(points) || points.length === 0) {
         return '';
     }
 
-    var html = '<div class="' + escapeHtml(wrapperClass || 'mb-4') + '">';
+    var safeWrapperClass = sanitizeClassNames(wrapperClass || 'mb-4', 'mb-4');
+    var html = '<div class="' + safeWrapperClass + '">';
     if (title) {
         html += '<div class="fw-semibold text-dark small text-uppercase mb-2">' + escapeHtml(title) + '</div>';
     }

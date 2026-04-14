@@ -1080,7 +1080,7 @@ include __DIR__ . '/../backend/includes/header.php';
                         <div class="col-12">
                             <label for="bullet_points" class="form-label">What Clients Will Learn / What's Included</label>
                             <textarea class="form-control" id="bullet_points" name="bullet_points" rows="4" placeholder="One public-facing bullet point per line"><?= htmlspecialchars($_POST['bullet_points'] ?? $type_bullet_points) ?></textarea>
-                            <div class="form-text">Optional. These bullets appear on the public event cards and the matching site-editor event module for group classes and mini sessions.</div>
+                            <div class="form-text">Optional. These bullet points appear on the public event cards and the matching site-editor event module for group classes and mini sessions.</div>
                         </div>
                     </div>
                 </div>
