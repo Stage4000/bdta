@@ -80,7 +80,7 @@ class Settings {
      * @param array<string, mixed> $cache
      */
     public static function seedCacheForTesting(array $cache): void {
-        if (!defined('BDTA_TEST_MODE') || BDTA_TEST_MODE !== true) {
+        if (!defined('BDTA_TEST_MODE') || !(bool) constant('BDTA_TEST_MODE')) {
             throw new LogicException('Settings::seedCacheForTesting() is only available in tests.');
         }
 
