@@ -11,13 +11,25 @@ function bdta_get_public_notice_text(): string {
     return trim(str_replace(["\r\n", "\r"], "\n", (string) $notice));
 }
 
+/**
+ * @return array{enabled: bool, text: string}
+ */
+function bdta_get_public_notice_state(): array {
+    return [
+        'enabled' => (bool) Settings::get('public_notice_enabled', false),
+        'text' => bdta_get_public_notice_text(),
+    ];
+}
+
 function bdta_should_render_public_notice(): bool {
-    return (bool) Settings::get('public_notice_enabled', false);
+    $notice = bdta_get_public_notice_state();
+    return $notice['enabled'] && $notice['text'] !== '';
 }
 
 function bdta_get_public_notice_markup(): string {
-    $enabled = bdta_should_render_public_notice();
-    $notice_text = bdta_get_public_notice_text();
+    $notice = bdta_get_public_notice_state();
+    $enabled = $notice['enabled'];
+    $notice_text = $notice['text'];
 
     if (!$enabled || $notice_text === '') {
         return '';
