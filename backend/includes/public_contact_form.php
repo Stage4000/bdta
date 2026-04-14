@@ -68,7 +68,6 @@ function bdta_strip_public_contact_form_markup(string $html): string
 
 function bdta_strip_public_contact_form_markup_fallback(string $html): string
 {
-    $removed_contact_form = false;
     $patterns = [
         '/\s*<div\b[^>]*class="[^"]*\bcol-(?:[a-z]+-)?\d+[^"]*"[^>]*>\s*<div\b[^>]*class="[^"]*\bcard\b[^"]*"[^>]*>[\s\S]*?<form\b[^>]*id="contactForm"[^>]*>[\s\S]*?<\/form>[\s\S]*?<\/div>\s*<\/div>/i',
         '/\s*<form\b[^>]*id="contactForm"[^>]*>[\s\S]*?<\/form>/i',
@@ -77,17 +76,8 @@ function bdta_strip_public_contact_form_markup_fallback(string $html): string
     foreach ($patterns as $pattern) {
         $updated_html = preg_replace($pattern, '', $html, 1);
         if ($updated_html !== null && $updated_html !== $html) {
-            $html = $updated_html;
-            $removed_contact_form = true;
-            break;
+            return $updated_html;
         }
-    }
-
-    $updated_html = $removed_contact_form
-        ? preg_replace('/class="([^"]*\brow\b[^"]*)"/i', 'class="$1 justify-content-center"', $html, 1)
-        : null;
-    if ($updated_html !== null) {
-        $html = $updated_html;
     }
 
     return $html;
@@ -140,7 +130,10 @@ function bdta_remove_public_contact_form_heading(DOMElement $form): void
 
 function bdta_add_class_name(DOMElement $element, string $class_name): void
 {
-    $classes = preg_split('/\s+/', trim($element->getAttribute('class'))) ?: [];
+    $existing_class_names = trim($element->getAttribute('class'));
+    $classes = $existing_class_names === ''
+        ? []
+        : array_values(array_filter(preg_split('/\s+/', $existing_class_names) ?: []));
     if (!in_array($class_name, $classes, true)) {
         $classes[] = $class_name;
         $element->setAttribute('class', trim(implode(' ', array_filter($classes))));
