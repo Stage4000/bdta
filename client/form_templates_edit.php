@@ -28,6 +28,9 @@ $appointment_type_id = null;
 $is_internal = 0;
 $is_active = 1;
 $access_query_param = scalar_string($_GET['access'] ?? '');
+if ($access_query_param !== '' && $access_query_param !== 'internal') {
+    $access_query_param = '';
+}
 
 if (!$is_edit && $access_query_param === 'internal') {
     $is_internal = 1;
@@ -528,8 +531,8 @@ function syncFormTypeDetails() {
     }
 
     const meta = formTypeMeta[formTypeSelect.value] || defaultFormAccess;
-    const requestedInternal = isInternalInput && isInternalInput.value === '1';
-    const isInternal = !!meta.forceInternal || requestedInternal;
+    const isRequestedInternal = isInternalInput && isInternalInput.value === '1';
+    const isInternal = !!meta.forceInternal || isRequestedInternal;
 
     description.textContent = meta.description || '';
     accessLabel.textContent = isInternal ? (meta.internalLabel || 'Admin only') : (meta.clientLabel || 'Client facing');
@@ -539,14 +542,14 @@ function syncFormTypeDetails() {
 
     if (meta.forceInternal) {
         toggleHelp.textContent = 'This form type is always internal and cannot be shared with clients.';
-    } else if (requestedInternal) {
+    } else if (isRequestedInternal) {
         toggleHelp.textContent = meta.internalToggleHelp || 'This template will only be available to admin/staff users.';
     } else {
         toggleHelp.textContent = meta.clientToggleHelp || 'Leave this off to allow clients to complete the form.';
     }
 
     if (isInternalToggle) {
-        isInternalToggle.checked = !!meta.forceInternal || requestedInternal;
+        isInternalToggle.checked = !!meta.forceInternal || isRequestedInternal;
         isInternalToggle.disabled = !!meta.forceInternal;
     }
 }
