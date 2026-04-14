@@ -148,6 +148,10 @@ function bdta_get_turnstile_response_token(array $payload): string
 }
 
 /**
+ * Verify a public form payload that may include Turnstile response tokens under
+ * keys like cf-turnstile-response, turnstile_token, or turnstileToken.
+ *
+ * @param array<string, mixed> $payload
  * @return array{success:bool,error?:string}
  */
 function bdta_verify_turnstile_submission(array $payload, ?string $remote_ip = null): array
