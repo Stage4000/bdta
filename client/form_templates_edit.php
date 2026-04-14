@@ -536,13 +536,14 @@ function syncFormTypeDetails() {
     accessHelp.textContent = isInternal
         ? (meta.internalHelp || 'This template currently requires an admin/staff login to complete.')
         : (meta.clientHelp || '');
-    toggleHelp.textContent = meta.forceInternal
-        ? 'This form type is always internal and cannot be shared with clients.'
-        : (
-            requestedInternal
-                ? (meta.internalToggleHelp || 'This template will only be available to admin/staff users.')
-                : (meta.clientToggleHelp || 'Leave this off to allow clients to complete the form.')
-        );
+
+    if (meta.forceInternal) {
+        toggleHelp.textContent = 'This form type is always internal and cannot be shared with clients.';
+    } else if (requestedInternal) {
+        toggleHelp.textContent = meta.internalToggleHelp || 'This template will only be available to admin/staff users.';
+    } else {
+        toggleHelp.textContent = meta.clientToggleHelp || 'Leave this off to allow clients to complete the form.';
+    }
 
     if (isInternalToggle) {
         isInternalToggle.checked = !!meta.forceInternal || requestedInternal;
