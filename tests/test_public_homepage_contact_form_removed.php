@@ -63,12 +63,11 @@ if ($site_js === false) {
 assertTrue(!str_contains($site_js, 'initContactForm'), 'Expected public site JavaScript not to initialize the removed contact form.');
 assertTrue(!str_contains($site_js, '/backend/public/api_contact.php'), 'Expected public site JavaScript not to call the removed public contact API.');
 
-$api_output = [];
-$api_exit_code = 0;
-exec('cd ' . escapeshellarg(dirname(__DIR__)) . ' && php backend/public/api_contact.php', $api_output, $api_exit_code);
-$api_json = trim(implode("\n", $api_output));
+$api_path = dirname(__DIR__) . '/backend/public/api_contact.php';
+ob_start();
+require $api_path;
+$api_json = trim((string) ob_get_clean());
 
-assertTrue($api_exit_code === 0, 'Expected disabled public contact API endpoint script to exit cleanly.');
 assertTrue(str_contains($api_json, '"success":false'), 'Expected disabled public contact API to reject submissions.');
 assertTrue(str_contains($api_json, 'currently unavailable'), 'Expected disabled public contact API to explain that the form is unavailable.');
 

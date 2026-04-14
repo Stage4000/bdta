@@ -18,9 +18,10 @@ function bdta_strip_public_contact_form_markup(string $html): string
 
     $dom = new DOMDocument('1.0', 'UTF-8');
     $wrapper_id = 'bdta-public-contact-form-root';
+    $escaped_wrapper_id = htmlspecialchars($wrapper_id, ENT_QUOTES, 'UTF-8');
     $previous_errors = libxml_use_internal_errors(true);
     $encoded_html = mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
-    $dom->loadHTML('<?xml encoding="UTF-8"><div id="' . $wrapper_id . '">' . $encoded_html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    $dom->loadHTML('<?xml encoding="UTF-8"><div id="' . $escaped_wrapper_id . '">' . $encoded_html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
     libxml_clear_errors();
     libxml_use_internal_errors($previous_errors);
 
@@ -133,7 +134,7 @@ function bdta_add_class_name(DOMElement $element, string $class_name): void
     $existing_class_names = trim($element->getAttribute('class'));
     $classes = $existing_class_names === ''
         ? []
-        : array_values(array_filter(preg_split('/\s+/', $existing_class_names)));
+        : preg_split('/\s+/', $existing_class_names);
     if (!in_array($class_name, $classes, true)) {
         $classes[] = $class_name;
         $element->setAttribute('class', trim(implode(' ', array_filter($classes))));
