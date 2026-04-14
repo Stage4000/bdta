@@ -197,6 +197,7 @@ if (isset($error_mode) && $error_mode) {
 } else {
     $page_title = "Book an Appointment";
 }
+$page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
 ?>
 <?php require_once __DIR__ . '/includes/public_head.php'; ?>
     <!-- Google Fonts -->
@@ -2499,4 +2500,7 @@ if (isset($error_mode) && $error_mode) {
             });
         })();
     </script>
+<?php if ($page_has_turnstile_widget): ?>
+<?php echo bdta_get_turnstile_assets_html(); ?>
+<?php endif; ?>
 <?php require_once __DIR__ . '/includes/public_footer.php'; ?>

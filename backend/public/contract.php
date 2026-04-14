@@ -60,6 +60,7 @@ $can_view_private_contact_details = bdta_contract_has_valid_access_token($contra
 // Check if contract is viewable
 $can_sign = in_array($contract_status, ['sent'], true);
 $already_signed = $contract_status === 'signed';
+$page_has_turnstile_widget = $can_sign;
 
 /**
  * Retrieve the real client IP address.
@@ -486,4 +487,7 @@ $page_title = 'Contract ' . $contract_number;
     });
 })();
 </script>
+<?php if ($page_has_turnstile_widget): ?>
+<?php echo bdta_get_turnstile_assets_html(); ?>
+<?php endif; ?>
 <?php require_once __DIR__ . '/includes/public_footer.php'; ?>

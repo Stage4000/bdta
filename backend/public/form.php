@@ -276,6 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $page_title = 'Complete Form';
+$page_has_turnstile_widget = $success_message === '';
 require_once __DIR__ . '/includes/public_head.php';
 ?>
 
@@ -431,4 +432,7 @@ require_once __DIR__ . '/includes/public_head.php';
     <?php endif; ?>
 </div>
 
+<?php if ($page_has_turnstile_widget): ?>
+<?php echo bdta_get_turnstile_assets_html(); ?>
+<?php endif; ?>
 <?php require_once __DIR__ . '/includes/public_footer.php'; ?>

@@ -56,6 +56,12 @@ $seo_title    = htmlspecialchars(!empty($page['og_title'])  ? $page['og_title'] 
 $og_desc      = htmlspecialchars(!empty($page['og_description']) ? $page['og_description'] : ($page['meta_description'] ?? ''), ENT_QUOTES, 'UTF-8');
 $og_image     = htmlspecialchars($page['og_image'] ?? '', ENT_QUOTES, 'UTF-8');
 $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
+$rendered_page_html = bdta_inject_turnstile_widgets_into_forms(
+    bdta_wrap_imported_page_html(
+        bdta_sync_public_navigation_links(bdta_apply_public_social_links((string) $page['html_content']))
+    )
+);
+$page_has_turnstile_widget = str_contains($rendered_page_html, 'bdta-turnstile');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -110,13 +116,15 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
     </style>
 </head>
 <body>
-    <?php echo bdta_inject_turnstile_widgets_into_forms(bdta_wrap_imported_page_html(bdta_sync_public_navigation_links(bdta_apply_public_social_links((string) $page['html_content'])))); ?>
+    <?php echo $rendered_page_html; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- AOS Animation Library -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <script src="/assets/js/theme-toggle.js"></script>
+    <?php if ($page_has_turnstile_widget): ?>
     <?php echo bdta_get_turnstile_assets_html(); ?>
+    <?php endif; ?>
     <!-- Custom JS (loads dynamic Package and Event modules, etc.) -->
     <script src="/assets/js/public/site.js"></script>
     <!-- BDTA dynamic modules (Packages & Events blocks added via the site editor) -->

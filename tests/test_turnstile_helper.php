@@ -47,6 +47,10 @@ $widget_markup = bdta_get_turnstile_widget_markup(['wrapper_class' => 'mb-4']);
 assertContains('bdta-turnstile-wrapper mb-4', $widget_markup, 'Expected widget wrapper class to be rendered.');
 assertContains('data-sitekey="site-key-123"', $widget_markup, 'Expected site key to be rendered into widget markup.');
 
+$no_form_html = bdta_prepare_public_html_with_turnstile('<html><body><p>No public forms here.</p></body></html>');
+assertTrue(!str_contains($no_form_html, 'bdta-turnstile'), 'Expected pages without forms not to receive Turnstile widgets.');
+assertTrue(!str_contains($no_form_html, 'challenges.cloudflare.com/turnstile'), 'Expected pages without forms not to receive Turnstile assets.');
+
 $prepared_html = bdta_prepare_public_html_with_turnstile('<html><body><form method="post"><input type="text" name="name"></form></body></html>');
 assertContains('bdta-turnstile', $prepared_html, 'Expected Turnstile widget to be injected into HTML forms.');
 assertContains('challenges.cloudflare.com/turnstile', $prepared_html, 'Expected Turnstile assets to be injected into HTML.');

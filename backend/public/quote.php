@@ -56,7 +56,10 @@ if ($quote_status === 'sent') {
     $stmt->execute([$quote_id]);
     $quote_status = 'viewed';
     $quote['status'] = 'viewed';
+    $can_respond = true;
 }
+
+$page_has_turnstile_widget = $can_respond && !$is_expired;
 
 // Handle accept/decline
 $message = '';
@@ -236,4 +239,7 @@ $page_title = 'Quote ' . $quote_quote_number;
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<?php if ($page_has_turnstile_widget): ?>
+<?php echo bdta_get_turnstile_assets_html(); ?>
+<?php endif; ?>
 <?php require_once __DIR__ . '/includes/public_footer.php'; ?>
