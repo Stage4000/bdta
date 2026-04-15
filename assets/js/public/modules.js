@@ -1,12 +1,12 @@
 // ==========================================
-// BDTA Dynamic Modules – Packages & Events
+// BDTA Dynamic Modules – Services, Packages & Events
 // ==========================================
-// Initialises any `.bdta-packages-module` and `.bdta-events-module` sections
+// Initialises any `.bdta-services-module`, `.bdta-packages-module`, and `.bdta-events-module` sections
 // found on the page.  Designed to run on pages served by page.php, index.php,
 // and inside the GrapesJS editor canvas (added to canvas.scripts).
 //
 // Works alongside the public site bundle in assets/js/public/site.js, which handles the homepage's
-// ID-based #packages-grid / #events-grid; these class-based selectors are
+// ID-based #services-grid / #packages-grid / #events-grid; these class-based selectors are
 // used exclusively for blocks added through the site editor.
 // ==========================================
 
@@ -61,6 +61,77 @@
         });
         html += '</ul></div>';
         return html;
+    }
+
+    // ---- Services module ----
+
+    function initServices(sec) {
+        sec.setAttribute('data-bdta-loaded', '1');
+        var grid    = sec.querySelector('.bdta-services-grid');
+        var loading = sec.querySelector('.bdta-services-loading');
+        var empty   = sec.querySelector('.bdta-services-empty');
+        if (!grid) {
+            if (loading) loading.remove();
+            if (empty) empty.classList.remove('d-none');
+            return;
+        }
+
+        fetch('/backend/public/api_services.php')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (loading) loading.remove();
+                var services = (data && Array.isArray(data.services)) ? data.services : [];
+                if (services.length === 0) {
+                    if (empty) empty.classList.remove('d-none');
+                    return;
+                }
+                services.forEach(function (service) {
+                    var priceText = service.price > 0
+                        ? '$' + Number(service.price).toFixed(2)
+                        : 'Contact Us';
+                    var detailBits = [];
+                    if (service.duration_minutes > 0) {
+                        detailBits.push(service.duration_minutes + ' min');
+                    }
+                    if (service.location) {
+                        detailBits.push(service.location);
+                    }
+
+                    var typeBadge = service.type_label
+                        ? '<span class="badge bg-warning text-dark mb-3">' + escH(service.type_label) + '</span>'
+                        : '';
+                    var detailsHtml = detailBits.length > 0
+                        ? '<p class="text-muted small mb-3"><i class="fas fa-circle-info text-primary me-1"></i>' + escH(detailBits.join(' • ')) + '</p>'
+                        : '';
+                    var bulletPointsHtml = renderBulletSection(service.bullet_points, "What's Included");
+                    var ctaHtml = service.booking_url
+                        ? '<a href="' + escH(service.booking_url) + '" class="btn btn-primary mt-auto">'
+                          + '<i class="fas fa-calendar-check me-2"></i>Book Now</a>'
+                        : '<a href="#contact" class="btn btn-outline-primary mt-auto">Contact Us</a>';
+
+                    var col = document.createElement('div');
+                    col.className = 'col-md-6 col-lg-4';
+                    // Dynamic text below is escaped with escH() or renderBulletSection() before insertion.
+                    // nosemgrep
+                    col.innerHTML = '<div class="service-card card h-100 border-0 shadow-sm">'
+                        + '<div class="card-body p-4 d-flex flex-column">'
+                        + '<div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width:80px;height:80px;">'
+                        + '<i class="fas fa-dog text-primary fs-2"></i></div>'
+                        + typeBadge
+                        + '<h4 class="fw-bold mb-2">' + escH(service.name) + '</h4>'
+                        + '<p class="text-primary fw-bold fs-5 mb-2">' + escH(priceText) + '</p>'
+                        + (service.description ? '<p class="text-muted mb-3">' + escH(service.description) + '</p>' : '')
+                        + detailsHtml
+                        + bulletPointsHtml
+                        + ctaHtml
+                        + '</div></div>';
+                    grid.appendChild(col);
+                });
+            })
+            .catch(function () {
+                if (loading) loading.remove();
+                if (empty) empty.classList.remove('d-none');
+            });
     }
 
     // ---- Packages module ----
@@ -226,6 +297,7 @@
     // ---- Initialisation ----
 
     function init() {
+        document.querySelectorAll('.bdta-services-module:not([data-bdta-loaded])').forEach(initServices);
         document.querySelectorAll('.bdta-packages-module:not([data-bdta-loaded])').forEach(initPackages);
         document.querySelectorAll('.bdta-events-module:not([data-bdta-loaded])').forEach(initEvents);
     }

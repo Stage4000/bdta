@@ -24,6 +24,8 @@ $database = bdta_read_file(dirname(__DIR__) . '/backend/includes/database.php', 
 $appointment_types_edit = bdta_read_file(dirname(__DIR__) . '/client/appointment_types_edit.php', 'appointment_types_edit.php');
 $api_services = bdta_read_file(dirname(__DIR__) . '/backend/public/api_services.php', 'api_services.php');
 $site_js = bdta_read_file(dirname(__DIR__) . '/assets/js/public/site.js', 'site.js');
+$modules_js = bdta_read_file(dirname(__DIR__) . '/assets/js/public/modules.js', 'modules.js');
+$index_php = bdta_read_file(dirname(__DIR__) . '/index.php', 'index.php');
 $index_html = bdta_read_file(dirname(__DIR__) . '/index.html', 'index.html');
 $template_duplication = bdta_read_file(dirname(__DIR__) . '/backend/includes/template_duplication.php', 'template_duplication.php');
 
@@ -50,6 +52,15 @@ bdta_assert(
         && str_contains($site_js, "document.getElementById('services-grid')")
         && str_contains($site_js, 'service.bullet_points'),
     'Homepage JavaScript should load and render public single-booking services.'
+);
+bdta_assert(
+    str_contains($modules_js, '.bdta-services-module')
+        && str_contains($modules_js, "fetch('/backend/public/api_services.php')"),
+    'Site-editor modules should load and render public single-booking services.'
+);
+bdta_assert(
+    str_contains($index_php, 'bdta_inject_public_services_into_homepage'),
+    'Homepage renderer should inject the public services section into legacy published homepage content.'
 );
 bdta_assert(
     str_contains($index_html, 'id="services-grid"')
