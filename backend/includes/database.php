@@ -119,6 +119,7 @@ class Database {
     private const MYSQL_CLIENT_NAME_PHONE_INDEX_SQL = 'CREATE INDEX idx_clients_name_phone ON clients(name(128), phone(32))';
     private const MYSQL_CLIENT_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_client_emails_message_id ON client_emails(direction(8), message_id(160))';
     private const MYSQL_CLIENT_EMAILS_UTF8MB4_SQL = 'ALTER TABLE client_emails CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
+    private const MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL = 'ALTER TABLE email_templates CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
     private const MYSQL_UNMATCHED_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id(191))';
 
     private static ?SafePDO $sharedConnection = null;
@@ -2466,6 +2467,16 @@ class Database {
             $this->conn->exec("ALTER TABLE email_templates MODIFY COLUMN body_text MEDIUMTEXT");
         } catch (PDOException $e) {
             error_log("Migration: could not modify email_templates.body_text - " . $e->getMessage());
+        }
+        $email_templates_collation = $this->tableCollation('email_templates');
+        // Any utf8mb4 collation can safely store emoji and other 4-byte characters;
+        // only legacy non-utf8mb4 tables need the conversion.
+        if ($email_templates_collation === null || !str_starts_with($email_templates_collation, 'utf8mb4_')) {
+            try {
+                $this->conn->exec(self::MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL);
+            } catch (PDOException $e) {
+                error_log("Migration: could not convert email_templates to utf8mb4 - " . $e->getMessage());
+            }
         }
         // Widen email_signature_templates.html_content on MySQL installations
         // where TEXT (~64 KB) is too small for large HTML email signatures.
