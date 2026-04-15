@@ -302,9 +302,44 @@
         document.querySelectorAll('.bdta-events-module:not([data-bdta-loaded])').forEach(initEvents);
     }
 
+    function watchForDynamicModules() {
+        if (typeof MutationObserver === 'undefined' || !document.body) {
+            return;
+        }
+
+        var pending = false;
+        var observer = new MutationObserver(function (mutations) {
+            var shouldInit = mutations.some(function (mutation) {
+                return Array.prototype.some.call(mutation.addedNodes, function (node) {
+                    return node.nodeType === 1
+                        && (
+                            node.matches('.bdta-services-module, .bdta-packages-module, .bdta-events-module')
+                            || node.querySelector('.bdta-services-module, .bdta-packages-module, .bdta-events-module')
+                        );
+                });
+            });
+
+            if (!shouldInit || pending) {
+                return;
+            }
+
+            pending = true;
+            window.requestAnimationFrame(function () {
+                pending = false;
+                init();
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', function () {
+            init();
+            watchForDynamicModules();
+        });
     } else {
         init();
+        watchForDynamicModules();
     }
 })();

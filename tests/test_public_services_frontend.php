@@ -29,6 +29,7 @@ $site_js = bdta_read_file(dirname(__DIR__) . '/assets/js/public/site.js', 'site.
 $modules_js = bdta_read_file(dirname(__DIR__) . '/assets/js/public/modules.js', 'modules.js');
 $index_php = bdta_read_file(dirname(__DIR__) . '/index.php', 'index.php');
 $index_html = bdta_read_file(dirname(__DIR__) . '/index.html', 'index.html');
+$site_editor = bdta_read_file(dirname(__DIR__) . '/client/site_editor.php', 'site_editor.php');
 $template_duplication = bdta_read_file(dirname(__DIR__) . '/backend/includes/template_duplication.php', 'template_duplication.php');
 
 bdta_assert(
@@ -63,13 +64,24 @@ bdta_assert(
     str_contains($site_js, 'loadServices();')
         && str_contains($site_js, "fetchJson('backend/public/api_services.php')")
         && str_contains($site_js, "document.getElementById('services-grid')")
-        && str_contains($site_js, 'service.bullet_points'),
+        && str_contains($site_js, 'service.bullet_points')
+        && str_contains($site_js, 'watchDynamicHomepageSections()')
+        && str_contains($site_js, "data-bdta-loaded"),
     'Homepage JavaScript should load and render public single-booking services.'
 );
 bdta_assert(
     str_contains($modules_js, '.bdta-services-module')
-        && str_contains($modules_js, "fetch('/backend/public/api_services.php')"),
+        && str_contains($modules_js, "fetch('/backend/public/api_services.php')")
+        && str_contains($modules_js, 'watchForDynamicModules'),
     'Site-editor modules should load and render public single-booking services.'
+);
+bdta_assert(
+    str_contains($site_editor, "require_once '../backend/public/includes/public_services.php';")
+        && str_contains($site_editor, 'bdta_inject_public_services_into_homepage')
+        && str_contains($site_editor, "'/assets/js/public/site.js'")
+        && str_contains($site_editor, "bm.add('bdta-services'")
+        && str_contains($site_editor, 'servicesModuleMarkup'),
+    'Site editor should inject homepage services content and expose a reusable BDTA services block.'
 );
 bdta_assert(
     str_contains($index_php, 'bdta_inject_public_services_into_homepage'),

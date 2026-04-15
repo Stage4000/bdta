@@ -20,12 +20,11 @@ onDocumentReady(function() {
     initBackToTop();
     initContactForm();
     initSmoothScroll();
-    loadServices();
-    loadPackages();
-    loadEvents();
+    initDynamicHomepageSections();
     initServiceCardHover();
     initLazyImages();
     initStatCounters();
+    watchDynamicHomepageSections();
 });
 
 window.addEventListener('pageshow', function() {
@@ -411,12 +410,20 @@ function initStatCounters() {
 // ==========================================
 // Dynamic Services Section
 // ==========================================
+function initDynamicHomepageSections() {
+    loadServices();
+    loadPackages();
+    loadEvents();
+}
+
 function loadServices() {
     var grid    = document.getElementById('services-grid');
     var loading = document.getElementById('services-loading');
     var empty   = document.getElementById('services-empty');
 
-    if (!grid) return;
+    if (!grid || grid.getAttribute('data-bdta-loaded') === '1' || grid.getAttribute('data-bdta-loading') === '1') return;
+
+    grid.setAttribute('data-bdta-loading', '1');
 
     fetchJson('backend/public/api_services.php')
         .then(function(data) {
@@ -424,6 +431,8 @@ function loadServices() {
 
             var services = (data && Array.isArray(data.services)) ? data.services : [];
             if (services.length === 0) {
+                grid.removeAttribute('data-bdta-loading');
+                grid.setAttribute('data-bdta-loaded', '1');
                 if (empty) empty.classList.remove('d-none');
                 return;
             }
@@ -473,9 +482,12 @@ function loadServices() {
                 grid.appendChild(col);
             });
 
+            grid.removeAttribute('data-bdta-loading');
+            grid.setAttribute('data-bdta-loaded', '1');
             if (typeof AOS !== 'undefined') { AOS.refreshHard(); }
         })
         .catch(function() {
+            grid.removeAttribute('data-bdta-loading');
             if (loading) loading.remove();
             if (empty) empty.classList.remove('d-none');
         });
@@ -489,7 +501,9 @@ function loadPackages() {
     var loading = document.getElementById('packages-loading');
     var empty   = document.getElementById('packages-empty');
 
-    if (!grid) return;
+    if (!grid || grid.getAttribute('data-bdta-loaded') === '1' || grid.getAttribute('data-bdta-loading') === '1') return;
+
+    grid.setAttribute('data-bdta-loading', '1');
 
     fetchJson('backend/public/api_packages.php')
         .then(function(data) {
@@ -497,6 +511,8 @@ function loadPackages() {
 
             var packages = (data && Array.isArray(data.packages)) ? data.packages : [];
             if (packages.length === 0) {
+                grid.removeAttribute('data-bdta-loading');
+                grid.setAttribute('data-bdta-loaded', '1');
                 if (empty) empty.classList.remove('d-none');
                 return;
             }
@@ -555,10 +571,13 @@ function loadPackages() {
                 grid.appendChild(col);
             });
 
+            grid.removeAttribute('data-bdta-loading');
+            grid.setAttribute('data-bdta-loaded', '1');
             // Re-init AOS so new cards animate in
             if (typeof AOS !== 'undefined') { AOS.refreshHard(); }
         })
         .catch(function() {
+            grid.removeAttribute('data-bdta-loading');
             if (loading) loading.remove();
             if (empty) empty.classList.remove('d-none');
         });
@@ -572,7 +591,9 @@ function loadEvents() {
     var loading = document.getElementById('events-loading');
     var empty   = document.getElementById('events-empty');
 
-    if (!grid) return;
+    if (!grid || grid.getAttribute('data-bdta-loaded') === '1' || grid.getAttribute('data-bdta-loading') === '1') return;
+
+    grid.setAttribute('data-bdta-loading', '1');
 
     fetchJson('backend/public/api_events.php')
         .then(function(data) {
@@ -580,6 +601,8 @@ function loadEvents() {
 
             var events = (data && Array.isArray(data.events)) ? data.events : [];
             if (events.length === 0) {
+                grid.removeAttribute('data-bdta-loading');
+                grid.setAttribute('data-bdta-loaded', '1');
                 if (empty) empty.classList.remove('d-none');
                 return;
             }
@@ -660,13 +683,47 @@ function loadEvents() {
                 grid.appendChild(col);
             });
 
+            grid.removeAttribute('data-bdta-loading');
+            grid.setAttribute('data-bdta-loaded', '1');
             // Re-init AOS so new cards animate in
             if (typeof AOS !== 'undefined') { AOS.refreshHard(); }
         })
         .catch(function() {
+            grid.removeAttribute('data-bdta-loading');
             if (loading) loading.remove();
             if (empty) empty.classList.remove('d-none');
         });
+}
+
+function watchDynamicHomepageSections() {
+    if (typeof MutationObserver === 'undefined' || !document.body) {
+        return;
+    }
+
+    var pending = false;
+    var observer = new MutationObserver(function(mutations) {
+        var shouldInit = mutations.some(function(mutation) {
+            return Array.prototype.some.call(mutation.addedNodes, function(node) {
+                return node.nodeType === 1
+                    && (
+                        node.matches('#services-grid, #packages-grid, #events-grid')
+                        || node.querySelector('#services-grid, #packages-grid, #events-grid')
+                    );
+            });
+        });
+
+        if (!shouldInit || pending) {
+            return;
+        }
+
+        pending = true;
+        window.requestAnimationFrame(function() {
+            pending = false;
+            initDynamicHomepageSections();
+        });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // ==========================================
