@@ -608,6 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const availabilityTimesGrid = document.getElementById('availabilityTimesGrid');
     const availabilityNoSlots = document.getElementById('availabilityNoSlots');
     const availabilityStatusBaseClass = 'small mt-3';
+    const availabilityLoadingMarkup = '<div class="spinner-border spinner-border-sm text-secondary me-2" role="status"><span class="visually-hidden">Loading...</span></div> Loading available times...';
 
     function setAvailabilityStatus(message, tone = 'muted') {
         availabilityStatus.className = `${availabilityStatusBaseClass} text-${tone}`;
@@ -628,7 +629,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatAvailabilityTime(value) {
         if (!value) return value;
         const parts = value.split(':');
+        if (parts.length < 2) {
+            return value;
+        }
         let hour = parseInt(parts[0], 10);
+        if (Number.isNaN(hour)) {
+            return value;
+        }
         const minutes = parts[1] || '00';
         const suffix = hour >= 12 ? 'PM' : 'AM';
         hour = hour % 12 || 12;
@@ -653,7 +660,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        availabilityTimesGrid.innerHTML = '<div class="spinner-border spinner-border-sm text-secondary me-2" role="status"><span class="visually-hidden">Loading...</span></div> Loading available times...';
+        availabilityTimesGrid.innerHTML = availabilityLoadingMarkup;
         setHidden(availabilityTimesSection, false);
         setHidden(availabilityNoSlots, true);
         setAvailabilityStatus('Loading available times...');
