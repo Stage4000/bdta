@@ -29,6 +29,16 @@ assertTrue(substr_count($legacy_injected, 'id="services-grid"') === 1, 'Expected
 assertTrue(str_contains($legacy_injected, 'id="packages-grid"'), 'Expected package grid to remain present after injection.');
 assertTrue($legacy_injected === bdta_inject_public_services_into_homepage($legacy_injected), 'Expected legacy homepage injection to be idempotent.');
 
+$legacy_with_spacing = <<<HTML
+<section id="services">
+    <div class="container">
+        <div id = "services-grid" class="row g-4"></div>
+        <div id = "packages-grid" class="row g-4"></div>
+    </div>
+</section>
+HTML;
+assertTrue($legacy_with_spacing === bdta_inject_public_services_into_homepage($legacy_with_spacing), 'Expected existing services grid markup with spaced attributes not to be duplicated.');
+
 $module_homepage = <<<HTML
 <main>
   <section class="bdta-packages-module py-5">
@@ -44,6 +54,14 @@ assertTrue(str_contains($module_injected, 'class="bdta-services-module py-5"'), 
 assertTrue(substr_count($module_injected, 'bdta-services-module') === 1, 'Expected only one services module to be injected.');
 assertTrue(str_contains($module_injected, 'class="bdta-packages-module py-5"'), 'Expected package module to remain present after injection.');
 assertTrue($module_injected === bdta_inject_public_services_into_homepage($module_injected), 'Expected module homepage injection to be idempotent.');
+
+$module_with_existing_services = <<<HTML
+<main>
+  <section data-block="hero" class = "bdta-services-module py-5"></section>
+  <section class = "bdta-packages-module py-5"></section>
+</main>
+HTML;
+assertTrue($module_with_existing_services === bdta_inject_public_services_into_homepage($module_with_existing_services), 'Expected existing services module markup with spaced class attributes not to be duplicated.');
 
 $unrelated_html = '<section><p>No package markup here.</p></section>';
 assertTrue($unrelated_html === bdta_inject_public_services_into_homepage($unrelated_html), 'Expected unrelated HTML to remain unchanged.');

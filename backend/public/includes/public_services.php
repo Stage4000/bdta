@@ -62,20 +62,35 @@ function bdta_get_public_services_module_markup(): string
 HTML;
 }
 
+function bdta_homepage_has_public_services_markup(string $html): bool
+{
+    if ($html === '') {
+        return false;
+    }
+
+    $has_services_grid = preg_match(
+        '/<[^>]*\bid\s*=\s*(?:"services-grid"|\'services-grid\')[^>]*>/i',
+        $html
+    ) === 1;
+    if ($has_services_grid) {
+        return true;
+    }
+
+    return preg_match(
+        '/<[^>]*\bclass\s*=\s*(?:"[^"]*\bbdta-services-module\b[^"]*"|\'[^\']*\bbdta-services-module\b[^\']*\')[^>]*>/is',
+        $html
+    ) === 1;
+}
+
 function bdta_inject_public_services_into_homepage(string $html): string
 {
-    if ($html === ''
-        || str_contains($html, 'id="services-grid"')
-        || str_contains($html, "id='services-grid'")
-        || str_contains($html, 'class="bdta-services-module')
-        || str_contains($html, "class='bdta-services-module")
-    ) {
+    if ($html === '' || bdta_homepage_has_public_services_markup($html)) {
         return $html;
     }
 
     $legacy_markup = bdta_get_public_services_legacy_markup();
     $legacy_result = preg_replace(
-        '/(\s*)(<div\b[^>]*\bid=(["\'])packages-grid\3[^>]*>)/i',
+        '/(\s*)(<div\b[^>]*\bid\s*=\s*(?:"packages-grid"|\'packages-grid\')[^>]*>)/i',
         '$1' . $legacy_markup . '$1$2',
         $html,
         1,
@@ -87,7 +102,7 @@ function bdta_inject_public_services_into_homepage(string $html): string
 
     $module_markup = bdta_get_public_services_module_markup();
     $module_result = preg_replace(
-        '/(\s*)(<section\b[^>]*class=(["\'])(?:(?!\3).)*\bbdta-packages-module\b(?:(?!\3).)*\3[^>]*>)/is',
+        '/(\s*)(<section\b[^>]*\bclass\s*=\s*(?:"[^"]*\bbdta-packages-module\b[^"]*"|\'[^\']*\bbdta-packages-module\b[^\']*\')[^>]*>)/is',
         '$1' . $module_markup . '$1$2',
         $html,
         1,

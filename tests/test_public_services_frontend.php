@@ -1,6 +1,8 @@
 #!/usr/bin/env php
 <?php
 
+require_once dirname(__DIR__) . '/backend/includes/appointment_type_public_services.php';
+
 function bdta_assert(bool $condition, string $message): void
 {
     if (!$condition) {
@@ -35,8 +37,19 @@ bdta_assert(
     'Appointment types should persist a public_available flag.'
 );
 bdta_assert(
+    bdta_appointment_type_can_show_in_public_services(0, 0) === true
+        && bdta_appointment_type_can_show_in_public_services(1, 0) === false
+        && bdta_appointment_type_can_show_in_public_services(0, 1) === false
+        && bdta_normalize_appointment_type_public_available(1, 1, 0) === 0
+        && bdta_normalize_appointment_type_public_available(1, 0, 1) === 0
+        && bdta_normalize_appointment_type_public_available(1, 0, 0) === 1,
+    'Appointment types should only remain public-services eligible when they are single-booking types.'
+);
+bdta_assert(
     str_contains($appointment_types_edit, 'id="public_available"')
-        && str_contains($appointment_types_edit, 'Show in Public Services'),
+        && str_contains($appointment_types_edit, 'Show in Public Services')
+        && str_contains($appointment_types_edit, 'updatePublicAvailabilityToggle()')
+        && str_contains($appointment_types_edit, 'publicToggle.dataset.lastEligibleChecked'),
     'Appointment type editor should expose a public services visibility toggle.'
 );
 bdta_assert(
