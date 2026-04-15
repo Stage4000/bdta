@@ -193,13 +193,38 @@
     <section id="services" class="homepage-section">
         <div class="container homepage-section-shell">
             <div class="text-center mb-5 homepage-section-heading" data-aos="fade-up">
-                <h2 class="display-5 fw-bold mb-3">Our Training Packages</h2>
-                <p class="lead text-muted">Bundled training programs designed to set your dog up for success</p>
+                <h2 class="display-5 fw-bold mb-3">Our Services</h2>
+                <p class="lead text-muted">Explore single booking services, bundled packages, and special events</p>
+            </div>
+
+            <div class="text-center mb-4" data-aos="fade-up">
+                <h3 class="fw-bold mb-2">Single Booking Services</h3>
+                <p class="text-muted mb-0">Book one-on-one services and other standalone appointments online</p>
+            </div>
+
+            <!-- Dynamic single-booking services grid – populated by JS -->
+            <div id="services-grid" class="row g-4">
+                <div id="services-loading" class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading services…</span>
+                    </div>
+                    <p class="text-muted mt-3">Loading services…</p>
+                </div>
+            </div>
+
+            <div id="services-empty" class="text-center py-5 d-none">
+                <i class="fas fa-dog display-4 text-muted mb-3"></i>
+                <p class="lead text-muted">No single booking services are currently available. Check back soon!</p>
+                <a href="#contact" class="btn btn-outline-primary">Contact Us</a>
+            </div>
+
+            <div class="text-center mt-5 mb-4" data-aos="fade-up">
+                <h3 class="fw-bold mb-2">Training Packages</h3>
+                <p class="text-muted mb-0">Bundled training programs designed to set your dog up for success</p>
             </div>
 
             <!-- Dynamic packages grid – populated by JS -->
             <div id="packages-grid" class="row g-4">
-                <!-- Loading placeholder -->
                 <div id="packages-loading" class="col-12 text-center py-5">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading packages…</span>
@@ -208,7 +233,6 @@
                 </div>
             </div>
 
-            <!-- Shown when no packages are configured / active -->
             <div id="packages-empty" class="text-center py-5 d-none">
                 <i class="fas fa-box-open display-4 text-muted mb-3"></i>
                 <p class="lead text-muted">No packages are currently available. Check back soon!</p>

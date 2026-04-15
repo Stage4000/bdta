@@ -5,6 +5,7 @@
  */
 
 require_once '../backend/includes/config.php';
+require_once '../backend/public/includes/public_services.php';
 requireLogin();
 
 $db   = new Database();
@@ -152,6 +153,10 @@ if (array_int_value($page, 'is_homepage') !== 1 && trim(array_string_value($page
 // (e.g. seeded before this fix was applied).  This is idempotent.
 $page['html_content'] = makeHtmlPathsAbsolute(array_string_value($page, 'html_content'));
 $page['css_content']  = makeHtmlPathsAbsolute(array_string_value($page, 'css_content'));
+
+if (array_int_value($page, 'is_homepage') === 1) {
+    $page['html_content'] = bdta_inject_public_services_into_homepage(array_string_value($page, 'html_content'));
+}
 
 $page_title = 'Edit: ' . array_string_value($page, 'title');
 $is_homepage  = array_int_value($page, 'is_homepage') === 1;
@@ -373,6 +378,7 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
     // ------------------------------------------------------------------
     const savedHtml = <?php echo json_encode(array_string_value($page, 'html_content')); ?>;
     const savedCss  = <?php echo json_encode(array_string_value($page, 'css_content')); ?>;
+    const servicesModuleMarkup = <?php echo json_encode(bdta_get_public_services_module_markup()); ?>;
 
     const editor = grapesjs.init({
         container: '#gjs',
@@ -394,6 +400,7 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
             ],
             scripts: [
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js',
+                '/assets/js/public/site.js',
                 '/assets/js/public/modules.js'
             ]
         },
@@ -602,6 +609,12 @@ $view_url = $is_homepage ? '../index.php' : '../page.php?slug=' . urlencode(arra
     </div>
   </div>
 </div>`
+    });
+
+    bm.add('bdta-services', {
+        label: 'Single Booking Services',
+        category: 'BDTA',
+        content: servicesModuleMarkup
     });
 
     bm.add('bdta-packages', {

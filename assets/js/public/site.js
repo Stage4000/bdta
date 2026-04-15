@@ -20,11 +20,10 @@ onDocumentReady(function() {
     initBackToTop();
     initContactForm();
     initSmoothScroll();
-    loadPackages();
-    loadEvents();
-    initServiceCardHover();
+    initDynamicHomepageSections();
     initLazyImages();
     initStatCounters();
+    watchDynamicHomepageSections();
 });
 
 window.addEventListener('pageshow', function() {
@@ -326,21 +325,6 @@ function initSmoothScroll() {
 // Additional Interactive Features
 // ==========================================
 
-// Add hover effect to service cards
-function initServiceCardHover() {
-    const serviceCards = document.querySelectorAll('.service-card');
-    
-    serviceCards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            this.style.borderColor = 'var(--primary-color)';
-        });
-        
-        card.addEventListener('mouseleave', function() {
-            this.style.borderColor = '';
-        });
-    });
-}
-
 // Lazy load images (if using actual images)
 function initLazyImages() {
     if ('IntersectionObserver' in window) {
@@ -408,6 +392,103 @@ function initStatCounters() {
 }
 
 // ==========================================
+// Dynamic Services Section
+// ==========================================
+function initDynamicHomepageSections() {
+    loadServices();
+    loadPackages();
+    loadEvents();
+}
+
+function loadServices() {
+    var grid    = document.getElementById('services-grid');
+    var loading = document.getElementById('services-loading');
+    var empty   = document.getElementById('services-empty');
+
+    if (!grid || grid.getAttribute('data-bdta-loaded') === '1' || grid.getAttribute('data-bdta-loading') === '1') return;
+
+    grid.setAttribute('data-bdta-loading', '1');
+
+    function getServicePriceText(price) {
+        var numericPrice = Number(price);
+        if (!Number.isFinite(numericPrice) || numericPrice < 0) {
+            return 'Contact Us';
+        }
+        if (numericPrice === 0) {
+            return 'Free';
+        }
+        return '$' + numericPrice.toFixed(2);
+    }
+
+    fetchJson('backend/public/api_services.php')
+        .then(function(data) {
+            if (loading) loading.remove();
+
+            var services = (data && Array.isArray(data.services)) ? data.services : [];
+            if (services.length === 0) {
+                grid.removeAttribute('data-bdta-loading');
+                grid.setAttribute('data-bdta-loaded', '1');
+                if (empty) empty.classList.remove('d-none');
+                return;
+            }
+
+            services.forEach(function(service, idx) {
+                var delay = ((idx % 3) + 1) * 100;
+                var priceText = getServicePriceText(service.price);
+                var detailBits = [];
+
+                if (service.duration_minutes > 0) {
+                    detailBits.push(service.duration_minutes + ' min');
+                }
+                if (service.location) {
+                    detailBits.push(service.location);
+                }
+
+                var typeBadge = service.type_label
+                    ? '<span class="badge bg-warning text-dark mb-3">' + escapeHtml(service.type_label) + '</span>'
+                    : '';
+                var detailsHtml = detailBits.length > 0
+                    ? '<p class="text-muted small mb-3"><i class="fas fa-circle-info text-primary me-1"></i>' + escapeHtml(detailBits.join(' • ')) + '</p>'
+                    : '';
+                var bulletPointsHtml = renderBulletSection(service.bullet_points, "What's Included");
+                var ctaHtml = service.booking_url
+                    ? '<a href="' + escapeHtml(service.booking_url) + '" class="btn btn-primary mt-auto">'
+                      + '<i class="fas fa-calendar-check me-2"></i>Book Now</a>'
+                    : '<a href="#contact" class="btn btn-outline-primary mt-auto">Contact Us</a>';
+
+                var col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4';
+                col.setAttribute('data-aos', 'fade-up');
+                col.setAttribute('data-aos-delay', delay);
+                // Dynamic text below is escaped with escapeHtml() or renderBulletSection() before insertion.
+                // nosemgrep
+                col.innerHTML = '<div class="service-card card h-100 border-0 shadow-sm hover-lift">'
+                    + '<div class="card-body p-4 d-flex flex-column">'
+                    + '<div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width:80px;height:80px;">'
+                    + '<i class="fas fa-dog text-primary fs-2"></i></div>'
+                    + typeBadge
+                    + '<h4 class="fw-bold mb-2">' + escapeHtml(service.name) + '</h4>'
+                    + '<p class="text-primary fw-bold fs-5 mb-2">' + escapeHtml(priceText) + '</p>'
+                    + (service.description ? '<p class="text-muted mb-3">' + escapeHtml(service.description) + '</p>' : '')
+                    + detailsHtml
+                    + bulletPointsHtml
+                    + ctaHtml
+                    + '</div></div>';
+                grid.appendChild(col);
+            });
+
+            grid.removeAttribute('data-bdta-loading');
+            grid.setAttribute('data-bdta-loaded', '1');
+            if (typeof AOS !== 'undefined') { AOS.refreshHard(); }
+        })
+        .catch(function() {
+            grid.removeAttribute('data-bdta-loading');
+            if (loading) loading.remove();
+            if (empty) empty.classList.remove('d-none');
+        });
+}
+
+// ==========================================
 // Dynamic Packages Section
 // ==========================================
 function loadPackages() {
@@ -415,7 +496,9 @@ function loadPackages() {
     var loading = document.getElementById('packages-loading');
     var empty   = document.getElementById('packages-empty');
 
-    if (!grid) return;
+    if (!grid || grid.getAttribute('data-bdta-loaded') === '1' || grid.getAttribute('data-bdta-loading') === '1') return;
+
+    grid.setAttribute('data-bdta-loading', '1');
 
     fetchJson('backend/public/api_packages.php')
         .then(function(data) {
@@ -423,6 +506,8 @@ function loadPackages() {
 
             var packages = (data && Array.isArray(data.packages)) ? data.packages : [];
             if (packages.length === 0) {
+                grid.removeAttribute('data-bdta-loading');
+                grid.setAttribute('data-bdta-loaded', '1');
                 if (empty) empty.classList.remove('d-none');
                 return;
             }
@@ -481,10 +566,13 @@ function loadPackages() {
                 grid.appendChild(col);
             });
 
+            grid.removeAttribute('data-bdta-loading');
+            grid.setAttribute('data-bdta-loaded', '1');
             // Re-init AOS so new cards animate in
             if (typeof AOS !== 'undefined') { AOS.refreshHard(); }
         })
         .catch(function() {
+            grid.removeAttribute('data-bdta-loading');
             if (loading) loading.remove();
             if (empty) empty.classList.remove('d-none');
         });
@@ -498,7 +586,9 @@ function loadEvents() {
     var loading = document.getElementById('events-loading');
     var empty   = document.getElementById('events-empty');
 
-    if (!grid) return;
+    if (!grid || grid.getAttribute('data-bdta-loaded') === '1' || grid.getAttribute('data-bdta-loading') === '1') return;
+
+    grid.setAttribute('data-bdta-loading', '1');
 
     fetchJson('backend/public/api_events.php')
         .then(function(data) {
@@ -506,6 +596,8 @@ function loadEvents() {
 
             var events = (data && Array.isArray(data.events)) ? data.events : [];
             if (events.length === 0) {
+                grid.removeAttribute('data-bdta-loading');
+                grid.setAttribute('data-bdta-loaded', '1');
                 if (empty) empty.classList.remove('d-none');
                 return;
             }
@@ -586,13 +678,47 @@ function loadEvents() {
                 grid.appendChild(col);
             });
 
+            grid.removeAttribute('data-bdta-loading');
+            grid.setAttribute('data-bdta-loaded', '1');
             // Re-init AOS so new cards animate in
             if (typeof AOS !== 'undefined') { AOS.refreshHard(); }
         })
         .catch(function() {
+            grid.removeAttribute('data-bdta-loading');
             if (loading) loading.remove();
             if (empty) empty.classList.remove('d-none');
         });
+}
+
+function watchDynamicHomepageSections() {
+    if (typeof MutationObserver === 'undefined' || !document.body) {
+        return;
+    }
+
+    var pending = false;
+    var observer = new MutationObserver(function(mutations) {
+        var shouldInit = mutations.some(function(mutation) {
+            return Array.prototype.some.call(mutation.addedNodes, function(node) {
+                return node.nodeType === 1
+                    && (
+                        node.matches('#services-grid, #packages-grid, #events-grid')
+                        || node.querySelector('#services-grid, #packages-grid, #events-grid')
+                    );
+            });
+        });
+
+        if (!shouldInit || pending) {
+            return;
+        }
+
+        pending = true;
+        window.requestAnimationFrame(function() {
+            pending = false;
+            initDynamicHomepageSections();
+        });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // ==========================================
