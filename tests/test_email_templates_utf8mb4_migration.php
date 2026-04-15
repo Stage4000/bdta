@@ -30,7 +30,7 @@ if (!is_string($database_source)) {
     throw new RuntimeException('Unable to inspect database migration source.');
 }
 
-if (preg_match("/tableCollation\\('email_templates'\\)/", $database_source) !== 1) {
+if (preg_match('/tableCollation\(\'email_templates\'\)/', $database_source) !== 1) {
     throw new RuntimeException('email_templates migration should check the current table collation before applying the utf8mb4 conversion.');
 }
 

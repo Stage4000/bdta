@@ -2469,6 +2469,8 @@ class Database {
             error_log("Migration: could not modify email_templates.body_text - " . $e->getMessage());
         }
         $email_templates_collation = $this->tableCollation('email_templates');
+        // Any utf8mb4 collation can safely store emoji and other 4-byte characters;
+        // only legacy non-utf8mb4 tables need the conversion.
         if ($email_templates_collation === null || !str_starts_with($email_templates_collation, 'utf8mb4_')) {
             try {
                 $this->conn->exec(self::MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL);
