@@ -607,9 +607,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const availabilityTimesSection = document.getElementById('availabilityTimesSection');
     const availabilityTimesGrid = document.getElementById('availabilityTimesGrid');
     const availabilityNoSlots = document.getElementById('availabilityNoSlots');
+    const availabilityStatusBaseClass = 'small mt-3';
 
     function setAvailabilityStatus(message, tone = 'muted') {
-        availabilityStatus.className = `small mt-3 text-${tone}`;
+        availabilityStatus.className = `${availabilityStatusBaseClass} text-${tone}`;
         availabilityStatus.textContent = message;
     }
 
@@ -671,9 +672,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 setHidden(availabilityNoSlots, true);
-                setAvailabilityStatus(
-                    'Loaded ' + slots.length + ' available time' + (slots.length === 1 ? '' : 's') + ' for ' + date + '.' + (data.google_calendar_checked ? ' Connected Google Calendar availability was checked.' : '')
-                );
+                const slotLabel = slots.length === 1 ? 'time' : 'times';
+                const calendarMessage = data.google_calendar_checked ? ' Connected Google Calendar availability was checked.' : '';
+                setAvailabilityStatus(`Loaded ${slots.length} available ${slotLabel} for ${date}.${calendarMessage}`);
 
                 slots.forEach(slot => {
                     // The shared availability API currently returns simple time strings,
