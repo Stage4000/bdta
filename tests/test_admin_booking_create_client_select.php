@@ -17,12 +17,13 @@ if ($bookingCreate === false) {
 }
 
 bdta_assert(
-    str_contains($bookingCreate, "\$_GET['client_id'] ?? 0"),
-    'Booking creation should honor a linked client_id query parameter.'
+    str_contains($bookingCreate, "\$selected_client_id = \$_SERVER['REQUEST_METHOD'] === 'POST'"),
+    'Booking creation should initialize selected_client_id from the request method.'
 );
 bdta_assert(
-    str_contains($bookingCreate, "\$_POST['client_id'] ?? 0"),
-    'Booking creation should preserve the selected client when rerendering after POST.'
+    str_contains($bookingCreate, "safe_int(\$_POST['client_id'] ?? 0)")
+        && str_contains($bookingCreate, "safe_int(\$_GET['client_id'] ?? 0)"),
+    'Booking creation should derive selected_client_id from sanitized POST and GET client_id values.'
 );
 bdta_assert(
     str_contains($bookingCreate, "data-searchable-select=\"client\""),
