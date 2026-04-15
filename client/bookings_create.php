@@ -42,12 +42,9 @@ $stmt = $conn->query("SELECT id, name, email FROM clients WHERE COALESCE(is_arch
 $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Keep the requested client selected when linked from a client profile or when rerendering after a failed POST
-$selected_client_id = 0;
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $selected_client_id = safe_int($_POST['client_id'] ?? 0);
-} else {
-    $selected_client_id = safe_int($_GET['client_id'] ?? 0);
-}
+$selected_client_id = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? safe_int($_POST['client_id'] ?? 0)
+    : safe_int($_GET['client_id'] ?? 0);
 
 // Get active appointment types
 $stmt = $conn->query("SELECT * FROM appointment_types WHERE is_active = 1 ORDER BY name");

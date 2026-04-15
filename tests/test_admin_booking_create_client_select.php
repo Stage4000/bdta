@@ -17,7 +17,8 @@ if ($bookingCreate === false) {
 }
 
 bdta_assert(
-    str_contains($bookingCreate, "\$selected_client_id = safe_int(\$_GET['client_id'] ?? 0);"),
+    str_contains($bookingCreate, "\$_GET['client_id'] ?? 0") &&
+    str_contains($bookingCreate, "\$_POST['client_id'] ?? 0"),
     'Booking creation should honor a linked client_id query parameter.'
 );
 bdta_assert(
