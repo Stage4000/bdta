@@ -607,11 +607,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const availabilityTimesSection = document.getElementById('availabilityTimesSection');
     const availabilityTimesGrid = document.getElementById('availabilityTimesGrid');
     const availabilityNoSlots = document.getElementById('availabilityNoSlots');
-    const availabilityStatusBaseClass = 'small mt-3';
+    const availabilityStatusBaseClasses = 'small mt-3';
     const availabilityLoadingMarkup = '<div class="spinner-border spinner-border-sm text-secondary me-2" role="status"><span class="visually-hidden">Loading...</span></div> Loading available times...';
+    const availabilityCalendarCheckedMessage = ' Connected Google Calendar availability was checked.';
 
     function setAvailabilityStatus(message, tone = 'muted') {
-        availabilityStatus.className = `${availabilityStatusBaseClass} text-${tone}`;
+        availabilityStatus.className = `${availabilityStatusBaseClasses} text-${tone}`;
         availabilityStatus.textContent = message;
     }
 
@@ -680,7 +681,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 setHidden(availabilityNoSlots, true);
                 const slotLabel = slots.length === 1 ? 'time' : 'times';
-                const calendarMessage = data.google_calendar_checked ? ' Connected Google Calendar availability was checked.' : '';
+                const calendarMessage = data.google_calendar_checked ? availabilityCalendarCheckedMessage : '';
                 setAvailabilityStatus(`Loaded ${slots.length} available ${slotLabel} for ${date}.${calendarMessage}`);
 
                 slots.forEach(slot => {
