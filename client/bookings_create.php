@@ -747,6 +747,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     if (clientSelect.value) {
+        // Trigger the existing client-dependent UI loading when the page starts with a selected client.
         clientSelect.dispatchEvent(new Event('change'));
     }
 });
