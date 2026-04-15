@@ -21,7 +21,7 @@ $stmt = $conn->query(
 );
 $page = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$page || trim($page['html_content']) === '') {
+if (!$page || trim(array_string_value($page, 'html_content')) === '') {
     // Fall back to the static index.html
     $static = __DIR__ . '/index.html';
     if (file_exists($static)) {
@@ -59,7 +59,7 @@ $seo_title    = htmlspecialchars(!empty($page['og_title'])  ? $page['og_title'] 
 $og_desc      = htmlspecialchars(!empty($page['og_description']) ? $page['og_description'] : ($page['meta_description'] ?? ''), ENT_QUOTES, 'UTF-8');
 $og_image     = htmlspecialchars($page['og_image'] ?? '', ENT_QUOTES, 'UTF-8');
 $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
-$page_html_content = bdta_inject_public_services_into_homepage((string) ($page['html_content'] ?? ''));
+$page_html_content = bdta_inject_public_services_into_homepage(array_string_value($page, 'html_content'));
 $rendered_page_html = bdta_inject_turnstile_widgets_into_forms(
     bdta_wrap_imported_page_html(
         bdta_sync_public_navigation_links(bdta_apply_public_social_links($page_html_content))
