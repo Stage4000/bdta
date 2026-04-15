@@ -27,11 +27,8 @@ assertTrue(str_contains($legacy_injected, 'id="services-grid"'), 'Expected legac
 assertTrue(str_contains($legacy_injected, 'Single Booking Services'), 'Expected legacy homepage markup to receive the services heading.');
 assertTrue(substr_count($legacy_injected, 'id="services-grid"') === 1, 'Expected only one services grid to be injected.');
 assertTrue(substr_count($legacy_injected, 'Popular Packages') === 1, 'Expected legacy homepage injection to avoid duplicating the existing packages heading.');
-/** @var int|false $services_heading_pos */
 $services_heading_pos = strpos($legacy_injected, 'Single Booking Services');
-/** @var int|false $packages_heading_pos */
 $packages_heading_pos = strpos($legacy_injected, 'Popular Packages');
-/** @var int|false $packages_grid_pos */
 $packages_grid_pos = strpos($legacy_injected, 'id="packages-grid"');
 assertTrue(
     $services_heading_pos !== false
