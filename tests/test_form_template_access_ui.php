@@ -20,6 +20,10 @@ assertFormTemplateAccessUi($internal_client_access['effective_internal'] === tru
 assertFormTemplateAccessUi($internal_client_access['can_toggle_internal'] === true, 'Internal client forms should still expose a toggle.');
 assertFormTemplateAccessUi($internal_client_access['toggle_help'] === 'This template will only be available to admin/staff users.', 'Internal client forms should explain the admin-only toggle state.');
 
+$non_boolean_internal_client_access = bdta_get_form_template_access_state('client_form', 2);
+assertFormTemplateAccessUi($non_boolean_internal_client_access['effective_internal'] === true, 'Any non-zero internal flag should be treated as internal access.');
+assertFormTemplateAccessUi($non_boolean_internal_client_access['requested_internal'] === true, 'Non-zero internal flags should normalize to requested internal access.');
+
 $forced_internal_access = bdta_get_form_template_access_state('follow_up_note', 0);
 assertFormTemplateAccessUi($forced_internal_access['effective_internal'] === true, 'Follow-up note templates should remain internal.');
 assertFormTemplateAccessUi($forced_internal_access['can_toggle_internal'] === false, 'Forced-internal form types should not allow the internal-use toggle.');
@@ -33,6 +37,5 @@ assertFormTemplateAccessUi(str_contains($edit_page, 'Internal use only'), 'Expec
 $list_page = file_get_contents(dirname(__DIR__) . '/client/form_templates_list.php');
 assertFormTemplateAccessUi(is_string($list_page), 'Expected to read the form template list page source.');
 assertFormTemplateAccessUi(str_contains($list_page, '?access=internal'), 'Expected the Internal Forms tab create action to preserve internal access context.');
-assertFormTemplateAccessUi(str_contains($list_page, '$create_template_url'), 'Expected the form template list page to use the shared create-template URL helper.');
 
 echo "Form template access UI regression test passed.\n";

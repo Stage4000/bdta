@@ -215,7 +215,7 @@ function bdta_get_form_access_help(string $form_type): string
 function bdta_get_form_template_access_state(string $form_type, int $is_internal = 0): array
 {
     $forced_internal = bdta_form_type_forced_internal($form_type) === 1;
-    $requested_internal = $is_internal === 1;
+    $requested_internal = $is_internal !== 0;
     $effective_internal = $forced_internal || $requested_internal;
 
     return [

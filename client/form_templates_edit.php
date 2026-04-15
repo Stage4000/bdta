@@ -526,7 +526,8 @@ function syncFormTypeDetails() {
     }
 
     const meta = formTypeMeta[formTypeSelect.value] || defaultFormAccess;
-    const isRequestedInternal = isInternalInput && isInternalInput.value === '1';
+    const isInternalValue = isInternalInput ? Number(isInternalInput.value) : 0;
+    const isRequestedInternal = isInternalInput ? !Number.isNaN(isInternalValue) && isInternalValue !== 0 : false;
     const isInternal = meta.forceInternal || isRequestedInternal;
 
     description.textContent = meta.description || '';
