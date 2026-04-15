@@ -26,6 +26,7 @@ $database = bdta_read_file(dirname(__DIR__) . '/backend/includes/database.php', 
 $appointment_types_edit = bdta_read_file(dirname(__DIR__) . '/client/appointment_types_edit.php', 'appointment_types_edit.php');
 $api_services = bdta_read_file(dirname(__DIR__) . '/backend/public/api_services.php', 'api_services.php');
 $site_js = bdta_read_file(dirname(__DIR__) . '/assets/js/public/site.js', 'site.js');
+$site_css = bdta_read_file(dirname(__DIR__) . '/assets/css/public/site.css', 'site.css');
 $modules_js = bdta_read_file(dirname(__DIR__) . '/assets/js/public/modules.js', 'modules.js');
 $index_php = bdta_read_file(dirname(__DIR__) . '/index.php', 'index.php');
 $index_html = bdta_read_file(dirname(__DIR__) . '/index.html', 'index.html');
@@ -66,8 +67,14 @@ bdta_assert(
         && str_contains($site_js, "document.getElementById('services-grid')")
         && str_contains($site_js, 'service.bullet_points')
         && str_contains($site_js, 'watchDynamicHomepageSections()')
-        && str_contains($site_js, "data-bdta-loaded"),
+        && str_contains($site_js, "data-bdta-loaded")
+        && !str_contains($site_js, 'initServiceCardHover()'),
     'Homepage JavaScript should load and render public single-booking services.'
+);
+bdta_assert(
+    str_contains($site_css, '.service-card:hover')
+        && str_contains($site_css, '.service-card:hover .service-icon'),
+    'Public service cards should keep their hover behavior through CSS so dynamic cards work immediately.'
 );
 bdta_assert(
     str_contains($modules_js, '.bdta-services-module')

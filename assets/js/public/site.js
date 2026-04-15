@@ -21,7 +21,6 @@ onDocumentReady(function() {
     initContactForm();
     initSmoothScroll();
     initDynamicHomepageSections();
-    initServiceCardHover();
     initLazyImages();
     initStatCounters();
     watchDynamicHomepageSections();
@@ -325,21 +324,6 @@ function initSmoothScroll() {
 // ==========================================
 // Additional Interactive Features
 // ==========================================
-
-// Add hover effect to service cards
-function initServiceCardHover() {
-    const serviceCards = document.querySelectorAll('.service-card');
-    
-    serviceCards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            this.style.borderColor = 'var(--primary-color)';
-        });
-        
-        card.addEventListener('mouseleave', function() {
-            this.style.borderColor = '';
-        });
-    });
-}
 
 // Lazy load images (if using actual images)
 function initLazyImages() {

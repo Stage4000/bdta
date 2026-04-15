@@ -26,6 +26,12 @@ $legacy_injected = bdta_inject_public_services_into_homepage($legacy_homepage);
 assertTrue(str_contains($legacy_injected, 'id="services-grid"'), 'Expected legacy homepage markup to receive the services grid.');
 assertTrue(str_contains($legacy_injected, 'Single Booking Services'), 'Expected legacy homepage markup to receive the services heading.');
 assertTrue(substr_count($legacy_injected, 'id="services-grid"') === 1, 'Expected only one services grid to be injected.');
+assertTrue(substr_count($legacy_injected, 'Training Packages') === 1, 'Expected legacy homepage injection to avoid duplicating the packages heading.');
+assertTrue(
+    strpos($legacy_injected, 'Single Booking Services') < strpos($legacy_injected, 'Our Training Packages')
+        && strpos($legacy_injected, 'Our Training Packages') < strpos($legacy_injected, 'id="packages-grid"'),
+    'Expected the original packages heading to remain directly above the packages grid after injection.'
+);
 assertTrue(str_contains($legacy_injected, 'id="packages-grid"'), 'Expected package grid to remain present after injection.');
 assertTrue($legacy_injected === bdta_inject_public_services_into_homepage($legacy_injected), 'Expected legacy homepage injection to be idempotent.');
 

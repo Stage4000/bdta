@@ -4,8 +4,19 @@
  * Insert the public single-booking services markup into legacy homepage HTML when
  * the saved homepage predates the new services subsection.
  */
-function bdta_get_public_services_legacy_markup(): string
+function bdta_get_public_services_legacy_markup(bool $include_packages_heading = true): string
 {
+    $packages_heading = '';
+    if ($include_packages_heading) {
+        $packages_heading = <<<HTML
+            <div class="text-center mt-5 mb-4" data-aos="fade-up">
+                <h3 class="fw-bold mb-2">Training Packages</h3>
+                <p class="text-muted mb-0">Bundled training programs designed to set your dog up for success</p>
+            </div>
+
+HTML;
+    }
+
     return <<<HTML
             <div class="text-center mb-4" data-aos="fade-up">
                 <h3 class="fw-bold mb-2">Single Booking Services</h3>
@@ -27,11 +38,7 @@ function bdta_get_public_services_legacy_markup(): string
                 <a href="#contact" class="btn btn-outline-primary">Contact Us</a>
             </div>
 
-            <div class="text-center mt-5 mb-4" data-aos="fade-up">
-                <h3 class="fw-bold mb-2">Training Packages</h3>
-                <p class="text-muted mb-0">Bundled training programs designed to set your dog up for success</p>
-            </div>
-
+{$packages_heading}
 HTML;
 }
 
@@ -86,6 +93,18 @@ function bdta_inject_public_services_into_homepage(string $html): string
 {
     if ($html === '' || bdta_homepage_has_public_services_markup($html)) {
         return $html;
+    }
+
+    $legacy_markup_without_packages_heading = bdta_get_public_services_legacy_markup(false);
+    $legacy_heading_result = preg_replace(
+        '/(\s*)(<div\b[^>]*>\s*<h[1-6]\b[^>]*>[^<]*Packages[^<]*<\/h[1-6]>(?:\s*<p\b[^>]*>.*?<\/p>)?\s*<\/div>\s*)(<div\b[^>]*\bid\s*=\s*(?:"packages-grid"|\'packages-grid\')[^>]*>)/is',
+        '$1' . $legacy_markup_without_packages_heading . '$1$2$3',
+        $html,
+        1,
+        $legacy_heading_count
+    );
+    if ($legacy_heading_count === 1 && is_string($legacy_heading_result)) {
+        return $legacy_heading_result;
     }
 
     $legacy_markup = bdta_get_public_services_legacy_markup();
