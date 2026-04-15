@@ -694,6 +694,7 @@ class Database {
                     resource_capacity INTEGER DEFAULT 1,
                     resource_allocation TEXT DEFAULT 'per_appointment',
                     is_active INTEGER DEFAULT 1,
+                    public_available INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -2046,6 +2047,13 @@ class Database {
         if (!in_array('portal_available', $apt_column_names)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN portal_available INTEGER DEFAULT 0");
             $this->execSQL("UPDATE appointment_types SET portal_available = 0 WHERE portal_available IS NULL");
+        }
+
+        // Add public_available column to appointment_types
+        $apt_column_names = $this->getTableColumns('appointment_types');
+        if (!in_array('public_available', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN public_available INTEGER DEFAULT 0");
+            $this->execSQL("UPDATE appointment_types SET public_available = 0 WHERE public_available IS NULL");
         }
 
         // Add contract_template_id column to appointment_types (replaces requires_contract toggle)

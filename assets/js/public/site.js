@@ -20,6 +20,7 @@ onDocumentReady(function() {
     initBackToTop();
     initContactForm();
     initSmoothScroll();
+    loadServices();
     loadPackages();
     loadEvents();
     initServiceCardHover();
@@ -405,6 +406,79 @@ function initStatCounters() {
             statsObserver.observe(stat);
         });
     }
+}
+
+// ==========================================
+// Dynamic Services Section
+// ==========================================
+function loadServices() {
+    var grid    = document.getElementById('services-grid');
+    var loading = document.getElementById('services-loading');
+    var empty   = document.getElementById('services-empty');
+
+    if (!grid) return;
+
+    fetchJson('backend/public/api_services.php')
+        .then(function(data) {
+            if (loading) loading.remove();
+
+            var services = (data && Array.isArray(data.services)) ? data.services : [];
+            if (services.length === 0) {
+                if (empty) empty.classList.remove('d-none');
+                return;
+            }
+
+            services.forEach(function(service, idx) {
+                var delay = ((idx % 3) + 1) * 100;
+                var priceText = service.price > 0 ? '$' + service.price.toFixed(2) : 'Contact Us';
+                var detailBits = [];
+
+                if (service.duration_minutes > 0) {
+                    detailBits.push(service.duration_minutes + ' min');
+                }
+                if (service.location) {
+                    detailBits.push(service.location);
+                }
+
+                var typeBadge = service.type_label
+                    ? '<span class="badge bg-warning text-dark mb-3">' + escapeHtml(service.type_label) + '</span>'
+                    : '';
+                var detailsHtml = detailBits.length > 0
+                    ? '<p class="text-muted small mb-3"><i class="fas fa-circle-info text-primary me-1"></i>' + escapeHtml(detailBits.join(' • ')) + '</p>'
+                    : '';
+                var bulletPointsHtml = renderBulletSection(service.bullet_points, "What's Included");
+                var ctaHtml = service.booking_url
+                    ? '<a href="' + escapeHtml(service.booking_url) + '" class="btn btn-primary mt-auto">'
+                      + '<i class="fas fa-calendar-check me-2"></i>Book Now</a>'
+                    : '<a href="#contact" class="btn btn-outline-primary mt-auto">Contact Us</a>';
+
+                var col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4';
+                col.setAttribute('data-aos', 'fade-up');
+                col.setAttribute('data-aos-delay', delay);
+                // All interpolated values are escaped with escapeHtml() before insertion into this fixed template.
+                // nosemgrep
+                col.innerHTML = '<div class="service-card card h-100 border-0 shadow-sm hover-lift">'
+                    + '<div class="card-body p-4 d-flex flex-column">'
+                    + '<div class="service-icon bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width:80px;height:80px;">'
+                    + '<i class="fas fa-dog text-primary fs-2"></i></div>'
+                    + typeBadge
+                    + '<h4 class="fw-bold mb-2">' + escapeHtml(service.name) + '</h4>'
+                    + '<p class="text-primary fw-bold fs-5 mb-2">' + escapeHtml(priceText) + '</p>'
+                    + (service.description ? '<p class="text-muted mb-3">' + escapeHtml(service.description) + '</p>' : '')
+                    + detailsHtml
+                    + bulletPointsHtml
+                    + ctaHtml
+                    + '</div></div>';
+                grid.appendChild(col);
+            });
+
+            if (typeof AOS !== 'undefined') { AOS.refreshHard(); }
+        })
+        .catch(function() {
+            if (loading) loading.remove();
+            if (empty) empty.classList.remove('d-none');
+        });
 }
 
 // ==========================================

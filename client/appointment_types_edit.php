@@ -75,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_group_class = isset($_POST['is_group_class']) ? 1 : 0;
     $max_participants = safe_int($_POST['max_participants'] ?? 1);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
+    $public_available = isset($_POST['public_available']) ? 1 : 0;
     $portal_available = isset($_POST['portal_available']) ? 1 : 0;
     $confirmation_template_id = !empty($_POST['confirmation_template_id']) ? safe_int($_POST['confirmation_template_id']) : null;
     $booking_request_template_id = !empty($_POST['booking_request_template_id']) ? safe_int($_POST['booking_request_template_id']) : null;
@@ -245,6 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     is_group_class = ?,
                     max_participants = ?,
                     is_active = ?,
+                    public_available = ?,
                     portal_available = ?,
                     schedule_type = ?,
                     specific_date = ?,
@@ -284,7 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $auto_invoice, $invoice_due_days,
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
-                $is_active, $portal_available,
+                $is_active, $public_available, $portal_available,
                 $schedule_type, $specific_date, $specific_dates,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
                 $is_mini_session, $mini_session_location, $mini_session_topic,
@@ -327,6 +329,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     consumes_credits, credit_count,
                     is_group_class, max_participants,
                     is_active, unique_link,
+                    public_available,
                     portal_available,
                     schedule_type, specific_date, specific_dates,
                     available_days, available_start_time, available_end_time, time_slot_interval,
@@ -345,7 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     resource_name,
                     resource_capacity,
                     resource_allocation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $bullet_points, $admin_user_id, $duration_minutes,
@@ -358,6 +361,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
                 $is_active, $unique_link,
+                $public_available,
                 $portal_available,
                 $schedule_type, $specific_date, $specific_dates,
                 $available_days_json, $available_start_time, $available_end_time, $time_slot_interval,
@@ -522,6 +526,7 @@ $type_field_rental_location = array_string_value($type_row, 'field_rental_locati
 $type_location_types = decode_json_assoc(array_string_value($type_row, 'location_types'));
 $type_unique_link = array_string_value($type_row, 'unique_link');
 $type_is_active = !isset($type) || array_int_value($type_row, 'is_active', 1) === 1;
+$type_public_available = array_int_value($type_row, 'public_available') === 1;
 $type_portal_available = array_int_value($type_row, 'portal_available') === 1;
 $type_requires_admin_confirmation = array_int_value($type_row, 'requires_admin_confirmation') === 1;
 $type_uses_resource = array_int_value($type_row, 'uses_resource') === 1;
@@ -1338,6 +1343,16 @@ include __DIR__ . '/../backend/includes/header.php';
                                 Active
                             </label>
                             <div class="form-text">Only active types are available for booking</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="public_available" name="public_available"
+                                   <?= $type_public_available ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="public_available">
+                                Show in Public Services
+                            </label>
+                            <div class="form-text">Display this non-event single-booking service on the public front-end services section</div>
                         </div>
                     </div>
                     <div class="col-md-6">
