@@ -19,6 +19,7 @@ $conn = $db->getConnection();
 
 // Simple mapping of incorrect task_type values to correct ones
 $simple_fixes = [
+    'booking' => 'booking_reminder',
     'reminder' => 'booking_reminder',
     'workflow' => 'workflow_processor'
 ];
