@@ -66,6 +66,8 @@ bdta_assert(
         && str_contains($site_js, "fetchJson('backend/public/api_services.php')")
         && str_contains($site_js, "document.getElementById('services-grid')")
         && str_contains($site_js, 'service.bullet_points')
+        && str_contains($site_js, 'numericPrice === 0')
+        && str_contains($site_js, "'Free'")
         && str_contains($site_js, 'watchDynamicHomepageSections()')
         && str_contains($site_js, "data-bdta-loaded")
         && !str_contains($site_js, 'initServiceCardHover()'),
@@ -79,6 +81,8 @@ bdta_assert(
 bdta_assert(
     str_contains($modules_js, '.bdta-services-module')
         && str_contains($modules_js, "fetch('/backend/public/api_services.php')")
+        && str_contains($modules_js, 'numericPrice === 0')
+        && str_contains($modules_js, "'Free'")
         && str_contains($modules_js, 'watchForDynamicModules'),
     'Site-editor modules should load and render public single-booking services.'
 );

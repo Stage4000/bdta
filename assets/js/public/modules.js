@@ -76,6 +76,17 @@
             return;
         }
 
+        function getServicePriceText(price) {
+            var numericPrice = Number(price);
+            if (!Number.isFinite(numericPrice) || numericPrice < 0) {
+                return 'Contact Us';
+            }
+            if (numericPrice === 0) {
+                return 'Free';
+            }
+            return '$' + numericPrice.toFixed(2);
+        }
+
         fetch('/backend/public/api_services.php')
             .then(function (r) { return r.json(); })
             .then(function (data) {
@@ -86,9 +97,7 @@
                     return;
                 }
                 services.forEach(function (service) {
-                    var priceText = service.price > 0
-                        ? '$' + Number(service.price).toFixed(2)
-                        : 'Contact Us';
+                    var priceText = getServicePriceText(service.price);
                     var detailBits = [];
                     if (service.duration_minutes > 0) {
                         detailBits.push(service.duration_minutes + ' min');

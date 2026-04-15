@@ -409,6 +409,17 @@ function loadServices() {
 
     grid.setAttribute('data-bdta-loading', '1');
 
+    function getServicePriceText(price) {
+        var numericPrice = Number(price);
+        if (!Number.isFinite(numericPrice) || numericPrice < 0) {
+            return 'Contact Us';
+        }
+        if (numericPrice === 0) {
+            return 'Free';
+        }
+        return '$' + numericPrice.toFixed(2);
+    }
+
     fetchJson('backend/public/api_services.php')
         .then(function(data) {
             if (loading) loading.remove();
@@ -423,7 +434,7 @@ function loadServices() {
 
             services.forEach(function(service, idx) {
                 var delay = ((idx % 3) + 1) * 100;
-                var priceText = service.price > 0 ? '$' + service.price.toFixed(2) : 'Contact Us';
+                var priceText = getServicePriceText(service.price);
                 var detailBits = [];
 
                 if (service.duration_minutes > 0) {
