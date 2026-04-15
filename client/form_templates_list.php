@@ -88,6 +88,7 @@ if ($type_filter === 'client') {
 $total_pages = ceil($total_templates / $per_page);
 $stmt->execute();
 $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$create_template_url = 'form_templates_edit.php' . ($type_filter === 'internal' ? '?access=internal' : '');
 
 require_once '../backend/includes/header.php';
 ?>
@@ -97,7 +98,7 @@ require_once '../backend/includes/header.php';
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <h2><i class="fas fa-file-lines me-2"></i>Form Templates</h2>
-                <a href="form_templates_edit.php" class="btn btn-primary">
+                <a href="<?php echo escape($create_template_url); ?>" class="btn btn-primary">
                     <i class="fas fa-circle-plus me-1"></i> Add New Template
                 </a>
             </div>
@@ -268,7 +269,7 @@ require_once '../backend/includes/header.php';
                 <i class="fas fa-file-lines" style="font-size: 4rem; color: #ccc;"></i>
                 <h4 class="mt-3">No Form Templates Found</h4>
                 <p class="text-muted">Create your first form template to get started.</p>
-                <a href="form_templates_edit.php" class="btn btn-primary mt-2">
+                <a href="<?php echo escape($create_template_url); ?>" class="btn btn-primary mt-2">
                     <i class="fas fa-circle-plus me-1"></i> Create Template
                 </a>
             </div>
