@@ -41,6 +41,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'credits') {
 $stmt = $conn->query("SELECT id, name, email FROM clients WHERE COALESCE(is_archived, 0) = 0 ORDER BY name");
 $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Keep the requested client selected when linked from a client profile or when rerendering after a failed POST
+$selected_client_id = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? safe_int($_POST['client_id'] ?? 0)
+    : safe_int($_GET['client_id'] ?? 0);
+
 // Get active appointment types
 $stmt = $conn->query("SELECT * FROM appointment_types WHERE is_active = 1 ORDER BY name");
 $appointment_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -390,10 +395,10 @@ include '../backend/includes/header.php';
                             <!-- Client Selection -->
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Client *</label>
-                                <select name="client_id" id="clientSelect" class="form-select" required>
+                                <select name="client_id" id="clientSelect" class="form-select" required data-searchable-select="client" data-search-placeholder="Search clients...">
                                     <option value="">Select client...</option>
                                     <?php foreach ($clients as $client): ?>
-                                        <option value="<?php echo $client['id']; ?>">
+                                        <option value="<?php echo $client['id']; ?>"<?php echo $selected_client_id === safe_int($client['id']) ? ' selected' : ''; ?>>
                                             <?php echo escape($client['name']); ?> (<?php echo escape($client['email']); ?>)
                                         </option>
                                     <?php endforeach; ?>
@@ -740,6 +745,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         loadPkgCredits();
     });
+
+    if (clientSelect.value) {
+        // Trigger the existing client-dependent UI loading when the page starts with a selected client.
+        clientSelect.dispatchEvent(new Event('change'));
+    }
 });
 
 // Handle location type dropdown change (called via onchange attribute in dynamically rendered HTML)
