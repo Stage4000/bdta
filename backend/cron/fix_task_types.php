@@ -17,8 +17,8 @@ echo "=== Fixing Task Type Values ===\n\n";
 $db = new Database();
 $conn = $db->getConnection();
 
-// Simple mapping of incorrect task_type values to correct ones
-$simple_fixes = [
+// Legacy task types to normalize to their canonical handler names.
+$legacy_task_type_fixes = [
     'booking' => 'booking_reminder',
     'reminder' => 'booking_reminder',
     'workflow' => 'workflow_processor'
@@ -50,13 +50,18 @@ foreach ($tasks as $task) {
 
 echo str_repeat('-', 80) . "\n\n";
 
-// Check which tasks need to be fixed
+// Check which tasks need to be fixed or normalized
 $needs_fixing = [];
 foreach ($tasks as $task) {
-    $handler_file = __DIR__ . '/tasks/' . $task['task_type'] . '.php';
-    if (!file_exists($handler_file)) {
+    $task_type = scalar_string($task['task_type'] ?? '');
+    $handler_file = __DIR__ . '/tasks/' . $task_type . '.php';
+    if (isset($legacy_task_type_fixes[$task_type])) {
         $needs_fixing[] = $task;
-        echo "⚠ Task '{$task['task_name']}' has invalid task_type: '{$task['task_type']}'\n";
+        echo "⚠ Task '{$task['task_name']}' uses legacy task_type: '{$task_type}'\n";
+        echo "  Canonical task_type should be: '{$legacy_task_type_fixes[$task_type]}'\n";
+    } elseif (!file_exists($handler_file)) {
+        $needs_fixing[] = $task;
+        echo "⚠ Task '{$task['task_name']}' has invalid task_type: '{$task_type}'\n";
         echo "  Handler not found: {$handler_file}\n";
     }
 }
@@ -77,9 +82,9 @@ foreach ($needs_fixing as $task) {
     $old_type = scalar_string($task['task_type'] ?? '');
     $new_type = null;
     
-    // Check if we have a simple mapping fix for this task_type
-    if (isset($simple_fixes[$old_type])) {
-        $new_type = $simple_fixes[$old_type];
+    // Check if we have a legacy mapping fix for this task_type
+    if (isset($legacy_task_type_fixes[$old_type])) {
+        $new_type = $legacy_task_type_fixes[$old_type];
     }
     // Special handling for generic 'email' task_type - use task name to determine correct type
     elseif ($old_type === 'email') {

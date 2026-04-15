@@ -63,7 +63,7 @@ php fix_task_types.php
 
 This script will:
 1. Display all current scheduled tasks
-2. Identify tasks with invalid task_type values
+2. Identify tasks with invalid or legacy task_type values
 3. Automatically correct known issues
 4. Report what was fixed and what needs manual intervention
 
@@ -74,12 +74,12 @@ If you prefer to fix the database manually, use these SQL commands:
 ```sql
 -- Fix 'booking' and 'reminder' → 'booking_reminder'
 UPDATE scheduled_tasks 
-SET task_type = 'booking_reminder', updated_at = datetime('now')
+SET task_type = 'booking_reminder', updated_at = NOW()
 WHERE task_type IN ('booking', 'reminder');
 
 -- Fix 'workflow' → 'workflow_processor'
 UPDATE scheduled_tasks 
-SET task_type = 'workflow_processor', updated_at = datetime('now')
+SET task_type = 'workflow_processor', updated_at = NOW()
 WHERE task_type = 'workflow';
 
 -- Note: 'email' is now a valid task_type (generic handler that delegates to scheduled_email_sender)
@@ -87,12 +87,12 @@ WHERE task_type = 'workflow';
 
 -- (Optional) Fix generic 'email' → 'scheduled_email_sender' (for "Send Scheduled Emails" task)
 UPDATE scheduled_tasks 
-SET task_type = 'scheduled_email_sender', updated_at = datetime('now')
+SET task_type = 'scheduled_email_sender', updated_at = NOW()
 WHERE task_type = 'email' AND task_name = 'Send Scheduled Emails';
 
 -- (Optional) Fix generic 'email' → 'email_receiver' (for "Receive Emails" task)
 UPDATE scheduled_tasks 
-SET task_type = 'email_receiver', updated_at = datetime('now')
+SET task_type = 'email_receiver', updated_at = NOW()
 WHERE task_type = 'email' AND task_name LIKE '%Receive%';
 ```
 
@@ -152,13 +152,13 @@ If you need to create a custom scheduled task:
        task_name, task_type, schedule_type, schedule_value, is_active, next_run
    ) VALUES (
        'My Custom Task',
-       'my_custom_task',  -- Must match the filename without .php
-       'daily',
-       '10:00',
-       1,
-       datetime('now')
-   );
-   ```
+        'my_custom_task',  -- Must match the filename without .php
+        'daily',
+        '10:00',
+        1,
+        NOW()
+    );
+    ```
 
 ## Need Help?
 
