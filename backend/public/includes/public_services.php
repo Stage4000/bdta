@@ -98,7 +98,7 @@ function bdta_inject_public_services_into_homepage(string $html): string
     $legacy_markup_without_packages_heading = bdta_get_public_services_legacy_markup(false);
     $legacy_heading_result = preg_replace(
         '/(\s*)(<div\b[^>]*>\s*<h[1-6]\b[^>]*>[^<]*Packages[^<]*<\/h[1-6]>(?:\s*<p\b[^>]*>.*?<\/p>)?\s*<\/div>\s*)(<div\b[^>]*\bid\s*=\s*(?:"packages-grid"|\'packages-grid\')[^>]*>)/is',
-        '$1' . $legacy_markup_without_packages_heading . '$1$2$3',
+        '$1' . $legacy_markup_without_packages_heading . '$2$3',
         $html,
         1,
         $legacy_heading_count

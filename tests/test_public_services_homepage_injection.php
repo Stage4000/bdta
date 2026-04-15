@@ -14,7 +14,7 @@ $legacy_homepage = <<<HTML
 <section id="services" class="homepage-section">
     <div class="container homepage-section-shell">
         <div class="text-center mb-5 homepage-section-heading">
-            <h2 class="display-5 fw-bold mb-3">Our Training Packages</h2>
+            <h2 class="display-5 fw-bold mb-3">Popular Packages</h2>
         </div>
         <div id="packages-grid" class="row g-4"></div>
         <div id="packages-empty" class="text-center py-5 d-none"></div>
@@ -26,10 +26,19 @@ $legacy_injected = bdta_inject_public_services_into_homepage($legacy_homepage);
 assertTrue(str_contains($legacy_injected, 'id="services-grid"'), 'Expected legacy homepage markup to receive the services grid.');
 assertTrue(str_contains($legacy_injected, 'Single Booking Services'), 'Expected legacy homepage markup to receive the services heading.');
 assertTrue(substr_count($legacy_injected, 'id="services-grid"') === 1, 'Expected only one services grid to be injected.');
-assertTrue(substr_count($legacy_injected, 'Training Packages') === 1, 'Expected legacy homepage injection to avoid duplicating the packages heading.');
+assertTrue(substr_count($legacy_injected, 'Popular Packages') === 1, 'Expected legacy homepage injection to avoid duplicating the existing packages heading.');
+/** @var int|false $services_heading_pos */
+$services_heading_pos = strpos($legacy_injected, 'Single Booking Services');
+/** @var int|false $packages_heading_pos */
+$packages_heading_pos = strpos($legacy_injected, 'Popular Packages');
+/** @var int|false $packages_grid_pos */
+$packages_grid_pos = strpos($legacy_injected, 'id="packages-grid"');
 assertTrue(
-    strpos($legacy_injected, 'Single Booking Services') < strpos($legacy_injected, 'Our Training Packages')
-        && strpos($legacy_injected, 'Our Training Packages') < strpos($legacy_injected, 'id="packages-grid"'),
+    $services_heading_pos !== false
+        && $packages_heading_pos !== false
+        && $packages_grid_pos !== false
+        && $services_heading_pos < $packages_heading_pos
+        && $packages_heading_pos < $packages_grid_pos,
     'Expected the original packages heading to remain directly above the packages grid after injection.'
 );
 assertTrue(str_contains($legacy_injected, 'id="packages-grid"'), 'Expected package grid to remain present after injection.');
