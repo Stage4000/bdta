@@ -369,6 +369,12 @@ include '../backend/includes/header.php';
     .booking-dynamic-panel {
         display: none;
     }
+
+    .booking-availability-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
 </style>
 
 <div class="container-fluid">
@@ -440,14 +446,37 @@ include '../backend/includes/header.php';
                             <!-- Date -->
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Date *</label>
-                                <input type="date" name="booking_date" class="form-control" required 
+                                <input type="date" name="booking_date" id="bookingDateInput" class="form-control" required 
                                        min="<?php echo date('Y-m-d'); ?>">
                             </div>
 
                             <!-- Time -->
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Time *</label>
-                                <input type="time" name="booking_time" class="form-control" required>
+                                <input type="time" name="booking_time" id="bookingTimeInput" class="form-control" required>
+                            </div>
+
+                            <div class="col-12 mb-3">
+                                <div class="card border-light-subtle">
+                                    <div class="card-body">
+                                        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                                            <div>
+                                                <label class="form-label mb-1">Availability</label>
+                                                <p class="text-muted small mb-0">Optionally show suggested times based on the appointment type schedule and connected Google Calendar availability.</p>
+                                            </div>
+                                            <button type="button" class="btn btn-outline-primary" id="showAvailabilityBtn">
+                                                <i class="fas fa-clock me-2"></i>Show Availability
+                                            </button>
+                                        </div>
+                                        <div id="availabilityStatus" class="small text-muted mt-3">Select an appointment type and date, then choose Show Availability.</div>
+                                        <div id="availabilityTimesSection" class="booking-dynamic-panel mt-3">
+                                            <div id="availabilityTimesGrid" class="booking-availability-grid"></div>
+                                            <div id="availabilityNoSlots" class="alert alert-warning py-2 px-3 mt-3 mb-0 booking-dynamic-panel">
+                                                No available times found for the selected date.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Pets Selection -->
@@ -571,6 +600,108 @@ document.addEventListener('DOMContentLoaded', function() {
     const noPkgCreditsMsg = document.getElementById('noPkgCreditsMsg');
     const locationSection = document.getElementById('locationSection');
     const locationCardBody = document.getElementById('locationCardBody');
+    const bookingDateInput = document.getElementById('bookingDateInput');
+    const bookingTimeInput = document.getElementById('bookingTimeInput');
+    const showAvailabilityBtn = document.getElementById('showAvailabilityBtn');
+    const availabilityStatus = document.getElementById('availabilityStatus');
+    const availabilityTimesSection = document.getElementById('availabilityTimesSection');
+    const availabilityTimesGrid = document.getElementById('availabilityTimesGrid');
+    const availabilityNoSlots = document.getElementById('availabilityNoSlots');
+
+    function setAvailabilityStatus(message, tone = 'muted') {
+        availabilityStatus.className = `small mt-3 text-${tone}`;
+        availabilityStatus.textContent = message;
+    }
+
+    function resetAvailabilityResults(message = 'Select an appointment type and date, then choose Show Availability.') {
+        availabilityTimesGrid.innerHTML = '';
+        setHidden(availabilityTimesSection, true);
+        setHidden(availabilityNoSlots, true);
+        setAvailabilityStatus(message);
+    }
+
+    function updateAvailabilityButtonState() {
+        showAvailabilityBtn.disabled = !appointmentTypeSelect.value || !bookingDateInput.value;
+    }
+
+    function formatAvailabilityTime(value) {
+        if (!value) return value;
+        const parts = value.split(':');
+        let hour = parseInt(parts[0], 10);
+        const minutes = parts[1] || '00';
+        const suffix = hour >= 12 ? 'PM' : 'AM';
+        hour = hour % 12 || 12;
+        return hour + ':' + minutes + ' ' + suffix;
+    }
+
+    function syncAvailabilitySelection() {
+        const selectedTime = bookingTimeInput.value;
+        document.querySelectorAll('#availabilityTimesGrid .btn').forEach(button => {
+            const isSelected = button.dataset.time === selectedTime;
+            button.classList.toggle('btn-primary', isSelected);
+            button.classList.toggle('btn-outline-primary', !isSelected);
+        });
+    }
+
+    function loadAvailability() {
+        const date = bookingDateInput.value;
+        const appointmentTypeId = appointmentTypeSelect.value;
+
+        if (!date || !appointmentTypeId) {
+            resetAvailabilityResults('Select an appointment type and date before loading availability.');
+            return;
+        }
+
+        availabilityTimesGrid.innerHTML = '<div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div> Loading available times...';
+        setHidden(availabilityTimesSection, false);
+        setHidden(availabilityNoSlots, true);
+        setAvailabilityStatus('Loading available times...');
+
+        fetch('/backend/public/api_bookings.php?date=' + encodeURIComponent(date) + '&appointment_type_id=' + encodeURIComponent(appointmentTypeId))
+            .then(response => response.json())
+            .then(data => {
+                availabilityTimesGrid.innerHTML = '';
+                const slots = Array.isArray(data.available_slots) ? data.available_slots : [];
+
+                if (slots.length === 0) {
+                    setHidden(availabilityNoSlots, false);
+                    availabilityNoSlots.textContent = data.message || 'No available times found for the selected date.';
+                    setAvailabilityStatus(data.message || 'No schedule-based availability found for the selected date.', 'warning');
+                    return;
+                }
+
+                setHidden(availabilityNoSlots, true);
+                setAvailabilityStatus(
+                    'Loaded ' + slots.length + ' available time' + (slots.length === 1 ? '' : 's') + ' for ' + date + '.' + (data.google_calendar_checked ? ' Connected Google Calendar availability was checked.' : '')
+                );
+
+                slots.forEach(slot => {
+                    const time = typeof slot === 'object' ? (slot.time || '') : slot;
+                    if (!time) {
+                        return;
+                    }
+
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'btn btn-outline-primary btn-sm';
+                    button.dataset.time = time;
+                    button.textContent = formatAvailabilityTime(time);
+                    button.addEventListener('click', function() {
+                        bookingTimeInput.value = time;
+                        syncAvailabilitySelection();
+                    });
+                    availabilityTimesGrid.appendChild(button);
+                });
+
+                syncAvailabilitySelection();
+            })
+            .catch(() => {
+                availabilityTimesGrid.innerHTML = '';
+                setHidden(availabilityNoSlots, false);
+                availabilityNoSlots.textContent = 'Could not load available times right now.';
+                setAvailabilityStatus('Could not load availability right now.', 'danger');
+            });
+    }
 
     // Render location selector based on allowed types for the selected appointment type
     function renderLocationSelector(option) {
@@ -713,6 +844,8 @@ document.addEventListener('DOMContentLoaded', function() {
     appointmentTypeSelect.addEventListener('change', function() {
         const option = this.options[this.selectedIndex];
         renderLocationSelector(option);
+        resetAvailabilityResults();
+        updateAvailabilityButtonState();
         if (!option.value) {
             typeInfo.textContent = '';
             setHidden(document.getElementById('noOverridesMsg'), false);
@@ -746,10 +879,20 @@ document.addEventListener('DOMContentLoaded', function() {
         loadPkgCredits();
     });
 
+    bookingDateInput.addEventListener('change', function() {
+        resetAvailabilityResults();
+        updateAvailabilityButtonState();
+    });
+    bookingTimeInput.addEventListener('input', syncAvailabilitySelection);
+    showAvailabilityBtn.addEventListener('click', loadAvailability);
+
     if (clientSelect.value) {
         // Trigger the existing client-dependent UI loading when the page starts with a selected client.
         clientSelect.dispatchEvent(new Event('change'));
     }
+
+    resetAvailabilityResults();
+    updateAvailabilityButtonState();
 });
 
 // Handle location type dropdown change (called via onchange attribute in dynamically rendered HTML)
