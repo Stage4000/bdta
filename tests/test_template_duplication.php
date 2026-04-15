@@ -96,6 +96,7 @@ try {
         )
         VALUES (?, ?, 45, 0, 1, ?, 1, 1, ?, '09:00', '17:00', 30, ?, 1)
     ")->execute([
+        // Keep these bound values aligned with the placeholders in the INSERT above.
         'Appointment Duplicate Type ' . $suffix,
         'Appointment source ' . $suffix,
         'source-link-' . $suffix,

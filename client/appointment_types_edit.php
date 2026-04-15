@@ -348,8 +348,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     resource_name,
                     resource_capacity,
                     resource_allocation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
             ");
+            // Keep this value list in the same order as the INSERT columns above.
             $stmt->execute([
                 $name, $description, $bullet_points, $admin_user_id, $duration_minutes,
                 $buffer_before_minutes, $buffer_after_minutes,
@@ -1352,7 +1359,7 @@ include __DIR__ . '/../backend/includes/header.php';
                             <label class="form-check-label" for="public_available">
                                 Show in Public Services
                             </label>
-                            <div class="form-text">Display this non-event single-booking service on the public front-end services section</div>
+                            <div class="form-text">Display this appointment type on the public homepage (only available for single-booking types; group classes and mini-sessions are excluded)</div>
                         </div>
                     </div>
                     <div class="col-md-6">

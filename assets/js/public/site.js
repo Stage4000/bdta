@@ -456,7 +456,7 @@ function loadServices() {
                 col.className = 'col-md-6 col-lg-4';
                 col.setAttribute('data-aos', 'fade-up');
                 col.setAttribute('data-aos-delay', delay);
-                // All interpolated values are escaped with escapeHtml() before insertion into this fixed template.
+                // Dynamic text below is escaped with escapeHtml() or renderBulletSection() before insertion.
                 // nosemgrep
                 col.innerHTML = '<div class="service-card card h-100 border-0 shadow-sm hover-lift">'
                     + '<div class="card-body p-4 d-flex flex-column">'
