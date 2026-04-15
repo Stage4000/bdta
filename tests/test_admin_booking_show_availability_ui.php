@@ -25,16 +25,24 @@ assert_admin_booking_ui(
     'Admin booking form should render a container for suggested available times.'
 );
 assert_admin_booking_ui(
-    str_contains($bookings_create, "fetch('/backend/public/api_bookings.php?date='"),
+    str_contains($bookings_create, '/backend/public/api_bookings.php?date='),
     'Admin booking availability should call the shared booking availability endpoint.'
 );
 assert_admin_booking_ui(
-    str_contains($bookings_create, "'&appointment_type_id=' + encodeURIComponent(appointmentTypeId)"),
+    str_contains($bookings_create, "'&appointment_type_id=' + encodeURIComponent(requestAppointmentTypeId)"),
     'Admin booking availability requests should include the selected appointment type id.'
 );
 assert_admin_booking_ui(
-    str_contains($bookings_create, 'encodeURIComponent(date)'),
+    str_contains($bookings_create, 'encodeURIComponent(requestDate)'),
     'Admin booking availability requests should include the selected date.'
+);
+assert_admin_booking_ui(
+    str_contains($bookings_create, 'new AbortController()'),
+    'Admin booking availability should create an AbortController to cancel older requests.'
+);
+assert_admin_booking_ui(
+    str_contains($bookings_create, 'requestId !== availabilityRequestSequence'),
+    'Admin booking availability should ignore stale responses from older requests.'
 );
 assert_admin_booking_ui(
     str_contains($bookings_create, "bookingTimeInput.value = time;"),

@@ -610,6 +610,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const availabilityStatusBaseClasses = 'small mt-3';
     const availabilityLoadingMarkup = '<div class="spinner-border spinner-border-sm text-secondary me-2" role="status"><span class="visually-hidden">Loading...</span></div> Loading available times...';
     const availabilityCalendarCheckedMessage = 'Connected Google Calendar availability was checked.';
+    let availabilityRequestSequence = 0;
+    let availabilityActiveController = null;
 
     function setAvailabilityStatus(message, tone = 'muted') {
         availabilityStatus.className = `${availabilityStatusBaseClasses} text-${tone}`;
@@ -617,6 +619,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function resetAvailabilityResults(message = 'Select an appointment type and date, then choose Show Availability.') {
+        if (availabilityActiveController) {
+            availabilityActiveController.abort();
+            availabilityActiveController = null;
+        }
         availabilityTimesGrid.innerHTML = '';
         setHidden(availabilityTimesSection, true);
         setHidden(availabilityNoSlots, true);
@@ -661,14 +667,34 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        availabilityRequestSequence += 1;
+        const requestId = availabilityRequestSequence;
+        const requestDate = date;
+        const requestAppointmentTypeId = appointmentTypeId;
+        if (availabilityActiveController) {
+            availabilityActiveController.abort();
+        }
+        availabilityActiveController = new AbortController();
+        const { signal } = availabilityActiveController;
+
         availabilityTimesGrid.innerHTML = availabilityLoadingMarkup;
         setHidden(availabilityTimesSection, false);
         setHidden(availabilityNoSlots, true);
         setAvailabilityStatus('Loading available times...');
 
-        fetch('/backend/public/api_bookings.php?date=' + encodeURIComponent(date) + '&appointment_type_id=' + encodeURIComponent(appointmentTypeId))
+        fetch(
+            '/backend/public/api_bookings.php?date=' + encodeURIComponent(requestDate) + '&appointment_type_id=' + encodeURIComponent(requestAppointmentTypeId),
+            { signal }
+        )
             .then(response => response.json())
             .then(data => {
+                const isStaleRequest = requestId !== availabilityRequestSequence
+                    || bookingDateInput.value !== requestDate
+                    || appointmentTypeSelect.value !== requestAppointmentTypeId;
+                if (isStaleRequest) {
+                    return;
+                }
+                availabilityActiveController = null;
                 availabilityTimesGrid.innerHTML = '';
                 const slots = Array.isArray(data.available_slots) ? data.available_slots : [];
 
@@ -705,6 +731,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 syncAvailabilitySelection();
             })
             .catch(err => {
+                if (err && err.name === 'AbortError') {
+                    return;
+                }
+                const isStaleRequest = requestId !== availabilityRequestSequence
+                    || bookingDateInput.value !== requestDate
+                    || appointmentTypeSelect.value !== requestAppointmentTypeId;
+                if (isStaleRequest) {
+                    return;
+                }
+                availabilityActiveController = null;
                 console.error('Failed to load admin booking availability.', err);
                 availabilityTimesGrid.innerHTML = '';
                 setHidden(availabilityNoSlots, false);
