@@ -26,11 +26,15 @@ if (!str_contains($migration_value, 'ALTER TABLE email_templates CONVERT TO CHAR
 }
 
 $database_source = file_get_contents(dirname(__DIR__) . '/backend/includes/database.php');
-if (!is_string($database_source) || !str_contains($database_source, "\$email_templates_collation = \$this->tableCollation('email_templates');")) {
+if (!is_string($database_source)) {
+    throw new RuntimeException('Unable to inspect database migration source.');
+}
+
+if (preg_match("/tableCollation\\('email_templates'\\)/", $database_source) !== 1) {
     throw new RuntimeException('email_templates migration should check the current table collation before applying the utf8mb4 conversion.');
 }
 
-if (!str_contains($database_source, '$this->conn->exec(self::MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL);')) {
+if (preg_match('/exec\\(self::MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL\\)/', $database_source) !== 1) {
     throw new RuntimeException('email_templates migration should execute the utf8mb4 conversion SQL when needed.');
 }
 
