@@ -41,11 +41,11 @@ assert_admin_booking_ui(
     'Clicking an available time should populate the booking time field.'
 );
 assert_admin_booking_ui(
-    str_contains($bookings_create, "const availabilityCalendarCheckedMessage = ' Connected Google Calendar availability was checked.';"),
+    str_contains($bookings_create, "const availabilityCalendarCheckedMessage = 'Connected Google Calendar availability was checked.';"),
     'Admin booking availability UI should keep the Google Calendar status copy in one shared constant.'
 );
 assert_admin_booking_ui(
-    str_contains($bookings_create, "data.google_calendar_checked ? availabilityCalendarCheckedMessage : ''"),
+    str_contains($bookings_create, 'data.google_calendar_checked ? ` ${availabilityCalendarCheckedMessage}` : \'\''),
     'Admin booking availability UI should only append the Google Calendar status message when calendar data was actually checked.'
 );
 

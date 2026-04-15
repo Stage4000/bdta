@@ -462,7 +462,7 @@ include '../backend/includes/header.php';
                                         <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
                                             <div>
                                                 <label class="form-label mb-1">Availability</label>
-                                                <p class="text-muted small mb-0">Optionally show suggested times based on the appointment type schedule and connected Google Calendar availability (if configured).</p>
+                                                <p class="text-muted small mb-0">Optionally show suggested times based on appointment type schedule and Google Calendar availability (if configured).</p>
                                             </div>
                                             <button type="button" class="btn btn-outline-primary" id="showAvailabilityBtn">
                                                 <i class="fas fa-clock me-2"></i>Show Availability
@@ -609,7 +609,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const availabilityNoSlots = document.getElementById('availabilityNoSlots');
     const availabilityStatusBaseClasses = 'small mt-3';
     const availabilityLoadingMarkup = '<div class="spinner-border spinner-border-sm text-secondary me-2" role="status"><span class="visually-hidden">Loading...</span></div> Loading available times...';
-    const availabilityCalendarCheckedMessage = ' Connected Google Calendar availability was checked.';
+    const availabilityCalendarCheckedMessage = 'Connected Google Calendar availability was checked.';
 
     function setAvailabilityStatus(message, tone = 'muted') {
         availabilityStatus.className = `${availabilityStatusBaseClasses} text-${tone}`;
@@ -681,13 +681,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 setHidden(availabilityNoSlots, true);
                 const slotLabel = slots.length === 1 ? 'time' : 'times';
-                const calendarMessage = data.google_calendar_checked ? availabilityCalendarCheckedMessage : '';
+                const calendarMessage = data.google_calendar_checked ? ` ${availabilityCalendarCheckedMessage}` : '';
                 setAvailabilityStatus(`Loaded ${slots.length} available ${slotLabel} for ${date}.${calendarMessage}`);
 
                 slots.forEach(slot => {
-                    // The shared availability API currently returns simple time strings,
-                    // but some booking UIs defensively support object payloads with a time key.
-                    const time = typeof slot === 'object' ? (slot.time || '') : slot;
+                    const time = typeof slot === 'string' ? slot : '';
                     if (!time) {
                         return;
                     }
