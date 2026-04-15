@@ -30,12 +30,16 @@ assertFormTemplateAccessUi($forced_internal_access['can_toggle_internal'] === fa
 assertFormTemplateAccessUi($forced_internal_access['toggle_help'] === 'This form type is always internal and cannot be shared with clients.', 'Forced-internal form types should explain why the toggle is locked.');
 
 $edit_page = file_get_contents(dirname(__DIR__) . '/client/form_templates_edit.php');
-assertFormTemplateAccessUi(is_string($edit_page), 'Expected to read the form template edit page source.');
+if (!is_string($edit_page)) {
+    throw new RuntimeException('Expected to read the form template edit page source.');
+}
 assertFormTemplateAccessUi(str_contains($edit_page, 'id="is_internal_toggle"'), 'Expected the form template editor to render an internal-use toggle.');
 assertFormTemplateAccessUi(str_contains($edit_page, 'Internal use only'), 'Expected the form template editor to label the internal-use toggle.');
 
 $list_page = file_get_contents(dirname(__DIR__) . '/client/form_templates_list.php');
-assertFormTemplateAccessUi(is_string($list_page), 'Expected to read the form template list page source.');
+if (!is_string($list_page)) {
+    throw new RuntimeException('Expected to read the form template list page source.');
+}
 assertFormTemplateAccessUi(str_contains($list_page, '?access=internal'), 'Expected the Internal Forms tab create action to preserve internal access context.');
 
 echo "Form template access UI regression test passed.\n";
