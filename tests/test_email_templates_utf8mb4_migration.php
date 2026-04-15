@@ -12,7 +12,7 @@ $reflection = new ReflectionClass(Database::class);
 $migration_sql = $reflection->getReflectionConstant('MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL');
 
 if (!$migration_sql instanceof ReflectionClassConstant) {
-    throw new RuntimeException('Unable to inspect email_templates utf8mb4 migration SQL constant.');
+    throw new RuntimeException('Unable to inspect Database::MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL; the email_templates utf8mb4 migration constant must remain defined.');
 }
 
 $migration_value = $migration_sql->getValue();
@@ -30,11 +30,11 @@ if (!is_string($database_source)) {
     throw new RuntimeException('Unable to inspect database migration source.');
 }
 
-if (preg_match('/tableCollation\(\'email_templates\'\)/', $database_source) !== 1) {
+if (preg_match('/tableCollation\(\s*[\'"]email_templates[\'"]\s*\)/', $database_source) !== 1) {
     throw new RuntimeException('email_templates migration should check the current table collation before applying the utf8mb4 conversion.');
 }
 
-if (preg_match('/exec\\(self::MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL\\)/', $database_source) !== 1) {
+if (preg_match('/exec\(\s*self::MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL\s*\)/', $database_source) !== 1) {
     throw new RuntimeException('email_templates migration should execute the utf8mb4 conversion SQL when needed.');
 }
 
