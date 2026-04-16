@@ -63,7 +63,7 @@ return static function (array \$submission): bool {
     return bdta_form_submission_is_client_portal_visible(\$submission);
 };
 PHP;
-$sandbox_file = sys_get_temp_dir() . '/bdta-follow-up-visibility-helper-' . md5($sandbox_code) . '.php';
+$sandbox_file = sys_get_temp_dir() . '/bdta-follow-up-visibility-helper.php';
 
 if (file_put_contents($sandbox_file, $sandbox_code) === false) {
     throw new RuntimeException('Expected to write the portal visibility sandbox file.');
