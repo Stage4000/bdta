@@ -469,6 +469,10 @@ require_once '../backend/includes/header.php';
     .booking-status-select {
         min-width: 8.75rem;
     }
+
+    .booking-filter-actions .btn {
+        white-space: nowrap;
+    }
 </style>
 
 <div class="py-4">
@@ -508,11 +512,11 @@ require_once '../backend/includes/header.php';
                     <label for="bookingEndDate" class="form-label">End date</label>
                     <input type="date" name="end_date" id="bookingEndDate" class="form-control" value="<?php echo escape($end_date); ?>">
                 </div>
-                <div class="col-md-2 d-grid d-md-flex gap-2">
-                    <button type="submit" class="btn btn-primary flex-fill">
+                <div class="col-md-12 col-lg-2 d-grid d-lg-flex gap-2 booking-filter-actions">
+                    <button type="submit" class="btn btn-primary">
                         <i class="fas fa-filter me-1"></i>Apply
                     </button>
-                    <a href="bookings_list.php" class="btn btn-outline-secondary flex-fill">Clear</a>
+                    <a href="bookings_list.php" class="btn btn-outline-secondary">Clear</a>
                 </div>
             </form>
         </div>
