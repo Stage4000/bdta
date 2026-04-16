@@ -167,6 +167,7 @@ include '../backend/includes/header.php';
                                             $mapping_labels["pet_{$p}.behavior_notes"]   = ["Pet {$p}: Behavior Notes",   'bg-success'];
                                             $mapping_labels["pet_{$p}.medical_notes"]    = ["Pet {$p}: Medical Notes",    'bg-success'];
                                             $mapping_labels["pet_{$p}.training_notes"]   = ["Pet {$p}: Training Notes",   'bg-success'];
+                                            $mapping_labels["pet_{$p}.pet_sitting_notes"] = ["Pet {$p}: Pet Sitting Notes", 'bg-success'];
                                         }
                                         $ml = $mapping_labels[$field_mapping] ?? [$field_mapping, 'bg-secondary'];
                                         ?>

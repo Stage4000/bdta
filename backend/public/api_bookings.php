@@ -460,6 +460,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             'behavior_notes'  => 'behavior_notes',
             'medical_notes'   => 'medical_notes',
             'training_notes'  => 'training_notes',
+            'pet_sitting_notes' => 'pet_sitting_notes',
         ];
         $overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
 
