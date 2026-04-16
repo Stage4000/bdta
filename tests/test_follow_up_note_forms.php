@@ -99,6 +99,18 @@ try {
         str_contains(scalar_string($email_row['body_html'] ?? ''), '/portal/form_submission_view.php?id=' . $first_submission_id),
         'Expected follow-up portal review link in email body.'
     );
+    assertFollowUpNoteTest(
+        str_contains(scalar_string($email_row['body_html'] ?? ''), 'Follow-up details'),
+        'Expected follow-up email to include a details section.'
+    );
+    assertFollowUpNoteTest(
+        str_contains(scalar_string($email_row['body_html'] ?? ''), 'Great progress'),
+        'Expected follow-up email HTML body to include submitted note details.'
+    );
+    assertFollowUpNoteTest(
+        str_contains(scalar_string($email_row['body_html'] ?? ''), 'Practice leash work'),
+        'Expected follow-up email HTML body to include all submitted responses.'
+    );
     assertFollowUpNoteTest(scalar_string($email_row['status'] ?? '') === 'failed', 'Expected the logged email to reflect the SMTP failure.');
 
     $second_request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
