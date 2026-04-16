@@ -78,7 +78,7 @@ class GoogleCalendarIntegration {
 
         $connected_account = is_array($token) ? trim(self::rowString($token, 'google_email')) : '';
         $connected_account = filter_var($connected_account, FILTER_VALIDATE_EMAIL) ? $connected_account : '';
-        $connected_account = str_replace(['&', '<', '>', '"', "'"], '', $connected_account);
+        $connected_account = htmlspecialchars($connected_account, ENT_QUOTES, 'UTF-8');
         $message = 'Google Calendar OAuth';
         if ($connected_account !== '') {
             $message .= ' for ' . $connected_account;
@@ -586,6 +586,7 @@ class GoogleCalendarIntegration {
      * $event_id is the Google event ID stored in bookings.google_event_id.
      */
     public static function deleteEventOAuth(string $event_id, int $admin_user_id): bool {
+        self::consumeLastHttpErrorResponse();
         $access_token = self::getValidAccessToken($admin_user_id);
         if (!$access_token) {
             error_log('GoogleCalendarIntegration: deleteEventOAuth – no valid token for admin_user_id=' . $admin_user_id);
@@ -681,6 +682,7 @@ class GoogleCalendarIntegration {
      * @return CalendarResult
      */
     public static function updateEventOAuth(array $booking, string $event_id, int $admin_user_id): array {
+        self::consumeLastHttpErrorResponse();
         $access_token = self::getValidAccessToken($admin_user_id);
         if (!$access_token) {
             error_log('GoogleCalendarIntegration: updateEventOAuth – no valid token for admin_user_id=' . $admin_user_id);
