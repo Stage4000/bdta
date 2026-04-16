@@ -29,6 +29,10 @@ assertFollowUpPortalSource(
     'Portal agreements page should explicitly allow client-visible follow-up review submissions.'
 );
 assertFollowUpPortalSource(
+    str_contains($follow_up_notes, "if (!array_key_exists('template_is_internal', \$submission))"),
+    'Portal visibility helper should fail closed when template_is_internal is not provided.'
+);
+assertFollowUpPortalSource(
     str_contains($agreements_page, 'bdta_get_client_portal_form_submission_url($fs)'),
     'Portal agreements page should route follow-up submissions to the portal review page.'
 );
