@@ -42,6 +42,13 @@ $task_types = [
         'icon'        => 'receipt',
         'color'       => 'success',
     ],
+    'invoice' => [
+        'label'       => 'Invoice Email',
+        'description' => 'Sent when an invoice is emailed to a client.',
+        'setting_key' => 'default_invoice_template_id',
+        'icon'        => 'file-invoice-dollar',
+        'color'       => 'info',
+    ],
     'booking_cancellation' => [
         'label'       => 'Booking Cancellation',
         'description' => 'Sent automatically when an appointment is cancelled.',

@@ -80,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $portal_available = isset($_POST['portal_available']) ? 1 : 0;
     $confirmation_template_id = !empty($_POST['confirmation_template_id']) ? safe_int($_POST['confirmation_template_id']) : null;
     $booking_request_template_id = !empty($_POST['booking_request_template_id']) ? safe_int($_POST['booking_request_template_id']) : null;
+    $invoice_template_id         = !empty($_POST['invoice_template_id']) ? safe_int($_POST['invoice_template_id']) : null;
     $reminder_template_id     = !empty($_POST['reminder_template_id'])     ? safe_int($_POST['reminder_template_id'])     : null;
     $cancellation_template_id = !empty($_POST['cancellation_template_id']) ? safe_int($_POST['cancellation_template_id']) : null;
     $requires_admin_confirmation = isset($_POST['requires_admin_confirmation']) ? 1 : 0;
@@ -272,6 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     location_types = ?,
                     confirmation_template_id = ?,
                     booking_request_template_id = ?,
+                    invoice_template_id = ?,
                     reminder_template_id = ?,
                     cancellation_template_id = ?,
                     requires_admin_confirmation = ?,
@@ -303,6 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $location_types_json,
                 $confirmation_template_id,
                 $booking_request_template_id,
+                $invoice_template_id,
                 $reminder_template_id,
                 $cancellation_template_id,
                 $requires_admin_confirmation,
@@ -347,6 +350,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     location_types,
                     confirmation_template_id,
                     booking_request_template_id,
+                    invoice_template_id,
                     reminder_template_id,
                     cancellation_template_id,
                     requires_admin_confirmation,
@@ -386,6 +390,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $location_types_json,
                 $confirmation_template_id,
                 $booking_request_template_id,
+                $invoice_template_id,
                 $reminder_template_id,
                 $cancellation_template_id,
                 $requires_admin_confirmation,
@@ -474,9 +479,10 @@ $existing_specific_dates_json = htmlspecialchars(scalar_string(json_encode($exis
 // Load all active contract templates for the dropdown
 $all_contract_templates = $conn->query("SELECT id, name FROM contract_templates WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
-// Load email templates for confirmation/request/reminder/cancellation overrides
+// Load email templates for confirmation/request/invoice/reminder/cancellation overrides
 $confirmation_templates  = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_confirmation' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 $booking_request_templates = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_request' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$invoice_templates       = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'invoice' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 $reminder_templates      = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_reminder'     AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 $cancellation_templates  = $conn->query("SELECT id, name FROM email_templates WHERE template_type = 'booking_cancellation' AND is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -519,6 +525,7 @@ $type_time_slot_interval = array_int_value($type_row, 'time_slot_interval', 30);
 $type_contract_template_id = array_int_value($type_row, 'contract_template_id');
 $type_confirmation_template_id = array_int_value($type_row, 'confirmation_template_id');
 $type_booking_request_template_id = array_int_value($type_row, 'booking_request_template_id');
+$type_invoice_template_id = array_int_value($type_row, 'invoice_template_id');
 $type_reminder_template_id = array_int_value($type_row, 'reminder_template_id');
 $type_cancellation_template_id = array_int_value($type_row, 'cancellation_template_id');
 $type_auto_invoice = array_int_value($type_row, 'auto_invoice') === 1;
@@ -1271,7 +1278,7 @@ include __DIR__ . '/../backend/includes/header.php';
 
                 <h6 class="border-bottom pb-2 mb-3">Email Template Overrides</h6>
                 <p class="text-muted small mb-3">
-                    Optionally assign specific email templates for confirmations, pending booking requests, reminders, and cancellations sent for this appointment type.
+                    Optionally assign specific email templates for confirmations, pending booking requests, invoice emails, reminders, and cancellations sent for this appointment type.
                     If left blank, the system-wide default template (configured in 
                     <a href="email_template_defaults.php">Email Template Defaults</a>) will be used.
                 </p>
@@ -1309,6 +1316,25 @@ include __DIR__ . '/../backend/includes/header.php';
                             <?php endforeach; ?>
                         </select>
                         <div class="form-text">Used when this appointment type requires admin confirmation and the request remains pending.</div>
+                    </div>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="invoice_template_id" class="form-label">Invoice Email Template</label>
+                        <select class="form-select" id="invoice_template_id" name="invoice_template_id">
+                            <option value="">— Use system default —</option>
+                            <?php foreach ($invoice_templates as $tmpl): ?>
+                                <?php
+                                $tmpl_id = array_int_value($tmpl, 'id');
+                                $tmpl_name = array_string_value($tmpl, 'name');
+                                ?>
+                                <option value="<?= $tmpl_id ?>"
+                                    <?= $type_invoice_template_id === $tmpl_id ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tmpl_name) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Used when invoices for this appointment type are emailed to clients.</div>
                     </div>
                 </div>
                 <div class="row g-3 mb-4">

@@ -70,6 +70,7 @@ include '../backend/includes/header.php';
                         'booking_request' => ['icon' => 'hourglass-half', 'color' => 'secondary'],
                         'booking_reminder' => ['icon' => 'bell', 'color' => 'warning'],
                         'booking_cancellation' => ['icon' => 'calendar-xmark', 'color' => 'danger'],
+                        'invoice' => ['icon' => 'file-invoice-dollar', 'color' => 'info'],
                         'payment_receipt' => ['icon' => 'receipt', 'color' => 'success'],
                         'contract_request' => ['icon' => 'file-invoice', 'color' => 'info'],
                         'form_request' => ['icon' => 'file', 'color' => 'secondary'],

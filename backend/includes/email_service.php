@@ -524,7 +524,7 @@ class EmailService {
      * Look up the applicable email template for a given task type and optional appointment type.
      * Priority: appointment-type override → rule template → system default → null (use hardcoded fallback).
      *
-     * @param string   $template_type      One of: booking_confirmation, booking_request, booking_reminder, payment_receipt, …
+     * @param string   $template_type      One of: booking_confirmation, booking_request, booking_reminder, invoice, payment_receipt, …
      * @param int|null $appointment_type_id  ID of the appointment type (for per-type overrides)
      * @param int|null $rule_template_id     Template ID from the specific reminder rule being processed
      * @return AssocRow|null Row from email_templates, or null
@@ -540,6 +540,7 @@ class EmailService {
             'booking_request'      => 'booking_request_template_id',
             'booking_reminder'     => 'reminder_template_id',
             'booking_cancellation' => 'cancellation_template_id',
+            'invoice'              => 'invoice_template_id',
         ];
 
         // Setting key for the system-wide default
@@ -547,6 +548,7 @@ class EmailService {
             'booking_confirmation' => 'default_confirmation_template_id',
             'booking_request'      => 'default_booking_request_template_id',
             'booking_reminder'     => 'default_reminder_template_id',
+            'invoice'              => 'default_invoice_template_id',
             'payment_receipt'      => 'default_payment_receipt_template_id',
             'booking_cancellation' => 'default_cancellation_template_id',
         ];
@@ -555,7 +557,7 @@ class EmailService {
         if ($appointment_type_id && isset($override_col_map[$template_type])) {
             $col = $override_col_map[$template_type];
             // Whitelist the column name to prevent any future SQL injection risk
-            $allowed_cols = ['confirmation_template_id', 'booking_request_template_id', 'reminder_template_id', 'cancellation_template_id'];
+            $allowed_cols = ['confirmation_template_id', 'booking_request_template_id', 'reminder_template_id', 'cancellation_template_id', 'invoice_template_id'];
             if (!in_array($col, $allowed_cols, true)) {
                 // Should never happen since $override_col_map is hardcoded
                 return null;
@@ -1163,11 +1165,14 @@ HTML;
 
         $subject = "Invoice {$invoice_number} — {$business_name}";
 
-        // Use the secure pay_token for the guest payment link if available
-        $pay_token    = self::rowString($invoice, 'pay_token');
-        $guest_pay_url = !empty($pay_token)
+        // Use the secure pay_token for guest-accessible invoice view / payment links when available
+        $pay_token = self::rowString($invoice, 'pay_token');
+        $invoice_view_url = !empty($pay_token)
             ? $this->base_url . '/portal/invoice_pay.php?token=' . urlencode($pay_token)
             : $this->base_url . '/portal/invoice_view.php?id=' . $invoice_id;
+        $pay_invoice_url = !empty($pay_token)
+            ? $this->base_url . '/portal/invoice_checkout.php?token=' . urlencode($pay_token)
+            : $this->base_url . '/portal/invoice_checkout.php?id=' . $invoice_id;
 
         // Build "Pay Now" button section if Stripe is enabled and invoice is unpaid
         require_once __DIR__ . '/stripe_config.php';
@@ -1175,7 +1180,7 @@ HTML;
         $pay_now_html = '';
         $pay_now_text = '';
         if (isStripeEnabled() && bdta_invoice_is_payable($invoice)) {
-            $pay_url = $guest_pay_url;
+            $pay_url = $pay_invoice_url;
             $pay_now_html = <<<HTML
     <div style="text-align:center;margin:24px 0">
       <a href="{$pay_url}"
@@ -1187,16 +1192,18 @@ HTML;
             $pay_now_text = "\nPAY ONLINE\n----------\nPay securely with a credit card: {$pay_url}\n";
         }
 
+        $appointment_type_id = $this->resolveInvoiceAppointmentTypeId($invoice, $items);
+
         // View invoice link section — uses guest URL (no login required)
         $view_invoice_html = <<<HTML
     <div style="text-align:center;margin:16px 0">
-      <a href="{$guest_pay_url}"
+      <a href="{$invoice_view_url}"
          style="display:inline-block;padding:10px 24px;background:#2563eb;color:white;text-decoration:none;border-radius:6px;font-weight:bold">
         &#128196; View Invoice Online
       </a>
     </div>
 HTML;
-        $view_invoice_text = "\nVIEW INVOICE ONLINE\n-------------------\n{$guest_pay_url}\n";
+        $view_invoice_text = "\nVIEW INVOICE ONLINE\n-------------------\n{$invoice_view_url}\n";
 
         // Build line-item HTML and text
         $items_html = '';
@@ -1230,7 +1237,30 @@ HTML;
 HTML;
         }
 
-        $html_body = <<<HTML
+        $db_template = $this->getTemplateForTask('invoice', $appointment_type_id);
+        if ($db_template) {
+            $variables = [
+                'client_name'       => $client_name,
+                'client_email'      => $to,
+                'invoice_number'    => $invoice_number,
+                'issue_date'        => $issue_date,
+                'due_date'          => $due_date,
+                'amount'            => $total_amount,
+                'amount_due'        => $total_amount,
+                'total_amount'      => $total_amount,
+                'invoice_link'      => $invoice_view_url,
+                'pay_invoice_link'  => $pay_invoice_url,
+                'invoice_items_html'=> $items_section_html,
+                'invoice_items_text'=> trim($items_text),
+                'business_name'     => $business_name,
+                'business_email'    => $business_email,
+            ];
+            $rendered  = $this->renderTemplate($db_template, $variables);
+            $html_body = $rendered['body_html'];
+            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $subject   = $rendered['subject'] ?: $subject;
+        } else {
+            $html_body = <<<HTML
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
@@ -1261,26 +1291,56 @@ HTML;
 </html>
 HTML;
 
-        $items_section_text = !empty($items_text) ? "\nSERVICES\n--------\n{$items_text}" : '';
+            $items_section_text = !empty($items_text) ? "\nSERVICES\n--------\n{$items_text}" : '';
 
-        $text_body = "INVOICE — {$business_name}\n\n"
-            . "Dear {$client_name},\n\n"
-            . "Please find your invoice details below.\n\n"
-            . "INVOICE DETAILS\n"
-            . str_repeat('-', 30) . "\n"
-            . "Invoice Number : {$invoice_number}\n"
-            . "Issue Date     : {$issue_date}\n"
-            . "Due Date       : {$due_date}\n"
-            . "Amount Due     : \${$total_amount}\n"
-            . $items_section_text
-            . $pay_now_text
-            . $view_invoice_text . "\n"
-            . "Questions? Contact us at {$business_email}\n\n"
-            . "Thank you for choosing {$business_name}!";
+            $text_body = "INVOICE — {$business_name}\n\n"
+                . "Dear {$client_name},\n\n"
+                . "Please find your invoice details below.\n\n"
+                . "INVOICE DETAILS\n"
+                . str_repeat('-', 30) . "\n"
+                . "Invoice Number : {$invoice_number}\n"
+                . "Issue Date     : {$issue_date}\n"
+                . "Due Date       : {$due_date}\n"
+                . "Amount Due     : \${$total_amount}\n"
+                . $items_section_text
+                . $pay_now_text
+                . $view_invoice_text . "\n"
+                . "Questions? Contact us at {$business_email}\n\n"
+                . "Thank you for choosing {$business_name}!";
+        }
 
         return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body, [
             'client_id' => self::rowId($invoice),
         ]);
+    }
+
+    /**
+     * @param AssocRow $invoice
+     * @param list<AssocRow> $items
+     */
+    private function resolveInvoiceAppointmentTypeId(array $invoice, array $items): ?int {
+        $direct_appointment_type_id = safe_int($invoice['appointment_type_id'] ?? 0);
+        if ($direct_appointment_type_id > 0) {
+            return $direct_appointment_type_id;
+        }
+
+        $appointment_type_ids = [];
+        foreach ($items as $item) {
+            if (self::rowString($item, 'item_type') !== 'appointment_type') {
+                continue;
+            }
+
+            $reference_id = safe_int($item['reference_id'] ?? 0);
+            if ($reference_id > 0) {
+                $appointment_type_ids[$reference_id] = true;
+            }
+        }
+
+        if (count($appointment_type_ids) === 1) {
+            return (int) array_key_first($appointment_type_ids);
+        }
+
+        return null;
     }
 
     /**

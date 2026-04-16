@@ -113,6 +113,7 @@ include '../backend/includes/header.php';
                                          <option value="booking_request" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_request' ? 'selected' : ''; ?>>Booking Request</option>
                                          <option value="booking_reminder" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_reminder' ? 'selected' : ''; ?>>Booking Reminder</option>
                                          <option value="booking_cancellation" <?php echo array_string_value($template ?? [], 'template_type') === 'booking_cancellation' ? 'selected' : ''; ?>>Booking Cancellation</option>
+                                         <option value="invoice" <?php echo array_string_value($template ?? [], 'template_type') === 'invoice' ? 'selected' : ''; ?>>Invoice</option>
                                          <option value="payment_receipt" <?php echo array_string_value($template ?? [], 'template_type') === 'payment_receipt' ? 'selected' : ''; ?>>Payment Receipt</option>
                                          <option value="contract_request" <?php echo array_string_value($template ?? [], 'template_type') === 'contract_request' ? 'selected' : ''; ?>>Contract Request</option>
                                          <option value="form_request" <?php echo array_string_value($template ?? [], 'template_type') === 'form_request' ? 'selected' : ''; ?>>Form Request</option>
@@ -191,15 +192,27 @@ include '../backend/includes/header.php';
                                 <li><code>{{appointment_location}}</code> — resolves to the appointment address, or <code>Video call: &lt;url&gt;</code>, <code>Phone call — you will call us</code>, <code>Phone call — we will call you</code>, etc.</li>
                             </ul>
                             
-                             <h6 class="small mb-2">Link Variables:</h6>
-                             <ul class="small">
-                                 <li><code>{{booking_link}}</code></li>
-                                 <li><code>{{booking_reschedule_link}}</code></li>
-                                 <li><code>{{booking_cancel_link}}</code></li>
-                                 <li><code>{{invoice_link}}</code></li>
-                                 <li><code>{{contract_link}}</code></li>
-                                 <li><code>{{quote_link}}</code></li>
+                            <h6 class="small mb-2">Link Variables:</h6>
+                            <ul class="small">
+                                <li><code>{{booking_link}}</code></li>
+                                <li><code>{{booking_reschedule_link}}</code></li>
+                                <li><code>{{booking_cancel_link}}</code></li>
+                                <li><code>{{invoice_link}}</code></li>
+                                <li><code>{{pay_invoice_link}}</code></li>
+                                <li><code>{{contract_link}}</code></li>
+                                <li><code>{{quote_link}}</code></li>
                                 <li><code>{{form_link}}</code></li>
+                            </ul>
+
+                            <h6 class="small mb-2">Invoice Variables <span class="text-muted">(invoice emails only)</span>:</h6>
+                            <ul class="small">
+                                <li><code>{{invoice_number}}</code></li>
+                                <li><code>{{issue_date}}</code></li>
+                                <li><code>{{due_date}}</code></li>
+                                <li><code>{{amount_due}}</code></li>
+                                <li><code>{{total_amount}}</code></li>
+                                <li><code>{{invoice_items_html}}</code> — pre-rendered invoice line items for HTML templates</li>
+                                <li><code>{{invoice_items_text}}</code> — plain text invoice line items</li>
                             </ul>
 
                             <h6 class="small mb-2">Calendar Variables <span class="text-muted">(booking emails only)</span>:</h6>
