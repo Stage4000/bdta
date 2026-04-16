@@ -12,46 +12,95 @@ function assertFollowUpPortalSource(bool $condition, string $message): void
 
 final class FollowUpPortalSourceSandboxStream
 {
-    public static string $code = '';
+    /** @var array<string, string> */
+    public static array $code_by_path = [];
+    private string $code = '';
     private int $position = 0;
 
     public function stream_open(string $path, string $mode, int $options, ?string &$opened_path): bool
     {
+        if (!isset(self::$code_by_path[$path])) {
+            return false;
+        }
+
+        $this->code = self::$code_by_path[$path];
         $this->position = 0;
         return true;
     }
 
     public function stream_read(int $count): string
     {
-        $result = substr(self::$code, $this->position, $count);
+        $result = substr($this->code, $this->position, $count);
         $this->position += strlen($result);
         return $result;
     }
 
     public function stream_eof(): bool
     {
-        return $this->position >= strlen(self::$code);
+        return $this->position >= strlen($this->code);
     }
 
     /**
-     * @return array<string, int>
+     * @return array<int|string, int>
      */
     public function stream_stat(): array
     {
-        return [];
+        return self::buildStat($this->code);
     }
 
     /**
-     * @return array<string, int>
+     * @return array<int|string, int>|false
      */
-    public function url_stat(string $path, int $flags): array
+    public function url_stat(string $path, int $flags)
     {
-        return [];
+        if (!isset(self::$code_by_path[$path])) {
+            return false;
+        }
+
+        return self::buildStat(self::$code_by_path[$path]);
     }
 
     public function stream_set_option(int $option, int $arg1, ?int $arg2): bool
     {
         return false;
+    }
+
+    /**
+     * @return array<int|string, int>
+     */
+    private static function buildStat(string $code): array
+    {
+        $size = strlen($code);
+        $time = time();
+
+        return [
+            0,
+            0,
+            0100444,
+            0,
+            0,
+            0,
+            0,
+            $size,
+            $time,
+            $time,
+            $time,
+            -1,
+            -1,
+            'dev' => 0,
+            'ino' => 0,
+            'mode' => 0100444,
+            'nlink' => 0,
+            'uid' => 0,
+            'gid' => 0,
+            'rdev' => 0,
+            'size' => $size,
+            'atime' => $time,
+            'mtime' => $time,
+            'ctime' => $time,
+            'blksize' => -1,
+            'blocks' => -1,
+        ];
     }
 }
 
@@ -109,12 +158,20 @@ return static function (array \$submission): bool {
 };
 PHP;
 
-$sandbox_scheme = 'bdtafollowupportalsource';
-if (in_array($sandbox_scheme, stream_get_wrappers(), true) || !stream_wrapper_register($sandbox_scheme, FollowUpPortalSourceSandboxStream::class)) {
+$sandbox_scheme = 'bdtafollowupportalsource' . bin2hex(random_bytes(6));
+if (!stream_wrapper_register($sandbox_scheme, FollowUpPortalSourceSandboxStream::class)) {
     throw new RuntimeException('Expected to register the portal visibility sandbox stream.');
 }
-FollowUpPortalSourceSandboxStream::$code = $sandbox_code;
-$portal_visibility = require $sandbox_scheme . '://visibility-helper';
+$sandbox_path = $sandbox_scheme . '://visibility-helper';
+FollowUpPortalSourceSandboxStream::$code_by_path[$sandbox_path] = $sandbox_code;
+
+try {
+    $portal_visibility = require $sandbox_path;
+} finally {
+    unset(FollowUpPortalSourceSandboxStream::$code_by_path[$sandbox_path]);
+    stream_wrapper_unregister($sandbox_scheme);
+}
+
 if (!$portal_visibility instanceof Closure) {
     throw new RuntimeException('Expected the portal visibility sandbox to return a closure.');
 }
