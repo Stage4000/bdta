@@ -193,5 +193,13 @@ assertClientFollowUpThreshold(
     $is_past(['appointment_date' => '2026-04-16', 'appointment_time' => '14:00:00'], '2026-04-16 11:00:00') === false,
     'Future same-day appointments should remain upcoming.'
 );
+assertClientFollowUpThreshold(
+    $is_past(['appointment_date' => '2026-04-16', 'appointment_time' => ''], '2026-04-16 11:00:00') === false,
+    'Appointments with an empty time should fail closed and remain upcoming.'
+);
+assertClientFollowUpThreshold(
+    $is_past(['appointment_date' => '2026-04-16', 'appointment_time' => '25:00:00xyz'], '2026-04-16 11:00:00') === false,
+    'Appointments with a malformed time should fail closed and remain upcoming.'
+);
 
 echo "Client follow-up appointment threshold checks passed.\n";

@@ -37,8 +37,15 @@ function bdta_client_view_appointment_is_past(array $appointment, ?DateTimeImmut
         $appointment_date . ' ' . $normalized_time,
         bdta_get_display_timezone()
     );
+    $appointment_start_errors = DateTimeImmutable::getLastErrors();
 
-    if (!$appointment_start instanceof DateTimeImmutable) {
+    if (
+        !$appointment_start instanceof DateTimeImmutable
+        || ($appointment_start_errors !== false && (
+            $appointment_start_errors['warning_count'] > 0
+            || $appointment_start_errors['error_count'] > 0
+        ))
+    ) {
         return $appointment_date < $reference_time->format('Y-m-d');
     }
 
