@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/form_types.php';
 require_once __DIR__ . '/form_link_requests.php';
+require_once __DIR__ . '/notifications.php';
 
 function bdta_form_submission_requires_client_review(string $form_type): bool
 {
@@ -207,6 +208,7 @@ function bdta_notify_follow_up_note_completed(PDO $conn, int $submission_id): ar
     $review_url = bdta_get_follow_up_review_url($submission_id);
     $client_name_raw = array_string_value($submission, 'client_name');
     $form_name_raw = array_string_value($submission, 'form_name');
+    $client_id = array_int_value($submission, 'client_id');
     $fields = decode_json_assoc_list(array_string_value($submission, 'fields'));
     $responses = decode_json_assoc(array_string_value($submission, 'responses'));
     $details = bdta_get_follow_up_note_email_details($fields, $responses);
@@ -232,9 +234,20 @@ function bdta_notify_follow_up_note_completed(PDO $conn, int $submission_id): ar
         . ($details['text'] !== '' ? "\nFollow-up details:\n" . $details['text'] . "\n" : '')
         . "Please review it here:\n" . $review_url;
 
+    bdta_create_notification(
+        $conn,
+        'portal',
+        $client_id,
+        'follow_up_note',
+        $submission_id,
+        'New follow-up note available',
+        'Your ' . $form_name_raw . ' is ready to review in the client portal.',
+        '/portal/form_submission_view.php?id=' . $submission_id
+    );
+
     return bdta_send_client_form_link_email(
         $conn,
-        array_int_value($submission, 'client_id'),
+        $client_id,
         $subject,
         $html_body,
         $text_body

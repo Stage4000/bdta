@@ -259,7 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $success_message = 'Thank you! Your form has been submitted successfully.';
-            if ($submitted_by > 0 && bdta_form_submission_requires_client_review($template_form_type)) {
+            if (bdta_form_submission_requires_client_review($template_form_type)) {
                 $notification_result = bdta_notify_follow_up_note_completed($conn, $new_submission_id);
                 if ($notification_result['success']) {
                     $success_message .= ' The client has been notified to review it in the portal.';

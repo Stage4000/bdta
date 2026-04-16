@@ -116,6 +116,11 @@ if (!is_string($follow_up_notes)) {
     throw new RuntimeException('Expected to read the follow-up notes helper.');
 }
 
+$public_form_page = file_get_contents(dirname(__DIR__) . '/backend/public/form.php');
+if (!is_string($public_form_page)) {
+    throw new RuntimeException('Expected to read the public form submission page.');
+}
+
 $visibility_helper_start = strpos($follow_up_notes, 'function bdta_form_submission_is_client_portal_visible');
 $visibility_helper_end = strpos($follow_up_notes, 'function bdta_get_client_portal_form_submission_url');
 if ($visibility_helper_start === false || $visibility_helper_end === false || $visibility_helper_end <= $visibility_helper_start) {
@@ -219,6 +224,18 @@ assertFollowUpPortalSource(
 assertFollowUpPortalSource(
     str_contains($follow_up_notes, 'Follow-up details'),
     'Follow-up notification emails should include the follow-up details heading.'
+);
+assertFollowUpPortalSource(
+    str_contains($follow_up_notes, "bdta_create_notification(\n        \$conn,\n        'portal'"),
+    'Follow-up note helper should create a portal notification for the client.'
+);
+assertFollowUpPortalSource(
+    str_contains($follow_up_notes, "'New follow-up note available'"),
+    'Follow-up note helper should use the expected portal notification title.'
+);
+assertFollowUpPortalSource(
+    str_contains($public_form_page, "if (bdta_form_submission_requires_client_review(\$template_form_type)) {"),
+    'Follow-up form submissions should always trigger the client notification path.'
 );
 
 echo "Follow-up portal source checks passed.\n";
