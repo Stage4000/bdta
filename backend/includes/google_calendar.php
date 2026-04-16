@@ -19,6 +19,7 @@ class GoogleCalendarIntegration {
     private const HTTP_ERROR_CODE_CURL = 'curl';
     private const OAUTH_NOTIFICATION_ENTITY_TYPE = 'google_calendar_oauth';
     private const OAUTH_NOTIFICATION_TITLE = 'Google Calendar connection needs attention';
+    private static string $last_http_error_message = '';
     private string $credentials_file;
     private string $calendar_id;
 
@@ -46,6 +47,17 @@ class GoogleCalendarIntegration {
         return ['error' => ['message' => $message, 'code' => self::HTTP_ERROR_CODE_CURL]];
     }
 
+    private static function consumeLastHttpErrorResponse(): array {
+        if (self::$last_http_error_message === '') {
+            return [];
+        }
+
+        $response = self::curlErrorResponse(self::$last_http_error_message);
+        self::$last_http_error_message = '';
+
+        return $response;
+    }
+
     /**
      * @param array<string, mixed>|null $token
      */
@@ -66,6 +78,7 @@ class GoogleCalendarIntegration {
 
         $connected_account = is_array($token) ? trim(self::rowString($token, 'google_email')) : '';
         $connected_account = filter_var($connected_account, FILTER_VALIDATE_EMAIL) ? $connected_account : '';
+        $connected_account = str_replace(['&', '<', '>', '"', "'"], '', $connected_account);
         $message = 'Google Calendar OAuth';
         if ($connected_account !== '') {
             $message .= ' for ' . $connected_account;
@@ -478,6 +491,11 @@ class GoogleCalendarIntegration {
             'client_id'     => $client_id,
             'client_secret' => $client_secret,
         ]);
+        $http_error_response = self::consumeLastHttpErrorResponse();
+        if ($http_error_response !== []) {
+            self::createOAuthFailureNotification($admin_user_id);
+            return null;
+        }
 
         if (empty($response['access_token'])) {
             self::createOAuthFailureNotification($admin_user_id);
@@ -634,6 +652,12 @@ class GoogleCalendarIntegration {
             'Authorization: Bearer ' . $access_token,
             'Content-Type: application/json',
         ], true);
+        $http_error_response = self::consumeLastHttpErrorResponse();
+        if ($http_error_response !== []) {
+            self::createOAuthFailureNotification($admin_user_id, $token_row);
+            $http_error = $http_error_response['error'] ?? [];
+            return ['success' => false, 'message' => scalar_string($http_error['message'] ?? 'Unknown error inserting event')];
+        }
 
         if (!empty($response['id'])) {
             self::clearOAuthFailureNotifications($admin_user_id);
@@ -758,6 +782,11 @@ class GoogleCalendarIntegration {
             ],
             true
         );
+        $http_error_response = self::consumeLastHttpErrorResponse();
+        if ($http_error_response !== []) {
+            self::createOAuthFailureNotification($admin_user_id, $token_row);
+            return [];
+        }
 
         if (!empty($response['error'])) {
             error_log('GoogleCalendarIntegration: getFreeBusy error for admin_user_id=' . $admin_user_id . ': ' . json_encode($response['error']));
@@ -828,6 +857,11 @@ class GoogleCalendarIntegration {
             ],
             true
         );
+        $http_error_response = self::consumeLastHttpErrorResponse();
+        if ($http_error_response !== []) {
+            self::createOAuthFailureNotification($admin_user_id, $token_row);
+            return [];
+        }
 
         if (!empty($response['error'])) {
             error_log('GoogleCalendarIntegration: getFreeBusyRange error for admin_user_id=' . $admin_user_id . ': ' . json_encode($response['error']));
@@ -865,6 +899,11 @@ class GoogleCalendarIntegration {
             'https://www.googleapis.com/calendar/v3/users/me/calendarList',
             ['Authorization: Bearer ' . $access_token]
         );
+        $http_error_response = self::consumeLastHttpErrorResponse();
+        if ($http_error_response !== []) {
+            self::createOAuthFailureNotification($admin_user_id);
+            return [];
+        }
 
         $items = $response['items'] ?? null;
         if (!is_array($items) || $items === []) {
@@ -896,6 +935,7 @@ class GoogleCalendarIntegration {
      * @return array<string, mixed>
      */
     private static function httpPost(string $url, array $data, array $headers = [], bool $json = false): array {
+        self::$last_http_error_message = '';
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
@@ -914,7 +954,8 @@ class GoogleCalendarIntegration {
         curl_close($ch);
         if ($curl_err) {
             error_log('GoogleCalendarIntegration cURL POST error: ' . $curl_err);
-            return self::curlErrorResponse($curl_err);
+            self::$last_http_error_message = $curl_err;
+            return [];
         }
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];
@@ -928,6 +969,7 @@ class GoogleCalendarIntegration {
      * @return array<string, mixed>
      */
     private static function httpGet(string $url, array $headers = []): array {
+        self::$last_http_error_message = '';
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         if (!empty($headers)) {
@@ -938,7 +980,8 @@ class GoogleCalendarIntegration {
         curl_close($ch);
         if ($curl_err) {
             error_log('GoogleCalendarIntegration cURL GET error: ' . $curl_err);
-            return self::curlErrorResponse($curl_err);
+            self::$last_http_error_message = $curl_err;
+            return [];
         }
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];

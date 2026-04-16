@@ -67,6 +67,7 @@ $conn->exec('CREATE TABLE notifications (
     deleted_at TEXT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 )');
+// Two admins are required here so the regression can verify admin-wide notification fan-out.
 $conn->exec("INSERT INTO admin_users (id, username, email) VALUES (1, 'alpha', 'alpha@example.com'), (2, 'beta', 'beta@example.com')");
 
 $insert_setting = $conn->prepare('INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, ?)');
