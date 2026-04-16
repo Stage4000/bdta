@@ -16,6 +16,8 @@ require_once __DIR__ . '/config.php';
  * @phpstan-type CalendarResult array<string, mixed>
  */
 class GoogleCalendarIntegration {
+    private const OAUTH_NOTIFICATION_ENTITY_TYPE = 'google_calendar_oauth';
+    private const OAUTH_NOTIFICATION_TITLE = 'Google Calendar connection needs attention';
     private string $credentials_file;
     private string $calendar_id;
 
@@ -30,6 +32,57 @@ class GoogleCalendarIntegration {
      */
     private static function rowString(array $row, string $key, string $default = ''): string {
         return scalar_string($row[$key] ?? $default);
+    }
+
+    private static function oauthNotificationUrl(): string {
+        return ADMIN_URL . 'settings.php?category=calendar';
+    }
+
+    /**
+     * @param array<string, mixed>|null $token
+     */
+    private static function createOAuthFailureNotification(int $admin_user_id, ?array $token = null): void {
+        if ($admin_user_id <= 0) {
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->getConnection();
+        if ($token === null) {
+            $token = self::getOAuthToken($admin_user_id);
+        }
+
+        $connected_account = is_array($token) ? trim(self::rowString($token, 'google_email')) : '';
+        $message = $connected_account !== ''
+            ? 'Google Calendar OAuth for ' . $connected_account . ' needs attention. Booking availability and sync may be inaccurate until it is reconnected.'
+            : 'Google Calendar OAuth needs attention. Booking availability and sync may be inaccurate until it is reconnected.';
+
+        bdta_create_admin_notifications(
+            $conn,
+            self::OAUTH_NOTIFICATION_ENTITY_TYPE,
+            $admin_user_id,
+            self::OAUTH_NOTIFICATION_TITLE,
+            $message,
+            self::oauthNotificationUrl()
+        );
+    }
+
+    private static function clearOAuthFailureNotifications(int $admin_user_id): void {
+        if ($admin_user_id <= 0) {
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("
+            UPDATE notifications
+            SET deleted_at = CURRENT_TIMESTAMP
+            WHERE audience = 'admin'
+              AND entity_type = ?
+              AND entity_id = ?
+              AND deleted_at IS NULL
+        ");
+        $stmt->execute([self::OAUTH_NOTIFICATION_ENTITY_TYPE, $admin_user_id]);
     }
 
     // -------------------------------------------------------------------------
@@ -383,6 +436,7 @@ class GoogleCalendarIntegration {
             $refresh_token = self::rowString($token, 'refresh_token');
             if ($refresh_token === '') {
                 error_log('GoogleCalendarIntegration: token for admin_user_id=' . $admin_user_id . ' is expired and no refresh_token stored');
+                self::createOAuthFailureNotification($admin_user_id, $token);
                 return null;
             }
             $refreshed = self::refreshAccessToken($refresh_token, $admin_user_id);
@@ -411,6 +465,7 @@ class GoogleCalendarIntegration {
         ]);
 
         if (empty($response['access_token'])) {
+            self::createOAuthFailureNotification($admin_user_id);
             return null;
         }
 
@@ -423,6 +478,8 @@ class GoogleCalendarIntegration {
             SET access_token = ?, expires_at = ?, updated_at = CURRENT_TIMESTAMP
             WHERE admin_user_id = ?
         ")->execute([$response['access_token'], $expires_at, $admin_user_id]);
+
+        self::clearOAuthFailureNotifications($admin_user_id);
 
         return self::rowString($response, 'access_token');
     }
@@ -465,6 +522,8 @@ class GoogleCalendarIntegration {
                 VALUES (?, ?, ?, ?, ?, ?)
             ")->execute([$admin_user_id, $access_token, $refresh_token, $expires_at, $google_email, $calendar_id]);
         }
+
+        self::clearOAuthFailureNotifications($admin_user_id);
     }
 
     /**
@@ -485,6 +544,7 @@ class GoogleCalendarIntegration {
         $db   = new Database();
         $conn = $db->getConnection();
         $conn->prepare("DELETE FROM google_oauth_tokens WHERE admin_user_id = ?")->execute([$admin_user_id]);
+        self::clearOAuthFailureNotifications($admin_user_id);
         return true;
     }
 
@@ -517,10 +577,12 @@ class GoogleCalendarIntegration {
 
         if ($curl_err) {
             error_log('GoogleCalendarIntegration: deleteEventOAuth cURL error: ' . $curl_err);
+            self::createOAuthFailureNotification($admin_user_id, $token_row);
             return false;
         }
         // 204 No Content = success; 410 Gone = already deleted – both are acceptable
         if ($http_code === 204 || $http_code === 410) {
+            self::clearOAuthFailureNotifications($admin_user_id);
             return true;
         }
         $body = json_decode(scalar_string($result ?: '{}'), true);
@@ -528,6 +590,7 @@ class GoogleCalendarIntegration {
             ? scalar_string($body['error']['message'] ?? ('HTTP ' . $http_code))
             : 'HTTP ' . $http_code;
         error_log('GoogleCalendarIntegration: deleteEventOAuth failed for event_id=' . $event_id . ', admin_user_id=' . $admin_user_id . ', error=' . $error);
+        self::createOAuthFailureNotification($admin_user_id, $token_row);
         return false;
     }
 
@@ -558,6 +621,7 @@ class GoogleCalendarIntegration {
         ], true);
 
         if (!empty($response['id'])) {
+            self::clearOAuthFailureNotifications($admin_user_id);
             return ['success' => true, 'event_id' => array_string_value($response, 'id'), 'link' => array_string_value($response, 'htmlLink')];
         }
 
@@ -565,6 +629,7 @@ class GoogleCalendarIntegration {
         $error = scalar_string($response_error['message'] ?? 'Unknown error inserting event');
         $error_code = scalar_string($response_error['code'] ?? 'unknown');
         error_log('GoogleCalendarIntegration: addEventOAuth failed for admin_user_id=' . $admin_user_id . ', calendar=' . $calendar_id . ', http_error=' . $error_code . ': ' . $error);
+        self::createOAuthFailureNotification($admin_user_id, $token_row);
         return ['success' => false, 'message' => $error];
     }
 
@@ -618,6 +683,7 @@ class GoogleCalendarIntegration {
         $response = json_decode(scalar_string($result ?: '{}'), true) ?: [];
 
         if (!empty($response['id'])) {
+            self::clearOAuthFailureNotifications($admin_user_id);
             return ['success' => true, 'event_id' => array_string_value($response, 'id'), 'link' => array_string_value($response, 'htmlLink')];
         }
 
@@ -625,6 +691,7 @@ class GoogleCalendarIntegration {
         $error      = scalar_string($response_error['message'] ?? 'Unknown error updating event');
         $error_code = scalar_string($response_error['code'] ?? 'unknown');
         error_log('GoogleCalendarIntegration: updateEventOAuth failed for event_id=' . $event_id . ', admin_user_id=' . $admin_user_id . ', http_error=' . $error_code . ': ' . $error);
+        self::createOAuthFailureNotification($admin_user_id, $token_row);
         return ['success' => false, 'message' => $error];
     }
 
@@ -679,6 +746,7 @@ class GoogleCalendarIntegration {
 
         if (!empty($response['error'])) {
             error_log('GoogleCalendarIntegration: getFreeBusy error for admin_user_id=' . $admin_user_id . ': ' . json_encode($response['error']));
+            self::createOAuthFailureNotification($admin_user_id, $token_row);
             return [];
         }
 
@@ -690,6 +758,7 @@ class GoogleCalendarIntegration {
         if (!is_array($calendar) || !isset($calendar['busy']) || !is_array($calendar['busy'])) {
             return [];
         }
+        self::clearOAuthFailureNotifications($admin_user_id);
         /** @var array<int, array{start: string, end: string}> $busy */
         $busy = $calendar['busy'];
         return $busy;
@@ -747,6 +816,7 @@ class GoogleCalendarIntegration {
 
         if (!empty($response['error'])) {
             error_log('GoogleCalendarIntegration: getFreeBusyRange error for admin_user_id=' . $admin_user_id . ': ' . json_encode($response['error']));
+            self::createOAuthFailureNotification($admin_user_id, $token_row);
             return [];
         }
 
@@ -758,6 +828,7 @@ class GoogleCalendarIntegration {
         if (!is_array($calendar) || !isset($calendar['busy']) || !is_array($calendar['busy'])) {
             return [];
         }
+        self::clearOAuthFailureNotifications($admin_user_id);
         /** @var array<int, array{start: string, end: string}> $busy */
         $busy = $calendar['busy'];
         return $busy;
@@ -784,6 +855,8 @@ class GoogleCalendarIntegration {
         if (!is_array($items) || $items === []) {
             return [];
         }
+
+        self::clearOAuthFailureNotifications($admin_user_id);
 
         /** @var list<array<string, mixed>> $items */
         return array_map(
@@ -826,7 +899,7 @@ class GoogleCalendarIntegration {
         curl_close($ch);
         if ($curl_err) {
             error_log('GoogleCalendarIntegration cURL POST error: ' . $curl_err);
-            return [];
+            return ['error' => ['message' => $curl_err, 'code' => 'curl']];
         }
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];
@@ -850,7 +923,7 @@ class GoogleCalendarIntegration {
         curl_close($ch);
         if ($curl_err) {
             error_log('GoogleCalendarIntegration cURL GET error: ' . $curl_err);
-            return [];
+            return ['error' => ['message' => $curl_err, 'code' => 'curl']];
         }
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];
