@@ -16,6 +16,7 @@ require_once __DIR__ . '/config.php';
  * @phpstan-type CalendarResult array<string, mixed>
  */
 class GoogleCalendarIntegration {
+    private const HTTP_ERROR_CODE_CURL = 'curl';
     private const OAUTH_NOTIFICATION_ENTITY_TYPE = 'google_calendar_oauth';
     private const OAUTH_NOTIFICATION_TITLE = 'Google Calendar connection needs attention';
     private string $credentials_file;
@@ -34,7 +35,7 @@ class GoogleCalendarIntegration {
         return scalar_string($row[$key] ?? $default);
     }
 
-    private static function oauthNotificationUrl(): string {
+    private static function getOauthNotificationUrl(): string {
         return ADMIN_URL . 'settings.php?category=calendar';
     }
 
@@ -63,7 +64,7 @@ class GoogleCalendarIntegration {
             $admin_user_id,
             self::OAUTH_NOTIFICATION_TITLE,
             $message,
-            self::oauthNotificationUrl()
+            self::getOauthNotificationUrl()
         );
     }
 
@@ -899,7 +900,7 @@ class GoogleCalendarIntegration {
         curl_close($ch);
         if ($curl_err) {
             error_log('GoogleCalendarIntegration cURL POST error: ' . $curl_err);
-            return ['error' => ['message' => $curl_err, 'code' => 'curl']];
+            return ['error' => ['message' => $curl_err, 'code' => self::HTTP_ERROR_CODE_CURL]];
         }
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];
@@ -923,7 +924,7 @@ class GoogleCalendarIntegration {
         curl_close($ch);
         if ($curl_err) {
             error_log('GoogleCalendarIntegration cURL GET error: ' . $curl_err);
-            return ['error' => ['message' => $curl_err, 'code' => 'curl']];
+            return ['error' => ['message' => $curl_err, 'code' => self::HTTP_ERROR_CODE_CURL]];
         }
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];
