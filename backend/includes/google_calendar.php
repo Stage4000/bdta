@@ -36,7 +36,14 @@ class GoogleCalendarIntegration {
     }
 
     private static function getOAuthNotificationUrl(): string {
-        return ADMIN_URL . 'settings.php?category=calendar';
+        return '/client/settings.php?category=calendar';
+    }
+
+    /**
+     * @return array{error: array{message: string, code: string}}
+     */
+    private static function curlErrorResponse(string $message): array {
+        return ['error' => ['message' => $message, 'code' => self::HTTP_ERROR_CODE_CURL]];
     }
 
     /**
@@ -44,6 +51,9 @@ class GoogleCalendarIntegration {
      */
     private static function createOAuthFailureNotification(int $admin_user_id, ?array $token = null): void {
         if ($admin_user_id <= 0) {
+            return;
+        }
+        if (!function_exists('bdta_create_admin_notifications')) {
             return;
         }
 
@@ -900,7 +910,7 @@ class GoogleCalendarIntegration {
         curl_close($ch);
         if ($curl_err) {
             error_log('GoogleCalendarIntegration cURL POST error: ' . $curl_err);
-            return ['error' => ['message' => $curl_err, 'code' => self::HTTP_ERROR_CODE_CURL]];
+            return self::curlErrorResponse($curl_err);
         }
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];
@@ -924,7 +934,7 @@ class GoogleCalendarIntegration {
         curl_close($ch);
         if ($curl_err) {
             error_log('GoogleCalendarIntegration cURL GET error: ' . $curl_err);
-            return ['error' => ['message' => $curl_err, 'code' => self::HTTP_ERROR_CODE_CURL]];
+            return self::curlErrorResponse($curl_err);
         }
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode(scalar_string($result ?: '{}'), true) ?: [];
