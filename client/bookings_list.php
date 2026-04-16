@@ -384,7 +384,12 @@ if ($view_filter === 'upcoming' || $view_filter === 'past' || $view_filter === '
 }
 
 $active_sort_summary = 'Sorted appointments';
-$active_sort_options = $sort_labels[$view_filter];
+$active_sort_options = $sort_labels['upcoming'];
+if ($view_filter === 'past') {
+    $active_sort_options = $sort_labels['past'];
+} elseif ($view_filter === 'custom') {
+    $active_sort_options = $sort_labels['custom'];
+}
 if ($sort_direction === 'asc' || $sort_direction === 'desc') {
     $active_sort_summary = $active_sort_options[$sort_direction];
 }
