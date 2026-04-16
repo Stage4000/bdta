@@ -35,7 +35,7 @@ class GoogleCalendarIntegration {
         return scalar_string($row[$key] ?? $default);
     }
 
-    private static function getOauthNotificationUrl(): string {
+    private static function getOAuthNotificationUrl(): string {
         return ADMIN_URL . 'settings.php?category=calendar';
     }
 
@@ -64,7 +64,7 @@ class GoogleCalendarIntegration {
             $admin_user_id,
             self::OAUTH_NOTIFICATION_TITLE,
             $message,
-            self::getOauthNotificationUrl()
+            self::getOAuthNotificationUrl()
         );
     }
 
