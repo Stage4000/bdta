@@ -162,9 +162,11 @@ $sandbox_scheme = '';
 do {
     $sandbox_scheme = 'bdta-follow-up-portal-source-' . getmypid() . '-' . bin2hex(random_bytes(4));
 } while (in_array($sandbox_scheme, stream_get_wrappers(), true));
+if (preg_match('/^[a-z0-9-]+$/i', $sandbox_scheme) !== 1) {
+    throw new RuntimeException('Expected a valid portal visibility sandbox scheme.');
+}
 
-$sandbox_registered = stream_wrapper_register($sandbox_scheme, FollowUpPortalSourceSandboxStream::class);
-if (!$sandbox_registered) {
+if (!stream_wrapper_register($sandbox_scheme, FollowUpPortalSourceSandboxStream::class)) {
     throw new RuntimeException('Expected to register the portal visibility sandbox stream with scheme: ' . $sandbox_scheme);
 }
 $sandbox_path = $sandbox_scheme . '://visibility-helper';
@@ -174,7 +176,7 @@ try {
     $portal_visibility = require $sandbox_path;
 } finally {
     unset(FollowUpPortalSourceSandboxStream::$code_by_path[$sandbox_path]);
-    if ($sandbox_registered) {
+    if (in_array($sandbox_scheme, stream_get_wrappers(), true)) {
         stream_wrapper_unregister($sandbox_scheme);
     }
 }
