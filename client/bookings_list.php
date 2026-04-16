@@ -268,9 +268,10 @@ $sort_preference = in_array($requested_sort_preference, ['default', 'asc', 'desc
     ? $requested_sort_preference
     : 'default';
 
-$sort_direction = $sort_preference === 'default'
-    ? ($view_filter === 'past' ? 'desc' : 'asc')
-    : $sort_preference;
+$sort_direction = $sort_preference;
+if ($sort_preference === 'default') {
+    $sort_direction = $view_filter === 'past' ? 'desc' : 'asc';
+}
 
 $start_date = trim(scalar_string($_GET['start_date'] ?? ''));
 if (!bdta_booking_list_is_valid_date_string($start_date)) {
@@ -481,8 +482,8 @@ require_once '../backend/includes/header.php';
                     <label for="bookingSortFilter" class="form-label">Sort order</label>
                     <select name="sort" id="bookingSortFilter" class="form-select">
                         <option value="default" <?php echo $sort_preference === 'default' ? 'selected' : ''; ?>>Default for selection</option>
-                        <option value="asc" <?php echo $sort_preference === 'asc' ? 'selected' : ''; ?>>Soonest first</option>
-                        <option value="desc" <?php echo $sort_preference === 'desc' ? 'selected' : ''; ?>>Latest first</option>
+                        <option value="asc" <?php echo $sort_preference === 'asc' ? 'selected' : ''; ?>>Ascending</option>
+                        <option value="desc" <?php echo $sort_preference === 'desc' ? 'selected' : ''; ?>>Descending</option>
                     </select>
                 </div>
                 <div class="col-md-2">
