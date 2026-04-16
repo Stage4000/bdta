@@ -378,11 +378,17 @@ $sort_labels = [
         'desc' => 'Latest appointment first',
     ],
 ];
-$active_filter_summary = $active_view_labels[$view_filter];
+$active_filter_summary = match ($view_filter) {
+    'upcoming' => $active_view_labels['upcoming'],
+    'past' => $active_view_labels['past'],
+    'custom' => $active_view_labels['custom'],
+    default => 'Appointments',
+};
 $active_sort_summary = match ($view_filter) {
     'upcoming' => $sort_labels['upcoming'][$sort_direction],
     'past' => $sort_labels['past'][$sort_direction],
     'custom' => $sort_labels['custom'][$sort_direction],
+    default => 'Sorted appointments',
 };
 
 $page_title = 'Bookings';
