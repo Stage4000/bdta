@@ -78,7 +78,6 @@ class GoogleCalendarIntegration {
 
         $connected_account = is_array($token) ? trim(self::rowString($token, 'google_email')) : '';
         $connected_account = filter_var($connected_account, FILTER_VALIDATE_EMAIL) ? $connected_account : '';
-        $connected_account = htmlspecialchars($connected_account, ENT_QUOTES, 'UTF-8');
         $message = sprintf(
             'Google Calendar OAuth%s needs attention. Booking availability and sync may be inaccurate until it is reconnected.',
             $connected_account !== '' ? ' for ' . $connected_account : ''
@@ -714,6 +713,7 @@ class GoogleCalendarIntegration {
 
         if ($curl_err) {
             error_log('GoogleCalendarIntegration: updateEventOAuth cURL error: ' . $curl_err);
+            self::createOAuthFailureNotification($admin_user_id, $token_row);
             return ['success' => false, 'message' => $curl_err];
         }
 
