@@ -257,15 +257,21 @@ if ($end_date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date) !== 1) {
 $now = new DateTimeImmutable('now', bdta_get_display_timezone());
 $current_date = $now->format('Y-m-d');
 $current_time = $now->format('H:i:s');
-$appointment_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '00:00:00'))";
-$comparison_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '23:59:59'))";
+// Use end-of-day for filtering so same-day bookings without a stored time still appear in upcoming results
+// until the day passes, while sorting should treat missing times as the start of the day for stable ordering.
+$sort_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '00:00:00'))";
+$filter_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '23:59:59'))";
 $where_conditions = [];
 $query_params = [];
+$sort_sql_direction = [
+    'asc' => 'ASC',
+    'desc' => 'DESC',
+][$sort_direction];
 
 if ($view_filter === 'upcoming') {
     $where_conditions[] = "(
         b.appointment_date > ?
-        OR (b.appointment_date = ? AND {$comparison_time_sql} >= ?)
+        OR (b.appointment_date = ? AND {$filter_time_sql} >= ?)
     )";
     $query_params[] = $current_date;
     $query_params[] = $current_date;
@@ -273,7 +279,7 @@ if ($view_filter === 'upcoming') {
 } elseif ($view_filter === 'past') {
     $where_conditions[] = "(
         b.appointment_date < ?
-        OR (b.appointment_date = ? AND {$comparison_time_sql} < ?)
+        OR (b.appointment_date = ? AND {$filter_time_sql} < ?)
     )";
     $query_params[] = $current_date;
     $query_params[] = $current_date;
@@ -301,9 +307,9 @@ if ($where_conditions !== []) {
 }
 
 $booking_sql .= "
-    ORDER BY b.appointment_date " . strtoupper($sort_direction) . ",
-             {$appointment_time_sql} " . strtoupper($sort_direction) . ",
-             b.id " . strtoupper($sort_direction);
+    ORDER BY b.appointment_date {$sort_sql_direction},
+             {$sort_time_sql} {$sort_sql_direction},
+             b.id {$sort_sql_direction}";
 
 $stmt = $conn->prepare($booking_sql);
 $stmt->execute($query_params);
@@ -506,7 +512,6 @@ require_once '../backend/includes/header.php';
                                     <?php else: ?>
                                         <span class="fw-semibold"><?php echo escape($client_label); ?></span>
                                     <?php endif; ?>
-                                    <div class="booking-subtext">Client record</div>
                                 </td>
                                 <td>
                                     <div class="booking-subtext">
