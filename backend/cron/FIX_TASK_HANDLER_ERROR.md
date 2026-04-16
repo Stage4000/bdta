@@ -2,16 +2,17 @@
 
 ## Update (Fixed)
 
-**The `email.php`, `workflow.php`, and `reminder.php` handlers have been added** to provide backward compatibility for tasks with legacy `task_type` values. 
+**The `booking.php`, `email.php`, `workflow.php`, and `reminder.php` handlers have been added** to provide backward compatibility for tasks with legacy `task_type` values. 
 
 If you previously saw the error:
 ```
+Task handler not found: /var/www/.../backend/cron/tasks/booking.php
 Task handler not found: /var/www/.../backend/cron/tasks/email.php
 Task handler not found: /var/www/.../backend/cron/tasks/reminder.php
 Task handler not found: /var/www/.../backend/cron/tasks/workflow.php
 ```
 
-These errors should now be **resolved automatically**. The legacy `reminder` task type delegates to `booking_reminder.php`, `email` delegates to the scheduled email sender, and the legacy `workflow` task type delegates to `workflow_processor.php`.
+These errors should now be **resolved automatically**. The legacy `booking` and `reminder` task types delegate to `booking_reminder.php`, `email` delegates to the scheduled email sender, and the legacy `workflow` task type delegates to `workflow_processor.php`.
 
 Updating old legacy task types in the database is still recommended for clarity, but it is no longer required to restore task execution.
 
@@ -33,10 +34,12 @@ This means your `scheduled_tasks` database table contains incorrect `task_type` 
 The `scheduled_tasks` table has task_type values that don't correspond to the actual PHP files in `/backend/cron/tasks/`.
 
 **Common Incorrect Values:**
+- `booking` → Should be `booking_reminder`
 - `reminder` → Should be `booking_reminder`
 - `workflow` → Should be `workflow_processor`
 
 **Available Task Handlers:**
+- `booking.php` - Legacy alias for booking reminders
 - `booking_reminder.php` - Send booking reminders
 - `contract_reminder.php` - Send contract reminders
 - `email.php` - Generic email handler (legacy, delegates to scheduled_email_sender)
@@ -60,7 +63,7 @@ php fix_task_types.php
 
 This script will:
 1. Display all current scheduled tasks
-2. Identify tasks with invalid task_type values
+2. Identify tasks with invalid or legacy task_type values
 3. Automatically correct known issues
 4. Report what was fixed and what needs manual intervention
 
@@ -69,14 +72,14 @@ This script will:
 If you prefer to fix the database manually, use these SQL commands:
 
 ```sql
--- Fix 'reminder' → 'booking_reminder'
+-- Fix 'booking' and 'reminder' → 'booking_reminder'
 UPDATE scheduled_tasks 
-SET task_type = 'booking_reminder', updated_at = datetime('now')
-WHERE task_type = 'reminder';
+SET task_type = 'booking_reminder', updated_at = NOW()
+WHERE task_type IN ('booking', 'reminder');
 
 -- Fix 'workflow' → 'workflow_processor'
 UPDATE scheduled_tasks 
-SET task_type = 'workflow_processor', updated_at = datetime('now')
+SET task_type = 'workflow_processor', updated_at = NOW()
 WHERE task_type = 'workflow';
 
 -- Note: 'email' is now a valid task_type (generic handler that delegates to scheduled_email_sender)
@@ -84,12 +87,12 @@ WHERE task_type = 'workflow';
 
 -- (Optional) Fix generic 'email' → 'scheduled_email_sender' (for "Send Scheduled Emails" task)
 UPDATE scheduled_tasks 
-SET task_type = 'scheduled_email_sender', updated_at = datetime('now')
+SET task_type = 'scheduled_email_sender', updated_at = NOW()
 WHERE task_type = 'email' AND task_name = 'Send Scheduled Emails';
 
 -- (Optional) Fix generic 'email' → 'email_receiver' (for "Receive Emails" task)
 UPDATE scheduled_tasks 
-SET task_type = 'email_receiver', updated_at = datetime('now')
+SET task_type = 'email_receiver', updated_at = NOW()
 WHERE task_type = 'email' AND task_name LIKE '%Receive%';
 ```
 
@@ -149,13 +152,13 @@ If you need to create a custom scheduled task:
        task_name, task_type, schedule_type, schedule_value, is_active, next_run
    ) VALUES (
        'My Custom Task',
-       'my_custom_task',  -- Must match the filename without .php
-       'daily',
-       '10:00',
-       1,
-       datetime('now')
-   );
-   ```
+        'my_custom_task',  -- Must match the filename without .php
+        'daily',
+        '10:00',
+        1,
+        NOW()
+    );
+    ```
 
 ## Need Help?
 
