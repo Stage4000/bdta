@@ -19,9 +19,59 @@ $follow_up_notes = file_get_contents(dirname(__DIR__) . '/backend/includes/follo
 if (!is_string($follow_up_notes)) {
     throw new RuntimeException('Expected to read the follow-up notes helper.');
 }
-$follow_up_notes_normalized = preg_replace('/\s+/', ' ', $follow_up_notes);
-if (!is_string($follow_up_notes_normalized)) {
-    throw new RuntimeException('Expected to normalize follow-up helper source.');
+
+$visibility_helper_start = strpos($follow_up_notes, 'function bdta_form_submission_is_client_portal_visible');
+$visibility_helper_end = strpos($follow_up_notes, 'function bdta_get_client_portal_form_submission_url');
+if ($visibility_helper_start === false || $visibility_helper_end === false || $visibility_helper_end <= $visibility_helper_start) {
+    throw new RuntimeException('Expected to locate the portal visibility helper in follow_up_notes.php.');
+}
+
+$visibility_helper = substr($follow_up_notes, $visibility_helper_start, $visibility_helper_end - $visibility_helper_start);
+if ($visibility_helper === '') {
+    throw new RuntimeException('Expected to extract the portal visibility helper.');
+}
+
+$sandbox_file = sys_get_temp_dir() . '/bdta-follow-up-visibility-helper-' . bin2hex(random_bytes(6)) . '.php';
+$sandbox_code = <<<PHP
+<?php
+namespace BdtaFollowUpPortalSourceSandbox;
+
+function array_string_value(array \$array, string \$key, string \$default = ''): string
+{
+    \$value = \$array[\$key] ?? \$default;
+    return is_string(\$value) ? \$value : \$default;
+}
+
+function array_int_value(array \$array, string \$key, int \$default = 0): int
+{
+    \$value = \$array[\$key] ?? \$default;
+    return is_numeric(\$value) ? (int) \$value : \$default;
+}
+
+function bdta_form_submission_requires_client_review(string \$form_type): bool
+{
+    return \$form_type === 'follow_up_note';
+}
+
+function bdta_form_type_forced_internal(string \$form_type): int
+{
+    return \$form_type === 'pet_form' ? 1 : 0;
+}
+
+{$visibility_helper}
+
+return static function (array \$submission): bool {
+    return bdta_form_submission_is_client_portal_visible(\$submission);
+};
+PHP;
+
+if (file_put_contents($sandbox_file, $sandbox_code) === false) {
+    throw new RuntimeException('Expected to write the portal visibility sandbox file.');
+}
+
+$portal_visibility = require $sandbox_file;
+if (!$portal_visibility instanceof Closure) {
+    throw new RuntimeException('Expected the portal visibility sandbox to return a closure.');
 }
 
 assertFollowUpPortalSource(
@@ -33,15 +83,15 @@ assertFollowUpPortalSource(
     'Portal agreements page should explicitly allow client-visible follow-up review submissions.'
 );
 assertFollowUpPortalSource(
-    str_contains($follow_up_notes_normalized, "if (!array_key_exists('template_is_internal', \$submission)) { return false; }"),
+    $portal_visibility(['form_type' => 'client_form']) === false,
     'Portal visibility helper should fail closed when template_is_internal is not provided.'
 );
 assertFollowUpPortalSource(
-    str_contains($follow_up_notes_normalized, "return array_int_value(\$submission, 'template_is_internal') === 0 && bdta_form_type_forced_internal(\$form_type) === 0;"),
-    'Portal visibility helper should allow only explicitly non-internal client-facing submissions.'
+    $portal_visibility(['form_type' => 'client_form', 'template_is_internal' => 0]) === true,
+    'Portal visibility helper should allow client-facing submissions when template_is_internal is provided as 0.'
 );
 assertFollowUpPortalSource(
-    str_contains($follow_up_notes_normalized, "if (bdta_form_submission_requires_client_review(\$form_type)) { return true; }"),
+    $portal_visibility(['form_type' => 'follow_up_note']) === true,
     'Portal visibility helper should still allow follow-up review submissions.'
 );
 assertFollowUpPortalSource(
