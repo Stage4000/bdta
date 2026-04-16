@@ -3,6 +3,8 @@
 
 require_once dirname(__DIR__) . '/backend/includes/form_types.php';
 
+const FOLLOW_UP_PORTAL_SOURCE_SANDBOX_FILE_MODE = 0100444;
+
 function assertFollowUpPortalSource(bool $condition, string $message): void
 {
     if (!$condition) {
@@ -76,7 +78,7 @@ final class FollowUpPortalSourceSandboxStream
         return [
             0,
             0,
-            0100444,
+            FOLLOW_UP_PORTAL_SOURCE_SANDBOX_FILE_MODE,
             0,
             0,
             0,
@@ -89,7 +91,7 @@ final class FollowUpPortalSourceSandboxStream
             -1,
             'dev' => 0,
             'ino' => 0,
-            'mode' => 0100444,
+            'mode' => FOLLOW_UP_PORTAL_SOURCE_SANDBOX_FILE_MODE,
             'nlink' => 0,
             'uid' => 0,
             'gid' => 0,
@@ -162,9 +164,6 @@ $sandbox_scheme = '';
 do {
     $sandbox_scheme = 'bdta-follow-up-portal-source-' . getmypid() . '-' . bin2hex(random_bytes(4));
 } while (in_array($sandbox_scheme, stream_get_wrappers(), true));
-if (preg_match('/^[a-z0-9-]+$/i', $sandbox_scheme) !== 1) {
-    throw new RuntimeException('Expected a valid portal visibility sandbox scheme.');
-}
 
 if (!stream_wrapper_register($sandbox_scheme, FollowUpPortalSourceSandboxStream::class)) {
     throw new RuntimeException('Expected to register the portal visibility sandbox stream with scheme: ' . $sandbox_scheme);
