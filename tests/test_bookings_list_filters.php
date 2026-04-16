@@ -32,6 +32,11 @@ bdta_assert_contains(
 );
 bdta_assert_contains(
     $bookingsList,
+    "\$appointment_time_missing_sort_sql = \"CASE WHEN NULLIF(TRIM(COALESCE(b.appointment_time, '')), '') IS NULL THEN 1 ELSE 0 END\";",
+    'Bookings list should sort blank appointment times after known times.'
+);
+bdta_assert_contains(
+    $bookingsList,
     'name="start_date"',
     'Bookings list should expose a custom start date filter.'
 );
@@ -39,6 +44,11 @@ bdta_assert_contains(
     $bookingsList,
     'name="end_date"',
     'Bookings list should expose a custom end date filter.'
+);
+bdta_assert_contains(
+    $bookingsList,
+    "setFlashMessage('Start date must be on or before the end date.', 'warning');",
+    'Bookings list should warn when the selected date range is inverted.'
 );
 bdta_assert_contains(
     $bookingsList,

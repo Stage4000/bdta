@@ -283,12 +283,19 @@ if (!bdta_booking_list_is_valid_date_string($end_date)) {
     $end_date = '';
 }
 
+if ($start_date !== '' && $end_date !== '' && $start_date > $end_date) {
+    setFlashMessage('Start date must be on or before the end date.', 'warning');
+    $start_date = '';
+    $end_date = '';
+}
+
 $now = new DateTimeImmutable('now', bdta_get_display_timezone());
 $current_date = $now->format('Y-m-d');
 $current_time = $now->format('H:i:s');
 // Use end-of-day for filtering so same-day bookings without a stored time still appear in upcoming results
 // until the day passes, while sorting should treat missing times as the start of the day for stable ordering.
 $appointment_time_fallback_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), ?))";
+$appointment_time_missing_sort_sql = "CASE WHEN NULLIF(TRIM(COALESCE(b.appointment_time, '')), '') IS NULL THEN 1 ELSE 0 END";
 $where_conditions = [];
 $query_params = [];
 
@@ -335,10 +342,12 @@ if ($where_conditions !== []) {
 $order_by_sql = [
     'asc' => "
         ORDER BY b.appointment_date ASC,
+                 {$appointment_time_missing_sort_sql} ASC,
                  {$appointment_time_fallback_sql} ASC,
                  b.id ASC",
     'desc' => "
         ORDER BY b.appointment_date DESC,
+                 {$appointment_time_missing_sort_sql} ASC,
                  {$appointment_time_fallback_sql} DESC,
                  b.id DESC",
 ];
