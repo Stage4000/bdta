@@ -1256,13 +1256,8 @@ HTML;
             $html_body = $rendered['body_html'];
             $text_body = $rendered['body_text'] ?: strip_tags($html_body);
             $subject   = $rendered['subject'] ?: $subject;
-
-            return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body, [
-                'client_id' => self::rowId($invoice),
-            ]);
-        }
-
-        $html_body = <<<HTML
+        } else {
+            $html_body = <<<HTML
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
@@ -1293,22 +1288,23 @@ HTML;
 </html>
 HTML;
 
-        $items_section_text = !empty($items_text) ? "\nSERVICES\n--------\n{$items_text}" : '';
+            $items_section_text = !empty($items_text) ? "\nSERVICES\n--------\n{$items_text}" : '';
 
-        $text_body = "INVOICE — {$business_name}\n\n"
-            . "Dear {$client_name},\n\n"
-            . "Please find your invoice details below.\n\n"
-            . "INVOICE DETAILS\n"
-            . str_repeat('-', 30) . "\n"
-            . "Invoice Number : {$invoice_number}\n"
-            . "Issue Date     : {$issue_date}\n"
-            . "Due Date       : {$due_date}\n"
-            . "Amount Due     : \${$total_amount}\n"
-            . $items_section_text
-            . $pay_now_text
-            . $view_invoice_text . "\n"
-            . "Questions? Contact us at {$business_email}\n\n"
-            . "Thank you for choosing {$business_name}!";
+            $text_body = "INVOICE — {$business_name}\n\n"
+                . "Dear {$client_name},\n\n"
+                . "Please find your invoice details below.\n\n"
+                . "INVOICE DETAILS\n"
+                . str_repeat('-', 30) . "\n"
+                . "Invoice Number : {$invoice_number}\n"
+                . "Issue Date     : {$issue_date}\n"
+                . "Due Date       : {$due_date}\n"
+                . "Amount Due     : \${$total_amount}\n"
+                . $items_section_text
+                . $pay_now_text
+                . $view_invoice_text . "\n"
+                . "Questions? Contact us at {$business_email}\n\n"
+                . "Thank you for choosing {$business_name}!";
+        }
 
         return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body, [
             'client_id' => self::rowId($invoice),

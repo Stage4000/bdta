@@ -193,14 +193,14 @@ include '../backend/includes/header.php';
                             </ul>
                             
                             <h6 class="small mb-2">Link Variables:</h6>
-                             <ul class="small">
-                                 <li><code>{{booking_link}}</code></li>
-                                 <li><code>{{booking_reschedule_link}}</code></li>
-                                 <li><code>{{booking_cancel_link}}</code></li>
-                                 <li><code>{{invoice_link}}</code></li>
-                                 <li><code>{{pay_invoice_link}}</code></li>
-                                 <li><code>{{contract_link}}</code></li>
-                                 <li><code>{{quote_link}}</code></li>
+                            <ul class="small">
+                                <li><code>{{booking_link}}</code></li>
+                                <li><code>{{booking_reschedule_link}}</code></li>
+                                <li><code>{{booking_cancel_link}}</code></li>
+                                <li><code>{{invoice_link}}</code></li>
+                                <li><code>{{pay_invoice_link}}</code></li>
+                                <li><code>{{contract_link}}</code></li>
+                                <li><code>{{quote_link}}</code></li>
                                 <li><code>{{form_link}}</code></li>
                             </ul>
 
