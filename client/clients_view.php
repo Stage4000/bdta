@@ -17,6 +17,9 @@ function bdta_booking_action_request_ip(): string
     return scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
 }
 
+/**
+ * @param array<string, mixed> $appointment
+ */
 function bdta_client_view_appointment_is_past(array $appointment, ?DateTimeImmutable $reference_time = null): bool
 {
     $reference_time = $reference_time ?? new DateTimeImmutable('now', bdta_get_display_timezone());
