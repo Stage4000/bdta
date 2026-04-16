@@ -303,10 +303,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $invoice_stmt->execute([$invoice_number, $client_id, $issue_date, $due_date, $default_amount, $default_amount, $invoice_notes]);
                 $invoice_id = $conn->lastInsertId();
                 $item_stmt = $conn->prepare("
-                    INSERT INTO invoice_items (invoice_id, item_type, description, quantity, rate, amount)
-                    VALUES (?, 'custom', ?, 1, ?, ?)
+                    INSERT INTO invoice_items (invoice_id, item_type, reference_id, description, quantity, rate, amount)
+                    VALUES (?, 'appointment_type', ?, ?, 1, ?, ?)
                 ");
-                $item_stmt->execute([$invoice_id, $apt_type['name'], $default_amount, $default_amount]);
+                $item_stmt->execute([$invoice_id, $appointment_type_id, $apt_type['name'], $default_amount, $default_amount]);
             }
             
             // Link pets to appointment

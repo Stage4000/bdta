@@ -2180,6 +2180,9 @@ class Database {
         if (!in_array('booking_request_template_id', $apt_col_names_tmpl)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN booking_request_template_id INTEGER DEFAULT NULL");
         }
+        if (!in_array('invoice_template_id', $apt_col_names_tmpl)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN invoice_template_id INTEGER DEFAULT NULL");
+        }
         if (!in_array('requires_admin_confirmation', $apt_col_names_tmpl)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN requires_admin_confirmation INTEGER DEFAULT 0");
         }
@@ -2510,6 +2513,7 @@ class Database {
             'default_confirmation_template_id',
             'default_booking_request_template_id',
             'default_reminder_template_id',
+            'default_invoice_template_id',
             'default_payment_receipt_template_id',
             'default_cancellation_template_id',
         ];
@@ -2517,6 +2521,7 @@ class Database {
             'default_confirmation_template_id' => 'Default Booking Confirmation Template',
             'default_booking_request_template_id' => 'Default Booking Request Template',
             'default_reminder_template_id'      => 'Default Booking Reminder Template',
+            'default_invoice_template_id'       => 'Default Invoice Email Template',
             'default_payment_receipt_template_id' => 'Default Payment Receipt Template',
             'default_cancellation_template_id'  => 'Default Booking Cancellation Template',
         ];
@@ -2524,6 +2529,7 @@ class Database {
             'default_confirmation_template_id' => 'Email template used for booking confirmations (0 = use built-in template)',
             'default_booking_request_template_id' => 'Email template used for pending booking requests (0 = use built-in template)',
             'default_reminder_template_id'      => 'Email template used for booking reminders (0 = use built-in template)',
+            'default_invoice_template_id'       => 'Email template used when sending invoices (0 = use built-in template)',
             'default_payment_receipt_template_id' => 'Email template used for payment receipts (0 = use built-in template)',
             'default_cancellation_template_id'  => 'Email template used for booking cancellation notifications (0 = use built-in template)',
         ];

@@ -524,7 +524,7 @@ class EmailService {
      * Look up the applicable email template for a given task type and optional appointment type.
      * Priority: appointment-type override → rule template → system default → null (use hardcoded fallback).
      *
-     * @param string   $template_type      One of: booking_confirmation, booking_request, booking_reminder, payment_receipt, …
+     * @param string   $template_type      One of: booking_confirmation, booking_request, booking_reminder, invoice, payment_receipt, …
      * @param int|null $appointment_type_id  ID of the appointment type (for per-type overrides)
      * @param int|null $rule_template_id     Template ID from the specific reminder rule being processed
      * @return AssocRow|null Row from email_templates, or null
@@ -540,6 +540,7 @@ class EmailService {
             'booking_request'      => 'booking_request_template_id',
             'booking_reminder'     => 'reminder_template_id',
             'booking_cancellation' => 'cancellation_template_id',
+            'invoice'              => 'invoice_template_id',
         ];
 
         // Setting key for the system-wide default
@@ -547,6 +548,7 @@ class EmailService {
             'booking_confirmation' => 'default_confirmation_template_id',
             'booking_request'      => 'default_booking_request_template_id',
             'booking_reminder'     => 'default_reminder_template_id',
+            'invoice'              => 'default_invoice_template_id',
             'payment_receipt'      => 'default_payment_receipt_template_id',
             'booking_cancellation' => 'default_cancellation_template_id',
         ];
@@ -555,7 +557,7 @@ class EmailService {
         if ($appointment_type_id && isset($override_col_map[$template_type])) {
             $col = $override_col_map[$template_type];
             // Whitelist the column name to prevent any future SQL injection risk
-            $allowed_cols = ['confirmation_template_id', 'booking_request_template_id', 'reminder_template_id', 'cancellation_template_id'];
+            $allowed_cols = ['confirmation_template_id', 'booking_request_template_id', 'reminder_template_id', 'cancellation_template_id', 'invoice_template_id'];
             if (!in_array($col, $allowed_cols, true)) {
                 // Should never happen since $override_col_map is hardcoded
                 return null;
@@ -1187,6 +1189,8 @@ HTML;
             $pay_now_text = "\nPAY ONLINE\n----------\nPay securely with a credit card: {$pay_url}\n";
         }
 
+        $appointment_type_id = $this->resolveInvoiceAppointmentTypeId($invoice, $items);
+
         // View invoice link section — uses guest URL (no login required)
         $view_invoice_html = <<<HTML
     <div style="text-align:center;margin:16px 0">
@@ -1228,6 +1232,34 @@ HTML;
   <tbody>{$items_html}</tbody>
 </table>
 HTML;
+        }
+
+        $db_template = $this->getTemplateForTask('invoice', $appointment_type_id);
+        if ($db_template) {
+            $variables = [
+                'client_name'       => $client_name,
+                'client_email'      => $to,
+                'invoice_number'    => $invoice_number,
+                'issue_date'        => $issue_date,
+                'due_date'          => $due_date,
+                'amount'            => $total_amount,
+                'amount_due'        => $total_amount,
+                'total_amount'      => $total_amount,
+                'invoice_link'      => $guest_pay_url,
+                'pay_invoice_link'  => $guest_pay_url,
+                'invoice_items_html'=> $items_section_html,
+                'invoice_items_text'=> trim($items_text),
+                'business_name'     => $business_name,
+                'business_email'    => $business_email,
+            ];
+            $rendered  = $this->renderTemplate($db_template, $variables);
+            $html_body = $rendered['body_html'];
+            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $subject   = $rendered['subject'] ?: $subject;
+
+            return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body, [
+                'client_id' => self::rowId($invoice),
+            ]);
         }
 
         $html_body = <<<HTML
@@ -1281,6 +1313,35 @@ HTML;
         return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body, [
             'client_id' => self::rowId($invoice),
         ]);
+    }
+
+    /**
+     * @param AssocRow $invoice
+     * @param list<AssocRow> $items
+     */
+    private function resolveInvoiceAppointmentTypeId(array $invoice, array $items): ?int {
+        $direct_appointment_type_id = safe_int($invoice['appointment_type_id'] ?? 0);
+        if ($direct_appointment_type_id > 0) {
+            return $direct_appointment_type_id;
+        }
+
+        $appointment_type_ids = [];
+        foreach ($items as $item) {
+            if (self::rowString($item, 'item_type') !== 'appointment_type') {
+                continue;
+            }
+
+            $reference_id = safe_int($item['reference_id'] ?? 0);
+            if ($reference_id > 0) {
+                $appointment_type_ids[$reference_id] = true;
+            }
+        }
+
+        if (count($appointment_type_ids) === 1) {
+            return (int) array_key_first($appointment_type_ids);
+        }
+
+        return null;
     }
 
     /**

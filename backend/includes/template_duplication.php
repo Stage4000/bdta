@@ -86,6 +86,7 @@ function duplicateAppointmentType(PDO $conn, int $appointment_type_id): int
                 location_types,
                 confirmation_template_id,
                 booking_request_template_id,
+                invoice_template_id,
                 reminder_template_id,
                 cancellation_template_id,
                 requires_admin_confirmation
@@ -113,6 +114,7 @@ function duplicateAppointmentType(PDO $conn, int $appointment_type_id): int
                 location_types,
                 confirmation_template_id,
                 booking_request_template_id,
+                invoice_template_id,
                 reminder_template_id,
                 cancellation_template_id,
                 requires_admin_confirmation
