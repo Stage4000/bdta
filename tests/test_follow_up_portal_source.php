@@ -31,7 +31,6 @@ if ($visibility_helper === '') {
     throw new RuntimeException('Expected to extract the portal visibility helper.');
 }
 
-$sandbox_file = sys_get_temp_dir() . '/bdta-follow-up-visibility-helper-' . bin2hex(random_bytes(6)) . '.php';
 $sandbox_code = <<<PHP
 <?php
 namespace BdtaFollowUpPortalSourceSandbox;
@@ -64,6 +63,7 @@ return static function (array \$submission): bool {
     return bdta_form_submission_is_client_portal_visible(\$submission);
 };
 PHP;
+$sandbox_file = sys_get_temp_dir() . '/bdta-follow-up-visibility-helper-' . md5($sandbox_code) . '.php';
 
 if (file_put_contents($sandbox_file, $sandbox_code) === false) {
     throw new RuntimeException('Expected to write the portal visibility sandbox file.');
