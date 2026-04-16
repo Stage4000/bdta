@@ -354,7 +354,7 @@ $order_by_sql = [
 $booking_sql .= $order_by_sql[$sort_direction];
 $query_params[] = BDTA_BOOKING_LIST_SORT_EMPTY_TIME;
 
-// nosemgrep: php.lang.security.injection.tainted-callable.tainted-callable, php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- query text is assembled only from fixed SQL fragments selected by strict allowlists; all user-controlled values remain parameterized in $query_params.
+// nosemgrep: php.lang.security.injection.tainted-callable.tainted-callable, php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- fixed SQL fragments only; request values stay parameterized in $query_params.
 $stmt = $conn->prepare($booking_sql);
 $stmt->execute($query_params);
 $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
