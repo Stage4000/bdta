@@ -121,9 +121,9 @@ $template_insert->execute([
     'Default Invoice',
     'invoice',
     'Default invoice {{invoice_number}}',
-    '<p>Default due {{due_date}}</p><p><a href="{{invoice_link}}">View invoice</a></p>',
-    'Default due {{due_date}} {{invoice_link}}',
-    'invoice_number,due_date,invoice_link',
+    '<p>Default due {{due_date}}</p><p><a href="{{invoice_link}}">View invoice</a></p><p><a href="{{pay_invoice_link}}">Pay invoice</a></p>',
+    'Default due {{due_date}} {{invoice_link}} {{pay_invoice_link}}',
+    'invoice_number,due_date,invoice_link,pay_invoice_link',
 ]);
 $default_template_id = (int) $conn->lastInsertId();
 
@@ -192,7 +192,8 @@ assertInvoiceEmailTemplate(($logged_emails[0]['mail_type'] ?? '') === EmailServi
 assertInvoiceEmailTemplate(($logged_emails[1]['mail_type'] ?? '') === EmailService::MAIL_TYPE_INVOICE, 'Expected invoice mail type to be preserved for default template sends.');
 assertInvoiceEmailTemplate(str_contains((string) ($logged_emails[0]['body_text'] ?? ''), 'Override amount 125.50'), 'Expected invoice override variables to render in the body.');
 assertInvoiceEmailTemplate(str_contains((string) ($logged_emails[0]['body_text'] ?? ''), 'Training Evaluation'), 'Expected invoice line item text to render in the override body.');
-assertInvoiceEmailTemplate(str_contains((string) ($logged_emails[1]['body_text'] ?? ''), 'https://example.com/portal/invoice_pay.php?token=abc123'), 'Expected default invoice link variable to render in the body.');
+assertInvoiceEmailTemplate(str_contains((string) ($logged_emails[1]['body_text'] ?? ''), 'https://example.com/portal/invoice_pay.php?token=abc123'), 'Expected invoice_link to render to the guest invoice view URL.');
+assertInvoiceEmailTemplate(str_contains((string) ($logged_emails[1]['body_text'] ?? ''), 'https://example.com/portal/invoice_checkout.php?token=abc123'), 'Expected pay_invoice_link to render to the direct checkout URL.');
 
 resetInvoiceEmailTemplateState($conn);
 
