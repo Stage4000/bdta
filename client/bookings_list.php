@@ -378,12 +378,16 @@ $sort_labels = [
         'desc' => 'Latest appointment first',
     ],
 ];
-$active_filter_summary = isset($active_view_labels[$view_filter])
-    ? $active_view_labels[$view_filter]
-    : 'Appointments';
-$active_sort_summary = isset($sort_labels[$view_filter][$sort_direction])
-    ? $sort_labels[$view_filter][$sort_direction]
-    : 'Sorted appointments';
+$active_filter_summary = 'Appointments';
+if ($view_filter === 'upcoming' || $view_filter === 'past' || $view_filter === 'custom') {
+    $active_filter_summary = $active_view_labels[$view_filter];
+}
+
+$active_sort_summary = 'Sorted appointments';
+$active_sort_options = $sort_labels[$view_filter];
+if ($sort_direction === 'asc' || $sort_direction === 'desc') {
+    $active_sort_summary = $active_sort_options[$sort_direction];
+}
 
 $page_title = 'Bookings';
 require_once '../backend/includes/header.php';
