@@ -53,6 +53,7 @@ class GoogleCalendarIntegration {
         if ($admin_user_id <= 0) {
             return;
         }
+        // google_calendar.php boots through config.php, which loads notifications.php.
         if (!function_exists('bdta_create_admin_notifications')) {
             return;
         }
@@ -64,9 +65,12 @@ class GoogleCalendarIntegration {
         }
 
         $connected_account = is_array($token) ? trim(self::rowString($token, 'google_email')) : '';
-        $message = $connected_account !== ''
-            ? 'Google Calendar OAuth for ' . $connected_account . ' needs attention. Booking availability and sync may be inaccurate until it is reconnected.'
-            : 'Google Calendar OAuth needs attention. Booking availability and sync may be inaccurate until it is reconnected.';
+        $connected_account = filter_var($connected_account, FILTER_VALIDATE_EMAIL) ? $connected_account : '';
+        $message = 'Google Calendar OAuth';
+        if ($connected_account !== '') {
+            $message .= ' for ' . $connected_account;
+        }
+        $message .= ' needs attention. Booking availability and sync may be inaccurate until it is reconnected.';
 
         bdta_create_admin_notifications(
             $conn,
