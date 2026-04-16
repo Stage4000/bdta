@@ -80,7 +80,7 @@ function bdta_form_submission_is_client_portal_visible(array $submission): bool
         return false;
     }
 
-    return array_int_value($submission, 'template_is_internal', 1) === 0
+    return array_int_value($submission, 'template_is_internal') === 0
         && bdta_form_type_forced_internal($form_type) === 0;
 }
 
