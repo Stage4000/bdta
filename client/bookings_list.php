@@ -354,8 +354,7 @@ $order_by_sql = [
 $booking_sql .= $order_by_sql[$sort_direction];
 $query_params[] = BDTA_BOOKING_LIST_SORT_EMPTY_TIME;
 
-// nosemgrep
-// Fixed SQL fragments only; request values stay parameterized in $query_params.
+// nosemgrep: php.lang.security.injection.tainted-callable.tainted-callable, php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- fixed SQL fragments only; request values stay parameterized in $query_params.
 $stmt = $conn->prepare($booking_sql);
 $stmt->execute($query_params);
 $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -379,19 +378,12 @@ $sort_labels = [
         'desc' => 'Latest appointment first',
     ],
 ];
-$active_filter_summary = 'Appointments';
-if ($view_filter === 'upcoming' || $view_filter === 'past' || $view_filter === 'custom') {
-    $active_filter_summary = $active_view_labels[$view_filter];
-}
-
-$active_sort_summary = 'Sorted appointments';
-if ($view_filter === 'upcoming') {
-    $active_sort_summary = $sort_labels['upcoming'][$sort_direction];
-} elseif ($view_filter === 'past') {
-    $active_sort_summary = $sort_labels['past'][$sort_direction];
-} elseif ($view_filter === 'custom') {
-    $active_sort_summary = $sort_labels['custom'][$sort_direction];
-}
+$active_filter_summary = $active_view_labels[$view_filter];
+$active_sort_summary = match ($view_filter) {
+    'upcoming' => $sort_labels['upcoming'][$sort_direction],
+    'past' => $sort_labels['past'][$sort_direction],
+    'custom' => $sort_labels['custom'][$sort_direction],
+};
 
 $page_title = 'Bookings';
 require_once '../backend/includes/header.php';
