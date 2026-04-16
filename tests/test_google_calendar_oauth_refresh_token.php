@@ -140,7 +140,7 @@ try {
         scalar_string($updated_row['calendar_id'] ?? '') === 'calendar-b',
         'Expected other token metadata to keep updating normally.'
     );
-    $active_notification_count = (int) $conn->query("SELECT COUNT(*) FROM notifications WHERE entity_type = 'google_calendar_oauth' AND deleted_at IS NULL")->fetchColumn();
+    $active_notification_count = safe_int($conn->query("SELECT COUNT(*) FROM notifications WHERE entity_type = 'google_calendar_oauth' AND deleted_at IS NULL")->fetchColumn());
     assertGoogleCalendarOAuth($active_notification_count === 0, 'Expected successful OAuth token saves to clear any active Google Calendar OAuth warnings.');
 
     $conn->prepare("
@@ -152,7 +152,7 @@ try {
     $valid_access_token = GoogleCalendarIntegration::getValidAccessToken(1);
     assertGoogleCalendarOAuth($valid_access_token === null, 'Expected expired OAuth tokens without a refresh token to fail validation.');
 
-    $notification_count = (int) $conn->query("SELECT COUNT(*) FROM notifications WHERE entity_type = 'google_calendar_oauth' AND deleted_at IS NULL")->fetchColumn();
+    $notification_count = safe_int($conn->query("SELECT COUNT(*) FROM notifications WHERE entity_type = 'google_calendar_oauth' AND deleted_at IS NULL")->fetchColumn());
     assertGoogleCalendarOAuth($notification_count === 2, 'Expected an admin-panel Google Calendar OAuth warning for each admin user.');
     $notification_row = $conn->query("SELECT title, message, url FROM notifications WHERE entity_type = 'google_calendar_oauth' AND recipient_id = 1 AND deleted_at IS NULL")->fetch(PDO::FETCH_ASSOC);
     assertGoogleCalendarOAuth(is_array($notification_row), 'Expected an active OAuth warning notification for the admin panel.');
@@ -178,7 +178,7 @@ try {
         'calendar-b'
     );
 
-    $cleared_notification_count = (int) $conn->query("SELECT COUNT(*) FROM notifications WHERE entity_type = 'google_calendar_oauth' AND deleted_at IS NULL")->fetchColumn();
+    $cleared_notification_count = safe_int($conn->query("SELECT COUNT(*) FROM notifications WHERE entity_type = 'google_calendar_oauth' AND deleted_at IS NULL")->fetchColumn());
     assertGoogleCalendarOAuth($cleared_notification_count === 0, 'Expected reconnecting OAuth to clear the active admin warning notification.');
 
     echo "Google Calendar OAuth refresh-token preservation regression test passed.\n";

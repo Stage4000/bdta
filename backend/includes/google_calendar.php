@@ -47,6 +47,9 @@ class GoogleCalendarIntegration {
         return ['error' => ['message' => $message, 'code' => self::HTTP_ERROR_CODE_CURL]];
     }
 
+    /**
+     * @return array{error?: array{message: string, code: string}}
+     */
     private static function consumeLastHttpErrorResponse(): array {
         if (self::$last_http_error_message === '') {
             return [];
