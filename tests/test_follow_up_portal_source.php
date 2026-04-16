@@ -158,7 +158,7 @@ return static function (array \$submission): bool {
 };
 PHP;
 
-$sandbox_scheme = 'bdtafollowupportalsource' . bin2hex(random_bytes(6));
+$sandbox_scheme = 'bdta-follow-up-portal-source-' . bin2hex(random_bytes(6));
 if (!stream_wrapper_register($sandbox_scheme, FollowUpPortalSourceSandboxStream::class)) {
     throw new RuntimeException('Expected to register the portal visibility sandbox stream.');
 }
