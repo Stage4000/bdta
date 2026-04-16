@@ -26,6 +26,11 @@ $stmt = $conn->prepare("
     LEFT JOIN form_templates ft ON fs.template_id = ft.id
     WHERE fs.client_id = ?
       AND fs.status IN ('submitted', 'reviewed')
+      AND (
+          ft.id IS NULL
+          OR COALESCE(ft.is_internal, 0) = 0
+          OR ft.form_type = 'follow_up_note'
+      )
     ORDER BY fs.submitted_at DESC
 ");
 $stmt->execute([$client_id]);
