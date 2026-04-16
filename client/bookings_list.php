@@ -45,6 +45,20 @@ function bdta_booking_list_date_label(mixed $value): string
     return $formatted_date !== '' ? $formatted_date : $date_value;
 }
 
+function bdta_booking_list_is_valid_date_string(string $value): bool
+{
+    if ($value === '') {
+        return false;
+    }
+
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value, bdta_get_display_timezone());
+    $date_errors = DateTimeImmutable::getLastErrors();
+
+    return $date instanceof DateTimeImmutable
+        && ($date_errors === false || ($date_errors['warning_count'] === 0 && $date_errors['error_count'] === 0))
+        && $date->format('Y-m-d') === $value;
+}
+
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isset($_POST['status'])) {
     if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token']), scalar_string($_POST['csrf_token']))) {
@@ -259,12 +273,12 @@ $sort_direction = $sort_preference === 'default'
     : $sort_preference;
 
 $start_date = trim(scalar_string($_GET['start_date'] ?? ''));
-if ($start_date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) !== 1) {
+if (!bdta_booking_list_is_valid_date_string($start_date)) {
     $start_date = '';
 }
 
 $end_date = trim(scalar_string($_GET['end_date'] ?? ''));
-if ($end_date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date) !== 1) {
+if (!bdta_booking_list_is_valid_date_string($end_date)) {
     $end_date = '';
 }
 
@@ -273,15 +287,14 @@ $current_date = $now->format('Y-m-d');
 $current_time = $now->format('H:i:s');
 // Use end-of-day for filtering so same-day bookings without a stored time still appear in upcoming results
 // until the day passes, while sorting should treat missing times as the start of the day for stable ordering.
-$sort_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), ?))";
-$filter_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), ?))";
+$appointment_time_fallback_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), ?))";
 $where_conditions = [];
 $query_params = [];
 
 if ($view_filter === 'upcoming') {
     $where_conditions[] = "(
         b.appointment_date > ?
-        OR (b.appointment_date = ? AND {$filter_time_sql} >= ?)
+        OR (b.appointment_date = ? AND {$appointment_time_fallback_sql} >= ?)
     )";
     $query_params[] = $current_date;
     $query_params[] = $current_date;
@@ -290,7 +303,7 @@ if ($view_filter === 'upcoming') {
 } elseif ($view_filter === 'past') {
     $where_conditions[] = "(
         b.appointment_date < ?
-        OR (b.appointment_date = ? AND {$filter_time_sql} < ?)
+        OR (b.appointment_date = ? AND {$appointment_time_fallback_sql} < ?)
     )";
     $query_params[] = $current_date;
     $query_params[] = $current_date;
@@ -321,17 +334,13 @@ if ($where_conditions !== []) {
 $order_by_sql = [
     'asc' => "
         ORDER BY b.appointment_date ASC,
-                 {$sort_time_sql} ASC,
+                 {$appointment_time_fallback_sql} ASC,
                  b.id ASC",
     'desc' => "
         ORDER BY b.appointment_date DESC,
-                 {$sort_time_sql} DESC,
+                 {$appointment_time_fallback_sql} DESC,
                  b.id DESC",
 ];
-if (!isset($order_by_sql[$sort_direction])) {
-    throw new RuntimeException('Unsupported booking sort direction.');
-}
-
 $booking_sql .= $order_by_sql[$sort_direction];
 $query_params[] = BDTA_BOOKING_LIST_SORT_EMPTY_TIME;
 
