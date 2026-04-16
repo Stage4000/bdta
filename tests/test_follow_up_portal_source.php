@@ -33,10 +33,6 @@ final class FollowUpPortalSourceSandboxStream
     public function stream_read(int $count): string
     {
         $result = substr($this->code, $this->position, $count);
-        if (!is_string($result)) {
-            return '';
-        }
-
         $this->position += strlen($result);
         return $result;
     }
