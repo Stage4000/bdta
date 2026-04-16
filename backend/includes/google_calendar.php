@@ -656,8 +656,7 @@ class GoogleCalendarIntegration {
         $http_error_response = self::consumeLastHttpErrorResponse();
         if ($http_error_response !== []) {
             self::createOAuthFailureNotification($admin_user_id, $token_row);
-            $http_error = $http_error_response['error'] ?? [];
-            return ['success' => false, 'message' => scalar_string($http_error['message'] ?? 'Unknown error inserting event')];
+            return ['success' => false, 'message' => $http_error_response['error']['message']];
         }
 
         if (!empty($response['id'])) {
