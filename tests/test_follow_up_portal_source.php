@@ -158,9 +158,14 @@ return static function (array \$submission): bool {
 };
 PHP;
 
-$sandbox_scheme = 'bdta-follow-up-portal-source-' . bin2hex(random_bytes(6));
-if (!stream_wrapper_register($sandbox_scheme, FollowUpPortalSourceSandboxStream::class)) {
-    throw new RuntimeException('Expected to register the portal visibility sandbox stream.');
+$sandbox_scheme = '';
+do {
+    $sandbox_scheme = 'bdta-follow-up-portal-source-' . getmypid() . '-' . bin2hex(random_bytes(4));
+} while (in_array($sandbox_scheme, stream_get_wrappers(), true));
+
+$sandbox_registered = stream_wrapper_register($sandbox_scheme, FollowUpPortalSourceSandboxStream::class);
+if (!$sandbox_registered) {
+    throw new RuntimeException('Expected to register the portal visibility sandbox stream with scheme: ' . $sandbox_scheme);
 }
 $sandbox_path = $sandbox_scheme . '://visibility-helper';
 FollowUpPortalSourceSandboxStream::$code_by_path[$sandbox_path] = $sandbox_code;
@@ -169,7 +174,9 @@ try {
     $portal_visibility = require $sandbox_path;
 } finally {
     unset(FollowUpPortalSourceSandboxStream::$code_by_path[$sandbox_path]);
-    stream_wrapper_unregister($sandbox_scheme);
+    if ($sandbox_registered) {
+        stream_wrapper_unregister($sandbox_scheme);
+    }
 }
 
 if (!$portal_visibility instanceof Closure) {
