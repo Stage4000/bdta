@@ -7,6 +7,9 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
+const BDTA_BOOKING_LIST_SORT_EMPTY_TIME = '00:00:00';
+const BDTA_BOOKING_LIST_FILTER_EMPTY_TIME = '23:59:59';
+
 /**
  * @param array<string, mixed> $booking
  */
@@ -29,6 +32,17 @@ function bdta_booking_list_time_label(mixed $value): string
 
     $timestamp = strtotime($time_value);
     return $timestamp === false ? $time_value : date('g:i A', $timestamp);
+}
+
+function bdta_booking_list_date_label(mixed $value): string
+{
+    $date_value = trim(scalar_string($value));
+    if ($date_value === '') {
+        return 'Date TBD';
+    }
+
+    $formatted_date = formatDate($date_value, 'M j, Y');
+    return $formatted_date !== '' ? $formatted_date : $date_value;
 }
 
 // Handle status update
@@ -230,15 +244,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     redirect('bookings_list.php');
 }
 
-$view_filter = scalar_string($_GET['view'] ?? 'upcoming');
-if (!in_array($view_filter, ['upcoming', 'past', 'custom'], true)) {
-    $view_filter = 'upcoming';
-}
+$requested_view_filter = scalar_string($_GET['view'] ?? '');
+$view_filter = in_array($requested_view_filter, ['upcoming', 'past', 'custom'], true)
+    ? $requested_view_filter
+    : 'upcoming';
 
-$sort_preference = scalar_string($_GET['sort'] ?? 'default');
-if (!in_array($sort_preference, ['default', 'asc', 'desc'], true)) {
-    $sort_preference = 'default';
-}
+$requested_sort_preference = scalar_string($_GET['sort'] ?? '');
+$sort_preference = in_array($requested_sort_preference, ['default', 'asc', 'desc'], true)
+    ? $requested_sort_preference
+    : 'default';
 
 $sort_direction = $sort_preference === 'default'
     ? ($view_filter === 'past' ? 'desc' : 'asc')
@@ -259,14 +273,10 @@ $current_date = $now->format('Y-m-d');
 $current_time = $now->format('H:i:s');
 // Use end-of-day for filtering so same-day bookings without a stored time still appear in upcoming results
 // until the day passes, while sorting should treat missing times as the start of the day for stable ordering.
-$sort_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '00:00:00'))";
-$filter_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '23:59:59'))";
+$sort_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '" . BDTA_BOOKING_LIST_SORT_EMPTY_TIME . "'))";
+$filter_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '" . BDTA_BOOKING_LIST_FILTER_EMPTY_TIME . "'))";
 $where_conditions = [];
 $query_params = [];
-$sort_sql_direction = [
-    'asc' => 'ASC',
-    'desc' => 'DESC',
-][$sort_direction];
 
 if ($view_filter === 'upcoming') {
     $where_conditions[] = "(
@@ -306,10 +316,17 @@ if ($where_conditions !== []) {
     $booking_sql .= ' WHERE ' . implode(' AND ', $where_conditions);
 }
 
-$booking_sql .= "
-    ORDER BY b.appointment_date {$sort_sql_direction},
-             {$sort_time_sql} {$sort_sql_direction},
-             b.id {$sort_sql_direction}";
+$order_by_sql = [
+    'asc' => "
+        ORDER BY b.appointment_date ASC,
+                 {$sort_time_sql} ASC,
+                 b.id ASC",
+    'desc' => "
+        ORDER BY b.appointment_date DESC,
+                 {$sort_time_sql} DESC,
+                 b.id DESC",
+];
+$booking_sql .= $order_by_sql[$sort_direction] ?? $order_by_sql['asc'];
 
 $stmt = $conn->prepare($booking_sql);
 $stmt->execute($query_params);
@@ -335,7 +352,7 @@ $sort_labels = [
     ],
 ];
 $active_filter_summary = $active_view_labels[$view_filter] ?? 'Appointments';
-$active_sort_summary = $sort_labels[$view_filter][$sort_direction] ?? $sort_labels['custom']['asc'];
+$active_sort_summary = $sort_labels[$view_filter][$sort_direction] ?? 'Sorted appointments';
 
 $page_title = 'Bookings';
 require_once '../backend/includes/header.php';
@@ -525,7 +542,7 @@ require_once '../backend/includes/header.php';
                                     <span class="fw-semibold"><?php echo escape($booking['service_type']); ?></span>
                                 </td>
                                 <td>
-                                    <div class="booking-date-label"><?php echo escape(formatDate($booking['appointment_date'], 'M j, Y')); ?></div>
+                                    <div class="booking-date-label"><?php echo escape(bdta_booking_list_date_label($booking['appointment_date'])); ?></div>
                                     <div class="booking-subtext"><?php echo escape(bdta_booking_list_time_label($booking['appointment_time'])); ?></div>
                                 </td>
                                 <td>

@@ -17,13 +17,18 @@ if (!is_string($bookingsList) || $bookingsList === '') {
 
 bdta_assert_contains(
     $bookingsList,
-    "in_array(\$view_filter, ['upcoming', 'past', 'custom'], true)",
+    "\$view_filter = in_array(\$requested_view_filter, ['upcoming', 'past', 'custom'], true)",
     'Bookings list should validate the upcoming, past, and custom filter modes.'
 );
 bdta_assert_contains(
     $bookingsList,
     "\$sort_preference === 'default'",
     'Bookings list should support default sort behavior derived from the selected filter.'
+);
+bdta_assert_contains(
+    $bookingsList,
+    "\$order_by_sql = [",
+    'Bookings list should build ordering from a whitelisted SQL map.'
 );
 bdta_assert_contains(
     $bookingsList,
