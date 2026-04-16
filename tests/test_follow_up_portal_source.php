@@ -10,6 +10,51 @@ function assertFollowUpPortalSource(bool $condition, string $message): void
     }
 }
 
+final class FollowUpPortalSourceSandboxStream
+{
+    public static string $code = '';
+    private int $position = 0;
+
+    public function stream_open(string $path, string $mode, int $options, ?string &$opened_path): bool
+    {
+        $this->position = 0;
+        return true;
+    }
+
+    public function stream_read(int $count): string
+    {
+        $result = substr(self::$code, $this->position, $count);
+        $this->position += strlen($result);
+        return $result;
+    }
+
+    public function stream_eof(): bool
+    {
+        return $this->position >= strlen(self::$code);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function stream_stat(): array
+    {
+        return [];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function url_stat(string $path, int $flags): array
+    {
+        return [];
+    }
+
+    public function stream_set_option(int $option, int $arg1, ?int $arg2): bool
+    {
+        return false;
+    }
+}
+
 $agreements_page = file_get_contents(dirname(__DIR__) . '/portal/agreements.php');
 if (!is_string($agreements_page)) {
     throw new RuntimeException('Expected to read the portal agreements page.');
@@ -63,13 +108,13 @@ return static function (array \$submission): bool {
     return bdta_form_submission_is_client_portal_visible(\$submission);
 };
 PHP;
-$sandbox_file = sys_get_temp_dir() . '/bdta-follow-up-visibility-helper.php';
 
-if (file_put_contents($sandbox_file, $sandbox_code) === false) {
-    throw new RuntimeException('Expected to write the portal visibility sandbox file.');
+$sandbox_scheme = 'bdtafollowupportalsource';
+if (in_array($sandbox_scheme, stream_get_wrappers(), true) || !stream_wrapper_register($sandbox_scheme, FollowUpPortalSourceSandboxStream::class)) {
+    throw new RuntimeException('Expected to register the portal visibility sandbox stream.');
 }
-
-$portal_visibility = require $sandbox_file;
+FollowUpPortalSourceSandboxStream::$code = $sandbox_code;
+$portal_visibility = require $sandbox_scheme . '://visibility-helper';
 if (!$portal_visibility instanceof Closure) {
     throw new RuntimeException('Expected the portal visibility sandbox to return a closure.');
 }
