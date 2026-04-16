@@ -268,9 +268,9 @@ $sort_preference = in_array($requested_sort_preference, ['default', 'asc', 'desc
     ? $requested_sort_preference
     : 'default';
 
-$sort_direction = $sort_preference;
-if ($sort_preference === 'default') {
-    $sort_direction = $view_filter === 'past' ? 'desc' : 'asc';
+$sort_direction = 'asc';
+if ($sort_preference === 'desc' || ($sort_preference === 'default' && $view_filter === 'past')) {
+    $sort_direction = 'desc';
 }
 
 $start_date = trim(scalar_string($_GET['start_date'] ?? ''));
@@ -354,6 +354,7 @@ $order_by_sql = [
 $booking_sql .= $order_by_sql[$sort_direction];
 $query_params[] = BDTA_BOOKING_LIST_SORT_EMPTY_TIME;
 
+// nosemgrep: php.lang.security.injection.tainted-callable.tainted-callable, php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- query text is assembled only from fixed SQL fragments selected by strict allowlists; all user-controlled values remain parameterized in $query_params.
 $stmt = $conn->prepare($booking_sql);
 $stmt->execute($query_params);
 $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -377,8 +378,8 @@ $sort_labels = [
         'desc' => 'Latest appointment first',
     ],
 ];
-$active_filter_summary = $active_view_labels[$view_filter] ?? 'Appointments';
-$active_sort_summary = $sort_labels[$view_filter][$sort_direction] ?? 'Sorted appointments';
+$active_filter_summary = $active_view_labels[$view_filter];
+$active_sort_summary = $sort_labels[$view_filter][$sort_direction];
 
 $page_title = 'Bookings';
 require_once '../backend/includes/header.php';
