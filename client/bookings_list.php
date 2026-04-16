@@ -273,8 +273,8 @@ $current_date = $now->format('Y-m-d');
 $current_time = $now->format('H:i:s');
 // Use end-of-day for filtering so same-day bookings without a stored time still appear in upcoming results
 // until the day passes, while sorting should treat missing times as the start of the day for stable ordering.
-$sort_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '" . BDTA_BOOKING_LIST_SORT_EMPTY_TIME . "'))";
-$filter_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '" . BDTA_BOOKING_LIST_FILTER_EMPTY_TIME . "'))";
+$sort_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), ?))";
+$filter_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), ?))";
 $where_conditions = [];
 $query_params = [];
 
@@ -285,6 +285,7 @@ if ($view_filter === 'upcoming') {
     )";
     $query_params[] = $current_date;
     $query_params[] = $current_date;
+    $query_params[] = BDTA_BOOKING_LIST_FILTER_EMPTY_TIME;
     $query_params[] = $current_time;
 } elseif ($view_filter === 'past') {
     $where_conditions[] = "(
@@ -293,6 +294,7 @@ if ($view_filter === 'upcoming') {
     )";
     $query_params[] = $current_date;
     $query_params[] = $current_date;
+    $query_params[] = BDTA_BOOKING_LIST_FILTER_EMPTY_TIME;
     $query_params[] = $current_time;
 }
 
@@ -326,7 +328,12 @@ $order_by_sql = [
                  {$sort_time_sql} DESC,
                  b.id DESC",
 ];
-$booking_sql .= $order_by_sql[$sort_direction] ?? $order_by_sql['asc'];
+if (!isset($order_by_sql[$sort_direction])) {
+    throw new RuntimeException('Unsupported booking sort direction.');
+}
+
+$booking_sql .= $order_by_sql[$sort_direction];
+$query_params[] = BDTA_BOOKING_LIST_SORT_EMPTY_TIME;
 
 $stmt = $conn->prepare($booking_sql);
 $stmt->execute($query_params);
@@ -522,8 +529,9 @@ require_once '../backend/includes/header.php';
                                 </td>
                                 <td>
                                     <?php $client_label = bdta_booking_list_client_label($booking); ?>
-                                    <?php if (!empty($booking['client_id'])): ?>
-                                        <a href="clients_view.php?id=<?php echo safe_int($booking['client_id']); ?>" class="booking-client-link">
+                                    <?php $client_profile_id = safe_int($booking['client_id'] ?? 0); ?>
+                                    <?php if ($client_profile_id > 0): ?>
+                                        <a href="clients_view.php?id=<?php echo $client_profile_id; ?>" class="booking-client-link">
                                             <?php echo escape($client_label); ?>
                                         </a>
                                     <?php else: ?>

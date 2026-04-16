@@ -47,7 +47,7 @@ bdta_assert_contains(
 );
 bdta_assert_contains(
     $bookingsList,
-    'clients_view.php?id=<?php echo safe_int($booking[\'client_id\']); ?>',
+    '<?php if ($client_profile_id > 0): ?>',
     'Bookings list should link each client name to the client profile when a client id is available.'
 );
 bdta_assert_contains(
