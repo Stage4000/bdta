@@ -443,11 +443,15 @@ class GoogleCalendarIntegration {
         $conn       = $db->getConnection();
 
         // Upsert – replace any existing row for this user
-        $existing = $conn->prepare("SELECT id FROM google_oauth_tokens WHERE admin_user_id = ?");
+        $existing = $conn->prepare("SELECT id, refresh_token FROM google_oauth_tokens WHERE admin_user_id = ?");
         $existing->execute([$admin_user_id]);
         $row = $existing->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
+            $stored_refresh_token = self::rowString($row, 'refresh_token');
+            if ($refresh_token === '' && $stored_refresh_token !== '') {
+                $refresh_token = $stored_refresh_token;
+            }
             $conn->prepare("
                 UPDATE google_oauth_tokens
                 SET access_token = ?, refresh_token = ?, expires_at = ?,
