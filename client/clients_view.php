@@ -17,6 +17,44 @@ function bdta_booking_action_request_ip(): string
     return scalar_string($_SERVER['REMOTE_ADDR'] ?? '');
 }
 
+/**
+ * @param array<string, mixed> $appointment
+ */
+function bdta_client_view_appointment_is_past(array $appointment, ?DateTimeImmutable $reference_time = null): bool
+{
+    $reference_time = $reference_time ?? new DateTimeImmutable('now', bdta_get_display_timezone());
+
+    $appointment_date = array_string_value($appointment, 'appointment_date');
+    if ($appointment_date === '') {
+        return false;
+    }
+
+    $appointment_time = trim(array_string_value($appointment, 'appointment_time'));
+    if ($appointment_time === '') {
+        return $appointment_date < $reference_time->format('Y-m-d');
+    }
+
+    $normalized_time = strlen($appointment_time) === 5 ? $appointment_time . ':00' : $appointment_time;
+    $appointment_start = DateTimeImmutable::createFromFormat(
+        'Y-m-d H:i:s',
+        $appointment_date . ' ' . $normalized_time,
+        bdta_get_display_timezone()
+    );
+    $appointment_start_errors = DateTimeImmutable::getLastErrors();
+
+    if (
+        !$appointment_start instanceof DateTimeImmutable
+        || ($appointment_start_errors !== false && (
+            $appointment_start_errors['warning_count'] > 0
+            || $appointment_start_errors['error_count'] > 0
+        ))
+    ) {
+        return $appointment_date < $reference_time->format('Y-m-d');
+    }
+
+    return $appointment_start->modify('+1 hour') <= $reference_time;
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -319,12 +357,12 @@ $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Separate past and upcoming
 $upcoming_appointments = [];
 $past_appointments = [];
-$today = date('Y-m-d');
+$appointment_split_time = new DateTimeImmutable('now', bdta_get_display_timezone());
 foreach ($appointments as $apt) {
-    if ($apt['appointment_date'] >= $today) {
-        $upcoming_appointments[] = $apt;
-    } else {
+    if (bdta_client_view_appointment_is_past($apt, $appointment_split_time)) {
         $past_appointments[] = $apt;
+    } else {
+        $upcoming_appointments[] = $apt;
     }
 }
 
