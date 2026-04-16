@@ -19,6 +19,10 @@ $follow_up_notes = file_get_contents(dirname(__DIR__) . '/backend/includes/follo
 if (!is_string($follow_up_notes)) {
     throw new RuntimeException('Expected to read the follow-up notes helper.');
 }
+$follow_up_notes_normalized = preg_replace('/\s+/', ' ', $follow_up_notes);
+if (!is_string($follow_up_notes_normalized)) {
+    throw new RuntimeException('Expected to normalize follow-up helper source.');
+}
 
 assertFollowUpPortalSource(
     bdta_get_form_template_access_state('follow_up_note', 0)['effective_internal'] === true,
@@ -29,15 +33,15 @@ assertFollowUpPortalSource(
     'Portal agreements page should explicitly allow client-visible follow-up review submissions.'
 );
 assertFollowUpPortalSource(
-    str_contains($follow_up_notes, "if (!array_key_exists('template_is_internal', \$submission)) {\n        return false;\n    }"),
+    str_contains($follow_up_notes_normalized, "if (!array_key_exists('template_is_internal', \$submission)) { return false; }"),
     'Portal visibility helper should fail closed when template_is_internal is not provided.'
 );
 assertFollowUpPortalSource(
-    str_contains($follow_up_notes, "return array_int_value(\$submission, 'template_is_internal') === 0\n        && bdta_form_type_forced_internal(\$form_type) === 0;"),
+    str_contains($follow_up_notes_normalized, "return array_int_value(\$submission, 'template_is_internal') === 0 && bdta_form_type_forced_internal(\$form_type) === 0;"),
     'Portal visibility helper should allow only explicitly non-internal client-facing submissions.'
 );
 assertFollowUpPortalSource(
-    str_contains($follow_up_notes, "if (bdta_form_submission_requires_client_review(\$form_type)) {\n        return true;\n    }"),
+    str_contains($follow_up_notes_normalized, "if (bdta_form_submission_requires_client_review(\$form_type)) { return true; }"),
     'Portal visibility helper should still allow follow-up review submissions.'
 );
 assertFollowUpPortalSource(
