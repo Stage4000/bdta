@@ -87,7 +87,7 @@ try {
     $notify_result = bdta_notify_follow_up_note_completed($conn, $first_submission_id);
     assertFollowUpNoteTest($notify_result['success'] === false, 'Expected notification email send to fail with the test SMTP settings.');
 
-    $email_stmt = $conn->prepare("SELECT subject, body_html, status FROM client_emails WHERE client_id = ? ORDER BY id DESC LIMIT 1");
+    $email_stmt = $conn->prepare("SELECT subject, body_html, body_text, status FROM client_emails WHERE client_id = ? ORDER BY id DESC LIMIT 1");
     $email_stmt->execute([$client_id]);
     $email_row = $email_stmt->fetch(PDO::FETCH_ASSOC);
     assertFollowUpNoteTest(is_array($email_row), 'Expected follow-up notification email to be logged.');
@@ -99,7 +99,46 @@ try {
         str_contains(scalar_string($email_row['body_html'] ?? ''), '/portal/form_submission_view.php?id=' . $first_submission_id),
         'Expected follow-up portal review link in email body.'
     );
+    assertFollowUpNoteTest(
+        str_contains(scalar_string($email_row['body_html'] ?? ''), 'Follow-up details'),
+        'Expected follow-up email to include a details section.'
+    );
+    assertFollowUpNoteTest(
+        str_contains(scalar_string($email_row['body_html'] ?? ''), 'Great progress'),
+        'Expected follow-up email HTML body to include submitted note details.'
+    );
+    assertFollowUpNoteTest(
+        str_contains(scalar_string($email_row['body_html'] ?? ''), 'Practice leash work'),
+        'Expected follow-up email HTML body to include all submitted responses.'
+    );
+    assertFollowUpNoteTest(
+        str_contains(scalar_string($email_row['body_text'] ?? ''), "Follow-up details:\nSummary:\nGreat progress"),
+        'Expected follow-up email text body to include submitted note details.'
+    );
     assertFollowUpNoteTest(scalar_string($email_row['status'] ?? '') === 'failed', 'Expected the logged email to reflect the SMTP failure.');
+
+    $notification_stmt = $conn->prepare("
+        SELECT title, message, url
+        FROM notifications
+        WHERE audience = 'portal' AND recipient_id = ? AND entity_type = 'follow_up_note' AND entity_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $notification_stmt->execute([$client_id, $first_submission_id]);
+    $notification_row = $notification_stmt->fetch(PDO::FETCH_ASSOC);
+    assertFollowUpNoteTest(is_array($notification_row), 'Expected a portal notification for the follow-up note.');
+    assertFollowUpNoteTest(
+        scalar_string($notification_row['title'] ?? '') === 'New follow-up note available',
+        'Expected follow-up portal notification title.'
+    );
+    assertFollowUpNoteTest(
+        str_contains(scalar_string($notification_row['message'] ?? ''), 'ready to review'),
+        'Expected follow-up portal notification message.'
+    );
+    assertFollowUpNoteTest(
+        scalar_string($notification_row['url'] ?? '') === '/portal/form_submission_view.php?id=' . $first_submission_id,
+        'Expected follow-up portal notification to link to the review page.'
+    );
 
     $second_request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
     $second_submission_id = array_int_value($second_request, 'submission_id');
