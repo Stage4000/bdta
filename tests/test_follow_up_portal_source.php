@@ -33,6 +33,10 @@ final class FollowUpPortalSourceSandboxStream
     public function stream_read(int $count): string
     {
         $result = substr($this->code, $this->position, $count);
+        if (!is_string($result)) {
+            return '';
+        }
+
         $this->position += strlen($result);
         return $result;
     }
@@ -53,7 +57,7 @@ final class FollowUpPortalSourceSandboxStream
     /**
      * @return array<int|string, int>|false
      */
-    public function url_stat(string $path, int $flags)
+    public function url_stat(string $path, int $flags): array|false
     {
         if (!isset(self::$code_by_path[$path])) {
             return false;
