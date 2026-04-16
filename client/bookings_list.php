@@ -7,6 +7,30 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
+/**
+ * @param array<string, mixed> $booking
+ */
+function bdta_booking_list_client_label(array $booking): string
+{
+    $client_name = trim(array_string_value($booking, 'client_profile_name'));
+    if ($client_name !== '') {
+        return $client_name;
+    }
+
+    return trim(array_string_value($booking, 'client_name'));
+}
+
+function bdta_booking_list_time_label(mixed $value): string
+{
+    $time_value = trim(scalar_string($value));
+    if ($time_value === '') {
+        return 'Time TBD';
+    }
+
+    $timestamp = strtotime($time_value);
+    return $timestamp === false ? $time_value : date('g:i A', $timestamp);
+}
+
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id']) && isset($_POST['status'])) {
     if (empty($_POST['csrf_token']) || !hash_equals(scalar_string($_SESSION['csrf_token']), scalar_string($_POST['csrf_token']))) {
@@ -206,25 +230,244 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     redirect('bookings_list.php');
 }
 
-$stmt = $conn->query("
-    SELECT b.*, c.address AS client_address_on_file
+$view_filter = scalar_string($_GET['view'] ?? 'upcoming');
+if (!in_array($view_filter, ['upcoming', 'past', 'custom'], true)) {
+    $view_filter = 'upcoming';
+}
+
+$sort_preference = scalar_string($_GET['sort'] ?? 'default');
+if (!in_array($sort_preference, ['default', 'asc', 'desc'], true)) {
+    $sort_preference = 'default';
+}
+
+$sort_direction = $sort_preference === 'default'
+    ? ($view_filter === 'past' ? 'desc' : 'asc')
+    : $sort_preference;
+
+$start_date = trim(scalar_string($_GET['start_date'] ?? ''));
+if ($start_date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) !== 1) {
+    $start_date = '';
+}
+
+$end_date = trim(scalar_string($_GET['end_date'] ?? ''));
+if ($end_date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date) !== 1) {
+    $end_date = '';
+}
+
+$now = new DateTimeImmutable('now', bdta_get_display_timezone());
+$current_date = $now->format('Y-m-d');
+$current_time = $now->format('H:i:s');
+$appointment_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '00:00:00'))";
+$comparison_time_sql = "TIME(COALESCE(NULLIF(b.appointment_time, ''), '23:59:59'))";
+$where_conditions = [];
+$query_params = [];
+
+if ($view_filter === 'upcoming') {
+    $where_conditions[] = "(
+        b.appointment_date > ?
+        OR (b.appointment_date = ? AND {$comparison_time_sql} >= ?)
+    )";
+    $query_params[] = $current_date;
+    $query_params[] = $current_date;
+    $query_params[] = $current_time;
+} elseif ($view_filter === 'past') {
+    $where_conditions[] = "(
+        b.appointment_date < ?
+        OR (b.appointment_date = ? AND {$comparison_time_sql} < ?)
+    )";
+    $query_params[] = $current_date;
+    $query_params[] = $current_date;
+    $query_params[] = $current_time;
+}
+
+if ($start_date !== '') {
+    $where_conditions[] = 'b.appointment_date >= ?';
+    $query_params[] = $start_date;
+}
+
+if ($end_date !== '') {
+    $where_conditions[] = 'b.appointment_date <= ?';
+    $query_params[] = $end_date;
+}
+
+$booking_sql = "
+    SELECT b.*, c.name AS client_profile_name, c.address AS client_address_on_file
     FROM bookings b
     LEFT JOIN clients c ON b.client_id = c.id
-    ORDER BY b.appointment_date DESC, b.appointment_time DESC
-");
+";
+
+if ($where_conditions !== []) {
+    $booking_sql .= ' WHERE ' . implode(' AND ', $where_conditions);
+}
+
+$booking_sql .= "
+    ORDER BY b.appointment_date " . strtoupper($sort_direction) . ",
+             {$appointment_time_sql} " . strtoupper($sort_direction) . ",
+             b.id " . strtoupper($sort_direction);
+
+$stmt = $conn->prepare($booking_sql);
+$stmt->execute($query_params);
 $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$active_view_labels = [
+    'upcoming' => 'Upcoming appointments',
+    'past' => 'Past appointments',
+    'custom' => 'Custom date range',
+];
+$sort_labels = [
+    'upcoming' => [
+        'asc' => 'Soonest appointment first',
+        'desc' => 'Furthest appointment first',
+    ],
+    'past' => [
+        'asc' => 'Oldest appointment first',
+        'desc' => 'Most recent appointment first',
+    ],
+    'custom' => [
+        'asc' => 'Earliest appointment first',
+        'desc' => 'Latest appointment first',
+    ],
+];
+$active_filter_summary = $active_view_labels[$view_filter] ?? 'Appointments';
+$active_sort_summary = $sort_labels[$view_filter][$sort_direction] ?? $sort_labels['custom']['asc'];
 
 $page_title = 'Bookings';
 require_once '../backend/includes/header.php';
 ?>
 
+<style>
+    .booking-filter-card,
+    .booking-table-card {
+        border: 0;
+        box-shadow: 0 0.5rem 1.5rem rgba(15, 23, 42, 0.08);
+    }
+
+    .booking-filter-card .card-body,
+    .booking-table-card .card-body {
+        padding: 1.25rem;
+    }
+
+    .booking-summary-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .booking-summary-badge {
+        border-radius: 999px;
+        background: rgba(13, 110, 253, 0.08);
+        color: #0d6efd;
+        font-size: 0.875rem;
+        font-weight: 600;
+        padding: 0.45rem 0.85rem;
+    }
+
+    .booking-table {
+        --bs-table-bg: transparent;
+        margin-bottom: 0;
+    }
+
+    .booking-table thead th {
+        background: #f8fafc;
+        border-bottom: 0;
+        color: #64748b;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding-top: 0.9rem;
+        padding-bottom: 0.9rem;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .booking-table tbody td {
+        border-color: #e2e8f0;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        vertical-align: middle;
+    }
+
+    .booking-table tbody tr:nth-of-type(odd) {
+        --bs-table-accent-bg: rgba(148, 163, 184, 0.06);
+    }
+
+    .booking-client-link {
+        color: inherit;
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .booking-client-link:hover,
+    .booking-client-link:focus {
+        color: #0d6efd;
+        text-decoration: underline;
+    }
+
+    .booking-subtext {
+        color: #64748b;
+        font-size: 0.875rem;
+    }
+
+    .booking-date-label {
+        font-weight: 600;
+    }
+
+    .booking-status-select {
+        min-width: 8.75rem;
+    }
+</style>
+
 <div class="py-4">
-    <h2 class="mb-4"><i class="fas fa-calendar-check me-2"></i>Bookings Management</h2>
+    <div class="mb-4">
+        <h2 class="mb-2"><i class="fas fa-calendar-check me-2"></i>Bookings Management</h2>
+        <div class="booking-summary-badges">
+            <span class="booking-summary-badge"><?php echo escape($active_filter_summary); ?></span>
+            <span class="booking-summary-badge"><?php echo escape($active_sort_summary); ?></span>
+            <span class="booking-summary-badge"><?php echo count($bookings); ?> shown</span>
+        </div>
+    </div>
     
-    <div class="card">
+    <div class="card booking-filter-card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="bookingViewFilter" class="form-label">Show</label>
+                    <select name="view" id="bookingViewFilter" class="form-select">
+                        <option value="upcoming" <?php echo $view_filter === 'upcoming' ? 'selected' : ''; ?>>Upcoming appointments</option>
+                        <option value="past" <?php echo $view_filter === 'past' ? 'selected' : ''; ?>>Past appointments</option>
+                        <option value="custom" <?php echo $view_filter === 'custom' ? 'selected' : ''; ?>>Custom date range</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="bookingSortFilter" class="form-label">Sort order</label>
+                    <select name="sort" id="bookingSortFilter" class="form-select">
+                        <option value="default" <?php echo $sort_preference === 'default' ? 'selected' : ''; ?>>Default for selection</option>
+                        <option value="asc" <?php echo $sort_preference === 'asc' ? 'selected' : ''; ?>>Soonest first</option>
+                        <option value="desc" <?php echo $sort_preference === 'desc' ? 'selected' : ''; ?>>Latest first</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="bookingStartDate" class="form-label">Start date</label>
+                    <input type="date" name="start_date" id="bookingStartDate" class="form-control" value="<?php echo escape($start_date); ?>">
+                </div>
+                <div class="col-md-2">
+                    <label for="bookingEndDate" class="form-label">End date</label>
+                    <input type="date" name="end_date" id="bookingEndDate" class="form-control" value="<?php echo escape($end_date); ?>">
+                </div>
+                <div class="col-md-2 d-grid d-md-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-fill">
+                        <i class="fas fa-filter me-1"></i>Apply
+                    </button>
+                    <a href="bookings_list.php" class="btn btn-outline-secondary flex-fill">Clear</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card booking-table-card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover booking-table align-middle">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -251,20 +494,34 @@ require_once '../backend/includes/header.php';
                             ?>
                             <?php foreach ($bookings as $booking): ?>
                             <tr>
-                                <td><?php echo $booking['id']; ?></td>
-                                <td><?php echo escape($booking['client_name']); ?></td>
                                 <td>
-                                    <small>
+                                    <span class="fw-semibold">#<?php echo $booking['id']; ?></span>
+                                </td>
+                                <td>
+                                    <?php $client_label = bdta_booking_list_client_label($booking); ?>
+                                    <?php if (!empty($booking['client_id'])): ?>
+                                        <a href="clients_view.php?id=<?php echo safe_int($booking['client_id']); ?>" class="booking-client-link">
+                                            <?php echo escape($client_label); ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="fw-semibold"><?php echo escape($client_label); ?></span>
+                                    <?php endif; ?>
+                                    <div class="booking-subtext">Client record</div>
+                                </td>
+                                <td>
+                                    <div class="booking-subtext">
                                         <?php echo escape($booking['client_email']); ?><br>
                                         <?php if ($booking['client_phone']): ?>
                                             <?php echo escape($booking['client_phone']); ?>
                                         <?php endif; ?>
-                                    </small>
+                                    </div>
                                 </td>
-                                <td><?php echo escape($booking['service_type']); ?></td>
                                 <td>
-                                    <?php echo escape($booking['appointment_date']); ?><br>
-                                    <small><?php echo escape($booking['appointment_time']); ?></small>
+                                    <span class="fw-semibold"><?php echo escape($booking['service_type']); ?></span>
+                                </td>
+                                <td>
+                                    <div class="booking-date-label"><?php echo escape(formatDate($booking['appointment_date'], 'M j, Y')); ?></div>
+                                    <div class="booking-subtext"><?php echo escape(bdta_booking_list_time_label($booking['appointment_time'])); ?></div>
                                 </td>
                                 <td>
                                     <?php
@@ -292,7 +549,7 @@ require_once '../backend/includes/header.php';
                                     <form method="POST" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
                                         <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
-                                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                                        <select name="status" class="form-select form-select-sm booking-status-select" onchange="this.form.submit()">
                                             <option value="pending" <?php echo $booking['status'] === 'pending' ? 'selected' : ''; ?>>Pending</option>
                                             <option value="confirmed" <?php echo $booking['status'] === 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
                                             <option value="completed" <?php echo $booking['status'] === 'completed' ? 'selected' : ''; ?>>Completed</option>
@@ -333,7 +590,7 @@ require_once '../backend/includes/header.php';
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                            <td colspan="8" class="text-center text-muted">No bookings yet</td>
+                            <td colspan="8" class="text-center text-muted py-5">No bookings found for the selected filters.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
