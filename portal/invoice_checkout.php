@@ -109,10 +109,10 @@ $post_data = http_build_query([
     'line_items[0][price_data][product_data][description]'=> 'Payment for remaining balance on invoice ' . $invoice['invoice_number'],
     'metadata[invoice_id]'          => $id,
     'metadata[client_id]'           => $invoice['client_id'],
-    'metadata[payment_amount]'      => number_format($remaining_amount, 2, '.', ''),
+    'metadata[payment_amount_cents]'      => scalar_string($amount_cents),
     'payment_intent_data[metadata][invoice_id]' => $id,
     'payment_intent_data[metadata][client_id]'  => $invoice['client_id'],
-    'payment_intent_data[metadata][payment_amount]' => number_format($remaining_amount, 2, '.', ''),
+    'payment_intent_data[metadata][payment_amount_cents]' => scalar_string($amount_cents),
     'payment_intent_data[description]'          => 'Invoice ' . $invoice['invoice_number'] . ' — ' . $invoice['client_name'],
 ]);
 

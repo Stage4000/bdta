@@ -129,7 +129,7 @@ if (array_string_value($session, 'payment_intent') === '') {
     exit;
 }
 $payment_intent_id = array_string_value($session, 'payment_intent');
-$payment_amount = round((int) ($session['amount_total'] ?? 0) / 100, 2);
+$payment_amount = round(safe_int($session['amount_total'] ?? 0) / 100, 2);
 
 if ($payment_amount <= 0) {
     error_log("Stripe session $session_id returned a non-positive amount_total");
