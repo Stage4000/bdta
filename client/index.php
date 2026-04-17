@@ -5,20 +5,17 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$fetch_count = static function (string $sql, array $params = []) use ($conn): int {
-    $stmt = $conn->prepare($sql);
+$fetch_count = static function (PDOStatement $stmt, array $params = []): int {
     $stmt->execute($params);
     return safe_int($stmt->fetchColumn());
 };
 
-$fetch_sum = static function (string $sql, array $params = []) use ($conn): float {
-    $stmt = $conn->prepare($sql);
+$fetch_sum = static function (PDOStatement $stmt, array $params = []): float {
     $stmt->execute($params);
     return safe_float($stmt->fetchColumn());
 };
 
-$fetch_rows = static function (string $sql, array $params = []) use ($conn): array {
-    $stmt = $conn->prepare($sql);
+$fetch_rows = static function (PDOStatement $stmt, array $params = []): array {
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 };
@@ -42,17 +39,17 @@ $ninety_days_ago_sql = $ninety_days_ago->format('Y-m-d H:i:s');
 $ninety_days_ago_date = $ninety_days_ago->format('Y-m-d');
 
 // Dashboard totals
-$total_posts = $fetch_count("SELECT COUNT(*) FROM blog_posts");
-$published_posts = $fetch_count("SELECT COUNT(*) FROM blog_posts WHERE published = 1 AND publish_date <= ?", [$now_sql]);
-$total_bookings = $fetch_count("SELECT COUNT(*) FROM bookings");
-$pending_bookings = $fetch_count("SELECT COUNT(*) FROM bookings WHERE status = 'pending'");
-$total_form_submissions = $fetch_count("SELECT COUNT(*) FROM form_submissions");
-$forms_last_30_days = $fetch_count("SELECT COUNT(*) FROM form_submissions WHERE submitted_at >= ?", [$thirty_days_ago_sql]);
-$appointments_last_30_days = $fetch_count("SELECT COUNT(*) FROM bookings WHERE created_at >= ?", [$thirty_days_ago_sql]);
-$quotes_accepted_last_30_days = $fetch_count("SELECT COUNT(*) FROM quotes WHERE status = 'accepted' AND accepted_at IS NOT NULL AND accepted_at >= ?", [$thirty_days_ago_sql]);
-$contracts_signed_last_30_days = $fetch_count("SELECT COUNT(*) FROM contracts WHERE status = 'signed' AND signed_date IS NOT NULL AND signed_date >= ?", [$thirty_days_ago_date]);
-$paid_invoices_last_30_days = $fetch_count("SELECT COUNT(*) FROM invoices WHERE status = 'paid' AND payment_date IS NOT NULL AND payment_date >= ?", [$thirty_days_ago_date]);
-$income_last_30_days = $fetch_sum("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status = 'paid' AND payment_date IS NOT NULL AND payment_date >= ?", [$thirty_days_ago_date]);
+$total_posts = $fetch_count($conn->prepare("SELECT COUNT(*) FROM blog_posts"));
+$published_posts = $fetch_count($conn->prepare("SELECT COUNT(*) FROM blog_posts WHERE published = 1 AND publish_date <= ?"), [$now_sql]);
+$total_bookings = $fetch_count($conn->prepare("SELECT COUNT(*) FROM bookings"));
+$pending_bookings = $fetch_count($conn->prepare("SELECT COUNT(*) FROM bookings WHERE status = 'pending'"));
+$total_form_submissions = $fetch_count($conn->prepare("SELECT COUNT(*) FROM form_submissions"));
+$forms_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM form_submissions WHERE submitted_at >= ?"), [$thirty_days_ago_sql]);
+$appointments_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM bookings WHERE created_at >= ?"), [$thirty_days_ago_sql]);
+$quotes_accepted_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM quotes WHERE status = 'accepted' AND accepted_at IS NOT NULL AND accepted_at >= ?"), [$thirty_days_ago_sql]);
+$contracts_signed_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM contracts WHERE status = 'signed' AND signed_date IS NOT NULL AND signed_date >= ?"), [$thirty_days_ago_date]);
+$paid_invoices_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM invoices WHERE status = 'paid' AND payment_date IS NOT NULL AND payment_date >= ?"), [$thirty_days_ago_date]);
+$income_last_30_days = $fetch_sum($conn->prepare("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status = 'paid' AND payment_date IS NOT NULL AND payment_date >= ?"), [$thirty_days_ago_date]);
 
 $dashboard_cards = [
     [
@@ -126,7 +123,7 @@ $quick_stats = [
 
 $recent_actions = [];
 
-foreach ($fetch_rows("
+foreach ($fetch_rows($conn->prepare("
     SELECT *
     FROM (
         SELECT
@@ -205,7 +202,7 @@ foreach ($fetch_rows("
     WHERE action_at IS NOT NULL AND action_at <> ''
     ORDER BY action_at DESC
     LIMIT 12
-", [$ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_date, $ninety_days_ago_date]) as $row) {
+"), [$ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_date, $ninety_days_ago_date]) as $row) {
     $action_type = scalar_string($row['action_type'] ?? '');
     $record_id = safe_int($row['record_id'] ?? 0);
     $detail_primary = scalar_string($row['detail_primary'] ?? '');
@@ -395,7 +392,7 @@ require_once '../backend/includes/header.php';
                         <?php if ($recent_actions !== []): ?>
                             <?php foreach ($recent_actions as $action): ?>
                                 <tr>
-                                    <td><?php echo escape($format_action_timestamp(scalar_string($action['action_at'] ?? ''))); ?></td>
+                                    <td><?php echo escape($format_action_timestamp($action['action_at'])); ?></td>
                                     <td>
                                         <span class="badge rounded-pill <?php echo escape($action['badge_class']); ?>">
                                             <?php echo escape($action['label']); ?>
