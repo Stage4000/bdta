@@ -147,7 +147,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ? round(safe_float($installment['amount'] ?? 0), 2)
         : round(safe_float($_POST['payment_amount'] ?? 0), 2);
     $payment_date_object = DateTime::createFromFormat('Y-m-d', $payment_date);
-    $payment_date_is_valid = $payment_date_object instanceof DateTime && $payment_date_object->format('Y-m-d') === $payment_date;
+    $payment_date_errors = DateTime::getLastErrors();
+    $payment_date_has_errors = is_array($payment_date_errors)
+        && (($payment_date_errors['warning_count'] ?? 0) > 0 || ($payment_date_errors['error_count'] ?? 0) > 0);
+    $payment_date_is_valid = $payment_date_object instanceof DateTime
+        && $payment_date_object->format('Y-m-d') === $payment_date
+        && !$payment_date_has_errors;
 
     if (!in_array($payment_method, ['cash', 'check', 'bank_transfer', 'other'], true)) {
         setFlashMessage('Invalid payment method!', 'danger');
@@ -317,7 +322,7 @@ include '../backend/includes/header.php';
                                    value="<?= date('Y-m-d') ?>" required>
                         </div>
                         
-                         <div class="alert alert-warning">
+                        <div class="alert alert-warning">
                             <i class="fas fa-triangle-exclamation"></i>
                             <strong>Note:</strong> This action cannot be undone.
                             <?php if (!$installment): ?>
