@@ -27,6 +27,10 @@ $currency_symbol = '$';
 $format_money = static function (float $amount) use ($currency_symbol): string {
     return $currency_symbol . number_format($amount, 2);
 };
+$format_amount_detail = static function (string $primary, float $amount) use ($format_money): string {
+    return $primary . ' · ' . $format_money($amount);
+};
+$date_only_pattern = '/^\d{4}-\d{2}-\d{2}$/';
 
 $now = new DateTimeImmutable();
 $now_sql = $now->format('Y-m-d H:i:s');
@@ -55,7 +59,7 @@ $dashboard_cards = [
         'href' => 'blog_list.php',
         'icon' => 'fa-file-lines',
         'icon_color' => 'text-primary',
-        'value' => $total_posts,
+        'value' => (string) $total_posts,
         'label' => 'Blog Posts',
         'meta' => $published_posts . ' published',
         'meta_class' => 'text-success-emphasis',
@@ -64,7 +68,7 @@ $dashboard_cards = [
         'href' => 'bookings_list.php',
         'icon' => 'fa-calendar-check',
         'icon_color' => 'text-success',
-        'value' => $total_bookings,
+        'value' => (string) $total_bookings,
         'label' => 'Bookings',
         'meta' => $pending_bookings . ' pending',
         'meta_class' => 'text-warning-emphasis',
@@ -73,7 +77,7 @@ $dashboard_cards = [
         'href' => 'form_submissions_list.php',
         'icon' => 'fa-file-circle-check',
         'icon_color' => 'text-info',
-        'value' => $total_form_submissions,
+        'value' => (string) $total_form_submissions,
         'label' => 'Form Submissions',
         'meta' => $forms_last_30_days . ' in the last 30 days',
         'meta_class' => 'text-info-emphasis',
@@ -82,7 +86,7 @@ $dashboard_cards = [
         'href' => 'invoices_list.php',
         'icon' => 'fa-money-bill-wave',
         'icon_color' => 'text-warning',
-        'value' => $format_money($income_last_30_days),
+        'value' => (string) $format_money($income_last_30_days),
         'label' => 'Income (30 Days)',
         'meta' => $paid_invoices_last_30_days . ' invoices paid',
         'meta_class' => 'text-warning-emphasis',
@@ -225,7 +229,7 @@ foreach ($fetch_rows("
         $badge_class = 'bg-info-subtle text-info-emphasis';
     } elseif ($action_type === 'quote') {
         $label = 'Quote accepted';
-        $details = $detail_primary . ' · ' . $format_money($amount_value);
+        $details = $format_amount_detail($detail_primary, $amount_value);
         $href = 'quotes_view.php?id=' . $record_id;
         $badge_class = 'bg-success-subtle text-success-emphasis';
     } elseif ($action_type === 'contract') {
@@ -234,7 +238,7 @@ foreach ($fetch_rows("
         $badge_class = 'bg-warning-subtle text-warning-emphasis';
     } elseif ($action_type === 'invoice') {
         $label = 'Invoice paid';
-        $details = $detail_primary . ' · ' . $format_money($amount_value);
+        $details = $format_amount_detail($detail_primary, $amount_value);
         $href = 'invoices_view.php?id=' . $record_id;
         $badge_class = 'bg-secondary-subtle text-secondary-emphasis';
     }
@@ -249,7 +253,7 @@ foreach ($fetch_rows("
     ];
 }
 
-$format_action_timestamp = static function (string $value): string {
+$format_action_timestamp = static function (string $value) use ($date_only_pattern): string {
     if ($value === '') {
         return '';
     }
@@ -259,7 +263,7 @@ $format_action_timestamp = static function (string $value): string {
         return $value;
     }
 
-    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1) {
+    if (preg_match($date_only_pattern, $value) === 1) {
         return formatDate($value);
     }
 
