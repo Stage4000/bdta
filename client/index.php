@@ -254,7 +254,8 @@ $format_action_timestamp = static function (string $value): string {
         return '';
     }
 
-    if (strtotime($value) === false) {
+    $parsed_timestamp = strtotime($value);
+    if ($parsed_timestamp === false || $parsed_timestamp === -1) {
         return $value;
     }
 
