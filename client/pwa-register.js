@@ -26,7 +26,7 @@
         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
 
-    function showToastNotice(currentNotice, message, background, role, ariaLive, durationMs) {
+    function showToastNotice(currentNotice, message, background, role, ariaLive, durationMs, onDismiss) {
         if (!document.body) {
             return currentNotice;
         }
@@ -57,12 +57,8 @@
                     notice.remove();
                 }
 
-                if (installFallbackNotice === notice) {
-                    installFallbackNotice = null;
-                }
-
-                if (serviceWorkerFailureNotice === notice) {
-                    serviceWorkerFailureNotice = null;
+                if (typeof onDismiss === 'function') {
+                    onDismiss(notice);
                 }
             }, durationMs);
         }
@@ -77,7 +73,12 @@
             installFallbackNoticeBackground,
             'status',
             'polite',
-            installFallbackNoticeDurationMs
+            installFallbackNoticeDurationMs,
+            function (notice) {
+                if (installFallbackNotice === notice) {
+                    installFallbackNotice = null;
+                }
+            }
         );
     }
 
@@ -144,7 +145,12 @@
                 serviceWorkerFailureNoticeBackground,
                 'alert',
                 'assertive',
-                null
+                null,
+                function (notice) {
+                    if (serviceWorkerFailureNotice === notice) {
+                        serviceWorkerFailureNotice = null;
+                    }
+                }
             );
         });
     });
