@@ -96,10 +96,7 @@
             deferredInstallPrompt.prompt();
 
             try {
-                const userChoice = await deferredInstallPrompt.userChoice;
-                if (userChoice && userChoice.outcome !== 'accepted') {
-                    showInstallFallbackNotice();
-                }
+                await deferredInstallPrompt.userChoice;
             } catch (err) {
                 console.error('PWA install prompt failed:', err);
                 showInstallFallbackNotice();

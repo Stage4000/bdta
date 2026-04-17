@@ -1,4 +1,3 @@
-#!/usr/bin/env php
 <?php
 
 function assertTrue(bool $condition, string $message): void
