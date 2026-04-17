@@ -114,106 +114,130 @@ $quick_stats = [
 
 $recent_actions = [];
 
-foreach ($fetch_rows("SELECT id, client_name, service_type, appointment_date, appointment_time, status, created_at FROM bookings ORDER BY created_at DESC LIMIT 10") as $booking) {
-    $action_at = scalar_string($booking['created_at'] ?? '');
-    $recent_actions[] = [
-        'action_at' => $action_at,
-        'sort_at' => safe_timestamp(strtotime($action_at)),
-        'label' => 'Appointment booked',
-        'subject' => scalar_string($booking['client_name'] ?? ''),
-        'details' => trim(scalar_string($booking['service_type'] ?? '') . ' · ' . scalar_string($booking['appointment_date'] ?? '') . ' ' . scalar_string($booking['appointment_time'] ?? '')),
-        'href' => 'bookings_list.php?id=' . safe_int($booking['id'] ?? 0),
-        'badge_class' => 'bg-primary-subtle text-primary-emphasis',
-    ];
-}
-
 foreach ($fetch_rows("
-    SELECT fs.id, fs.submitted_at, fs.status, c.name AS client_name, ft.name AS form_name
-    FROM form_submissions fs
-    LEFT JOIN clients c ON fs.client_id = c.id
-    LEFT JOIN form_templates ft ON fs.template_id = ft.id
-    ORDER BY fs.submitted_at DESC
-    LIMIT 10
-") as $submission) {
-    $action_at = scalar_string($submission['submitted_at'] ?? '');
+    SELECT *
+    FROM (
+        SELECT
+            b.created_at AS action_at,
+            'booking' AS action_type,
+            b.id AS record_id,
+            b.client_name AS subject_name,
+            b.service_type AS detail_primary,
+            b.appointment_date AS detail_date,
+            b.appointment_time AS detail_time,
+            NULL AS amount_value
+        FROM bookings b
+
+        UNION ALL
+
+        SELECT
+            fs.submitted_at AS action_at,
+            'form' AS action_type,
+            fs.id AS record_id,
+            COALESCE(c.name, 'Client') AS subject_name,
+            COALESCE(ft.name, 'Form submission') AS detail_primary,
+            NULL AS detail_date,
+            NULL AS detail_time,
+            NULL AS amount_value
+        FROM form_submissions fs
+        LEFT JOIN clients c ON fs.client_id = c.id
+        LEFT JOIN form_templates ft ON fs.template_id = ft.id
+
+        UNION ALL
+
+        SELECT
+            q.accepted_at AS action_at,
+            'quote' AS action_type,
+            q.id AS record_id,
+            c.name AS subject_name,
+            q.quote_number AS detail_primary,
+            NULL AS detail_date,
+            NULL AS detail_time,
+            q.amount AS amount_value
+        FROM quotes q
+        INNER JOIN clients c ON q.client_id = c.id
+        WHERE q.status = 'accepted' AND q.accepted_at IS NOT NULL
+
+        UNION ALL
+
+        SELECT
+            COALESCE(co.signed_date, co.updated_at) AS action_at,
+            'contract' AS action_type,
+            co.id AS record_id,
+            c.name AS subject_name,
+            co.title AS detail_primary,
+            NULL AS detail_date,
+            NULL AS detail_time,
+            NULL AS amount_value
+        FROM contracts co
+        INNER JOIN clients c ON co.client_id = c.id
+        WHERE co.status = 'signed'
+
+        UNION ALL
+
+        SELECT
+            i.payment_date AS action_at,
+            'invoice' AS action_type,
+            i.id AS record_id,
+            c.name AS subject_name,
+            i.invoice_number AS detail_primary,
+            NULL AS detail_date,
+            NULL AS detail_time,
+            i.total_amount AS amount_value
+        FROM invoices i
+        INNER JOIN clients c ON i.client_id = c.id
+        WHERE i.status = 'paid' AND i.payment_date IS NOT NULL
+    ) dashboard_recent_activity
+    WHERE action_at IS NOT NULL AND action_at <> ''
+    ORDER BY action_at DESC
+    LIMIT 12
+") as $row) {
+    $action_type = scalar_string($row['action_type'] ?? '');
+    $record_id = safe_int($row['record_id'] ?? 0);
+    $detail_primary = scalar_string($row['detail_primary'] ?? '');
+    $detail_date = scalar_string($row['detail_date'] ?? '');
+    $detail_time = scalar_string($row['detail_time'] ?? '');
+    $amount_value = safe_float($row['amount_value'] ?? 0);
+
+    $label = 'Recent activity';
+    $details = $detail_primary;
+    $href = '#';
+    $badge_class = 'bg-secondary-subtle text-secondary-emphasis';
+
+    if ($action_type === 'booking') {
+        $label = 'Appointment booked';
+        $details = trim($detail_primary . ' · ' . $detail_date . ' ' . $detail_time);
+        $href = 'bookings_list.php?id=' . $record_id;
+        $badge_class = 'bg-primary-subtle text-primary-emphasis';
+    } elseif ($action_type === 'form') {
+        $label = 'Form completed';
+        $href = 'form_submissions_view.php?id=' . $record_id;
+        $badge_class = 'bg-info-subtle text-info-emphasis';
+    } elseif ($action_type === 'quote') {
+        $label = 'Quote accepted';
+        $details = $detail_primary . ' · $' . number_format($amount_value, 2);
+        $href = 'quotes_view.php?id=' . $record_id;
+        $badge_class = 'bg-success-subtle text-success-emphasis';
+    } elseif ($action_type === 'contract') {
+        $label = 'Contract signed';
+        $href = 'contracts_view.php?id=' . $record_id;
+        $badge_class = 'bg-warning-subtle text-warning-emphasis';
+    } elseif ($action_type === 'invoice') {
+        $label = 'Invoice paid';
+        $details = $detail_primary . ' · $' . number_format($amount_value, 2);
+        $href = 'invoices_view.php?id=' . $record_id;
+        $badge_class = 'bg-secondary-subtle text-secondary-emphasis';
+    }
+
     $recent_actions[] = [
-        'action_at' => $action_at,
-        'sort_at' => safe_timestamp(strtotime($action_at)),
-        'label' => 'Form completed',
-        'subject' => scalar_string($submission['client_name'] ?? 'Client'),
-        'details' => scalar_string($submission['form_name'] ?? 'Form submission'),
-        'href' => 'form_submissions_view.php?id=' . safe_int($submission['id'] ?? 0),
-        'badge_class' => 'bg-info-subtle text-info-emphasis',
+        'action_at' => scalar_string($row['action_at'] ?? ''),
+        'label' => $label,
+        'subject' => scalar_string($row['subject_name'] ?? ''),
+        'details' => $details,
+        'href' => $href,
+        'badge_class' => $badge_class,
     ];
 }
-
-foreach ($fetch_rows("
-    SELECT q.id, q.quote_number, q.amount, q.accepted_at, c.name AS client_name
-    FROM quotes q
-    INNER JOIN clients c ON q.client_id = c.id
-    WHERE q.status = 'accepted' AND q.accepted_at IS NOT NULL
-    ORDER BY q.accepted_at DESC
-    LIMIT 10
-") as $quote) {
-    $action_at = scalar_string($quote['accepted_at'] ?? '');
-    $recent_actions[] = [
-        'action_at' => $action_at,
-        'sort_at' => safe_timestamp(strtotime($action_at)),
-        'label' => 'Quote accepted',
-        'subject' => scalar_string($quote['client_name'] ?? ''),
-        'details' => scalar_string($quote['quote_number'] ?? 'Quote') . ' · $' . number_format(safe_float($quote['amount'] ?? 0), 2),
-        'href' => 'quotes_view.php?id=' . safe_int($quote['id'] ?? 0),
-        'badge_class' => 'bg-success-subtle text-success-emphasis',
-    ];
-}
-
-foreach ($fetch_rows("
-    SELECT co.id, co.title, co.signed_date, co.updated_at, c.name AS client_name
-    FROM contracts co
-    INNER JOIN clients c ON co.client_id = c.id
-    WHERE co.status = 'signed'
-    ORDER BY COALESCE(co.signed_date, co.updated_at) DESC
-    LIMIT 10
-") as $contract) {
-    $signed_date = scalar_string($contract['signed_date'] ?? '');
-    $action_at = $signed_date !== ''
-        ? $signed_date
-        : scalar_string($contract['updated_at'] ?? '');
-    $recent_actions[] = [
-        'action_at' => $action_at,
-        'sort_at' => safe_timestamp(strtotime($action_at)),
-        'label' => 'Contract signed',
-        'subject' => scalar_string($contract['client_name'] ?? ''),
-        'details' => scalar_string($contract['title'] ?? 'Contract'),
-        'href' => 'contracts_view.php?id=' . safe_int($contract['id'] ?? 0),
-        'badge_class' => 'bg-warning-subtle text-warning-emphasis',
-    ];
-}
-
-foreach ($fetch_rows("
-    SELECT i.id, i.invoice_number, i.total_amount, i.payment_date, c.name AS client_name
-    FROM invoices i
-    INNER JOIN clients c ON i.client_id = c.id
-    WHERE i.status = 'paid' AND i.payment_date IS NOT NULL
-    ORDER BY i.payment_date DESC
-    LIMIT 10
-") as $invoice) {
-    $action_at = scalar_string($invoice['payment_date'] ?? '');
-    $recent_actions[] = [
-        'action_at' => $action_at,
-        'sort_at' => safe_timestamp(strtotime($action_at)),
-        'label' => 'Invoice paid',
-        'subject' => scalar_string($invoice['client_name'] ?? ''),
-        'details' => scalar_string($invoice['invoice_number'] ?? 'Invoice') . ' · $' . number_format(safe_float($invoice['total_amount'] ?? 0), 2),
-        'href' => 'invoices_view.php?id=' . safe_int($invoice['id'] ?? 0),
-        'badge_class' => 'bg-secondary-subtle text-secondary-emphasis',
-    ];
-}
-
-usort($recent_actions, static function (array $left, array $right): int {
-    return safe_int($right['sort_at'] ?? 0) <=> safe_int($left['sort_at'] ?? 0);
-});
-$recent_actions = array_slice($recent_actions, 0, 12);
 
 $format_action_timestamp = static function (string $value): string {
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1) {
