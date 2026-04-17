@@ -13,10 +13,46 @@
     const installNavItem = document.getElementById('pwaInstallNavItem');
     const installButton = document.getElementById('pwaInstallButton');
     const hasInstallUi = installNavItem !== null && installButton !== null;
+    const installFallbackMessage = 'To reinstall the BDTA app, open your browser menu and choose "Install app" or "Add to Home screen". Chrome may not show the automatic install prompt again right away after uninstalling.';
     let deferredInstallPrompt = null;
+    let installFallbackNotice = null;
 
     function isStandaloneMode() {
         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function showInstallFallbackNotice() {
+        if (!document.body) {
+            return;
+        }
+
+        if (installFallbackNotice) {
+            installFallbackNotice.remove();
+        }
+
+        installFallbackNotice = document.createElement('div');
+        installFallbackNotice.textContent = installFallbackMessage;
+        installFallbackNotice.style.position = 'fixed';
+        installFallbackNotice.style.bottom = '1rem';
+        installFallbackNotice.style.right = '1rem';
+        installFallbackNotice.style.zIndex = '2000';
+        installFallbackNotice.style.maxWidth = '26rem';
+        installFallbackNotice.style.background = '#0d6efd';
+        installFallbackNotice.style.color = '#fff';
+        installFallbackNotice.style.padding = '0.75rem 1rem';
+        installFallbackNotice.style.borderRadius = '0.5rem';
+        installFallbackNotice.style.boxShadow = '0 0.5rem 1rem rgba(0,0,0,0.2)';
+        installFallbackNotice.setAttribute('role', 'status');
+        installFallbackNotice.setAttribute('aria-live', 'polite');
+        document.body.appendChild(installFallbackNotice);
+
+        const notice = installFallbackNotice;
+        window.setTimeout(function () {
+            if (installFallbackNotice === notice) {
+                installFallbackNotice.remove();
+                installFallbackNotice = null;
+            }
+        }, 8000);
     }
 
     function updateInstallButton() {
@@ -25,10 +61,11 @@
         }
 
         const inStandaloneMode = isStandaloneMode();
-        const canInstall = deferredInstallPrompt !== null && !inStandaloneMode;
+        const canInstall = !inStandaloneMode;
         installNavItem.classList.toggle('d-none', inStandaloneMode);
         installButton.disabled = !canInstall;
         installButton.classList.toggle('disabled', !canInstall);
+        installButton.setAttribute('aria-disabled', String(!canInstall));
     }
 
     window.addEventListener('beforeinstallprompt', function (event) {
@@ -51,15 +88,20 @@
     if (installButton) {
         installButton.addEventListener('click', async function () {
             if (!deferredInstallPrompt) {
+                showInstallFallbackNotice();
                 return;
             }
 
             deferredInstallPrompt.prompt();
 
             try {
-                await deferredInstallPrompt.userChoice;
+                const userChoice = await deferredInstallPrompt.userChoice;
+                if (userChoice && userChoice.outcome !== 'accepted') {
+                    showInstallFallbackNotice();
+                }
             } catch (err) {
                 console.error('PWA install prompt failed:', err);
+                showInstallFallbackNotice();
             }
 
             deferredInstallPrompt = null;
