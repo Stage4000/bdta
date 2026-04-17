@@ -34,7 +34,7 @@ function bdta_invoice_calculate_payment_progress(array $invoice, float $paid_tot
     $total_amount = round(max(0, safe_float($invoice['total_amount'] ?? 0)), 2);
     $paid_total = round(max(0, min($total_amount, $paid_total)), 2);
     $remaining_amount = round(max(0, $total_amount - $paid_total), 2);
-    $current_status = strtolower(trim((string) ($invoice['status'] ?? 'draft')));
+    $current_status = strtolower(trim(scalar_string($invoice['status'] ?? 'draft')));
 
     if ($remaining_amount <= 0.0 && $total_amount > 0) {
         $status = 'paid';
@@ -140,7 +140,7 @@ function bdta_invoice_get_payment_summary(PDO $conn, array $invoice, ?array $ins
 
     if ($installments !== null) {
         foreach ($installments as $installment) {
-            if (strtolower(trim((string) ($installment['status'] ?? ''))) === 'paid') {
+            if (strtolower(trim(scalar_string($installment['status'] ?? ''))) === 'paid') {
                 $installment_total += safe_float($installment['amount'] ?? 0);
             }
         }
@@ -151,7 +151,7 @@ function bdta_invoice_get_payment_summary(PDO $conn, array $invoice, ?array $ins
     }
 
     $summary = bdta_invoice_calculate_payment_progress($invoice, $recorded_total + $installment_total);
-    $status = strtolower(trim((string) ($invoice['status'] ?? '')));
+    $status = strtolower(trim(scalar_string($invoice['status'] ?? '')));
 
     if (
         $summary['paid_total'] <= 0.0
