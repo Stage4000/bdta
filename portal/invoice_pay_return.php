@@ -184,7 +184,7 @@ try {
     $conn->prepare("
         INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)
         VALUES (?, ?, CURRENT_DATE, 'credit_card', ?, ?)
-    ")->execute([$id, $payment_amount, $payment_intent_id, 'Stripe payment intent ' . $payment_intent_id]);
+    ")->execute([$id, $payment_amount, $payment_intent_id, 'Stripe Checkout session ' . $session_id]);
 
     $updated_summary = bdta_invoice_get_payment_summary($conn, $invoice);
     $invoice_update = $conn->prepare("
