@@ -204,7 +204,7 @@ include '../portal/includes/header.php';
                     <?php foreach ($payments as $payment): ?>
                         <li>
                             $<?php echo number_format(safe_float($payment['amount'] ?? 0), 2); ?>
-                            on <?php echo formatDate(array_string_value($payment, 'payment_date')); ?>
+                            on <?php echo escape(formatDate(array_string_value($payment, 'payment_date'))); ?>
                             via <?php echo escape(ucwords(str_replace('_', ' ', array_string_value($payment, 'payment_method', 'other')))); ?>
                         </li>
                     <?php endforeach; ?>

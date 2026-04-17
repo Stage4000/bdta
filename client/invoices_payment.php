@@ -146,11 +146,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payment_amount = $installment
         ? round(safe_float($installment['amount'] ?? 0), 2)
         : round(safe_float($_POST['payment_amount'] ?? 0), 2);
-    [$payment_year, $payment_month, $payment_day] = array_pad(array_map('intval', explode('-', $payment_date)), 3, 0);
+    $payment_date_object = DateTime::createFromFormat('Y-m-d', $payment_date);
+    $payment_date_is_valid = $payment_date_object instanceof DateTime && $payment_date_object->format('Y-m-d') === $payment_date;
 
     if (!in_array($payment_method, ['cash', 'check', 'bank_transfer', 'other'], true)) {
         setFlashMessage('Invalid payment method!', 'danger');
-    } elseif (!checkdate($payment_month, $payment_day, $payment_year)) {
+    } elseif (!$payment_date_is_valid) {
         setFlashMessage('Please enter a valid payment date.', 'danger');
     } elseif ($installment) {
         // Pay a single installment
