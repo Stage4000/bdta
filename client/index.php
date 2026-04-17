@@ -190,7 +190,7 @@ $stmt = $conn->query("
 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $invoice) {
     $recent_actions[] = [
         'action_at' => scalar_string($invoice['payment_date'] ?? ''),
-        'label' => 'Purchase paid',
+        'label' => 'Invoice paid',
         'subject' => scalar_string($invoice['client_name'] ?? ''),
         'details' => scalar_string($invoice['invoice_number'] ?? 'Invoice') . ' · $' . number_format(safe_float($invoice['total_amount'] ?? 0), 2),
         'href' => 'invoices_view.php?id=' . safe_int($invoice['id'] ?? 0),
