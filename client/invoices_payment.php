@@ -152,8 +152,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         : round(safe_float($_POST['payment_amount'] ?? 0), 2);
     $payment_date_object = DateTime::createFromFormat('Y-m-d', $payment_date);
     $payment_date_errors = DateTime::getLastErrors();
-    $payment_date_has_errors = is_array($payment_date_errors)
-        && ($payment_date_errors['warning_count'] > 0 || $payment_date_errors['error_count'] > 0);
+    $payment_date_warning_count = 0;
+    $payment_date_error_count = 0;
+    if (is_array($payment_date_errors)) {
+        $payment_date_warning_count = $payment_date_errors['warning_count'];
+        $payment_date_error_count = $payment_date_errors['error_count'];
+    }
+    $payment_date_has_errors = $payment_date_warning_count > 0 || $payment_date_error_count > 0;
     $payment_date_is_valid = $payment_date_object instanceof DateTime
         && $payment_date_object->format('Y-m-d') === $payment_date
         && !$payment_date_has_errors;
