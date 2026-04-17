@@ -143,6 +143,7 @@ switch ($type) {
             $invoice_id = safe_int($income_event['invoice_id'] ?? 0);
             $invoice_detail = $invoice_details[$invoice_id] ?? [];
             $payment_amount = safe_float($income_event['amount'] ?? 0);
+            $payment_method = scalar_string($income_event['payment_method'] ?? '');
             $row_refunded = safe_float($invoice_detail['refunded_total'] ?? 0);
             $invoice_total = safe_float($invoice_detail['total_amount'] ?? 0);
             fputcsv($output, [
@@ -150,7 +151,7 @@ switch ($type) {
                 scalar_string($invoice_detail['client_name'] ?? ''),
                 scalar_string($invoice_detail['issue_date'] ?? ''),
                 scalar_string($income_event['payment_date'] ?? ''),
-                scalar_string($income_event['payment_method'] ?? '') !== '' ? scalar_string($income_event['payment_method'] ?? '') : 'N/A',
+                $payment_method !== '' ? $payment_method : 'N/A',
                 number_format($payment_amount, 2),
                 number_format($invoice_total, 2),
                 number_format($row_refunded, 2),
