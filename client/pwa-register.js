@@ -16,47 +16,69 @@
     const installFallbackMessage = 'To reinstall the BDTA app, open your browser menu and choose "Install app" or "Add to Home screen". Some browsers may not show the automatic install prompt again right away after uninstalling.';
     const installFallbackNoticeBackground = '#0d6efd';
     const installFallbackNoticeDurationMs = 8000;
+    const serviceWorkerFailureMessage = 'Some enhanced features (such as PWA installability) may be unavailable. You can keep using the app; please refresh if this issue persists.';
+    const serviceWorkerFailureNoticeBackground = '#dc3545';
     let deferredInstallPrompt = null;
     let installFallbackNotice = null;
+    let serviceWorkerFailureNotice = null;
 
     function isStandaloneMode() {
         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
 
-    function showInstallFallbackNotice() {
+    function showToastNotice(currentNotice, message, background, role, ariaLive, durationMs) {
         if (!document.body) {
-            return;
+            return currentNotice;
         }
 
-        if (installFallbackNotice) {
-            installFallbackNotice.remove();
+        if (currentNotice && currentNotice.isConnected) {
+            currentNotice.remove();
         }
 
-        installFallbackNotice = document.createElement('div');
-        installFallbackNotice.textContent = installFallbackMessage;
-        installFallbackNotice.style.position = 'fixed';
-        installFallbackNotice.style.bottom = '1rem';
-        installFallbackNotice.style.right = '1rem';
-        installFallbackNotice.style.zIndex = '2000';
-        installFallbackNotice.style.maxWidth = '26rem';
-        installFallbackNotice.style.background = installFallbackNoticeBackground;
-        installFallbackNotice.style.color = '#fff';
-        installFallbackNotice.style.padding = '0.75rem 1rem';
-        installFallbackNotice.style.borderRadius = '0.5rem';
-        installFallbackNotice.style.boxShadow = '0 0.5rem 1rem rgba(0,0,0,0.2)';
-        installFallbackNotice.setAttribute('role', 'status');
-        installFallbackNotice.setAttribute('aria-live', 'polite');
-        document.body.appendChild(installFallbackNotice);
+        const notice = document.createElement('div');
+        notice.textContent = message;
+        notice.style.position = 'fixed';
+        notice.style.bottom = '1rem';
+        notice.style.right = '1rem';
+        notice.style.zIndex = '2000';
+        notice.style.maxWidth = '26rem';
+        notice.style.background = background;
+        notice.style.color = '#fff';
+        notice.style.padding = '0.75rem 1rem';
+        notice.style.borderRadius = '0.5rem';
+        notice.style.boxShadow = '0 0.5rem 1rem rgba(0,0,0,0.2)';
+        notice.setAttribute('role', role);
+        notice.setAttribute('aria-live', ariaLive);
+        document.body.appendChild(notice);
 
-        const notice = installFallbackNotice;
-        window.setTimeout(function () {
-            if (installFallbackNotice === notice) {
-                if (installFallbackNotice.isConnected) {
-                    installFallbackNotice.remove();
+        if (durationMs !== null) {
+            window.setTimeout(function () {
+                if (notice.isConnected) {
+                    notice.remove();
                 }
-                installFallbackNotice = null;
-            }
-        }, installFallbackNoticeDurationMs);
+
+                if (installFallbackNotice === notice) {
+                    installFallbackNotice = null;
+                }
+
+                if (serviceWorkerFailureNotice === notice) {
+                    serviceWorkerFailureNotice = null;
+                }
+            }, durationMs);
+        }
+
+        return notice;
+    }
+
+    function showInstallFallbackNotice() {
+        installFallbackNotice = showToastNotice(
+            installFallbackNotice,
+            installFallbackMessage,
+            installFallbackNoticeBackground,
+            'status',
+            'polite',
+            installFallbackNoticeDurationMs
+        );
     }
 
     function updateInstallButton() {
@@ -116,20 +138,14 @@
 
         navigator.serviceWorker.register('/client/sw.js', { scope: ADMIN_PATH }).catch(function (err) {
             console.error('Service worker registration failed:', err);
-            const note = document.createElement('div');
-            note.textContent = 'Some enhanced features (such as PWA installability) may be unavailable. You can keep using the app; please refresh if this issue persists.';
-            note.style.position = 'fixed';
-            note.style.bottom = '1rem';
-            note.style.right = '1rem';
-            note.style.zIndex = '2000';
-            note.style.background = '#dc3545';
-            note.style.color = '#fff';
-            note.style.padding = '0.75rem 1rem';
-            note.style.borderRadius = '0.5rem';
-            note.style.boxShadow = '0 0.5rem 1rem rgba(0,0,0,0.2)';
-            note.setAttribute('role', 'alert');
-            note.setAttribute('aria-live', 'assertive');
-            document.body.appendChild(note);
+            serviceWorkerFailureNotice = showToastNotice(
+                serviceWorkerFailureNotice,
+                serviceWorkerFailureMessage,
+                serviceWorkerFailureNoticeBackground,
+                'alert',
+                'assertive',
+                null
+            );
         });
     });
 }());
