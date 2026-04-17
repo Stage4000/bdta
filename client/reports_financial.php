@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/invoice_status.php';
 requireLogin();
 
 $db = new Database();
@@ -60,19 +61,27 @@ switch ($range) {
 }
 
 // Get income data (cash received from invoices)
-$income_stmt = $conn->prepare("
-    SELECT 
-        DATE(payment_date) as date,
-        SUM(total_amount) as amount
-    FROM invoices
-    WHERE payment_date BETWEEN ? AND ?
-      AND payment_method IS NOT NULL
-      AND status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
-    GROUP BY DATE(payment_date)
-    ORDER BY date
-");
-$income_stmt->execute([$start_date, $end_date]);
-$income_data = $income_stmt->fetchAll(PDO::FETCH_ASSOC);
+$income_events = bdta_invoice_get_income_events($conn, $start_date, $end_date);
+$income_totals_by_date = [];
+$total_income = 0.0;
+foreach ($income_events as $income_event) {
+    $payment_date = scalar_string($income_event['payment_date'] ?? '');
+    if ($payment_date === '') {
+        continue;
+    }
+
+    $event_amount = safe_float($income_event['amount'] ?? 0);
+    $income_totals_by_date[$payment_date] = round(($income_totals_by_date[$payment_date] ?? 0) + $event_amount, 2);
+    $total_income = round($total_income + $event_amount, 2);
+}
+ksort($income_totals_by_date);
+$income_data = [];
+foreach ($income_totals_by_date as $date => $amount) {
+    $income_data[] = [
+        'date' => $date,
+        'amount' => $amount,
+    ];
+}
 
 // Get refund data
 $refund_stmt = $conn->prepare("
@@ -86,17 +95,6 @@ $refund_stmt = $conn->prepare("
 ");
 $refund_stmt->execute([$start_date, $end_date]);
 $refund_data = $refund_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get total income
-$total_income_stmt = $conn->prepare("
-    SELECT COALESCE(SUM(total_amount), 0) as total
-    FROM invoices
-    WHERE payment_date BETWEEN ? AND ?
-      AND payment_method IS NOT NULL
-      AND status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
-");
-$total_income_stmt->execute([$start_date, $end_date]);
-$total_income = safe_float($total_income_stmt->fetchColumn());
 
 // Get total refunds
 $total_refund_stmt = $conn->prepare("
