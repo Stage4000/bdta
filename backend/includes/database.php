@@ -838,6 +838,20 @@ class Database {
             ");
 
             $this->execSQL("
+                CREATE TABLE IF NOT EXISTS invoice_payments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    invoice_id INTEGER NOT NULL,
+                    amount REAL NOT NULL,
+                    payment_date DATE NOT NULL,
+                    payment_method TEXT,
+                    stripe_payment_intent_id TEXT,
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+                )
+            ");
+
+            $this->execSQL("
                 CREATE TABLE IF NOT EXISTS invoice_refunds (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     invoice_id INTEGER NOT NULL,
@@ -1598,6 +1612,37 @@ class Database {
 
         if (!in_array('receipt_sent_at', $installment_column_names)) {
             $this->execSQL("ALTER TABLE invoice_installments ADD COLUMN receipt_sent_at TIMESTAMP");
+        }
+
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS invoice_payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                payment_date DATE NOT NULL,
+                payment_method TEXT,
+                stripe_payment_intent_id TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            )
+        ");
+
+        $invoice_payment_column_names = $this->getTableColumns('invoice_payments');
+        if (!in_array('stripe_payment_intent_id', $invoice_payment_column_names, true)) {
+            $this->execSQL("ALTER TABLE invoice_payments ADD COLUMN stripe_payment_intent_id TEXT");
+        }
+
+        try {
+            $this->execSQL("CREATE INDEX idx_invoice_payments_invoice_id ON invoice_payments(invoice_id)");
+        } catch (PDOException $e) {
+            // Index already exists, ignore.
+        }
+
+        try {
+            $this->execSQL("CREATE UNIQUE INDEX idx_invoice_payments_stripe_payment_intent_id ON invoice_payments(stripe_payment_intent_id)");
+        } catch (PDOException $e) {
+            // Index already exists, ignore.
         }
 
         $this->execSQL("

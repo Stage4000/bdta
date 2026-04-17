@@ -5,6 +5,7 @@
  */
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
+require_once dirname(dirname(__DIR__)) . '/includes/invoice_status.php';
 
 /**
  * @phpstan-type InvoiceRow array<string, mixed>
@@ -115,16 +116,8 @@ class InvoiceReminderTask {
         // Calculate amount due (for partial payments)
         $amount_due = $total_amount;
         if ($status === 'partial') {
-            // Get payments for this invoice
-            $stmt = $this->conn->prepare("
-                SELECT SUM(amount) as paid 
-                FROM invoice_payments 
-                WHERE invoice_id = ?
-            ");
-            $stmt->execute([$invoice['id'] ?? null]);
-            $payment = $stmt->fetch(PDO::FETCH_ASSOC);
-            $paid = is_array($payment) ? safe_float($payment['paid'] ?? 0) : 0.0;
-            $amount_due = number_format($total_amount_value - $paid, 2);
+            $payment_summary = bdta_invoice_get_payment_summary($this->conn, $invoice);
+            $amount_due = number_format(safe_float($payment_summary['remaining_amount']), 2);
         }
         
         $subject = "Payment Reminder: Invoice {$invoice_number} is Overdue";

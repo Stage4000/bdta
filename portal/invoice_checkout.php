@@ -74,9 +74,17 @@ if (!isStripeEnabled()) {
 }
 
 $base_url     = getDynamicBaseUrl();
-$amount_cents = (int) round(safe_float($invoice['total_amount']) * 100, 0);
+$payment_summary = bdta_invoice_get_payment_summary($conn, $invoice);
+$remaining_amount = safe_float($payment_summary['remaining_amount']);
+$amount_cents = (int) round($remaining_amount * 100, 0);
 $currency     = STRIPE_CURRENCY;
 $secret_key   = STRIPE_SECRET_KEY;
+
+if ($remaining_amount <= 0) {
+    setFlashMessage('This invoice no longer has an outstanding balance.', 'info');
+    header('Location: ' . (!empty($token) ? $base_url . '/portal/invoice_pay.php?token=' . urlencode($token) : $base_url . '/portal/invoice_view.php?id=' . $id));
+    exit;
+}
 
 // Stripe requires a minimum charge amount (50 cents)
 if ($amount_cents < 50) {
@@ -97,12 +105,14 @@ $post_data = http_build_query([
     'line_items[0][quantity]'       => 1,
     'line_items[0][price_data][currency]'                 => $currency,
     'line_items[0][price_data][unit_amount]'              => $amount_cents,
-    'line_items[0][price_data][product_data][name]'       => 'Invoice ' . $invoice['invoice_number'],
-    'line_items[0][price_data][product_data][description]'=> 'Payment for invoice ' . $invoice['invoice_number'],
+    'line_items[0][price_data][product_data][name]'       => 'Invoice ' . $invoice['invoice_number'] . ' balance',
+    'line_items[0][price_data][product_data][description]'=> 'Payment for remaining balance on invoice ' . $invoice['invoice_number'],
     'metadata[invoice_id]'          => $id,
     'metadata[client_id]'           => $invoice['client_id'],
+    'metadata[payment_amount_cents]'      => scalar_string($amount_cents),
     'payment_intent_data[metadata][invoice_id]' => $id,
     'payment_intent_data[metadata][client_id]'  => $invoice['client_id'],
+    'payment_intent_data[metadata][payment_amount_cents]' => scalar_string($amount_cents),
     'payment_intent_data[description]'          => 'Invoice ' . $invoice['invoice_number'] . ' — ' . $invoice['client_name'],
 ]);
 
