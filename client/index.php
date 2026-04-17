@@ -161,7 +161,7 @@ foreach ($fetch_rows("
         UNION ALL
 
         SELECT
-            COALESCE(co.signed_date, co.updated_at) AS action_at,
+            co.signed_date AS action_at,
             'contract' AS action_type,
             co.id AS record_id,
             c.name AS subject_name,
@@ -240,6 +240,14 @@ foreach ($fetch_rows("
 }
 
 $format_action_timestamp = static function (string $value): string {
+    if ($value === '') {
+        return '';
+    }
+
+    if (strtotime($value) === false) {
+        return $value;
+    }
+
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1) {
         return formatDate($value);
     }
