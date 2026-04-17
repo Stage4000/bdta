@@ -26,7 +26,10 @@ try {
     assertTrue(str_contains($script, 'const canInstall = !inStandaloneMode;'), 'Expected the install button to remain enabled whenever the admin app is not already running in standalone mode.');
     assertTrue(str_contains($script, 'function showInstallFallbackNotice()'), 'Expected the PWA installer script to define a fallback notice for browsers that do not expose the install prompt.');
     assertTrue(str_contains($script, 'open your browser menu and choose "Install app" or "Add to Home screen"'), 'Expected the fallback notice to explain how to reinstall the app manually.');
-    assertTrue(str_contains($script, "if (!deferredInstallPrompt) {\n                showInstallFallbackNotice();"), 'Expected clicking Install App without a deferred install prompt to surface the fallback notice instead of staying disabled.');
+    assertTrue(
+        preg_match('/if\\s*\\(!deferredInstallPrompt\\)\\s*\\{\\s*showInstallFallbackNotice\\(\\);\\s*return;\\s*\\}/', $script) === 1,
+        'Expected clicking Install App without a deferred install prompt to surface the fallback notice instead of staying disabled.'
+    );
 
     echo "PWA reinstall UI test passed.\n";
 } catch (Throwable $e) {

@@ -65,7 +65,6 @@
         installNavItem.classList.toggle('d-none', inStandaloneMode);
         installButton.disabled = !canInstall;
         installButton.classList.toggle('disabled', !canInstall);
-        installButton.setAttribute('aria-disabled', String(!canInstall));
     }
 
     window.addEventListener('beforeinstallprompt', function (event) {
