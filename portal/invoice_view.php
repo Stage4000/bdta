@@ -39,6 +39,8 @@ $installments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $refunded_total = bdta_invoice_get_refunded_total($conn, $id);
 $refunds = bdta_invoice_get_refunds($conn, $id);
 $payment_summary = bdta_invoice_get_payment_summary($conn, $invoice, $installments);
+$payment_summary_paid_total = safe_float($payment_summary['paid_total']);
+$payment_summary_remaining_amount = safe_float($payment_summary['remaining_amount']);
 $payments = bdta_invoice_get_payments($conn, $id);
 $net_amount = bdta_invoice_get_net_amount($invoice, $refunded_total);
 $status  = strtolower($invoice['status'] ?? 'draft');
@@ -62,7 +64,7 @@ include '../portal/includes/header.php';
                 : 'invoice_checkout.php?id=' . $id;
         ?>
         <a href="<?php echo $checkout_url; ?>" class="btn btn-success btn-sm ms-1">
-            <i class="fas fa-credit-card me-1"></i>Pay $<?php echo number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2); ?> with Credit Card
+            <i class="fas fa-credit-card me-1"></i>Pay $<?php echo number_format($payment_summary_remaining_amount, 2); ?> with Credit Card
         </a>
         <?php endif; ?>
     </div>
@@ -170,30 +172,30 @@ include '../portal/includes/header.php';
                         <td class="text-end"><strong>Total:</strong></td>
                         <td class="text-end"><strong>$<?php echo number_format(floatval($invoice['total_amount']), 2); ?></strong></td>
                     </tr>
-                    <?php if (safe_float($payment_summary['paid_total'] ?? 0) > 0): ?>
+                    <?php if ($payment_summary_paid_total > 0): ?>
                         <tr class="table-success">
                             <td class="text-end"><strong>Total Paid:</strong></td>
-                            <td class="text-end">$<?php echo number_format(safe_float($payment_summary['paid_total'] ?? 0), 2); ?></td>
+                            <td class="text-end">$<?php echo number_format($payment_summary_paid_total, 2); ?></td>
                         </tr>
-                        <tr class="<?php echo safe_float($payment_summary['remaining_amount'] ?? 0) > 0 ? 'table-warning' : 'table-success'; ?>">
+                        <tr class="<?php echo $payment_summary_remaining_amount > 0 ? 'table-warning' : 'table-success'; ?>">
                             <td class="text-end"><strong>Remaining Balance:</strong></td>
-                            <td class="text-end">$<?php echo number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2); ?></td>
+                            <td class="text-end">$<?php echo number_format($payment_summary_remaining_amount, 2); ?></td>
                         </tr>
                     <?php endif; ?>
                 </table>
             </div>
         </div>
 
-        <?php if (safe_float($payment_summary['paid_total'] ?? 0) > 0): ?>
-            <div class="alert alert-<?php echo safe_float($payment_summary['remaining_amount'] ?? 0) > 0 ? 'info' : 'success'; ?> mt-2 mb-0">
+        <?php if ($payment_summary_paid_total > 0): ?>
+            <div class="alert alert-<?php echo $payment_summary_remaining_amount > 0 ? 'info' : 'success'; ?> mt-2 mb-0">
                 <i class="fas fa-check-circle me-1"></i>
-                <strong><?php echo safe_float($payment_summary['remaining_amount'] ?? 0) > 0 ? 'Payments Recorded:' : 'Payment Received:'; ?></strong>
-                $<?php echo number_format(safe_float($payment_summary['paid_total'] ?? 0), 2); ?>
+                <strong><?php echo $payment_summary_remaining_amount > 0 ? 'Payments Recorded:' : 'Payment Received:'; ?></strong>
+                $<?php echo number_format($payment_summary_paid_total, 2); ?>
                 <?php if (!empty($invoice['payment_method'])): ?>
                     via <?php echo escape(ucwords(str_replace('_', ' ', $invoice['payment_method']))); ?>
                 <?php endif; ?>
-                <?php if (safe_float($payment_summary['remaining_amount'] ?? 0) > 0): ?>
-                    <br><small>Remaining balance: $<?php echo number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2); ?></small>
+                <?php if ($payment_summary_remaining_amount > 0): ?>
+                    <br><small>Remaining balance: $<?php echo number_format($payment_summary_remaining_amount, 2); ?></small>
                 <?php endif; ?>
             </div>
         <?php endif; ?>

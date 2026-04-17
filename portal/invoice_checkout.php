@@ -75,7 +75,7 @@ if (!isStripeEnabled()) {
 
 $base_url     = getDynamicBaseUrl();
 $payment_summary = bdta_invoice_get_payment_summary($conn, $invoice);
-$remaining_amount = safe_float($payment_summary['remaining_amount'] ?? 0);
+$remaining_amount = safe_float($payment_summary['remaining_amount']);
 $amount_cents = (int) round($remaining_amount * 100, 0);
 $currency     = STRIPE_CURRENCY;
 $secret_key   = STRIPE_SECRET_KEY;

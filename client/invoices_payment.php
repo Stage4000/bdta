@@ -23,6 +23,9 @@ $installments_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE in
 $installments_stmt->execute([$id]);
 $invoice_installments = assoc_rows($installments_stmt->fetchAll(PDO::FETCH_ASSOC));
 $payment_summary = bdta_invoice_get_payment_summary($conn, $invoice, $invoice_installments);
+$payment_summary_paid_total = safe_float($payment_summary['paid_total']);
+$payment_summary_remaining_amount = safe_float($payment_summary['remaining_amount']);
+$csrf_token_value = scalar_string($_SESSION['csrf_token'] ?? '');
 
 // If paying a specific installment, load it
 $installment = null;
@@ -141,6 +144,7 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
 
 // Handle manual payment recording
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
     $payment_method = trim(scalar_string($_POST['payment_method'] ?? ''));
     $payment_date   = trim(scalar_string($_POST['payment_date'] ?? date('Y-m-d')));
     $payment_amount = $installment
@@ -154,7 +158,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         && $payment_date_object->format('Y-m-d') === $payment_date
         && !$payment_date_has_errors;
 
-    if (!in_array($payment_method, ['cash', 'check', 'bank_transfer', 'other'], true)) {
+    if ($submitted_csrf_token === '' || $csrf_token_value === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
+        setFlashMessage('Invalid request.', 'danger');
+    } elseif (!in_array($payment_method, ['cash', 'check', 'bank_transfer', 'other'], true)) {
         setFlashMessage('Invalid payment method!', 'danger');
     } elseif (!$payment_date_is_valid) {
         setFlashMessage('Please enter a valid payment date.', 'danger');
@@ -222,9 +228,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $conn->beginTransaction();
 
                 $conn->prepare("
-                    INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, notes)
-                    VALUES (?, ?, ?, ?, ?)
-                ")->execute([$id, $payment_amount, $payment_date, $payment_method, null]);
+                    INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ")->execute([$id, $payment_amount, $payment_date, $payment_method, null, null]);
 
                 $updated_summary = bdta_invoice_get_payment_summary($conn, $invoice);
                 $updated_status = array_string_value($updated_summary, 'status', 'sent');
@@ -286,18 +292,19 @@ include '../backend/includes/header.php';
                             <strong>Due Date:</strong> <?= formatDate(array_string_value($installment, 'due_date')) ?>
                         <?php else: ?>
                             <strong>Invoice Total:</strong> $<?= number_format(safe_float($invoice['total_amount'] ?? 0), 2) ?><br>
-                            <strong>Paid So Far:</strong> $<?= number_format(safe_float($payment_summary['paid_total'] ?? 0), 2) ?><br>
-                            <strong>Remaining Balance:</strong> $<?= number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2) ?>
+                            <strong>Paid So Far:</strong> $<?= number_format($payment_summary_paid_total, 2) ?><br>
+                            <strong>Remaining Balance:</strong> $<?= number_format($payment_summary_remaining_amount, 2) ?>
                         <?php endif; ?>
                     </div>
                     
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
                         <?php if (!$installment && empty($invoice_installments)): ?>
                         <div class="mb-3">
                             <label for="payment_amount" class="form-label">Payment Amount *</label>
                             <input type="number" class="form-control" id="payment_amount" name="payment_amount"
-                                   min="0.01" max="<?= escape(number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2, '.', '')) ?>"
-                                   step="0.01" value="<?= escape(number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2, '.', '')) ?>" required>
+                                   min="0.01" max="<?= escape(number_format($payment_summary_remaining_amount, 2, '.', '')) ?>"
+                                   step="0.01" value="<?= escape(number_format($payment_summary_remaining_amount, 2, '.', '')) ?>" required>
                             <div class="form-text">Enter any amount up to the remaining balance.</div>
                         </div>
                         <?php elseif (!$installment): ?>

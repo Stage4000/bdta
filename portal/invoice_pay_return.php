@@ -128,8 +128,26 @@ if (array_string_value($session, 'payment_intent') === '') {
     header('Location: ' . $cancel_url);
     exit;
 }
+$session_metadata = is_array($session['metadata'] ?? null) ? $session['metadata'] : [];
 $payment_intent_id = array_string_value($session, 'payment_intent');
+$session_invoice_id = safe_int($session_metadata['invoice_id'] ?? 0);
+$session_client_id = safe_int($session_metadata['client_id'] ?? 0);
+$session_amount_cents = safe_int($session_metadata['payment_amount_cents'] ?? 0);
+$invoice_client_id = safe_int($invoice['client_id'] ?? 0);
+$amount_total_cents = safe_int($session['amount_total'] ?? 0);
 $payment_amount = round(safe_int($session['amount_total'] ?? 0) / 100, 2);
+
+if (
+    $session_invoice_id !== safe_int($id)
+    || $session_client_id !== $invoice_client_id
+    || $session_amount_cents <= 0
+    || $session_amount_cents !== $amount_total_cents
+) {
+    error_log("Stripe session $session_id metadata mismatch for invoice $id");
+    setFlashMessage('Could not verify that this payment belongs to the requested invoice. Please contact us if you were charged.', 'danger');
+    header('Location: ' . $cancel_url);
+    exit;
+}
 
 if ($payment_amount <= 0) {
     error_log("Stripe session $session_id returned a non-positive amount_total");
@@ -138,13 +156,35 @@ if ($payment_amount <= 0) {
     exit;
 }
 
+$existing_payment_stmt = $conn->prepare("
+    SELECT invoice_id
+    FROM invoice_payments
+    WHERE stripe_payment_intent_id = ?
+    LIMIT 1
+");
+$existing_payment_stmt->execute([$payment_intent_id]);
+$existing_payment_invoice_id = safe_int($existing_payment_stmt->fetchColumn());
+
+if ($existing_payment_invoice_id > 0) {
+    if ($existing_payment_invoice_id !== safe_int($id)) {
+        error_log("Stripe payment intent $payment_intent_id already recorded for invoice $existing_payment_invoice_id");
+        setFlashMessage('This payment was already recorded for a different invoice. Please contact us.', 'danger');
+        header('Location: ' . $cancel_url);
+        exit;
+    }
+
+    setFlashMessage('This payment was already recorded.', 'info');
+    header('Location: ' . $success_url);
+    exit;
+}
+
 $conn->beginTransaction();
 
 try {
     $conn->prepare("
-        INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, notes)
-        VALUES (?, ?, CURRENT_DATE, 'credit_card', ?)
-    ")->execute([$id, $payment_amount, 'Stripe payment intent ' . $payment_intent_id]);
+        INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)
+        VALUES (?, ?, CURRENT_DATE, 'credit_card', ?, ?)
+    ")->execute([$id, $payment_amount, $payment_intent_id, 'Stripe payment intent ' . $payment_intent_id]);
 
     $updated_summary = bdta_invoice_get_payment_summary($conn, $invoice);
     $invoice_update = $conn->prepare("
@@ -168,6 +208,13 @@ try {
     if ($conn->inTransaction()) {
         $conn->rollBack();
     }
+
+    if (str_contains(strtolower($e->getMessage()), 'duplicate')) {
+        setFlashMessage('This payment was already recorded.', 'info');
+        header('Location: ' . $success_url);
+        exit;
+    }
+
     error_log('Failed to record Stripe invoice payment: ' . $e->getMessage());
     setFlashMessage('Payment was received but could not be recorded automatically. Please contact us.', 'danger');
     header('Location: ' . $cancel_url);

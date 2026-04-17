@@ -195,6 +195,8 @@ $inst_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id
 $inst_stmt->execute([$id]);
 $installments = $inst_stmt->fetchAll(PDO::FETCH_ASSOC);
 $payment_summary = bdta_invoice_get_payment_summary($conn, $invoice, $installments);
+$payment_summary_paid_total = safe_float($payment_summary['paid_total']);
+$payment_summary_remaining_amount = safe_float($payment_summary['remaining_amount']);
 $payments = bdta_invoice_get_payments($conn, $id);
 
 include '../backend/includes/header.php';
@@ -415,29 +417,29 @@ include '../backend/includes/header.php';
                                     <td class="text-end"><strong>TOTAL:</strong></td>
                                     <td class="text-end"><strong>$<?= number_format(safe_float($invoice['total_amount']), 2) ?></strong></td>
                                 </tr>
-                                <?php if (safe_float($payment_summary['paid_total'] ?? 0) > 0): ?>
+                                <?php if ($payment_summary_paid_total > 0): ?>
                                     <tr class="table-success">
                                         <td class="text-end"><strong>Total Paid:</strong></td>
-                                        <td class="text-end">$<?= number_format(safe_float($payment_summary['paid_total'] ?? 0), 2) ?></td>
+                                        <td class="text-end">$<?= number_format($payment_summary_paid_total, 2) ?></td>
                                     </tr>
-                                    <tr class="<?= safe_float($payment_summary['remaining_amount'] ?? 0) > 0 ? 'table-warning' : 'table-success' ?>">
+                                    <tr class="<?= $payment_summary_remaining_amount > 0 ? 'table-warning' : 'table-success' ?>">
                                         <td class="text-end"><strong>Remaining Balance:</strong></td>
-                                        <td class="text-end">$<?= number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2) ?></td>
+                                        <td class="text-end">$<?= number_format($payment_summary_remaining_amount, 2) ?></td>
                                     </tr>
                                 <?php endif; ?>
                             </table>
                         </div>
                     </div>
                     
-                    <?php if (safe_float($payment_summary['paid_total'] ?? 0) > 0): ?>
-                        <div class="alert alert-<?= safe_float($payment_summary['remaining_amount'] ?? 0) > 0 ? 'info' : 'success' ?> mt-3">
-                            <strong><?= safe_float($payment_summary['remaining_amount'] ?? 0) > 0 ? 'Payments Recorded:' : 'Payment Received:' ?></strong>
-                            $<?= number_format(safe_float($payment_summary['paid_total'] ?? 0), 2) ?>
+                    <?php if ($payment_summary_paid_total > 0): ?>
+                        <div class="alert alert-<?= $payment_summary_remaining_amount > 0 ? 'info' : 'success' ?> mt-3">
+                            <strong><?= $payment_summary_remaining_amount > 0 ? 'Payments Recorded:' : 'Payment Received:' ?></strong>
+                            $<?= number_format($payment_summary_paid_total, 2) ?>
                             <?php if ($invoice['payment_method']): ?>
                                 via <?= escape(ucwords(str_replace('_', ' ', array_string_value($invoice, 'payment_method')))) ?>
                             <?php endif; ?>
-                            <?php if (safe_float($payment_summary['remaining_amount'] ?? 0) > 0): ?>
-                                <br><small>Remaining balance: $<?= number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2) ?></small>
+                            <?php if ($payment_summary_remaining_amount > 0): ?>
+                                <br><small>Remaining balance: $<?= number_format($payment_summary_remaining_amount, 2) ?></small>
                             <?php endif; ?>
                             <?php if ($invoice['stripe_payment_intent_id']): ?>
                                 <br><small>Stripe Payment ID: <?= escape($invoice['stripe_payment_intent_id']) ?></small>
