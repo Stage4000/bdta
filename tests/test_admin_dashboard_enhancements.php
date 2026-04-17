@@ -17,7 +17,7 @@ if ($dashboard === false) {
 }
 
 assert_dashboard_contains(
-    str_contains($dashboard, 'dashboard-link'),
+    str_contains($dashboard, '<a href="<?php echo escape($card[\'href\']); ?>" class="dashboard-link">'),
     'Admin dashboard cards should use interactive dashboard links.'
 );
 assert_dashboard_contains(

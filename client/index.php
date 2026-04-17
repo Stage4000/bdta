@@ -221,7 +221,7 @@ foreach ($fetch_rows("
     if ($action_type === 'booking') {
         $label = 'Appointment booked';
         $details = trim($detail_primary . ' · ' . $detail_date . ' ' . $detail_time);
-        $href = 'bookings_list.php?id=' . $record_id;
+        $href = 'bookings_list.php';
         $badge_class = 'bg-primary-subtle text-primary-emphasis';
     } elseif ($action_type === 'form') {
         $label = 'Form completed';
