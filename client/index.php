@@ -17,6 +17,12 @@ $fetch_sum = static function (string $sql, array $params = []) use ($conn): floa
     return safe_float($stmt->fetchColumn());
 };
 
+$fetch_rows = static function (string $sql, array $params = []) use ($conn): array {
+    $stmt = $conn->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+};
+
 $now = new DateTimeImmutable();
 $now_sql = $now->format('Y-m-d H:i:s');
 $thirty_days_ago = $now->sub(new DateInterval('P30D'));
@@ -108,10 +114,11 @@ $quick_stats = [
 
 $recent_actions = [];
 
-$stmt = $conn->query("SELECT id, client_name, service_type, appointment_date, appointment_time, status, created_at FROM bookings ORDER BY created_at DESC LIMIT 10");
-foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $booking) {
+foreach ($fetch_rows("SELECT id, client_name, service_type, appointment_date, appointment_time, status, created_at FROM bookings ORDER BY created_at DESC LIMIT 10") as $booking) {
+    $action_at = scalar_string($booking['created_at'] ?? '');
     $recent_actions[] = [
-        'action_at' => scalar_string($booking['created_at'] ?? ''),
+        'action_at' => $action_at,
+        'sort_at' => safe_timestamp(strtotime($action_at)),
         'label' => 'Appointment booked',
         'subject' => scalar_string($booking['client_name'] ?? ''),
         'details' => trim(scalar_string($booking['service_type'] ?? '') . ' · ' . scalar_string($booking['appointment_date'] ?? '') . ' ' . scalar_string($booking['appointment_time'] ?? '')),
@@ -120,17 +127,18 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $booking) {
     ];
 }
 
-$stmt = $conn->query("
+foreach ($fetch_rows("
     SELECT fs.id, fs.submitted_at, fs.status, c.name AS client_name, ft.name AS form_name
     FROM form_submissions fs
     LEFT JOIN clients c ON fs.client_id = c.id
     LEFT JOIN form_templates ft ON fs.template_id = ft.id
     ORDER BY fs.submitted_at DESC
     LIMIT 10
-");
-foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $submission) {
+") as $submission) {
+    $action_at = scalar_string($submission['submitted_at'] ?? '');
     $recent_actions[] = [
-        'action_at' => scalar_string($submission['submitted_at'] ?? ''),
+        'action_at' => $action_at,
+        'sort_at' => safe_timestamp(strtotime($action_at)),
         'label' => 'Form completed',
         'subject' => scalar_string($submission['client_name'] ?? 'Client'),
         'details' => scalar_string($submission['form_name'] ?? 'Form submission'),
@@ -139,17 +147,18 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $submission) {
     ];
 }
 
-$stmt = $conn->query("
+foreach ($fetch_rows("
     SELECT q.id, q.quote_number, q.amount, q.accepted_at, c.name AS client_name
     FROM quotes q
     INNER JOIN clients c ON q.client_id = c.id
     WHERE q.status = 'accepted' AND q.accepted_at IS NOT NULL
     ORDER BY q.accepted_at DESC
     LIMIT 10
-");
-foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $quote) {
+") as $quote) {
+    $action_at = scalar_string($quote['accepted_at'] ?? '');
     $recent_actions[] = [
-        'action_at' => scalar_string($quote['accepted_at'] ?? ''),
+        'action_at' => $action_at,
+        'sort_at' => safe_timestamp(strtotime($action_at)),
         'label' => 'Quote accepted',
         'subject' => scalar_string($quote['client_name'] ?? ''),
         'details' => scalar_string($quote['quote_number'] ?? 'Quote') . ' · $' . number_format(safe_float($quote['amount'] ?? 0), 2),
@@ -158,19 +167,20 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $quote) {
     ];
 }
 
-$stmt = $conn->query("
+foreach ($fetch_rows("
     SELECT co.id, co.title, co.signed_date, co.updated_at, c.name AS client_name
     FROM contracts co
     INNER JOIN clients c ON co.client_id = c.id
     WHERE co.status = 'signed'
     ORDER BY COALESCE(co.signed_date, co.updated_at) DESC
     LIMIT 10
-");
-foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $contract) {
+") as $contract) {
+    $action_at = scalar_string($contract['signed_date'] ?? '') !== ''
+        ? scalar_string($contract['signed_date'])
+        : scalar_string($contract['updated_at'] ?? '');
     $recent_actions[] = [
-        'action_at' => scalar_string($contract['signed_date'] ?? '') !== ''
-            ? scalar_string($contract['signed_date'])
-            : scalar_string($contract['updated_at'] ?? ''),
+        'action_at' => $action_at,
+        'sort_at' => safe_timestamp(strtotime($action_at)),
         'label' => 'Contract signed',
         'subject' => scalar_string($contract['client_name'] ?? ''),
         'details' => scalar_string($contract['title'] ?? 'Contract'),
@@ -179,17 +189,18 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $contract) {
     ];
 }
 
-$stmt = $conn->query("
+foreach ($fetch_rows("
     SELECT i.id, i.invoice_number, i.total_amount, i.payment_date, c.name AS client_name
     FROM invoices i
     INNER JOIN clients c ON i.client_id = c.id
     WHERE i.status = 'paid' AND i.payment_date IS NOT NULL
     ORDER BY i.payment_date DESC
     LIMIT 10
-");
-foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $invoice) {
+") as $invoice) {
+    $action_at = scalar_string($invoice['payment_date'] ?? '');
     $recent_actions[] = [
-        'action_at' => scalar_string($invoice['payment_date'] ?? ''),
+        'action_at' => $action_at,
+        'sort_at' => safe_timestamp(strtotime($action_at)),
         'label' => 'Invoice paid',
         'subject' => scalar_string($invoice['client_name'] ?? ''),
         'details' => scalar_string($invoice['invoice_number'] ?? 'Invoice') . ' · $' . number_format(safe_float($invoice['total_amount'] ?? 0), 2),
@@ -199,15 +210,16 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $invoice) {
 }
 
 usort($recent_actions, static function (array $left, array $right): int {
-    return safe_timestamp(strtotime(scalar_string($right['action_at'] ?? '')))
-        <=> safe_timestamp(strtotime(scalar_string($left['action_at'] ?? '')));
+    return safe_int($right['sort_at'] ?? 0) <=> safe_int($left['sort_at'] ?? 0);
 });
 $recent_actions = array_slice($recent_actions, 0, 12);
 
 $format_action_timestamp = static function (string $value): string {
-    return strlen(trim($value)) <= 10
-        ? formatDate($value)
-        : formatDateTime($value);
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1) {
+        return formatDate($value);
+    }
+
+    return formatDateTime($value);
 };
 
 $page_title = 'Dashboard';
