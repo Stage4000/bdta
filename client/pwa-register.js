@@ -13,7 +13,7 @@
     const installNavItem = document.getElementById('pwaInstallNavItem');
     const installButton = document.getElementById('pwaInstallButton');
     const hasInstallUi = installNavItem !== null && installButton !== null;
-    const installFallbackMessage = 'To reinstall the BDTA app, open your browser menu and choose "Install app" or "Add to Home screen". Chrome may not show the automatic install prompt again right away after uninstalling.';
+    const installFallbackMessage = 'To reinstall the BDTA app, open your browser menu and choose "Install app" or "Add to Home screen". Some browsers may not show the automatic install prompt again right away after uninstalling.';
     const installFallbackNoticeBackground = '#0d6efd';
     const installFallbackNoticeDurationMs = 8000;
     let deferredInstallPrompt = null;
@@ -51,7 +51,9 @@
         const notice = installFallbackNotice;
         window.setTimeout(function () {
             if (installFallbackNotice === notice) {
-                installFallbackNotice.remove();
+                if (installFallbackNotice.isConnected) {
+                    installFallbackNotice.remove();
+                }
                 installFallbackNotice = null;
             }
         }, installFallbackNoticeDurationMs);
