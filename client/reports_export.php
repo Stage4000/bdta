@@ -48,7 +48,7 @@ switch ($type) {
         $grand_total = 0;
         $total_payments = 0;
         foreach ($income_events as $income_event) {
-            $payment_date = scalar_string($income_event['payment_date'] ?? '');
+            $payment_date = $income_event['payment_date'];
             if ($payment_date === '') {
                 continue;
             }
@@ -60,7 +60,7 @@ switch ($type) {
                 ];
             }
 
-            $event_amount = safe_float($income_event['amount'] ?? 0);
+            $event_amount = $income_event['amount'];
             $summary_rows[$payment_date]['count']++;
             $summary_rows[$payment_date]['total'] = round($summary_rows[$payment_date]['total'] + $event_amount, 2);
         }
@@ -103,14 +103,13 @@ switch ($type) {
         if ($income_events !== []) {
             $invoice_ids = [];
             foreach ($income_events as $income_event) {
-                $invoice_id = safe_int($income_event['invoice_id'] ?? 0);
+                $invoice_id = $income_event['invoice_id'];
                 if ($invoice_id > 0) {
                     $invoice_ids[$invoice_id] = $invoice_id;
                 }
             }
 
             if ($invoice_ids !== []) {
-                $placeholders = implode(', ', array_fill(0, count($invoice_ids), '?'));
                 $stmt = $conn->prepare("
                     SELECT
                         i.id,
@@ -127,12 +126,14 @@ switch ($type) {
                         WHERE refund_date BETWEEN ? AND ?
                         GROUP BY invoice_id
                     ) rt ON rt.invoice_id = i.id
-                    WHERE i.id IN ($placeholders)
+                    WHERE i.id = ?
                 ");
-                $stmt->execute(array_merge([$start_date, $end_date], array_values($invoice_ids)));
-
-                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                    $invoice_details[safe_int($row['id'] ?? 0)] = $row;
+                foreach ($invoice_ids as $invoice_id) {
+                    $stmt->execute([$start_date, $end_date, $invoice_id]);
+                    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($row !== false) {
+                        $invoice_details[safe_int($row['id'] ?? 0)] = $row;
+                    }
                 }
             }
         }
@@ -140,17 +141,17 @@ switch ($type) {
         $grand_total = 0;
         $distinct_refunds = [];
         foreach ($income_events as $income_event) {
-            $invoice_id = safe_int($income_event['invoice_id'] ?? 0);
+            $invoice_id = $income_event['invoice_id'];
             $invoice_detail = $invoice_details[$invoice_id] ?? [];
-            $payment_amount = safe_float($income_event['amount'] ?? 0);
-            $payment_method = scalar_string($income_event['payment_method'] ?? '');
+            $payment_amount = $income_event['amount'];
+            $payment_method = $income_event['payment_method'];
             $row_refunded = safe_float($invoice_detail['refunded_total'] ?? 0);
             $invoice_total = safe_float($invoice_detail['total_amount'] ?? 0);
             fputcsv($output, [
                 scalar_string($invoice_detail['invoice_number'] ?? ''),
                 scalar_string($invoice_detail['client_name'] ?? ''),
                 scalar_string($invoice_detail['issue_date'] ?? ''),
-                scalar_string($income_event['payment_date'] ?? ''),
+                $income_event['payment_date'],
                 $payment_method !== '' ? $payment_method : 'N/A',
                 number_format($payment_amount, 2),
                 number_format($invoice_total, 2),

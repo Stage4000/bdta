@@ -65,12 +65,12 @@ $income_events = bdta_invoice_get_income_events($conn, $start_date, $end_date);
 $income_totals_by_date = [];
 $total_income = 0.0;
 foreach ($income_events as $income_event) {
-    $payment_date = scalar_string($income_event['payment_date'] ?? '');
+    $payment_date = $income_event['payment_date'];
     if ($payment_date === '') {
         continue;
     }
 
-    $event_amount = safe_float($income_event['amount'] ?? 0);
+    $event_amount = $income_event['amount'];
     $income_totals_by_date[$payment_date] = round(($income_totals_by_date[$payment_date] ?? 0) + $event_amount, 2);
     $total_income = round($total_income + $event_amount, 2);
 }
