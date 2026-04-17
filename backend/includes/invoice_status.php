@@ -134,6 +134,7 @@ function bdta_invoice_income_event_union_sql(): string
             'payment' AS source
         FROM invoice_payments ip
         WHERE TRIM(COALESCE(ip.payment_date, '')) <> ''
+          AND ip.payment_date BETWEEN ? AND ?
 
         UNION ALL
 
@@ -146,6 +147,7 @@ function bdta_invoice_income_event_union_sql(): string
         FROM invoice_installments ii
         WHERE ii.status = 'paid'
           AND TRIM(COALESCE(ii.payment_date, '')) <> ''
+          AND ii.payment_date BETWEEN ? AND ?
 
         UNION ALL
 
@@ -158,6 +160,7 @@ function bdta_invoice_income_event_union_sql(): string
         FROM invoices i
         WHERE TRIM(COALESCE(i.payment_date, '')) <> ''
           AND TRIM(COALESCE(i.payment_method, '')) <> ''
+          AND i.payment_date BETWEEN ? AND ?
           AND i.status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
           AND NOT EXISTS (
               SELECT 1
@@ -169,6 +172,7 @@ function bdta_invoice_income_event_union_sql(): string
               FROM invoice_installments ii
               WHERE ii.invoice_id = i.id
                 AND ii.status = 'paid'
+                AND TRIM(COALESCE(ii.payment_date, '')) <> ''
           )
     ";
 }
@@ -181,10 +185,16 @@ function bdta_invoice_get_income_events(PDO $conn, string $start_date, string $e
     $stmt = $conn->prepare("
         SELECT invoice_id, payment_date, amount, payment_method, source
         FROM (" . bdta_invoice_income_event_union_sql() . ") income_events
-        WHERE payment_date BETWEEN ? AND ?
         ORDER BY payment_date ASC, invoice_id ASC, source ASC
     ");
-    $stmt->execute([$start_date, $end_date]);
+    $stmt->execute([
+        $start_date,
+        $end_date,
+        $start_date,
+        $end_date,
+        $start_date,
+        $end_date,
+    ]);
 
     /** @var list<array<string, mixed>> $rows */
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);

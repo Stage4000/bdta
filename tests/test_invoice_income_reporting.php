@@ -56,7 +56,8 @@ try {
             (1, 'INV-PARTIAL', 10, '2026-02-20', 200.00, 0.00, 200.00, 'paid', '2026-04-03', 'cash'),
             (2, 'INV-INSTALLMENT', 20, '2026-02-25', 100.00, 0.00, 100.00, 'sent', NULL, NULL),
             (3, 'INV-LEGACY', 30, '2026-03-01', 75.00, 0.00, 75.00, 'paid', '2026-03-10', 'check'),
-            (4, 'INV-DRAFT', 40, '2026-03-02', 99.00, 0.00, 99.00, 'draft', '2026-03-12', 'cash')
+            (4, 'INV-DRAFT', 40, '2026-03-02', 99.00, 0.00, 99.00, 'draft', '2026-03-12', 'cash'),
+            (5, 'INV-LEGACY-INSTALLMENT-GAP', 50, '2026-03-03', 60.00, 0.00, 60.00, 'paid', '2026-03-18', 'bank_transfer')
     ");
     $conn->exec("
         INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)
@@ -68,11 +69,12 @@ try {
         INSERT INTO invoice_installments (invoice_id, amount, status, payment_date, payment_method)
         VALUES
             (2, 50.00, 'paid', '2026-03-05', 'cash'),
-            (2, 50.00, 'paid', '2026-03-20', 'cash')
+            (2, 50.00, 'paid', '2026-03-20', 'cash'),
+            (5, 60.00, 'paid', NULL, 'bank_transfer')
     ");
 
     $march_events = bdta_invoice_get_income_events($conn, '2026-03-01', '2026-03-31');
-    assertInvoiceIncomeReporting(count($march_events) === 4, 'Expected March income reporting to return only actual payment events and legacy paid invoices.');
+    assertInvoiceIncomeReporting(count($march_events) === 5, 'Expected March income reporting to return actual payment events plus eligible legacy paid invoices.');
 
     $march_totals = [];
     foreach ($march_events as $event) {
@@ -82,9 +84,10 @@ try {
     assertInvoiceIncomeReporting(($march_totals['2026-03-01'] ?? 0.0) === 100.00, 'Expected partial invoice payments to be reported on their actual payment date.');
     assertInvoiceIncomeReporting(($march_totals['2026-03-05'] ?? 0.0) === 50.00, 'Expected paid installments to be reported on their payment date.');
     assertInvoiceIncomeReporting(($march_totals['2026-03-10'] ?? 0.0) === 75.00, 'Expected legacy paid invoices without ledger rows to remain reportable.');
+    assertInvoiceIncomeReporting(($march_totals['2026-03-18'] ?? 0.0) === 60.00, 'Expected legacy invoice fallback to remain reportable when paid installments lack a payment date.');
     assertInvoiceIncomeReporting(($march_totals['2026-03-20'] ?? 0.0) === 50.00, 'Expected multiple paid installments to be reported separately.');
     assertInvoiceIncomeReporting(!isset($march_totals['2026-04-03']), 'Expected out-of-range payments to be excluded.');
-    assertInvoiceIncomeReporting(array_sum($march_totals) === 275.00, 'Expected March totals to be based on collected amounts, not full invoice totals on the final payment date.');
+    assertInvoiceIncomeReporting(array_sum($march_totals) === 335.00, 'Expected March totals to be based on collected amounts, not full invoice totals on the final payment date.');
 
     $april_events = bdta_invoice_get_income_events($conn, '2026-04-01', '2026-04-30');
     assertInvoiceIncomeReporting(count($april_events) === 1, 'Expected April to include only the final partial payment event.');
