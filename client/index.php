@@ -23,11 +23,19 @@ $fetch_rows = static function (string $sql, array $params = []) use ($conn): arr
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 };
 
+$currency_symbol = '$';
+$format_money = static function (float $amount) use ($currency_symbol): string {
+    return $currency_symbol . number_format($amount, 2);
+};
+
 $now = new DateTimeImmutable();
 $now_sql = $now->format('Y-m-d H:i:s');
 $thirty_days_ago = $now->sub(new DateInterval('P30D'));
 $thirty_days_ago_sql = $thirty_days_ago->format('Y-m-d H:i:s');
 $thirty_days_ago_date = $thirty_days_ago->format('Y-m-d');
+$ninety_days_ago = $now->sub(new DateInterval('P90D'));
+$ninety_days_ago_sql = $ninety_days_ago->format('Y-m-d H:i:s');
+$ninety_days_ago_date = $ninety_days_ago->format('Y-m-d');
 
 // Dashboard totals
 $total_posts = $fetch_count("SELECT COUNT(*) FROM blog_posts");
@@ -74,7 +82,7 @@ $dashboard_cards = [
         'href' => 'invoices_list.php',
         'icon' => 'fa-money-bill-wave',
         'icon_color' => 'text-warning',
-        'value' => '$' . number_format($income_last_30_days, 2),
+        'value' => $format_money($income_last_30_days),
         'label' => 'Income (30 Days)',
         'meta' => $paid_invoices_last_30_days . ' invoices paid',
         'meta_class' => 'text-warning-emphasis',
@@ -127,6 +135,7 @@ foreach ($fetch_rows("
             b.appointment_time AS detail_time,
             NULL AS amount_value
         FROM bookings b
+        WHERE b.created_at >= ?
 
         UNION ALL
 
@@ -142,6 +151,7 @@ foreach ($fetch_rows("
         FROM form_submissions fs
         LEFT JOIN clients c ON fs.client_id = c.id
         LEFT JOIN form_templates ft ON fs.template_id = ft.id
+        WHERE fs.submitted_at >= ?
 
         UNION ALL
 
@@ -156,7 +166,7 @@ foreach ($fetch_rows("
             q.amount AS amount_value
         FROM quotes q
         INNER JOIN clients c ON q.client_id = c.id
-        WHERE q.status = 'accepted' AND q.accepted_at IS NOT NULL
+        WHERE q.status = 'accepted' AND q.accepted_at IS NOT NULL AND q.accepted_at >= ?
 
         UNION ALL
 
@@ -171,7 +181,7 @@ foreach ($fetch_rows("
             NULL AS amount_value
         FROM contracts co
         INNER JOIN clients c ON co.client_id = c.id
-        WHERE co.status = 'signed'
+        WHERE co.status = 'signed' AND co.signed_date IS NOT NULL AND co.signed_date >= ?
 
         UNION ALL
 
@@ -186,12 +196,12 @@ foreach ($fetch_rows("
             i.total_amount AS amount_value
         FROM invoices i
         INNER JOIN clients c ON i.client_id = c.id
-        WHERE i.status = 'paid' AND i.payment_date IS NOT NULL
+        WHERE i.status = 'paid' AND i.payment_date IS NOT NULL AND i.payment_date >= ?
     ) dashboard_recent_activity
     WHERE action_at IS NOT NULL AND action_at <> ''
     ORDER BY action_at DESC
     LIMIT 12
-") as $row) {
+", [$ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_date, $ninety_days_ago_date]) as $row) {
     $action_type = scalar_string($row['action_type'] ?? '');
     $record_id = safe_int($row['record_id'] ?? 0);
     $detail_primary = scalar_string($row['detail_primary'] ?? '');
@@ -215,7 +225,7 @@ foreach ($fetch_rows("
         $badge_class = 'bg-info-subtle text-info-emphasis';
     } elseif ($action_type === 'quote') {
         $label = 'Quote accepted';
-        $details = $detail_primary . ' · $' . number_format($amount_value, 2);
+        $details = $detail_primary . ' · ' . $format_money($amount_value);
         $href = 'quotes_view.php?id=' . $record_id;
         $badge_class = 'bg-success-subtle text-success-emphasis';
     } elseif ($action_type === 'contract') {
@@ -224,7 +234,7 @@ foreach ($fetch_rows("
         $badge_class = 'bg-warning-subtle text-warning-emphasis';
     } elseif ($action_type === 'invoice') {
         $label = 'Invoice paid';
-        $details = $detail_primary . ' · $' . number_format($amount_value, 2);
+        $details = $detail_primary . ' · ' . $format_money($amount_value);
         $href = 'invoices_view.php?id=' . $record_id;
         $badge_class = 'bg-secondary-subtle text-secondary-emphasis';
     }
