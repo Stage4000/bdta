@@ -129,18 +129,50 @@ if (array_string_value($session, 'payment_intent') === '') {
     exit;
 }
 $payment_intent_id = array_string_value($session, 'payment_intent');
+$payment_amount = round(safe_float($session['amount_total'] ?? 0) / 100, 2);
 
-$invoice_update = $conn->prepare("
-    UPDATE invoices
-    SET status = 'paid',
-        payment_method = 'credit_card',
-        payment_date = CURRENT_DATE,
-        stripe_payment_intent_id = ?,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = ? AND status NOT IN ('paid', 'refunded', 'void', 'cancelled')
-");
-$invoice_update->execute([$payment_intent_id, $id]);
-$invoice_marked_paid = $invoice_update->rowCount() > 0;
+if ($payment_amount <= 0) {
+    error_log("Stripe session $session_id returned a non-positive amount_total");
+    setFlashMessage('Could not verify payment amount. If you were charged, please contact us.', 'danger');
+    header('Location: ' . $cancel_url);
+    exit;
+}
+
+$conn->beginTransaction();
+
+try {
+    $conn->prepare("
+        INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, notes)
+        VALUES (?, ?, CURRENT_DATE, 'credit_card', ?)
+    ")->execute([$id, $payment_amount, 'Stripe payment intent ' . $payment_intent_id]);
+
+    $updated_summary = bdta_invoice_get_payment_summary($conn, $invoice);
+    $invoice_update = $conn->prepare("
+        UPDATE invoices
+        SET status = ?,
+            payment_method = 'credit_card',
+            payment_date = CURRENT_DATE,
+            stripe_payment_intent_id = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND status NOT IN ('paid', 'refunded', 'void', 'cancelled')
+    ");
+    $invoice_update->execute([array_string_value($updated_summary, 'status', 'paid'), $payment_intent_id, $id]);
+    $invoice_marked_paid = $invoice_update->rowCount() > 0;
+    $invoice['status'] = array_string_value($updated_summary, 'status', 'paid');
+    $invoice['payment_method'] = 'credit_card';
+    $invoice['payment_date'] = date('Y-m-d');
+    $invoice['stripe_payment_intent_id'] = $payment_intent_id;
+
+    $conn->commit();
+} catch (Throwable $e) {
+    if ($conn->inTransaction()) {
+        $conn->rollBack();
+    }
+    error_log('Failed to record Stripe invoice payment: ' . $e->getMessage());
+    setFlashMessage('Payment was received but could not be recorded automatically. Please contact us.', 'danger');
+    header('Location: ' . $cancel_url);
+    exit;
+}
 
 // Send payment receipt email
 require_once '../backend/includes/email_service.php';
@@ -148,10 +180,12 @@ $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?")
 $items_stmt->execute([$id]);
 $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$email_service = new EmailService(null, $conn);
-$result = $email_service->sendPaymentReceipt($invoice, null, $items);
-if ($result['success']) {
-    $conn->prepare("UPDATE invoices SET receipt_sent_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$id]);
+if (array_string_value($invoice, 'status') === 'paid') {
+    $email_service = new EmailService(null, $conn);
+    $result = $email_service->sendPaymentReceipt($invoice, null, $items);
+    if ($result['success']) {
+        $conn->prepare("UPDATE invoices SET receipt_sent_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$id]);
+    }
 }
 
 if ($client_id !== null) {

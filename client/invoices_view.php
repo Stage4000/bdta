@@ -194,6 +194,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_invoice'])) {
 $inst_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id = ? ORDER BY installment_number");
 $inst_stmt->execute([$id]);
 $installments = $inst_stmt->fetchAll(PDO::FETCH_ASSOC);
+$payment_summary = bdta_invoice_get_payment_summary($conn, $invoice, $installments);
+$payments = bdta_invoice_get_payments($conn, $id);
 
 include '../backend/includes/header.php';
 ?>
@@ -413,19 +415,50 @@ include '../backend/includes/header.php';
                                     <td class="text-end"><strong>TOTAL:</strong></td>
                                     <td class="text-end"><strong>$<?= number_format(safe_float($invoice['total_amount']), 2) ?></strong></td>
                                 </tr>
+                                <?php if (safe_float($payment_summary['paid_total'] ?? 0) > 0): ?>
+                                    <tr class="table-success">
+                                        <td class="text-end"><strong>Total Paid:</strong></td>
+                                        <td class="text-end">$<?= number_format(safe_float($payment_summary['paid_total'] ?? 0), 2) ?></td>
+                                    </tr>
+                                    <tr class="<?= safe_float($payment_summary['remaining_amount'] ?? 0) > 0 ? 'table-warning' : 'table-success' ?>">
+                                        <td class="text-end"><strong>Remaining Balance:</strong></td>
+                                        <td class="text-end">$<?= number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2) ?></td>
+                                    </tr>
+                                <?php endif; ?>
                             </table>
                         </div>
                     </div>
                     
-                    <?php if ($invoice['payment_method']): ?>
-                        <div class="alert alert-success mt-3">
-                            <strong>Payment Received:</strong> $<?= number_format(safe_float($invoice['total_amount']), 2) ?> via <?= escape(ucwords(array_string_value($invoice, 'payment_method'))) ?>
+                    <?php if (safe_float($payment_summary['paid_total'] ?? 0) > 0): ?>
+                        <div class="alert alert-<?= safe_float($payment_summary['remaining_amount'] ?? 0) > 0 ? 'info' : 'success' ?> mt-3">
+                            <strong><?= safe_float($payment_summary['remaining_amount'] ?? 0) > 0 ? 'Payments Recorded:' : 'Payment Received:' ?></strong>
+                            $<?= number_format(safe_float($payment_summary['paid_total'] ?? 0), 2) ?>
+                            <?php if ($invoice['payment_method']): ?>
+                                via <?= escape(ucwords(str_replace('_', ' ', array_string_value($invoice, 'payment_method')))) ?>
+                            <?php endif; ?>
+                            <?php if (safe_float($payment_summary['remaining_amount'] ?? 0) > 0): ?>
+                                <br><small>Remaining balance: $<?= number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2) ?></small>
+                            <?php endif; ?>
                             <?php if ($invoice['stripe_payment_intent_id']): ?>
                                 <br><small>Stripe Payment ID: <?= escape($invoice['stripe_payment_intent_id']) ?></small>
                             <?php endif; ?>
                             <?php if ($invoice['receipt_sent_at']): ?>
                                 <br><small><i class="fas fa-receipt"></i> Receipt sent: <?= escape(formatDateTime($invoice['receipt_sent_at'])) ?></small>
                             <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($payments !== []): ?>
+                        <div class="alert alert-light border mt-3">
+                            <strong>Payment History:</strong>
+                            <ul class="mb-0 mt-2">
+                                <?php foreach ($payments as $payment): ?>
+                                    <li>
+                                        $<?= number_format(safe_float($payment['amount'] ?? 0), 2) ?>
+                                        on <?= formatDate(array_string_value($payment, 'payment_date')) ?>
+                                        via <?= escape(ucwords(str_replace('_', ' ', array_string_value($payment, 'payment_method', 'other')))) ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
                         </div>
                     <?php endif; ?>
                     <?php if (!empty($invoice['void_reason'])): ?>

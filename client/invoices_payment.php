@@ -19,6 +19,11 @@ if ($invoice === [] || !bdta_invoice_is_payable($invoice)) {
     redirect('invoices_list.php');
 }
 
+$installments_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id = ? ORDER BY installment_number");
+$installments_stmt->execute([$id]);
+$invoice_installments = assoc_rows($installments_stmt->fetchAll(PDO::FETCH_ASSOC));
+$payment_summary = bdta_invoice_get_payment_summary($conn, $invoice, $invoice_installments);
+
 // If paying a specific installment, load it
 $installment = null;
 if ($installment_id) {
@@ -138,9 +143,15 @@ function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payment_method = trim(scalar_string($_POST['payment_method'] ?? ''));
     $payment_date   = trim(scalar_string($_POST['payment_date'] ?? date('Y-m-d')));
+    $payment_amount = $installment
+        ? round(safe_float($installment['amount'] ?? 0), 2)
+        : round(safe_float($_POST['payment_amount'] ?? 0), 2);
+    [$payment_year, $payment_month, $payment_day] = array_pad(array_map('intval', explode('-', $payment_date)), 3, 0);
 
     if (!in_array($payment_method, ['cash', 'check', 'bank_transfer', 'other'], true)) {
         setFlashMessage('Invalid payment method!', 'danger');
+    } elseif (!checkdate($payment_month, $payment_day, $payment_year)) {
+        setFlashMessage('Please enter a valid payment date.', 'danger');
     } elseif ($installment) {
         // Pay a single installment
         $conn->prepare("
@@ -191,27 +202,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         redirect('invoices_view.php?id=' . $id);
     } else {
-        // Pay full invoice
-        $conn->prepare("
-            UPDATE invoices
-            SET status = 'paid', payment_method = ?, payment_date = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ")->execute([$payment_method, $payment_date, $id]);
+        $current_summary = bdta_invoice_get_payment_summary($conn, $invoice, $invoice_installments);
+        $remaining_amount = safe_float($current_summary['remaining_amount']);
 
-        // Mark all pending installments as paid
-        $conn->prepare("
-            UPDATE invoice_installments
-            SET status = 'paid', payment_method = ?, payment_date = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE invoice_id = ? AND status = 'unpaid'
-        ")->execute([$payment_method, $payment_date, $id]);
+        if (!empty($invoice_installments)) {
+            setFlashMessage('Use the installment payment actions to record payments for this invoice.', 'warning');
+        } elseif ($payment_amount <= 0) {
+            setFlashMessage('Payment amount must be greater than zero.', 'danger');
+        } elseif ($payment_amount > $remaining_amount) {
+            setFlashMessage('Payment amount cannot exceed the remaining balance of $' . number_format($remaining_amount, 2) . '.', 'danger');
+        } else {
+            try {
+                $conn->beginTransaction();
 
-        // Auto-apply package credits
-        applyPackageCredits($conn, $id, array_int_value($invoice, 'client_id'), safe_int($_SESSION['admin_id'] ?? 0));
+                $conn->prepare("
+                    INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, notes)
+                    VALUES (?, ?, ?, ?, ?)
+                ")->execute([$id, $payment_amount, $payment_date, $payment_method, null]);
 
-        // Send payment receipt
-        sendFullInvoiceReceipt($conn, $id);
+                $updated_summary = bdta_invoice_get_payment_summary($conn, $invoice);
+                $updated_status = array_string_value($updated_summary, 'status', 'sent');
 
-        setFlashMessage('Payment recorded successfully! Package credits applied.', 'success');
+                $conn->prepare("
+                    UPDATE invoices
+                    SET status = ?, payment_method = ?, payment_date = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ")->execute([$updated_status, $payment_method, $payment_date, $id]);
+
+                if ($updated_status === 'paid') {
+                    applyPackageCredits($conn, $id, array_int_value($invoice, 'client_id'), safe_int($_SESSION['admin_id'] ?? 0));
+                    sendFullInvoiceReceipt($conn, $id);
+                }
+
+                $conn->commit();
+                if ($updated_status === 'paid') {
+                    setFlashMessage('Final payment recorded successfully! Invoice marked as paid and package credits applied.', 'success');
+                } else {
+                    setFlashMessage(
+                        'Partial payment of $' . number_format($payment_amount, 2) . ' recorded. Remaining balance: $' . number_format(safe_float($updated_summary['remaining_amount']), 2) . '.',
+                        'success'
+                    );
+                }
+            } catch (Throwable $e) {
+                if ($conn->inTransaction()) {
+                    $conn->rollBack();
+                }
+                setFlashMessage('Unable to record payment: ' . $e->getMessage(), 'danger');
+            }
+        }
+
         redirect('invoices_view.php?id=' . $id);
     }
 }
@@ -240,11 +279,26 @@ include '../backend/includes/header.php';
                             $<?= number_format(safe_float($installment['amount'] ?? 0), 2) ?><br>
                             <strong>Due Date:</strong> <?= formatDate(array_string_value($installment, 'due_date')) ?>
                         <?php else: ?>
-                            <strong>Amount:</strong> $<?= number_format(safe_float($invoice['total_amount'] ?? 0), 2) ?>
+                            <strong>Invoice Total:</strong> $<?= number_format(safe_float($invoice['total_amount'] ?? 0), 2) ?><br>
+                            <strong>Paid So Far:</strong> $<?= number_format(safe_float($payment_summary['paid_total'] ?? 0), 2) ?><br>
+                            <strong>Remaining Balance:</strong> $<?= number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2) ?>
                         <?php endif; ?>
                     </div>
                     
                     <form method="POST">
+                        <?php if (!$installment && empty($invoice_installments)): ?>
+                        <div class="mb-3">
+                            <label for="payment_amount" class="form-label">Payment Amount *</label>
+                            <input type="number" class="form-control" id="payment_amount" name="payment_amount"
+                                   min="0.01" max="<?= escape(number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2, '.', '')) ?>"
+                                   step="0.01" value="<?= escape(number_format(safe_float($payment_summary['remaining_amount'] ?? 0), 2, '.', '')) ?>" required>
+                            <div class="form-text">Enter any amount up to the remaining balance.</div>
+                        </div>
+                        <?php elseif (!$installment): ?>
+                        <div class="alert alert-info">
+                            Use the installment payment actions on the invoice page to record payments for this invoice.
+                        </div>
+                        <?php endif; ?>
                         <div class="mb-3">
                             <label for="payment_method" class="form-label">Payment Method *</label>
                             <select class="form-select" id="payment_method" name="payment_method" required>
@@ -262,11 +316,11 @@ include '../backend/includes/header.php';
                                    value="<?= date('Y-m-d') ?>" required>
                         </div>
                         
-                        <div class="alert alert-warning">
+                         <div class="alert alert-warning">
                             <i class="fas fa-triangle-exclamation"></i>
                             <strong>Note:</strong> This action cannot be undone.
                             <?php if (!$installment): ?>
-                                Any package credits on this invoice will be automatically applied to the client.
+                                Package credits will be applied automatically once the invoice is paid in full.
                             <?php endif; ?>
                         </div>
                         
@@ -278,7 +332,7 @@ include '../backend/includes/header.php';
                         </div>
                     </form>
                     
-                    <?php if (!$installment): ?>
+                    <?php if (!$installment && empty($invoice_installments)): ?>
                     <hr class="my-4">
                     <h5>Online Payment (Stripe)</h5>
                     <p class="text-muted">For online credit card payments, integration with Stripe is available.</p>
@@ -293,7 +347,7 @@ include '../backend/includes/header.php';
 </div>
 
 <script>
-<?php if (!$installment): ?>
+<?php if (!$installment && empty($invoice_installments)): ?>
 document.getElementById('stripePaymentBtn').addEventListener('click', function() {
     alert('Stripe integration requires configuration. See backend/BUSINESS_MANAGEMENT.md for setup instructions.');
 });

@@ -27,6 +27,32 @@ function bdta_invoice_status_color(string $status): string
 
 /**
  * @param array<string, mixed> $invoice
+ * @return array{paid_total: float, remaining_amount: float, status: string}
+ */
+function bdta_invoice_calculate_payment_progress(array $invoice, float $paid_total): array
+{
+    $total_amount = round(max(0, safe_float($invoice['total_amount'] ?? 0)), 2);
+    $paid_total = round(max(0, min($total_amount, $paid_total)), 2);
+    $remaining_amount = round(max(0, $total_amount - $paid_total), 2);
+    $current_status = strtolower(trim((string) ($invoice['status'] ?? 'draft')));
+
+    if ($remaining_amount <= 0.0 && $total_amount > 0) {
+        $status = 'paid';
+    } elseif ($paid_total > 0) {
+        $status = 'partial';
+    } else {
+        $status = $current_status !== '' ? $current_status : 'draft';
+    }
+
+    return [
+        'paid_total' => $paid_total,
+        'remaining_amount' => $remaining_amount,
+        'status' => $status,
+    ];
+}
+
+/**
+ * @param array<string, mixed> $invoice
  */
 function bdta_invoice_is_payable(array $invoice): bool
 {
@@ -73,6 +99,69 @@ function bdta_invoice_get_refunds(PDO $conn, int $invoice_id): array
 function bdta_invoice_get_net_amount(array $invoice, float $refunded_total): float
 {
     return max(0, safe_float($invoice['total_amount'] ?? 0) - $refunded_total);
+}
+
+function bdta_invoice_get_recorded_payment_total(PDO $conn, int $invoice_id): float
+{
+    $stmt = $conn->prepare('SELECT COALESCE(SUM(amount), 0) FROM invoice_payments WHERE invoice_id = ?');
+    $stmt->execute([$invoice_id]);
+
+    return round(safe_float($stmt->fetchColumn()), 2);
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function bdta_invoice_get_payments(PDO $conn, int $invoice_id): array
+{
+    $stmt = $conn->prepare('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC, id DESC');
+    $stmt->execute([$invoice_id]);
+
+    /** @var list<array<string, mixed>> $payments */
+    $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    return $payments;
+}
+
+/**
+ * @param array<string, mixed> $invoice
+ * @param list<array<string, mixed>>|null $installments
+ * @return array{paid_total: float, remaining_amount: float, status: string}
+ */
+function bdta_invoice_get_payment_summary(PDO $conn, array $invoice, ?array $installments = null): array
+{
+    $invoice_id = safe_int($invoice['id'] ?? 0);
+    if ($invoice_id <= 0) {
+        return bdta_invoice_calculate_payment_progress($invoice, 0);
+    }
+
+    $recorded_total = bdta_invoice_get_recorded_payment_total($conn, $invoice_id);
+    $installment_total = 0.0;
+
+    if ($installments !== null) {
+        foreach ($installments as $installment) {
+            if (strtolower(trim((string) ($installment['status'] ?? ''))) === 'paid') {
+                $installment_total += safe_float($installment['amount'] ?? 0);
+            }
+        }
+    } else {
+        $stmt = $conn->prepare("SELECT COALESCE(SUM(amount), 0) FROM invoice_installments WHERE invoice_id = ? AND status = 'paid'");
+        $stmt->execute([$invoice_id]);
+        $installment_total = safe_float($stmt->fetchColumn());
+    }
+
+    $summary = bdta_invoice_calculate_payment_progress($invoice, $recorded_total + $installment_total);
+    $status = strtolower(trim((string) ($invoice['status'] ?? '')));
+
+    if (
+        $summary['paid_total'] <= 0.0
+        && !empty($invoice['payment_method'])
+        && in_array($status, ['paid', 'refunded'], true)
+    ) {
+        return bdta_invoice_calculate_payment_progress($invoice, safe_float($invoice['total_amount'] ?? 0));
+    }
+
+    return $summary;
 }
 
 /**
