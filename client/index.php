@@ -175,8 +175,9 @@ foreach ($fetch_rows("
     ORDER BY COALESCE(co.signed_date, co.updated_at) DESC
     LIMIT 10
 ") as $contract) {
-    $action_at = scalar_string($contract['signed_date'] ?? '') !== ''
-        ? scalar_string($contract['signed_date'])
+    $signed_date = scalar_string($contract['signed_date'] ?? '');
+    $action_at = $signed_date !== ''
+        ? $signed_date
         : scalar_string($contract['updated_at'] ?? '');
     $recent_actions[] = [
         'action_at' => $action_at,

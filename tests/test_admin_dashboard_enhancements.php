@@ -29,11 +29,24 @@ assert_dashboard_contains(
     'Admin dashboard should replace recent bookings with recent activity.'
 );
 assert_dashboard_contains(
-    str_contains($dashboard, 'form_submissions_list.php')
-    && str_contains($dashboard, 'quotes_list.php?status=accepted')
-    && str_contains($dashboard, 'contracts_list.php')
-    && str_contains($dashboard, 'invoices_list.php'),
-    'Admin dashboard should link to related admin areas from the new cards and shortcuts.'
+    str_contains($dashboard, 'form_submissions_list.php'),
+    'Admin dashboard should link to form submissions from the new cards and shortcuts.'
+);
+assert_dashboard_contains(
+    str_contains($dashboard, 'quotes_list.php?status=accepted'),
+    'Admin dashboard should link to accepted quotes from the 30-day snapshot.'
+);
+assert_dashboard_contains(
+    str_contains($dashboard, 'contracts_list.php'),
+    'Admin dashboard should link to contracts from the new cards and shortcuts.'
+);
+assert_dashboard_contains(
+    str_contains($dashboard, 'invoices_list.php'),
+    'Admin dashboard should link to invoices from the new cards and shortcuts.'
+);
+assert_dashboard_contains(
+    str_contains($dashboard, 'bookings_list.php'),
+    'Admin dashboard should link to bookings from the new cards and shortcuts.'
 );
 
 echo "Admin dashboard enhancement checks passed.\n";
