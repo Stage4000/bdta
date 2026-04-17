@@ -84,13 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     '', 'client.name', 'client.email', 'client.phone', 'client.address',
                     'pet_1.name', 'pet_1.species', 'pet_1.breed', 'pet_1.date_of_birth',
                     'pet_1.source', 'pet_1.spayed_neutered', 'pet_1.vaccines_current',
-                    'pet_1.vaccine_notes', 'pet_1.behavior_notes', 'pet_1.medical_notes', 'pet_1.training_notes',
+                    'pet_1.vaccine_notes', 'pet_1.behavior_notes', 'pet_1.medical_notes', 'pet_1.training_notes', 'pet_1.pet_sitting_notes',
                     'pet_2.name', 'pet_2.species', 'pet_2.breed', 'pet_2.date_of_birth',
                     'pet_2.source', 'pet_2.spayed_neutered', 'pet_2.vaccines_current',
-                    'pet_2.vaccine_notes', 'pet_2.behavior_notes', 'pet_2.medical_notes', 'pet_2.training_notes',
+                    'pet_2.vaccine_notes', 'pet_2.behavior_notes', 'pet_2.medical_notes', 'pet_2.training_notes', 'pet_2.pet_sitting_notes',
                     'pet_3.name', 'pet_3.species', 'pet_3.breed', 'pet_3.date_of_birth',
                     'pet_3.source', 'pet_3.spayed_neutered', 'pet_3.vaccines_current',
-                    'pet_3.vaccine_notes', 'pet_3.behavior_notes', 'pet_3.medical_notes', 'pet_3.training_notes',
+                    'pet_3.vaccine_notes', 'pet_3.behavior_notes', 'pet_3.medical_notes', 'pet_3.training_notes', 'pet_3.pet_sitting_notes',
                     'booking.notes',
                 ];
                 $raw_mapping = scalar_string($field_mappings[$index] ?? '');
@@ -355,6 +355,7 @@ require_once '../backend/includes/header.php';
                                                 <option value="pet_<?php echo $p; ?>.behavior_notes" <?php echo $cur_mapping === "pet_{$p}.behavior_notes" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Behavior Notes</option>
                                                 <option value="pet_<?php echo $p; ?>.medical_notes" <?php echo $cur_mapping === "pet_{$p}.medical_notes" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Medical Notes</option>
                                                 <option value="pet_<?php echo $p; ?>.training_notes" <?php echo $cur_mapping === "pet_{$p}.training_notes" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Training Notes</option>
+                                                <option value="pet_<?php echo $p; ?>.pet_sitting_notes" <?php echo $cur_mapping === "pet_{$p}.pet_sitting_notes" ? 'selected' : ''; ?>>Pet <?php echo $p; ?>: Pet Sitting Notes</option>
                                             </optgroup>
                                             <?php endfor; ?>
                                             <optgroup label="Booking">
@@ -638,6 +639,7 @@ function addField() {
                             <option value="pet_1.behavior_notes">Pet 1: Behavior Notes</option>
                             <option value="pet_1.medical_notes">Pet 1: Medical Notes</option>
                             <option value="pet_1.training_notes">Pet 1: Training Notes</option>
+                            <option value="pet_1.pet_sitting_notes">Pet 1: Pet Sitting Notes</option>
                         </optgroup>
                         <optgroup label="Pet 2 Profile">
                             <option value="pet_2.name">Pet 2: Name</option>
@@ -651,6 +653,7 @@ function addField() {
                             <option value="pet_2.behavior_notes">Pet 2: Behavior Notes</option>
                             <option value="pet_2.medical_notes">Pet 2: Medical Notes</option>
                             <option value="pet_2.training_notes">Pet 2: Training Notes</option>
+                            <option value="pet_2.pet_sitting_notes">Pet 2: Pet Sitting Notes</option>
                         </optgroup>
                         <optgroup label="Pet 3 Profile">
                             <option value="pet_3.name">Pet 3: Name</option>
@@ -664,6 +667,7 @@ function addField() {
                             <option value="pet_3.behavior_notes">Pet 3: Behavior Notes</option>
                             <option value="pet_3.medical_notes">Pet 3: Medical Notes</option>
                             <option value="pet_3.training_notes">Pet 3: Training Notes</option>
+                            <option value="pet_3.pet_sitting_notes">Pet 3: Pet Sitting Notes</option>
                         </optgroup>
                         <optgroup label="Booking">
                             <option value="booking.notes">Booking: Notes</option>

@@ -630,6 +630,7 @@ class Database {
                     behavior_notes TEXT,
                     medical_notes TEXT,
                     training_notes TEXT,
+                    pet_sitting_notes TEXT,
                     is_active INTEGER DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1674,6 +1675,11 @@ class Database {
             } catch (PDOException $e) {
                 error_log("Migration: could not create clients name/phone index - " . $e->getMessage());
             }
+        }
+
+        $pet_column_names = $this->getTableColumns('pets');
+        if (!in_array('pet_sitting_notes', $pet_column_names)) {
+            $this->execSQL("ALTER TABLE pets ADD COLUMN pet_sitting_notes TEXT");
         }
         
         // Add unique_link column to appointment_types table

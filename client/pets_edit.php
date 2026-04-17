@@ -117,6 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $behavior_notes = trim(scalar_string($_POST['behavior_notes'] ?? ''));
     $medical_notes = trim(scalar_string($_POST['medical_notes'] ?? ''));
     $training_notes = trim(scalar_string($_POST['training_notes'] ?? ''));
+    $pet_sitting_notes = trim(scalar_string($_POST['pet_sitting_notes'] ?? ''));
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     // Validation
@@ -147,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         behavior_notes = ?,
                         medical_notes = ?,
                         training_notes = ?,
+                        pet_sitting_notes = ?,
                         is_active = ?,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
@@ -156,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $age_years, $age_months, $source,
                     $ownership_length_years, $ownership_length_months,
                     $spayed_neutered, $vaccines_current,
-                    $vaccine_notes, $behavior_notes, $medical_notes, $training_notes,
+                    $vaccine_notes, $behavior_notes, $medical_notes, $training_notes, $pet_sitting_notes,
                     $is_active, $pet_id
                 ]);
                 
@@ -169,16 +171,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         age_years, age_months, source,
                         ownership_length_years, ownership_length_months,
                         spayed_neutered, vaccines_current,
-                        vaccine_notes, behavior_notes, medical_notes, training_notes,
+                        vaccine_notes, behavior_notes, medical_notes, training_notes, pet_sitting_notes,
                         is_active
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([
                     $client_id, $name, $species, $breed, $date_of_birth,
                     $age_years, $age_months, $source,
                     $ownership_length_years, $ownership_length_months,
                     $spayed_neutered, $vaccines_current,
-                    $vaccine_notes, $behavior_notes, $medical_notes, $training_notes,
+                    $vaccine_notes, $behavior_notes, $medical_notes, $training_notes, $pet_sitting_notes,
                     $is_active
                 ]);
                 
@@ -358,6 +360,12 @@ include '../backend/includes/header.php';
                         <label for="training_notes" class="form-label">Training Notes</label>
                         <textarea name="training_notes" id="training_notes" class="form-control" rows="3"><?= htmlspecialchars(array_string_value($pet_row, 'training_notes')) ?></textarea>
                         <small class="form-text text-muted">Training history, commands known, goals, etc.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="pet_sitting_notes" class="form-label">Pet Sitting Notes</label>
+                        <textarea name="pet_sitting_notes" id="pet_sitting_notes" class="form-control" rows="3"><?= htmlspecialchars(array_string_value($pet_row, 'pet_sitting_notes')) ?></textarea>
+                        <small class="form-text text-muted">Feeding amounts, routine details, and any other notes relevant to pet sitting.</small>
                     </div>
 
                     <?php if ($pet_id): ?>
