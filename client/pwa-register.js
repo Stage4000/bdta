@@ -26,12 +26,22 @@
         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
 
+    /**
+     * @param {HTMLDivElement|null} currentNotice
+     * @param {string} message
+     * @param {string} background
+     * @param {string} role
+     * @param {string} ariaLive
+     * @param {number|null} durationMs
+     * @param {(notice: HTMLDivElement) => void} onDismiss
+     * @returns {HTMLDivElement|null}
+     */
     function showToastNotice(currentNotice, message, background, role, ariaLive, durationMs, onDismiss) {
         if (!document.body) {
             return currentNotice;
         }
 
-        if (currentNotice && currentNotice.isConnected) {
+        if (currentNotice) {
             currentNotice.remove();
         }
 
