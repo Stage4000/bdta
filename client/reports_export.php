@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/invoice_status.php';
 requireLogin();
 
 $db = new Database();
@@ -40,32 +41,39 @@ switch ($type) {
         fputcsv($output, ['Date Range:', $start_date . ' to ' . $end_date]);
         fputcsv($output, ['Generated:', date('Y-m-d H:i:s')]);
         fputcsv($output, []);
-        fputcsv($output, ['Date', 'Number of Invoices', 'Total Amount']);
-        
-        $stmt = $conn->prepare("
-            SELECT 
-                DATE(payment_date) as date,
-                COUNT(*) as count,
-                SUM(total_amount) as total
-            FROM invoices
-            WHERE payment_date BETWEEN ? AND ?
-              AND payment_method IS NOT NULL
-              AND status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
-            GROUP BY DATE(payment_date)
-            ORDER BY date
-        ");
-        $stmt->execute([$start_date, $end_date]);
-        
+        fputcsv($output, ['Date', 'Number of Payments', 'Total Amount']);
+
+        $income_events = bdta_invoice_get_income_events($conn, $start_date, $end_date);
+        $summary_rows = [];
         $grand_total = 0;
-        $total_invoices = 0;
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $total_payments = 0;
+        foreach ($income_events as $income_event) {
+            $payment_date = $income_event['payment_date'];
+            if ($payment_date === '') {
+                continue;
+            }
+
+            if (!isset($summary_rows[$payment_date])) {
+                $summary_rows[$payment_date] = [
+                    'count' => 0,
+                    'total' => 0.0,
+                ];
+            }
+
+            $event_amount = $income_event['amount'];
+            $summary_rows[$payment_date]['count']++;
+            $summary_rows[$payment_date]['total'] = round($summary_rows[$payment_date]['total'] + $event_amount, 2);
+        }
+        ksort($summary_rows);
+
+        foreach ($summary_rows as $date => $row) {
             fputcsv($output, [
-                $row['date'],
+                $date,
                 $row['count'],
                 number_format(safe_float($row['total']), 2)
             ]);
             $grand_total += safe_float($row['total']);
-            $total_invoices += safe_int($row['count']);
+            $total_payments += safe_int($row['count']);
         }
         
         fputcsv($output, []);
@@ -77,7 +85,7 @@ switch ($type) {
         $refund_total_stmt->execute([$start_date, $end_date]);
         $refund_total = safe_float($refund_total_stmt->fetchColumn());
 
-        fputcsv($output, ['Total Collected', $total_invoices, number_format($grand_total, 2)]);
+        fputcsv($output, ['Total Collected', $total_payments, number_format($grand_total, 2)]);
         fputcsv($output, ['Total Refunds', '', number_format($refund_total, 2)]);
         fputcsv($output, ['Net Collected', '', number_format($grand_total - $refund_total, 2)]);
         break;
@@ -88,61 +96,77 @@ switch ($type) {
         fputcsv($output, ['Date Range:', $start_date . ' to ' . $end_date]);
         fputcsv($output, ['Generated:', date('Y-m-d H:i:s')]);
         fputcsv($output, []);
-        fputcsv($output, ['Invoice #', 'Client', 'Issue Date', 'Payment Date', 'Payment Method', 'Subtotal', 'Tax', 'Total', 'Refunded', 'Net']);
-        
-        $stmt = $conn->prepare("
-            SELECT 
-                i.invoice_number,
-                c.name as client_name,
-                i.issue_date,
-                i.payment_date,
-                i.payment_method,
-                i.subtotal,
-                i.tax_amount,
-                i.total_amount,
-                COALESCE(rt.total_refunded, 0) as refunded_total
-            FROM invoices i
-            JOIN clients c ON i.client_id = c.id
-            LEFT JOIN (
-                SELECT invoice_id, SUM(amount) as total_refunded
-                FROM invoice_refunds
-                WHERE refund_date BETWEEN ? AND ?
-                GROUP BY invoice_id
-            ) rt ON rt.invoice_id = i.id
-            WHERE i.payment_date BETWEEN ? AND ?
-              AND i.payment_method IS NOT NULL
-              AND i.status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
-            ORDER BY i.payment_date, i.invoice_number
-        ");
-        $stmt->execute([$start_date, $end_date, $start_date, $end_date]);
-        
+        fputcsv($output, ['Invoice #', 'Client', 'Issue Date', 'Payment Date', 'Payment Method', 'Payment Amount', 'Invoice Total', 'Refunded (In Range)', 'Invoice Net (In Range)']);
+
+        $income_events = bdta_invoice_get_income_events($conn, $start_date, $end_date);
+        $invoice_details = [];
+        if ($income_events !== []) {
+            $invoice_ids = [];
+            foreach ($income_events as $income_event) {
+                $invoice_id = $income_event['invoice_id'];
+                if ($invoice_id > 0) {
+                    $invoice_ids[$invoice_id] = $invoice_id;
+                }
+            }
+
+            if ($invoice_ids !== []) {
+                $stmt = $conn->prepare("
+                    SELECT
+                        i.id,
+                        i.invoice_number,
+                        c.name as client_name,
+                        i.issue_date,
+                        i.total_amount,
+                        COALESCE(rt.total_refunded, 0) as refunded_total
+                    FROM invoices i
+                    JOIN clients c ON i.client_id = c.id
+                    LEFT JOIN (
+                        SELECT invoice_id, SUM(amount) as total_refunded
+                        FROM invoice_refunds
+                        WHERE refund_date BETWEEN ? AND ?
+                        GROUP BY invoice_id
+                    ) rt ON rt.invoice_id = i.id
+                    WHERE i.id = ?
+                ");
+                foreach ($invoice_ids as $invoice_id) {
+                    $stmt->execute([$start_date, $end_date, $invoice_id]);
+                    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($row !== false) {
+                        $invoice_details[safe_int($row['id'] ?? 0)] = $row;
+                    }
+                }
+            }
+        }
+
         $grand_total = 0;
-        $grand_refunded = 0;
-        $total_tax = 0;
-        $total_subtotal = 0;
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $row_total = safe_float($row['total_amount']);
-            $row_refunded = safe_float($row['refunded_total']);
+        $distinct_refunds = [];
+        foreach ($income_events as $income_event) {
+            $invoice_id = $income_event['invoice_id'];
+            $invoice_detail = $invoice_details[$invoice_id] ?? [];
+            $payment_amount = $income_event['amount'];
+            $payment_method = $income_event['payment_method'];
+            $row_refunded = safe_float($invoice_detail['refunded_total'] ?? 0);
+            $invoice_total = safe_float($invoice_detail['total_amount'] ?? 0);
             fputcsv($output, [
-                $row['invoice_number'],
-                $row['client_name'],
-                $row['issue_date'],
-                $row['payment_date'],
-                $row['payment_method'] ?? 'N/A',
-                number_format(safe_float($row['subtotal']), 2),
-                number_format(safe_float($row['tax_amount']), 2),
-                number_format($row_total, 2),
+                scalar_string($invoice_detail['invoice_number'] ?? ''),
+                scalar_string($invoice_detail['client_name'] ?? ''),
+                scalar_string($invoice_detail['issue_date'] ?? ''),
+                $income_event['payment_date'],
+                $payment_method !== '' ? $payment_method : 'N/A',
+                number_format($payment_amount, 2),
+                number_format($invoice_total, 2),
                 number_format($row_refunded, 2),
-                number_format(max(0, $row_total - $row_refunded), 2)
+                number_format(max(0, $invoice_total - $row_refunded), 2)
             ]);
-            $total_subtotal += safe_float($row['subtotal']);
-            $total_tax += safe_float($row['tax_amount']);
-            $grand_total += $row_total;
-            $grand_refunded += $row_refunded;
+            $grand_total += $payment_amount;
+            if ($invoice_id > 0 && !isset($distinct_refunds[$invoice_id])) {
+                $distinct_refunds[$invoice_id] = $row_refunded;
+            }
         }
         
         fputcsv($output, []);
-        fputcsv($output, ['Total', '', '', '', '', number_format($total_subtotal, 2), number_format($total_tax, 2), number_format($grand_total, 2), number_format($grand_refunded, 2), number_format(max(0, $grand_total - $grand_refunded), 2)]);
+        $grand_refunded = array_sum($distinct_refunds);
+        fputcsv($output, ['Total', '', '', '', '', number_format($grand_total, 2), '', number_format($grand_refunded, 2), number_format(max(0, $grand_total - $grand_refunded), 2)]);
         break;
 
     case 'expense_summary':
