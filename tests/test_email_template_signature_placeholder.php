@@ -142,6 +142,10 @@ $template_insert->execute([
     'client_name',
 ]);
 $default_template_id = (int) $conn->lastInsertId();
+assertEmailTemplateSignature(
+    str_contains('<p>Hello {{client_name}},</p><p>Please review your booking details.</p><p>{{signature}}</p><p>{{signature}}</p><p>{{signature:2}}</p>', '{{signature}}'),
+    'Expected the booking request template fixture to include a default signature placeholder.'
+);
 
 $conn->prepare('
     INSERT INTO email_signature_templates (name, description, html_content, is_default, is_active)
