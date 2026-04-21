@@ -642,8 +642,6 @@ class EmailService {
      * @return RenderedTemplate ['subject' => …, 'body_html' => …, 'body_text' => …]
      */
     public function renderTemplate(array $template, array $variables): array {
-        require_once __DIR__ . '/email_signature_helper.php';
-
         $subject   = self::rowString($template, 'subject');
         $body_html = self::rowString($template, 'body_html');
         $body_text = self::rowString($template, 'body_text');
@@ -689,10 +687,12 @@ class EmailService {
      *        body, used when no dedicated plain-text template body exists
      */
     public static function resolveTextSignatureHandled(array $rendered, bool $html_signature_handled): bool {
-        // When body_text is empty the caller will derive plain text from the
-        // rendered HTML body, so the HTML signature-handled state must carry
-        // over to prevent an extra appended signature in the derived text body.
-        return ($rendered['body_text'] ?? '') !== ''
+        $body_text = $rendered['body_text'] ?? '';
+
+        // The send*() callers use the same strict empty-string check before
+        // deriving plain text from HTML, so the HTML signature-handled state
+        // only carries over when there is no dedicated plain-text body.
+        return $body_text !== ''
             ? (bool) ($rendered['text_signature_handled'] ?? false)
             : $html_signature_handled;
     }
@@ -791,7 +791,8 @@ HTML;
             $rendered  = $this->renderTemplate($db_template, $variables);
             $subject   = $rendered['subject'];
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'] ?? '';
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
             $html_signature_handled = (bool) ($rendered['html_signature_handled'] ?? false);
             $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
@@ -843,7 +844,8 @@ HTML;
             $rendered  = $this->renderTemplate($db_template, $variables);
             $subject   = $rendered['subject'];
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'] ?? '';
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
             $html_signature_handled = (bool) ($rendered['html_signature_handled'] ?? false);
             $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
@@ -894,7 +896,8 @@ HTML;
             $rendered  = $this->renderTemplate($db_template, $variables);
             $subject   = $rendered['subject'];
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'] ?? '';
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
             $html_signature_handled = (bool) ($rendered['html_signature_handled'] ?? false);
             $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
@@ -1133,7 +1136,8 @@ HTML;
             ];
             $rendered  = $this->renderTemplate($db_template, $variables);
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'] ?? '';
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
             $subject   = $rendered['subject'] ?: $subject;
             $html_signature_handled = (bool) ($rendered['html_signature_handled'] ?? false);
             $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
@@ -1337,7 +1341,8 @@ HTML;
             ];
             $rendered  = $this->renderTemplate($db_template, $variables);
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'] ?? '';
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
             $subject   = $rendered['subject'] ?: $subject;
             $html_signature_handled = (bool) ($rendered['html_signature_handled'] ?? false);
             $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
@@ -2040,15 +2045,12 @@ TEXT;
      * @return string Normalized body ready to send and log
      */
     private function prepareBodySignature(string $body, bool $is_html, bool $signature_handled): string {
-        require_once __DIR__ . '/email_signature_helper.php';
-
         // Re-check the body for unresolved placeholders because generic and
         // manually composed sends can reach routeMail() without renderTemplate().
         if (!$signature_handled && EmailSignatureHelper::containsSignaturePlaceholder($body)) {
-            $body = $is_html
+            return $is_html
                 ? EmailSignatureHelper::replaceSignaturePlaceholder($body)
                 : EmailSignatureHelper::replaceSignaturePlaceholderPlainText($body);
-            return $body;
         }
 
         $enable_signatures = Settings::get('enable_email_signatures', true);

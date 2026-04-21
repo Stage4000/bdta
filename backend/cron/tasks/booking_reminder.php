@@ -300,7 +300,8 @@ class BookingReminderTask {
             $rendered  = $email_service->renderTemplate($db_template, $variables);
             $subject   = $rendered['subject'];
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'] ?? '';
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
             $html_signature_handled = (bool) ($rendered['html_signature_handled'] ?? false);
             $text_signature_handled = EmailService::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
