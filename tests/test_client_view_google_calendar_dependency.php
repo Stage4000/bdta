@@ -1,18 +1,11 @@
 #!/usr/bin/env php
 <?php
 
-const BDTA_GOOGLE_CALENDAR_REQUIRE_PATTERN = '/\brequire(?:_once)?\b[^\r\n;]*[\'"][^\'"]*google_calendar\.php[\'"][^\r\n;]*;/i';
-
 $clients_view_path = dirname(__DIR__) . '/client/clients_view.php';
 $clients_view = file_get_contents($clients_view_path);
 
 if ($clients_view === false) {
     fwrite(STDERR, "Unable to read client view fixture.\n");
-    exit(1);
-}
-
-if (!preg_match(BDTA_GOOGLE_CALENDAR_REQUIRE_PATTERN, $clients_view, $matches, PREG_OFFSET_CAPTURE)) {
-    fwrite(STDERR, "Client view must load the Google Calendar integration before using it.\n");
     exit(1);
 }
 
@@ -22,9 +15,43 @@ if ($google_calendar_reference_offset === false) {
     exit(1);
 }
 
-// With PREG_OFFSET_CAPTURE, the full match lives at [0] and its byte offset at [1].
-$google_calendar_require_offset = (int) $matches[0][1];
-if ($google_calendar_require_offset > $google_calendar_reference_offset) {
+$tokens = token_get_all($clients_view);
+$current_offset = 0;
+$loads_google_calendar = false;
+
+for ($index = 0, $token_count = count($tokens); $index < $token_count; $index++) {
+    $token = $tokens[$index];
+    $token_text = is_array($token) ? $token[1] : $token;
+    $token_offset = $current_offset;
+    $current_offset += strlen($token_text);
+
+    if ($token_offset > $google_calendar_reference_offset) {
+        break;
+    }
+
+    if (!is_array($token) || !in_array($token[0], [T_REQUIRE, T_REQUIRE_ONCE], true)) {
+        continue;
+    }
+
+    $require_statement = $token_text;
+    while (++$index < $token_count) {
+        $statement_token = $tokens[$index];
+        $statement_text = is_array($statement_token) ? $statement_token[1] : $statement_token;
+        $require_statement .= $statement_text;
+        $current_offset += strlen($statement_text);
+
+        if ($statement_text === ';') {
+            break;
+        }
+    }
+
+    if (preg_match("/['\"][^'\"]*google_calendar\.php['\"]/i", $require_statement)) {
+        $loads_google_calendar = true;
+        break;
+    }
+}
+
+if (!$loads_google_calendar) {
     fwrite(STDERR, "Client view must require google_calendar.php before using GoogleCalendarIntegration.\n");
     exit(1);
 }
