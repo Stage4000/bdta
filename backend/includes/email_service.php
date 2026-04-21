@@ -18,6 +18,7 @@
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/booking_action_links.php';
+require_once __DIR__ . '/email_signature_helper.php';
 require_once __DIR__ . '/phpmailer/src/Exception.php';
 require_once __DIR__ . '/phpmailer/src/PHPMailer.php';
 require_once __DIR__ . '/phpmailer/src/SMTP.php';
@@ -28,8 +29,23 @@ use PHPMailer\PHPMailer\Exception;
 /**
  * @phpstan-type AssocRow array<string, mixed>
  * @phpstan-type MailResult array{success: bool, message: string}
- * @phpstan-type MailOptions array{cc?: list<string>, bcc?: list<string>, context?: array<string, mixed>, client_id?: int|string|null, allow_history_recipient_lookup?: bool, skip_platform_logging?: bool}
- * @phpstan-type RenderedTemplate array{subject: string, body_html: string, body_text: string}
+ * @phpstan-type MailOptions array{
+ *   cc?: list<string>,
+ *   bcc?: list<string>,
+ *   context?: array<string, mixed>,
+ *   client_id?: int|string|null,
+ *   allow_history_recipient_lookup?: bool,
+ *   skip_platform_logging?: bool,
+ *   html_signature_handled?: bool,
+ *   text_signature_handled?: bool
+ * }
+ * @phpstan-type RenderedTemplate array{
+ *   subject: string,
+ *   body_html: string,
+ *   body_text: string,
+ *   html_signature_handled: bool,
+ *   text_signature_handled: bool
+ * }
  */
 class EmailService {
 
@@ -371,6 +387,12 @@ class EmailService {
             $text_body = strip_tags($html_body);
         }
 
+        $html_signature_handled = (bool) ($options['html_signature_handled'] ?? false);
+        $text_signature_handled = (bool) ($options['text_signature_handled'] ?? false);
+
+        $html_body = $this->prepareBodySignature($html_body, true, $html_signature_handled);
+        $text_body = $this->prepareBodySignature($text_body, false, $text_signature_handled);
+
         $cc        = $options['cc']      ?? [];
         $bcc       = $options['bcc']     ?? [];
         $context   = $options['context'] ?? [];
@@ -623,6 +645,8 @@ class EmailService {
         $subject   = self::rowString($template, 'subject');
         $body_html = self::rowString($template, 'body_html');
         $body_text = self::rowString($template, 'body_text');
+        $html_signature_handled = EmailSignatureHelper::containsSignaturePlaceholder($body_html);
+        $text_signature_handled = EmailSignatureHelper::containsSignaturePlaceholder($body_text);
 
         foreach ($variables as $key => $value) {
             $placeholder = '{{' . $key . '}}';
@@ -630,6 +654,14 @@ class EmailService {
             $subject   = str_replace($placeholder, $replacement, $subject);
             $body_html = str_replace($placeholder, $replacement, $body_html);
             $body_text = str_replace($placeholder, $replacement, $body_text);
+        }
+
+        if (str_contains($body_html, '{{signature')) {
+            $body_html = EmailSignatureHelper::replaceSignaturePlaceholder($body_html);
+        }
+
+        if (str_contains($body_text, '{{signature')) {
+            $body_text = EmailSignatureHelper::replaceSignaturePlaceholderPlainText($body_text);
         }
 
         // Apply the standard email wrapper so custom templates get the same
@@ -640,7 +672,29 @@ class EmailService {
             'subject'   => $subject,
             'body_html' => $body_html,
             'body_text' => $body_text,
+            'html_signature_handled' => $html_signature_handled,
+            'text_signature_handled' => $text_signature_handled,
         ];
+    }
+
+    /**
+     * Determine whether the plain-text body already handled signature placement.
+     * Falls back to the HTML signature-handled state when no dedicated plain-text
+     * body exists and the text version is derived from the rendered HTML.
+     *
+     * @param RenderedTemplate $rendered
+     * @param bool $html_signature_handled Signature-handled state from the HTML
+     *        body, used when no dedicated plain-text template body exists
+     */
+    public static function resolveTextSignatureHandled(array $rendered, bool $html_signature_handled): bool {
+        $body_text = $rendered['body_text'];
+
+        // The send*() callers use the same strict empty-string check before
+        // deriving plain text from HTML, so the HTML signature-handled state
+        // only carries over when there is no dedicated plain-text body.
+        return $body_text !== ''
+            ? (bool) $rendered['text_signature_handled']
+            : $html_signature_handled;
     }
 
     /**
@@ -729,13 +783,18 @@ HTML;
 
         // Try to use a custom DB template (appointment-type override or system default)
         $db_template = $this->getTemplateForTask('booking_confirmation', $appointment_type_id > 0 ? $appointment_type_id : null);
+        $html_signature_handled = false;
+        $text_signature_handled = false;
 
         if ($db_template) {
             $variables = $this->buildBookingVariables($booking, $date, $time, $google_link, $ical_link);
             $rendered  = $this->renderTemplate($db_template, $variables);
             $subject   = $rendered['subject'];
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'];
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
+            $html_signature_handled = (bool) $rendered['html_signature_handled'];
+            $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
             // Fallback to hardcoded template
             $subject   = 'Booking Confirmation - Brook\'s Dog Training Academy';
@@ -746,6 +805,8 @@ HTML;
         // Route through central mail router
         return $this->routeMail(self::MAIL_TYPE_BOOKING_CONFIRMATION, $to, $subject, $html_body, $text_body, [
             'client_id' => self::rowId($booking),
+            'html_signature_handled' => $html_signature_handled,
+            'text_signature_handled' => $text_signature_handled,
         ]);
     }
 
@@ -769,6 +830,8 @@ HTML;
         $time = date('g:i A', safe_timestamp(strtotime($appointment_time)));
 
         $db_template = $this->getTemplateForTask('booking_request', $appointment_type_id > 0 ? $appointment_type_id : null);
+        $html_signature_handled = false;
+        $text_signature_handled = false;
 
         if ($db_template) {
             $variables = array_merge(
@@ -781,7 +844,10 @@ HTML;
             $rendered  = $this->renderTemplate($db_template, $variables);
             $subject   = $rendered['subject'];
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'];
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
+            $html_signature_handled = (bool) $rendered['html_signature_handled'];
+            $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
             $subject   = 'Appointment Request Received - ' . self::settingString('site_name', "Brook's Dog Training Academy");
             $html_body = $this->getBookingRequestEmailHTML($booking, $date, $time);
@@ -790,6 +856,8 @@ HTML;
 
         return $this->routeMail(self::MAIL_TYPE_BOOKING_REQUEST, $to, $subject, $html_body, $text_body, [
             'client_id' => self::rowId($booking),
+            'html_signature_handled' => $html_signature_handled,
+            'text_signature_handled' => $text_signature_handled,
         ]);
     }
 
@@ -817,6 +885,8 @@ HTML;
         // Try to use a custom DB template (appointment-type override or system default)
         $appointment_type_id = safe_int($booking['appointment_type_id'] ?? 0);
         $db_template = $this->getTemplateForTask('booking_cancellation', $appointment_type_id > 0 ? $appointment_type_id : null);
+        $html_signature_handled = false;
+        $text_signature_handled = false;
 
         if ($db_template) {
             $variables = array_merge(
@@ -826,7 +896,10 @@ HTML;
             $rendered  = $this->renderTemplate($db_template, $variables);
             $subject   = $rendered['subject'];
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'];
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
+            $html_signature_handled = (bool) $rendered['html_signature_handled'];
+            $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
             // Fallback to hardcoded template
             $subject   = 'Appointment Cancelled - Brook\'s Dog Training Academy';
@@ -836,6 +909,8 @@ HTML;
 
         return $this->routeMail(self::MAIL_TYPE_BOOKING_CANCELLATION, $to, $subject, $html_body, $text_body, [
             'client_id' => self::rowId($booking),
+            'html_signature_handled' => $html_signature_handled,
+            'text_signature_handled' => $text_signature_handled,
         ]);
     }
 
@@ -1045,6 +1120,8 @@ HTML;
 
         // Try a custom DB template first
         $db_template = $this->getTemplateForTask('payment_receipt');
+        $html_signature_handled = false;
+        $text_signature_handled = false;
         if ($db_template) {
             $variables = [
                 'client_name'      => $client_name,
@@ -1059,8 +1136,11 @@ HTML;
             ];
             $rendered  = $this->renderTemplate($db_template, $variables);
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'];
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
             $subject   = $rendered['subject'] ?: $subject;
+            $html_signature_handled = (bool) $rendered['html_signature_handled'];
+            $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
             // Built-in receipt template
             $inst_label = $inst_number ? " — Installment #{$inst_number}" : '';
@@ -1134,6 +1214,8 @@ HTML;
         return $this->routeMail(self::MAIL_TYPE_PAYMENT_RECEIPT, $to, $subject, $html_body, $text_body, [
             'cc'        => $cc,
             'client_id' => self::rowId($invoice),
+            'html_signature_handled' => $html_signature_handled,
+            'text_signature_handled' => $text_signature_handled,
         ]);
     }
 
@@ -1238,6 +1320,8 @@ HTML;
         }
 
         $db_template = $this->getTemplateForTask('invoice', $appointment_type_id);
+        $html_signature_handled = false;
+        $text_signature_handled = false;
         if ($db_template) {
             $variables = [
                 'client_name'       => $client_name,
@@ -1257,8 +1341,11 @@ HTML;
             ];
             $rendered  = $this->renderTemplate($db_template, $variables);
             $html_body = $rendered['body_html'];
-            $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $rendered_text_body = $rendered['body_text'];
+            $text_body = $rendered_text_body !== '' ? $rendered_text_body : strip_tags($html_body);
             $subject   = $rendered['subject'] ?: $subject;
+            $html_signature_handled = (bool) $rendered['html_signature_handled'];
+            $text_signature_handled = self::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
             $html_body = <<<HTML
 <!DOCTYPE html>
@@ -1311,6 +1398,8 @@ HTML;
 
         return $this->routeMail(self::MAIL_TYPE_INVOICE, $to, $subject, $html_body, $text_body, [
             'client_id' => self::rowId($invoice),
+            'html_signature_handled' => $html_signature_handled,
+            'text_signature_handled' => $text_signature_handled,
         ]);
     }
 
@@ -1939,10 +2028,37 @@ TEXT;
             return $body . $separator . $signature_html;
         } else {
             // For plain text emails, strip HTML from signature and append
-            $signature_text = strip_tags($signature_html);
+            $signature_text = EmailSignatureHelper::htmlToPlainText($signature_html);
             $separator = "\n\n---\n\n";
             return $body . $separator . $signature_text;
         }
+    }
+
+    /**
+     * Resolve explicit signature placeholders in a body and, when no explicit
+     * placement was used, optionally append the default signature.
+     *
+     * @param string $body Message body to normalize
+     * @param bool $is_html Whether the body is HTML or plain text
+     * @param bool $signature_handled True when the body already handled
+     *        signature placement earlier in the template pipeline
+     * @return string Normalized body ready to send and log
+     */
+    private function prepareBodySignature(string $body, bool $is_html, bool $signature_handled): string {
+        // Re-check the body for unresolved placeholders because generic and
+        // manually composed sends can reach routeMail() without renderTemplate().
+        if (!$signature_handled && EmailSignatureHelper::containsSignaturePlaceholder($body)) {
+            return $is_html
+                ? EmailSignatureHelper::replaceSignaturePlaceholder($body)
+                : EmailSignatureHelper::replaceSignaturePlaceholderPlainText($body);
+        }
+
+        $enable_signatures = Settings::get('enable_email_signatures', true);
+        if ($enable_signatures && !$signature_handled) {
+            return $this->addSignature($body, $is_html);
+        }
+
+        return $body;
     }
     
     /**
@@ -1954,13 +2070,6 @@ TEXT;
      */
     private function sendEmail(string $to, string $subject, string $html_body, string $text_body, array $cc = [], array $bcc = []): array {
         try {
-            // Add email signature if enabled
-            $enable_signatures = Settings::get('enable_email_signatures', true);
-            if ($enable_signatures) {
-                $html_body = $this->addSignature($html_body);
-                $text_body = $this->addSignature($text_body, false);
-            }
-            
             $mail = new PHPMailer(true);
             
             // Enable debug mode if configured (useful for troubleshooting)
