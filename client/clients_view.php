@@ -3,6 +3,7 @@ require_once '../backend/includes/config.php';
 require_once '../backend/includes/form_types.php';
 require_once '../backend/includes/follow_up_notes.php';
 require_once '../backend/includes/invoice_status.php';
+require_once '../backend/includes/google_calendar.php';
 requireLogin();
 
 const BDTA_SECONDS_PER_DAY = 60 * 60 * 24;
