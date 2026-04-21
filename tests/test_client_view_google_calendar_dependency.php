@@ -45,7 +45,7 @@ for ($index = 0, $token_count = count($tokens); $index < $token_count; $index++)
         }
     }
 
-    if (preg_match("/['\"][^'\"]*google_calendar\.php['\"]/i", $require_statement)) {
+    if (preg_match("/['\"](?:[^'\"]*[\\\\\\/])?google_calendar\.php['\"]/i", $require_statement)) {
         $loads_google_calendar = true;
         break;
     }
