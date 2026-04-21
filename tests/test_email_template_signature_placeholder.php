@@ -202,5 +202,41 @@ assertEmailTemplateSignature(str_contains((string) ($logged_email['body_text'] ?
 assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_text'] ?? ''), '{{signature}}'), 'Expected plain-text email body to remove the signature placeholder.');
 
 resetEmailTemplateSignatureState($conn);
+$conn->prepare('UPDATE settings SET setting_value = ? WHERE setting_key = ?')->execute(['1', 'enable_email_signatures']);
+resetEmailTemplateSignatureState($conn);
+
+$email_service = new EmailService('https://example.com', $conn);
+$generic_result = $email_service->sendGenericEmail(
+    'client@example.com',
+    'Generic Signature Placeholder',
+    '<p>Hello Signature Client,</p><p>{{signature}}</p>',
+    "Hello Signature Client,\n\n{{signature}}",
+    EmailService::MAIL_TYPE_GENERIC,
+    123
+);
+assertEmailTemplateSignature($generic_result['success'] === false, 'Expected generic email send to fail without an SMTP host.');
+
+$generic_logged_email = $conn->prepare('SELECT subject, body_html, body_text FROM client_emails WHERE subject = ? ORDER BY id DESC LIMIT 1');
+$generic_logged_email->execute(['Generic Signature Placeholder']);
+$generic_logged = $generic_logged_email->fetch(PDO::FETCH_ASSOC);
+assertEmailTemplateSignature(is_array($generic_logged), 'Expected generic email with a signature placeholder to be logged.');
+assertEmailTemplateSignature(substr_count((string) ($generic_logged['body_html'] ?? ''), 'BDTA Team') === 1, 'Expected generic HTML email body to render the default signature exactly once.');
+assertEmailTemplateSignature(!str_contains((string) ($generic_logged['body_html'] ?? ''), '{{signature}}'), 'Expected generic HTML email body to remove the signature placeholder.');
+assertEmailTemplateSignature(substr_count((string) ($generic_logged['body_text'] ?? ''), 'BDTA Team') === 1, 'Expected generic plain-text email body to render the default signature exactly once.');
+assertEmailTemplateSignature(!str_contains((string) ($generic_logged['body_text'] ?? ''), '{{signature}}'), 'Expected generic plain-text email body to remove the signature placeholder.');
+
+$result = $email_service->sendBookingRequest($booking);
+assertEmailTemplateSignature($result['success'] === false, 'Expected booking request email send with signatures enabled to fail without an SMTP host.');
+
+$logged_email = $conn->prepare('SELECT subject, body_html, body_text FROM client_emails WHERE subject = ? ORDER BY id DESC LIMIT 1');
+$logged_email->execute(['Request for Signature Client']);
+$logged_email = $logged_email->fetch(PDO::FETCH_ASSOC);
+assertEmailTemplateSignature(is_array($logged_email), 'Expected booking request email with signatures enabled to be logged.');
+assertEmailTemplateSignature(substr_count((string) ($logged_email['body_html'] ?? ''), 'BDTA Team') === 2, 'Expected template HTML email body to avoid appending an extra default signature when placeholders are already present.');
+assertEmailTemplateSignature(substr_count((string) ($logged_email['body_text'] ?? ''), 'BDTA Team') === 2, 'Expected template plain-text email body to avoid appending an extra default signature when placeholders are already present.');
+assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_html'] ?? ''), '{{signature}}'), 'Expected booking request HTML email body with signatures enabled to remove the signature placeholder.');
+assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_text'] ?? ''), '{{signature}}'), 'Expected booking request plain-text email body with signatures enabled to remove the signature placeholder.');
+
+resetEmailTemplateSignatureState($conn);
 
 echo "Email template signature placeholder test passed.\n";

@@ -276,6 +276,9 @@ class BookingReminderTask {
         // Priority: appt-type override → rule template → system default → hardcoded
         $db_template = $email_service->getTemplateForTask('booking_reminder', $appointment_type_id, $rule_template_id);
 
+        $html_signature_handled = false;
+        $text_signature_handled = false;
+
         if ($db_template) {
             $variables = [
                 'client_name'          => $booking['client_name']      ?? '',
@@ -298,6 +301,10 @@ class BookingReminderTask {
             $subject   = $rendered['subject'];
             $html_body = $rendered['body_html'];
             $text_body = $rendered['body_text'] ?: strip_tags($html_body);
+            $html_signature_handled = (bool) ($rendered['html_signature_handled'] ?? false);
+            $text_signature_handled = ($rendered['body_text'] ?? '') !== ''
+                ? (bool) ($rendered['text_signature_handled'] ?? false)
+                : $html_signature_handled;
         } else {
             // Fallback hardcoded template — derive subject from rule timing
             $hours = $rule ? safe_int($rule['hours_before'] ?? 24) : 24;
@@ -313,7 +320,18 @@ class BookingReminderTask {
             $text_body = $this->getReminderEmailText($booking, $date, $time, $google_link, $ical_link);
         }
         
-        return $email_service->sendGenericEmail($client_email, $subject, $html_body, $text_body, EmailService::MAIL_TYPE_BOOKING_REMINDER, is_int($client_id) || is_string($client_id) ? $client_id : null);
+        return $email_service->routeMail(
+            EmailService::MAIL_TYPE_BOOKING_REMINDER,
+            $client_email,
+            $subject,
+            $html_body,
+            $text_body,
+            [
+                'client_id' => is_int($client_id) || is_string($client_id) ? $client_id : null,
+                'html_signature_handled' => $html_signature_handled,
+                'text_signature_handled' => $text_signature_handled,
+            ]
+        );
     }
     
     /**
