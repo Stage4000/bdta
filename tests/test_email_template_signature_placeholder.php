@@ -142,8 +142,9 @@ $template_insert->execute([
     'client_name',
 ]);
 $default_template_id = (int) $conn->lastInsertId();
+$template_body_html = (string) $conn->query('SELECT body_html FROM email_templates WHERE id = ' . $default_template_id)->fetchColumn();
 assertEmailTemplateSignature(
-    str_contains('<p>Hello {{client_name}},</p><p>Please review your booking details.</p><p>{{signature}}</p><p>{{signature}}</p><p>{{signature:2}}</p>', '{{signature}}'),
+    str_contains($template_body_html, '{{signature}}'),
     'Expected the booking request template fixture to include a default signature placeholder.'
 );
 
@@ -237,7 +238,9 @@ $logged_email->execute(['Request for Signature Client']);
 $logged_email = $logged_email->fetch(PDO::FETCH_ASSOC);
 assertEmailTemplateSignature(is_array($logged_email), 'Expected booking request email with signatures enabled to be logged.');
 assertEmailTemplateSignature(substr_count((string) ($logged_email['body_html'] ?? ''), 'BDTA Team') === 2, 'Expected template HTML email body to avoid appending an extra default signature when placeholders are already present.');
+assertEmailTemplateSignature(substr_count((string) ($logged_email['body_html'] ?? ''), 'BDTA Billing') === 1, 'Expected template HTML email body with signatures enabled to keep the explicit signature placeholder output unchanged.');
 assertEmailTemplateSignature(substr_count((string) ($logged_email['body_text'] ?? ''), 'BDTA Team') === 2, 'Expected template plain-text email body to avoid appending an extra default signature when placeholders are already present.');
+assertEmailTemplateSignature(substr_count((string) ($logged_email['body_text'] ?? ''), 'BDTA Billing') === 1, 'Expected template plain-text email body with signatures enabled to keep the explicit signature placeholder output unchanged.');
 assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_html'] ?? ''), '{{signature}}'), 'Expected booking request HTML email body with signatures enabled to remove the signature placeholder.');
 assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_text'] ?? ''), '{{signature}}'), 'Expected booking request plain-text email body with signatures enabled to remove the signature placeholder.');
 
