@@ -642,11 +642,13 @@ class EmailService {
      * @return RenderedTemplate ['subject' => …, 'body_html' => …, 'body_text' => …]
      */
     public function renderTemplate(array $template, array $variables): array {
+        require_once __DIR__ . '/email_signature_helper.php';
+
         $subject   = self::rowString($template, 'subject');
         $body_html = self::rowString($template, 'body_html');
         $body_text = self::rowString($template, 'body_text');
-        $html_signature_handled = str_contains($body_html, '{{signature');
-        $text_signature_handled = str_contains($body_text, '{{signature');
+        $html_signature_handled = EmailSignatureHelper::containsSignaturePlaceholder($body_html);
+        $text_signature_handled = EmailSignatureHelper::containsSignaturePlaceholder($body_text);
 
         foreach ($variables as $key => $value) {
             $placeholder = '{{' . $key . '}}';
@@ -2022,7 +2024,7 @@ TEXT;
     private function prepareBodySignature(string $body, bool $is_html, bool $signature_handled = false): string {
         require_once __DIR__ . '/email_signature_helper.php';
 
-        if (!$signature_handled && str_contains($body, '{{signature')) {
+        if (!$signature_handled && EmailSignatureHelper::containsSignaturePlaceholder($body)) {
             $body = $is_html
                 ? EmailSignatureHelper::replaceSignaturePlaceholder($body)
                 : EmailSignatureHelper::replaceSignaturePlaceholderPlainText($body);

@@ -347,6 +347,10 @@ HTML;
         return $email_content;
     }
 
+    public static function containsSignaturePlaceholder(string $email_content): bool {
+        return preg_match(self::SIGNATURE_PLACEHOLDER_PATTERN, $email_content) === 1;
+    }
+
     /**
      * @param array<string, string> $custom_data
      */
