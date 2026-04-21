@@ -633,20 +633,12 @@ class EmailService {
             $body_text = str_replace($placeholder, $replacement, $body_text);
         }
 
-        $body_html = EmailSignatureHelper::replaceSignaturePlaceholder($body_html);
+        if (str_contains($body_html, '{{signature')) {
+            $body_html = EmailSignatureHelper::replaceSignaturePlaceholder($body_html);
+        }
 
         if (str_contains($body_text, '{{signature')) {
-            $body_text = preg_replace_callback('/\{\{signature(?::(\d+))?\}\}/', static function (array $matches): string {
-                $signature_id = isset($matches[1]) ? (int) $matches[1] : null;
-                $signature_html = EmailSignatureHelper::render($signature_id);
-
-                if ($signature_html === null) {
-                    return '';
-                }
-
-                $signature_text = preg_replace('/<br\s*\/?>/i', "\n", $signature_html) ?? $signature_html;
-                return html_entity_decode(strip_tags($signature_text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            }, $body_text) ?? $body_text;
+            $body_text = EmailSignatureHelper::replaceSignaturePlaceholderPlainText($body_text);
         }
 
         // Apply the standard email wrapper so custom templates get the same
@@ -1956,9 +1948,9 @@ TEXT;
             return $body . $separator . $signature_html;
         } else {
             // For plain text emails, strip HTML from signature and append
-            $signature_text = strip_tags($signature_html);
+            $signature_text = EmailSignatureHelper::renderPlainText();
             $separator = "\n\n---\n\n";
-            return $body . $separator . $signature_text;
+            return $body . $separator . ($signature_text ?? '');
         }
     }
     
