@@ -365,7 +365,8 @@ HTML;
             $cache_key = self::cacheKeyForSignatureId($sig_id);
 
             if (!array_key_exists($cache_key, $rendered_signatures)) {
-                $rendered_signatures[$cache_key] = self::renderPlainText($sig_id, $custom_data) ?? '';
+                $signature_html = self::render($sig_id, $custom_data);
+                $rendered_signatures[$cache_key] = $signature_html === null ? '' : self::htmlToPlainText($signature_html);
             }
 
             $email_content = str_replace($full_placeholder, $rendered_signatures[$cache_key], $email_content);
