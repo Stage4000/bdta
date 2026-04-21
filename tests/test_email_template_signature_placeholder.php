@@ -137,8 +137,8 @@ $template_insert->execute([
     'Booking Request With Signature',
     'booking_request',
     'Request for {{client_name}}',
-    '<p>Hello {{client_name}},</p><p>Please review your booking details.</p><p>{{signature}}</p>',
-    "Hello {{client_name}},\n\n{{signature}}",
+    '<p>Hello {{client_name}},</p><p>Please review your booking details.</p><p>{{signature}}</p><p>{{signature}}</p><p>{{signature:2}}</p>',
+    "Hello {{client_name}},\n\n{{signature}}\n\n{{signature}}\n\n{{signature:2}}",
     'client_name',
 ]);
 $default_template_id = (int) $conn->lastInsertId();
@@ -150,6 +150,14 @@ $conn->prepare('
     'Default Signature',
     'Primary signature',
     '<p><strong>BDTA Team</strong><br>help@example.com</p>',
+]);
+$conn->prepare('
+    INSERT INTO email_signature_templates (name, description, html_content, is_default, is_active)
+    VALUES (?, ?, ?, 0, 1)
+')->execute([
+    'Specific Signature',
+    'Secondary signature',
+    '<p><strong>BDTA Billing</strong><br>billing@example.com</p>',
 ]);
 
 $insert->execute(['default_booking_request_template_id', (string) $default_template_id, 'number']);
@@ -185,8 +193,12 @@ $logged_email = $conn->query('SELECT subject, body_html, body_text FROM client_e
 assertEmailTemplateSignature(is_array($logged_email), 'Expected booking request email to be logged.');
 assertEmailTemplateSignature(($logged_email['subject'] ?? '') === 'Request for Signature Client', 'Expected booking request template variables to still render.');
 assertEmailTemplateSignature(str_contains((string) ($logged_email['body_html'] ?? ''), 'BDTA Team'), 'Expected HTML email body to include the rendered default signature.');
+assertEmailTemplateSignature(substr_count((string) ($logged_email['body_html'] ?? ''), 'BDTA Team') === 2, 'Expected duplicate HTML signature placeholders to reuse the same rendered default signature.');
+assertEmailTemplateSignature(str_contains((string) ($logged_email['body_html'] ?? ''), 'BDTA Billing'), 'Expected HTML email body to include the explicitly requested signature.');
 assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_html'] ?? ''), '{{signature}}'), 'Expected HTML email body to remove the signature placeholder.');
 assertEmailTemplateSignature(str_contains((string) ($logged_email['body_text'] ?? ''), 'BDTA Team'), 'Expected plain-text email body to include the rendered signature text.');
+assertEmailTemplateSignature(substr_count((string) ($logged_email['body_text'] ?? ''), 'BDTA Team') === 2, 'Expected duplicate plain-text signature placeholders to reuse the same rendered default signature.');
+assertEmailTemplateSignature(str_contains((string) ($logged_email['body_text'] ?? ''), 'BDTA Billing'), 'Expected plain-text email body to include the explicitly requested signature.');
 assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_text'] ?? ''), '{{signature}}'), 'Expected plain-text email body to remove the signature placeholder.');
 
 resetEmailTemplateSignatureState($conn);

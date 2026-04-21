@@ -1948,9 +1948,9 @@ TEXT;
             return $body . $separator . $signature_html;
         } else {
             // For plain text emails, strip HTML from signature and append
-            $signature_text = EmailSignatureHelper::renderPlainText();
+            $signature_text = EmailSignatureHelper::htmlToPlainText($signature_html);
             $separator = "\n\n---\n\n";
-            return $body . $separator . ($signature_text ?? '');
+            return $body . $separator . $signature_text;
         }
     }
     

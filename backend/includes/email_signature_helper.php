@@ -249,6 +249,10 @@ class EmailSignatureHelper {
 
         return self::convertHtmlToPlainText($signature_html);
     }
+
+    public static function htmlToPlainText(string $html): string {
+        return self::convertHtmlToPlainText($html);
+    }
     
     /**
      * Export signature as HTML file
@@ -309,6 +313,9 @@ HTML;
         if (empty($matches)) {
             return $email_content;
         }
+
+        /** @var array<string, string> $rendered_signatures */
+        $rendered_signatures = [];
         
         // Replace each placeholder
         foreach ($matches as $match) {
@@ -317,12 +324,14 @@ HTML;
             
             // Determine which signature to use
             $sig_id = $specified_id ?? $signature_id; // Use specified ID, or fallback to parameter
+            $cache_key = $sig_id === null ? 'default' : (string) $sig_id;
             
-            // Get the rendered signature
-            $signature_html = self::render($sig_id, $custom_data);
+            if (!array_key_exists($cache_key, $rendered_signatures)) {
+                $rendered_signatures[$cache_key] = self::render($sig_id, $custom_data) ?? '';
+            }
             
             // Replace the placeholder (remove if no signature found)
-            $replacement = $signature_html ?? '';
+            $replacement = $rendered_signatures[$cache_key];
             $email_content = str_replace($full_placeholder, $replacement, $email_content);
         }
         
@@ -339,12 +348,20 @@ HTML;
             return $email_content;
         }
 
+        /** @var array<string, string> $rendered_signatures */
+        $rendered_signatures = [];
+
         foreach ($matches as $match) {
             $full_placeholder = $match[0];
             $specified_id = isset($match[1]) ? (int) $match[1] : null;
             $sig_id = $specified_id ?? $signature_id;
-            $signature_text = self::renderPlainText($sig_id, $custom_data);
-            $email_content = str_replace($full_placeholder, $signature_text ?? '', $email_content);
+            $cache_key = $sig_id === null ? 'default' : (string) $sig_id;
+
+            if (!array_key_exists($cache_key, $rendered_signatures)) {
+                $rendered_signatures[$cache_key] = self::renderPlainText($sig_id, $custom_data) ?? '';
+            }
+
+            $email_content = str_replace($full_placeholder, $rendered_signatures[$cache_key], $email_content);
         }
 
         return $email_content;
