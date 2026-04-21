@@ -250,6 +250,11 @@ class EmailSignatureHelper {
         return self::convertHtmlToPlainText($signature_html);
     }
 
+    /**
+     * Convert rendered signature HTML into plain text for text email bodies.
+     * @param string $html Rendered signature HTML
+     * @return string Plain-text signature content
+     */
     public static function htmlToPlainText(string $html): string {
         return self::convertHtmlToPlainText($html);
     }
