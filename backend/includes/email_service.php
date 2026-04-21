@@ -18,6 +18,7 @@
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/booking_action_links.php';
+require_once __DIR__ . '/email_signature_helper.php';
 require_once __DIR__ . '/phpmailer/src/Exception.php';
 require_once __DIR__ . '/phpmailer/src/PHPMailer.php';
 require_once __DIR__ . '/phpmailer/src/SMTP.php';
@@ -630,6 +631,22 @@ class EmailService {
             $subject   = str_replace($placeholder, $replacement, $subject);
             $body_html = str_replace($placeholder, $replacement, $body_html);
             $body_text = str_replace($placeholder, $replacement, $body_text);
+        }
+
+        $body_html = EmailSignatureHelper::replaceSignaturePlaceholder($body_html);
+
+        if (str_contains($body_text, '{{signature')) {
+            $body_text = preg_replace_callback('/\{\{signature(?::(\d+))?\}\}/', static function (array $matches): string {
+                $signature_id = isset($matches[1]) ? (int) $matches[1] : null;
+                $signature_html = EmailSignatureHelper::render($signature_id);
+
+                if ($signature_html === null) {
+                    return '';
+                }
+
+                $signature_text = preg_replace('/<br\s*\/?>/i', "\n", $signature_html) ?? $signature_html;
+                return html_entity_decode(strip_tags($signature_text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }, $body_text) ?? $body_text;
         }
 
         // Apply the standard email wrapper so custom templates get the same
