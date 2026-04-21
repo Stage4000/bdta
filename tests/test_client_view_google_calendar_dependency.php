@@ -9,7 +9,7 @@ if ($clients_view === false) {
     exit(1);
 }
 
-if (!preg_match('/\brequire(?:_once)?\b[^;]*google_calendar\.php[\'"][^;]*;/i', $clients_view, $matches, PREG_OFFSET_CAPTURE)) {
+if (!preg_match('/\brequire(?:_once)?\b[^;]*[\'"][^\'"]*google_calendar\.php[\'"][^;]*;/i', $clients_view, $matches, PREG_OFFSET_CAPTURE)) {
     fwrite(STDERR, "Client view must load the Google Calendar integration before using it.\n");
     exit(1);
 }
@@ -21,7 +21,7 @@ if ($google_calendar_reference_offset === false) {
 }
 
 $google_calendar_require_offset = (int) ($matches[0][1] ?? -1);
-if ($google_calendar_require_offset < 0 || $google_calendar_require_offset > $google_calendar_reference_offset) {
+if ($google_calendar_require_offset > $google_calendar_reference_offset) {
     fwrite(STDERR, "Client view must require google_calendar.php before using GoogleCalendarIntegration.\n");
     exit(1);
 }
