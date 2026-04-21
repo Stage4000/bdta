@@ -685,6 +685,8 @@ class EmailService {
      * body exists and the text version is derived from the rendered HTML.
      *
      * @param RenderedTemplate $rendered
+     * @param bool $html_signature_handled Signature-handled state from the HTML
+     *        body, used when no dedicated plain-text template body exists
      */
     public static function resolveTextSignatureHandled(array $rendered, bool $html_signature_handled): bool {
         return ($rendered['body_text'] ?? '') !== ''
@@ -2034,7 +2036,7 @@ TEXT;
      *        signature placement earlier in the template pipeline
      * @return string Normalized body ready to send and log
      */
-    private function prepareBodySignature(string $body, bool $is_html, bool $signature_handled = false): string {
+    private function prepareBodySignature(string $body, bool $is_html, bool $signature_handled): string {
         require_once __DIR__ . '/email_signature_helper.php';
 
         if (!$signature_handled && EmailSignatureHelper::containsSignaturePlaceholder($body)) {

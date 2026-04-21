@@ -206,7 +206,6 @@ assertEmailTemplateSignature(substr_count((string) ($logged_email['body_text'] ?
 assertEmailTemplateSignature(str_contains((string) ($logged_email['body_text'] ?? ''), 'BDTA Billing'), 'Expected plain-text email body to include the explicitly requested signature.');
 assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_text'] ?? ''), '{{signature}}'), 'Expected plain-text email body to remove the signature placeholder.');
 
-resetEmailTemplateSignatureState($conn);
 $conn->prepare('UPDATE settings SET setting_value = ? WHERE setting_key = ?')->execute(['1', 'enable_email_signatures']);
 resetEmailTemplateSignatureState($conn);
 
