@@ -6,6 +6,7 @@
 
 class EmailSignatureHelper {
     private const SIGNATURE_PLACEHOLDER_PATTERN = '/\{\{signature(?::(\d+))?\}\}/';
+    private const DEFAULT_SIGNATURE_CACHE_KEY = '__default__';
     
     /**
      * Sanitize HTML content to prevent XSS attacks
@@ -252,7 +253,8 @@ class EmailSignatureHelper {
 
     /**
      * Convert rendered signature HTML into plain text for text email bodies.
-     * @param string $html Rendered signature HTML
+     *
+     * @param string $html Rendered signature HTML fragment
      * @return string Plain-text signature content
      */
     public static function htmlToPlainText(string $html): string {
@@ -329,7 +331,7 @@ HTML;
             
             // Determine which signature to use
             $sig_id = $specified_id ?? $signature_id; // Use specified ID, or fallback to parameter
-            $cache_key = $sig_id === null ? 'default' : (string) $sig_id;
+            $cache_key = self::cacheKeyForSignatureId($sig_id);
             
             if (!array_key_exists($cache_key, $rendered_signatures)) {
                 $rendered_signatures[$cache_key] = self::render($sig_id, $custom_data) ?? '';
@@ -360,7 +362,7 @@ HTML;
             $full_placeholder = $match[0];
             $specified_id = isset($match[1]) ? (int) $match[1] : null;
             $sig_id = $specified_id ?? $signature_id;
-            $cache_key = $sig_id === null ? 'default' : (string) $sig_id;
+            $cache_key = self::cacheKeyForSignatureId($sig_id);
 
             if (!array_key_exists($cache_key, $rendered_signatures)) {
                 $rendered_signatures[$cache_key] = self::renderPlainText($sig_id, $custom_data) ?? '';
@@ -376,5 +378,9 @@ HTML;
         $text = preg_replace('/<br\s*\/?>/i', "\n", $html);
         $text = $text ?? $html;
         return html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    private static function cacheKeyForSignatureId(?int $signature_id): string {
+        return $signature_id === null ? self::DEFAULT_SIGNATURE_CACHE_KEY : (string) $signature_id;
     }
 }
