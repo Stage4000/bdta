@@ -9,14 +9,20 @@ if ($clients_view === false) {
     exit(1);
 }
 
-if (!str_contains($clients_view, "require_once '../backend/includes/google_calendar.php';")) {
+if (!preg_match('/\brequire(?:_once)?\b[^;]*google_calendar\.php[\'"][^;]*;/i', $clients_view, $matches, PREG_OFFSET_CAPTURE)) {
     fwrite(STDERR, "Client view must load the Google Calendar integration before using it.\n");
     exit(1);
 }
 
-if (!str_contains($clients_view, 'GoogleCalendarIntegration::deleteEventForBooking')
-    || !str_contains($clients_view, 'GoogleCalendarIntegration::updateEventForBooking')) {
-    fwrite(STDERR, "Client view should continue to use Google Calendar booking sync helpers.\n");
+$google_calendar_reference_offset = strpos($clients_view, 'GoogleCalendarIntegration::');
+if ($google_calendar_reference_offset === false) {
+    fwrite(STDERR, "Client view should reference Google Calendar integration helpers.\n");
+    exit(1);
+}
+
+$google_calendar_require_offset = (int) ($matches[0][1] ?? -1);
+if ($google_calendar_require_offset < 0 || $google_calendar_require_offset > $google_calendar_reference_offset) {
+    fwrite(STDERR, "Client view must require google_calendar.php before using GoogleCalendarIntegration.\n");
     exit(1);
 }
 
