@@ -680,9 +680,13 @@ class EmailService {
     }
 
     /**
+     * Determine whether the plain-text body already handled signature placement.
+     * Falls back to the HTML signature-handled state when no dedicated plain-text
+     * body exists and the text version is derived from the rendered HTML.
+     *
      * @param RenderedTemplate $rendered
      */
-    private static function resolveTextSignatureHandled(array $rendered, bool $html_signature_handled): bool {
+    public static function resolveTextSignatureHandled(array $rendered, bool $html_signature_handled): bool {
         return ($rendered['body_text'] ?? '') !== ''
             ? (bool) ($rendered['text_signature_handled'] ?? false)
             : $html_signature_handled;

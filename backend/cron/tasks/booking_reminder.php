@@ -302,9 +302,7 @@ class BookingReminderTask {
             $html_body = $rendered['body_html'];
             $text_body = $rendered['body_text'] ?: strip_tags($html_body);
             $html_signature_handled = (bool) ($rendered['html_signature_handled'] ?? false);
-            $text_signature_handled = ($rendered['body_text'] ?? '') !== ''
-                ? (bool) ($rendered['text_signature_handled'] ?? false)
-                : $html_signature_handled;
+            $text_signature_handled = EmailService::resolveTextSignatureHandled($rendered, $html_signature_handled);
         } else {
             // Fallback hardcoded template — derive subject from rule timing
             $hours = $rule ? safe_int($rule['hours_before'] ?? 24) : 24;

@@ -237,9 +237,9 @@ $logged_email = $conn->prepare('SELECT subject, body_html, body_text FROM client
 $logged_email->execute(['Request for Signature Client']);
 $logged_email = $logged_email->fetch(PDO::FETCH_ASSOC);
 assertEmailTemplateSignature(is_array($logged_email), 'Expected booking request email with signatures enabled to be logged.');
-assertEmailTemplateSignature(substr_count((string) ($logged_email['body_html'] ?? ''), 'BDTA Team') === 2, 'Expected template HTML email body to avoid appending an extra default signature when placeholders are already present.');
+assertEmailTemplateSignature(substr_count((string) ($logged_email['body_html'] ?? ''), 'BDTA Team') === 2, 'Expected template HTML email body to keep the two default-signature placeholder outputs without appending a third default signature.');
 assertEmailTemplateSignature(substr_count((string) ($logged_email['body_html'] ?? ''), 'BDTA Billing') === 1, 'Expected template HTML email body with signatures enabled to keep the explicit signature placeholder output unchanged.');
-assertEmailTemplateSignature(substr_count((string) ($logged_email['body_text'] ?? ''), 'BDTA Team') === 2, 'Expected template plain-text email body to avoid appending an extra default signature when placeholders are already present.');
+assertEmailTemplateSignature(substr_count((string) ($logged_email['body_text'] ?? ''), 'BDTA Team') === 2, 'Expected template plain-text email body to keep the two default-signature placeholder outputs without appending a third default signature.');
 assertEmailTemplateSignature(substr_count((string) ($logged_email['body_text'] ?? ''), 'BDTA Billing') === 1, 'Expected template plain-text email body with signatures enabled to keep the explicit signature placeholder output unchanged.');
 assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_html'] ?? ''), '{{signature}}'), 'Expected booking request HTML email body with signatures enabled to remove the signature placeholder.');
 assertEmailTemplateSignature(!str_contains((string) ($logged_email['body_text'] ?? ''), '{{signature}}'), 'Expected booking request plain-text email body with signatures enabled to remove the signature placeholder.');
