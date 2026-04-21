@@ -22,8 +22,8 @@ if ($google_calendar_reference_offset === false) {
     exit(1);
 }
 
-$google_calendar_require_match = $matches[0];
-$google_calendar_require_offset = (int) $google_calendar_require_match[1];
+// With PREG_OFFSET_CAPTURE, the full match lives at [0] and its byte offset at [1].
+$google_calendar_require_offset = (int) $matches[0][1];
 if ($google_calendar_require_offset > $google_calendar_reference_offset) {
     fwrite(STDERR, "Client view must require google_calendar.php before using GoogleCalendarIntegration.\n");
     exit(1);
