@@ -2024,6 +2024,16 @@ TEXT;
         }
     }
 
+    /**
+     * Resolve explicit signature placeholders in a body and, when no explicit
+     * placement was used, optionally append the default signature.
+     *
+     * @param string $body Message body to normalize
+     * @param bool $is_html Whether the body is HTML or plain text
+     * @param bool $signature_handled True when the body already handled
+     *        signature placement earlier in the template pipeline
+     * @return string Normalized body ready to send and log
+     */
     private function prepareBodySignature(string $body, bool $is_html, bool $signature_handled = false): string {
         require_once __DIR__ . '/email_signature_helper.php';
 
