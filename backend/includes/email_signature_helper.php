@@ -252,7 +252,9 @@ class EmailSignatureHelper {
     }
 
     /**
-     * Convert rendered signature HTML into plain text for text email bodies.
+     * Convert already-rendered signature HTML into plain text for text email bodies.
+     * Public wrapper around convertHtmlToPlainText() so callers can reuse
+     * previously rendered signature HTML without performing another lookup.
      *
      * @param string $html Rendered signature HTML fragment
      * @return string Plain-text signature content
@@ -366,7 +368,7 @@ HTML;
 
             if (!array_key_exists($cache_key, $rendered_signatures)) {
                 $signature_html = self::render($sig_id, $custom_data);
-                $rendered_signatures[$cache_key] = $signature_html === null ? '' : self::htmlToPlainText($signature_html);
+                $rendered_signatures[$cache_key] = self::htmlToPlainText($signature_html ?? '');
             }
 
             $email_content = str_replace($full_placeholder, $rendered_signatures[$cache_key], $email_content);
