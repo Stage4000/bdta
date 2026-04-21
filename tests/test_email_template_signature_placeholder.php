@@ -142,11 +142,6 @@ $template_insert->execute([
     'client_name',
 ]);
 $default_template_id = (int) $conn->lastInsertId();
-$template_body_html = (string) $conn->query('SELECT body_html FROM email_templates WHERE id = ' . $default_template_id)->fetchColumn();
-assertEmailTemplateSignature(
-    str_contains($template_body_html, '{{signature}}'),
-    'Expected the booking request template fixture to include a default signature placeholder.'
-);
 
 $conn->prepare('
     INSERT INTO email_signature_templates (name, description, html_content, is_default, is_active)

@@ -689,6 +689,9 @@ class EmailService {
      *        body, used when no dedicated plain-text template body exists
      */
     public static function resolveTextSignatureHandled(array $rendered, bool $html_signature_handled): bool {
+        // When body_text is empty the caller will derive plain text from the
+        // rendered HTML body, so the HTML signature-handled state must carry
+        // over to prevent an extra appended signature in the derived text body.
         return ($rendered['body_text'] ?? '') !== ''
             ? (bool) ($rendered['text_signature_handled'] ?? false)
             : $html_signature_handled;
@@ -2039,6 +2042,8 @@ TEXT;
     private function prepareBodySignature(string $body, bool $is_html, bool $signature_handled): string {
         require_once __DIR__ . '/email_signature_helper.php';
 
+        // Re-check the body for unresolved placeholders because generic and
+        // manually composed sends can reach routeMail() without renderTemplate().
         if (!$signature_handled && EmailSignatureHelper::containsSignaturePlaceholder($body)) {
             $body = $is_html
                 ? EmailSignatureHelper::replaceSignaturePlaceholder($body)
