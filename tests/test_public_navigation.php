@@ -32,6 +32,35 @@ HTML;
     assertTrue(str_contains($directoryHtml, 'class="nav-link active" href="/page.php?slug=directory">Directory</a>'), 'Expected Directory link to be active on the directory page.');
     assertTrue(!str_contains($directoryHtml, 'class="nav-link active" href="/#home">Home</a>'), 'Expected Home link not to stay active on the directory page.');
 
+    $sectionLinksHtml = <<<HTML
+<div>
+    <a class="nav-link" href="#services">Services</a>
+    <a class="text-white-50 text-decoration-none" href="../index.html#contact">Contact</a>
+    <a class="text-white-50 text-decoration-none" href="index.php#about">About</a>
+    <a class="text-white-50 text-decoration-none" href="#faq">FAQ</a>
+    <a class="text-white-50 text-decoration-none" href="page.php?slug=directory#contact">Directory Contact</a>
+</div>
+HTML;
+    $normalizedSectionLinksHtml = bdta_sync_public_navigation_links($sectionLinksHtml);
+    assertTrue(str_contains($normalizedSectionLinksHtml, 'href="/#services">Services</a>'), 'Expected homepage services links to point back to the homepage.');
+    assertTrue(str_contains($normalizedSectionLinksHtml, 'href="/#contact">Contact</a>'), 'Expected relative homepage contact links to point back to the homepage.');
+    assertTrue(str_contains($normalizedSectionLinksHtml, 'href="/#about">About</a>'), 'Expected index.php homepage about links to point back to the homepage.');
+    assertTrue(str_contains($normalizedSectionLinksHtml, 'href="#faq">FAQ</a>'), 'Expected unrelated in-page anchor links to remain unchanged.');
+    assertTrue(str_contains($normalizedSectionLinksHtml, 'href="page.php?slug=directory#contact">Directory Contact</a>'), 'Expected non-homepage anchors with queries to remain unchanged.');
+    assertTrue(!str_contains($normalizedSectionLinksHtml, 'href="../index.html#contact">Contact</a>'), 'Expected relative homepage index links to be normalized.');
+
+    $nestedIndexLinksHtml = <<<HTML
+<div>
+    <a href="blog/index.php#contact">Blog Contact</a>
+    <a href="/foo/index.html#services">Foo Services</a>
+    <a href="./index.html#home">Current Home</a>
+</div>
+HTML;
+    $normalizedNestedIndexLinksHtml = bdta_sync_public_navigation_links($nestedIndexLinksHtml);
+    assertTrue(str_contains($normalizedNestedIndexLinksHtml, 'href="blog/index.php#contact">Blog Contact</a>'), 'Expected nested blog index links not to be treated as homepage links.');
+    assertTrue(str_contains($normalizedNestedIndexLinksHtml, 'href="/foo/index.html#services">Foo Services</a>'), 'Expected nested directory index links not to be treated as homepage links.');
+    assertTrue(str_contains($normalizedNestedIndexLinksHtml, 'href="/#home">Current Home</a>'), 'Expected current-directory homepage links to still normalize to the root homepage.');
+
     $_SERVER['REQUEST_URI'] = '/blog/index.php';
     unset($_GET['slug']);
     $blogHtml = bdta_sync_public_navigation_links($baseHtml);

@@ -1,6 +1,14 @@
 <?php
 
 const BDTA_IMPORTED_PAGE_ROOT_ID = 'wb_root';
+const BDTA_PUBLIC_HOMEPAGE_SECTION_IDS = [
+    'home' => true,
+    'about' => true,
+    'services' => true,
+    'events' => true,
+    'testimonials' => true,
+    'contact' => true,
+];
 
 function bdta_current_public_nav_context(): string {
     $slugValue = $_GET['slug'] ?? '';
@@ -174,7 +182,64 @@ function bdta_wrap_imported_page_html(string $html): string {
     return '<div class="bdta-imported-page">' . $html . '</div>';
 }
 
+function bdta_normalize_public_homepage_section_href(string $href): ?string {
+    $parsedHref = parse_url($href);
+    if ($parsedHref === false) {
+        return null;
+    }
+
+    if (
+        isset($parsedHref['scheme'])
+        || isset($parsedHref['host'])
+        || isset($parsedHref['user'])
+        || isset($parsedHref['pass'])
+        || isset($parsedHref['port'])
+    ) {
+        return null;
+    }
+
+    $fragment = strtolower(trim((string) ($parsedHref['fragment'] ?? '')));
+    if ($fragment === '' || !isset(BDTA_PUBLIC_HOMEPAGE_SECTION_IDS[$fragment])) {
+        return null;
+    }
+
+    $path = trim((string) ($parsedHref['path'] ?? ''));
+    $query = trim((string) ($parsedHref['query'] ?? ''));
+    if ($query !== '') {
+        return null;
+    }
+
+    if ($path !== '') {
+        $normalizedPath = str_replace('\\', '/', $path);
+        if (
+            $normalizedPath !== '/'
+            && preg_match('~^(?:(?:\./|\.\./)*)/?index\.(?:php|html)$~i', $normalizedPath) !== 1
+        ) {
+            return null;
+        }
+    }
+
+    return '/#' . $fragment;
+}
+
+function bdta_normalize_public_homepage_section_links(string $html): string {
+    return preg_replace_callback(
+        '~href=(["\'])(?P<href>[^"\']+)\1~i',
+        static function (array $matches): string {
+            $normalizedHref = bdta_normalize_public_homepage_section_href($matches['href']);
+            if ($normalizedHref === null || $normalizedHref === $matches['href']) {
+                return $matches[0];
+            }
+
+            return 'href=' . $matches[1] . $normalizedHref . $matches[1];
+        },
+        $html
+    ) ?? $html;
+}
+
 function bdta_sync_public_navigation_links(string $html): string {
+    $html = bdta_normalize_public_homepage_section_links($html);
+
     $directoryLink = '/page.php?slug=directory';
     if (!str_contains($html, 'href="' . $directoryLink . '"')) {
         $directoryItem = '<li class="nav-item">' . "\n"

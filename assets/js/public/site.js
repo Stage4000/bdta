@@ -454,7 +454,7 @@ function loadServices() {
                 var ctaHtml = service.booking_url
                     ? '<a href="' + escapeHtml(service.booking_url) + '" class="btn btn-primary mt-auto">'
                       + '<i class="fas fa-calendar-check me-2"></i>Book Now</a>'
-                    : '<a href="#contact" class="btn btn-outline-primary mt-auto">Contact Us</a>';
+                    : '<a href="/#contact" class="btn btn-outline-primary mt-auto">Contact Us</a>';
 
                 var col = document.createElement('div');
                 col.className = 'col-md-6 col-lg-4';
@@ -543,7 +543,7 @@ function loadPackages() {
                 var ctaHtml = pkg.purchase_url
                     ? '<a href="' + escapeHtml(pkg.purchase_url) + '" class="btn btn-primary mt-auto" target="_blank" rel="noopener">'
                       + '<i class="fas fa-shopping-cart me-2"></i>Purchase Package</a>'
-                    : '<a href="#contact" class="btn btn-outline-primary mt-auto">Contact Us</a>';
+                    : '<a href="/#contact" class="btn btn-outline-primary mt-auto">Contact Us</a>';
 
                 var col = document.createElement('div');
                 col.className = 'col-md-6 col-lg-4';
@@ -648,7 +648,7 @@ function loadEvents() {
                     ctaHtml = '<a href="' + escapeHtml(evt.booking_url) + '" class="btn btn-sm btn-primary mt-auto" target="_blank" rel="noopener">'
                         + '<i class="fas fa-calendar-check me-1"></i>Book Now</a>';
                 } else {
-                    ctaHtml = '<a href="#contact" class="btn btn-sm btn-outline-primary mt-auto">Register</a>';
+                    ctaHtml = '<a href="/#contact" class="btn btn-sm btn-outline-primary mt-auto">Register</a>';
                 }
 
                 var bulletPointsHtml = renderBulletSection(evt.bullet_points, "What You'll Learn", 'mb-3');
