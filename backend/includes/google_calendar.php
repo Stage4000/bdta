@@ -307,11 +307,15 @@ class GoogleCalendarIntegration {
 
             $service = new Google_Service_Calendar($client);
             $events_resource = $service->events ?? null;
-            if (!is_object($events_resource) || !is_callable([$events_resource, 'delete'])) {
+            if (!is_object($events_resource)) {
                 return false;
             }
 
-            $events_resource->delete($this->calendar_id, $event_id);
+            try {
+                $events_resource->delete($this->calendar_id, $event_id);
+            } catch (Error $e) {
+                return false;
+            }
             return true;
         } catch (Exception $e) {
             $error_code = safe_int($e->getCode());

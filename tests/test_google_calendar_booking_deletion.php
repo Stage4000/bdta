@@ -100,7 +100,7 @@ if (!class_exists('Google_Service_Calendar', false)) {
     {
         public const CALENDAR = 'https://www.googleapis.com/auth/calendar';
 
-        public GoogleCalendarDeletionEventsStub|\stdClass|null $events = null;
+        public GoogleCalendarDeletionEventsStub $events;
 
         public function __construct(Google_Client $_client)
         {
@@ -169,6 +169,7 @@ try {
     $first_delete_call = GoogleCalendarDeletionEventsStub::$delete_calls[0] ?? null;
     assertGoogleCalendarDeletion(
         is_array($first_delete_call)
+            && count($first_delete_call) === 2
             && ($first_delete_call['calendar_id'] ?? null) === 'service-account-calendar@example.com'
             && ($first_delete_call['event_id'] ?? null) === 'booking-event-123',
         'Expected the legacy Google Calendar delete request to target the configured calendar and event id.'
