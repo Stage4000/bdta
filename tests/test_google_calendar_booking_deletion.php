@@ -102,8 +102,11 @@ if (!class_exists('Google_Service_Calendar', false)) {
 
         public GoogleCalendarDeletionEventsStub $events;
 
-        public function __construct(Google_Client $_client)
+        public function __construct($client)
         {
+            if (!$client instanceof Google_Client) {
+                throw new InvalidArgumentException('Expected a Google_Client instance.');
+            }
             $this->events = new GoogleCalendarDeletionEventsStub();
         }
     }
@@ -166,14 +169,17 @@ try {
     ]);
     assertGoogleCalendarDeletion($deleted, 'Expected booking deletion to fall back to the legacy Google Calendar integration.');
 
-    $first_delete_call = GoogleCalendarDeletionEventsStub::$delete_calls[0] ?? null;
-    assertGoogleCalendarDeletion(
-        is_array($first_delete_call)
-            && count($first_delete_call) === 2
-            && ($first_delete_call['calendar_id'] ?? null) === 'service-account-calendar@example.com'
-            && ($first_delete_call['event_id'] ?? null) === 'booking-event-123',
-        'Expected the legacy Google Calendar delete request to target the configured calendar and event id.'
-    );
+    $delete_calls = GoogleCalendarDeletionEventsStub::$delete_calls;
+    if (count($delete_calls) !== 1) {
+        throw new RuntimeException('Expected exactly one legacy Google Calendar delete request.');
+    }
+
+    if ($delete_calls[0] !== [
+        'calendar_id' => 'service-account-calendar@example.com',
+        'event_id' => 'booking-event-123',
+    ]) {
+        throw new RuntimeException('Expected the legacy Google Calendar delete request to target the configured calendar and event id.');
+    }
 
     $portal_api = file_get_contents(dirname(__DIR__) . '/portal/api_appointments.php');
     if ($portal_api === false) {
