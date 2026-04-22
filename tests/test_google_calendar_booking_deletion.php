@@ -161,7 +161,9 @@ try {
     );
 
     $portal_api = file_get_contents(dirname(__DIR__) . '/portal/api_appointments.php');
-    assertGoogleCalendarDeletion(is_string($portal_api) && $portal_api !== '', 'Unable to read portal appointment API fixture.');
+    if ($portal_api === false) {
+        throw new RuntimeException('Unable to read portal appointment API fixture.');
+    }
     assertPortalActionBlockDoesNotRequireOAuth(
         $portal_api,
         'cancel',

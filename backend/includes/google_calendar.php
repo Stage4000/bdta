@@ -311,7 +311,7 @@ class GoogleCalendarIntegration {
                 return false;
             }
 
-            call_user_func([$events_resource, 'delete'], $this->calendar_id, $event_id);
+            $events_resource->delete($this->calendar_id, $event_id);
             return true;
         } catch (Exception $e) {
             $error_code = safe_int($e->getCode());
