@@ -249,6 +249,12 @@ function bdta_form_template_defaults_to_client_portal_visible(string $form_type,
 
 /**
  * @param array<string, mixed> $template
+ *
+ * Portal visibility precedence:
+ * 1. An explicit show_in_client_portal/template_show_in_client_portal flag wins.
+ * 2. Follow-up note templates default to visible when no explicit flag is stored.
+ * 3. Other templates fall back to their internal/template_is_internal flags.
+ * 4. If no relevant fields are present, fail closed.
  */
 function bdta_form_template_is_client_portal_visible(array $template): bool
 {
