@@ -117,7 +117,9 @@ $credentials_file = tempnam(sys_get_temp_dir(), 'gcal-test-credentials-');
 if ($credentials_file === false) {
     throw new RuntimeException('Unable to create temporary Google Calendar credentials fixture.');
 }
-file_put_contents($credentials_file, '{}');
+if (file_put_contents($credentials_file, '{}') === false) {
+    throw new RuntimeException('Unable to populate temporary Google Calendar credentials fixture.');
+}
 
 $insert_setting = $conn->prepare('INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, ?)');
 foreach ([

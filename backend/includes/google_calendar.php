@@ -284,10 +284,10 @@ class GoogleCalendarIntegration {
 
     /**
      * Delete an existing event using a Google service account.
-     * $event_id is the Google event ID stored in bookings.google_event_id.
      * Returns true when the event is removed successfully or when Google reports
      * that it has already been deleted (HTTP 404/410).
      *
+     * @param string $event_id The Google event ID stored in bookings.google_event_id.
      * @return bool True on successful deletion or when the event no longer exists remotely.
      */
     public function deleteEvent(string $event_id): bool {
