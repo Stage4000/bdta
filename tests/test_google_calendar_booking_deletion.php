@@ -100,13 +100,10 @@ if (!class_exists('Google_Service_Calendar', false)) {
     {
         public const CALENDAR = 'https://www.googleapis.com/auth/calendar';
 
-        public ?object $events = null;
+        public GoogleCalendarDeletionEventsStub|\stdClass|null $events = null;
 
-        public function __construct(Google_Client $client)
+        public function __construct(Google_Client $_client)
         {
-            if ($client->auth_config === '' || $client->scopes === []) {
-                throw new RuntimeException('Expected the Google Calendar stub client to be configured before use.');
-            }
             $this->events = new GoogleCalendarDeletionEventsStub();
         }
     }
