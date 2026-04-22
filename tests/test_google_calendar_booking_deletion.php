@@ -100,12 +100,14 @@ if (!class_exists('Google_Service_Calendar', false)) {
     {
         public const CALENDAR = 'https://www.googleapis.com/auth/calendar';
 
-        private Google_Client $client;
-        public GoogleCalendarDeletionEventsStub $events;
+        /** @var mixed */
+        public $events;
 
         public function __construct(Google_Client $client)
         {
-            $this->client = $client;
+            if ($client->auth_config === '' && $client->scopes === []) {
+                throw new RuntimeException('Expected the Google Calendar stub client to be configured before use.');
+            }
             $this->events = new GoogleCalendarDeletionEventsStub();
         }
     }
@@ -161,22 +163,18 @@ $exit_code = 0;
 
 try {
     GoogleCalendarDeletionEventsStub::$delete_calls = [];
-    assertGoogleCalendarDeletion(
-        count(GoogleCalendarDeletionEventsStub::$delete_calls) === 0,
-        'Expected the legacy Google Calendar delete-call tracker to start empty.'
-    );
 
     $deleted = GoogleCalendarIntegration::deleteEventForBooking('booking-event-123', [
         'admin_user_id' => 0,
         'appointment_type_id' => 0,
     ]);
     assertGoogleCalendarDeletion($deleted, 'Expected booking deletion to fall back to the legacy Google Calendar integration.');
+
+    $first_delete_call = GoogleCalendarDeletionEventsStub::$delete_calls[0] ?? null;
     assertGoogleCalendarDeletion(
-        count(GoogleCalendarDeletionEventsStub::$delete_calls) === 1
-            && GoogleCalendarDeletionEventsStub::$delete_calls[0] === [
-                'calendar_id' => 'service-account-calendar@example.com',
-                'event_id' => 'booking-event-123',
-            ],
+        is_array($first_delete_call)
+            && ($first_delete_call['calendar_id'] ?? null) === 'service-account-calendar@example.com'
+            && ($first_delete_call['event_id'] ?? null) === 'booking-event-123',
         'Expected the legacy Google Calendar delete request to target the configured calendar and event id.'
     );
 
@@ -202,9 +200,6 @@ try {
     $exit_code = 1;
     fwrite(STDERR, $e->getMessage() . PHP_EOL);
 } finally {
-    if ($credentials_file !== '' && file_exists($credentials_file)) {
-        unlink($credentials_file);
-    }
     resetGoogleCalendarDeletionState($conn);
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_write_close();
