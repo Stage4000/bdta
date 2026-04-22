@@ -211,8 +211,10 @@ function bdta_normalize_public_homepage_section_href(string $href): ?string {
 
     if ($path !== '') {
         $normalizedPath = str_replace('\\', '/', $path);
-        $pathBasename = basename($normalizedPath);
-        if ($normalizedPath !== '/' && $pathBasename !== 'index.php' && $pathBasename !== 'index.html') {
+        if (
+            $normalizedPath !== '/'
+            && preg_match('~^(?:(?:\./|\.\./)*)/?index\.(?:php|html)$~i', $normalizedPath) !== 1
+        ) {
             return null;
         }
     }
