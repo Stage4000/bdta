@@ -42,10 +42,10 @@ function duplicateFormTemplate(PDO $conn, int $template_id): int
 
     $stmt = $conn->prepare("
         INSERT INTO form_templates (
-            name, description, form_type, fields, required_frequency, appointment_type_id, is_internal, is_active
+            name, description, form_type, fields, required_frequency, appointment_type_id, is_internal, show_in_client_portal, is_active
         )
         SELECT
-            ?, description, form_type, fields, required_frequency, appointment_type_id, is_internal, is_active
+            ?, description, form_type, fields, required_frequency, appointment_type_id, is_internal, show_in_client_portal, is_active
         FROM form_templates
         WHERE id = ?
     ");

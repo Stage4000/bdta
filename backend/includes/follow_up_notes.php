@@ -72,17 +72,7 @@ function bdta_get_follow_up_review_url(int $submission_id): string
  */
 function bdta_form_submission_is_client_portal_visible(array $submission): bool
 {
-    $form_type = array_string_value($submission, 'form_type');
-    if (bdta_form_submission_requires_client_review($form_type)) {
-        return true;
-    }
-
-    if (!array_key_exists('template_is_internal', $submission)) {
-        return false;
-    }
-
-    return array_int_value($submission, 'template_is_internal') === 0
-        && bdta_form_type_forced_internal($form_type) === 0;
+    return bdta_form_template_is_client_portal_visible($submission);
 }
 
 /**
@@ -172,7 +162,7 @@ function bdta_notify_follow_up_note_completed(PDO $conn, int $submission_id): ar
     $stmt = $conn->prepare("
         SELECT fs.id, fs.client_id, fs.submitted_at, fs.responses,
                c.name AS client_name, c.email AS client_email,
-               ft.name AS form_name, ft.form_type, ft.fields,
+               ft.name AS form_name, ft.form_type, ft.fields, ft.is_internal, ft.show_in_client_portal,
                b.service_type, b.appointment_date, b.appointment_time
         FROM form_submissions fs
         JOIN clients c ON fs.client_id = c.id
@@ -195,6 +185,13 @@ function bdta_notify_follow_up_note_completed(PDO $conn, int $submission_id): ar
         return [
             'success' => false,
             'message' => 'This form type does not notify clients for review.',
+        ];
+    }
+
+    if (!bdta_form_template_is_client_portal_visible($submission)) {
+        return [
+            'success' => false,
+            'message' => 'This follow-up note is hidden from the client portal.',
         ];
     }
 

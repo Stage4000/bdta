@@ -37,29 +37,33 @@ try {
     $cleanup['client_ids'][] = $other_client_id;
 
     $create_template = $conn->prepare("
-        INSERT INTO form_templates (name, form_type, fields, is_internal, is_active)
-        VALUES (?, ?, ?, ?, 1)
+        INSERT INTO form_templates (name, form_type, fields, is_internal, show_in_client_portal, is_active)
+        VALUES (?, ?, ?, ?, ?, 1)
     ");
     $fields_json = json_encode([['label' => 'Question', 'type' => 'text']]);
     if (!is_string($fields_json)) {
         throw new RuntimeException('Unable to encode test form fields.');
     }
 
-    $create_template->execute(['Client Visible Form ' . $suffix, 'client_form', $fields_json, 0]);
+    $create_template->execute(['Client Visible Form ' . $suffix, 'client_form', $fields_json, 0, 1]);
     $client_form_template_id = (int) $conn->lastInsertId();
     $cleanup['template_ids'][] = $client_form_template_id;
 
-    $create_template->execute(['Internal Flag Form ' . $suffix, 'client_form', $fields_json, 1]);
+    $create_template->execute(['Internal Flag Form ' . $suffix, 'client_form', $fields_json, 1, 0]);
     $internal_flag_template_id = (int) $conn->lastInsertId();
     $cleanup['template_ids'][] = $internal_flag_template_id;
 
-    $create_template->execute(['Follow-up Review Form ' . $suffix, 'follow_up_note', $fields_json, 1]);
+    $create_template->execute(['Follow-up Review Form ' . $suffix, 'follow_up_note', $fields_json, 1, 1]);
     $follow_up_template_id = (int) $conn->lastInsertId();
     $cleanup['template_ids'][] = $follow_up_template_id;
 
-    $create_template->execute(['Forced Internal Form ' . $suffix, 'pet_form', $fields_json, 0]);
+    $create_template->execute(['Portal Pet Form ' . $suffix, 'pet_form', $fields_json, 0, 1]);
     $forced_internal_template_id = (int) $conn->lastInsertId();
     $cleanup['template_ids'][] = $forced_internal_template_id;
+
+    $create_template->execute(['Hidden Follow-up Review Form ' . $suffix, 'follow_up_note', $fields_json, 1, 0]);
+    $hidden_follow_up_template_id = (int) $conn->lastInsertId();
+    $cleanup['template_ids'][] = $hidden_follow_up_template_id;
 
     $create_submission = $conn->prepare("
         INSERT INTO form_submissions (client_id, template_id, responses, status, submitted_at)
@@ -95,6 +99,10 @@ try {
     $forced_internal_submission_id = (int) $conn->lastInsertId();
     $cleanup['submission_ids'][] = $forced_internal_submission_id;
 
+    $create_submission->execute([$client_id, $hidden_follow_up_template_id, $visible_responses, 'submitted']);
+    $hidden_follow_up_submission_id = (int) $conn->lastInsertId();
+    $cleanup['submission_ids'][] = $hidden_follow_up_submission_id;
+
     $create_submission->execute([$other_client_id, $client_form_template_id, $visible_responses, 'submitted']);
     $other_client_submission_id = (int) $conn->lastInsertId();
     $cleanup['submission_ids'][] = $other_client_submission_id;
@@ -105,12 +113,15 @@ try {
     $is_view_allowed = static function (?array $submission): bool {
         return $submission !== null
             && $submission !== []
-            && bdta_form_type_forced_internal(array_string_value($submission, 'form_type')) === 0;
+            && !bdta_form_submission_requires_client_review(array_string_value($submission, 'form_type'))
+            && bdta_form_submission_is_client_portal_visible($submission);
     };
 
-    echo "Test 1: Agreements query returns completed client-visible submissions, including follow-up reviews\n";
+    echo "Test 1: Agreements query returns completed client-visible submissions, including portal-enabled admin forms and follow-up reviews\n";
     $agreements_stmt = $conn->prepare("
-        SELECT fs.*, ft.name as form_title, ft.form_type, COALESCE(ft.is_internal, 0) AS template_is_internal
+        SELECT fs.*, ft.name as form_title, ft.form_type,
+               COALESCE(ft.is_internal, 0) AS template_is_internal,
+               ft.show_in_client_portal AS template_show_in_client_portal
         FROM form_submissions fs
         LEFT JOIN form_templates ft ON fs.template_id = ft.id
         WHERE fs.client_id = ?
@@ -124,12 +135,12 @@ try {
     ));
     $listed_ids = array_map(static fn (array $row): int => array_int_value($row, 'id'), $portal_list_rows);
     sort($listed_ids);
-    $expected_list_ids = [$follow_up_submission_id, $reviewed_submission_id, $visible_submission_id];
+    $expected_list_ids = [$follow_up_submission_id, $forced_internal_submission_id, $reviewed_submission_id, $visible_submission_id];
     sort($expected_list_ids);
     if ($listed_ids !== $expected_list_ids) {
-        throw new RuntimeException('Portal agreements list should include submitted/reviewed client-visible and follow-up review submissions.');
+        throw new RuntimeException('Portal agreements list should include portal-visible submissions and exclude hidden templates.');
     }
-    echo "  ✓ Portal list includes follow-up reviews and excludes pending, internal-flagged, forced-internal, and other-client submissions\n";
+    echo "  ✓ Portal list includes follow-up reviews and portal-enabled internal forms while excluding pending, hidden, and other-client submissions\n";
 
     echo "\nTest 2: portal list routes follow-up reviews to the dedicated portal review page\n";
     $portal_urls = [];
@@ -142,6 +153,12 @@ try {
     if (($portal_urls[$visible_submission_id] ?? '') !== PORTAL_URL . 'form_view.php?id=' . $visible_submission_id) {
         throw new RuntimeException('Standard client forms should keep using the generic portal form view page.');
     }
+    if (($portal_urls[$forced_internal_submission_id] ?? '') !== PORTAL_URL . 'form_view.php?id=' . $forced_internal_submission_id) {
+        throw new RuntimeException('Portal-enabled internal forms should use the generic portal form view page.');
+    }
+    if (isset($portal_urls[$hidden_follow_up_submission_id])) {
+        throw new RuntimeException('Hidden follow-up submissions should not appear in the portal list.');
+    }
     echo "  ✓ Portal actions send follow-up notes to review view and client forms to generic form view\n";
 
     echo "\nTest 3: form_view allows submitted/reviewed non-internal submissions for owner\n";
@@ -149,12 +166,13 @@ try {
         SELECT fs.*,
                ft.name AS form_name,
                ft.form_type,
-               ft.fields
+               ft.fields,
+               COALESCE(ft.is_internal, 0) AS template_is_internal,
+               ft.show_in_client_portal AS template_show_in_client_portal
         FROM form_submissions fs
         LEFT JOIN form_templates ft ON fs.template_id = ft.id
         WHERE fs.id = ?
           AND fs.client_id = ?
-          AND COALESCE(ft.is_internal, 0) = 0
           AND fs.status IN ('submitted', 'reviewed')
         LIMIT 1
     ");
@@ -172,14 +190,14 @@ try {
     }
     echo "  ✓ Pending submission is blocked\n";
 
-    echo "\nTest 5: form_view blocks forced-internal form types even when template flag is off\n";
+    echo "\nTest 5: form_view allows portal-enabled admin/internal form types\n";
     $view_stmt->execute([$forced_internal_submission_id, $client_id]);
     $forced_internal_fetch = $view_stmt->fetch(PDO::FETCH_ASSOC);
     $forced_internal_row = is_array($forced_internal_fetch) ? $forced_internal_fetch : null;
-    if ($is_view_allowed($forced_internal_row)) {
-        throw new RuntimeException('Forced-internal form type must not be viewable.');
+    if (!$is_view_allowed($forced_internal_row)) {
+        throw new RuntimeException('Portal-enabled admin/internal form types should be viewable.');
     }
-    echo "  ✓ Forced-internal template type is blocked\n";
+    echo "  ✓ Portal-enabled admin/internal template type is viewable\n";
 
     echo "\nTest 6: form_view blocks submissions from other clients\n";
     $view_stmt->execute([$other_client_submission_id, $client_id]);

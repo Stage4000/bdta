@@ -960,6 +960,7 @@ class Database {
                     required_frequency TEXT,
                     appointment_type_id INTEGER,
                     is_internal INTEGER DEFAULT 0,
+                    show_in_client_portal INTEGER DEFAULT NULL,
                     is_active INTEGER DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1521,6 +1522,11 @@ class Database {
         }
         if (!in_array('reminder_sent', $column_names)) {
             $this->execSQL("ALTER TABLE bookings ADD COLUMN reminder_sent INTEGER DEFAULT 0");
+        }
+
+        $form_template_column_names = $this->getTableColumns('form_templates');
+        if (!in_array('show_in_client_portal', $form_template_column_names, true)) {
+            $this->execSQL("ALTER TABLE form_templates ADD COLUMN show_in_client_portal INTEGER DEFAULT NULL");
         }
 
         // Add publish_date support to blog_posts for backdating and scheduling

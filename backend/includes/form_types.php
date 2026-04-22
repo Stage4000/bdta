@@ -237,6 +237,75 @@ function bdta_get_form_template_access_state(string $form_type, int $is_internal
     ];
 }
 
+function bdta_form_template_defaults_to_client_portal_visible(string $form_type, int $is_internal = 0): bool
+{
+    $normalized_form_type = bdta_normalize_form_type($form_type);
+    if ($normalized_form_type === 'follow_up_note') {
+        return true;
+    }
+
+    return $is_internal === 0 && bdta_form_type_forced_internal($normalized_form_type) === 0;
+}
+
+/**
+ * @param array<string, mixed> $template
+ */
+function bdta_form_template_is_client_portal_visible(array $template): bool
+{
+    foreach (['show_in_client_portal', 'template_show_in_client_portal'] as $visibility_key) {
+        if (array_key_exists($visibility_key, $template) && $template[$visibility_key] !== null && $template[$visibility_key] !== '') {
+            return array_int_value($template, $visibility_key) !== 0;
+        }
+    }
+
+    $form_type = array_string_value($template, 'form_type');
+    $normalized_form_type = bdta_normalize_form_type($form_type);
+    if ($normalized_form_type === 'follow_up_note') {
+        return true;
+    }
+
+    foreach (['is_internal', 'template_is_internal'] as $internal_key) {
+        if (array_key_exists($internal_key, $template)) {
+            return bdta_form_template_defaults_to_client_portal_visible(
+                $form_type,
+                array_int_value($template, $internal_key)
+            );
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @return array{
+ *   requested_visible: bool|null,
+ *   effective_visible: bool,
+ *   default_visible: bool,
+ *   label: string,
+ *   help: string,
+ *   toggle_help: string
+ * }
+ */
+function bdta_get_form_template_client_portal_state(string $form_type, int $is_internal = 0, ?int $show_in_client_portal = null): array
+{
+    $default_visible = bdta_form_template_defaults_to_client_portal_visible($form_type, $is_internal);
+    $requested_visible = $show_in_client_portal === null ? null : $show_in_client_portal !== 0;
+    $effective_visible = $requested_visible ?? $default_visible;
+
+    return [
+        'requested_visible' => $requested_visible,
+        'effective_visible' => $effective_visible,
+        'default_visible' => $default_visible,
+        'label' => $effective_visible ? 'Shown in client portal' : 'Hidden from client portal',
+        'help' => $effective_visible
+            ? 'Submitted responses for this template will be visible to clients in the client portal.'
+            : 'Submitted responses for this template will stay hidden from clients in the client portal.',
+        'toggle_help' => $effective_visible
+            ? 'Turn this off to keep submissions out of the client portal.'
+            : 'Turn this on to let clients review submitted responses in the client portal.',
+    ];
+}
+
 function bdta_form_type_allows_direct_link(string $form_type): bool
 {
     return !empty(bdta_get_form_type_meta($form_type)['direct_link']);
