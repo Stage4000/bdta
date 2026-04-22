@@ -34,6 +34,28 @@ function assertGoogleCalendarDeletion(bool $condition, string $message): void
     }
 }
 
+function assertPortalActionBlockDoesNotRequireOAuth(string $portal_api, string $action_name, string $calendar_call, string $message): void
+{
+    $action_marker = "if (\$action === '{$action_name}')";
+    $action_offset = strpos($portal_api, $action_marker);
+    assertGoogleCalendarDeletion($action_offset !== false, 'Unable to locate the ' . $action_name . ' action block in portal/api_appointments.php.');
+
+    $next_action_offset = strpos($portal_api, "if (\$action === '", $action_offset + strlen($action_marker));
+    $action_block = $next_action_offset === false
+        ? substr($portal_api, $action_offset)
+        : substr($portal_api, $action_offset, $next_action_offset - $action_offset);
+
+    assertGoogleCalendarDeletion(is_string($action_block) && $action_block !== '', 'Unable to isolate the ' . $action_name . ' action block in portal/api_appointments.php.');
+    assertGoogleCalendarDeletion(
+        str_contains($action_block, $calendar_call),
+        'Expected the ' . $action_name . ' action block to call ' . $calendar_call . '.'
+    );
+    assertGoogleCalendarDeletion(
+        !str_contains($action_block, 'GoogleCalendarIntegration::isOAuthConfigured()'),
+        $message
+    );
+}
+
 class Google_Client
 {
     public array $scopes = [];
@@ -91,7 +113,7 @@ $conn->exec('CREATE TABLE google_oauth_tokens (
     updated_at TEXT
 )');
 
-$credentials_file = tempnam(sys_get_temp_dir(), 'bdta-gcal-credentials-');
+$credentials_file = tempnam(sys_get_temp_dir(), 'gcal-test-credentials-');
 if ($credentials_file === false) {
     throw new RuntimeException('Unable to create temporary Google Calendar credentials fixture.');
 }
@@ -136,9 +158,17 @@ try {
 
     $portal_api = file_get_contents(dirname(__DIR__) . '/portal/api_appointments.php');
     assertGoogleCalendarDeletion(is_string($portal_api) && $portal_api !== '', 'Unable to read portal appointment API fixture.');
-    assertGoogleCalendarDeletion(
-        !str_contains($portal_api, "if (!empty(\$booking['google_event_id']) && GoogleCalendarIntegration::isOAuthConfigured()) {"),
-        'Portal appointment actions should not gate Google Calendar cleanup behind OAuth-only configuration checks.'
+    assertPortalActionBlockDoesNotRequireOAuth(
+        $portal_api,
+        'cancel',
+        'GoogleCalendarIntegration::deleteEventForBooking',
+        'Portal appointment cancellations should not gate Google Calendar cleanup behind OAuth-only configuration checks.'
+    );
+    assertPortalActionBlockDoesNotRequireOAuth(
+        $portal_api,
+        'reschedule',
+        'GoogleCalendarIntegration::updateEventForBooking',
+        'Portal appointment reschedules should not gate Google Calendar updates behind OAuth-only configuration checks.'
     );
 
     echo "Google Calendar booking deletion regression test passed.\n";
