@@ -116,7 +116,9 @@ $conn->exec('CREATE TABLE google_oauth_tokens (
 $credentials_file = tempnam(sys_get_temp_dir(), 'gcal-test-credentials-');
 if ($credentials_file === false) {
     $tempnam_error = error_get_last();
-    $tempnam_message = is_array($tempnam_error) ? scalar_string($tempnam_error['message'] ?? '') : '';
+    $tempnam_message = is_array($tempnam_error) && isset($tempnam_error['message']) && is_string($tempnam_error['message'])
+        ? $tempnam_error['message']
+        : '';
     throw new RuntimeException('Unable to create temporary Google Calendar credentials fixture.' . ($tempnam_message !== '' ? ' ' . $tempnam_message : ''));
 }
 if (file_put_contents($credentials_file, '{}') === false) {
@@ -146,6 +148,10 @@ $exit_code = 0;
 
 try {
     GoogleCalendarDeletionEventsStub::$delete_calls = [];
+    assertGoogleCalendarDeletion(
+        GoogleCalendarDeletionEventsStub::$delete_calls === [],
+        'Expected the legacy Google Calendar delete-call tracker to start empty.'
+    );
 
     $deleted = GoogleCalendarIntegration::deleteEventForBooking('booking-event-123', [
         'admin_user_id' => 0,
