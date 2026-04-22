@@ -541,7 +541,7 @@ require_once '../backend/includes/header.php';
 let fieldIndex = <?php echo count($fields); ?>;
 const formTypeMeta = <?= $form_type_js_meta_json ?>;
 const defaultFormAccess = <?= $default_form_access_json ?>;
-let clientPortalVisibilityTouched = <?php echo $is_edit ? 'true' : 'false'; ?>;
+let clientPortalVisibilityTouched = <?= json_encode($is_edit) === false ? 'false' : json_encode($is_edit) ?>;
 
 function getDefaultClientPortalVisibility(formType, isInternal) {
     return formType === 'follow_up_note' ? true : !isInternal;
