@@ -122,7 +122,7 @@ if ($action === 'cancel') {
     $conn->prepare("UPDATE bookings SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$booking_id]);
 
     // Remove from Google Calendar if linked
-    if (!empty($booking['google_event_id']) && GoogleCalendarIntegration::isOAuthConfigured()) {
+    if (!empty($booking['google_event_id'])) {
         $gcal_event_id = array_string_value($booking, 'google_event_id');
         if (GoogleCalendarIntegration::deleteEventForBooking($gcal_event_id, $booking)) {
             $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
@@ -283,7 +283,7 @@ if ($action === 'reschedule') {
     ")->execute([$new_date, $new_time_hhmm, $booking_id]);
 
     // Update or remove the Google Calendar event
-    if (!empty($booking['google_event_id']) && GoogleCalendarIntegration::isOAuthConfigured()) {
+    if (!empty($booking['google_event_id'])) {
         // Build a synthetic booking row with updated date/time for calendar update
         $updated_booking = array_merge($booking, [
             'appointment_date' => $new_date,

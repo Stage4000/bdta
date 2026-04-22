@@ -282,6 +282,39 @@ class GoogleCalendarIntegration {
         }
     }
 
+    /**
+     * Delete an existing event using a Google service account.
+     * $event_id is the Google event ID stored in bookings.google_event_id.
+     */
+    public function deleteEvent(string $event_id): bool {
+        if (!$this->isConfigured()) {
+            return false;
+        }
+
+        try {
+            if (!class_exists('Google_Client')
+                || !class_exists('Google_Service_Calendar')) {
+                return false;
+            }
+
+            $client = new Google_Client();
+            $client->setAuthConfig($this->credentials_file);
+            $client->addScope(Google_Service_Calendar::CALENDAR);
+
+            $service = new Google_Service_Calendar($client);
+            $events_resource = $service->events ?? null;
+            if (!is_object($events_resource) || !is_callable([$events_resource, 'delete'])) {
+                return false;
+            }
+
+            call_user_func([$events_resource, 'delete'], $this->calendar_id, $event_id);
+            return true;
+        } catch (Exception $e) {
+            $error_code = safe_int($e->getCode());
+            return $error_code === 404 || $error_code === 410;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // OAuth 2.0 method (per-user)
     // -------------------------------------------------------------------------
@@ -435,15 +468,18 @@ class GoogleCalendarIntegration {
      * @param BookingRow $booking
      */
     public static function deleteEventForBooking(string $event_id, array $booking): bool {
-        if (!self::isOAuthConfigured()) {
-            return false;
+        if (self::isOAuthConfigured()) {
+            $target_admin_user_id = self::getBookingAdminUserId($booking);
+            foreach (self::getConnectedOAuthAdminUserIds($target_admin_user_id > 0 ? $target_admin_user_id : null) as $admin_user_id) {
+                if (self::deleteEventOAuth($event_id, $admin_user_id)) {
+                    return true;
+                }
+            }
         }
 
-        $target_admin_user_id = self::getBookingAdminUserId($booking);
-        foreach (self::getConnectedOAuthAdminUserIds($target_admin_user_id > 0 ? $target_admin_user_id : null) as $admin_user_id) {
-            if (self::deleteEventOAuth($event_id, $admin_user_id)) {
-                return true;
-            }
+        $google_calendar = new self();
+        if ($google_calendar->isConfigured()) {
+            return $google_calendar->deleteEvent($event_id);
         }
 
         return false;
