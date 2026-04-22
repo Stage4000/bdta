@@ -115,7 +115,9 @@ $conn->exec('CREATE TABLE google_oauth_tokens (
 
 $credentials_file = tempnam(sys_get_temp_dir(), 'gcal-test-credentials-');
 if ($credentials_file === false) {
-    throw new RuntimeException('Unable to create temporary Google Calendar credentials fixture.');
+    $tempnam_error = error_get_last();
+    $tempnam_message = is_array($tempnam_error) ? scalar_string($tempnam_error['message'] ?? '') : '';
+    throw new RuntimeException('Unable to create temporary Google Calendar credentials fixture.' . ($tempnam_message !== '' ? ' ' . $tempnam_message : ''));
 }
 if (file_put_contents($credentials_file, '{}') === false) {
     throw new RuntimeException('Unable to populate temporary Google Calendar credentials fixture.');

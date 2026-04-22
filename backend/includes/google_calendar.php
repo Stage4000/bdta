@@ -290,7 +290,7 @@ class GoogleCalendarIntegration {
      * @param string $event_id The Google event ID stored in bookings.google_event_id.
      * @return bool True on successful deletion or when the event no longer exists remotely.
      */
-    public function deleteEvent(string $event_id): bool {
+    private function deleteEvent(string $event_id): bool {
         if (!$this->isConfigured()) {
             return false;
         }
