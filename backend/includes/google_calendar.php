@@ -287,6 +287,8 @@ class GoogleCalendarIntegration {
      * $event_id is the Google event ID stored in bookings.google_event_id.
      * Returns true when the event is removed successfully or when Google reports
      * that it has already been deleted (HTTP 404/410).
+     *
+     * @return bool True on successful deletion or when the event no longer exists remotely.
      */
     public function deleteEvent(string $event_id): bool {
         if (!$this->isConfigured()) {
@@ -304,7 +306,7 @@ class GoogleCalendarIntegration {
             $client->addScope(Google_Service_Calendar::CALENDAR);
 
             $service = new Google_Service_Calendar($client);
-            $events_resource = $service->events ?? null;
+            $events_resource = $service->events;
             if (!is_object($events_resource) || !is_callable([$events_resource, 'delete'])) {
                 return false;
             }
