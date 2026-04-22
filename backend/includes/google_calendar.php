@@ -306,7 +306,7 @@ class GoogleCalendarIntegration {
             $client->addScope(Google_Service_Calendar::CALENDAR);
 
             $service = new Google_Service_Calendar($client);
-            $events_resource = $service->events;
+            $events_resource = $service->events ?? null;
             if (!is_object($events_resource) || !is_callable([$events_resource, 'delete'])) {
                 return false;
             }

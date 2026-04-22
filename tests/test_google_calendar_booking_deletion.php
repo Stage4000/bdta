@@ -38,14 +38,18 @@ function assertPortalActionBlockDoesNotRequireOAuth(string $portal_api, string $
 {
     $action_marker = "if (\$action === '{$action_name}')";
     $action_offset = strpos($portal_api, $action_marker);
-    assertGoogleCalendarDeletion($action_offset !== false, 'Unable to locate the ' . $action_name . ' action block in portal/api_appointments.php.');
+    if ($action_offset === false) {
+        throw new RuntimeException('Unable to locate the ' . $action_name . ' action block in portal/api_appointments.php.');
+    }
 
     $next_action_offset = strpos($portal_api, "if (\$action === '", $action_offset + strlen($action_marker));
     $action_block = $next_action_offset === false
         ? substr($portal_api, $action_offset)
         : substr($portal_api, $action_offset, $next_action_offset - $action_offset);
 
-    assertGoogleCalendarDeletion(is_string($action_block) && $action_block !== '', 'Unable to isolate the ' . $action_name . ' action block in portal/api_appointments.php.');
+    if ($action_block === '') {
+        throw new RuntimeException('Unable to isolate the ' . $action_name . ' action block in portal/api_appointments.php.');
+    }
     assertGoogleCalendarDeletion(
         str_contains($action_block, $calendar_call),
         'Expected the ' . $action_name . ' action block to call ' . $calendar_call . '.'
@@ -56,45 +60,54 @@ function assertPortalActionBlockDoesNotRequireOAuth(string $portal_api, string $
     );
 }
 
-class Google_Client
-{
-    public array $scopes = [];
-    public string $auth_config = '';
-
-    public function setAuthConfig(string $path): void
+if (!class_exists('Google_Client', false)) {
+    class Google_Client
     {
-        $this->auth_config = $path;
-    }
+        /** @var list<string> */
+        public array $scopes = [];
+        public string $auth_config = '';
 
-    public function addScope(string $scope): void
-    {
-        $this->scopes[] = $scope;
-    }
-}
+        public function setAuthConfig(string $path): void
+        {
+            $this->auth_config = $path;
+        }
 
-class GoogleCalendarDeletionEventsStub
-{
-    /** @var list<array{calendar_id: string, event_id: string}> */
-    public static array $delete_calls = [];
-
-    public function delete(string $calendar_id, string $event_id): void
-    {
-        self::$delete_calls[] = [
-            'calendar_id' => $calendar_id,
-            'event_id' => $event_id,
-        ];
+        public function addScope(string $scope): void
+        {
+            $this->scopes[] = $scope;
+        }
     }
 }
 
-class Google_Service_Calendar
-{
-    public const CALENDAR = 'https://www.googleapis.com/auth/calendar';
-
-    public GoogleCalendarDeletionEventsStub $events;
-
-    public function __construct(Google_Client $client)
+if (!class_exists('GoogleCalendarDeletionEventsStub', false)) {
+    class GoogleCalendarDeletionEventsStub
     {
-        $this->events = new GoogleCalendarDeletionEventsStub();
+        /** @var list<array{calendar_id: string, event_id: string}> */
+        public static array $delete_calls = [];
+
+        public function delete(string $calendar_id, string $event_id): void
+        {
+            self::$delete_calls[] = [
+                'calendar_id' => $calendar_id,
+                'event_id' => $event_id,
+            ];
+        }
+    }
+}
+
+if (!class_exists('Google_Service_Calendar', false)) {
+    class Google_Service_Calendar
+    {
+        public const CALENDAR = 'https://www.googleapis.com/auth/calendar';
+
+        private Google_Client $client;
+        public GoogleCalendarDeletionEventsStub $events;
+
+        public function __construct(Google_Client $client)
+        {
+            $this->client = $client;
+            $this->events = new GoogleCalendarDeletionEventsStub();
+        }
     }
 }
 
@@ -116,7 +129,7 @@ $conn->exec('CREATE TABLE google_oauth_tokens (
 $credentials_file = tempnam(sys_get_temp_dir(), 'gcal-test-credentials-');
 if ($credentials_file === false) {
     $tempnam_error = error_get_last();
-    $tempnam_message = is_array($tempnam_error) && isset($tempnam_error['message']) && is_string($tempnam_error['message'])
+    $tempnam_message = is_array($tempnam_error)
         ? $tempnam_error['message']
         : '';
     throw new RuntimeException('Unable to create temporary Google Calendar credentials fixture.' . ($tempnam_message !== '' ? ' ' . $tempnam_message : ''));
@@ -149,7 +162,7 @@ $exit_code = 0;
 try {
     GoogleCalendarDeletionEventsStub::$delete_calls = [];
     assertGoogleCalendarDeletion(
-        GoogleCalendarDeletionEventsStub::$delete_calls === [],
+        count(GoogleCalendarDeletionEventsStub::$delete_calls) === 0,
         'Expected the legacy Google Calendar delete-call tracker to start empty.'
     );
 
@@ -159,10 +172,11 @@ try {
     ]);
     assertGoogleCalendarDeletion($deleted, 'Expected booking deletion to fall back to the legacy Google Calendar integration.');
     assertGoogleCalendarDeletion(
-        GoogleCalendarDeletionEventsStub::$delete_calls === [[
-            'calendar_id' => 'service-account-calendar@example.com',
-            'event_id' => 'booking-event-123',
-        ]],
+        count(GoogleCalendarDeletionEventsStub::$delete_calls) === 1
+            && GoogleCalendarDeletionEventsStub::$delete_calls[0] === [
+                'calendar_id' => 'service-account-calendar@example.com',
+                'event_id' => 'booking-event-123',
+            ],
         'Expected the legacy Google Calendar delete request to target the configured calendar and event id.'
     );
 
@@ -188,7 +202,7 @@ try {
     $exit_code = 1;
     fwrite(STDERR, $e->getMessage() . PHP_EOL);
 } finally {
-    if (is_string($credentials_file) && $credentials_file !== '' && file_exists($credentials_file)) {
+    if ($credentials_file !== '' && file_exists($credentials_file)) {
         unlink($credentials_file);
     }
     resetGoogleCalendarDeletionState($conn);
