@@ -54,7 +54,9 @@ if ($is_edit) {
         if ($template_show_in_client_portal === null) {
             $show_in_client_portal = $default_show_in_client_portal;
         } else {
-            $show_in_client_portal = safe_int($template_show_in_client_portal);
+            $show_in_client_portal = is_numeric($template_show_in_client_portal)
+                ? (int) $template_show_in_client_portal
+                : $default_show_in_client_portal;
         }
         $is_active = array_int_value($template, 'is_active');
     }
