@@ -233,9 +233,16 @@ try {
         $conn->prepare("DELETE FROM bookings WHERE id = ?")->execute([(int) $cleanup_booking_id]);
     }
     if ($cleanup_template_ids !== []) {
-        $delete_template_stmt = $conn->prepare("DELETE FROM form_templates WHERE id = ?");
-        foreach ($cleanup_template_ids as $cleanup_template_id) {
-            $delete_template_stmt->execute([(int) $cleanup_template_id]);
+        $conn->beginTransaction();
+        try {
+            $delete_template_stmt = $conn->prepare("DELETE FROM form_templates WHERE id = ?");
+            foreach ($cleanup_template_ids as $cleanup_template_id) {
+                $delete_template_stmt->execute([(int) $cleanup_template_id]);
+            }
+            $conn->commit();
+        } catch (Throwable $cleanup_error) {
+            $conn->rollBack();
+            throw $cleanup_error;
         }
     }
     if ($cleanup_appointment_type_id > 0) {
