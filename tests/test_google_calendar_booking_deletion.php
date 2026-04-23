@@ -60,6 +60,14 @@ function assertPortalActionBlockDoesNotRequireOAuth(string $portal_api, string $
     );
 }
 
+/**
+ * @return list<array{calendar_id: string, event_id: string}>
+ */
+function getGoogleCalendarDeletionCalls(): array
+{
+    return GoogleCalendarDeletionEventsStub::$delete_calls;
+}
+
 if (!class_exists('Google_Client', false)) {
     class Google_Client
     {
@@ -102,11 +110,8 @@ if (!class_exists('Google_Service_Calendar', false)) {
 
         public GoogleCalendarDeletionEventsStub $events;
 
-        public function __construct($client)
+        public function __construct(Google_Client $client)
         {
-            if (!$client instanceof Google_Client) {
-                throw new InvalidArgumentException('Expected a Google_Client instance.');
-            }
             $this->events = new GoogleCalendarDeletionEventsStub();
         }
     }
@@ -169,17 +174,18 @@ try {
     ]);
     assertGoogleCalendarDeletion($deleted, 'Expected booking deletion to fall back to the legacy Google Calendar integration.');
 
-    $delete_calls = GoogleCalendarDeletionEventsStub::$delete_calls;
-    if (count($delete_calls) !== 1) {
-        throw new RuntimeException('Expected exactly one legacy Google Calendar delete request.');
-    }
-
-    if ($delete_calls[0] !== [
+    $delete_calls = getGoogleCalendarDeletionCalls();
+    assertGoogleCalendarDeletion(
+        count($delete_calls) === 1,
+        'Expected exactly one legacy Google Calendar delete request.'
+    );
+    assertGoogleCalendarDeletion(
+        $delete_calls[0] === [
         'calendar_id' => 'service-account-calendar@example.com',
         'event_id' => 'booking-event-123',
-    ]) {
-        throw new RuntimeException('Expected the legacy Google Calendar delete request to target the configured calendar and event id.');
-    }
+    ],
+        'Expected the legacy Google Calendar delete request to target the configured calendar and event id.'
+    );
 
     $portal_api = file_get_contents(dirname(__DIR__) . '/portal/api_appointments.php');
     if ($portal_api === false) {
