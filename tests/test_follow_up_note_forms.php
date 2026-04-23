@@ -170,7 +170,6 @@ try {
     $hidden_notify_message = isset($hidden_notify_result['message']) && is_string($hidden_notify_result['message'])
         ? $hidden_notify_result['message']
         : '';
-    assertFollowUpNoteTest($hidden_notify_message !== '', 'Expected hidden follow-up notifications to return a message.');
     assertFollowUpNoteTest(
         $hidden_notify_message === 'This follow-up note is hidden from the client portal.',
         'Expected hidden follow-up notifications to explain why the client was not notified.'
