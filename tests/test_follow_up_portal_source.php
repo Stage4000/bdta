@@ -121,6 +121,11 @@ if (!is_string($public_form_page)) {
     throw new RuntimeException('Expected to read the public form submission page.');
 }
 
+$portal_form_view_page = file_get_contents(dirname(__DIR__) . '/portal/form_view.php');
+if (!is_string($portal_form_view_page)) {
+    throw new RuntimeException('Expected to read the portal form view page.');
+}
+
 $visibility_helper_start = strpos($follow_up_notes, 'function bdta_form_submission_is_client_portal_visible');
 $visibility_helper_end = strpos($follow_up_notes, 'function bdta_get_client_portal_form_submission_url');
 if ($visibility_helper_start === false || $visibility_helper_end === false || $visibility_helper_end <= $visibility_helper_start) {
@@ -273,6 +278,10 @@ assertFollowUpPortalSource(
 assertFollowUpPortalSource(
     str_contains($public_form_page, 'bdta_form_template_is_client_portal_visible(is_array($template) ? $template : [])'),
     'Follow-up form submissions should only notify clients when the template is visible in the client portal.'
+);
+assertFollowUpPortalSource(
+    str_contains($portal_form_view_page, "require_once '../backend/includes/follow_up_notes.php';"),
+    'Portal form view should include the follow-up notes helper before calling follow-up portal visibility helpers.'
 );
 
 echo "Follow-up portal source checks passed.\n";

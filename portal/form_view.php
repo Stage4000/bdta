@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/form_types.php';
+require_once '../backend/includes/follow_up_notes.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
