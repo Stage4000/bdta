@@ -49,9 +49,10 @@ if ($is_edit) {
         $is_internal = bdta_form_type_forced_internal($form_type) === 1
             ? 1
             : array_int_value($template, 'is_internal');
+        $default_show_in_client_portal = bdta_form_template_defaults_to_client_portal_visible($form_type, $is_internal) ? 1 : 0;
         $template_show_in_client_portal = $template['show_in_client_portal'] ?? null;
         $show_in_client_portal = $template_show_in_client_portal === null
-            ? (bdta_form_template_defaults_to_client_portal_visible($form_type, $is_internal) ? 1 : 0)
+            ? $default_show_in_client_portal
             : safe_int($template_show_in_client_portal);
         $is_active = array_int_value($template, 'is_active');
     }
