@@ -560,9 +560,14 @@ function syncClientPortalVisibility(resetToDefault = false) {
         return;
     }
 
+    const formType = formTypeSelect.value;
     const isInternalValue = isInternalInput ? Number(isInternalInput.value) : 0;
-    const isInternal = !Number.isNaN(isInternalValue) && isInternalValue !== 0;
-    const defaultVisible = getDefaultClientPortalVisibility(formTypeSelect.value, isInternal);
+    const isRequestedInternal = !Number.isNaN(isInternalValue) && isInternalValue !== 0;
+    const forcedInternal = typeof formTypeMeta !== 'undefined'
+        && formTypeMeta[formType]
+        && formTypeMeta[formType].forceInternal === true;
+    const isInternal = forcedInternal || isRequestedInternal;
+    const defaultVisible = getDefaultClientPortalVisibility(formType, isInternal);
 
     if (resetToDefault && showInClientPortalInput) {
         showInClientPortalInput.value = defaultVisible ? '1' : '0';
