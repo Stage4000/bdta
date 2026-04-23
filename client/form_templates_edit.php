@@ -51,9 +51,11 @@ if ($is_edit) {
             : array_int_value($template, 'is_internal');
         $default_show_in_client_portal = bdta_form_template_defaults_to_client_portal_visible($form_type, $is_internal) ? 1 : 0;
         $template_show_in_client_portal = $template['show_in_client_portal'] ?? null;
-        $show_in_client_portal = $template_show_in_client_portal === null
-            ? $default_show_in_client_portal
-            : safe_int($template_show_in_client_portal);
+        if ($template_show_in_client_portal === null) {
+            $show_in_client_portal = $default_show_in_client_portal;
+        } else {
+            $show_in_client_portal = safe_int($template_show_in_client_portal);
+        }
         $is_active = array_int_value($template, 'is_active');
     }
 }
