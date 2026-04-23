@@ -168,7 +168,7 @@ try {
     $hidden_notify_result = bdta_notify_follow_up_note_completed($conn, $hidden_submission_id);
     assertFollowUpNoteTest($hidden_notify_result['success'] === false, 'Expected hidden follow-up portal notifications to be suppressed.');
     assertFollowUpNoteTest(
-        scalar_string($hidden_notify_result['message'] ?? '') === 'This follow-up note is hidden from the client portal.',
+        scalar_string($hidden_notify_result['message']) === 'This follow-up note is hidden from the client portal.',
         'Expected hidden follow-up notifications to explain why the client was not notified.'
     );
 
@@ -230,8 +230,10 @@ try {
         $conn->prepare("DELETE FROM bookings WHERE id = ?")->execute([(int) $cleanup_booking_id]);
     }
     if ($cleanup_template_ids !== []) {
-        $placeholders = implode(',', array_fill(0, count($cleanup_template_ids), '?'));
-        $conn->prepare("DELETE FROM form_templates WHERE id IN ($placeholders)")->execute($cleanup_template_ids);
+        $delete_template_stmt = $conn->prepare("DELETE FROM form_templates WHERE id = ?");
+        foreach ($cleanup_template_ids as $cleanup_template_id) {
+            $delete_template_stmt->execute([(int) $cleanup_template_id]);
+        }
     }
     if ($cleanup_appointment_type_id > 0) {
         $conn->prepare("DELETE FROM appointment_types WHERE id = ?")->execute([(int) $cleanup_appointment_type_id]);

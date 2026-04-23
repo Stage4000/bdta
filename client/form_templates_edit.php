@@ -49,7 +49,7 @@ if ($is_edit) {
         $is_internal = bdta_form_type_forced_internal($form_type) === 1
             ? 1
             : array_int_value($template, 'is_internal');
-        $show_in_client_portal = array_key_exists('show_in_client_portal', $template) && $template['show_in_client_portal'] !== null
+        $show_in_client_portal = isset($template['show_in_client_portal'])
             ? array_int_value($template, 'show_in_client_portal')
             : (bdta_form_template_defaults_to_client_portal_visible($form_type, $is_internal) ? 1 : 0);
         $is_active = array_int_value($template, 'is_active');

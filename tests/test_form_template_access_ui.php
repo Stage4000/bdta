@@ -4,6 +4,9 @@
 require_once dirname(__DIR__) . '/backend/includes/form_types.php';
 
 if (!function_exists('array_string_value')) {
+    /**
+     * @param array<string, mixed> $array
+     */
     function array_string_value(array $array, string $key, string $default = ''): string
     {
         $value = $array[$key] ?? $default;
@@ -12,6 +15,9 @@ if (!function_exists('array_string_value')) {
 }
 
 if (!function_exists('array_int_value')) {
+    /**
+     * @param array<string, mixed> $array
+     */
     function array_int_value(array $array, string $key, int $default = 0): int
     {
         $value = $array[$key] ?? $default;
