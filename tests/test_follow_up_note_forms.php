@@ -167,8 +167,9 @@ try {
 
     $hidden_notify_result = bdta_notify_follow_up_note_completed($conn, $hidden_submission_id);
     assertFollowUpNoteTest($hidden_notify_result['success'] === false, 'Expected hidden follow-up portal notifications to be suppressed.');
+    assertFollowUpNoteTest(array_key_exists('message', $hidden_notify_result), 'Expected hidden follow-up notifications to return a message.');
     assertFollowUpNoteTest(
-        array_string_value($hidden_notify_result, 'message') === 'This follow-up note is hidden from the client portal.',
+        scalar_string($hidden_notify_result['message']) === 'This follow-up note is hidden from the client portal.',
         'Expected hidden follow-up notifications to explain why the client was not notified.'
     );
 
