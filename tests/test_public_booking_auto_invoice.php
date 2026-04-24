@@ -287,7 +287,9 @@ $conn->prepare("
 ")->execute();
 $sent_invoice_id = (int) $conn->lastInsertId();
 api_booking_mark_invoice_sent($conn, $sent_invoice_id);
-$sent_invoice = $conn->query("SELECT status, invoice_sent_at FROM invoices WHERE id = {$sent_invoice_id}")->fetch(PDO::FETCH_ASSOC);
+$sent_invoice_stmt = $conn->prepare('SELECT status, invoice_sent_at FROM invoices WHERE id = ?');
+$sent_invoice_stmt->execute([$sent_invoice_id]);
+$sent_invoice = $sent_invoice_stmt->fetch(PDO::FETCH_ASSOC);
 assertPublicBookingAutoInvoice(($sent_invoice['status'] ?? '') === 'sent', 'Expected successful invoice sends to mark draft invoices as sent.');
 assertPublicBookingAutoInvoice(trim((string) ($sent_invoice['invoice_sent_at'] ?? '')) !== '', 'Expected successful invoice sends to store invoice_sent_at.');
 

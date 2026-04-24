@@ -159,14 +159,13 @@ function api_booking_mark_invoice_sent(SafePDO $conn, int $invoice_id): void {
         return;
     }
 
-    $invoice_sent_at = date('Y-m-d H:i:s');
     $conn->prepare("
         UPDATE invoices
         SET
             status = CASE WHEN status = 'draft' THEN 'sent' ELSE status END,
-            invoice_sent_at = COALESCE(invoice_sent_at, ?)
+            invoice_sent_at = COALESCE(invoice_sent_at, CURRENT_TIMESTAMP)
         WHERE id = ?
-    ")->execute([$invoice_sent_at, $invoice_id]);
+    ")->execute([$invoice_id]);
 }
 
 /**
