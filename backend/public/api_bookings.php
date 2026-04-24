@@ -99,6 +99,234 @@ function api_booking_filter_schedule_rows(array $rows, int $admin_user_id): arra
 }
 
 /**
+ * @param array<string, mixed> $appointment_type
+ * @param list<array<string, mixed>> $custom_slot_configs
+ * @return list<array<string, mixed>>
+ */
+function api_booking_reserved_rows_for_schedule_date(
+    array $appointment_type,
+    string $date,
+    string $day_start,
+    string $day_end,
+    array $custom_slot_configs = []
+): array {
+    $reserved_rows = [];
+    $appointment_type_id = array_int_value($appointment_type, 'id');
+    $schedule_admin_user_id = array_int_value($appointment_type, 'admin_user_id');
+    $default_duration = max(1, array_int_value($appointment_type, 'duration_minutes', 60));
+
+    if ($custom_slot_configs !== []) {
+        foreach (api_booking_assoc_rows($custom_slot_configs) as $slot_config) {
+            $slot_type = array_string_value($slot_config, 'type', 'point');
+            if ($slot_type === 'range') {
+                $slot_start = array_string_value($slot_config, 'start');
+                $slot_end = array_string_value($slot_config, 'end');
+                $range_start_minutes = bdta_booking_time_to_minutes($slot_start);
+                $range_end_minutes = bdta_booking_time_to_minutes($slot_end);
+                if ($range_start_minutes === null || $range_end_minutes === null || $range_end_minutes <= $range_start_minutes) {
+                    continue;
+                }
+
+                $reserved_rows[] = [
+                    'appointment_date' => $date,
+                    'appointment_time' => substr($slot_start, 0, 5),
+                    'duration_minutes' => $range_end_minutes - $range_start_minutes,
+                    'appointment_type_id' => $appointment_type_id,
+                    'b_buffer_before' => 0,
+                    'b_buffer_after' => 0,
+                    'pet_count' => 0,
+                    'schedule_admin_user_id' => $schedule_admin_user_id,
+                ];
+                continue;
+            }
+
+            $slot_time = array_string_value($slot_config, 'time');
+            if (bdta_booking_time_to_minutes($slot_time) === null) {
+                continue;
+            }
+
+            $reserved_rows[] = [
+                'appointment_date' => $date,
+                'appointment_time' => substr($slot_time, 0, 5),
+                'duration_minutes' => $default_duration,
+                'appointment_type_id' => $appointment_type_id,
+                'b_buffer_before' => 0,
+                'b_buffer_after' => 0,
+                'pet_count' => 0,
+                'schedule_admin_user_id' => $schedule_admin_user_id,
+            ];
+        }
+
+        return $reserved_rows;
+    }
+
+    $window_start_minutes = bdta_booking_time_to_minutes($day_start);
+    $window_end_minutes = bdta_booking_time_to_minutes($day_end);
+    if ($window_start_minutes === null || $window_end_minutes === null || $window_end_minutes <= $window_start_minutes) {
+        return [];
+    }
+
+    return [[
+        'appointment_date' => $date,
+        'appointment_time' => substr($day_start, 0, 5),
+        'duration_minutes' => $window_end_minutes - $window_start_minutes,
+        'appointment_type_id' => $appointment_type_id,
+        'b_buffer_before' => 0,
+        'b_buffer_after' => 0,
+        'pet_count' => 0,
+        'schedule_admin_user_id' => $schedule_admin_user_id,
+    ]];
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function api_booking_reserved_mini_session_rows(
+    SafePDO $conn,
+    string $from_date,
+    string $to_date,
+    int $appointment_type_id,
+    int $target_admin_user_id
+): array {
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $to_date) || $to_date < $from_date) {
+        return [];
+    }
+
+    $stmt = $conn->prepare("
+        SELECT *
+        FROM appointment_types
+        WHERE is_active = 1 AND is_mini_session = 1 AND id != ?
+    ");
+    $stmt->execute([$appointment_type_id]);
+    $mini_session_types = api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+    if ($mini_session_types === []) {
+        return [];
+    }
+
+    $reserved_rows = [];
+    foreach ($mini_session_types as $mini_session_type) {
+        $schedule_admin_user_id = array_int_value($mini_session_type, 'admin_user_id');
+        if ($target_admin_user_id > 0 && $schedule_admin_user_id > 0 && $schedule_admin_user_id !== $target_admin_user_id) {
+            continue;
+        }
+
+        $schedule_type = array_string_value($mini_session_type, 'schedule_type', 'recurring');
+        if ($schedule_type === 'specific_date') {
+            $specific_dates = api_booking_assoc_rows(array_string_value($mini_session_type, 'specific_dates'));
+            foreach ($specific_dates as $specific_date_entry) {
+                $specific_date = array_string_value($specific_date_entry, 'date');
+                if ($specific_date === '' || $specific_date < $from_date || $specific_date > $to_date) {
+                    continue;
+                }
+
+                $reserved_rows = array_merge(
+                    $reserved_rows,
+                    api_booking_reserved_rows_for_schedule_date(
+                        $mini_session_type,
+                        $specific_date,
+                        array_string_value($mini_session_type, 'available_start_time', '09:00'),
+                        array_string_value($mini_session_type, 'available_end_time', '17:00'),
+                        api_booking_assoc_rows($specific_date_entry['timeslots'] ?? [])
+                    )
+                );
+            }
+
+            if ($specific_dates === []) {
+                $legacy_specific_date = array_string_value($mini_session_type, 'specific_date');
+                if ($legacy_specific_date !== '' && $legacy_specific_date >= $from_date && $legacy_specific_date <= $to_date) {
+                    $reserved_rows = array_merge(
+                        $reserved_rows,
+                        api_booking_reserved_rows_for_schedule_date(
+                            $mini_session_type,
+                            $legacy_specific_date,
+                            array_string_value($mini_session_type, 'available_start_time', '09:00'),
+                            array_string_value($mini_session_type, 'available_end_time', '17:00')
+                        )
+                    );
+                }
+            }
+
+            continue;
+        }
+
+        $available_days = api_booking_int_list(decode_json_assoc(array_string_value($mini_session_type, 'available_days', '[0,1,2,3,4,5,6]')));
+        if ($available_days === []) {
+            $available_days = [0, 1, 2, 3, 4, 5, 6];
+        }
+        $per_day_schedule = api_booking_assoc_map(array_string_value($mini_session_type, 'per_day_schedule'));
+
+        $current_date = new DateTime($from_date);
+        $end_date = new DateTime($to_date);
+        while ($current_date <= $end_date) {
+            $check_date = $current_date->format('Y-m-d');
+            $day_of_week = (int) $current_date->format('w');
+            if (!in_array($day_of_week, $available_days, true)) {
+                $current_date->modify('+1 day');
+                continue;
+            }
+
+            $day_start = array_string_value($mini_session_type, 'available_start_time', '09:00');
+            $day_end = array_string_value($mini_session_type, 'available_end_time', '17:00');
+            $day_config = $per_day_schedule[(string) $day_of_week] ?? [];
+            if ($day_config !== []) {
+                $override_start = array_string_value($day_config, 'start');
+                $override_end = array_string_value($day_config, 'end');
+                if ($override_start !== '' && $override_end !== '' && $override_start < $override_end) {
+                    $day_start = $override_start;
+                    $day_end = $override_end;
+                }
+            }
+
+            $reserved_rows = array_merge(
+                $reserved_rows,
+                api_booking_reserved_rows_for_schedule_date($mini_session_type, $check_date, $day_start, $day_end)
+            );
+            $current_date->modify('+1 day');
+        }
+    }
+
+    return $reserved_rows;
+}
+
+/**
+ * @param list<array<string, mixed>> $rows
+ */
+function api_booking_slot_conflicts_with_rows(
+    array $rows,
+    string $appointment_time,
+    int $duration_minutes,
+    int $buffer_before_minutes,
+    int $buffer_after_minutes
+): bool {
+    $proposed_start_minutes = bdta_booking_time_to_minutes($appointment_time);
+    if ($proposed_start_minutes === null) {
+        return false;
+    }
+
+    foreach (api_booking_assoc_rows($rows) as $row) {
+        $existing_start_minutes = bdta_booking_time_to_minutes(array_string_value($row, 'appointment_time'));
+        if ($existing_start_minutes === null) {
+            continue;
+        }
+
+        if (bdta_booking_windows_overlap(
+            $proposed_start_minutes,
+            $duration_minutes,
+            $buffer_before_minutes,
+            $buffer_after_minutes,
+            $existing_start_minutes,
+            max(1, array_int_value($row, 'duration_minutes', 60)),
+            max(0, array_int_value($row, 'b_buffer_before', 0)),
+            max(0, array_int_value($row, 'b_buffer_after', 0))
+        )) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * @param array<string, mixed> $data
  * @return array<string, mixed>
  */
@@ -371,6 +599,28 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 $conn->rollBack();
                 $resource_label = trim($resource_config['name']);
                 return ['error' => 'No ' . ($resource_label !== '' ? $resource_label : 'resource') . ' units are available for this time slot.'];
+            }
+        }
+
+        if ($appointment_type_id_value > 0) {
+            $reserved_mini_session_rows = api_booking_reserved_mini_session_rows(
+                $conn,
+                $appointment_date,
+                $appointment_date,
+                $appointment_type_id_value,
+                $appointment_type_admin_user_id
+            );
+            if (api_booking_slot_conflicts_with_rows(
+                $reserved_mini_session_rows,
+                $appointment_time,
+                $duration_minutes,
+                max(0, array_int_value($apt_type, 'buffer_before_minutes')),
+                max(0, array_int_value($apt_type, 'buffer_after_minutes'))
+            )) {
+                if ($conn->inTransaction()) {
+                    $conn->rollBack();
+                }
+                return ['error' => 'This time slot is reserved for a Mini Sessions event and is unavailable for this appointment type.'];
             }
         }
 
@@ -1012,12 +1262,24 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)),
         $ad_admin_user_id
     );
+    $reserved_mini_session_rows = api_booking_reserved_mini_session_rows(
+        $conn,
+        $from_date,
+        $to_date,
+        $appointment_type_id,
+        $ad_admin_user_id
+    );
 
     // Group bookings by date
     $bookings_by_date = [];
     foreach ($all_bookings_rows as $row) {
         $booking_row = api_booking_db_row($row);
         $bookings_by_date[array_string_value($booking_row, 'appointment_date')][] = $booking_row;
+    }
+    $reserved_rows_by_date = [];
+    foreach ($reserved_mini_session_rows as $row) {
+        $reserved_row = api_booking_db_row($row);
+        $reserved_rows_by_date[array_string_value($reserved_row, 'appointment_date')][] = $reserved_row;
     }
 
     // Build specific_dates config map (for specific_date type custom timeslots)
@@ -1055,6 +1317,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     foreach ($candidate_dates as $check_date) {
         $existing_bookings = $bookings_by_date[$check_date] ?? [];
         $normalized_existing_bookings = api_booking_assoc_rows($existing_bookings);
+        $reserved_rows_for_date = api_booking_assoc_rows($reserved_rows_by_date[$check_date] ?? []);
 
         // Pre-compute booking counts per slot for group classes to avoid O(n²) in the slot loop
         $group_slot_counts = [];
@@ -1145,10 +1408,20 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 $ad_resource,
                 $appointment_type_id
             );
+            $mini_session_reserved = api_booking_slot_conflicts_with_rows(
+                $reserved_rows_for_date,
+                $slot_str,
+                $ad_duration,
+                $ad_buf_before,
+                $ad_buf_after
+            );
             $resource_available = empty($ad_resource['enabled'])
                 || bdta_booking_resource_capacity_available($ad_resource, $slot_usage['overlapping_resource_units'], 1);
 
             if ($ad_is_group) {
+                if ($mini_session_reserved) {
+                    continue;
+                }
                 $count = $slot_usage['exact_type_slot_count'] ?: ($group_slot_counts[$slot_str] ?? 0);
                 if ($count < $ad_max_part) {
                     if (!$resource_available) {
@@ -1162,7 +1435,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                     break;
                 }
             } else {
-                $slot_free = !$slot_usage['has_overlap_conflict'] && $resource_available;
+                $slot_free = !$slot_usage['has_overlap_conflict'] && !$mini_session_reserved && $resource_available;
                 // Also check Google Calendar
                 if ($slot_free && !empty($gcal_busy_periods)) {
                     $slot_free = ad_slot_passes_gcal($check_date, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, $gcal_busy_periods);
@@ -1346,6 +1619,13 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)),
         $appointment_type_admin_user_id
     );
+    $reserved_mini_session_rows = api_booking_reserved_mini_session_rows(
+        $conn,
+        $date,
+        $date,
+        (int) ($appointment_type_id ?? 0),
+        $appointment_type_admin_user_id
+    );
 
     // Query Google Calendar for busy periods on this date (best-effort; errors are non-fatal)
     $google_busy_periods = [];
@@ -1430,6 +1710,13 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             $resource_config,
             $appointment_type_id
         );
+        $mini_session_reserved = api_booking_slot_conflicts_with_rows(
+            $reserved_mini_session_rows,
+            $time_slot,
+            $slot_duration,
+            $buffer_before,
+            $buffer_after
+        );
         $resource_available = empty($resource_config['enabled'])
             || bdta_booking_resource_capacity_available($resource_config, $slot_usage['overlapping_resource_units'], 1);
         
@@ -1441,11 +1728,11 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             // Group class: count existing participants for this exact slot and type.
             // Allow booking as long as capacity is not yet reached.
             $participant_count = $slot_usage['exact_type_slot_count'];
-            if ($participant_count >= $max_participants) {
+            if ($participant_count >= $max_participants || $mini_session_reserved) {
                 $is_available = false;
             }
         } else {
-            $is_available = !$slot_usage['has_overlap_conflict'];
+            $is_available = !$slot_usage['has_overlap_conflict'] && !$mini_session_reserved;
         }
         if ($is_available) {
             $is_available = $resource_available;
