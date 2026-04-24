@@ -323,8 +323,8 @@ function api_booking_reserved_mini_session_rows(
             $day_start = array_string_value($mini_session_type, 'available_start_time', '09:00');
             $day_end = array_string_value($mini_session_type, 'available_end_time', '17:00');
             $day_config_key = (string) $day_of_week;
-            $day_config = $per_day_schedule[$day_config_key] ?? null;
-            if (is_array($day_config)) {
+            if (array_key_exists($day_config_key, $per_day_schedule)) {
+                $day_config = $per_day_schedule[$day_config_key];
                 $override_start = array_string_value($day_config, 'start');
                 $override_end = array_string_value($day_config, 'end');
                 if ($override_start !== '' && $override_end !== '' && $override_start < $override_end) {
@@ -341,7 +341,7 @@ function api_booking_reserved_mini_session_rows(
         }
     }
 
-    return array_values($reserved_rows);
+    return $reserved_rows;
 }
 
 /**
