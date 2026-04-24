@@ -381,7 +381,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             UPDATE invoices
                             SET
                                 status = CASE WHEN status = 'draft' THEN 'sent' ELSE status END,
-                                invoice_sent_at = CURRENT_TIMESTAMP
+                                invoice_sent_at = COALESCE(invoice_sent_at, CURRENT_TIMESTAMP)
                             WHERE id = ?
                         ");
                         $stmt->execute([safe_int($auto_invoice['id'] ?? 0)]);
