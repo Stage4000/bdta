@@ -110,6 +110,7 @@ if (!class_exists('Google_Service_Calendar', false)) {
 
         public GoogleCalendarDeletionEventsStub $events;
 
+        /** @phpstan-ignore-next-line Constructor signature matches the Google client API for this test stub. */
         public function __construct(Google_Client $client)
         {
             $this->events = new GoogleCalendarDeletionEventsStub();

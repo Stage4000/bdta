@@ -90,6 +90,10 @@ require_once dirname(__DIR__) . '/backend/includes/google_calendar.php';
 $exit_code = 0;
 
 try {
+    $google_calendar_reflection = new ReflectionClass(GoogleCalendarIntegration::class);
+    $persist_refreshed_oauth_token = $google_calendar_reflection->getMethod('persistRefreshedOAuthToken');
+    $persist_refreshed_oauth_token->setAccessible(true);
+
     $insert_token = $conn->prepare('
         INSERT INTO google_oauth_tokens (
             admin_user_id, access_token, refresh_token, expires_at, google_email, calendar_id, updated_at
@@ -140,6 +144,19 @@ try {
         scalar_string($updated_row['calendar_id'] ?? '') === 'calendar-b',
         'Expected other token metadata to keep updating normally.'
     );
+    $persist_refreshed_oauth_token->invoke(null, 1, 'rotated-access-token', 3600, 'rotated-refresh-token');
+
+    $rotated_row = $conn->query('SELECT access_token, refresh_token FROM google_oauth_tokens WHERE admin_user_id = 1')->fetch(PDO::FETCH_ASSOC);
+    assertGoogleCalendarOAuth(is_array($rotated_row), 'Expected OAuth token row to remain available after refresh persistence.');
+    assertGoogleCalendarOAuth(
+        scalar_string($rotated_row['access_token'] ?? '') === 'rotated-access-token',
+        'Expected refreshed access tokens to be saved after token refresh.'
+    );
+    assertGoogleCalendarOAuth(
+        scalar_string($rotated_row['refresh_token'] ?? '') === 'rotated-refresh-token',
+        'Expected token refresh persistence to store a rotated refresh token returned by Google.'
+    );
+
     $active_notification_count = safe_int($conn->query("SELECT COUNT(*) FROM notifications WHERE entity_type = 'google_calendar_oauth' AND deleted_at IS NULL")->fetchColumn());
     assertGoogleCalendarOAuth($active_notification_count === 0, 'Expected successful OAuth token saves to clear any active Google Calendar OAuth warnings.');
 

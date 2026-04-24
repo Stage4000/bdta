@@ -547,19 +547,36 @@ class GoogleCalendarIntegration {
             return null;
         }
 
-        $expires_at = date('Y-m-d H:i:s', time() + safe_int($response['expires_in'] ?? 3600));
-
-        $db   = new Database();
-        $conn = $db->getConnection();
-        $conn->prepare("
-            UPDATE google_oauth_tokens
-            SET access_token = ?, expires_at = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE admin_user_id = ?
-        ")->execute([$response['access_token'], $expires_at, $admin_user_id]);
+        self::persistRefreshedOAuthToken(
+            $admin_user_id,
+            self::rowString($response, 'access_token'),
+            safe_int($response['expires_in'] ?? 3600),
+            self::rowString($response, 'refresh_token', $refresh_token)
+        );
 
         self::clearOAuthFailureNotifications($admin_user_id);
 
         return self::rowString($response, 'access_token');
+    }
+
+    /**
+     * Persist a refreshed OAuth token, keeping the existing refresh token when Google omits it
+     * and replacing it when Google rotates it.
+     */
+    private static function persistRefreshedOAuthToken(
+        int $admin_user_id,
+        string $access_token,
+        int $expires_in,
+        string $refresh_token
+    ): void {
+        $expires_at = date('Y-m-d H:i:s', time() + $expires_in);
+        $db   = new Database();
+        $conn = $db->getConnection();
+        $conn->prepare("
+            UPDATE google_oauth_tokens
+            SET access_token = ?, refresh_token = ?, expires_at = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE admin_user_id = ?
+        ")->execute([$access_token, $refresh_token, $expires_at, $admin_user_id]);
     }
 
     /**
