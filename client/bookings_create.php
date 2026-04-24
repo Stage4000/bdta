@@ -289,24 +289,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // Auto-invoice if configured
+            $auto_invoice = null;
+            $auto_invoice_items = [];
             if ($apt_type['auto_invoice']) {
                 $default_amount = floatval($apt_type['default_amount'] ?? 0);
                 $invoice_due_days = (int)($apt_type['invoice_due_days'] ?? 7);
-                $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT);
+                $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
                 $issue_date = date('Y-m-d');
-                $due_date = date('Y-m-d', safe_timestamp(strtotime("+{$invoice_due_days} days")));
+                $due_date = date('Y-m-d', safe_timestamp(strtotime($booking_date . " +{$invoice_due_days} days")));
+                $pay_token = bin2hex(random_bytes(32));
+                $invoice_line_description = trim(scalar_string($apt_type['name'] ?? ''));
+                $appointment_type_description = trim(scalar_string($apt_type['description'] ?? ''));
+                if ($appointment_type_description !== '') {
+                    $invoice_line_description .= ' — ' . $appointment_type_description;
+                }
                 $invoice_stmt = $conn->prepare("
-                    INSERT INTO invoices (invoice_number, client_id, issue_date, due_date, subtotal, tax_rate, tax_amount, total_amount, notes, status)
-                    VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, 'draft')
+                    INSERT INTO invoices (invoice_number, client_id, issue_date, due_date, subtotal, tax_rate, tax_amount, total_amount, notes, status, pay_token)
+                    VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, 'draft', ?)
                 ");
                 $invoice_notes = "Auto-generated for booking #{$booking_id} ({$apt_type['name']})";
-                $invoice_stmt->execute([$invoice_number, $client_id, $issue_date, $due_date, $default_amount, $default_amount, $invoice_notes]);
+                $invoice_stmt->execute([$invoice_number, $client_id, $issue_date, $due_date, $default_amount, $default_amount, $invoice_notes, $pay_token]);
                 $invoice_id = $conn->lastInsertId();
                 $item_stmt = $conn->prepare("
                     INSERT INTO invoice_items (invoice_id, item_type, reference_id, description, quantity, rate, amount)
                     VALUES (?, 'appointment_type', ?, ?, 1, ?, ?)
                 ");
-                $item_stmt->execute([$invoice_id, $appointment_type_id, $apt_type['name'], $default_amount, $default_amount]);
+                $item_stmt->execute([$invoice_id, $appointment_type_id, $invoice_line_description, $default_amount, $default_amount]);
+                $auto_invoice = [
+                    'id' => $invoice_id,
+                    'client_id' => $client_id,
+                    'client_name' => $client['name'],
+                    'client_email' => $client['email'],
+                    'invoice_number' => $invoice_number,
+                    'issue_date' => $issue_date,
+                    'due_date' => $due_date,
+                    'total_amount' => $default_amount,
+                    'status' => 'draft',
+                    'pay_token' => $pay_token,
+                ];
+                $auto_invoice_items[] = [
+                    'item_type' => 'appointment_type',
+                    'reference_id' => $appointment_type_id,
+                    'description' => $invoice_line_description,
+                    'quantity' => 1,
+                    'rate' => $default_amount,
+                    'amount' => $default_amount,
+                ];
             }
             
             // Link pets to appointment
@@ -326,6 +354,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($new_booking) {
                 $email_service = new EmailService(null, $conn);
                 $email_service->sendBookingConfirmation($new_booking);
+                if ($auto_invoice !== null) {
+                    $email_service->sendInvoiceEmail($auto_invoice, $auto_invoice_items);
+                }
             }
 
             // Push to Google Calendar (OAuth first, then service account fallback)

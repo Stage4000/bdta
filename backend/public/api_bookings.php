@@ -433,7 +433,32 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $appointment_type_admin_user_id = 0;
 
         if ($appointment_type_id_value > 0) {
-            $stmt = $conn->prepare("SELECT is_mini_session, mini_session_location, is_field_rental, field_rental_location, is_group_class, group_class_location, location_types, contract_template_id, requires_admin_confirmation, uses_resource, resource_name, resource_capacity, resource_allocation, duration_minutes, buffer_before_minutes, buffer_after_minutes, admin_user_id FROM appointment_types WHERE id = ?");
+            $appointment_type_columns = api_booking_table_columns($conn, 'appointment_types');
+            $appointment_type_select_map = [
+                'name' => in_array('name', $appointment_type_columns, true) ? 'name' : "'' AS name",
+                'description' => in_array('description', $appointment_type_columns, true) ? 'description' : "'' AS description",
+                'is_mini_session' => in_array('is_mini_session', $appointment_type_columns, true) ? 'is_mini_session' : '0 AS is_mini_session',
+                'mini_session_location' => in_array('mini_session_location', $appointment_type_columns, true) ? 'mini_session_location' : "'' AS mini_session_location",
+                'is_field_rental' => in_array('is_field_rental', $appointment_type_columns, true) ? 'is_field_rental' : '0 AS is_field_rental',
+                'field_rental_location' => in_array('field_rental_location', $appointment_type_columns, true) ? 'field_rental_location' : "'' AS field_rental_location",
+                'is_group_class' => in_array('is_group_class', $appointment_type_columns, true) ? 'is_group_class' : '0 AS is_group_class',
+                'group_class_location' => in_array('group_class_location', $appointment_type_columns, true) ? 'group_class_location' : "'' AS group_class_location",
+                'location_types' => in_array('location_types', $appointment_type_columns, true) ? 'location_types' : "NULL AS location_types",
+                'contract_template_id' => in_array('contract_template_id', $appointment_type_columns, true) ? 'contract_template_id' : 'NULL AS contract_template_id',
+                'requires_admin_confirmation' => in_array('requires_admin_confirmation', $appointment_type_columns, true) ? 'requires_admin_confirmation' : '0 AS requires_admin_confirmation',
+                'uses_resource' => in_array('uses_resource', $appointment_type_columns, true) ? 'uses_resource' : '0 AS uses_resource',
+                'resource_name' => in_array('resource_name', $appointment_type_columns, true) ? 'resource_name' : "'' AS resource_name",
+                'resource_capacity' => in_array('resource_capacity', $appointment_type_columns, true) ? 'resource_capacity' : '1 AS resource_capacity',
+                'resource_allocation' => in_array('resource_allocation', $appointment_type_columns, true) ? 'resource_allocation' : "'per_appointment' AS resource_allocation",
+                'duration_minutes' => in_array('duration_minutes', $appointment_type_columns, true) ? 'duration_minutes' : '60 AS duration_minutes',
+                'buffer_before_minutes' => in_array('buffer_before_minutes', $appointment_type_columns, true) ? 'buffer_before_minutes' : '0 AS buffer_before_minutes',
+                'buffer_after_minutes' => in_array('buffer_after_minutes', $appointment_type_columns, true) ? 'buffer_after_minutes' : '0 AS buffer_after_minutes',
+                'admin_user_id' => in_array('admin_user_id', $appointment_type_columns, true) ? 'admin_user_id' : '0 AS admin_user_id',
+                'auto_invoice' => in_array('auto_invoice', $appointment_type_columns, true) ? 'auto_invoice' : '0 AS auto_invoice',
+                'invoice_due_days' => in_array('invoice_due_days', $appointment_type_columns, true) ? 'invoice_due_days' : '7 AS invoice_due_days',
+                'default_amount' => in_array('default_amount', $appointment_type_columns, true) ? 'default_amount' : '0 AS default_amount',
+            ];
+            $stmt = $conn->prepare("SELECT " . implode(', ', $appointment_type_select_map) . " FROM appointment_types WHERE id = ?");
             $stmt->execute([$appointment_type_id_value]);
             $apt_type = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
             $requires_admin_confirmation = $apt_type !== [] && array_int_value($apt_type, 'requires_admin_confirmation') === 1;
@@ -873,6 +898,57 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             }
         }
 
+        $invoice = null;
+        $invoice_items = [];
+        if (!$is_pending_request && $apt_type !== [] && array_int_value($apt_type, 'auto_invoice') === 1) {
+            $default_amount = safe_float($apt_type['default_amount'] ?? 0);
+            $invoice_due_days = max(0, array_int_value($apt_type, 'invoice_due_days', 7));
+            $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+            $issue_date = date('Y-m-d');
+            $due_date = date('Y-m-d', safe_timestamp(strtotime($appointment_date . " +{$invoice_due_days} days")));
+            $pay_token = bin2hex(random_bytes(32));
+            $invoice_line_description = trim(array_string_value($apt_type, 'name', $service_type));
+            $appointment_type_description = trim(array_string_value($apt_type, 'description'));
+            if ($appointment_type_description !== '') {
+                $invoice_line_description .= ' — ' . $appointment_type_description;
+            }
+
+            $stmt = $conn->prepare("
+                INSERT INTO invoices (invoice_number, client_id, issue_date, due_date, subtotal, tax_rate, tax_amount, total_amount, notes, status, pay_token)
+                VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, 'draft', ?)
+            ");
+            $invoice_notes = "Auto-generated for booking #{$booking_id} ({$service_type})";
+            $stmt->execute([$invoice_number, $client_id, $issue_date, $due_date, $default_amount, $default_amount, $invoice_notes, $pay_token]);
+            $invoice_id = safe_int($conn->lastInsertId());
+
+            $stmt = $conn->prepare("
+                INSERT INTO invoice_items (invoice_id, item_type, reference_id, description, quantity, rate, amount)
+                VALUES (?, 'appointment_type', ?, ?, 1, ?, ?)
+            ");
+            $stmt->execute([$invoice_id, $appointment_type_id_value, $invoice_line_description, $default_amount, $default_amount]);
+
+            $invoice = [
+                'id' => $invoice_id,
+                'client_id' => $client_id,
+                'client_name' => $client_name,
+                'client_email' => $client_email,
+                'invoice_number' => $invoice_number,
+                'issue_date' => $issue_date,
+                'due_date' => $due_date,
+                'total_amount' => $default_amount,
+                'status' => 'draft',
+                'pay_token' => $pay_token,
+            ];
+            $invoice_items[] = [
+                'item_type' => 'appointment_type',
+                'reference_id' => $appointment_type_id_value,
+                'description' => $invoice_line_description,
+                'quantity' => 1,
+                'rate' => $default_amount,
+                'amount' => $default_amount,
+            ];
+        }
+
         $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
         $stmt->execute([$booking_id]);
         $booking = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
@@ -901,6 +977,9 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             $email_result = $is_pending_request
                 ? $email_service->sendBookingRequest($booking)
                 : $email_service->sendBookingConfirmation($booking);
+            if ($invoice !== null) {
+                $email_service->sendInvoiceEmail($invoice, $invoice_items);
+            }
         } catch (Throwable $e) {
             error_log('api_booking_create_booking: booking email failed for booking #' . $booking_id . ': ' . $e->getMessage());
         }
