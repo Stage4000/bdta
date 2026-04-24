@@ -88,11 +88,12 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once dirname(__DIR__) . '/backend/includes/google_calendar.php';
 
 $exit_code = 0;
-$google_calendar_reflection = new ReflectionClass(GoogleCalendarIntegration::class);
-$persist_refreshed_oauth_token = $google_calendar_reflection->getMethod('persistRefreshedOAuthToken');
-$persist_refreshed_oauth_token->setAccessible(true);
 
 try {
+    $google_calendar_reflection = new ReflectionClass(GoogleCalendarIntegration::class);
+    $persist_refreshed_oauth_token = $google_calendar_reflection->getMethod('persistRefreshedOAuthToken');
+    $persist_refreshed_oauth_token->setAccessible(true);
+
     $insert_token = $conn->prepare('
         INSERT INTO google_oauth_tokens (
             admin_user_id, access_token, refresh_token, expires_at, google_email, calendar_id, updated_at

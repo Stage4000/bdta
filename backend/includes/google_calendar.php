@@ -567,7 +567,7 @@ class GoogleCalendarIntegration {
         int $admin_user_id,
         string $access_token,
         int $expires_in,
-        string $refresh_token = ''
+        string $refresh_token
     ): void {
         $expires_at = date('Y-m-d H:i:s', time() + $expires_in);
         $db   = new Database();
