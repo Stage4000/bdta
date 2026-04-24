@@ -154,9 +154,13 @@ function runAvailabilityScenario(SafePDO $conn, int $appointment_type_id, string
         api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)),
         $appointment_type_admin_user_id
     );
-    $reserved_mini_session_rows = function_exists('api_booking_reserved_mini_session_rows')
-        ? api_booking_reserved_mini_session_rows($conn, $date, $date, $appointment_type_id, $appointment_type_admin_user_id)
-        : [];
+    $reserved_mini_session_rows = api_booking_reserved_mini_session_rows(
+        $conn,
+        $date,
+        $date,
+        $appointment_type_id,
+        $appointment_type_admin_user_id
+    );
 
     $start_parts = explode(':', $available_start_time);
     $end_parts = explode(':', $available_end_time);
@@ -178,9 +182,13 @@ function runAvailabilityScenario(SafePDO $conn, int $appointment_type_id, string
             $disabled_resource_config,
             $appointment_type_id
         );
-        $mini_session_reserved = function_exists('api_booking_slot_conflicts_with_rows')
-            ? api_booking_slot_conflicts_with_rows($reserved_mini_session_rows, $time_slot, $slot_duration, $buffer_before, $buffer_after)
-            : false;
+        $mini_session_reserved = api_booking_slot_conflicts_with_rows(
+            $reserved_mini_session_rows,
+            $time_slot,
+            $slot_duration,
+            $buffer_before,
+            $buffer_after
+        );
         if (!$slot_usage['has_overlap_conflict'] && !$mini_session_reserved) {
             $available_slots[] = $time_slot;
         }
@@ -251,11 +259,21 @@ $mini_session_type_stmt = $conn->prepare("
     INSERT INTO appointment_types (
         name, is_active, admin_user_id, duration_minutes, available_days,
         available_start_time, available_end_time, time_slot_interval,
-        schedule_type, specific_date, is_mini_session, mini_session_location
-    ) VALUES (?, 1, ?, 60, '[0,1,2,3,4,5,6]', '10:00', '12:00', 60, 'specific_date', '2026-06-03', 1, ?)
+        schedule_type, specific_date, is_mini_session, mini_session_location,
+        buffer_before_minutes, buffer_after_minutes
+    ) VALUES (?, 1, ?, 60, '[0,1,2,3,4,5,6]', '10:00', '12:00', 60, 'specific_date', '2026-06-03', 1, ?, 15, 15)
 ");
 $mini_session_type_stmt->execute(['Mini Session Event', 1, 'Dog Park']);
 $mini_session_type_id = (int) $conn->lastInsertId();
+
+$short_type_stmt = $conn->prepare("
+    INSERT INTO appointment_types (
+        name, is_active, admin_user_id, duration_minutes, available_days,
+        available_start_time, available_end_time, time_slot_interval, schedule_type
+    ) VALUES (?, 1, ?, 15, '[0,1,2,3,4,5,6]', '09:00', '13:00', 15, 'recurring')
+");
+$short_type_stmt->execute(['Quick Admin One Session', 1]);
+$quick_type_id = (int) $conn->lastInsertId();
 
 $mini_blocked_admin_one_payload = runAvailabilityScenario($conn, $fixture['admin_one_type_id'], '2026-06-03');
 $mini_blocked_admin_two_payload = runAvailabilityScenario($conn, $fixture['admin_two_type_id'], '2026-06-03');
@@ -279,6 +297,32 @@ $mini_session_conflict = api_booking_create_booking($conn, [
 ]);
 assertMultiAdminAvailability(isset($mini_session_conflict['error']), 'Expected non-mini bookings in a Mini Sessions window to be rejected.');
 assertMultiAdminAvailability(str_contains(scalar_string($mini_session_conflict['error'] ?? ''), 'Mini Sessions'), 'Expected the Mini Sessions conflict message to explain the reserved window.');
+
+$mini_session_buffer_before_conflict = api_booking_create_booking($conn, [
+    'client_name' => 'Mini Buffer Before Client',
+    'client_email' => 'mini-buffer-before@example.com',
+    'client_phone' => '555-5555',
+    'service_type' => 'Quick Admin One Session',
+    'appointment_type_id' => $quick_type_id,
+    'appointment_date' => '2026-06-03',
+    'appointment_time' => '09:45',
+    'location_type' => 'custom_address',
+    'location_value' => '1 Trainer Way',
+]);
+assertMultiAdminAvailability(isset($mini_session_buffer_before_conflict['error']), 'Expected Mini Sessions buffer-before time to stay reserved from other appointment types.');
+
+$mini_session_buffer_after_conflict = api_booking_create_booking($conn, [
+    'client_name' => 'Mini Buffer After Client',
+    'client_email' => 'mini-buffer-after@example.com',
+    'client_phone' => '555-6666',
+    'service_type' => 'Quick Admin One Session',
+    'appointment_type_id' => $quick_type_id,
+    'appointment_date' => '2026-06-03',
+    'appointment_time' => '12:00',
+    'location_type' => 'custom_address',
+    'location_value' => '1 Trainer Way',
+]);
+assertMultiAdminAvailability(isset($mini_session_buffer_after_conflict['error']), 'Expected Mini Sessions buffer-after time to stay reserved from other appointment types.');
 
 $mini_session_booking = api_booking_create_booking($conn, [
     'client_name' => 'Mini Session Client',

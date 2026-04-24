@@ -99,6 +99,40 @@ function api_booking_filter_schedule_rows(array $rows, int $admin_user_id): arra
 }
 
 /**
+ * @return list<string>
+ */
+function api_booking_table_columns(SafePDO $conn, string $table_name): array {
+    static $columns_by_table = [];
+    $cache_key = spl_object_id($conn) . ':' . $table_name;
+    if (isset($columns_by_table[$cache_key])) {
+        return $columns_by_table[$cache_key];
+    }
+
+    $stmt = $conn->query("SELECT * FROM {$table_name} LIMIT 0");
+    $columns = [];
+    for ($index = 0, $count = $stmt->columnCount(); $index < $count; $index++) {
+        $column_meta = $stmt->getColumnMeta($index);
+        $column_name = scalar_string($column_meta['name'] ?? '');
+        if ($column_name !== '') {
+            $columns[] = $column_name;
+        }
+    }
+
+    $columns_by_table[$cache_key] = $columns;
+
+    return $columns;
+}
+
+/**
+ * @param list<array<string, mixed>> $rows_to_append
+ */
+function api_booking_append_rows(array &$rows, array $rows_to_append): void {
+    foreach ($rows_to_append as $row_to_append) {
+        $rows[] = $row_to_append;
+    }
+}
+
+/**
  * @param array<string, mixed> $appointment_type
  * @param list<array<string, mixed>> $custom_slot_configs
  * @return list<array<string, mixed>>
@@ -114,6 +148,8 @@ function api_booking_reserved_rows_for_schedule_date(
     $appointment_type_id = array_int_value($appointment_type, 'id');
     $schedule_admin_user_id = array_int_value($appointment_type, 'admin_user_id');
     $default_duration = max(1, array_int_value($appointment_type, 'duration_minutes', 60));
+    $buffer_before_minutes = max(0, array_int_value($appointment_type, 'buffer_before_minutes', 0));
+    $buffer_after_minutes = max(0, array_int_value($appointment_type, 'buffer_after_minutes', 0));
 
     if ($custom_slot_configs !== []) {
         foreach (api_booking_assoc_rows($custom_slot_configs) as $slot_config) {
@@ -132,8 +168,8 @@ function api_booking_reserved_rows_for_schedule_date(
                     'appointment_time' => substr($slot_start, 0, 5),
                     'duration_minutes' => $range_end_minutes - $range_start_minutes,
                     'appointment_type_id' => $appointment_type_id,
-                    'b_buffer_before' => 0,
-                    'b_buffer_after' => 0,
+                    'b_buffer_before' => $buffer_before_minutes,
+                    'b_buffer_after' => $buffer_after_minutes,
                     'pet_count' => 0,
                     'schedule_admin_user_id' => $schedule_admin_user_id,
                 ];
@@ -150,8 +186,8 @@ function api_booking_reserved_rows_for_schedule_date(
                 'appointment_time' => substr($slot_time, 0, 5),
                 'duration_minutes' => $default_duration,
                 'appointment_type_id' => $appointment_type_id,
-                'b_buffer_before' => 0,
-                'b_buffer_after' => 0,
+                'b_buffer_before' => $buffer_before_minutes,
+                'b_buffer_after' => $buffer_after_minutes,
                 'pet_count' => 0,
                 'schedule_admin_user_id' => $schedule_admin_user_id,
             ];
@@ -171,8 +207,8 @@ function api_booking_reserved_rows_for_schedule_date(
         'appointment_time' => substr($day_start, 0, 5),
         'duration_minutes' => $window_end_minutes - $window_start_minutes,
         'appointment_type_id' => $appointment_type_id,
-        'b_buffer_before' => 0,
-        'b_buffer_after' => 0,
+        'b_buffer_before' => $buffer_before_minutes,
+        'b_buffer_after' => $buffer_after_minutes,
         'pet_count' => 0,
         'schedule_admin_user_id' => $schedule_admin_user_id,
     ]];
@@ -192,12 +228,34 @@ function api_booking_reserved_mini_session_rows(
         return [];
     }
 
+    $appointment_type_columns = api_booking_table_columns($conn, 'appointment_types');
+    $select_map = [
+        'id' => 'id',
+        'admin_user_id' => in_array('admin_user_id', $appointment_type_columns, true) ? 'admin_user_id' : '0 AS admin_user_id',
+        'available_days' => in_array('available_days', $appointment_type_columns, true) ? 'available_days' : "NULL AS available_days",
+        'available_start_time' => in_array('available_start_time', $appointment_type_columns, true) ? 'available_start_time' : "'09:00' AS available_start_time",
+        'available_end_time' => in_array('available_end_time', $appointment_type_columns, true) ? 'available_end_time' : "'17:00' AS available_end_time",
+        'schedule_type' => in_array('schedule_type', $appointment_type_columns, true) ? 'schedule_type' : "'recurring' AS schedule_type",
+        'specific_date' => in_array('specific_date', $appointment_type_columns, true) ? 'specific_date' : "NULL AS specific_date",
+        'specific_dates' => in_array('specific_dates', $appointment_type_columns, true) ? 'specific_dates' : "NULL AS specific_dates",
+        'per_day_schedule' => in_array('per_day_schedule', $appointment_type_columns, true) ? 'per_day_schedule' : "NULL AS per_day_schedule",
+        'duration_minutes' => in_array('duration_minutes', $appointment_type_columns, true) ? 'duration_minutes' : '60 AS duration_minutes',
+        'buffer_before_minutes' => in_array('buffer_before_minutes', $appointment_type_columns, true) ? 'buffer_before_minutes' : '0 AS buffer_before_minutes',
+        'buffer_after_minutes' => in_array('buffer_after_minutes', $appointment_type_columns, true) ? 'buffer_after_minutes' : '0 AS buffer_after_minutes',
+    ];
+    $where_clauses = ['is_active = 1', 'is_mini_session = 1', 'id != ?'];
+    $params = [$appointment_type_id];
+    if ($target_admin_user_id > 0 && in_array('admin_user_id', $appointment_type_columns, true)) {
+        $where_clauses[] = '(COALESCE(admin_user_id, 0) = 0 OR admin_user_id = ?)';
+        $params[] = $target_admin_user_id;
+    }
+
     $stmt = $conn->prepare("
-        SELECT *
+        SELECT " . implode(', ', $select_map) . "
         FROM appointment_types
-        WHERE is_active = 1 AND is_mini_session = 1 AND id != ?
-    ");
-    $stmt->execute([$appointment_type_id]);
+        WHERE " . implode(' AND ', $where_clauses)
+    );
+    $stmt->execute($params);
     $mini_session_types = api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
     if ($mini_session_types === []) {
         return [];
@@ -205,11 +263,6 @@ function api_booking_reserved_mini_session_rows(
 
     $reserved_rows = [];
     foreach ($mini_session_types as $mini_session_type) {
-        $schedule_admin_user_id = array_int_value($mini_session_type, 'admin_user_id');
-        if ($target_admin_user_id > 0 && $schedule_admin_user_id > 0 && $schedule_admin_user_id !== $target_admin_user_id) {
-            continue;
-        }
-
         $schedule_type = array_string_value($mini_session_type, 'schedule_type', 'recurring');
         if ($schedule_type === 'specific_date') {
             $specific_dates = api_booking_assoc_rows(array_string_value($mini_session_type, 'specific_dates'));
@@ -219,7 +272,7 @@ function api_booking_reserved_mini_session_rows(
                     continue;
                 }
 
-                $reserved_rows = array_merge(
+                api_booking_append_rows(
                     $reserved_rows,
                     api_booking_reserved_rows_for_schedule_date(
                         $mini_session_type,
@@ -234,7 +287,7 @@ function api_booking_reserved_mini_session_rows(
             if ($specific_dates === []) {
                 $legacy_specific_date = array_string_value($mini_session_type, 'specific_date');
                 if ($legacy_specific_date !== '' && $legacy_specific_date >= $from_date && $legacy_specific_date <= $to_date) {
-                    $reserved_rows = array_merge(
+                    api_booking_append_rows(
                         $reserved_rows,
                         api_booking_reserved_rows_for_schedule_date(
                             $mini_session_type,
@@ -277,7 +330,7 @@ function api_booking_reserved_mini_session_rows(
                 }
             }
 
-            $reserved_rows = array_merge(
+            api_booking_append_rows(
                 $reserved_rows,
                 api_booking_reserved_rows_for_schedule_date($mini_session_type, $check_date, $day_start, $day_end)
             );
