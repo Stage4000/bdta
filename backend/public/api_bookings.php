@@ -1014,7 +1014,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             if ($invoice !== null) {
                 $invoice_email_result = $email_service->sendInvoiceEmail($invoice, $invoice_items);
                 if (!empty($invoice_email_result['success'])) {
-                    api_booking_mark_invoice_sent($conn, safe_int($invoice['id'] ?? 0));
+                    api_booking_mark_invoice_sent($conn, safe_int($invoice['id']));
                 }
             }
         } catch (Throwable $e) {

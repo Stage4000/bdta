@@ -314,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $invoice_number = $fallback_invoice_number;
                 }
                 $issue_date = date('Y-m-d');
-                $due_date = date('Y-m-d', safe_timestamp(strtotime($booking_date . " +{$invoice_due_days} days")));
+                $due_date = date('Y-m-d', safe_timestamp(strtotime(scalar_string($booking_date) . " +{$invoice_due_days} days")));
                 $pay_token = bin2hex(random_bytes(32));
                 $invoice_line_description = trim(scalar_string($apt_type['name'] ?? ''));
                 $appointment_type_description = trim(scalar_string($apt_type['description'] ?? ''));
@@ -382,7 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 invoice_sent_at = COALESCE(invoice_sent_at, CURRENT_TIMESTAMP)
                             WHERE id = ?
                         ");
-                        $stmt->execute([safe_int($auto_invoice['id'] ?? 0)]);
+                        $stmt->execute([safe_int($auto_invoice['id'])]);
                     }
                 }
             }
