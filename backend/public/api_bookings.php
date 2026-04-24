@@ -103,6 +103,11 @@ function api_booking_filter_schedule_rows(array $rows, int $admin_user_id): arra
  */
 function api_booking_table_columns(SafePDO $conn, string $table_name): array {
     static $columns_by_table = [];
+    $allowed_table_names = ['appointment_types'];
+    if (!in_array($table_name, $allowed_table_names, true)) {
+        throw new RuntimeException('Unsupported table lookup requested.');
+    }
+
     $cache_key = spl_object_id($conn) . ':' . $table_name;
     if (isset($columns_by_table[$cache_key])) {
         return $columns_by_table[$cache_key];
