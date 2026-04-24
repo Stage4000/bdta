@@ -293,12 +293,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $auto_invoice_items = [];
             if ($apt_type['auto_invoice']) {
                 $default_amount = floatval($apt_type['default_amount'] ?? 0);
-                $invoice_due_days = (int)($apt_type['invoice_due_days'] ?? 7);
+                $invoice_due_days = max(0, (int)($apt_type['invoice_due_days'] ?? 7));
                 $invoice_number_stmt = $conn->prepare("SELECT COUNT(*) FROM invoices WHERE invoice_number = ?");
-                do {
-                    $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-                    $invoice_number_stmt->execute([$invoice_number]);
-                } while (safe_int($invoice_number_stmt->fetchColumn()) > 0);
+                $invoice_number = null;
+                $max_invoice_number_attempts = 10;
+                for ($invoice_attempt = 0; $invoice_attempt < $max_invoice_number_attempts; $invoice_attempt++) {
+                    $candidate_invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+                    $invoice_number_stmt->execute([$candidate_invoice_number]);
+                    if (safe_int($invoice_number_stmt->fetchColumn()) === 0) {
+                        $invoice_number = $candidate_invoice_number;
+                        break;
+                    }
+                }
+                if ($invoice_number === null) {
+                    $fallback_invoice_number = 'INV-' . date('Ymd') . '-'
+                        . substr(str_replace('.', '', (string) microtime(true)), -10)
+                        . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+                    $invoice_number_stmt->execute([$fallback_invoice_number]);
+                    if (safe_int($invoice_number_stmt->fetchColumn()) > 0) {
+                        throw new RuntimeException('Unable to generate a unique invoice number.');
+                    }
+                    $invoice_number = $fallback_invoice_number;
+                }
                 $issue_date = date('Y-m-d');
                 $due_date = date('Y-m-d', safe_timestamp(strtotime($booking_date . " +{$invoice_due_days} days")));
                 $pay_token = bin2hex(random_bytes(32));
@@ -359,7 +375,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $email_service = new EmailService(null, $conn);
                 $email_service->sendBookingConfirmation($new_booking);
                 if ($auto_invoice !== null) {
-                    $email_service->sendInvoiceEmail($auto_invoice, $auto_invoice_items);
+                    $invoice_email_result = $email_service->sendInvoiceEmail($auto_invoice, $auto_invoice_items);
+                    if (!empty($invoice_email_result['success'])) {
+                        $stmt = $conn->prepare("
+                            UPDATE invoices
+                            SET
+                                status = CASE WHEN status = 'draft' THEN 'sent' ELSE status END,
+                                invoice_sent_at = CURRENT_TIMESTAMP
+                            WHERE id = ?
+                        ");
+                        $stmt->execute([safe_int($auto_invoice['id'] ?? 0)]);
+                    }
                 }
             }
 

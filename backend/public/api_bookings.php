@@ -134,12 +134,39 @@ function api_booking_append_rows(array &$rows, array $rows_to_append): void {
 
 function api_booking_generate_invoice_number(SafePDO $conn): string {
     $stmt = $conn->prepare("SELECT COUNT(*) FROM invoices WHERE invoice_number = ?");
-    do {
+    $max_attempts = 10;
+    for ($attempt = 0; $attempt < $max_attempts; $attempt++) {
         $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
         $stmt->execute([$invoice_number]);
-    } while (safe_int($stmt->fetchColumn()) > 0);
+        if (safe_int($stmt->fetchColumn()) === 0) {
+            return $invoice_number;
+        }
+    }
+
+    $invoice_number = 'INV-' . date('Ymd') . '-'
+        . substr(str_replace('.', '', (string) microtime(true)), -10)
+        . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+    $stmt->execute([$invoice_number]);
+    if (safe_int($stmt->fetchColumn()) > 0) {
+        throw new RuntimeException('Unable to generate a unique invoice number.');
+    }
 
     return $invoice_number;
+}
+
+function api_booking_mark_invoice_sent(SafePDO $conn, int $invoice_id): void {
+    if ($invoice_id <= 0) {
+        return;
+    }
+
+    $invoice_sent_at = date('Y-m-d H:i:s');
+    $conn->prepare("
+        UPDATE invoices
+        SET
+            status = CASE WHEN status = 'draft' THEN 'sent' ELSE status END,
+            invoice_sent_at = COALESCE(invoice_sent_at, ?)
+        WHERE id = ?
+    ")->execute([$invoice_sent_at, $invoice_id]);
 }
 
 /**
@@ -988,7 +1015,10 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 ? $email_service->sendBookingRequest($booking)
                 : $email_service->sendBookingConfirmation($booking);
             if ($invoice !== null) {
-                $email_service->sendInvoiceEmail($invoice, $invoice_items);
+                $invoice_email_result = $email_service->sendInvoiceEmail($invoice, $invoice_items);
+                if (!empty($invoice_email_result['success'])) {
+                    api_booking_mark_invoice_sent($conn, safe_int($invoice['id'] ?? 0));
+                }
             }
         } catch (Throwable $e) {
             error_log('api_booking_create_booking: booking email failed for booking #' . $booking_id . ': ' . $e->getMessage());

@@ -126,7 +126,8 @@ $conn->exec('
         total_amount REAL DEFAULT 0,
         notes TEXT,
         status TEXT,
-        pay_token TEXT
+        pay_token TEXT,
+        invoice_sent_at TEXT
     )
 ');
 $conn->exec('
@@ -262,11 +263,13 @@ $result = api_booking_create_booking($conn, [
 ]);
 
 assertPublicBookingAutoInvoice(($result['success'] ?? false) === true, 'Expected auto-invoice booking to succeed.');
-$invoice = $conn->query('SELECT invoice_number, due_date, total_amount, pay_token FROM invoices ORDER BY id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+$invoice = $conn->query('SELECT invoice_number, due_date, total_amount, pay_token, status, invoice_sent_at FROM invoices ORDER BY id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
 assertPublicBookingAutoInvoice(is_array($invoice), 'Expected an invoice row to be created for auto-invoice bookings.');
 assertPublicBookingAutoInvoice(($invoice['due_date'] ?? '') === '2026-05-25', 'Expected invoice due date to be offset from the appointment date.');
 assertPublicBookingAutoInvoice(abs((float) ($invoice['total_amount'] ?? 0) - 125.50) < 0.0001, 'Expected invoice total amount to match the appointment type default amount.');
 assertPublicBookingAutoInvoice(trim((string) ($invoice['pay_token'] ?? '')) !== '', 'Expected auto-generated invoices to include a guest payment token.');
+assertPublicBookingAutoInvoice(($invoice['status'] ?? '') === 'draft', 'Expected failed invoice email sends to leave the invoice in draft status.');
+assertPublicBookingAutoInvoice(($invoice['invoice_sent_at'] ?? null) === null, 'Expected failed invoice email sends to leave invoice_sent_at unset.');
 
 $invoice_item = $conn->query('SELECT description, amount FROM invoice_items ORDER BY id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
 assertPublicBookingAutoInvoice(is_array($invoice_item), 'Expected an invoice item row to be created.');
@@ -277,6 +280,16 @@ $mail_rows = $conn->query('SELECT mail_type, subject, body_text FROM client_emai
 assertPublicBookingAutoInvoice(count($mail_rows) === 2, 'Expected both the booking confirmation and invoice email attempts to be logged.');
 assertPublicBookingAutoInvoice(($mail_rows[1]['mail_type'] ?? '') === EmailService::MAIL_TYPE_INVOICE, 'Expected the second logged email to be the invoice email.');
 assertPublicBookingAutoInvoice(str_contains((string) ($mail_rows[1]['body_text'] ?? ''), 'Auto Invoice Session — Detailed session description'), 'Expected the invoice email body to include the appointment type description.');
+
+$conn->prepare("
+    INSERT INTO invoices (invoice_number, client_id, issue_date, due_date, total_amount, status, pay_token)
+    VALUES ('INV-SUCCESS', 1, '2026-05-20', '2026-05-25', 125.50, 'draft', 'tok-success')
+")->execute();
+$sent_invoice_id = (int) $conn->lastInsertId();
+api_booking_mark_invoice_sent($conn, $sent_invoice_id);
+$sent_invoice = $conn->query("SELECT status, invoice_sent_at FROM invoices WHERE id = {$sent_invoice_id}")->fetch(PDO::FETCH_ASSOC);
+assertPublicBookingAutoInvoice(($sent_invoice['status'] ?? '') === 'sent', 'Expected successful invoice sends to mark draft invoices as sent.');
+assertPublicBookingAutoInvoice(trim((string) ($sent_invoice['invoice_sent_at'] ?? '')) !== '', 'Expected successful invoice sends to store invoice_sent_at.');
 
 resetPublicBookingAutoInvoiceState($conn);
 
