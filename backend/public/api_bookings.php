@@ -123,6 +123,7 @@ function api_booking_table_columns(SafePDO $conn, string $table_name): array {
 }
 
 /**
+ * @param list<array<string, mixed>> $rows
  * @param list<array<string, mixed>> $rows_to_append
  */
 function api_booking_append_rows(array &$rows, array $rows_to_append): void {
@@ -143,6 +144,7 @@ function api_booking_reserved_rows_for_schedule_date(
     string $day_end,
     array $custom_slot_configs = []
 ): array {
+    /** @var list<array<string, mixed>> $reserved_rows */
     $reserved_rows = [];
     $appointment_type_id = array_int_value($appointment_type, 'id');
     $schedule_admin_user_id = array_int_value($appointment_type, 'admin_user_id');
@@ -260,6 +262,7 @@ function api_booking_reserved_mini_session_rows(
         return [];
     }
 
+    /** @var list<array<string, mixed>> $reserved_rows */
     $reserved_rows = [];
     foreach ($mini_session_types as $mini_session_type) {
         $schedule_type = array_string_value($mini_session_type, 'schedule_type', 'recurring');
@@ -319,8 +322,9 @@ function api_booking_reserved_mini_session_rows(
 
             $day_start = array_string_value($mini_session_type, 'available_start_time', '09:00');
             $day_end = array_string_value($mini_session_type, 'available_end_time', '17:00');
-            $day_config = $per_day_schedule[(string) $day_of_week] ?? [];
-            if ($day_config !== []) {
+            $day_config_key = (string) $day_of_week;
+            $day_config = $per_day_schedule[$day_config_key] ?? null;
+            if (is_array($day_config)) {
                 $override_start = array_string_value($day_config, 'start');
                 $override_end = array_string_value($day_config, 'end');
                 if ($override_start !== '' && $override_end !== '' && $override_start < $override_end) {
@@ -337,7 +341,7 @@ function api_booking_reserved_mini_session_rows(
         }
     }
 
-    return $reserved_rows;
+    return array_values($reserved_rows);
 }
 
 /**
