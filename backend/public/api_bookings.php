@@ -132,6 +132,16 @@ function api_booking_append_rows(array &$rows, array $rows_to_append): void {
     }
 }
 
+function api_booking_generate_invoice_number(SafePDO $conn): string {
+    $stmt = $conn->prepare("SELECT COUNT(*) FROM invoices WHERE invoice_number = ?");
+    do {
+        $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+        $stmt->execute([$invoice_number]);
+    } while (safe_int($stmt->fetchColumn()) > 0);
+
+    return $invoice_number;
+}
+
 /**
  * @param array<string, mixed> $appointment_type
  * @param list<array<string, mixed>> $custom_slot_configs
@@ -903,7 +913,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         if (!$is_pending_request && $apt_type !== [] && array_int_value($apt_type, 'auto_invoice') === 1) {
             $default_amount = safe_float($apt_type['default_amount'] ?? 0);
             $invoice_due_days = max(0, array_int_value($apt_type, 'invoice_due_days', 7));
-            $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+            $invoice_number = api_booking_generate_invoice_number($conn);
             $issue_date = date('Y-m-d');
             $due_date = date('Y-m-d', safe_timestamp(strtotime($appointment_date . " +{$invoice_due_days} days")));
             $pay_token = bin2hex(random_bytes(32));
