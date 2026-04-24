@@ -112,7 +112,7 @@ if (!class_exists('Google_Service_Calendar', false)) {
 
         public function __construct(Google_Client $client)
         {
-            count($client->scopes);
+            $_ = $client;
             $this->events = new GoogleCalendarDeletionEventsStub();
         }
     }
