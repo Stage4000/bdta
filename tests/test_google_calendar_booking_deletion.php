@@ -109,11 +109,10 @@ if (!class_exists('Google_Service_Calendar', false)) {
         public const CALENDAR = 'https://www.googleapis.com/auth/calendar';
 
         public GoogleCalendarDeletionEventsStub $events;
-        private Google_Client $client;
 
         public function __construct(Google_Client $client)
         {
-            $this->client = $client;
+            count($client->scopes);
             $this->events = new GoogleCalendarDeletionEventsStub();
         }
     }
