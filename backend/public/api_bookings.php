@@ -102,18 +102,14 @@ function api_booking_filter_schedule_rows(array $rows, int $admin_user_id): arra
  * @return list<string>
  */
 function api_booking_table_columns(SafePDO $conn, string $table_name): array {
-    static $columns_by_table = [];
-    $allowed_table_names = ['appointment_types'];
-    if (!in_array($table_name, $allowed_table_names, true)) {
-        throw new RuntimeException('Unsupported table lookup requested.');
+    switch ($table_name) {
+        case 'appointment_types':
+            $stmt = $conn->query('SELECT * FROM appointment_types LIMIT 0');
+            break;
+        default:
+            throw new RuntimeException('Unsupported table lookup requested.');
     }
 
-    $cache_key = spl_object_id($conn) . ':' . $table_name;
-    if (isset($columns_by_table[$cache_key])) {
-        return $columns_by_table[$cache_key];
-    }
-
-    $stmt = $conn->query("SELECT * FROM {$table_name} LIMIT 0");
     $columns = [];
     for ($index = 0, $count = $stmt->columnCount(); $index < $count; $index++) {
         $column_meta = $stmt->getColumnMeta($index);
@@ -122,8 +118,6 @@ function api_booking_table_columns(SafePDO $conn, string $table_name): array {
             $columns[] = $column_name;
         }
     }
-
-    $columns_by_table[$cache_key] = $columns;
 
     return $columns;
 }

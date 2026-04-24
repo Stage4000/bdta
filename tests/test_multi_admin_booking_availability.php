@@ -251,6 +251,8 @@ $admin_two_payload = runAvailabilityScenario($conn, $fixture['admin_two_type_id'
 
 $admin_one_slots = $admin_one_payload['available_slots'];
 $admin_two_slots = $admin_two_payload['available_slots'];
+$mini_session_buffer_before_minutes = 15;
+$mini_session_buffer_after_minutes = 15;
 
 assertMultiAdminAvailability(!in_array('10:00', $admin_one_slots, true), 'Expected an admin\'s own booking to block that admin\'s schedule.');
 assertMultiAdminAvailability(in_array('10:00', $admin_two_slots, true), 'Expected one admin\'s booking to remain available for a different assigned admin.');
@@ -261,9 +263,15 @@ $mini_session_type_stmt = $conn->prepare("
         available_start_time, available_end_time, time_slot_interval,
         schedule_type, specific_date, is_mini_session, mini_session_location,
         buffer_before_minutes, buffer_after_minutes
-    ) VALUES (?, 1, ?, 60, '[0,1,2,3,4,5,6]', '10:00', '12:00', 60, 'specific_date', '2026-06-03', 1, ?, 15, 15)
+    ) VALUES (?, 1, ?, 60, '[0,1,2,3,4,5,6]', '10:00', '12:00', 60, 'specific_date', '2026-06-03', 1, ?, ?, ?)
 ");
-$mini_session_type_stmt->execute(['Mini Session Event', 1, 'Dog Park']);
+$mini_session_type_stmt->execute([
+    'Mini Session Event',
+    1,
+    'Dog Park',
+    $mini_session_buffer_before_minutes,
+    $mini_session_buffer_after_minutes,
+]);
 $mini_session_type_id = (int) $conn->lastInsertId();
 
 $short_type_stmt = $conn->prepare("
