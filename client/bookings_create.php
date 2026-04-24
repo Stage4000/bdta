@@ -306,9 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 if ($invoice_number === null) {
-                    $fallback_invoice_number = 'INV-' . date('Ymd') . '-'
-                        . substr(str_replace('.', '', (string) microtime(true)), -10)
-                        . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+                    $fallback_invoice_number = 'INV-' . date('Ymd') . '-' . bin2hex(random_bytes(8));
                     $invoice_number_stmt->execute([$fallback_invoice_number]);
                     if (safe_int($invoice_number_stmt->fetchColumn()) > 0) {
                         throw new RuntimeException('Unable to generate a unique invoice number.');

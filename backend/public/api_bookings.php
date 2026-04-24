@@ -143,9 +143,7 @@ function api_booking_generate_invoice_number(SafePDO $conn): string {
         }
     }
 
-    $invoice_number = 'INV-' . date('Ymd') . '-'
-        . substr(str_replace('.', '', (string) microtime(true)), -10)
-        . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+    $invoice_number = 'INV-' . date('Ymd') . '-' . bin2hex(random_bytes(8));
     $stmt->execute([$invoice_number]);
     if (safe_int($stmt->fetchColumn()) > 0) {
         throw new RuntimeException('Unable to generate a unique invoice number.');
