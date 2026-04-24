@@ -16,6 +16,8 @@ if ($submission_id <= 0) {
 
 $stmt = $conn->prepare("
     SELECT fs.*, ft.name AS form_name, ft.form_type, ft.fields,
+           COALESCE(ft.is_internal, 0) AS template_is_internal,
+           ft.show_in_client_portal AS template_show_in_client_portal,
            b.service_type, b.appointment_date, b.appointment_time
     FROM form_submissions fs
     JOIN form_templates ft ON fs.template_id = ft.id
@@ -26,7 +28,11 @@ $stmt = $conn->prepare("
 $stmt->execute([$submission_id, $client_id]);
 $submission = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!is_array($submission) || !bdta_form_submission_requires_client_review(array_string_value($submission, 'form_type'))) {
+if (
+    !is_array($submission)
+    || !bdta_form_submission_requires_client_review(array_string_value($submission, 'form_type'))
+    || !bdta_form_submission_is_client_portal_visible($submission)
+) {
     setFlashMessage('That follow-up note is not available in the portal.', 'error');
     redirect(PORTAL_URL . 'agreements.php');
 }

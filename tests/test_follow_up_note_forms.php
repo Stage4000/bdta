@@ -17,7 +17,7 @@ function assertFollowUpNoteTest(bool $condition, string $message): void
 }
 
 $cleanup_submission_ids = [];
-$cleanup_template_id = 0;
+$cleanup_template_ids = [];
 $cleanup_booking_id = 0;
 $cleanup_appointment_type_id = 0;
 $cleanup_client_id = 0;
@@ -63,15 +63,15 @@ try {
         ['label' => 'Homework', 'type' => 'textarea'],
     ]);
     $conn->prepare("
-        INSERT INTO form_templates (name, description, form_type, fields, is_internal, is_active)
-        VALUES (?, ?, 'follow_up_note', ?, 1, 1)
+        INSERT INTO form_templates (name, description, form_type, fields, is_internal, show_in_client_portal, is_active)
+        VALUES (?, ?, 'follow_up_note', ?, 1, 1, 1)
     ")->execute([
         'Follow Up Note ' . $suffix,
         'Completed by staff after the appointment.',
         $fields,
     ]);
     $template_id = (int) $conn->lastInsertId();
-    $cleanup_template_id = $template_id;
+    $cleanup_template_ids[] = $template_id;
 
     $request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
     $first_submission_id = array_int_value($request, 'submission_id');
@@ -140,6 +140,49 @@ try {
         'Expected follow-up portal notification to link to the review page.'
     );
 
+    $conn->prepare("
+        INSERT INTO form_templates (name, description, form_type, fields, is_internal, show_in_client_portal, is_active)
+        VALUES (?, ?, 'follow_up_note', ?, 1, 0, 1)
+    ")->execute([
+        'Hidden Follow Up Note ' . $suffix,
+        'Completed by staff after the appointment but hidden from the portal.',
+        $fields,
+    ]);
+    $hidden_template_id = (int) $conn->lastInsertId();
+    $cleanup_template_ids[] = $hidden_template_id;
+
+    $hidden_request = bdta_create_form_request($conn, $hidden_template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
+    $hidden_submission_id = array_int_value($hidden_request, 'submission_id');
+    $cleanup_submission_ids[] = $hidden_submission_id;
+    $conn->prepare("
+        UPDATE form_submissions
+        SET responses = ?, status = 'submitted', submitted_at = '2026-01-03 09:00:00'
+        WHERE id = ?
+    ")->execute([json_encode(['0' => 'Private update', '1' => 'No portal view']), $hidden_submission_id]);
+
+    $latest_email_id_stmt = $conn->query("SELECT COALESCE(MAX(id), 0) FROM client_emails");
+    $latest_email_id_before_hidden_notify = safe_int($latest_email_id_stmt->fetchColumn());
+    $latest_notification_id_stmt = $conn->query("SELECT COALESCE(MAX(id), 0) FROM notifications");
+    $latest_notification_id_before_hidden_notify = safe_int($latest_notification_id_stmt->fetchColumn());
+
+    $hidden_notify_result = bdta_notify_follow_up_note_completed($conn, $hidden_submission_id);
+    assertFollowUpNoteTest($hidden_notify_result['success'] === false, 'Expected hidden follow-up portal notifications to be suppressed.');
+    assertFollowUpNoteTest(
+        $hidden_notify_result['message'] === 'This follow-up note is hidden from the client portal.',
+        'Expected hidden follow-up notifications to explain why the client was not notified.'
+    );
+
+    $latest_email_id_stmt = $conn->query("SELECT COALESCE(MAX(id), 0) FROM client_emails");
+    assertFollowUpNoteTest(
+        safe_int($latest_email_id_stmt->fetchColumn()) === $latest_email_id_before_hidden_notify,
+        'Hidden follow-up notes should not create a client email.'
+    );
+    $latest_notification_id_stmt = $conn->query("SELECT COALESCE(MAX(id), 0) FROM notifications");
+    assertFollowUpNoteTest(
+        safe_int($latest_notification_id_stmt->fetchColumn()) === $latest_notification_id_before_hidden_notify,
+        'Hidden follow-up notes should not create a portal notification.'
+    );
+
     $second_request = bdta_create_form_request($conn, $template_id, $client_id, $booking_id, null, date('Y-m-d H:i:s'));
     $second_submission_id = array_int_value($second_request, 'submission_id');
     $cleanup_submission_ids[] = $second_submission_id;
@@ -186,8 +229,18 @@ try {
     if ($cleanup_booking_id > 0) {
         $conn->prepare("DELETE FROM bookings WHERE id = ?")->execute([(int) $cleanup_booking_id]);
     }
-    if ($cleanup_template_id > 0) {
-        $conn->prepare("DELETE FROM form_templates WHERE id = ?")->execute([(int) $cleanup_template_id]);
+    if ($cleanup_template_ids !== []) {
+        $conn->beginTransaction();
+        try {
+            $delete_template_stmt = $conn->prepare("DELETE FROM form_templates WHERE id = ?");
+            foreach ($cleanup_template_ids as $cleanup_template_id) {
+                $delete_template_stmt->execute([(int) $cleanup_template_id]);
+            }
+            $conn->commit();
+        } catch (Throwable $cleanup_error) {
+            $conn->rollBack();
+            throw $cleanup_error;
+        }
     }
     if ($cleanup_appointment_type_id > 0) {
         $conn->prepare("DELETE FROM appointment_types WHERE id = ?")->execute([(int) $cleanup_appointment_type_id]);

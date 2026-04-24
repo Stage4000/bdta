@@ -121,6 +121,11 @@ if (!is_string($public_form_page)) {
     throw new RuntimeException('Expected to read the public form submission page.');
 }
 
+$portal_form_view_page = file_get_contents(dirname(__DIR__) . '/portal/form_view.php');
+if (!is_string($portal_form_view_page)) {
+    throw new RuntimeException('Expected to read the portal form view page.');
+}
+
 $visibility_helper_start = strpos($follow_up_notes, 'function bdta_form_submission_is_client_portal_visible');
 $visibility_helper_end = strpos($follow_up_notes, 'function bdta_get_client_portal_form_submission_url');
 if ($visibility_helper_start === false || $visibility_helper_end === false || $visibility_helper_end <= $visibility_helper_start) {
@@ -156,6 +161,35 @@ function bdta_form_submission_requires_client_review(string \$form_type): bool
 function bdta_form_type_forced_internal(string \$form_type): int
 {
     return \$form_type === 'pet_form' ? 1 : 0;
+}
+
+function bdta_form_template_defaults_to_client_portal_visible(string \$form_type, int \$is_internal = 0): bool
+{
+    return \$form_type === 'follow_up_note' || (\$is_internal === 0 && bdta_form_type_forced_internal(\$form_type) === 0);
+}
+
+function bdta_form_template_is_client_portal_visible(array \$template): bool
+{
+    foreach (['show_in_client_portal', 'template_show_in_client_portal'] as \$visibility_key) {
+        if (array_key_exists(\$visibility_key, \$template) && \$template[\$visibility_key] !== null && \$template[\$visibility_key] !== '') {
+            return array_int_value(\$template, \$visibility_key) !== 0;
+        }
+    }
+
+    if ((\$template['form_type'] ?? '') === 'follow_up_note') {
+        return true;
+    }
+
+    foreach (['is_internal', 'template_is_internal'] as \$internal_key) {
+        if (array_key_exists(\$internal_key, \$template)) {
+            return bdta_form_template_defaults_to_client_portal_visible(
+                array_string_value(\$template, 'form_type'),
+                array_int_value(\$template, \$internal_key)
+            );
+        }
+    }
+
+    return false;
 }
 
 {$visibility_helper}
@@ -210,6 +244,14 @@ assertFollowUpPortalSource(
     'Portal visibility helper should still allow follow-up review submissions.'
 );
 assertFollowUpPortalSource(
+    $portal_visibility(['form_type' => 'follow_up_note', 'template_show_in_client_portal' => 0]) === false,
+    'Portal visibility helper should hide follow-up submissions when the template is marked not to show in the client portal.'
+);
+assertFollowUpPortalSource(
+    $portal_visibility(['form_type' => 'pet_form', 'template_is_internal' => 1, 'template_show_in_client_portal' => 1]) === true,
+    'Portal visibility helper should allow portal-enabled admin/internal forms.'
+);
+assertFollowUpPortalSource(
     str_contains($agreements_page, 'bdta_get_client_portal_form_submission_url($fs)'),
     'Portal agreements page should route follow-up submissions to the portal review page.'
 );
@@ -234,8 +276,12 @@ assertFollowUpPortalSource(
     'Follow-up note helper should use the expected portal notification title.'
 );
 assertFollowUpPortalSource(
-    str_contains($public_form_page, "if (bdta_form_submission_requires_client_review(\$template_form_type)) {"),
-    'Follow-up form submissions should always trigger the client notification path.'
+    str_contains($public_form_page, 'bdta_form_template_is_client_portal_visible(is_array($template) ? $template : [])'),
+    'Follow-up form submissions should only notify clients when the template is visible in the client portal.'
+);
+assertFollowUpPortalSource(
+    str_contains($portal_form_view_page, "require_once '../backend/includes/follow_up_notes.php';"),
+    'Portal form view should include the follow-up notes helper before calling follow-up portal visibility helpers.'
 );
 
 echo "Follow-up portal source checks passed.\n";

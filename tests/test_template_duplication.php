@@ -108,8 +108,8 @@ try {
     $cleanup['appointment_type_ids'][] = $appointment_type_id;
 
     $conn->prepare("
-        INSERT INTO form_templates (name, description, form_type, fields, required_frequency, appointment_type_id, is_internal, is_active)
-        VALUES (?, ?, 'client_form', ?, 'annual', ?, 0, 1)
+        INSERT INTO form_templates (name, description, form_type, fields, required_frequency, appointment_type_id, is_internal, show_in_client_portal, is_active)
+        VALUES (?, ?, 'client_form', ?, 'annual', ?, 0, 1, 1)
     ")->execute([
         'Form Duplicate Test ' . $suffix,
         'Form description ' . $suffix,
@@ -122,7 +122,7 @@ try {
     $duplicated_form_id = duplicateFormTemplate($conn, $form_template_id);
     $cleanup['form_template_ids'][] = $duplicated_form_id;
 
-    $form_stmt = $conn->prepare("SELECT name, description, form_type, fields, required_frequency, appointment_type_id, is_internal, is_active FROM form_templates WHERE id = ?");
+    $form_stmt = $conn->prepare("SELECT name, description, form_type, fields, required_frequency, appointment_type_id, is_internal, show_in_client_portal, is_active FROM form_templates WHERE id = ?");
     $form_stmt->execute([$duplicated_form_id]);
     $form_copy = $form_stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -133,6 +133,7 @@ try {
         || $form_copy['required_frequency'] !== 'annual'
         || (int) $form_copy['appointment_type_id'] !== $appointment_type_id
         || (int) $form_copy['is_internal'] !== 0
+        || (int) $form_copy['show_in_client_portal'] !== 1
         || (int) $form_copy['is_active'] !== 1
     ) {
         throw new RuntimeException('Form template duplication did not preserve fields as expected.');

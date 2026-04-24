@@ -21,16 +21,13 @@ $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Form submissions
 $stmt = $conn->prepare("
-    SELECT fs.*, ft.name as form_title, ft.form_type, COALESCE(ft.is_internal, 0) AS template_is_internal
+    SELECT fs.*, ft.name as form_title, ft.form_type,
+           COALESCE(ft.is_internal, 0) AS template_is_internal,
+           ft.show_in_client_portal AS template_show_in_client_portal
     FROM form_submissions fs
     LEFT JOIN form_templates ft ON fs.template_id = ft.id
     WHERE fs.client_id = ?
       AND fs.status IN ('submitted', 'reviewed')
-      AND (
-          ft.id IS NULL
-          OR COALESCE(ft.is_internal, 0) = 0
-          OR ft.form_type = 'follow_up_note'
-      )
     ORDER BY fs.submitted_at DESC
 ");
 $stmt->execute([$client_id]);

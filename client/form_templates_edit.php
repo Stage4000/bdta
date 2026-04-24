@@ -26,10 +26,12 @@ $fields = [];
 $required_frequency = '';
 $appointment_type_id = null;
 $is_internal = 0;
+$show_in_client_portal = 1;
 $is_active = 1;
 if (!$is_edit && scalar_string($_GET['access'] ?? '') === 'internal') {
     $is_internal = 1;
 }
+$show_in_client_portal = bdta_form_template_defaults_to_client_portal_visible($form_type, $is_internal) ? 1 : 0;
 
 // If editing, load template
 if ($is_edit) {
@@ -47,6 +49,15 @@ if ($is_edit) {
         $is_internal = bdta_form_type_forced_internal($form_type) === 1
             ? 1
             : array_int_value($template, 'is_internal');
+        $default_show_in_client_portal = bdta_form_template_defaults_to_client_portal_visible($form_type, $is_internal) ? 1 : 0;
+        $template_show_in_client_portal = $template['show_in_client_portal'] ?? null;
+        if ($template_show_in_client_portal === null) {
+            $show_in_client_portal = $default_show_in_client_portal;
+        } else {
+            $show_in_client_portal = is_numeric($template_show_in_client_portal)
+                ? (int) $template_show_in_client_portal
+                : 0;
+        }
         $is_active = array_int_value($template, 'is_active');
     }
 }
@@ -64,6 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $is_internal = bdta_form_type_forced_internal($form_type) === 1
         ? 1
         : safe_int($_POST['is_internal'] ?? $is_internal);
+    $show_in_client_portal = safe_int(
+        $_POST['show_in_client_portal']
+            ?? (bdta_form_template_defaults_to_client_portal_visible($form_type, $is_internal) ? 1 : 0)
+    ) !== 0 ? 1 : 0;
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     $required_frequency = scalar_string($_POST['required_frequency'] ?? '');
     $appointment_type_id = !empty($_POST['appointment_type_id']) ? safe_int($_POST['appointment_type_id']) : null;
@@ -123,13 +138,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 UPDATE form_templates 
                 SET name = ?, description = ?, form_type = ?, fields = ?,
                     required_frequency = ?, appointment_type_id = ?, 
-                    is_internal = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+                    is_internal = ?, show_in_client_portal = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ");
             $stmt->execute([
                 $name, $description, $form_type, $fields_json,
                 $required_frequency, $appointment_type_id,
-                $is_internal, $is_active, $template_id
+                $is_internal, $show_in_client_portal, $is_active, $template_id
             ]);
             
             $_SESSION['flash_message'] = "Form template updated successfully!";
@@ -138,13 +153,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt = $conn->prepare("
                 INSERT INTO form_templates 
                 (name, description, form_type, fields, required_frequency, 
-                 appointment_type_id, is_internal, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 appointment_type_id, is_internal, show_in_client_portal, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name, $description, $form_type, $fields_json,
                 $required_frequency, $appointment_type_id,
-                $is_internal, $is_active
+                $is_internal, $show_in_client_portal, $is_active
             ]);
             
             $_SESSION['flash_message'] = "Form template created successfully!";
@@ -167,6 +182,7 @@ $form_access_state = bdta_get_form_template_access_state($form_type, $is_interna
 $effective_is_internal = $form_access_state['effective_internal'];
 $form_access_label = $form_access_state['label'];
 $form_access_help = $form_access_state['help'];
+$client_portal_state = bdta_get_form_template_client_portal_state($form_type, $effective_is_internal ? 1 : 0, $show_in_client_portal);
 $show_direct_link_card = $is_edit && bdta_form_type_allows_direct_link($form_type);
 $direct_link_is_public = bdta_form_type_allows_public_submission($form_type) && !$effective_is_internal;
 $json_encode_for_html = static function (array $value, string $fallback = '{}'): string {
@@ -224,6 +240,7 @@ require_once '../backend/includes/header.php';
     <form method="POST" id="templateForm">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="is_internal" value="<?= (int) $is_internal ?>">
+        <input type="hidden" name="show_in_client_portal" value="<?= (int) $show_in_client_portal ?>">
         <div class="row">
             <div class="col-md-8">
                 <div class="card mb-4">
@@ -434,7 +451,25 @@ require_once '../backend/includes/header.php';
                                 <small class="text-muted d-block" id="form_access_help"><?php echo htmlspecialchars($form_access_help); ?></small>
                             </div>
                         </div>
-                        
+
+                        <div class="mb-3">
+                            <label class="form-label">Client Portal Visibility</label>
+                            <div class="form-check form-switch mb-2">
+                                <input
+                                    type="checkbox"
+                                    class="form-check-input"
+                                    id="show_in_client_portal_toggle"
+                                    <?php echo $client_portal_state['effective_visible'] ? 'checked' : ''; ?>
+                                >
+                                <label class="form-check-label" for="show_in_client_portal_toggle">Show submissions in client portal</label>
+                            </div>
+                            <small class="form-text text-muted d-block mb-2" id="show_in_client_portal_toggle_help"><?php echo htmlspecialchars($client_portal_state['toggle_help']); ?></small>
+                            <div class="border rounded px-3 py-2 bg-light">
+                                <div class="fw-semibold" id="show_in_client_portal_label"><?php echo htmlspecialchars($client_portal_state['label']); ?></div>
+                                <small class="text-muted d-block" id="show_in_client_portal_help"><?php echo htmlspecialchars($client_portal_state['help']); ?></small>
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <div class="form-check">
                                 <input type="checkbox" name="is_active" class="form-check-input" 
@@ -512,8 +547,56 @@ require_once '../backend/includes/header.php';
 let fieldIndex = <?php echo count($fields); ?>;
 const formTypeMeta = <?= $form_type_js_meta_json ?>;
 const defaultFormAccess = <?= $default_form_access_json ?>;
+let clientPortalVisibilityTouched = <?= json_encode($is_edit) ?>;
 
-function syncFormTypeDetails() {
+function getDefaultClientPortalVisibility(formType, isInternal) {
+    return formType === 'follow_up_note' ? true : !isInternal;
+}
+
+function syncClientPortalVisibility(resetToDefault = false) {
+    const formTypeSelect = document.getElementById('form_type');
+    const showInClientPortalInput = document.querySelector('input[name="show_in_client_portal"]');
+    const showInClientPortalToggle = document.getElementById('show_in_client_portal_toggle');
+    const portalVisibilityLabel = document.getElementById('show_in_client_portal_label');
+    const portalVisibilityHelp = document.getElementById('show_in_client_portal_help');
+    const portalVisibilityToggleHelp = document.getElementById('show_in_client_portal_toggle_help');
+    const isInternalInput = document.querySelector('input[name="is_internal"]');
+
+    if (!formTypeSelect || !portalVisibilityLabel || !portalVisibilityHelp || !portalVisibilityToggleHelp) {
+        return;
+    }
+
+    const formType = formTypeSelect.value;
+    const isInternalValue = isInternalInput ? Number(isInternalInput.value) : 0;
+    const isRequestedInternal = !Number.isNaN(isInternalValue) && isInternalValue !== 0;
+    const forcedInternal = typeof formTypeMeta !== 'undefined'
+        && formTypeMeta[formType]
+        && formTypeMeta[formType].forceInternal === true;
+    const isInternal = forcedInternal || isRequestedInternal;
+    const defaultVisible = getDefaultClientPortalVisibility(formType, isInternal);
+
+    if (resetToDefault && showInClientPortalInput) {
+        showInClientPortalInput.value = defaultVisible ? '1' : '0';
+    }
+
+    const isVisible = showInClientPortalInput
+        ? Number(showInClientPortalInput.value) !== 0
+        : defaultVisible;
+
+    if (showInClientPortalToggle) {
+        showInClientPortalToggle.checked = isVisible;
+    }
+
+    portalVisibilityLabel.textContent = isVisible ? 'Shown in client portal' : 'Hidden from client portal';
+    portalVisibilityHelp.textContent = isVisible
+        ? 'Submitted responses for this template will be visible to clients in the client portal.'
+        : 'Submitted responses for this template will stay hidden from clients in the client portal.';
+    portalVisibilityToggleHelp.textContent = isVisible
+        ? 'Turn this off to keep submissions out of the client portal.'
+        : 'Turn this on to let clients review submitted responses in the client portal.';
+}
+
+function syncFormTypeDetails(resetPortalVisibility = false) {
     const formTypeSelect = document.getElementById('form_type');
     const isInternalInput = document.querySelector('input[name="is_internal"]');
     const isInternalToggle = document.getElementById('is_internal_toggle');
@@ -549,15 +632,27 @@ function syncFormTypeDetails() {
         isInternalToggle.checked = meta.forceInternal || isRequestedInternal;
         isInternalToggle.disabled = meta.forceInternal;
     }
+
+    syncClientPortalVisibility(resetPortalVisibility);
 }
 
-document.getElementById('form_type')?.addEventListener('change', syncFormTypeDetails);
+document.getElementById('form_type')?.addEventListener('change', function () {
+    syncFormTypeDetails(!clientPortalVisibilityTouched);
+});
 document.getElementById('is_internal_toggle')?.addEventListener('change', function () {
     const isInternalInput = document.querySelector('input[name="is_internal"]');
     if (isInternalInput) {
         isInternalInput.value = this.checked ? '1' : '0';
     }
-    syncFormTypeDetails();
+    syncFormTypeDetails(!clientPortalVisibilityTouched);
+});
+document.getElementById('show_in_client_portal_toggle')?.addEventListener('change', function () {
+    const showInClientPortalInput = document.querySelector('input[name="show_in_client_portal"]');
+    clientPortalVisibilityTouched = true;
+    if (showInClientPortalInput) {
+        showInClientPortalInput.value = this.checked ? '1' : '0';
+    }
+    syncClientPortalVisibility();
 });
 syncFormTypeDetails();
 

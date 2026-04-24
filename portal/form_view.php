@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/form_types.php';
+require_once '../backend/includes/follow_up_notes.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -19,6 +20,8 @@ $stmt = $conn->prepare("
            ft.name AS form_name,
            ft.form_type,
            ft.fields,
+           COALESCE(ft.is_internal, 0) AS template_is_internal,
+           ft.show_in_client_portal AS template_show_in_client_portal,
            p.name AS pet_name,
            b.appointment_date,
            b.appointment_time
@@ -28,7 +31,6 @@ $stmt = $conn->prepare("
     LEFT JOIN bookings b ON fs.booking_id = b.id
     WHERE fs.id = ?
       AND fs.client_id = ?
-      AND COALESCE(ft.is_internal, 0) = 0
       AND fs.status IN ('submitted', 'reviewed')
     LIMIT 1
 ");
@@ -37,7 +39,8 @@ $submission = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (
     !$submission
-    || bdta_form_type_forced_internal(array_string_value($submission, 'form_type')) === 1
+    || bdta_form_submission_requires_client_review(array_string_value($submission, 'form_type'))
+    || !bdta_form_submission_is_client_portal_visible($submission)
 ) {
     setFlashMessage('Form submission not found.', 'error');
     redirect(PORTAL_URL . 'agreements.php');
