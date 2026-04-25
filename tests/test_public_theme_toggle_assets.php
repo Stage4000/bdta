@@ -48,6 +48,7 @@ assertTrue(str_contains($siteCss, '.public-theme-toggle'), 'Expected public site
 assertTrue(str_contains($siteCss, '--bs-body-bg-rgb'), 'Expected shared floating toggle styling to use theme-aware Bootstrap body colors.');
 assertTrue(str_contains($siteCss, 'safe-area-inset-top'), 'Expected shared floating toggle styling to respect safe-area-aware top offsets.');
 assertTrue(str_contains($siteCss, 'top: calc(5rem + env(safe-area-inset-top, 0px));'), 'Expected shared floating toggle styling to sit below the public header on larger viewports.');
+assertTrue(str_contains($siteCss, 'safe-area-inset-bottom'), 'Expected shared floating toggle styling to support a safe-area-aware mobile bottom offset.');
 
 $indexPhpPath = dirname(__DIR__) . '/index.php';
 $indexPhp = file_get_contents($indexPhpPath);

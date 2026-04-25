@@ -453,7 +453,10 @@ footer a:hover {
     }
 
     .btn.public-theme-toggle {
-        top: calc(1rem + env(safe-area-inset-top, 0px));
+        top: auto;
+        right: auto;
+        bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+        left: 1rem;
     }
 }
 
