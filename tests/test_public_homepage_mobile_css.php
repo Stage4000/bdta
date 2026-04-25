@@ -16,17 +16,17 @@ if ($mobileBreakpointStart === false) {
     throw new RuntimeException('Expected public site CSS to expose the mobile breakpoint block.');
 }
 
-$tabletBreakpointStart = strpos($css, '@media (max-width: 991.98px)');
-if ($tabletBreakpointStart === false) {
+$responsiveBreakpointStart = strpos($css, '@media (max-width: 991.98px)');
+if ($responsiveBreakpointStart === false) {
     throw new RuntimeException('Expected public site CSS to expose the shared public responsive breakpoint block.');
 }
 
-$tabletNextMediaStart = strpos($css, '@media', $tabletBreakpointStart + 1);
-$tabletCss = $tabletNextMediaStart === false
-    ? substr($css, $tabletBreakpointStart)
-    : substr($css, $tabletBreakpointStart, $tabletNextMediaStart - $tabletBreakpointStart);
+$responsiveNextMediaStart = strpos($css, '@media', $responsiveBreakpointStart + 1);
+$responsiveCss = $responsiveNextMediaStart === false
+    ? substr($css, $responsiveBreakpointStart)
+    : substr($css, $responsiveBreakpointStart, $responsiveNextMediaStart - $responsiveBreakpointStart);
 
-if ($tabletCss === '') {
+if ($responsiveCss === '') {
     throw new RuntimeException('Failed to extract shared public responsive CSS block.');
 }
 
@@ -61,7 +61,7 @@ if (!str_contains($aosRule, 'transition-property: none !important;')) {
     throw new RuntimeException('Expected mobile CSS to disable mobile AOS transition-driven offsets.');
 }
 
-if (!preg_match('/\.btn\.public-theme-toggle\s*\{(?P<rule>[^}]*)\}/s', $tabletCss, $toggleRuleMatches)) {
+if (!preg_match('/\.btn\.public-theme-toggle\s*\{(?P<rule>[^}]*)\}/s', $responsiveCss, $toggleRuleMatches)) {
     throw new RuntimeException('Expected shared public responsive CSS to include theme toggle positioning.');
 }
 
