@@ -75,6 +75,8 @@ include '../backend/includes/header.php';
                         'contract_request' => ['icon' => 'file-invoice', 'color' => 'info'],
                         'form_request' => ['icon' => 'file', 'color' => 'secondary'],
                         'quote_notification' => ['icon' => 'dollar-sign', 'color' => 'primary'],
+                        'workflow' => ['icon' => 'sitemap', 'color' => 'dark'],
+                        'other' => ['icon' => 'folder-open', 'color' => 'secondary'],
                         'admin_notification' => ['icon' => 'triangle-exclamation', 'color' => 'danger']
                     ];
                     
