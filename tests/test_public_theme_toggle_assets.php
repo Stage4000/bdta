@@ -50,6 +50,9 @@ assertTrue(str_contains($siteCss, 'safe-area-inset-bottom'), 'Expected shared fl
 assertTrue(str_contains($siteCss, 'top: auto;'), 'Expected shared floating toggle styling not to stay pinned near the public header.');
 assertTrue(str_contains($siteCss, 'bottom: calc(1rem + env(safe-area-inset-bottom, 0px));'), 'Expected shared floating toggle styling to anchor away from header actions.');
 assertTrue(str_contains($siteCss, 'left: 1rem;'), 'Expected shared floating toggle styling to stay clear of right-aligned login controls.');
+assertTrue(str_contains($siteCss, '@media (max-width: 767.98px)'), 'Expected public site CSS to expose a mobile breakpoint for the shared floating toggle.');
+assertTrue(str_contains($siteCss, 'right: 1rem;'), 'Expected mobile public toggle styling to move the floating toggle away from the bottom-left widget area.');
+assertTrue(str_contains($siteCss, 'bottom: calc(5rem + env(safe-area-inset-bottom, 0px));'), 'Expected mobile public toggle styling to leave room for other bottom-edge controls.');
 
 $indexPhpPath = dirname(__DIR__) . '/index.php';
 $indexPhp = file_get_contents($indexPhpPath);

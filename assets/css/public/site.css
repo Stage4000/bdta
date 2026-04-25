@@ -462,6 +462,12 @@ footer a:hover {
         overflow-x: clip;
     }
 
+    .btn.public-theme-toggle {
+        right: 1rem;
+        bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+        left: auto;
+    }
+
     main,
     .hero-section,
     .homepage-section,
