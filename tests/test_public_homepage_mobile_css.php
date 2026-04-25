@@ -16,20 +16,6 @@ if ($mobileBreakpointStart === false) {
     throw new RuntimeException('Expected public site CSS to expose the mobile breakpoint block.');
 }
 
-$responsiveBreakpointStart = strpos($css, '@media (max-width: 991.98px)');
-if ($responsiveBreakpointStart === false) {
-    throw new RuntimeException('Expected public site CSS to expose the shared public responsive breakpoint block.');
-}
-
-$responsiveNextMediaStart = strpos($css, '@media', $responsiveBreakpointStart + 1);
-$responsiveCss = $responsiveNextMediaStart === false
-    ? substr($css, $responsiveBreakpointStart)
-    : substr($css, $responsiveBreakpointStart, $responsiveNextMediaStart - $responsiveBreakpointStart);
-
-if ($responsiveCss === '') {
-    throw new RuntimeException('Failed to extract shared public responsive CSS block.');
-}
-
 $nextMediaStart = strpos($css, '@media', $mobileBreakpointStart + 1);
 $mobileCss = $nextMediaStart === false
     ? substr($css, $mobileBreakpointStart)
@@ -61,21 +47,21 @@ if (!str_contains($aosRule, 'transition-property: none !important;')) {
     throw new RuntimeException('Expected mobile CSS to disable mobile AOS transition-driven offsets.');
 }
 
-if (!preg_match('/\.btn\.public-theme-toggle\s*\{(?P<rule>[^}]*)\}/s', $responsiveCss, $toggleRuleMatches)) {
-    throw new RuntimeException('Expected shared public responsive CSS to include theme toggle positioning.');
+if (!preg_match('/\.btn\.public-theme-toggle\s*\{(?P<rule>[^}]*)\}/s', $css, $toggleRuleMatches)) {
+    throw new RuntimeException('Expected shared public CSS to include theme toggle positioning.');
 }
 
 $toggleRule = $toggleRuleMatches['rule'];
 if (!str_contains($toggleRule, 'top: auto;')) {
-    throw new RuntimeException('Expected mobile CSS to clear the top-edge theme toggle placement.');
+    throw new RuntimeException('Expected shared public CSS to clear the top-edge theme toggle placement.');
 }
 
 if (!str_contains($toggleRule, 'bottom: calc(1rem + env(safe-area-inset-bottom, 0px));')) {
-    throw new RuntimeException('Expected mobile CSS to anchor the shared theme toggle away from the navigation area.');
+    throw new RuntimeException('Expected shared public CSS to anchor the shared theme toggle away from the navigation area.');
 }
 
 if (!str_contains($toggleRule, 'left: 1rem;')) {
-    throw new RuntimeException('Expected mobile CSS to place the shared theme toggle away from the right-edge login button.');
+    throw new RuntimeException('Expected shared public CSS to place the shared theme toggle away from the right-edge login button.');
 }
 
 echo "Public homepage mobile CSS test passed.\n";

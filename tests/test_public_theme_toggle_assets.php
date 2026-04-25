@@ -46,9 +46,10 @@ if ($siteCss === false) {
 
 assertTrue(str_contains($siteCss, '.public-theme-toggle'), 'Expected public site CSS to define shared floating toggle styling.');
 assertTrue(str_contains($siteCss, '--bs-body-bg-rgb'), 'Expected shared floating toggle styling to use theme-aware Bootstrap body colors.');
-assertTrue(str_contains($siteCss, 'safe-area-inset-top'), 'Expected shared floating toggle styling to respect safe-area-aware top offsets.');
-assertTrue(str_contains($siteCss, 'top: calc(5rem + env(safe-area-inset-top, 0px));'), 'Expected shared floating toggle styling to sit below the public header on larger viewports.');
 assertTrue(str_contains($siteCss, 'safe-area-inset-bottom'), 'Expected shared floating toggle styling to support a safe-area-aware mobile bottom offset.');
+assertTrue(str_contains($siteCss, 'top: auto;'), 'Expected shared floating toggle styling not to stay pinned near the public header.');
+assertTrue(str_contains($siteCss, 'bottom: calc(1rem + env(safe-area-inset-bottom, 0px));'), 'Expected shared floating toggle styling to anchor away from header actions.');
+assertTrue(str_contains($siteCss, 'left: 1rem;'), 'Expected shared floating toggle styling to stay clear of right-aligned login controls.');
 
 $indexPhpPath = dirname(__DIR__) . '/index.php';
 $indexPhp = file_get_contents($indexPhpPath);
