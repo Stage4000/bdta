@@ -52,7 +52,8 @@ if ($indexPhp === false) {
     throw new RuntimeException('Failed to read homepage router.');
 }
 
-assertTrue(str_contains($indexPhp, "bdta_get_public_theme_toggle_button_html('d-lg-none')"), 'Expected the DB-backed homepage renderer to include the shared mobile theme toggle.');
+assertTrue(str_contains($indexPhp, 'bdta_get_public_theme_toggle_button_html()'), 'Expected the DB-backed homepage renderer to include the shared floating theme toggle on all viewport sizes.');
+assertTrue(!str_contains($indexPhp, "bdta_get_public_theme_toggle_button_html('d-lg-none')"), 'Expected the DB-backed homepage renderer not to hide the shared floating theme toggle on desktop.');
 
 $pagePhpPath = dirname(__DIR__) . '/page.php';
 $pagePhp = file_get_contents($pagePhpPath);
@@ -60,6 +61,7 @@ if ($pagePhp === false) {
     throw new RuntimeException('Failed to read dynamic public page renderer.');
 }
 
-assertTrue(str_contains($pagePhp, "bdta_get_public_theme_toggle_button_html('d-lg-none')"), 'Expected dynamic public pages to include the shared mobile theme toggle.');
+assertTrue(str_contains($pagePhp, 'bdta_get_public_theme_toggle_button_html()'), 'Expected dynamic public pages to include the shared floating theme toggle on all viewport sizes.');
+assertTrue(!str_contains($pagePhp, "bdta_get_public_theme_toggle_button_html('d-lg-none')"), 'Expected dynamic public pages not to hide the shared floating theme toggle on desktop.');
 
 echo "Public theme toggle asset test passed.\n";

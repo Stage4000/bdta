@@ -123,6 +123,9 @@ HTML;
     assertTrue(!str_contains($publicToggleButton, 'background-color:rgba(255,255,255,0.95)'), 'Expected shared public theme toggle markup not to hard-code a light floating background.');
     assertTrue(!str_contains($publicToggleButton, 'id="darkModeToggle"'), 'Expected shared public theme toggle markup to avoid duplicate dark mode toggle IDs.');
 
+    $defaultPublicToggleButton = bdta_get_public_theme_toggle_button_html();
+    assertTrue(!str_contains($defaultPublicToggleButton, 'd-lg-none'), 'Expected shared public theme toggle markup to stay visible on desktop when no extra visibility class is requested.');
+
     echo "Public navigation helper test passed.\n";
 } finally {
     if ($originalRequestUri === null) {
