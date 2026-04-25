@@ -85,6 +85,8 @@ HTML;
     assertTrue(str_contains($runtimeCss, ':is(.bdta-imported-page, body > #wb_root)'), 'Expected runtime CSS to support wrapped and full-document imported pages.');
     assertTrue(str_contains($runtimeCss, 'body > #wb_root'), 'Expected runtime CSS to support imported full-document fallback pages.');
     assertTrue(str_contains($runtimeCss, 'overflow-x: clip;'), 'Expected runtime CSS to clip imported page horizontal overflow.');
+    assertTrue(str_contains($runtimeCss, '[data-bs-theme="dark"] :is(.bdta-imported-page, body > #wb_root)'), 'Expected runtime CSS to include imported page dark-mode overrides.');
+    assertTrue(str_contains($runtimeCss, 'background-color: #ffffff;'), 'Expected imported page dark-mode override to keep manual pages readable.');
     assertTrue(str_contains($runtimeCss, '.bdta-import-stack-phone,'), 'Expected runtime CSS to widen stacked imported layouts on mobile.');
     assertTrue(str_contains($runtimeCss, '.bdta-imported-page > .root,'), 'Expected runtime CSS to constrain the imported root container width.');
     assertTrue(str_contains($runtimeCss, '[id^="wb_header_"] .wb_content.wb-layout-horizontal'), 'Expected runtime CSS to target imported site header rows on mobile.');
@@ -112,6 +114,12 @@ HTML;
     assertTrue(str_contains($styledFullDocumentHtml, 'body > #wb_root'), 'Expected injected runtime CSS to support imported full-document fallback pages.');
     assertSameString($styledFullDocumentHtml, bdta_inject_imported_page_runtime_css($styledFullDocumentHtml), 'Expected imported full-document HTML not to receive duplicate runtime CSS.');
     assertSameString($baseHtml, bdta_inject_imported_page_runtime_css($baseHtml), 'Expected non-imported HTML not to receive injected runtime CSS.');
+
+    $publicToggleButton = bdta_get_public_theme_toggle_button_html('d-lg-none');
+    assertTrue(str_contains($publicToggleButton, 'data-theme-toggle'), 'Expected shared public theme toggle markup to use the multi-button theme toggle selector.');
+    assertTrue(str_contains($publicToggleButton, 'data-theme-icon'), 'Expected shared public theme toggle markup to expose a theme icon hook.');
+    assertTrue(str_contains($publicToggleButton, 'd-lg-none'), 'Expected shared public theme toggle markup to support mobile-only visibility.');
+    assertTrue(!str_contains($publicToggleButton, 'id="darkModeToggle"'), 'Expected shared public theme toggle markup to avoid duplicate dark mode toggle IDs.');
 
     echo "Public navigation helper test passed.\n";
 } finally {

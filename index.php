@@ -122,6 +122,7 @@ $page_has_turnstile_widget = str_contains($rendered_page_html, 'bdta-turnstile')
 <body>
     <?php echo $rendered_page_html; ?>
     <?php bdta_render_public_notice(); ?>
+    <?php echo bdta_get_public_theme_toggle_button_html('d-lg-none'); ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- AOS Animation Library -->
