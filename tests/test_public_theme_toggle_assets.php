@@ -36,6 +36,7 @@ assertTrue(str_contains($indexHtml, 'data-theme-toggle'), 'Expected the static h
 assertTrue(str_contains($indexHtml, 'd-none d-lg-inline-flex'), 'Expected the navbar theme toggle to stay desktop-only when the floating mobile toggle is present.');
 assertTrue(str_contains($indexHtml, 'public-theme-toggle'), 'Expected the static homepage mobile floating theme toggle to use shared theme-aware styling.');
 assertTrue(!str_contains($indexHtml, 'background-color:rgba(255,255,255,0.95)'), 'Expected the static homepage mobile floating toggle not to hard-code a light background.');
+assertTrue(!str_contains($indexHtml, 'top-0 end-0 m-3'), 'Expected the static homepage mobile floating toggle not to hard-code header-overlapping placement utilities.');
 
 $siteCssPath = dirname(__DIR__) . '/assets/css/public/site.css';
 $siteCss = file_get_contents($siteCssPath);
@@ -45,6 +46,8 @@ if ($siteCss === false) {
 
 assertTrue(str_contains($siteCss, '.public-theme-toggle'), 'Expected public site CSS to define shared floating toggle styling.');
 assertTrue(str_contains($siteCss, '--bs-body-bg-rgb'), 'Expected shared floating toggle styling to use theme-aware Bootstrap body colors.');
+assertTrue(str_contains($siteCss, 'safe-area-inset-top'), 'Expected shared floating toggle styling to respect safe-area-aware top offsets.');
+assertTrue(str_contains($siteCss, 'top: calc(5rem + env(safe-area-inset-top, 0px));'), 'Expected shared floating toggle styling to sit below the public header on larger viewports.');
 
 $indexPhpPath = dirname(__DIR__) . '/index.php';
 $indexPhp = file_get_contents($indexPhpPath);

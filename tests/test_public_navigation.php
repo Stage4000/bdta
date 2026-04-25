@@ -122,6 +122,9 @@ HTML;
     assertTrue(str_contains($publicToggleButton, 'public-theme-toggle'), 'Expected shared public theme toggle markup to use the shared theme-aware floating toggle class.');
     assertTrue(!str_contains($publicToggleButton, 'background-color:rgba(255,255,255,0.95)'), 'Expected shared public theme toggle markup not to hard-code a light floating background.');
     assertTrue(!str_contains($publicToggleButton, 'id="darkModeToggle"'), 'Expected shared public theme toggle markup to avoid duplicate dark mode toggle IDs.');
+    assertTrue(!str_contains($publicToggleButton, 'top-0'), 'Expected shared public theme toggle markup not to hard-code a top-edge position that can overlap header actions.');
+    assertTrue(!str_contains($publicToggleButton, 'end-0'), 'Expected shared public theme toggle markup not to hard-code a right-edge position that can overlap header actions.');
+    assertTrue(!str_contains($publicToggleButton, 'm-3'), 'Expected shared public theme toggle markup not to rely on fixed utility margins for placement.');
 
     $defaultPublicToggleButton = bdta_get_public_theme_toggle_button_html();
     assertTrue(!str_contains($defaultPublicToggleButton, 'd-lg-none'), 'Expected shared public theme toggle markup to stay visible on desktop when no extra visibility class is requested.');

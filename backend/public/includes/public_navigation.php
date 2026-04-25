@@ -155,7 +155,7 @@ CSS;
 }
 
 function bdta_get_public_theme_toggle_button_html(string $extraClasses = ''): string {
-    $classNames = trim('btn btn-outline-secondary btn-sm position-fixed top-0 end-0 m-3 no-print public-theme-toggle ' . $extraClasses);
+    $classNames = trim('btn btn-outline-secondary btn-sm position-fixed no-print public-theme-toggle ' . $extraClasses);
 
     return '<button type="button" data-theme-toggle class="' . htmlspecialchars($classNames, ENT_QUOTES, 'UTF-8') . '" title="Toggle dark mode" aria-label="Toggle dark mode">'
         . '<i class="fas fa-moon" data-theme-icon></i>'
