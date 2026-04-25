@@ -129,10 +129,10 @@ img {
     box-shadow: 0 4px 8px rgba(10, 154, 156, 0.3);
 }
 
-.public-theme-toggle {
+.btn.public-theme-toggle {
     z-index: 1100;
-    border: 1px solid currentColor !important;
-    background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), 0.95) !important;
+    border: 1px solid currentColor;
+    background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), 0.95);
     box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .15);
 }
 
