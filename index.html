@@ -74,7 +74,7 @@
                         </a>
                     </li>
                     <li class="nav-item ms-lg-2">
-                        <button id="darkModeToggle" class="btn btn-outline-secondary" title="Toggle dark mode" aria-label="Toggle dark mode">
+                        <button id="darkModeToggle" class="btn btn-outline-secondary d-none d-lg-inline-flex" title="Toggle dark mode" aria-label="Toggle dark mode">
                             <i class="fas fa-moon" id="darkModeIcon"></i>
                             <span id="darkModeLabel" class="ms-1">Dark Mode</span>
                         </button>
@@ -540,6 +540,10 @@
     <!-- Back to Top Button -->
     <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 d-none circular-icon-button" aria-label="Back to top">
         <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <button type="button" data-theme-toggle class="btn btn-outline-secondary btn-sm position-fixed no-print public-theme-toggle d-lg-none" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <i class="fas fa-moon" data-theme-icon></i>
     </button>
 
     <!-- Bootstrap JS -->

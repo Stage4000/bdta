@@ -39,6 +39,10 @@ function bdta_get_imported_page_runtime_css(): string {
     max-width: 100%;
     overflow-x: clip;
 }
+[data-bs-theme="dark"] :is(.bdta-imported-page, body > #wb_root) {
+    background-color: #ffffff;
+    color: #333333;
+}
 .bdta-imported-page > .bdta-import-layout {
     margin-left: auto !important;
     margin-right: auto !important;
@@ -148,6 +152,14 @@ body > #wb_root {
     }
 }
 CSS;
+}
+
+function bdta_get_public_theme_toggle_button_html(string $extraClasses = ''): string {
+    $classNames = trim('btn btn-outline-secondary btn-sm position-fixed no-print public-theme-toggle ' . $extraClasses);
+
+    return '<button type="button" data-theme-toggle class="' . htmlspecialchars($classNames, ENT_QUOTES, 'UTF-8') . '" title="Toggle dark mode" aria-label="Toggle dark mode">'
+        . '<i class="fas fa-moon" data-theme-icon></i>'
+        . '</button>';
 }
 
 function bdta_inject_imported_page_runtime_css(string $html): string {

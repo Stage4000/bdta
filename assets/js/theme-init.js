@@ -10,7 +10,7 @@
     }
 
     var saved = safeStorageGet('bdta-theme');
-    var theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var theme = (saved === 'dark' || saved === 'light') ? saved : 'light';
 
     document.documentElement.setAttribute('data-bs-theme', theme);
 }());

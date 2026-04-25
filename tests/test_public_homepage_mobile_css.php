@@ -47,4 +47,38 @@ if (!str_contains($aosRule, 'transition-property: none !important;')) {
     throw new RuntimeException('Expected mobile CSS to disable mobile AOS transition-driven offsets.');
 }
 
+if (!preg_match('/\.btn\.public-theme-toggle\s*\{(?P<rule>[^}]*)\}/s', $css, $toggleRuleMatches)) {
+    throw new RuntimeException('Expected shared public CSS to include theme toggle positioning.');
+}
+
+$toggleRule = $toggleRuleMatches['rule'];
+if (!str_contains($toggleRule, 'top: auto;')) {
+    throw new RuntimeException('Expected shared public CSS to clear the top-edge theme toggle placement.');
+}
+
+if (!str_contains($toggleRule, 'bottom: calc(1rem + env(safe-area-inset-bottom, 0px));')) {
+    throw new RuntimeException('Expected shared public CSS to anchor the shared theme toggle away from the navigation area.');
+}
+
+if (!str_contains($toggleRule, 'left: 1rem;')) {
+    throw new RuntimeException('Expected shared public CSS to place the shared theme toggle away from the right-edge login button.');
+}
+
+if (!preg_match('/\.btn\.public-theme-toggle\s*\{(?P<rule>[^}]*)\}/s', $mobileCss, $mobileToggleRuleMatches)) {
+    throw new RuntimeException('Expected mobile CSS to include a theme toggle override.');
+}
+
+$mobileToggleRule = $mobileToggleRuleMatches['rule'];
+if (!str_contains($mobileToggleRule, 'right: 1rem;')) {
+    throw new RuntimeException('Expected mobile CSS to move the shared theme toggle away from the bottom-left widget area.');
+}
+
+if (!str_contains($mobileToggleRule, 'left: auto;')) {
+    throw new RuntimeException('Expected mobile CSS to clear the shared theme toggle left offset.');
+}
+
+if (!str_contains($mobileToggleRule, 'bottom: calc(5rem + env(safe-area-inset-bottom, 0px));')) {
+    throw new RuntimeException('Expected mobile CSS to leave extra room for bottom-edge controls on the right.');
+}
+
 echo "Public homepage mobile CSS test passed.\n";
