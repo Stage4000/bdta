@@ -66,18 +66,18 @@ include '../backend/includes/header.php';
                 <div class="row">
                     <?php 
                     $template_types = [
-                        'booking_confirmation' => ['icon' => 'calendar-check', 'color' => 'primary'],
-                        'booking_request' => ['icon' => 'hourglass-half', 'color' => 'secondary'],
-                        'booking_reminder' => ['icon' => 'bell', 'color' => 'warning'],
-                        'booking_cancellation' => ['icon' => 'calendar-xmark', 'color' => 'danger'],
-                        'invoice' => ['icon' => 'file-invoice-dollar', 'color' => 'info'],
-                        'payment_receipt' => ['icon' => 'receipt', 'color' => 'success'],
-                        'contract_request' => ['icon' => 'file-invoice', 'color' => 'info'],
-                        'form_request' => ['icon' => 'file', 'color' => 'secondary'],
-                        'quote_notification' => ['icon' => 'dollar-sign', 'color' => 'primary'],
-                        'workflow' => ['icon' => 'sitemap', 'color' => 'dark'],
-                        'other' => ['icon' => 'folder-open', 'color' => 'secondary'],
-                        'admin_notification' => ['icon' => 'triangle-exclamation', 'color' => 'danger']
+                        'booking_confirmation' => ['label' => 'Booking Confirmation', 'icon' => 'calendar-check', 'color' => 'primary'],
+                        'booking_request' => ['label' => 'Booking Request', 'icon' => 'hourglass-half', 'color' => 'secondary'],
+                        'booking_reminder' => ['label' => 'Booking Reminder', 'icon' => 'bell', 'color' => 'warning'],
+                        'booking_cancellation' => ['label' => 'Booking Cancellation', 'icon' => 'calendar-xmark', 'color' => 'danger'],
+                        'invoice' => ['label' => 'Invoice', 'icon' => 'file-invoice-dollar', 'color' => 'info'],
+                        'payment_receipt' => ['label' => 'Payment Receipt', 'icon' => 'receipt', 'color' => 'success'],
+                        'contract_request' => ['label' => 'Contract Request', 'icon' => 'file-invoice', 'color' => 'info'],
+                        'form_request' => ['label' => 'Form Request', 'icon' => 'file', 'color' => 'secondary'],
+                        'quote_notification' => ['label' => 'Quote Notification', 'icon' => 'dollar-sign', 'color' => 'primary'],
+                        'workflow' => ['label' => 'Workflow Emails', 'icon' => 'sitemap', 'color' => 'dark'],
+                        'other' => ['label' => 'Other', 'icon' => 'folder-open', 'color' => 'secondary'],
+                        'admin_notification' => ['label' => 'Admin Notification', 'icon' => 'triangle-exclamation', 'color' => 'danger']
                     ];
                     
                     foreach ($templates as $template): 
@@ -99,7 +99,7 @@ include '../backend/includes/header.php';
                                     </div>
                                     
                                     <p class="text-muted small mb-2">
-                                        <strong>Type:</strong> <?php echo ucwords(str_replace('_', ' ', $template['template_type'])); ?>
+                                        <strong>Type:</strong> <?php echo htmlspecialchars($type_info['label'] ?? ucwords(str_replace('_', ' ', $template['template_type']))); ?>
                                     </p>
                                     
                                     <p class="text-muted small mb-2">

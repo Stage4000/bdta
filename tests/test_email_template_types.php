@@ -36,13 +36,18 @@ bdta_assert(
 );
 
 bdta_assert(
-    str_contains($templates_list, "'workflow' => ['icon' => 'sitemap', 'color' => 'dark']"),
-    'Email template list should define display metadata for workflow templates.'
+    str_contains($templates_list, "'workflow' => ['label' => 'Workflow Emails', 'icon' => 'sitemap', 'color' => 'dark']"),
+    'Email template list should define display metadata and the correct label for workflow templates.'
 );
 
 bdta_assert(
-    str_contains($templates_list, "'other' => ['icon' => 'folder-open', 'color' => 'secondary']"),
-    'Email template list should define display metadata for other templates.'
+    str_contains($templates_list, "'other' => ['label' => 'Other', 'icon' => 'folder-open', 'color' => 'secondary']"),
+    'Email template list should define display metadata and the correct label for other templates.'
+);
+
+bdta_assert(
+    str_contains($templates_list, "htmlspecialchars(\$type_info['label'] ?? ucwords(str_replace('_', ' ', \$template['template_type'])))"),
+    'Email template list should render the explicit mapped label when one is defined.'
 );
 
 echo "Email template type option checks passed.\n";
