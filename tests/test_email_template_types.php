@@ -20,35 +20,22 @@ function bdta_read_fixture(string $path): string
     return $contents;
 }
 
-function bdta_extract_template_type_label(string $templates_list, string $template_type): string
+function bdta_find_line_containing(string $contents, string $needle): string
 {
-    $pattern = "/'" . preg_quote($template_type, '/') . "'\\s*=>\\s*\\['label'\\s*=>\\s*'((?:\\\\'|[^'])+)'/";
-    if (preg_match($pattern, $templates_list, $matches) !== 1) {
-        fwrite(STDERR, "Unable to locate a 'label' entry for template type '{$template_type}' in the \$template_types map." . PHP_EOL);
-        exit(1);
+    foreach (preg_split("/\\r\\n|\\n|\\r/", $contents) as $line) {
+        if (str_contains($line, $needle)) {
+            return $line;
+        }
     }
 
-    return str_replace("\\'", "'", $matches[1]);
-}
-
-function bdta_render_type_line(string $template_type, ?string $label = null): string
-{
-    $resolved_label = $label ?? ucwords(str_replace('_', ' ', $template_type));
-
-    ob_start();
-    ?>
-<p class="text-muted small mb-2">
-    <strong>Type:</strong> <?php echo htmlspecialchars($resolved_label); ?>
-</p>
-<?php
-
-    return trim((string) ob_get_clean());
+    fwrite(STDERR, "Unable to find expected content: {$needle}. Verify the template type metadata or label rendering code in client/email_templates_list.php." . PHP_EOL);
+    exit(1);
 }
 
 $templates_edit = bdta_read_fixture(dirname(__DIR__) . '/client/email_templates_edit.php');
 $templates_list = bdta_read_fixture(dirname(__DIR__) . '/client/email_templates_list.php');
-$workflow_label = bdta_extract_template_type_label($templates_list, 'workflow');
-$other_label = bdta_extract_template_type_label($templates_list, 'other');
+$workflow_line = bdta_find_line_containing($templates_list, "'workflow' =>");
+$other_line = bdta_find_line_containing($templates_list, "'other' =>");
 
 bdta_assert(
     str_contains($templates_edit, '<option value="workflow"') &&
@@ -63,23 +50,23 @@ bdta_assert(
 );
 
 bdta_assert(
-    str_contains($templates_list, "'workflow' => ['label' => 'Workflow Emails', 'icon' => 'sitemap', 'color' => 'dark']"),
+    str_contains($workflow_line, "'label' => 'Workflow Emails'") &&
+    str_contains($workflow_line, "'icon' => 'sitemap'") &&
+    str_contains($workflow_line, "'color' => 'dark'"),
     'Email template list should define display metadata and the correct label for workflow templates.'
 );
 
 bdta_assert(
-    str_contains($templates_list, "'other' => ['label' => 'Other', 'icon' => 'folder-open', 'color' => 'secondary']"),
+    str_contains($other_line, "'label' => 'Other'") &&
+    str_contains($other_line, "'icon' => 'folder-open'") &&
+    str_contains($other_line, "'color' => 'secondary'"),
     'Email template list should define display metadata and the correct label for other templates.'
 );
 
 bdta_assert(
-    str_contains(bdta_render_type_line('workflow', $workflow_label), '<strong>Type:</strong> Workflow Emails'),
-    'Email template list should render the workflow label as Workflow Emails.'
-);
-
-bdta_assert(
-    str_contains(bdta_render_type_line('other', $other_label), '<strong>Type:</strong> Other'),
-    'Email template list should render the other label as Other.'
+    str_contains($templates_list, "htmlspecialchars(\$type_info['label'] ??") &&
+    str_contains($templates_list, "ucwords(str_replace('_', ' ', \$template['template_type']))"),
+    'Email template list should render explicit mapped labels while keeping the fallback label formatting.'
 );
 
 echo "Email template type option checks passed.\n";
