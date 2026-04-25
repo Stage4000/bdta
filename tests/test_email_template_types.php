@@ -20,33 +20,25 @@ function bdta_read_fixture(string $path): string
     return $contents;
 }
 
-/**
- * @return array<string, array<string, string>>
- */
-function bdta_extract_template_types(string $templates_list): array
+function bdta_extract_template_type_label(string $templates_list, string $template_type): string
 {
-    if (preg_match('/\\$template_types\\s*=\\s*(\\[(?:.|\\n)*?\\n\\s*\\]);/', $templates_list, $matches) !== 1) {
-        fwrite(STDERR, "Unable to locate template type metadata.\n");
+    $pattern = "/'" . preg_quote($template_type, '/') . "'\\s*=>\\s*\\['label'\\s*=>\\s*'([^']+)'/";
+    if (preg_match($pattern, $templates_list, $matches) !== 1) {
+        fwrite(STDERR, 'Unable to locate label for template type: ' . $template_type . PHP_EOL);
         exit(1);
     }
 
-    $template_types = eval('return ' . $matches[1] . ';');
-    if (!is_array($template_types)) {
-        fwrite(STDERR, "Template type metadata did not evaluate to an array.\n");
-        exit(1);
-    }
-
-    return $template_types;
+    return $matches[1];
 }
 
-function bdta_render_type_line(array $template_types, string $template_type): string
+function bdta_render_type_line(string $template_type, ?string $label = null): string
 {
-    $type_info = $template_types[$template_type] ?? ['icon' => 'envelope', 'color' => 'secondary'];
+    $resolved_label = $label ?? ucwords(str_replace('_', ' ', $template_type));
 
     ob_start();
     ?>
 <p class="text-muted small mb-2">
-    <strong>Type:</strong> <?php echo htmlspecialchars($type_info['label'] ?? ucwords(str_replace('_', ' ', $template_type))); ?>
+    <strong>Type:</strong> <?php echo htmlspecialchars($resolved_label); ?>
 </p>
 <?php
 
@@ -55,7 +47,8 @@ function bdta_render_type_line(array $template_types, string $template_type): st
 
 $templates_edit = bdta_read_fixture(dirname(__DIR__) . '/client/email_templates_edit.php');
 $templates_list = bdta_read_fixture(dirname(__DIR__) . '/client/email_templates_list.php');
-$template_types = bdta_extract_template_types($templates_list);
+$workflow_label = bdta_extract_template_type_label($templates_list, 'workflow');
+$other_label = bdta_extract_template_type_label($templates_list, 'other');
 
 bdta_assert(
     str_contains($templates_edit, '<option value="workflow"') &&
@@ -80,12 +73,12 @@ bdta_assert(
 );
 
 bdta_assert(
-    str_contains(bdta_render_type_line($template_types, 'workflow'), '<strong>Type:</strong> Workflow Emails'),
+    str_contains(bdta_render_type_line('workflow', $workflow_label), '<strong>Type:</strong> Workflow Emails'),
     'Email template list should render the workflow label as Workflow Emails.'
 );
 
 bdta_assert(
-    str_contains(bdta_render_type_line($template_types, 'other'), '<strong>Type:</strong> Other'),
+    str_contains(bdta_render_type_line('other', $other_label), '<strong>Type:</strong> Other'),
     'Email template list should render the other label as Other.'
 );
 
