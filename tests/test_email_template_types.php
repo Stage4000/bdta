@@ -22,13 +22,13 @@ function bdta_read_fixture(string $path): string
 
 function bdta_extract_template_type_label(string $templates_list, string $template_type): string
 {
-    $pattern = "/'" . preg_quote($template_type, '/') . "'\\s*=>\\s*\\['label'\\s*=>\\s*'([^']+)'/";
+    $pattern = "/'" . preg_quote($template_type, '/') . "'\\s*=>\\s*\\['label'\\s*=>\\s*'((?:\\\\'|[^'])+)'/";
     if (preg_match($pattern, $templates_list, $matches) !== 1) {
-        fwrite(STDERR, 'Unable to locate label for template type: ' . $template_type . PHP_EOL);
+        fwrite(STDERR, "Unable to locate a 'label' entry for template type '{$template_type}' in the \$template_types map." . PHP_EOL);
         exit(1);
     }
 
-    return $matches[1];
+    return str_replace("\\'", "'", $matches[1]);
 }
 
 function bdta_render_type_line(string $template_type, ?string $label = null): string
