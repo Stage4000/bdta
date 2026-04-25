@@ -36,8 +36,13 @@ bdta_assert(
 );
 
 bdta_assert(
-    str_contains($templates_list, '<strong>Type:</strong> <?php echo ucwords(str_replace(\'_\', \' \', $template[\'template_type\'])); ?>'),
-    'Email template list should continue rendering the saved template type label for all categories.'
+    str_contains($templates_list, "'workflow' => ['icon' => 'sitemap', 'color' => 'dark']"),
+    'Email template list should define display metadata for workflow templates.'
+);
+
+bdta_assert(
+    str_contains($templates_list, "'other' => ['icon' => 'folder-open', 'color' => 'secondary']"),
+    'Email template list should define display metadata for other templates.'
 );
 
 echo "Email template type option checks passed.\n";
