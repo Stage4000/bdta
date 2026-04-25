@@ -133,7 +133,7 @@ img {
     z-index: 1100;
     top: calc(5rem + env(safe-area-inset-top, 0px));
     right: 1rem;
-    margin: 0 !important;
+    margin: 0;
     border: 1px solid currentColor;
     background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), 0.95);
     box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .15);
