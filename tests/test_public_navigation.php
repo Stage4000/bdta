@@ -119,6 +119,8 @@ HTML;
     assertTrue(str_contains($publicToggleButton, 'data-theme-toggle'), 'Expected shared public theme toggle markup to use the multi-button theme toggle selector.');
     assertTrue(str_contains($publicToggleButton, 'data-theme-icon'), 'Expected shared public theme toggle markup to expose a theme icon hook.');
     assertTrue(str_contains($publicToggleButton, 'd-lg-none'), 'Expected shared public theme toggle markup to support mobile-only visibility.');
+    assertTrue(str_contains($publicToggleButton, 'public-theme-toggle'), 'Expected shared public theme toggle markup to use the shared theme-aware floating toggle class.');
+    assertTrue(!str_contains($publicToggleButton, 'background-color:rgba(255,255,255,0.95)'), 'Expected shared public theme toggle markup not to hard-code a light floating background.');
     assertTrue(!str_contains($publicToggleButton, 'id="darkModeToggle"'), 'Expected shared public theme toggle markup to avoid duplicate dark mode toggle IDs.');
 
     echo "Public navigation helper test passed.\n";

@@ -155,10 +155,9 @@ CSS;
 }
 
 function bdta_get_public_theme_toggle_button_html(string $extraClasses = ''): string {
-    $classNames = trim('btn btn-outline-secondary btn-sm position-fixed top-0 end-0 m-3 no-print ' . $extraClasses);
-    $style = 'z-index:1100; border:1px solid currentColor; background-color:rgba(255,255,255,0.95); box-shadow:0 .125rem .25rem rgba(0,0,0,.15);';
+    $classNames = trim('btn btn-outline-secondary btn-sm position-fixed top-0 end-0 m-3 no-print public-theme-toggle ' . $extraClasses);
 
-    return '<button type="button" data-theme-toggle class="' . htmlspecialchars($classNames, ENT_QUOTES, 'UTF-8') . '" style="' . htmlspecialchars($style, ENT_QUOTES, 'UTF-8') . '" title="Toggle dark mode" aria-label="Toggle dark mode">'
+    return '<button type="button" data-theme-toggle class="' . htmlspecialchars($classNames, ENT_QUOTES, 'UTF-8') . '" title="Toggle dark mode" aria-label="Toggle dark mode">'
         . '<i class="fas fa-moon" data-theme-icon></i>'
         . '</button>';
 }

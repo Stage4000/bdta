@@ -12,7 +12,18 @@ if ($themeInit === false) {
     throw new RuntimeException('Failed to read theme initialization script.');
 }
 
-assertTrue(str_contains($themeInit, "? saved : 'light';"), 'Expected theme initialization to default to light mode.');
+assertTrue(
+    preg_match('/saved\s*===\s*[\'"]dark[\'"]/', $themeInit) === 1,
+    'Expected theme initialization to preserve an explicit dark-mode selection.'
+);
+assertTrue(
+    preg_match('/saved\s*===\s*[\'"]light[\'"]/', $themeInit) === 1,
+    'Expected theme initialization to preserve an explicit light-mode selection.'
+);
+assertTrue(
+    preg_match('/var\s+theme\s*=.*[\'"]light[\'"]\s*;/s', $themeInit) === 1,
+    'Expected theme initialization to default to light mode.'
+);
 assertTrue(!str_contains($themeInit, 'matchMedia'), 'Expected theme initialization not to auto-enable dark mode from system preferences.');
 
 $indexHtmlPath = dirname(__DIR__) . '/index.html';
@@ -23,6 +34,17 @@ if ($indexHtml === false) {
 
 assertTrue(str_contains($indexHtml, 'data-theme-toggle'), 'Expected the static homepage to expose a mobile floating theme toggle.');
 assertTrue(str_contains($indexHtml, 'd-none d-lg-inline-flex'), 'Expected the navbar theme toggle to stay desktop-only when the floating mobile toggle is present.');
+assertTrue(str_contains($indexHtml, 'public-theme-toggle'), 'Expected the static homepage mobile floating theme toggle to use shared theme-aware styling.');
+assertTrue(!str_contains($indexHtml, 'background-color:rgba(255,255,255,0.95)'), 'Expected the static homepage mobile floating toggle not to hard-code a light background.');
+
+$siteCssPath = dirname(__DIR__) . '/assets/css/public/site.css';
+$siteCss = file_get_contents($siteCssPath);
+if ($siteCss === false) {
+    throw new RuntimeException('Failed to read public site CSS.');
+}
+
+assertTrue(str_contains($siteCss, '.public-theme-toggle'), 'Expected public site CSS to define shared floating toggle styling.');
+assertTrue(str_contains($siteCss, '--bs-body-bg-rgb'), 'Expected shared floating toggle styling to use theme-aware Bootstrap body colors.');
 
 $indexPhpPath = dirname(__DIR__) . '/index.php';
 $indexPhp = file_get_contents($indexPhpPath);
