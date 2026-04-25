@@ -22,7 +22,9 @@ function bdta_read_fixture(string $path): string
 
 function bdta_find_line_containing(string $contents, string $needle): string
 {
-    foreach (preg_split("/\\r\\n|\\n|\\r/", $contents) as $line) {
+    $normalized_contents = str_replace(["\r\n", "\r"], "\n", $contents);
+
+    foreach (explode("\n", $normalized_contents) as $line) {
         if (str_contains($line, $needle)) {
             return $line;
         }
