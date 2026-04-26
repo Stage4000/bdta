@@ -480,9 +480,9 @@ function api_booking_normalize_pet_profile_value(string $attr, mixed $value): st
 function api_booking_parse_pet_profile_date(string $value): ?DateTime {
     foreach (['Y-m-d', 'm/d/Y', 'd/m/Y'] as $format) {
         $dt = date_create_from_format('!' . $format, $value);
-        $errors = DateTime::getLastErrors();
-        $has_errors = is_array($errors)
-            && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
+        $errors = assoc_row(DateTime::getLastErrors());
+        $has_errors = array_int_value($errors, 'warning_count') > 0
+            || array_int_value($errors, 'error_count') > 0;
         if ($dt instanceof DateTime && !$has_errors) {
             return $dt;
         }
@@ -578,7 +578,7 @@ function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_re
  */
 function api_booking_pet_table_columns(PDO $conn): array {
     $stmt = $conn->query('SELECT * FROM pets LIMIT 0');
-    if (!$stmt instanceof PDOStatement) {
+    if ($stmt === false) {
         return [];
     }
     $columns = [];
@@ -679,6 +679,7 @@ function api_booking_clone_conflicting_pets(PDO $conn, int $client_id, array $pe
         $pet_ids[$pet_index] = (int)$conn->lastInsertId();
     }
 
+    /** @var list<int> $pet_ids */
     return $pet_ids;
 }
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
