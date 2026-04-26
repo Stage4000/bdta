@@ -482,7 +482,7 @@ function api_booking_parse_pet_profile_date(string $value): ?DateTime {
         $dt = date_create_from_format('!' . $format, $value);
         $errors = DateTime::getLastErrors();
         $has_errors = is_array($errors)
-            && ((int) ($errors['warning_count'] ?? 0) > 0 || (int) ($errors['error_count'] ?? 0) > 0);
+            && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
         if ($dt instanceof DateTime && !$has_errors) {
             return $dt;
         }
@@ -540,8 +540,8 @@ function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_re
 
         $tpl_stmt = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
         $tpl_stmt->execute([(int)$tpl_id]);
-        $tpl_row = $tpl_stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$tpl_row) {
+        $tpl_row = assoc_row($tpl_stmt->fetch(PDO::FETCH_ASSOC));
+        if ($tpl_row === []) {
             continue;
         }
 
@@ -578,6 +578,9 @@ function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_re
  */
 function api_booking_pet_table_columns(PDO $conn): array {
     $stmt = $conn->query('SELECT * FROM pets LIMIT 0');
+    if (!$stmt instanceof PDOStatement) {
+        return [];
+    }
     $columns = [];
     for ($index = 0, $count = $stmt->columnCount(); $index < $count; $index++) {
         $column_meta = $stmt->getColumnMeta($index);
@@ -621,8 +624,8 @@ function api_booking_clone_conflicting_pets(PDO $conn, int $client_id, array $pe
         if ($pet_id <= 0 || $mapped_values === []) continue;
 
         $fetch_pet_stmt->execute([$pet_id, $client_id]);
-        $cur_pet = $fetch_pet_stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$cur_pet) continue;
+        $cur_pet = assoc_row($fetch_pet_stmt->fetch(PDO::FETCH_ASSOC));
+        if ($cur_pet === []) continue;
 
         $has_conflict = false;
         foreach ($mapped_values as $attr => $new_value) {
@@ -676,7 +679,7 @@ function api_booking_clone_conflicting_pets(PDO $conn, int $client_id, array $pe
         $pet_ids[$pet_index] = (int)$conn->lastInsertId();
     }
 
-    return array_values($pet_ids);
+    return $pet_ids;
 }
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
     // Ordered list of pet IDs selected for this booking (0-based)

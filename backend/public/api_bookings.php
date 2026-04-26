@@ -199,7 +199,7 @@ function api_booking_parse_pet_profile_date(string $value): ?DateTime
         $dt = date_create_from_format('!' . $format, $value);
         $errors = DateTime::getLastErrors();
         $has_errors = is_array($errors)
-            && ((int) ($errors['warning_count'] ?? 0) > 0 || (int) ($errors['error_count'] ?? 0) > 0);
+            && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
         if ($dt instanceof DateTime && !$has_errors) {
             return $dt;
         }
@@ -390,7 +390,7 @@ function api_booking_clone_conflicting_pets(SafePDO $conn, int $client_id, array
         $pet_ids[$pet_index] = safe_int($conn->lastInsertId());
     }
 
-    return array_values($pet_ids);
+    return $pet_ids;
 }
 
 /**
