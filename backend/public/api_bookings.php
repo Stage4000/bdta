@@ -107,6 +107,9 @@ function api_booking_table_columns(SafePDO $conn, string $table_name): array {
         case 'appointment_types':
             $stmt = $conn->query('SELECT * FROM appointment_types LIMIT 0');
             break;
+        case 'pets':
+            $stmt = $conn->query('SELECT * FROM pets LIMIT 0');
+            break;
         default:
             throw new RuntimeException('Unsupported table lookup requested.');
     }
@@ -165,6 +168,230 @@ function api_booking_mark_invoice_sent(SafePDO $conn, int $invoice_id): void {
             invoice_sent_at = COALESCE(invoice_sent_at, CURRENT_TIMESTAMP)
         WHERE id = ?
     ")->execute([$invoice_id]);
+}
+
+function api_booking_normalize_pet_profile_value(string $attr, mixed $value): string|int|null
+{
+    if (is_array($value)) {
+        $value = implode(', ', string_list($value));
+    }
+
+    $value = scalar_string($value);
+    if ($value === '') {
+        return null;
+    }
+
+    if ($attr === 'date_of_birth') {
+        $dt = api_booking_parse_pet_profile_date($value);
+        return $dt ? $dt->format('Y-m-d') : null;
+    }
+
+    if (in_array($attr, ['spayed_neutered', 'vaccines_current'], true)) {
+        return in_array(strtolower($value), ['1', 'yes', 'true', 'on'], true) ? 1 : 0;
+    }
+
+    return $value;
+}
+
+function api_booking_parse_pet_profile_date(string $value): ?DateTime
+{
+    foreach (['Y-m-d', 'm/d/Y', 'd/m/Y'] as $format) {
+        $dt = date_create_from_format('!' . $format, $value);
+        $errors = assoc_row(DateTime::getLastErrors());
+        $has_errors = array_int_value($errors, 'warning_count') > 0
+            || array_int_value($errors, 'error_count') > 0;
+        if ($dt instanceof DateTime && !$has_errors) {
+            return $dt;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @param list<int> $requested_pet_ids
+ * @param list<int> $verified_pet_ids
+ * @return list<int>
+ */
+function api_booking_order_verified_pet_ids(array $requested_pet_ids, array $verified_pet_ids): array
+{
+    $verified_map = [];
+    foreach ($verified_pet_ids as $verified_pet_id) {
+        $verified_map[(string) $verified_pet_id] = true;
+    }
+
+    $ordered_pet_ids = [];
+    foreach ($requested_pet_ids as $requested_pet_id) {
+        if (isset($verified_map[(string) $requested_pet_id])) {
+            $ordered_pet_ids[] = $requested_pet_id;
+        }
+    }
+
+    return $ordered_pet_ids;
+}
+
+/**
+ * @param array<int|string, mixed> $form_responses
+ * @return array<int, array<string, string|int>>
+ */
+function api_booking_collect_pet_profile_mapped_values(SafePDO $conn, array $form_responses): array
+{
+    $pet_col_map = [
+        'name'              => true,
+        'species'           => true,
+        'breed'             => true,
+        'date_of_birth'     => true,
+        'source'            => true,
+        'spayed_neutered'   => true,
+        'vaccines_current'  => true,
+        'vaccine_notes'     => true,
+        'behavior_notes'    => true,
+        'medical_notes'     => true,
+        'training_notes'    => true,
+        'pet_sitting_notes' => true,
+    ];
+    $pet_updates = [];
+
+    foreach ($form_responses as $tpl_id => $responses) {
+        if (!is_array($responses)) {
+            continue;
+        }
+
+        $tpl_stmt = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
+        $tpl_stmt->execute([(int)$tpl_id]);
+        $tpl_row = api_booking_db_row($tpl_stmt->fetch(PDO::FETCH_ASSOC));
+        if ($tpl_row === []) {
+            continue;
+        }
+
+        $tpl_fields = api_booking_assoc_rows(array_string_value($tpl_row, 'fields'));
+        foreach ($tpl_fields as $fi => $field) {
+            $mapping = array_string_value($field, 'profile_mapping');
+            if (!preg_match('/^pet_([123])\.(.+)$/', $mapping, $matches)) {
+                continue;
+            }
+
+            $pet_index = (int)$matches[1] - 1;
+            $attr = $matches[2];
+            if (!isset($pet_col_map[$attr])) {
+                continue;
+            }
+
+            $normalized = api_booking_normalize_pet_profile_value($attr, $responses[$fi] ?? null);
+            if ($normalized === null) {
+                continue;
+            }
+
+            if (!isset($pet_updates[$pet_index])) {
+                $pet_updates[$pet_index] = [];
+            }
+            $pet_updates[$pet_index][$attr] = $normalized;
+        }
+    }
+
+    return $pet_updates;
+}
+
+/**
+ * @param list<int> $pet_ids
+ * @param array<int, array<string, string|int>> $pet_updates
+ * @return list<int>
+ */
+function api_booking_clone_conflicting_pets(SafePDO $conn, int $client_id, array $pet_ids, array $pet_updates): array
+{
+    if ($client_id <= 0 || $pet_ids === [] || $pet_updates === []) {
+        return $pet_ids;
+    }
+
+    $pet_columns = api_booking_table_columns($conn, 'pets');
+    $supported_attrs = [
+        'name',
+        'species',
+        'breed',
+        'date_of_birth',
+        'source',
+        'spayed_neutered',
+        'vaccines_current',
+        'vaccine_notes',
+        'behavior_notes',
+        'medical_notes',
+        'training_notes',
+        'pet_sitting_notes',
+    ];
+    $fetch_pet_stmt = $conn->prepare("SELECT * FROM pets WHERE id = ? AND client_id = ?");
+
+    foreach ($pet_ids as $pet_index => $pet_id) {
+        $mapped_values = $pet_updates[$pet_index] ?? [];
+        if ($pet_id <= 0 || $mapped_values === []) {
+            continue;
+        }
+
+        $fetch_pet_stmt->execute([$pet_id, $client_id]);
+        $cur_pet = api_booking_db_row($fetch_pet_stmt->fetch(PDO::FETCH_ASSOC));
+        if ($cur_pet === []) {
+            continue;
+        }
+
+        $has_conflict = false;
+        foreach ($mapped_values as $attr => $new_value) {
+            $existing_value = scalar_string($cur_pet[$attr] ?? '');
+            if ($existing_value !== '' && $existing_value !== (string)$new_value) {
+                $has_conflict = true;
+                break;
+            }
+        }
+        if (!$has_conflict) {
+            continue;
+        }
+
+        $insert_columns = ['client_id'];
+        $insert_sql = ['?'];
+        $insert_values = [$client_id];
+
+        foreach ($supported_attrs as $attr) {
+            if (!in_array($attr, $pet_columns, true)) {
+                continue;
+            }
+
+            $value = $mapped_values[$attr] ?? ($cur_pet[$attr] ?? null);
+            if ($value === null && !in_array($attr, ['name', 'species'], true)) {
+                continue;
+            }
+            if ($attr === 'name' && scalar_string($value) === '') {
+                $value = scalar_string($cur_pet['name'] ?? 'Pet');
+            }
+            if ($attr === 'species' && scalar_string($value) === '') {
+                $value = scalar_string($cur_pet['species'] ?? 'Dog');
+            }
+
+            $insert_columns[] = $attr;
+            $insert_sql[] = '?';
+            $insert_values[] = $value;
+        }
+
+        if (in_array('is_active', $pet_columns, true)) {
+            $insert_columns[] = 'is_active';
+            $insert_sql[] = '?';
+            $insert_values[] = 1;
+        }
+        if (in_array('created_at', $pet_columns, true)) {
+            $insert_columns[] = 'created_at';
+            $insert_sql[] = 'CURRENT_TIMESTAMP';
+        }
+        if (in_array('updated_at', $pet_columns, true)) {
+            $insert_columns[] = 'updated_at';
+            $insert_sql[] = 'CURRENT_TIMESTAMP';
+        }
+
+        $insert_stmt = $conn->prepare(
+            'INSERT INTO pets (' . implode(', ', $insert_columns) . ') VALUES (' . implode(', ', $insert_sql) . ')'
+        );
+        $insert_stmt->execute($insert_values);
+        $pet_ids[$pet_index] = safe_int($conn->lastInsertId());
+    }
+
+    /** @var list<int> $pet_ids */
+    return $pet_ids;
 }
 
 /**
@@ -649,7 +876,8 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- placeholder count comes from safe_int()-sanitized positive pet IDs and every value is bound separately.
             $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND is_active = 1 AND id IN ($placeholders)");
             $stmt->execute(array_merge([$client_id], $requested_pet_ids));
-            $pet_ids = array_map('safe_int', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+            $verified_pet_ids = array_map('safe_int', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+            $pet_ids = api_booking_order_verified_pet_ids($requested_pet_ids, $verified_pet_ids);
         }
 
         $dog_names = array_string_value($data, 'dog_names');
@@ -682,6 +910,16 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                         $pet_ids[] = safe_int($conn->lastInsertId());
                     }
                 }
+            }
+        }
+
+        $overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
+        if ($overwrite_declined && !empty($data['form_responses']) && is_array($data['form_responses'])) {
+            /** @var array<int|string, mixed> $form_responses */
+            $form_responses = $data['form_responses'];
+            $pet_updates = api_booking_collect_pet_profile_mapped_values($conn, $form_responses);
+            if ($pet_updates !== []) {
+                $pet_ids = api_booking_clone_conflicting_pets($conn, $client_id, $pet_ids, $pet_updates);
             }
         }
 
@@ -887,9 +1125,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                         if ($cur_pet === []) continue;
 
                         if ($attr === 'date_of_birth') {
-                            $dt = date_create_from_format('Y-m-d', $value)
-                               ?: date_create_from_format('m/d/Y', $value)
-                               ?: date_create_from_format('d/m/Y', $value);
+                            $dt = api_booking_parse_pet_profile_date($value);
                             if (!$dt) continue;
                             $value = $dt->format('Y-m-d');
                         } elseif (in_array($attr, ['spayed_neutered', 'vaccines_current'], true)) {
