@@ -339,7 +339,7 @@ $stmt = $conn->prepare("
     LEFT JOIN pet_files pf ON p.id = pf.pet_id
     WHERE p.client_id = ?
     GROUP BY p.id
-    ORDER BY p.name
+    ORDER BY COALESCE(p.is_active, 1) DESC, p.name
 ");
 $stmt->execute([$id]);
 $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -604,8 +604,14 @@ include '../backend/includes/header.php';
                         <p class="text-muted mb-0">No pets registered</p>
                     <?php else: ?>
                         <?php foreach ($pets as $pet): ?>
-                            <div class="border-bottom pb-2 mb-2">
-                                <strong><?= escape($pet['name']) ?></strong>
+                            <?php $pet_is_active = !empty($pet['is_active']); ?>
+                            <div class="border-bottom pb-2 mb-2<?= $pet_is_active ? '' : ' bg-light rounded px-2 text-muted opacity-75' ?>">
+                                <strong>
+                                    <?= escape($pet['name']) ?>
+                                    <?php if (!$pet_is_active): ?>
+                                        <span class="badge bg-secondary ms-1">Archived</span>
+                                    <?php endif; ?>
+                                </strong>
                                 <small class="text-muted d-block">
                                     <?= escape($pet['species']) ?> 
                                     <?= $pet['breed'] ? '- ' . escape($pet['breed']) : '' ?>
@@ -617,6 +623,9 @@ include '../backend/includes/header.php';
                                 <?php endif; ?>
                                 <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-xs btn-outline-secondary mt-1">
                                     <i class="fas fa-pencil"></i> Edit
+                                </a>
+                                <a href="pets_delete.php?id=<?= (int) $pet['id'] ?>&client_id=<?= $id ?>" class="btn btn-xs btn-outline-danger mt-1" onclick="return confirm('Are you sure you want to delete this pet?')">
+                                    <i class="fas fa-trash"></i> Delete
                                 </a>
                                 <a href="form_requests_create.php?form_type=pet_form&amp;pet_id=<?= (int) $pet['id'] ?>" class="btn btn-xs btn-outline-success mt-1">
                                     <i class="fas fa-file-medical"></i> Pet Form
