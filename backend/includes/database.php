@@ -687,6 +687,7 @@ class Database {
                     requires_contract INTEGER DEFAULT 0,
                     auto_invoice INTEGER DEFAULT 0,
                     invoice_due_days INTEGER DEFAULT 7,
+                    invoice_due_timing TEXT DEFAULT 'after',
                     consumes_credits INTEGER DEFAULT 0,
                     credit_count INTEGER DEFAULT 1,
                     is_group_class INTEGER DEFAULT 0,
@@ -1738,6 +1739,10 @@ class Database {
 
         if (!in_array('admin_user_id', $apt_column_names)) {
             $this->execSQL("ALTER TABLE appointment_types ADD COLUMN admin_user_id INTEGER DEFAULT NULL");
+        }
+
+        if (!in_array('invoice_due_timing', $apt_column_names)) {
+            $this->execSQL("ALTER TABLE appointment_types ADD COLUMN invoice_due_timing TEXT DEFAULT 'after'");
         }
         
         if (!in_array('unique_link', $apt_column_names)) {

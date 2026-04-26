@@ -3,6 +3,7 @@ require_once '../includes/config.php';
 require_once '../includes/booking_resources.php';
 require_once '../includes/email_service.php';
 require_once '../includes/google_calendar.php';
+require_once '../includes/invoice_due.php';
 require_once '../includes/turnstile.php';
 require_once '../includes/workflow_helper.php';
 
@@ -490,6 +491,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 'admin_user_id' => in_array('admin_user_id', $appointment_type_columns, true) ? 'admin_user_id' : '0 AS admin_user_id',
                 'auto_invoice' => in_array('auto_invoice', $appointment_type_columns, true) ? 'auto_invoice' : '0 AS auto_invoice',
                 'invoice_due_days' => in_array('invoice_due_days', $appointment_type_columns, true) ? 'invoice_due_days' : '7 AS invoice_due_days',
+                'invoice_due_timing' => in_array('invoice_due_timing', $appointment_type_columns, true) ? 'invoice_due_timing' : "'after' AS invoice_due_timing",
                 'default_amount' => in_array('default_amount', $appointment_type_columns, true) ? 'default_amount' : '0 AS default_amount',
             ];
             $stmt = $conn->prepare("SELECT " . implode(', ', $appointment_type_select_map) . " FROM appointment_types WHERE id = ?");
@@ -937,9 +939,10 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         if (!$is_pending_request && $apt_type !== [] && array_int_value($apt_type, 'auto_invoice') === 1) {
             $default_amount = safe_float($apt_type['default_amount'] ?? 0);
             $invoice_due_days = max(0, array_int_value($apt_type, 'invoice_due_days', 7));
+            $invoice_due_timing = bdta_normalize_invoice_due_timing($apt_type['invoice_due_timing'] ?? 'after');
             $invoice_number = api_booking_generate_invoice_number($conn);
             $issue_date = date('Y-m-d');
-            $due_date = date('Y-m-d', safe_timestamp(strtotime($appointment_date . " +{$invoice_due_days} days")));
+            $due_date = bdta_calculate_invoice_due_date($appointment_date, $invoice_due_days, $invoice_due_timing);
             $pay_token = bin2hex(random_bytes(32));
             $invoice_line_description = trim(array_string_value($apt_type, 'name', $service_type));
             $appointment_type_description = trim(array_string_value($apt_type, 'description'));
