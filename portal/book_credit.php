@@ -5,6 +5,7 @@
  * Provides contact/pet selection, add-pet capability, and intelligent form/contract skipping.
  */
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/form_types.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -127,37 +128,27 @@ if ($required_contract) {
     }
 }
 
-// ── Form skip logic ──────────────────────────────────────────────────────────
-// Only include forms that genuinely need to be completed again.
+// ── Form visibility logic ────────────────────────────────────────────────────
+// Most forms are filtered server-side to only those that are due. Once-per-pet
+// forms stay in this list so the browser can hide/show them as the selected pet
+// list changes during the booking flow.
 $forms_needing_completion = [];
 foreach ($all_required_forms as $form) {
-    $freq = trim(array_string_value($form, 'required_frequency'));
-    // 'per_booking' and 'per_appointment' both mean "required every booking";
-    // empty string is also treated as always-show (optional / default)
-    if ($freq === 'per_booking' || $freq === 'per_appointment' || $freq === '') {
+    $form['required_frequency'] = bdta_normalize_form_required_frequency(array_string_value($form, 'required_frequency'));
+    if ($form['required_frequency'] === 'once_per_pet') {
+        $form['completed_pet_ids'] = bdta_get_form_template_completed_pet_ids(
+            $conn,
+            $client_id,
+            array_int_value($form, 'id'),
+            $appointment_type_id
+        );
         $forms_needing_completion[] = $form;
         continue;
     }
-    // Determine look-back window based on frequency keyword
-    $cutoff = match ($freq) {
-        'annual', 'yearly' => strtotime('-1 year'),
-        'semi_annual'      => strtotime('-6 months'),
-        'monthly'          => strtotime('-1 month'),
-        default            => null, // 'once' or unknown — check any prior submission
-    };
-    $stmt = $conn->prepare("
-        SELECT submitted_at FROM form_submissions
-        WHERE client_id = ? AND template_id = ?
-        ORDER BY submitted_at DESC LIMIT 1
-    ");
-    $stmt->execute([$client_id, $form['id']]);
-    $last_sub = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$last_sub) {
-        $forms_needing_completion[] = $form; // Never submitted
-    } elseif ($cutoff !== null && strtotime($last_sub['submitted_at']) < $cutoff) {
-        $forms_needing_completion[] = $form; // Due for renewal
+
+    if (bdta_form_template_needs_completion($conn, $form, $client_id, $appointment_type_id)) {
+        $forms_needing_completion[] = $form;
     }
-    // If $cutoff is null ('once') and there IS a prior submission, skip the form.
 }
 
 // ── Location types config (same logic as book.php) ───────────────────────────
@@ -490,14 +481,26 @@ include '../portal/includes/header.php';
                 <hr class="my-4">
                 <h6><i class="fas fa-file-alt me-2"></i>Required Forms</h6>
                 <p class="text-muted mb-3">Please complete the following forms as part of your booking.</p>
+                <div class="alert alert-success mb-4 d-none" id="requiredFormsCurrentNotice">
+                    <i class="fas fa-circle-check me-2"></i>
+                    Your required form(s) are already on file and up to date for the selected pet(s). No re-submission needed.
+                </div>
                 <?php foreach ($forms_needing_completion as $form): ?>
                 <?php
                 $form_id = array_int_value($form, 'id');
                 $form_name = array_string_value($form, 'name');
                 $form_description = array_string_value($form, 'description');
-                $form_fields = is_array($form['fields'] ?? null) ? $form['fields'] : [];
+                $form_fields = is_array($form['fields'] ?? null) ? assoc_rows($form['fields']) : [];
+                $form_frequency = bdta_normalize_form_required_frequency(array_string_value($form, 'required_frequency'));
+                $completed_pet_ids = array_map('safe_int', is_array($form['completed_pet_ids'] ?? null) ? $form['completed_pet_ids'] : []);
                 ?>
-                <div class="card mb-4" data-form-id="<?= $form_id ?>">
+                <div
+                    class="card mb-4"
+                    data-form-id="<?= $form_id ?>"
+                    data-form-active="1"
+                    data-frequency="<?= escape($form_frequency) ?>"
+                    data-completed-pet-ids="<?= escape(json_encode($completed_pet_ids)) ?>"
+                >
                     <div class="card-header bg-light">
                         <h6 class="mb-0"><?= htmlspecialchars($form_name) ?></h6>
                         <?php if ($form_description !== ''): ?>
@@ -506,6 +509,7 @@ include '../portal/includes/header.php';
                     </div>
                     <div class="card-body">
                         <?php foreach ($form_fields as $fi => $field):
+                            $field = assoc_row($field);
                             $field_label = array_string_value($field, 'label');
                             $field_description = array_string_value($field, 'description');
                             $field_type = array_string_value($field, 'type', 'text');
@@ -769,8 +773,9 @@ include '../portal/includes/header.php';
         $map = [];
         foreach ($forms_needing_completion as $form) {
             $fmap = [];
-            $form_fields = is_array($form['fields'] ?? null) ? $form['fields'] : [];
+            $form_fields = is_array($form['fields'] ?? null) ? assoc_rows($form['fields']) : [];
             foreach ($form_fields as $fi => $field) {
+                $field = assoc_row($field);
                 $profile_mapping = array_string_value($field, 'profile_mapping');
                 if ($profile_mapping !== '') {
                     $fmap[$fi] = $profile_mapping;
@@ -1052,6 +1057,7 @@ include '../portal/includes/header.php';
         el.classList.toggle('selected');
         const cb = el.querySelector('.pet-checkbox');
         if (cb) cb.checked = el.classList.contains('selected');
+        updateFormVisibilityByPetSelection();
     };
 
     function getSelectedPetIds() {
@@ -1062,6 +1068,60 @@ include '../portal/includes/header.php';
 
     function getSelectedPetNames() {
         return getSelectedPetIds().map(id => petNames[id] || 'Pet #' + id);
+    }
+
+    function updateFormVisibilityByPetSelection() {
+        const sections = [...document.querySelectorAll('[data-form-id]')];
+        if (!sections.length) return;
+
+        const selectedPetIds = getSelectedPetIds();
+        let activeForms = 0;
+
+        sections.forEach(section => {
+            const frequency = section.dataset.frequency || '';
+            let shouldHide = false;
+
+            if (frequency === 'once_per_pet' && selectedPetIds.length > 0) {
+                let completedPetIds = [];
+                try {
+                    completedPetIds = JSON.parse(section.dataset.completedPetIds || '[]')
+                        .map(id => parseInt(id, 10))
+                        .filter(id => Number.isInteger(id) && id > 0);
+                } catch (e) {
+                    completedPetIds = [];
+                }
+
+                const completedPetSet = new Set(completedPetIds);
+                shouldHide = selectedPetIds.every(id => completedPetSet.has(id));
+            }
+
+            section.classList.toggle('d-none', shouldHide);
+            section.dataset.formActive = shouldHide ? '0' : '1';
+            section.querySelectorAll('input, select, textarea').forEach(control => {
+                if (shouldHide) {
+                    if (control.required) {
+                        control.dataset.wasRequired = '1';
+                        control.required = false;
+                    }
+                    control.disabled = true;
+                    return;
+                }
+
+                control.disabled = false;
+                if (control.dataset.wasRequired === '1') {
+                    control.required = true;
+                    delete control.dataset.wasRequired;
+                }
+            });
+            if (!shouldHide) {
+                activeForms++;
+            }
+        });
+
+        const notice = document.getElementById('requiredFormsCurrentNotice');
+        if (notice) {
+            notice.classList.toggle('d-none', activeForms !== 0);
+        }
     }
 
     /* ─── Add new pet inline ──────────────────────────────────────── */
@@ -1108,6 +1168,7 @@ include '../portal/includes/header.php';
                 document.getElementById('addPetForm').classList.add('d-none');
                 document.getElementById('addPetToggleBtn').classList.remove('active');
                 status.innerHTML = '';
+                updateFormVisibilityByPetSelection();
             } else {
                 status.innerHTML = `<div class="text-danger small">${escapeHtml(data.error || 'Failed to add pet.')}</div>`;
             }
@@ -1154,6 +1215,8 @@ include '../portal/includes/header.php';
         }
     };
 
+    updateFormVisibilityByPetSelection();
+
     /* ─── Confirmation summary ─────────────────────────────────────── */
     function populateConfirm() {
         document.getElementById('confirmDate').textContent = formatDateLong(selectedDate);
@@ -1184,6 +1247,9 @@ include '../portal/includes/header.php';
     function collectFormResponses() {
         const responses = {};
         document.querySelectorAll('[data-form-id]').forEach(section => {
+            if (section.dataset.formActive === '0' || section.classList.contains('d-none')) {
+                return;
+            }
             const fid = section.dataset.formId;
             const fields = {};
             section.querySelectorAll('input:not([type=checkbox]):not([type=radio]), textarea, select').forEach(el => {

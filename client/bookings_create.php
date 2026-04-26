@@ -2,6 +2,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/booking_resources.php';
 require_once '../backend/includes/email_service.php';
+require_once '../backend/includes/form_types.php';
 require_once '../backend/includes/google_calendar.php';
 require_once '../backend/includes/invoice_due.php';
 require_once '../backend/includes/workflow_helper.php';
@@ -70,6 +71,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!is_array($pets)) {
         $pets = [];
     }
+    $pets = array_values(array_filter(
+        array_map('safe_int', $pets),
+        static fn (int $pet_id): bool => $pet_id > 0
+    ));
     
     try {
         // Get appointment type details
@@ -96,22 +101,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Check required forms
         if ($apt_type['requires_forms'] && !$override_forms) {
             $stmt = $conn->prepare("
-                SELECT atf.form_template_id FROM appointment_type_forms atf
+                SELECT ft.id, ft.required_frequency
+                FROM appointment_type_forms atf
+                JOIN form_templates ft ON ft.id = atf.form_template_id
                 WHERE atf.appointment_type_id = ?
             ");
             $stmt->execute([$apt_type['id']]);
-            $required_form_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            if (!empty($required_form_ids)) {
-                $stmt2 = $conn->prepare("
-                    SELECT DISTINCT fs.template_id
-                    FROM form_submissions fs
-                    JOIN appointment_type_forms atf ON atf.form_template_id = fs.template_id
-                    WHERE fs.client_id = ? AND fs.status = 'submitted' AND atf.appointment_type_id = ?
-                ");
-                $stmt2->execute([$client_id, $apt_type['id']]);
-                $submitted_form_ids = $stmt2->fetchAll(PDO::FETCH_COLUMN);
-                $missing = array_diff($required_form_ids, $submitted_form_ids);
-                if (!empty($missing)) {
+            $required_forms = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+            if ($required_forms !== []) {
+                $missing = array_filter(
+                    $required_forms,
+                    static fn (array $form): bool => bdta_form_template_needs_completion(
+                        $conn,
+                        $form,
+                        $client_id,
+                        array_int_value($apt_type, 'id'),
+                        $pets
+                    )
+                );
+                if ($missing !== []) {
                     $errors[] = "Client must submit required forms before booking (or override)";
                 }
             }
