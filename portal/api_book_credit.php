@@ -266,9 +266,9 @@ if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
 $overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
 
 if ($overwrite_declined && !empty($data['form_responses']) && is_array($data['form_responses'])) {
-    $pet_updates = collectPetProfileMappedValues($conn, $data['form_responses']);
+    $pet_updates = api_booking_collect_pet_profile_mapped_values($conn, $data['form_responses']);
     if ($pet_updates !== []) {
-        $pet_ids = cloneConflictingPets($conn, $client_id, $pet_ids, $pet_updates);
+        $pet_ids = api_booking_clone_conflicting_pets($conn, $client_id, $pet_ids, $pet_updates);
     }
 }
 
@@ -445,12 +445,16 @@ function updatePetProfileField(PDO $conn, string $attr, string|int $value, int $
             $conn->prepare("UPDATE pets SET training_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                  ->execute([$value, $pet_id]);
             return true;
+        case 'pet_sitting_notes':
+            $conn->prepare("UPDATE pets SET pet_sitting_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
         default:
             return false;
     }
 }
 
-function normalizePetProfileMappingValue(string $attr, mixed $value): string|int|null {
+function api_booking_normalize_pet_profile_value(string $attr, mixed $value): string|int|null {
     if (is_array($value)) {
         $value = implode(', ', string_list($value));
     }
@@ -478,7 +482,7 @@ function normalizePetProfileMappingValue(string $attr, mixed $value): string|int
  * @param array<int|string, mixed> $form_responses
  * @return array<int, array<string, string|int>>
  */
-function collectPetProfileMappedValues(PDO $conn, array $form_responses): array {
+function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_responses): array {
     $supported_attrs = [
         'name' => true,
         'species' => true,
@@ -491,28 +495,39 @@ function collectPetProfileMappedValues(PDO $conn, array $form_responses): array 
         'behavior_notes' => true,
         'medical_notes' => true,
         'training_notes' => true,
+        'pet_sitting_notes' => true,
     ];
     $pet_updates = [];
 
     foreach ($form_responses as $tpl_id => $responses) {
-        if (!is_array($responses)) continue;
+        if (!is_array($responses)) {
+            continue;
+        }
 
         $tpl_stmt = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
         $tpl_stmt->execute([(int)$tpl_id]);
         $tpl_row = $tpl_stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$tpl_row) continue;
+        if (!$tpl_row) {
+            continue;
+        }
 
         $tpl_fields = decode_json_assoc_list(array_string_value($tpl_row, 'fields'));
         foreach ($tpl_fields as $fi => $field) {
             $mapping = array_string_value($field, 'profile_mapping');
-            if (!preg_match('/^pet_([123])\.(.+)$/', $mapping, $matches)) continue;
+            if (!preg_match('/^pet_([123])\.(.+)$/', $mapping, $matches)) {
+                continue;
+            }
 
             $pet_index = (int)$matches[1] - 1;
             $attr = $matches[2];
-            if (!isset($supported_attrs[$attr])) continue;
+            if (!isset($supported_attrs[$attr])) {
+                continue;
+            }
 
-            $normalized = normalizePetProfileMappingValue($attr, $responses[$fi] ?? null);
-            if ($normalized === null) continue;
+            $normalized = api_booking_normalize_pet_profile_value($attr, $responses[$fi] ?? null);
+            if ($normalized === null) {
+                continue;
+            }
 
             if (!isset($pet_updates[$pet_index])) {
                 $pet_updates[$pet_index] = [];
@@ -527,7 +542,7 @@ function collectPetProfileMappedValues(PDO $conn, array $form_responses): array 
 /**
  * @return list<string>
  */
-function getPetTableColumns(PDO $conn): array {
+function api_booking_pet_table_columns(PDO $conn): array {
     $stmt = $conn->query('SELECT * FROM pets LIMIT 0');
     $columns = [];
     for ($index = 0, $count = $stmt->columnCount(); $index < $count; $index++) {
@@ -545,12 +560,12 @@ function getPetTableColumns(PDO $conn): array {
  * @param array<int, array<string, string|int>> $pet_updates
  * @return list<int>
  */
-function cloneConflictingPets(PDO $conn, int $client_id, array $pet_ids, array $pet_updates): array {
+function api_booking_clone_conflicting_pets(PDO $conn, int $client_id, array $pet_ids, array $pet_updates): array {
     if ($client_id <= 0 || $pet_ids === [] || $pet_updates === []) {
         return $pet_ids;
     }
 
-    $pet_columns = getPetTableColumns($conn);
+    $pet_columns = api_booking_pet_table_columns($conn);
     $supported_attrs = [
         'name',
         'species',
@@ -563,6 +578,7 @@ function cloneConflictingPets(PDO $conn, int $client_id, array $pet_ids, array $
         'behavior_notes',
         'medical_notes',
         'training_notes',
+        'pet_sitting_notes',
     ];
     $fetch_pet_stmt = $conn->prepare("SELECT * FROM pets WHERE id = ? AND client_id = ?");
 
