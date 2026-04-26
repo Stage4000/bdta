@@ -11,7 +11,7 @@ function bdta_assert_true(bool $condition, string $message): void
 
 $clients_view = file_get_contents(dirname(__DIR__) . '/client/clients_view.php');
 if (!is_string($clients_view)) {
-    fwrite(STDERR, "Failed to read client/clients_view.php\n");
+    fwrite(STDERR, 'Failed to read ' . dirname(__DIR__) . "/client/clients_view.php\n");
     exit(1);
 }
 
@@ -21,8 +21,8 @@ bdta_assert_true(
 );
 
 bdta_assert_true(
-    str_contains($clients_view, "<?php \$pet_is_active = !empty(\$pet['is_active']); ?>"),
-    'Expected client profile pet cards to detect archived pet state.'
+    str_contains($clients_view, "\$pet_archived_classes = \$pet_is_active ? '' : ' bg-light rounded px-2 text-muted opacity-75';"),
+    'Expected client profile pet cards to derive archived styling from the pet active state.'
 );
 
 bdta_assert_true(
@@ -36,7 +36,7 @@ bdta_assert_true(
 );
 
 bdta_assert_true(
-    str_contains($clients_view, "pets_delete.php?id=<?= (int) \$pet['id'] ?>&client_id=<?= \$id ?>"),
+    str_contains($clients_view, "pets_delete.php?id=<?= (int) \$pet['id'] ?>&client_id=<?= (int) \$id ?>"),
     'Expected client profile pets to expose a delete action that returns to the client profile.'
 );
 
