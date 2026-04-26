@@ -2,6 +2,30 @@
 <?php
 
 require_once dirname(__DIR__) . '/backend/includes/database.php';
+
+if (!function_exists('array_int_value')) {
+    function array_int_value(array $array, string|int $key, int $default = 0): int
+    {
+        return array_key_exists($key, $array) ? safe_int($array[$key]) : $default;
+    }
+}
+
+if (!function_exists('array_string_value')) {
+    function array_string_value(array $array, string|int $key, string $default = ''): string
+    {
+        if (!array_key_exists($key, $array)) {
+            return $default;
+        }
+
+        $value = $array[$key];
+        if ($value === null) {
+            return $default;
+        }
+
+        return is_scalar($value) ? (string) $value : $default;
+    }
+}
+
 require_once dirname(__DIR__) . '/backend/includes/form_types.php';
 
 function assertFormFrequency(bool $condition, string $message): void

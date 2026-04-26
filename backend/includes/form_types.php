@@ -222,40 +222,40 @@ function bdta_form_submission_matches_context(
         return false;
     }
 
+    $client_id = safe_int($client_id);
+    $template_id = safe_int($template_id);
+    $appointment_type_id = safe_int($appointment_type_id);
+    $pet_id = safe_int($pet_id);
+
     $query = "
         SELECT 1
         FROM form_submissions fs
         LEFT JOIN bookings b ON b.id = fs.booking_id
         LEFT JOIN form_templates ft ON ft.id = fs.template_id
-        WHERE fs.client_id = ? AND fs.template_id = ? AND fs.status = 'submitted'
+        WHERE fs.client_id = {$client_id} AND fs.template_id = {$template_id} AND fs.status = 'submitted'
     ";
-    $params = [$client_id, $template_id];
 
     if ($appointment_type_id > 0) {
         $query .= "
             AND (
-                b.appointment_type_id = ?
-                OR (fs.booking_id IS NULL AND COALESCE(ft.appointment_type_id, 0) = ?)
+                b.appointment_type_id = {$appointment_type_id}
+                OR (fs.booking_id IS NULL AND COALESCE(ft.appointment_type_id, 0) = {$appointment_type_id})
             )
         ";
-        $params[] = $appointment_type_id;
-        $params[] = $appointment_type_id;
     }
 
     if ($pet_id > 0) {
-        $query .= " AND COALESCE(fs.pet_id, 0) = ? ";
-        $params[] = $pet_id;
+        $query .= " AND COALESCE(fs.pet_id, 0) = {$pet_id} ";
     }
 
     if ($submitted_after !== null) {
-        $query .= " AND fs.submitted_at IS NOT NULL AND fs.submitted_at >= ? ";
-        $params[] = date('Y-m-d H:i:s', $submitted_after);
+        $submitted_after_sql = $conn->quote(date('Y-m-d H:i:s', $submitted_after));
+        $query .= " AND fs.submitted_at IS NOT NULL AND fs.submitted_at >= {$submitted_after_sql} ";
     }
 
     $query .= " LIMIT 1";
 
-    $stmt = $conn->prepare($query);
-    $stmt->execute($params);
+    $stmt = $conn->query($query);
 
     return $stmt->fetchColumn() !== false;
 }
@@ -269,28 +269,28 @@ function bdta_get_form_template_completed_pet_ids(PDO $conn, int $client_id, int
         return [];
     }
 
+    $client_id = safe_int($client_id);
+    $template_id = safe_int($template_id);
+    $appointment_type_id = safe_int($appointment_type_id);
+
     $query = "
         SELECT DISTINCT fs.pet_id
         FROM form_submissions fs
         LEFT JOIN bookings b ON b.id = fs.booking_id
         LEFT JOIN form_templates ft ON ft.id = fs.template_id
-        WHERE fs.client_id = ? AND fs.template_id = ? AND fs.status = 'submitted' AND fs.pet_id IS NOT NULL
+        WHERE fs.client_id = {$client_id} AND fs.template_id = {$template_id} AND fs.status = 'submitted' AND fs.pet_id IS NOT NULL
     ";
-    $params = [$client_id, $template_id];
 
     if ($appointment_type_id > 0) {
         $query .= "
             AND (
-                b.appointment_type_id = ?
-                OR (fs.booking_id IS NULL AND COALESCE(ft.appointment_type_id, 0) = ?)
+                b.appointment_type_id = {$appointment_type_id}
+                OR (fs.booking_id IS NULL AND COALESCE(ft.appointment_type_id, 0) = {$appointment_type_id})
             )
         ";
-        $params[] = $appointment_type_id;
-        $params[] = $appointment_type_id;
     }
 
-    $stmt = $conn->prepare($query);
-    $stmt->execute($params);
+    $stmt = $conn->query($query);
 
     return array_values(array_unique(array_map('safe_int', $stmt->fetchAll(PDO::FETCH_COLUMN))));
 }

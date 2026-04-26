@@ -95,6 +95,10 @@ $conn->prepare('INSERT INTO clients (name, email, phone, created_at, updated_at)
     ->execute(['Once Per Pet Client', 'once-per-pet@example.com', '555-0100']);
 $client_id = (int) $conn->lastInsertId();
 
+$_SESSION['portal_client_id'] = $client_id;
+$_SESSION['portal_client_name'] = 'Once Per Pet Client';
+$_SESSION['portal_client_email'] = 'once-per-pet@example.com';
+
 $pet_stmt = $conn->prepare('INSERT INTO pets (client_id, name, species, breed, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)');
 $pet_stmt->execute([$client_id, 'Alpha', 'Dog', 'Labrador']);
 $alpha_pet_id = (int) $conn->lastInsertId();

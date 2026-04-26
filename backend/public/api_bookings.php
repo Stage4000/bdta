@@ -1034,15 +1034,39 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
             /** @var array<int|string, mixed> $form_responses */
             $form_responses = $data['form_responses'];
-            $template_frequency_stmt = $conn->prepare("SELECT required_frequency FROM form_templates WHERE id = ?");
-            $ins = $conn->prepare("INSERT INTO form_submissions (client_id, template_id, booking_id, pet_id, responses, status, submitted_at) VALUES (?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)");
+            $template_frequency_stmt = null;
+            $insert_supports_pet_id = true;
+            try {
+                $template_frequency_stmt = $conn->prepare("SELECT required_frequency FROM form_templates WHERE id = ?");
+            } catch (\Throwable $e) {
+                $template_frequency_stmt = null;
+            }
+            try {
+                $ins = $conn->prepare("INSERT INTO form_submissions (client_id, template_id, booking_id, pet_id, responses, status, submitted_at) VALUES (?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)");
+            } catch (\Throwable $e) {
+                $insert_supports_pet_id = false;
+                $ins = $conn->prepare("INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at) VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)");
+            }
             foreach ($form_responses as $template_id => $responses) {
                 if (is_array($responses) && !empty($responses)) {
                     $template_id = (int) $template_id;
-                    $template_frequency_stmt->execute([$template_id]);
-                    $template_frequency = scalar_string($template_frequency_stmt->fetchColumn());
-                    foreach (bdta_get_form_submission_pet_ids($template_frequency, $pet_ids) as $submission_pet_id) {
-                        $ins->execute([$client_id, $template_id, $booking_id, $submission_pet_id, json_encode($responses)]);
+                    $template_frequency = '';
+                    if ($template_frequency_stmt !== null) {
+                        try {
+                            $template_frequency_stmt->execute([$template_id]);
+                            $template_frequency = scalar_string($template_frequency_stmt->fetchColumn());
+                        } catch (\Throwable $e) {
+                            $template_frequency = '';
+                        }
+                    }
+                    $submission_pet_ids = $insert_supports_pet_id
+                        ? bdta_get_form_submission_pet_ids($template_frequency, $pet_ids)
+                        : [null];
+                    foreach ($submission_pet_ids as $submission_pet_id) {
+                        $params = $insert_supports_pet_id
+                            ? [$client_id, $template_id, $booking_id, $submission_pet_id, json_encode($responses)]
+                            : [$client_id, $template_id, $booking_id, json_encode($responses)];
+                        $ins->execute($params);
                         $form_submission_id = scalar_string($conn->lastInsertId());
                         try {
                             $workflow_helper->checkFormTriggers($form_submission_id);
