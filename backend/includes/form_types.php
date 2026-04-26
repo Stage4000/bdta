@@ -218,6 +218,11 @@ function bdta_form_submission_matches_context(
     int $pet_id = 0,
     ?int $submitted_after = null
 ): bool {
+    $client_id = safe_int($client_id);
+    $template_id = safe_int($template_id);
+    $appointment_type_id = safe_int($appointment_type_id);
+    $pet_id = safe_int($pet_id);
+
     if ($client_id <= 0 || $template_id <= 0) {
         return false;
     }
@@ -229,11 +234,6 @@ function bdta_form_submission_matches_context(
         LEFT JOIN form_templates ft ON ft.id = fs.template_id
         WHERE fs.client_id = :client_id AND fs.template_id = :template_id AND fs.status = 'submitted'
     ";
-    $client_id = safe_int($client_id);
-    $template_id = safe_int($template_id);
-    $appointment_type_id = safe_int($appointment_type_id);
-    $pet_id = safe_int($pet_id);
-
     if ($appointment_type_id > 0) {
         $query .= "
             AND (
@@ -276,6 +276,10 @@ function bdta_form_submission_matches_context(
  */
 function bdta_get_form_template_completed_pet_ids(PDO $conn, int $client_id, int $template_id, int $appointment_type_id = 0): array
 {
+    $client_id = safe_int($client_id);
+    $template_id = safe_int($template_id);
+    $appointment_type_id = safe_int($appointment_type_id);
+
     if ($client_id <= 0 || $template_id <= 0) {
         return [];
     }
@@ -287,10 +291,6 @@ function bdta_get_form_template_completed_pet_ids(PDO $conn, int $client_id, int
         LEFT JOIN form_templates ft ON ft.id = fs.template_id
         WHERE fs.client_id = :client_id AND fs.template_id = :template_id AND fs.status = 'submitted' AND fs.pet_id IS NOT NULL
     ";
-    $client_id = safe_int($client_id);
-    $template_id = safe_int($template_id);
-    $appointment_type_id = safe_int($appointment_type_id);
-
     if ($appointment_type_id > 0) {
         $query .= "
             AND (

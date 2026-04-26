@@ -1052,7 +1052,7 @@ include '../portal/includes/header.php';
         el.classList.toggle('selected');
         const cb = el.querySelector('.pet-checkbox');
         if (cb) cb.checked = el.classList.contains('selected');
-        updatePetFrequencyForms();
+        updateFormVisibilityByPetSelection();
     };
 
     function getSelectedPetIds() {
@@ -1065,7 +1065,7 @@ include '../portal/includes/header.php';
         return getSelectedPetIds().map(id => petNames[id] || 'Pet #' + id);
     }
 
-    function updatePetFrequencyForms() {
+    function updateFormVisibilityByPetSelection() {
         const sections = [...document.querySelectorAll('[data-form-id]')];
         if (!sections.length) return;
 
@@ -1086,7 +1086,8 @@ include '../portal/includes/header.php';
                     completedPetIds = [];
                 }
 
-                shouldHide = selectedPetIds.every(id => completedPetIds.includes(id));
+                const completedPetSet = new Set(completedPetIds);
+                shouldHide = selectedPetIds.every(id => completedPetSet.has(id));
             }
 
             section.classList.toggle('d-none', shouldHide);
@@ -1146,7 +1147,7 @@ include '../portal/includes/header.php';
                 document.getElementById('addPetForm').classList.add('d-none');
                 document.getElementById('addPetToggleBtn').classList.remove('active');
                 status.innerHTML = '';
-                updatePetFrequencyForms();
+                updateFormVisibilityByPetSelection();
             } else {
                 status.innerHTML = `<div class="text-danger small">${escapeHtml(data.error || 'Failed to add pet.')}</div>`;
             }
@@ -1193,7 +1194,7 @@ include '../portal/includes/header.php';
         }
     };
 
-    updatePetFrequencyForms();
+    updateFormVisibilityByPetSelection();
 
     /* ─── Confirmation summary ─────────────────────────────────────── */
     function populateConfirm() {
