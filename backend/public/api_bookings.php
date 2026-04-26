@@ -182,9 +182,7 @@ function api_booking_normalize_pet_profile_value(string $attr, mixed $value): st
     }
 
     if ($attr === 'date_of_birth') {
-        $dt = date_create_from_format('Y-m-d', $value)
-           ?: date_create_from_format('m/d/Y', $value)
-           ?: date_create_from_format('d/m/Y', $value);
+        $dt = api_booking_parse_pet_profile_date($value);
         return $dt ? $dt->format('Y-m-d') : null;
     }
 
@@ -193,6 +191,43 @@ function api_booking_normalize_pet_profile_value(string $attr, mixed $value): st
     }
 
     return $value;
+}
+
+function api_booking_parse_pet_profile_date(string $value): ?DateTime
+{
+    foreach (['Y-m-d', 'm/d/Y', 'd/m/Y'] as $format) {
+        $dt = date_create_from_format('!' . $format, $value);
+        $errors = DateTime::getLastErrors();
+        $has_errors = is_array($errors)
+            && ((int) ($errors['warning_count'] ?? 0) > 0 || (int) ($errors['error_count'] ?? 0) > 0);
+        if ($dt instanceof DateTime && !$has_errors) {
+            return $dt;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @param list<int> $requested_pet_ids
+ * @param list<int> $verified_pet_ids
+ * @return list<int>
+ */
+function api_booking_order_verified_pet_ids(array $requested_pet_ids, array $verified_pet_ids): array
+{
+    $verified_map = [];
+    foreach ($verified_pet_ids as $verified_pet_id) {
+        $verified_map[(string) $verified_pet_id] = true;
+    }
+
+    $ordered_pet_ids = [];
+    foreach ($requested_pet_ids as $requested_pet_id) {
+        if (isset($verified_map[(string) $requested_pet_id])) {
+            $ordered_pet_ids[] = $requested_pet_id;
+        }
+    }
+
+    return $ordered_pet_ids;
 }
 
 /**
@@ -840,7 +875,8 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- placeholder count comes from safe_int()-sanitized positive pet IDs and every value is bound separately.
             $stmt = $conn->prepare("SELECT id FROM pets WHERE client_id = ? AND is_active = 1 AND id IN ($placeholders)");
             $stmt->execute(array_merge([$client_id], $requested_pet_ids));
-            $pet_ids = array_map('safe_int', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+            $verified_pet_ids = array_map('safe_int', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+            $pet_ids = api_booking_order_verified_pet_ids($requested_pet_ids, $verified_pet_ids);
         }
 
         $dog_names = array_string_value($data, 'dog_names');
@@ -1088,9 +1124,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                         if ($cur_pet === []) continue;
 
                         if ($attr === 'date_of_birth') {
-                            $dt = date_create_from_format('Y-m-d', $value)
-                               ?: date_create_from_format('m/d/Y', $value)
-                               ?: date_create_from_format('d/m/Y', $value);
+                            $dt = api_booking_parse_pet_profile_date($value);
                             if (!$dt) continue;
                             $value = $dt->format('Y-m-d');
                         } elseif (in_array($attr, ['spayed_neutered', 'vaccines_current'], true)) {
