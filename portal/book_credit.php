@@ -1097,7 +1097,7 @@ include '../portal/includes/header.php';
 
             section.classList.toggle('d-none', shouldHide);
             section.dataset.formActive = shouldHide ? '0' : '1';
-            section.querySelectorAll('input, select, textarea, button').forEach(control => {
+            section.querySelectorAll('input, select, textarea').forEach(control => {
                 if (shouldHide) {
                     if (control.required) {
                         control.dataset.wasRequired = '1';

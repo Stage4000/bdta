@@ -162,6 +162,10 @@ $legacy_conn->prepare('INSERT INTO form_submissions (client_id, template_id, boo
     ->execute([1, $legacy_template_id, $legacy_booking_id, 'submitted', $submitted_at]);
 
 assertFormFrequency(
+    bdta_form_submissions_support_pet_id($legacy_conn) === false,
+    'Expected legacy schemas without pet_id support to be detected explicitly.'
+);
+assertFormFrequency(
     bdta_form_template_needs_completion(
         $legacy_conn,
         ['id' => $legacy_template_id, 'required_frequency' => 'once_per_pet'],
