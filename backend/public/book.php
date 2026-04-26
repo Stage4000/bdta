@@ -1363,7 +1363,8 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-3">The following form answers differ from what's currently saved in your profile. Would you like to update your profile with the new values?</p>
+                    <p class="mb-2">The following form answers differ from what's currently saved in your profile. Would you like to update your profile with the new values?</p>
+                    <p class="small text-muted mb-3">If you keep your existing profile, your saved client details will stay unchanged and any conflicting pet answers will be saved to a new pet profile for this booking.</p>
                     <div id="bookOverwriteConflictList"></div>
                 </div>
                 <div class="modal-footer">

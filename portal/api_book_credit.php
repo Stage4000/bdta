@@ -258,6 +258,20 @@ if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
     }
 }
 
+// Distinguish between three cases sent by the client:
+//   • overwrite_profile key absent  → modal was never shown (no detected conflict); always apply mapping
+//   • overwrite_profile: true       → user confirmed the overwrite prompt; always apply mapping
+//   • overwrite_profile: false      → user explicitly chose "Keep Existing"; skip conflicting client fields
+//                                       and create new pet profiles for conflicting pet mappings
+$overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
+
+if ($overwrite_declined && !empty($data['form_responses']) && is_array($data['form_responses'])) {
+    $pet_updates = collectPetProfileMappedValues($conn, $data['form_responses']);
+    if ($pet_updates !== []) {
+        $pet_ids = cloneConflictingPets($conn, $client_id, $pet_ids, $pet_updates);
+    }
+}
+
 if (!empty($resource_config['enabled'])) {
     $stmt = $conn->prepare("
         SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
@@ -435,12 +449,185 @@ function updatePetProfileField(PDO $conn, string $attr, string|int $value, int $
             return false;
     }
 }
-// Distinguish between three cases sent by the client:
-//   • overwrite_profile key absent  → modal was never shown (no detected conflict); always apply mapping
-//   • overwrite_profile: true       → user confirmed the overwrite prompt; always apply mapping
-//   • overwrite_profile: false      → user explicitly chose "Keep Existing"; skip conflicting fields
-$overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
 
+function normalizePetProfileMappingValue(string $attr, mixed $value): string|int|null {
+    if (is_array($value)) {
+        $value = implode(', ', string_list($value));
+    }
+
+    $value = scalar_string($value);
+    if ($value === '') {
+        return null;
+    }
+
+    if ($attr === 'date_of_birth') {
+        $dt = date_create_from_format('Y-m-d', $value)
+           ?: date_create_from_format('m/d/Y', $value)
+           ?: date_create_from_format('d/m/Y', $value);
+        return $dt ? $dt->format('Y-m-d') : null;
+    }
+
+    if (in_array($attr, ['spayed_neutered', 'vaccines_current'], true)) {
+        return in_array(strtolower($value), ['1', 'yes', 'true', 'on'], true) ? 1 : 0;
+    }
+
+    return $value;
+}
+
+/**
+ * @param array<int|string, mixed> $form_responses
+ * @return array<int, array<string, string|int>>
+ */
+function collectPetProfileMappedValues(PDO $conn, array $form_responses): array {
+    $supported_attrs = [
+        'name' => true,
+        'species' => true,
+        'breed' => true,
+        'date_of_birth' => true,
+        'source' => true,
+        'spayed_neutered' => true,
+        'vaccines_current' => true,
+        'vaccine_notes' => true,
+        'behavior_notes' => true,
+        'medical_notes' => true,
+        'training_notes' => true,
+    ];
+    $pet_updates = [];
+
+    foreach ($form_responses as $tpl_id => $responses) {
+        if (!is_array($responses)) continue;
+
+        $tpl_stmt = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
+        $tpl_stmt->execute([(int)$tpl_id]);
+        $tpl_row = $tpl_stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$tpl_row) continue;
+
+        $tpl_fields = decode_json_assoc_list(array_string_value($tpl_row, 'fields'));
+        foreach ($tpl_fields as $fi => $field) {
+            $mapping = array_string_value($field, 'profile_mapping');
+            if (!preg_match('/^pet_([123])\.(.+)$/', $mapping, $matches)) continue;
+
+            $pet_index = (int)$matches[1] - 1;
+            $attr = $matches[2];
+            if (!isset($supported_attrs[$attr])) continue;
+
+            $normalized = normalizePetProfileMappingValue($attr, $responses[$fi] ?? null);
+            if ($normalized === null) continue;
+
+            if (!isset($pet_updates[$pet_index])) {
+                $pet_updates[$pet_index] = [];
+            }
+            $pet_updates[$pet_index][$attr] = $normalized;
+        }
+    }
+
+    return $pet_updates;
+}
+
+/**
+ * @return list<string>
+ */
+function getPetTableColumns(PDO $conn): array {
+    $stmt = $conn->query('SELECT * FROM pets LIMIT 0');
+    $columns = [];
+    for ($index = 0, $count = $stmt->columnCount(); $index < $count; $index++) {
+        $column_meta = $stmt->getColumnMeta($index);
+        $column_name = scalar_string($column_meta['name'] ?? '');
+        if ($column_name !== '') {
+            $columns[] = $column_name;
+        }
+    }
+    return $columns;
+}
+
+/**
+ * @param list<int> $pet_ids
+ * @param array<int, array<string, string|int>> $pet_updates
+ * @return list<int>
+ */
+function cloneConflictingPets(PDO $conn, int $client_id, array $pet_ids, array $pet_updates): array {
+    if ($client_id <= 0 || $pet_ids === [] || $pet_updates === []) {
+        return $pet_ids;
+    }
+
+    $pet_columns = getPetTableColumns($conn);
+    $supported_attrs = [
+        'name',
+        'species',
+        'breed',
+        'date_of_birth',
+        'source',
+        'spayed_neutered',
+        'vaccines_current',
+        'vaccine_notes',
+        'behavior_notes',
+        'medical_notes',
+        'training_notes',
+    ];
+    $fetch_pet_stmt = $conn->prepare("SELECT * FROM pets WHERE id = ? AND client_id = ?");
+
+    foreach ($pet_ids as $pet_index => $pet_id) {
+        $mapped_values = $pet_updates[$pet_index] ?? [];
+        if ($pet_id <= 0 || $mapped_values === []) continue;
+
+        $fetch_pet_stmt->execute([$pet_id, $client_id]);
+        $cur_pet = $fetch_pet_stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$cur_pet) continue;
+
+        $has_conflict = false;
+        foreach ($mapped_values as $attr => $new_value) {
+            $existing_value = scalar_string($cur_pet[$attr] ?? '');
+            if ($existing_value !== '' && $existing_value !== (string)$new_value) {
+                $has_conflict = true;
+                break;
+            }
+        }
+        if (!$has_conflict) continue;
+
+        $insert_columns = ['client_id'];
+        $insert_sql = ['?'];
+        $insert_values = [$client_id];
+
+        foreach ($supported_attrs as $attr) {
+            if (!in_array($attr, $pet_columns, true)) continue;
+
+            $value = $mapped_values[$attr] ?? ($cur_pet[$attr] ?? null);
+            if ($value === null && !in_array($attr, ['name', 'species'], true)) continue;
+            if ($attr === 'name' && scalar_string($value) === '') {
+                $value = scalar_string($cur_pet['name'] ?? 'Pet');
+            }
+            if ($attr === 'species' && scalar_string($value) === '') {
+                $value = scalar_string($cur_pet['species'] ?? 'Dog');
+            }
+
+            $insert_columns[] = $attr;
+            $insert_sql[] = '?';
+            $insert_values[] = $value;
+        }
+
+        if (in_array('is_active', $pet_columns, true)) {
+            $insert_columns[] = 'is_active';
+            $insert_sql[] = '?';
+            $insert_values[] = 1;
+        }
+        if (in_array('created_at', $pet_columns, true)) {
+            $insert_columns[] = 'created_at';
+            $insert_sql[] = 'CURRENT_TIMESTAMP';
+        }
+        if (in_array('updated_at', $pet_columns, true)) {
+            $insert_columns[] = 'updated_at';
+            $insert_sql[] = 'CURRENT_TIMESTAMP';
+        }
+
+        $insert_stmt = $conn->prepare(
+            'INSERT INTO pets (' . implode(', ', $insert_columns) . ') VALUES (' . implode(', ', $insert_sql) . ')'
+        );
+        $insert_stmt->execute($insert_values);
+        $pet_ids[$pet_index] = (int)$conn->lastInsertId();
+    }
+
+    return array_values($pet_ids);
+}
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
     // Ordered list of pet IDs selected for this booking (0-based)
     $booking_pet_ids = array_values(array_filter(array_map('safe_int', (array)($data['pet_ids'] ?? []))));
