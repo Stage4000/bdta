@@ -118,6 +118,8 @@ include '../backend/includes/header.php';
                                          <option value="contract_request" <?php echo array_string_value($template ?? [], 'template_type') === 'contract_request' ? 'selected' : ''; ?>>Contract Request</option>
                                          <option value="form_request" <?php echo array_string_value($template ?? [], 'template_type') === 'form_request' ? 'selected' : ''; ?>>Form Request</option>
                                          <option value="quote_notification" <?php echo array_string_value($template ?? [], 'template_type') === 'quote_notification' ? 'selected' : ''; ?>>Quote Notification</option>
+                                         <option value="workflow" <?php echo array_string_value($template ?? [], 'template_type') === 'workflow' ? 'selected' : ''; ?>>Workflow Emails</option>
+                                         <option value="other" <?php echo array_string_value($template ?? [], 'template_type') === 'other' ? 'selected' : ''; ?>>Other</option>
                                          <option value="admin_notification" <?php echo array_string_value($template ?? [], 'template_type') === 'admin_notification' ? 'selected' : ''; ?>>Admin Notification</option>
                                     </select>
                                 </div>
