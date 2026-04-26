@@ -490,7 +490,7 @@ include '../portal/includes/header.php';
                 $form_id = array_int_value($form, 'id');
                 $form_name = array_string_value($form, 'name');
                 $form_description = array_string_value($form, 'description');
-                $form_fields = assoc_rows($form['fields'] ?? []);
+                $form_fields = is_array($form['fields'] ?? null) ? assoc_rows($form['fields']) : [];
                 $form_frequency = bdta_normalize_form_required_frequency(array_string_value($form, 'required_frequency'));
                 $completed_pet_ids = array_map('safe_int', is_array($form['completed_pet_ids'] ?? null) ? $form['completed_pet_ids'] : []);
                 ?>
@@ -773,7 +773,7 @@ include '../portal/includes/header.php';
         $map = [];
         foreach ($forms_needing_completion as $form) {
             $fmap = [];
-            $form_fields = assoc_rows($form['fields'] ?? []);
+            $form_fields = is_array($form['fields'] ?? null) ? assoc_rows($form['fields']) : [];
             foreach ($form_fields as $fi => $field) {
                 $field = assoc_row($field);
                 $profile_mapping = array_string_value($field, 'profile_mapping');

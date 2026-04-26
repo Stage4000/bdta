@@ -249,7 +249,8 @@ function bdta_form_submission_matches_context(
         return false;
     }
 
-    if ($pet_id > 0 && !bdta_form_submissions_support_pet_id($conn)) {
+    $requires_pet_filter = $pet_id > 0;
+    if ($requires_pet_filter && !bdta_form_submissions_support_pet_id($conn)) {
         return false;
     }
 
@@ -269,7 +270,7 @@ function bdta_form_submission_matches_context(
         ";
     }
 
-    if ($pet_id > 0) {
+    if ($requires_pet_filter) {
         $query .= " AND COALESCE(fs.pet_id, 0) = :pet_id ";
     }
 
@@ -286,7 +287,7 @@ function bdta_form_submission_matches_context(
         $stmt->bindValue(':appointment_type_id', $appointment_type_id, PDO::PARAM_INT);
         $stmt->bindValue(':template_appointment_type_id', $appointment_type_id, PDO::PARAM_INT);
     }
-    if ($pet_id > 0) {
+    if ($requires_pet_filter) {
         $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
     }
     if ($submitted_after !== null) {
