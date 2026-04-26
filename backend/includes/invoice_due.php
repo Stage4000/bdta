@@ -3,6 +3,8 @@
 function bdta_normalize_invoice_due_timing(mixed $value, string $default = 'after'): string
 {
     $timing = strtolower(trim(scalar_string($value)));
+    $default = strtolower(trim($default));
+    $default = in_array($default, ['before', 'after'], true) ? $default : 'after';
 
     return in_array($timing, ['before', 'after'], true) ? $timing : $default;
 }
