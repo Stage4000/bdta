@@ -4,6 +4,7 @@ require_once '../includes/booking_resources.php';
 require_once '../includes/email_service.php';
 require_once '../includes/google_calendar.php';
 require_once '../includes/invoice_due.php';
+require_once '../includes/form_types.php';
 require_once '../includes/turnstile.php';
 require_once '../includes/workflow_helper.php';
 
@@ -1033,15 +1034,21 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
             /** @var array<int|string, mixed> $form_responses */
             $form_responses = $data['form_responses'];
-            $ins = $conn->prepare("INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at) VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)");
+            $template_frequency_stmt = $conn->prepare("SELECT required_frequency FROM form_templates WHERE id = ?");
+            $ins = $conn->prepare("INSERT INTO form_submissions (client_id, template_id, booking_id, pet_id, responses, status, submitted_at) VALUES (?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)");
             foreach ($form_responses as $template_id => $responses) {
                 if (is_array($responses) && !empty($responses)) {
-                    $ins->execute([$client_id, (int)$template_id, $booking_id, json_encode($responses)]);
-                    $form_submission_id = scalar_string($conn->lastInsertId());
-                    try {
-                        $workflow_helper->checkFormTriggers($form_submission_id);
-                    } catch (\Throwable $e) {
-                        error_log("Workflow trigger error for form submission #{$form_submission_id}: " . $e->getMessage());
+                    $template_id = (int) $template_id;
+                    $template_frequency_stmt->execute([$template_id]);
+                    $template_frequency = scalar_string($template_frequency_stmt->fetchColumn());
+                    foreach (bdta_get_form_submission_pet_ids($template_frequency, $pet_ids) as $submission_pet_id) {
+                        $ins->execute([$client_id, $template_id, $booking_id, $submission_pet_id, json_encode($responses)]);
+                        $form_submission_id = scalar_string($conn->lastInsertId());
+                        try {
+                            $workflow_helper->checkFormTriggers($form_submission_id);
+                        } catch (\Throwable $e) {
+                            error_log("Workflow trigger error for form submission #{$form_submission_id}: " . $e->getMessage());
+                        }
                     }
                 }
             }

@@ -168,7 +168,7 @@ require_once '../backend/includes/header.php';
                             <td><?php echo $field_count; ?> fields</td>
                             <td>
                                 <?php if ($template['required_frequency']): ?>
-                                    <?php echo ucfirst(str_replace('_', ' ', $template['required_frequency'])); ?>
+                                    <?php echo escape(bdta_get_form_required_frequency_label(array_string_value($template, 'required_frequency'))); ?>
                                     <?php if ($template['appointment_type_name']): ?>
                                     <br><small class="text-muted">For: <?php echo escape($template['appointment_type_name']); ?></small>
                                     <?php endif; ?>

@@ -44,7 +44,7 @@ if ($is_edit) {
         $description = array_string_value($template, 'description');
         $form_type = bdta_normalize_form_type(array_string_value($template, 'form_type', 'client_form'));
         $fields = decode_json_assoc_list(array_string_value($template, 'fields'));
-        $required_frequency = array_string_value($template, 'required_frequency');
+        $required_frequency = bdta_normalize_form_required_frequency(array_string_value($template, 'required_frequency'));
         $appointment_type_id = array_int_value($template, 'appointment_type_id');
         $is_internal = bdta_form_type_forced_internal($form_type) === 1
             ? 1
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ?? (bdta_form_template_defaults_to_client_portal_visible($form_type, $is_internal) ? 1 : 0)
     ) !== 0 ? 1 : 0;
     $is_active = isset($_POST['is_active']) ? 1 : 0;
-    $required_frequency = scalar_string($_POST['required_frequency'] ?? '');
+    $required_frequency = bdta_normalize_form_required_frequency(scalar_string($_POST['required_frequency'] ?? ''));
     $appointment_type_id = !empty($_POST['appointment_type_id']) ? safe_int($_POST['appointment_type_id']) : null;
     
     // Build fields array from POST data
@@ -416,6 +416,7 @@ require_once '../backend/includes/header.php';
                                 <option value="once" <?php echo $required_frequency == 'once' ? 'selected' : ''; ?>>Once (ever)</option>
                                 <option value="yearly" <?php echo $required_frequency == 'yearly' ? 'selected' : ''; ?>>Once per year</option>
                                 <option value="per_appointment" <?php echo $required_frequency == 'per_appointment' ? 'selected' : ''; ?>>Per appointment type</option>
+                                <option value="once_per_pet" <?php echo $required_frequency == 'once_per_pet' ? 'selected' : ''; ?>>Once per pet</option>
                             </select>
                             <small class="form-text text-muted">When should clients complete this form?</small>
                         </div>

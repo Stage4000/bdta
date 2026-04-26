@@ -179,6 +179,188 @@ function bdta_get_form_type_label(string $form_type): string
     );
 }
 
+function bdta_normalize_form_required_frequency(string $frequency): string
+{
+    $normalized = strtolower(trim($frequency));
+
+    return match ($normalized) {
+        'annual' => 'yearly',
+        'once',
+        'yearly',
+        'semi_annual',
+        'monthly',
+        'per_appointment',
+        'per_booking',
+        'once_per_pet' => $normalized,
+        default => '',
+    };
+}
+
+function bdta_get_form_required_frequency_label(string $frequency): string
+{
+    return match (bdta_normalize_form_required_frequency($frequency)) {
+        'once' => 'Once (ever)',
+        'yearly' => 'Once per year',
+        'semi_annual' => 'Twice per year',
+        'monthly' => 'Monthly',
+        'per_appointment' => 'Per appointment type',
+        'per_booking' => 'Per booking',
+        'once_per_pet' => 'Once per pet',
+        default => 'Optional',
+    };
+}
+
+function bdta_form_submission_matches_context(
+    PDO $conn,
+    int $client_id,
+    int $template_id,
+    int $appointment_type_id = 0,
+    int $pet_id = 0,
+    ?int $submitted_after = null
+): bool {
+    if ($client_id <= 0 || $template_id <= 0) {
+        return false;
+    }
+
+    $query = "
+        SELECT 1
+        FROM form_submissions fs
+        LEFT JOIN bookings b ON b.id = fs.booking_id
+        LEFT JOIN form_templates ft ON ft.id = fs.template_id
+        WHERE fs.client_id = ? AND fs.template_id = ? AND fs.status = 'submitted'
+    ";
+    $params = [$client_id, $template_id];
+
+    if ($appointment_type_id > 0) {
+        $query .= "
+            AND (
+                b.appointment_type_id = ?
+                OR (fs.booking_id IS NULL AND COALESCE(ft.appointment_type_id, 0) = ?)
+            )
+        ";
+        $params[] = $appointment_type_id;
+        $params[] = $appointment_type_id;
+    }
+
+    if ($pet_id > 0) {
+        $query .= " AND COALESCE(fs.pet_id, 0) = ? ";
+        $params[] = $pet_id;
+    }
+
+    if ($submitted_after !== null) {
+        $query .= " AND fs.submitted_at IS NOT NULL AND fs.submitted_at >= ? ";
+        $params[] = date('Y-m-d H:i:s', $submitted_after);
+    }
+
+    $query .= " LIMIT 1";
+
+    $stmt = $conn->prepare($query);
+    $stmt->execute($params);
+
+    return $stmt->fetchColumn() !== false;
+}
+
+/**
+ * @return list<int>
+ */
+function bdta_get_form_template_completed_pet_ids(PDO $conn, int $client_id, int $template_id, int $appointment_type_id = 0): array
+{
+    if ($client_id <= 0 || $template_id <= 0) {
+        return [];
+    }
+
+    $query = "
+        SELECT DISTINCT fs.pet_id
+        FROM form_submissions fs
+        LEFT JOIN bookings b ON b.id = fs.booking_id
+        LEFT JOIN form_templates ft ON ft.id = fs.template_id
+        WHERE fs.client_id = ? AND fs.template_id = ? AND fs.status = 'submitted' AND fs.pet_id IS NOT NULL
+    ";
+    $params = [$client_id, $template_id];
+
+    if ($appointment_type_id > 0) {
+        $query .= "
+            AND (
+                b.appointment_type_id = ?
+                OR (fs.booking_id IS NULL AND COALESCE(ft.appointment_type_id, 0) = ?)
+            )
+        ";
+        $params[] = $appointment_type_id;
+        $params[] = $appointment_type_id;
+    }
+
+    $stmt = $conn->prepare($query);
+    $stmt->execute($params);
+
+    return array_values(array_unique(array_map('safe_int', $stmt->fetchAll(PDO::FETCH_COLUMN))));
+}
+
+/**
+ * @param array<string, mixed> $template
+ * @param list<int|string> $pet_ids
+ */
+function bdta_form_template_needs_completion(
+    PDO $conn,
+    array $template,
+    int $client_id,
+    int $appointment_type_id = 0,
+    array $pet_ids = []
+): bool {
+    $template_id = array_int_value($template, 'id');
+    $frequency = bdta_normalize_form_required_frequency(array_string_value($template, 'required_frequency'));
+
+    if ($template_id <= 0) {
+        return true;
+    }
+
+    if ($frequency === '' || $frequency === 'per_booking') {
+        return true;
+    }
+
+    if ($frequency === 'per_appointment') {
+        return !bdta_form_submission_matches_context($conn, $client_id, $template_id, $appointment_type_id);
+    }
+
+    if ($frequency === 'once_per_pet') {
+        $normalized_pet_ids = array_values(array_filter(array_map('safe_int', $pet_ids), static fn (int $pet_id): bool => $pet_id > 0));
+        if ($normalized_pet_ids === []) {
+            return true;
+        }
+
+        foreach ($normalized_pet_ids as $pet_id) {
+            if (!bdta_form_submission_matches_context($conn, $client_id, $template_id, $appointment_type_id, $pet_id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    $submitted_after = match ($frequency) {
+        'yearly' => strtotime('-1 year'),
+        'semi_annual' => strtotime('-6 months'),
+        'monthly' => strtotime('-1 month'),
+        default => null,
+    };
+
+    return !bdta_form_submission_matches_context($conn, $client_id, $template_id, 0, 0, $submitted_after);
+}
+
+/**
+ * @param list<int|string> $pet_ids
+ * @return list<int|null>
+ */
+function bdta_get_form_submission_pet_ids(string $frequency, array $pet_ids = []): array
+{
+    if (bdta_normalize_form_required_frequency($frequency) !== 'once_per_pet') {
+        return [null];
+    }
+
+    $normalized_pet_ids = array_values(array_filter(array_map('safe_int', $pet_ids), static fn (int $pet_id): bool => $pet_id > 0));
+
+    return $normalized_pet_ids !== [] ? $normalized_pet_ids : [null];
+}
+
 function bdta_get_form_type_description(string $form_type): string
 {
     return bdta_form_type_meta_string(bdta_get_form_type_meta($form_type), 'description');

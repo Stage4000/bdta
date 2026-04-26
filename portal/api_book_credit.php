@@ -6,6 +6,7 @@
  */
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/booking_resources.php';
+require_once '../backend/includes/form_types.php';
 header('Content-Type: application/json');
 
 // Must be a logged-in portal client
@@ -363,15 +364,21 @@ foreach ($pet_ids as $pid) {
 require_once '../backend/includes/workflow_helper.php';
 $workflow_helper = new WorkflowHelper($conn);
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+    $template_frequency_stmt = $conn->prepare("SELECT required_frequency FROM form_templates WHERE id = ?");
     $ins = $conn->prepare("
-        INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at)
-        VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)
+        INSERT INTO form_submissions (client_id, template_id, booking_id, pet_id, responses, status, submitted_at)
+        VALUES (?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)
     ");
     foreach ($data['form_responses'] as $template_id => $responses) {
         if (is_array($responses) && !empty($responses)) {
-            $ins->execute([$client_id, (int)$template_id, $booking_id, json_encode($responses)]);
-            $form_submission_id = (int)$conn->lastInsertId();
-            $workflow_helper->checkFormTriggers($form_submission_id);
+            $template_id = (int) $template_id;
+            $template_frequency_stmt->execute([$template_id]);
+            $template_frequency = scalar_string($template_frequency_stmt->fetchColumn());
+            foreach (bdta_get_form_submission_pet_ids($template_frequency, $pet_ids) as $submission_pet_id) {
+                $ins->execute([$client_id, $template_id, $booking_id, $submission_pet_id, json_encode($responses)]);
+                $form_submission_id = (int)$conn->lastInsertId();
+                $workflow_helper->checkFormTriggers($form_submission_id);
+            }
         }
     }
 }
