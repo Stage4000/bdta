@@ -5,6 +5,7 @@
  * Provides contact/pet selection, add-pet capability, and intelligent form/contract skipping.
  */
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/form_types.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -127,8 +128,10 @@ if ($required_contract) {
     }
 }
 
-// ── Form skip logic ──────────────────────────────────────────────────────────
-// Only include forms that genuinely need to be completed again.
+// ── Form visibility logic ────────────────────────────────────────────────────
+// Most forms are filtered server-side to only those that are due. Once-per-pet
+// forms stay in this list so the browser can hide/show them as the selected pet
+// list changes during the booking flow.
 $forms_needing_completion = [];
 foreach ($all_required_forms as $form) {
     $form['required_frequency'] = bdta_normalize_form_required_frequency(array_string_value($form, 'required_frequency'));
@@ -487,9 +490,9 @@ include '../portal/includes/header.php';
                 $form_id = array_int_value($form, 'id');
                 $form_name = array_string_value($form, 'name');
                 $form_description = array_string_value($form, 'description');
-                $form_fields = is_array($form['fields'] ?? null) ? $form['fields'] : [];
+                $form_fields = assoc_rows($form['fields'] ?? []);
                 $form_frequency = bdta_normalize_form_required_frequency(array_string_value($form, 'required_frequency'));
-                $completed_pet_ids = array_map('safe_int', $form['completed_pet_ids'] ?? []);
+                $completed_pet_ids = array_map('safe_int', is_array($form['completed_pet_ids'] ?? null) ? $form['completed_pet_ids'] : []);
                 ?>
                 <div
                     class="card mb-4"
@@ -506,6 +509,7 @@ include '../portal/includes/header.php';
                     </div>
                     <div class="card-body">
                         <?php foreach ($form_fields as $fi => $field):
+                            $field = assoc_row($field);
                             $field_label = array_string_value($field, 'label');
                             $field_description = array_string_value($field, 'description');
                             $field_type = array_string_value($field, 'type', 'text');
@@ -769,8 +773,9 @@ include '../portal/includes/header.php';
         $map = [];
         foreach ($forms_needing_completion as $form) {
             $fmap = [];
-            $form_fields = is_array($form['fields'] ?? null) ? $form['fields'] : [];
+            $form_fields = assoc_rows($form['fields'] ?? []);
             foreach ($form_fields as $fi => $field) {
+                $field = assoc_row($field);
                 $profile_mapping = array_string_value($field, 'profile_mapping');
                 if ($profile_mapping !== '') {
                     $fmap[$fi] = $profile_mapping;
@@ -1092,6 +1097,22 @@ include '../portal/includes/header.php';
 
             section.classList.toggle('d-none', shouldHide);
             section.dataset.formActive = shouldHide ? '0' : '1';
+            section.querySelectorAll('input, select, textarea, button').forEach(control => {
+                if (shouldHide) {
+                    if (control.required) {
+                        control.dataset.wasRequired = '1';
+                        control.required = false;
+                    }
+                    control.disabled = true;
+                    return;
+                }
+
+                control.disabled = false;
+                if (control.dataset.wasRequired === '1') {
+                    control.required = true;
+                    delete control.dataset.wasRequired;
+                }
+            });
             if (!shouldHide) {
                 activeForms++;
             }

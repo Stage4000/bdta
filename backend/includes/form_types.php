@@ -210,6 +210,28 @@ function bdta_get_form_required_frequency_label(string $frequency): string
     };
 }
 
+function bdta_form_submissions_support_pet_id(PDO $conn): bool
+{
+    static $cache = [];
+
+    $cache_key = spl_object_id($conn);
+    if (array_key_exists($cache_key, $cache)) {
+        return $cache[$cache_key];
+    }
+
+    try {
+        $stmt = $conn->query("SELECT pet_id FROM form_submissions WHERE 1 = 0");
+        if ($stmt instanceof PDOStatement) {
+            $stmt->closeCursor();
+        }
+        $cache[$cache_key] = true;
+    } catch (PDOException $e) {
+        $cache[$cache_key] = false;
+    }
+
+    return $cache[$cache_key];
+}
+
 function bdta_form_submission_matches_context(
     PDO $conn,
     int $client_id,
@@ -224,6 +246,10 @@ function bdta_form_submission_matches_context(
     $pet_id = safe_int($pet_id);
 
     if ($client_id <= 0 || $template_id <= 0) {
+        return false;
+    }
+
+    if ($pet_id > 0 && !bdta_form_submissions_support_pet_id($conn)) {
         return false;
     }
 
@@ -281,6 +307,10 @@ function bdta_get_form_template_completed_pet_ids(PDO $conn, int $client_id, int
     $appointment_type_id = safe_int($appointment_type_id);
 
     if ($client_id <= 0 || $template_id <= 0) {
+        return [];
+    }
+
+    if (!bdta_form_submissions_support_pet_id($conn)) {
         return [];
     }
 

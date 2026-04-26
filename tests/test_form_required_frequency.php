@@ -4,6 +4,9 @@
 require_once dirname(__DIR__) . '/backend/includes/database.php';
 
 if (!function_exists('array_int_value')) {
+    /**
+     * @param array<string|int, mixed> $array
+     */
     function array_int_value(array $array, string|int $key, int $default = 0): int
     {
         return array_key_exists($key, $array) ? safe_int($array[$key]) : $default;
@@ -11,6 +14,9 @@ if (!function_exists('array_int_value')) {
 }
 
 if (!function_exists('array_string_value')) {
+    /**
+     * @param array<string|int, mixed> $array
+     */
     function array_string_value(array $array, string|int $key, string $default = ''): string
     {
         if (!array_key_exists($key, $array)) {
@@ -137,6 +143,37 @@ $completed_pet_ids = bdta_get_form_template_completed_pet_ids($conn, 1, $once_pe
 assertFormFrequency(
     $completed_pet_ids === [101],
     'Expected once-per-pet helper queries to return only the completed pets for the current appointment type.'
+);
+
+$legacy_conn = new SafePDO('sqlite::memory:');
+$legacy_conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$legacy_conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
+
+$legacy_conn->exec('CREATE TABLE form_templates (id INTEGER PRIMARY KEY AUTOINCREMENT, appointment_type_id INTEGER, required_frequency TEXT)');
+$legacy_conn->exec('CREATE TABLE bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, appointment_type_id INTEGER)');
+$legacy_conn->exec('CREATE TABLE form_submissions (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER, template_id INTEGER, booking_id INTEGER, status TEXT, submitted_at TEXT)');
+
+$legacy_conn->prepare('INSERT INTO form_templates (appointment_type_id, required_frequency) VALUES (?, ?)')
+    ->execute([10, 'once_per_pet']);
+$legacy_template_id = (int) $legacy_conn->lastInsertId();
+$legacy_conn->prepare('INSERT INTO bookings (appointment_type_id) VALUES (?)')->execute([10]);
+$legacy_booking_id = (int) $legacy_conn->lastInsertId();
+$legacy_conn->prepare('INSERT INTO form_submissions (client_id, template_id, booking_id, status, submitted_at) VALUES (?, ?, ?, ?, ?)')
+    ->execute([1, $legacy_template_id, $legacy_booking_id, 'submitted', $submitted_at]);
+
+assertFormFrequency(
+    bdta_form_template_needs_completion(
+        $legacy_conn,
+        ['id' => $legacy_template_id, 'required_frequency' => 'once_per_pet'],
+        1,
+        10,
+        [101]
+    ) === true,
+    'Expected once-per-pet forms to stay required when the legacy schema cannot track pet-specific submissions.'
+);
+assertFormFrequency(
+    bdta_get_form_template_completed_pet_ids($legacy_conn, 1, $legacy_template_id, 10) === [],
+    'Expected legacy schemas without pet_id support to report no completed once-per-pet submissions.'
 );
 
 echo "Form required frequency helper test passed.\n";

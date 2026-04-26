@@ -71,6 +71,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!is_array($pets)) {
         $pets = [];
     }
+    $pets = array_values(array_filter(
+        array_map('safe_int', $pets),
+        static fn (int $pet_id): bool => $pet_id > 0
+    ));
     
     try {
         // Get appointment type details
