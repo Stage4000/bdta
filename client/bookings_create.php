@@ -3,6 +3,7 @@ require_once '../backend/includes/config.php';
 require_once '../backend/includes/booking_resources.php';
 require_once '../backend/includes/email_service.php';
 require_once '../backend/includes/google_calendar.php';
+require_once '../backend/includes/invoice_due.php';
 require_once '../backend/includes/workflow_helper.php';
 requireLogin();
 
@@ -294,6 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($apt_type['auto_invoice']) {
                 $default_amount = floatval($apt_type['default_amount'] ?? 0);
                 $invoice_due_days = max(0, (int)($apt_type['invoice_due_days'] ?? 7));
+                $invoice_due_timing = bdta_normalize_invoice_due_timing($apt_type['invoice_due_timing'] ?? 'after');
                 $invoice_number_stmt = $conn->prepare("SELECT COUNT(*) FROM invoices WHERE invoice_number = ?");
                 $invoice_number = null;
                 $max_invoice_number_attempts = 10;
@@ -314,7 +316,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $invoice_number = $fallback_invoice_number;
                 }
                 $issue_date = date('Y-m-d');
-                $due_date = date('Y-m-d', safe_timestamp(strtotime(scalar_string($booking_date) . " +{$invoice_due_days} days")));
+                $due_date = bdta_calculate_invoice_due_date(scalar_string($booking_date), $invoice_due_days, $invoice_due_timing);
                 $pay_token = bin2hex(random_bytes(32));
                 $invoice_line_description = trim(scalar_string($apt_type['name'] ?? ''));
                 $appointment_type_description = trim(scalar_string($apt_type['description'] ?? ''));

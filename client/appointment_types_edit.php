@@ -8,6 +8,7 @@ require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
 require_once __DIR__ . '/../backend/includes/appointment_type_public_services.php';
 require_once __DIR__ . '/../backend/includes/bullet_points.php';
+require_once __DIR__ . '/../backend/includes/invoice_due.php';
 
 // Check if user is logged in
 if (!isLoggedIn()) {
@@ -70,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $requires_contract = ($contract_template_id !== null) ? 1 : 0;
     $auto_invoice = isset($_POST['auto_invoice']) ? 1 : 0;
     $invoice_due_days = safe_int($_POST['invoice_due_days'] ?? 7);
+    $invoice_due_timing = bdta_normalize_invoice_due_timing($_POST['invoice_due_timing'] ?? 'after');
     $default_amount = safe_float($_POST['default_amount'] ?? 0);
     $consumes_credits = isset($_POST['consumes_credits']) ? 1 : 0;
     $credit_count = safe_int($_POST['credit_count'] ?? 1);
@@ -248,6 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     contract_template_id = ?,
                     auto_invoice = ?,
                     invoice_due_days = ?,
+                    invoice_due_timing = ?,
                     consumes_credits = ?,
                     credit_count = ?,
                     is_group_class = ?,
@@ -291,7 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $advance_booking_min_days, $advance_booking_max_days,
                 $cancellation_notice_hours,
                 $requires_forms, $requires_contract, $contract_template_id,
-                $auto_invoice, $invoice_due_days,
+                $auto_invoice, $invoice_due_days, $invoice_due_timing,
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
                 $is_active, $public_available, $portal_available,
@@ -334,7 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     advance_booking_min_days, advance_booking_max_days,
                     cancellation_notice_hours,
                     requires_forms, requires_contract, contract_template_id,
-                    auto_invoice, invoice_due_days,
+                    auto_invoice, invoice_due_days, invoice_due_timing,
                     consumes_credits, credit_count,
                     is_group_class, max_participants,
                     is_active, unique_link,
@@ -363,7 +366,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
             ");
             // Keep this value list in the same order as the INSERT columns above.
@@ -374,7 +377,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $advance_booking_min_days, $advance_booking_max_days,
                 $cancellation_notice_hours,
                 $requires_forms, $requires_contract, $contract_template_id,
-                $auto_invoice, $invoice_due_days,
+                $auto_invoice, $invoice_due_days, $invoice_due_timing,
                 $consumes_credits, $credit_count,
                 $is_group_class, $max_participants,
                 $is_active, $unique_link,
@@ -530,6 +533,7 @@ $type_reminder_template_id = array_int_value($type_row, 'reminder_template_id');
 $type_cancellation_template_id = array_int_value($type_row, 'cancellation_template_id');
 $type_auto_invoice = array_int_value($type_row, 'auto_invoice') === 1;
 $type_invoice_due_days = array_int_value($type_row, 'invoice_due_days', 7);
+$type_invoice_due_timing = bdta_normalize_invoice_due_timing(array_string_value($type_row, 'invoice_due_timing', 'after'));
 $type_default_amount = safe_float($type_row['default_amount'] ?? 0);
 $type_consumes_credits = array_int_value($type_row, 'consumes_credits') === 1;
 $type_credit_count = array_int_value($type_row, 'credit_count', 1);
@@ -1028,10 +1032,17 @@ include __DIR__ . '/../backend/includes/header.php';
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <label for="invoice_due_days" class="form-label">Invoice Due (days after appointment)</label>
-                        <input type="number" class="form-control" id="invoice_due_days" name="invoice_due_days" 
-                               value="<?= $type_invoice_due_days ?>" min="0">
-                        <div class="form-text">Invoice due date offset from appointment</div>
+                        <label for="invoice_due_timing" class="form-label">Invoice Due</label>
+                        <div class="input-group">
+                            <select class="form-select" id="invoice_due_timing" name="invoice_due_timing">
+                                <option value="before" <?= $type_invoice_due_timing === 'before' ? 'selected' : '' ?>>Before appointment</option>
+                                <option value="after" <?= $type_invoice_due_timing === 'after' ? 'selected' : '' ?>>After appointment</option>
+                            </select>
+                            <input type="number" class="form-control" id="invoice_due_days" name="invoice_due_days"
+                                   value="<?= $type_invoice_due_days ?>" min="0">
+                            <span class="input-group-text">days</span>
+                        </div>
+                        <div class="form-text">Set whether the invoice is due before or after the appointment.</div>
                     </div>
                 </div>
                 <div class="row g-3 mb-4">
