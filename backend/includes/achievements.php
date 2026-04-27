@@ -163,11 +163,14 @@ if (!function_exists('bdta_render_achievement_certificate_html')) {
             $action_href = htmlspecialchars(trim((string)($action['href'] ?? '')), ENT_QUOTES, 'UTF-8');
             $action_class = trim((string)($action['class'] ?? ''));
             $action_class = $action_class === 'secondary' ? 'secondary' : '';
+            $action_class_attr = $action_class !== ''
+                ? ' class="' . htmlspecialchars($action_class, ENT_QUOTES, 'UTF-8') . '"'
+                : '';
             if ($action_label === '' || $action_href === '') {
                 continue;
             }
 
-            $action_html .= '<a' . ($action_class !== '' ? ' class="' . $action_class . '"' : '') . ' href="' . $action_href . '">' . $action_label . '</a>';
+            $action_html .= '<a' . $action_class_attr . ' href="' . $action_href . '">' . $action_label . '</a>';
         }
 
         return <<<HTML

@@ -57,6 +57,20 @@ function bdta_client_view_appointment_is_past(array $appointment, ?DateTimeImmut
     return $appointment_start->modify('+1 hour') <= $reference_time;
 }
 
+function bdta_client_view_is_strict_award_date(string $date): bool
+{
+    $parsed_date = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+    $parsed_errors = DateTimeImmutable::getLastErrors();
+    $has_errors = $parsed_errors !== false && (
+        ($parsed_errors['warning_count'] ?? 0) > 0
+        || ($parsed_errors['error_count'] ?? 0) > 0
+    );
+
+    return $parsed_date instanceof DateTimeImmutable
+        && !$has_errors
+        && $parsed_date->format('Y-m-d') === $date;
+}
+
 /**
  * @param array<string, mixed> $uploaded_file
  * @param list<string> $allowed_extensions
@@ -281,17 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
             if ($achievement_type_id <= 0) {
                 throw new RuntimeException('Select an achievement type before saving an assignment.');
             }
-            $awarded_on_date = DateTimeImmutable::createFromFormat('!Y-m-d', $awarded_on);
-            $awarded_on_errors = DateTimeImmutable::getLastErrors();
-            $awarded_on_has_errors = $awarded_on_errors !== false && (
-                ($awarded_on_errors['warning_count'] ?? 0) > 0
-                || ($awarded_on_errors['error_count'] ?? 0) > 0
-            );
-            if (
-                !$awarded_on_date instanceof DateTimeImmutable
-                || $awarded_on_has_errors
-                || $awarded_on_date->format('Y-m-d') !== $awarded_on
-            ) {
+            if (!bdta_client_view_is_strict_award_date($awarded_on)) {
                 throw new RuntimeException('Choose a valid award date.');
             }
 
