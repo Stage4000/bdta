@@ -44,8 +44,8 @@ assertFormTextBlocks(
     'Expected text block body helper to prefer the description content.'
 );
 assertFormTextBlocks(
-    bdta_form_field_text_block_body(['label' => 'Important notice', 'description' => '']) === 'Important notice',
-    'Expected text block body helper to fall back to the label when no description is stored.'
+    bdta_form_field_text_block_body(['label' => 'Important notice', 'description' => '']) === '',
+    'Expected text block body helper to return an empty body when no text block content is stored.'
 );
 
 $package_checkout_helper = readFormTextBlockFixture('backend/includes/package_checkout.php');

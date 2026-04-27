@@ -197,7 +197,7 @@ function bdta_form_field_text_block_body(array $field): string
         return $description;
     }
 
-    return trim(array_string_value($field, 'label'));
+    return '';
 }
 
 function bdta_normalize_form_required_frequency(string $frequency): string

@@ -5,6 +5,7 @@
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
+require_once '../includes/form_types.php';
 require_once '../includes/public_portal_return.php';
 
 /**

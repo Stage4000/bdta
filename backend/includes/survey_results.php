@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/form_types.php';
+
 /**
  * Survey reporting helpers for aggregating stored form submissions into
  * visualization-friendly summaries.
