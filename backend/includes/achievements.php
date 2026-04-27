@@ -159,8 +159,16 @@ if (!function_exists('bdta_render_achievement_certificate_html')) {
 
         $action_html = '';
         foreach ($extra_actions as $action) {
-            $action_label = htmlspecialchars(trim($action['label']), ENT_QUOTES, 'UTF-8');
-            $action_href = htmlspecialchars(trim($action['href']), ENT_QUOTES, 'UTF-8');
+            if (!array_key_exists('label', $action) || !array_key_exists('href', $action)) {
+                continue;
+            }
+
+            if (!is_scalar($action['label']) || !is_scalar($action['href'])) {
+                continue;
+            }
+
+            $action_label = htmlspecialchars(trim((string) $action['label']), ENT_QUOTES, 'UTF-8');
+            $action_href = htmlspecialchars(trim((string) $action['href']), ENT_QUOTES, 'UTF-8');
             $action_class = trim((string)($action['class'] ?? ''));
             $action_class = $action_class === 'secondary' ? 'secondary' : '';
             $action_class_attr = $action_class !== ''
