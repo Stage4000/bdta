@@ -62,8 +62,8 @@ function bdta_client_view_is_strict_award_date(string $date): bool
     $parsed_date = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
     $parsed_errors = DateTimeImmutable::getLastErrors();
     $has_errors = $parsed_errors !== false && (
-        ($parsed_errors['warning_count'] ?? 0) > 0
-        || ($parsed_errors['error_count'] ?? 0) > 0
+        $parsed_errors['warning_count'] > 0
+        || $parsed_errors['error_count'] > 0
     );
 
     return $parsed_date instanceof DateTimeImmutable
@@ -220,9 +220,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
             }
 
             $badge_icon_path = array_string_value($existing_type, 'badge_icon_path');
-            if (isset($_FILES['badge_icon']) && is_array($_FILES['badge_icon']) && safe_int($_FILES['badge_icon']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $badge_icon_upload = isset($_FILES['badge_icon']) && is_array($_FILES['badge_icon'])
+                ? assoc_row($_FILES['badge_icon'])
+                : [];
+            if ($badge_icon_upload !== [] && array_int_value($badge_icon_upload, 'error', UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                 $badge_icon_path = bdta_client_achievement_store_upload(
-                    $_FILES['badge_icon'],
+                    $badge_icon_upload,
                     'icons',
                     ['png', 'jpg', 'jpeg', 'gif', 'webp'],
                     ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -230,9 +233,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
             }
 
             $certificate_template_path = array_string_value($existing_type, 'certificate_template_path');
-            if (isset($_FILES['certificate_template']) && is_array($_FILES['certificate_template']) && safe_int($_FILES['certificate_template']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $certificate_template_upload = isset($_FILES['certificate_template']) && is_array($_FILES['certificate_template'])
+                ? assoc_row($_FILES['certificate_template'])
+                : [];
+            if ($certificate_template_upload !== [] && array_int_value($certificate_template_upload, 'error', UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                 $certificate_template_path = bdta_client_achievement_store_upload(
-                    $_FILES['certificate_template'],
+                    $certificate_template_upload,
                     'templates',
                     ['pdf'],
                     ['application/pdf']
@@ -816,7 +822,7 @@ $achievement_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $client_achievements = bdta_get_client_achievement_rows($conn, $id, true);
 $achievement_logs_by_assignment = bdta_get_achievement_logs_grouped(
     $conn,
-    array_values(array_map(static fn (array $row): int => array_int_value($row, 'id'), $client_achievements))
+    array_map(static fn (array $row): int => array_int_value($row, 'id'), $client_achievements)
 );
 $active_badge_count = count(array_filter(
     $client_achievements,

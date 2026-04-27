@@ -159,8 +159,8 @@ if (!function_exists('bdta_render_achievement_certificate_html')) {
 
         $action_html = '';
         foreach ($extra_actions as $action) {
-            $action_label = htmlspecialchars(trim((string)($action['label'] ?? '')), ENT_QUOTES, 'UTF-8');
-            $action_href = htmlspecialchars(trim((string)($action['href'] ?? '')), ENT_QUOTES, 'UTF-8');
+            $action_label = htmlspecialchars(trim($action['label']), ENT_QUOTES, 'UTF-8');
+            $action_href = htmlspecialchars(trim($action['href']), ENT_QUOTES, 'UTF-8');
             $action_class = trim((string)($action['class'] ?? ''));
             $action_class = $action_class === 'secondary' ? 'secondary' : '';
             $action_class_attr = $action_class !== ''
@@ -403,7 +403,7 @@ if (!function_exists('bdta_get_client_achievement_rows')) {
 
         $stmt = $conn->prepare($sql);
         $stmt->execute([$client_id]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 }
 

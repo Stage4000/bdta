@@ -78,7 +78,7 @@ include '../portal/includes/header.php';
         <div class="d-flex flex-wrap gap-3">
             <?php foreach ($badge_rows as $badge): ?>
                 <?php $badge_icon_path = array_string_value($badge, 'badge_icon_path'); ?>
-                <a href="achievements.php#portal-achievement-<?php echo (int) $badge['id']; ?>" class="text-decoration-none text-center" style="color:inherit;">
+                <a href="achievements.php#portal-achievement-<?php echo array_int_value($badge, 'id'); ?>" class="text-decoration-none text-center" style="color:inherit;">
                     <div class="border rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width:72px;height:72px;background:#f8f9fa;">
                         <?php if ($badge_icon_path !== ''): ?>
                             <img src="<?php echo escape($badge_icon_path); ?>" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:50%;">
