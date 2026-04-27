@@ -53,9 +53,11 @@ if (isset($_GET['download']) && scalar_string($_GET['download']) === '1') {
     exit;
 }
 
-$html = bdta_render_achievement_certificate_html($assignment);
 $back_link = 'clients_view.php?id=' . array_int_value($assignment, 'client_id') . '&tab=achievements';
-$back_button = '<a class="secondary" href="' . escape($back_link) . '">Back to client</a>';
-$html = str_replace('<div class="certificate-actions">', '<div class="certificate-actions">' . $back_button, $html);
+$html = bdta_render_achievement_certificate_html($assignment, [[
+    'label' => 'Back to client',
+    'href' => $back_link,
+    'class' => 'secondary',
+]]);
 
 echo $html;

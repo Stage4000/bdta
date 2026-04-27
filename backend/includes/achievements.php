@@ -142,17 +142,33 @@ if (!function_exists('bdta_render_achievement_certificate_body')) {
 if (!function_exists('bdta_render_achievement_certificate_html')) {
     /**
      * @param array<string, mixed> $assignment
+     * @param list<array{label: string, href: string, class?: string}> $extra_actions
      */
-    function bdta_render_achievement_certificate_html(array $assignment): string
+    function bdta_render_achievement_certificate_html(array $assignment, array $extra_actions = []): string
     {
         $title = htmlspecialchars(bdta_achievement_row_string($assignment, 'achievement_title', 'Achievement Certificate'), ENT_QUOTES, 'UTF-8');
         $description = htmlspecialchars(trim(bdta_achievement_row_string($assignment, 'achievement_description')), ENT_QUOTES, 'UTF-8');
         $body_html = bdta_render_achievement_certificate_body(bdta_achievement_row_string($assignment, 'certificate_body_html'), $assignment);
         $logo_url = htmlspecialchars(bdta_achievement_logo_url(), ENT_QUOTES, 'UTF-8');
+        $assignment_id = bdta_achievement_row_int($assignment, 'id');
+        $download_href = htmlspecialchars('?id=' . $assignment_id . '&download=1', ENT_QUOTES, 'UTF-8');
 
         $description_block = $description === ''
             ? ''
             : '<p style="margin:1rem auto 0;max-width:640px;color:#5b5661;">' . $description . '</p>';
+
+        $action_html = '';
+        foreach ($extra_actions as $action) {
+            $action_label = htmlspecialchars(trim((string)($action['label'] ?? '')), ENT_QUOTES, 'UTF-8');
+            $action_href = htmlspecialchars(trim((string)($action['href'] ?? '')), ENT_QUOTES, 'UTF-8');
+            $action_class = trim((string)($action['class'] ?? ''));
+            $action_class = $action_class === 'secondary' ? 'secondary' : '';
+            if ($action_label === '' || $action_href === '') {
+                continue;
+            }
+
+            $action_html .= '<a' . ($action_class !== '' ? ' class="' . $action_class . '"' : '') . ' href="' . $action_href . '">' . $action_label . '</a>';
+        }
 
         return <<<HTML
 <!DOCTYPE html>
@@ -232,8 +248,9 @@ if (!function_exists('bdta_render_achievement_certificate_html')) {
 <body>
     <div class="certificate-shell">
         <div class="certificate-actions">
+            {$action_html}
             <button type="button" onclick="window.print()">Print certificate</button>
-            <a class="secondary" href="?id={$assignment['id']}&download=1">Download PDF</a>
+            <a class="secondary" href="{$download_href}">Download PDF</a>
         </div>
         <div class="certificate-card">
             <img class="certificate-logo" src="{$logo_url}" alt="Brook's Dog Training Academy logo">

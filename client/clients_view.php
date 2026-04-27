@@ -210,8 +210,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
                 $badge_icon_path = bdta_client_achievement_store_upload(
                     $_FILES['badge_icon'],
                     'icons',
-                    ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'],
-                    ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']
+                    ['png', 'jpg', 'jpeg', 'gif', 'webp'],
+                    ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
                 );
             }
 
@@ -281,7 +281,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
             if ($achievement_type_id <= 0) {
                 throw new RuntimeException('Select an achievement type before saving an assignment.');
             }
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $awarded_on)) {
+            $awarded_on_date = DateTimeImmutable::createFromFormat('!Y-m-d', $awarded_on);
+            $awarded_on_errors = DateTimeImmutable::getLastErrors();
+            if (
+                $awarded_on_date === false
+                || ($awarded_on_errors !== false && (
+                    ($awarded_on_errors['warning_count'] ?? 0) > 0
+                    || ($awarded_on_errors['error_count'] ?? 0) > 0
+                ))
+                || $awarded_on_date->format('Y-m-d') !== $awarded_on
+            ) {
                 throw new RuntimeException('Choose a valid award date.');
             }
 
@@ -1540,7 +1549,7 @@ include '../backend/includes/header.php';
                                             </div>
                                             <div class="col-md-6">
                                                 <label for="achievementBadgeIcon" class="form-label">Badge icon</label>
-                                                <input type="file" class="form-control" id="achievementBadgeIcon" name="badge_icon" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+                                                <input type="file" class="form-control" id="achievementBadgeIcon" name="badge_icon" accept="image/png,image/jpeg,image/gif,image/webp">
                                             </div>
                                             <div class="col-md-6">
                                                 <label for="achievementCertificateTemplate" class="form-label">Certificate PDF template</label>
@@ -1625,7 +1634,7 @@ include '../backend/includes/header.php';
                                                             </div>
                                                             <div class="col-md-6">
                                                                 <label class="form-label">Replace badge icon</label>
-                                                                <input type="file" class="form-control" name="badge_icon" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+                                                                <input type="file" class="form-control" name="badge_icon" accept="image/png,image/jpeg,image/gif,image/webp">
                                                                 <?php if ($type_icon_path !== ''): ?>
                                                                     <small class="text-muted d-block mt-1">Current icon: <?= escape(basename($type_icon_path)) ?></small>
                                                                 <?php endif; ?>

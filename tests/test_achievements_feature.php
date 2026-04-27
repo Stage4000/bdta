@@ -46,6 +46,14 @@ $rendered_html = bdta_render_achievement_certificate_html($assignment);
 bdta_assert_true(str_contains($rendered_html, '/assets/images/bdta-logo.png'), 'Certificate HTML should reference the local BDTA logo asset.');
 bdta_assert_true(str_contains($rendered_html, 'Download PDF'), 'Certificate HTML should include a PDF download action.');
 bdta_assert_true(str_contains($rendered_html, 'window.print()'), 'Certificate HTML should include a print action.');
+bdta_assert_true(str_contains($rendered_html, '?id=42&amp;download=1'), 'Certificate HTML should cast and escape the assignment ID in the download link.');
+
+$rendered_html_with_back_link = bdta_render_achievement_certificate_html($assignment, [[
+    'label' => 'Back to achievements',
+    'href' => 'achievements.php',
+    'class' => 'secondary',
+]]);
+bdta_assert_true(str_contains($rendered_html_with_back_link, 'Back to achievements'), 'Certificate HTML should support explicit extra action links.');
 
 $pdf = bdta_generate_achievement_certificate_pdf($assignment);
 bdta_assert_true(strpos($pdf, '%PDF-1.4') === 0, 'Certificate PDF renderer should emit a PDF payload.');
@@ -61,6 +69,8 @@ bdta_assert_true(str_contains($clients_view, 'href="#achievements"'), 'Client pr
 bdta_assert_true(str_contains($clients_view, 'Audit history'), 'Client profile achievements UI should show audit history.');
 bdta_assert_true(str_contains($clients_view, 'certificate_template'), 'Client profile achievements UI should allow certificate template uploads.');
 bdta_assert_true(str_contains($clients_view, 'achievement_certificate.php?id='), 'Client profile achievements UI should link to printable certificates.');
+bdta_assert_true(!str_contains($clients_view, 'image/svg+xml'), 'Badge icon uploads should no longer accept SVG files.');
+bdta_assert_true(str_contains($clients_view, "DateTimeImmutable::createFromFormat('!Y-m-d', \$awarded_on)"), 'Award dates should be strictly validated.');
 
 $portal_header = bdta_read(dirname(__DIR__) . '/portal/includes/header.php');
 bdta_assert_true(str_contains($portal_header, 'achievements.php'), 'Portal navigation should include an Achievements link.');
@@ -72,6 +82,14 @@ bdta_assert_true(str_contains($portal_index, "'label' => 'Achievements'"), 'Port
 $portal_achievements = bdta_read(dirname(__DIR__) . '/portal/achievements.php');
 bdta_assert_true(str_contains($portal_achievements, 'Download PDF'), 'Portal achievements page should expose certificate downloads.');
 bdta_assert_true(str_contains($portal_achievements, 'Print certificate'), 'Portal achievements page should expose print actions.');
+
+$admin_certificate = bdta_read(dirname(__DIR__) . '/client/achievement_certificate.php');
+bdta_assert_true(str_contains($admin_certificate, 'Back to client'), 'Admin certificate endpoint should render a direct back action.');
+bdta_assert_true(!str_contains($admin_certificate, "str_replace('<div class=\"certificate-actions\">'"), 'Admin certificate endpoint should not rely on brittle string replacement.');
+
+$portal_certificate = bdta_read(dirname(__DIR__) . '/portal/achievement_certificate.php');
+bdta_assert_true(str_contains($portal_certificate, 'Back to achievements'), 'Portal certificate endpoint should render a direct back action.');
+bdta_assert_true(!str_contains($portal_certificate, "str_replace('<div class=\"certificate-actions\">'"), 'Portal certificate endpoint should not rely on brittle string replacement.');
 
 bdta_assert_true(file_exists(dirname(__DIR__) . '/client/achievement_certificate.php'), 'Admin achievement certificate endpoint should exist.');
 bdta_assert_true(file_exists(dirname(__DIR__) . '/portal/achievement_certificate.php'), 'Portal achievement certificate endpoint should exist.');
