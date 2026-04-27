@@ -339,7 +339,7 @@ $stmt = $conn->prepare("
     LEFT JOIN pet_files pf ON p.id = pf.pet_id
     WHERE p.client_id = ?
     GROUP BY p.id
-    ORDER BY p.name
+    ORDER BY COALESCE(p.is_active, 1) DESC, p.name
 ");
 $stmt->execute([$id]);
 $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -604,8 +604,17 @@ include '../backend/includes/header.php';
                         <p class="text-muted mb-0">No pets registered</p>
                     <?php else: ?>
                         <?php foreach ($pets as $pet): ?>
-                            <div class="border-bottom pb-2 mb-2">
-                                <strong><?= escape($pet['name']) ?></strong>
+                            <?php
+                            $pet_is_active = array_int_value($pet, 'is_active', 1) === 1;
+                            $pet_archived_classes = $pet_is_active ? '' : ' bg-light rounded px-2 text-muted opacity-75';
+                            ?>
+                            <div class="border-bottom pb-2 mb-2<?= $pet_archived_classes ?>">
+                                <strong>
+                                    <?= escape($pet['name']) ?>
+                                    <?php if (!$pet_is_active): ?>
+                                        <span class="badge bg-secondary ms-1">Archived</span>
+                                    <?php endif; ?>
+                                </strong>
                                 <small class="text-muted d-block">
                                     <?= escape($pet['species']) ?> 
                                     <?= $pet['breed'] ? '- ' . escape($pet['breed']) : '' ?>
@@ -618,6 +627,14 @@ include '../backend/includes/header.php';
                                 <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-xs btn-outline-secondary mt-1">
                                     <i class="fas fa-pencil"></i> Edit
                                 </a>
+                                <form method="post" action="pets_delete.php" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this pet?')">
+                                    <input type="hidden" name="id" value="<?= (int) $pet['id'] ?>">
+                                    <input type="hidden" name="client_id" value="<?= (int) $id ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
+                                    <button type="submit" class="btn btn-xs btn-outline-danger mt-1">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </form>
                                 <a href="form_requests_create.php?form_type=pet_form&amp;pet_id=<?= (int) $pet['id'] ?>" class="btn btn-xs btn-outline-success mt-1">
                                     <i class="fas fa-file-medical"></i> Pet Form
                                 </a>
