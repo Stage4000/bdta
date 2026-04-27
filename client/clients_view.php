@@ -283,12 +283,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
             }
             $awarded_on_date = DateTimeImmutable::createFromFormat('!Y-m-d', $awarded_on);
             $awarded_on_errors = DateTimeImmutable::getLastErrors();
+            $awarded_on_has_errors = $awarded_on_errors !== false && (
+                ($awarded_on_errors['warning_count'] ?? 0) > 0
+                || ($awarded_on_errors['error_count'] ?? 0) > 0
+            );
             if (
-                $awarded_on_date === false
-                || ($awarded_on_errors !== false && (
-                    ($awarded_on_errors['warning_count'] ?? 0) > 0
-                    || ($awarded_on_errors['error_count'] ?? 0) > 0
-                ))
+                !$awarded_on_date instanceof DateTimeImmutable
+                || $awarded_on_has_errors
                 || $awarded_on_date->format('Y-m-d') !== $awarded_on
             ) {
                 throw new RuntimeException('Choose a valid award date.');

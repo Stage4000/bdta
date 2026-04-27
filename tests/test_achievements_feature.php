@@ -48,11 +48,13 @@ bdta_assert_true(str_contains($rendered_html, 'Download PDF'), 'Certificate HTML
 bdta_assert_true(str_contains($rendered_html, 'window.print()'), 'Certificate HTML should include a print action.');
 bdta_assert_true(str_contains($rendered_html, '?id=42&amp;download=1'), 'Certificate HTML should cast and escape the assignment ID in the download link.');
 
-$rendered_html_with_back_link = bdta_render_achievement_certificate_html($assignment, [[
+$extra_actions = [];
+$extra_actions[] = [
     'label' => 'Back to achievements',
     'href' => 'achievements.php',
     'class' => 'secondary',
-]]);
+];
+$rendered_html_with_back_link = bdta_render_achievement_certificate_html($assignment, $extra_actions);
 bdta_assert_true(str_contains($rendered_html_with_back_link, 'Back to achievements'), 'Certificate HTML should support explicit extra action links.');
 
 $pdf = bdta_generate_achievement_certificate_pdf($assignment);
