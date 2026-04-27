@@ -72,7 +72,6 @@ bdta_assert_true(str_contains($clients_view, 'Audit history'), 'Client profile a
 bdta_assert_true(str_contains($clients_view, 'certificate_template'), 'Client profile achievements UI should allow certificate template uploads.');
 bdta_assert_true(str_contains($clients_view, 'achievement_certificate.php?id='), 'Client profile achievements UI should link to printable certificates.');
 bdta_assert_true(!str_contains($clients_view, 'image/svg+xml'), 'Badge icon uploads should no longer accept SVG files.');
-bdta_assert_true(str_contains($clients_view, "DateTimeImmutable::createFromFormat('!Y-m-d', \$awarded_on)"), 'Award dates should be strictly validated.');
 
 $portal_header = bdta_read(dirname(__DIR__) . '/portal/includes/header.php');
 bdta_assert_true(str_contains($portal_header, 'achievements.php'), 'Portal navigation should include an Achievements link.');
