@@ -111,12 +111,17 @@ include '../portal/includes/header.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    if (!window.location.hash) {
+    if (!window.location.hash || !window.location.hash.startsWith('#portal-achievement-')) {
         return;
     }
 
-    const target = document.querySelector(window.location.hash);
-    const trigger = target ? document.querySelector('[data-bs-target="' + window.location.hash + '"]') : null;
+    const targetId = window.location.hash.slice(1);
+    if (!/^portal-achievement-\d+$/.test(targetId)) {
+        return;
+    }
+
+    const target = document.getElementById(targetId);
+    const trigger = target ? document.querySelector('[data-bs-target="#' + targetId + '"]') : null;
     if (target && trigger && window.bootstrap && bootstrap.Collapse) {
         bootstrap.Collapse.getOrCreateInstance(target, { toggle: false }).show();
         trigger.scrollIntoView({ behavior: 'smooth', block: 'start' });

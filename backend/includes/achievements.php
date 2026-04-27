@@ -588,14 +588,14 @@ if (!function_exists('bdta_get_client_achievement_rows')) {
                    at.badge_icon_path,
                    at.certificate_template_path,
                    at.certificate_body_html,
-                   COALESCE(assigner.username, CONCAT('Admin #', ca.awarded_by)) AS awarded_by_name,
-                   COALESCE(updater.username, CONCAT('Admin #', ca.updated_by)) AS updated_by_name,
-                   COALESCE(revoker.username, CONCAT('Admin #', ca.revoked_by)) AS revoked_by_name
-            FROM client_achievements ca
-            INNER JOIN achievement_types at ON at.id = ca.achievement_type_id
-            LEFT JOIN admin_users assigner ON assigner.id = ca.awarded_by
-            LEFT JOIN admin_users updater ON updater.id = ca.updated_by
-            LEFT JOIN admin_users revoker ON revoker.id = ca.revoked_by
+                   assigner.username AS awarded_by_name,
+                   updater.username AS updated_by_name,
+                   revoker.username AS revoked_by_name
+             FROM client_achievements ca
+             INNER JOIN achievement_types at ON at.id = ca.achievement_type_id
+             LEFT JOIN admin_users assigner ON assigner.id = ca.awarded_by
+             LEFT JOIN admin_users updater ON updater.id = ca.updated_by
+             LEFT JOIN admin_users revoker ON revoker.id = ca.revoked_by
             WHERE ca.client_id = ?
         ";
         if (!$include_revoked) {
@@ -605,7 +605,27 @@ if (!function_exists('bdta_get_client_achievement_rows')) {
 
         $stmt = $conn->prepare($sql);
         $stmt->execute([$client_id]);
-        return assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+        $rows = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+
+        foreach ($rows as &$row) {
+            $awarded_by_name = trim(array_string_value($row, 'awarded_by_name'));
+            if ($awarded_by_name === '' && array_int_value($row, 'awarded_by') > 0) {
+                $row['awarded_by_name'] = 'Admin #' . array_int_value($row, 'awarded_by');
+            }
+
+            $updated_by_name = trim(array_string_value($row, 'updated_by_name'));
+            if ($updated_by_name === '' && array_int_value($row, 'updated_by') > 0) {
+                $row['updated_by_name'] = 'Admin #' . array_int_value($row, 'updated_by');
+            }
+
+            $revoked_by_name = trim(array_string_value($row, 'revoked_by_name'));
+            if ($revoked_by_name === '' && array_int_value($row, 'revoked_by') > 0) {
+                $row['revoked_by_name'] = 'Admin #' . array_int_value($row, 'revoked_by');
+            }
+        }
+        unset($row);
+
+        return $rows;
     }
 }
 

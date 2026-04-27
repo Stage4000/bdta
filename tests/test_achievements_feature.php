@@ -65,6 +65,12 @@ $database_php = bdta_read(dirname(__DIR__) . '/backend/includes/database.php');
 bdta_assert_true(str_contains($database_php, 'CREATE TABLE IF NOT EXISTS achievement_types'), 'Database bootstrap should create achievement_types.');
 bdta_assert_true(str_contains($database_php, 'CREATE TABLE IF NOT EXISTS client_achievements'), 'Database bootstrap should create client_achievements.');
 bdta_assert_true(str_contains($database_php, 'CREATE TABLE IF NOT EXISTS achievement_assignment_log'), 'Database bootstrap should create achievement_assignment_log.');
+bdta_assert_true(str_contains($database_php, "scope_type VARCHAR(50) NOT NULL DEFAULT 'general'"), 'Achievement type scope should use VARCHAR in bootstrap DDL for portability.');
+bdta_assert_true(str_contains($database_php, "award_mode VARCHAR(50) NOT NULL DEFAULT 'badge_certificate'"), 'Achievement type award mode should use VARCHAR in bootstrap DDL for portability.');
+bdta_assert_true(str_contains($database_php, "status VARCHAR(32) NOT NULL DEFAULT 'awarded'"), 'Client achievement status should use VARCHAR in bootstrap DDL for portability.');
+
+$achievement_helpers = bdta_read(dirname(__DIR__) . '/backend/includes/achievements.php');
+bdta_assert_true(!str_contains($achievement_helpers, "CONCAT('Admin #'"), 'Achievement helper queries should avoid MySQL-only CONCAT fallbacks.');
 
 $clients_view = bdta_read(dirname(__DIR__) . '/client/clients_view.php');
 bdta_assert_true(str_contains($clients_view, 'href="#achievements"'), 'Client profile should expose an Achievements tab.');
@@ -76,6 +82,7 @@ bdta_assert_true(str_contains($clients_view, 'achievement_action" value="save_cu
 bdta_assert_true(!str_contains($clients_view, 'Configured achievement types'), 'Client profile achievements UI should no longer list all configured templates inline.');
 bdta_assert_true(str_contains($clients_view, 'achievement_certificate.php?id='), 'Client profile achievements UI should link to printable certificates.');
 bdta_assert_true(!str_contains($clients_view, 'image/svg+xml'), 'Badge icon uploads should no longer accept SVG files.');
+bdta_assert_true(str_contains($clients_view, 'WHERE id = ? AND client_id = ?'), 'Client achievement writes should stay scoped to the current client.');
 
 $achievement_types_page = bdta_read(dirname(__DIR__) . '/client/achievement_types.php');
 bdta_assert_true(str_contains($achievement_types_page, 'Configured reusable achievement types'), 'Reusable achievement template management should live on its own page.');
@@ -94,6 +101,7 @@ bdta_assert_true(str_contains($portal_index, "'label' => 'Achievements'"), 'Port
 $portal_achievements = bdta_read(dirname(__DIR__) . '/portal/achievements.php');
 bdta_assert_true(str_contains($portal_achievements, 'Download PDF'), 'Portal achievements page should expose certificate downloads.');
 bdta_assert_true(str_contains($portal_achievements, 'Print certificate'), 'Portal achievements page should expose print actions.');
+bdta_assert_true(!str_contains($portal_achievements, 'document.querySelector(window.location.hash)'), 'Portal achievement hash handling should avoid unsafe selector queries.');
 
 $admin_certificate = bdta_read(dirname(__DIR__) . '/client/achievement_certificate.php');
 bdta_assert_true(str_contains($admin_certificate, 'Back to client'), 'Admin certificate endpoint should render a direct back action.');

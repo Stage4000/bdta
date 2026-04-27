@@ -264,7 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
                         notes = ?,
                         updated_by = ?,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
+                    WHERE id = ? AND client_id = ?
                 ");
                 $stmt->execute([
                     $achievement_type_id,
@@ -274,6 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
                     $notes !== '' ? $notes : null,
                     $admin_id > 0 ? $admin_id : null,
                     $assignment_id,
+                    $id,
                 ]);
 
                 $stmt = $conn->prepare("
@@ -363,20 +364,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
                 throw new RuntimeException('Achievement assignment not found.');
             }
 
-            $stmt = $conn->prepare("
-                UPDATE client_achievements
-                SET status = 'revoked',
-                    revoked_by = ?,
-                    revoked_at = CURRENT_TIMESTAMP,
-                    updated_by = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ");
-            $stmt->execute([
-                $admin_id > 0 ? $admin_id : null,
-                $admin_id > 0 ? $admin_id : null,
-                $assignment_id,
-            ]);
+                $stmt = $conn->prepare("
+                    UPDATE client_achievements
+                    SET status = 'revoked',
+                        revoked_by = ?,
+                        revoked_at = CURRENT_TIMESTAMP,
+                        updated_by = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND client_id = ?
+                ");
+                $stmt->execute([
+                    $admin_id > 0 ? $admin_id : null,
+                    $admin_id > 0 ? $admin_id : null,
+                    $assignment_id,
+                    $id,
+                ]);
 
             $stmt = $conn->prepare("
                 INSERT INTO achievement_assignment_log (client_achievement_id, action, status, notes, admin_user_id)
@@ -1468,7 +1470,7 @@ include '../backend/includes/header.php';
                                                     <select class="form-select" id="achievementTypeId" name="achievement_type_id" required>
                                                         <option value="">Select an achievement</option>
                                                         <?php foreach ($achievement_types as $achievement_type_option): ?>
-                                                            <option value="<?= (int) $achievement_type_option['id'] ?>">
+                                                            <option value="<?= array_int_value($achievement_type_option, 'id') ?>">
                                                                 <?= escape(array_string_value($achievement_type_option, 'title')) ?>
                                                                 — <?= escape(bdta_achievement_modes()[bdta_normalize_achievement_mode(array_string_value($achievement_type_option, 'award_mode'))] ?? 'Achievement') ?>
                                                             </option>
@@ -1680,7 +1682,7 @@ include '../backend/includes/header.php';
                                                                         <label class="form-label">Achievement type</label>
                                                                         <select class="form-select" name="achievement_type_id" required>
                                                                             <?php foreach ($achievement_types as $achievement_type_option): ?>
-                                                                                <option value="<?= (int) $achievement_type_option['id'] ?>" <?= array_int_value($achievement, 'achievement_type_id') === array_int_value($achievement_type_option, 'id') ? 'selected' : '' ?>>
+                                                                                <option value="<?= array_int_value($achievement_type_option, 'id') ?>" <?= array_int_value($achievement, 'achievement_type_id') === array_int_value($achievement_type_option, 'id') ? 'selected' : '' ?>>
                                                                                     <?= escape(array_string_value($achievement_type_option, 'title')) ?>
                                                                                 </option>
                                                                             <?php endforeach; ?>

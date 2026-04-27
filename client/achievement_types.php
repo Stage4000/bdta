@@ -121,12 +121,13 @@ include '../backend/includes/header.php';
                         <div class="accordion" id="achievementTypeAccordion">
                             <?php foreach ($achievement_types as $achievement_type): ?>
                                 <?php
+                                $achievement_type_id = array_int_value($achievement_type, 'id');
                                 $type_mode = bdta_normalize_achievement_mode(array_string_value($achievement_type, 'award_mode'));
                                 $type_icon_path = array_string_value($achievement_type, 'badge_icon_path');
                                 ?>
                                 <div class="accordion-item">
-                                    <h2 class="accordion-header" id="achievement-type-heading-<?= (int) $achievement_type['id'] ?>">
-                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#achievement-type-<?= (int) $achievement_type['id'] ?>">
+                                    <h2 class="accordion-header" id="achievement-type-heading-<?= $achievement_type_id ?>">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#achievement-type-<?= $achievement_type_id ?>">
                                             <span class="me-3">
                                                 <?php if ($type_icon_path !== ''): ?>
                                                     <img src="<?= escape($type_icon_path) ?>" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:50%;">
@@ -140,12 +141,12 @@ include '../backend/includes/header.php';
                                             </span>
                                         </button>
                                     </h2>
-                                    <div id="achievement-type-<?= (int) $achievement_type['id'] ?>" class="accordion-collapse collapse" data-bs-parent="#achievementTypeAccordion">
+                                    <div id="achievement-type-<?= $achievement_type_id ?>" class="accordion-collapse collapse" data-bs-parent="#achievementTypeAccordion">
                                         <div class="accordion-body">
                                             <form method="POST" action="<?= escape($page_url) ?>" enctype="multipart/form-data">
                                                 <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
                                                 <input type="hidden" name="achievement_action" value="save_type">
-                                                <input type="hidden" name="type_id" value="<?= (int) $achievement_type['id'] ?>">
+                                                <input type="hidden" name="type_id" value="<?= $achievement_type_id ?>">
                                                 <div class="row g-3">
                                                     <div class="col-md-6">
                                                         <label class="form-label">Title</label>
