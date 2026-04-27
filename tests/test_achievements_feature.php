@@ -70,8 +70,19 @@ $clients_view = bdta_read(dirname(__DIR__) . '/client/clients_view.php');
 bdta_assert_true(str_contains($clients_view, 'href="#achievements"'), 'Client profile should expose an Achievements tab.');
 bdta_assert_true(str_contains($clients_view, 'Audit history'), 'Client profile achievements UI should show audit history.');
 bdta_assert_true(str_contains($clients_view, 'certificate_template'), 'Client profile achievements UI should allow certificate template uploads.');
+bdta_assert_true(str_contains($clients_view, 'Assign reusable template'), 'Client profile achievements UI should offer reusable template assignment.');
+bdta_assert_true(str_contains($clients_view, 'Create custom one-off'), 'Client profile achievements UI should offer custom one-off creation.');
+bdta_assert_true(str_contains($clients_view, 'achievement_action" value="save_custom_assignment"'), 'Client profile should support custom achievement creation from the achievements tab.');
+bdta_assert_true(!str_contains($clients_view, 'Configured achievement types'), 'Client profile achievements UI should no longer list all configured templates inline.');
 bdta_assert_true(str_contains($clients_view, 'achievement_certificate.php?id='), 'Client profile achievements UI should link to printable certificates.');
 bdta_assert_true(!str_contains($clients_view, 'image/svg+xml'), 'Badge icon uploads should no longer accept SVG files.');
+
+$achievement_types_page = bdta_read(dirname(__DIR__) . '/client/achievement_types.php');
+bdta_assert_true(str_contains($achievement_types_page, 'Configured reusable achievement types'), 'Reusable achievement template management should live on its own page.');
+bdta_assert_true(str_contains($achievement_types_page, 'achievement_action" value="save_type"'), 'Achievement template management page should support saving reusable types.');
+
+$admin_header = bdta_read(dirname(__DIR__) . '/backend/includes/header.php');
+bdta_assert_true(str_contains($admin_header, 'achievement_types.php'), 'Admin navigation should include a reusable achievement templates link.');
 
 $portal_header = bdta_read(dirname(__DIR__) . '/portal/includes/header.php');
 bdta_assert_true(str_contains($portal_header, 'achievements.php'), 'Portal navigation should include an Achievements link.');
@@ -93,6 +104,7 @@ bdta_assert_true(str_contains($portal_certificate, 'Back to achievements'), 'Por
 bdta_assert_true(!str_contains($portal_certificate, "str_replace('<div class=\"certificate-actions\">'"), 'Portal certificate endpoint should not rely on brittle string replacement.');
 
 bdta_assert_true(file_exists(dirname(__DIR__) . '/client/achievement_certificate.php'), 'Admin achievement certificate endpoint should exist.');
+bdta_assert_true(file_exists(dirname(__DIR__) . '/client/achievement_types.php'), 'Admin achievement template management page should exist.');
 bdta_assert_true(file_exists(dirname(__DIR__) . '/portal/achievement_certificate.php'), 'Portal achievement certificate endpoint should exist.');
 bdta_assert_true(file_exists(dirname(__DIR__) . '/assets/images/bdta-logo.png'), 'The BDTA logo asset should be stored locally for certificates.');
 

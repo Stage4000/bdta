@@ -72,59 +72,6 @@ function bdta_client_view_is_strict_award_date(string $date): bool
 }
 
 /**
- * @param array<string, mixed> $uploaded_file
- * @param list<string> $allowed_extensions
- * @param list<string> $allowed_mime_types
- */
-function bdta_client_achievement_store_upload(
-    array $uploaded_file,
-    string $subdirectory,
-    array $allowed_extensions,
-    array $allowed_mime_types
-): string {
-    $upload_error = safe_int($uploaded_file['error'] ?? UPLOAD_ERR_NO_FILE);
-    if ($upload_error === UPLOAD_ERR_NO_FILE) {
-        return '';
-    }
-    if ($upload_error !== UPLOAD_ERR_OK) {
-        throw new RuntimeException('The uploaded achievement file could not be processed.');
-    }
-
-    $tmp_name = scalar_string($uploaded_file['tmp_name'] ?? '');
-    $original_name = basename(scalar_string($uploaded_file['name'] ?? ''));
-    $extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
-
-    if (!in_array($extension, $allowed_extensions, true)) {
-        throw new RuntimeException('Unsupported achievement upload type.');
-    }
-
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    if ($finfo === false) {
-        throw new RuntimeException('File type validation is unavailable.');
-    }
-    $mime_type = finfo_file($finfo, $tmp_name);
-    finfo_close($finfo);
-
-    if (!in_array($mime_type, $allowed_mime_types, true)) {
-        throw new RuntimeException('Uploaded achievement files must match the allowed file types.');
-    }
-
-    $target_dir = __DIR__ . '/../backend/uploads/achievements/' . trim($subdirectory, '/');
-    if (!is_dir($target_dir) && !mkdir($target_dir, 0755, true) && !is_dir($target_dir)) {
-        throw new RuntimeException('Could not create the achievement upload directory.');
-    }
-
-    $unique_name = uniqid('achievement_', true) . '.' . $extension;
-    $target_path = $target_dir . '/' . $unique_name;
-
-    if (!move_uploaded_file($tmp_name, $target_path)) {
-        throw new RuntimeException('Could not save the uploaded achievement file.');
-    }
-
-    return '/backend/uploads/achievements/' . trim($subdirectory, '/') . '/' . $unique_name;
-}
-
-/**
  * @param array<string, mixed> $client
  * @param array<string, mixed> $achievement_type
  * @param array<string, mixed> $assignment
@@ -162,6 +109,82 @@ function bdta_send_achievement_award_email(PDO $conn, array $client, array $achi
     );
 }
 
+/**
+ * @param array<string, mixed> $client
+ * @param array<string, mixed> $achievement_type
+ */
+function bdta_client_view_award_achievement(
+    PDO $conn,
+    int $client_id,
+    array $client,
+    array $achievement_type,
+    string $awarded_on,
+    string $dog_name,
+    string $program_name,
+    string $notes,
+    int $admin_id
+): int {
+    $achievement_type_id = array_int_value($achievement_type, 'id');
+    if ($achievement_type_id <= 0) {
+        throw new RuntimeException('Selected achievement type was not found.');
+    }
+
+    $stmt = $conn->prepare("
+        INSERT INTO client_achievements
+            (client_id, achievement_type_id, status, awarded_on, dog_name, program_name, notes, awarded_by, updated_by)
+        VALUES (?, ?, 'awarded', ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $client_id,
+        $achievement_type_id,
+        $awarded_on,
+        $dog_name !== '' ? $dog_name : null,
+        $program_name !== '' ? $program_name : null,
+        $notes !== '' ? $notes : null,
+        $admin_id > 0 ? $admin_id : null,
+        $admin_id > 0 ? $admin_id : null,
+    ]);
+    $new_assignment_id = safe_int($conn->lastInsertId());
+
+    $stmt = $conn->prepare("
+        INSERT INTO achievement_assignment_log (client_achievement_id, action, status, notes, admin_user_id)
+        VALUES (?, 'awarded', 'awarded', ?, ?)
+    ");
+    $stmt->execute([
+        $new_assignment_id,
+        $notes !== '' ? $notes : null,
+        $admin_id > 0 ? $admin_id : null,
+    ]);
+
+    bdta_create_notification(
+        $conn,
+        'portal',
+        $client_id,
+        'achievement',
+        $new_assignment_id,
+        'New achievement awarded',
+        array_string_value($achievement_type, 'title') . ' was added to your profile.',
+        '/portal/achievements.php'
+    );
+    bdta_send_achievement_award_email($conn, $client, $achievement_type, [
+        'id' => $new_assignment_id,
+        'achievement_title' => array_string_value($achievement_type, 'title'),
+        'client_name' => array_string_value($client, 'name'),
+        'dog_name' => $dog_name,
+        'program_name' => $program_name,
+        'awarded_on' => $awarded_on,
+        'notes' => $notes,
+    ]);
+    logClientActivity(
+        $client_id,
+        'achievement_awarded',
+        'Achievement awarded: ' . array_string_value($achievement_type, 'title'),
+        $conn
+    );
+
+    return $new_assignment_id;
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -197,100 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
     $admin_id = safe_int($_SESSION['admin_id'] ?? 0);
 
     try {
-        if ($achievement_action === 'save_type') {
-            $type_id = safe_int($_POST['type_id'] ?? 0);
-            $title = trim(scalar_string($_POST['title'] ?? ''));
-            $description = trim(scalar_string($_POST['description'] ?? ''));
-            $scope_type = bdta_normalize_achievement_scope(scalar_string($_POST['scope_type'] ?? 'general'));
-            $award_mode = bdta_normalize_achievement_mode(scalar_string($_POST['award_mode'] ?? 'badge_certificate'));
-            $certificate_body_html = trim(scalar_string($_POST['certificate_body_html'] ?? ''));
-
-            if ($title === '') {
-                throw new RuntimeException('Achievement types must include a title.');
-            }
-
-            $existing_type = [];
-            if ($type_id > 0) {
-                $stmt = $conn->prepare("SELECT * FROM achievement_types WHERE id = ? LIMIT 1");
-                $stmt->execute([$type_id]);
-                $existing_type = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
-                if ($existing_type === []) {
-                    throw new RuntimeException('Achievement type not found.');
-                }
-            }
-
-            $badge_icon_path = array_string_value($existing_type, 'badge_icon_path');
-            $badge_icon_upload = isset($_FILES['badge_icon']) && is_array($_FILES['badge_icon'])
-                ? assoc_row($_FILES['badge_icon'])
-                : [];
-            if ($badge_icon_upload !== [] && array_int_value($badge_icon_upload, 'error', UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-                $badge_icon_path = bdta_client_achievement_store_upload(
-                    $badge_icon_upload,
-                    'icons',
-                    ['png', 'jpg', 'jpeg', 'gif', 'webp'],
-                    ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
-                );
-            }
-
-            $certificate_template_path = array_string_value($existing_type, 'certificate_template_path');
-            $certificate_template_upload = isset($_FILES['certificate_template']) && is_array($_FILES['certificate_template'])
-                ? assoc_row($_FILES['certificate_template'])
-                : [];
-            if ($certificate_template_upload !== [] && array_int_value($certificate_template_upload, 'error', UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-                $certificate_template_path = bdta_client_achievement_store_upload(
-                    $certificate_template_upload,
-                    'templates',
-                    ['pdf'],
-                    ['application/pdf']
-                );
-            }
-
-            if ($type_id > 0) {
-                $stmt = $conn->prepare("
-                    UPDATE achievement_types
-                    SET title = ?,
-                        description = ?,
-                        scope_type = ?,
-                        award_mode = ?,
-                        badge_icon_path = ?,
-                        certificate_template_path = ?,
-                        certificate_body_html = ?,
-                        updated_by = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                ");
-                $stmt->execute([
-                    $title,
-                    $description,
-                    $scope_type,
-                    $award_mode,
-                    $badge_icon_path !== '' ? $badge_icon_path : null,
-                    $certificate_template_path !== '' ? $certificate_template_path : null,
-                    $certificate_body_html !== '' ? $certificate_body_html : null,
-                    $admin_id > 0 ? $admin_id : null,
-                    $type_id,
-                ]);
-                setFlashMessage('Achievement type updated.', 'success');
-            } else {
-                $stmt = $conn->prepare("
-                    INSERT INTO achievement_types
-                        (title, description, scope_type, award_mode, badge_icon_path, certificate_template_path, certificate_body_html, created_by, updated_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ");
-                $stmt->execute([
-                    $title,
-                    $description,
-                    $scope_type,
-                    $award_mode,
-                    $badge_icon_path !== '' ? $badge_icon_path : null,
-                    $certificate_template_path !== '' ? $certificate_template_path : null,
-                    $certificate_body_html !== '' ? $certificate_body_html : null,
-                    $admin_id > 0 ? $admin_id : null,
-                    $admin_id > 0 ? $admin_id : null,
-                ]);
-                setFlashMessage('Achievement type created.', 'success');
-            }
-        } elseif ($achievement_action === 'save_assignment') {
+        if ($achievement_action === 'save_assignment') {
             $assignment_id = safe_int($_POST['assignment_id'] ?? 0);
             $achievement_type_id = safe_int($_POST['achievement_type_id'] ?? 0);
             $awarded_on = trim(scalar_string($_POST['awarded_on'] ?? ''));
@@ -359,55 +289,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['achievement_action'])
 
                 setFlashMessage('Achievement assignment updated.', 'success');
             } else {
-                $stmt = $conn->prepare("
-                    INSERT INTO client_achievements
-                        (client_id, achievement_type_id, status, awarded_on, dog_name, program_name, notes, awarded_by, updated_by)
-                    VALUES (?, ?, 'awarded', ?, ?, ?, ?, ?, ?)
-                ");
-                $stmt->execute([
-                    $id,
-                    $achievement_type_id,
-                    $awarded_on,
-                    $dog_name !== '' ? $dog_name : null,
-                    $program_name !== '' ? $program_name : null,
-                    $notes !== '' ? $notes : null,
-                    $admin_id > 0 ? $admin_id : null,
-                    $admin_id > 0 ? $admin_id : null,
-                ]);
-                $new_assignment_id = safe_int($conn->lastInsertId());
-
-                $stmt = $conn->prepare("
-                    INSERT INTO achievement_assignment_log (client_achievement_id, action, status, notes, admin_user_id)
-                    VALUES (?, 'awarded', 'awarded', ?, ?)
-                ");
-                $stmt->execute([
-                    $new_assignment_id,
-                    $notes !== '' ? $notes : null,
-                    $admin_id > 0 ? $admin_id : null,
-                ]);
-
-                bdta_create_notification(
+                bdta_client_view_award_achievement(
                     $conn,
-                    'portal',
                     $id,
-                    'achievement',
-                    $new_assignment_id,
-                    'New achievement awarded',
-                    array_string_value($achievement_type, 'title') . ' was added to your profile.',
-                    '/portal/achievements.php'
+                    $client,
+                    $achievement_type,
+                    $awarded_on,
+                    $dog_name,
+                    $program_name,
+                    $notes,
+                    $admin_id
                 );
-                bdta_send_achievement_award_email($conn, $client, $achievement_type, [
-                    'id' => $new_assignment_id,
-                    'achievement_title' => array_string_value($achievement_type, 'title'),
-                    'client_name' => array_string_value($client, 'name'),
-                    'dog_name' => $dog_name,
-                    'program_name' => $program_name,
-                    'awarded_on' => $awarded_on,
-                    'notes' => $notes,
-                ]);
-                logClientActivity($id, 'achievement_awarded', 'Achievement awarded: ' . array_string_value($achievement_type, 'title'), $conn);
                 setFlashMessage('Achievement awarded and client notified.', 'success');
             }
+        } elseif ($achievement_action === 'save_custom_assignment') {
+            $awarded_on = trim(scalar_string($_POST['awarded_on'] ?? ''));
+            $dog_name = trim(scalar_string($_POST['dog_name'] ?? ''));
+            $program_name = trim(scalar_string($_POST['program_name'] ?? ''));
+            $notes = trim(scalar_string($_POST['notes'] ?? ''));
+
+            if (!bdta_client_view_is_strict_award_date($awarded_on)) {
+                throw new RuntimeException('Choose a valid award date.');
+            }
+
+            $badge_icon_upload = isset($_FILES['badge_icon']) && is_array($_FILES['badge_icon'])
+                ? assoc_row($_FILES['badge_icon'])
+                : [];
+            $certificate_template_upload = isset($_FILES['certificate_template']) && is_array($_FILES['certificate_template'])
+                ? assoc_row($_FILES['certificate_template'])
+                : [];
+            $custom_type_id = bdta_save_achievement_type(
+                $conn,
+                [
+                    'title' => scalar_string($_POST['title'] ?? ''),
+                    'description' => scalar_string($_POST['description'] ?? ''),
+                    'scope_type' => 'custom',
+                    'award_mode' => scalar_string($_POST['award_mode'] ?? 'badge_certificate'),
+                    'certificate_body_html' => scalar_string($_POST['certificate_body_html'] ?? ''),
+                ],
+                $badge_icon_upload,
+                $certificate_template_upload,
+                $admin_id
+            );
+
+            bdta_client_view_award_achievement(
+                $conn,
+                $id,
+                $client,
+                [
+                    'id' => $custom_type_id,
+                    'title' => scalar_string($_POST['title'] ?? ''),
+                    'award_mode' => scalar_string($_POST['award_mode'] ?? 'badge_certificate'),
+                ],
+                $awarded_on,
+                $dog_name,
+                $program_name,
+                $notes,
+                $admin_id
+            );
+            setFlashMessage('Custom achievement created, awarded, and client notified.', 'success');
         } elseif ($achievement_action === 'revoke_assignment') {
             $assignment_id = safe_int($_POST['assignment_id'] ?? 0);
             $stmt = $conn->prepare("
@@ -810,14 +750,12 @@ $stmt->execute([$id]);
 $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get achievement types and assignments
-$stmt = $conn->prepare("
-    SELECT *
-    FROM achievement_types
-    WHERE is_active = 1
-    ORDER BY title ASC, created_at DESC
-");
-$stmt->execute();
-$achievement_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$achievement_types = bdta_get_achievement_types($conn, 'general', true);
+$achievement_type_ids = array_fill_keys(
+    array_map(static fn (array $row): int => array_int_value($row, 'id'), $achievement_types),
+    true
+);
+$achievement_form_mode = empty($achievement_types) ? 'custom' : 'reusable';
 
 $client_achievements = bdta_get_client_achievement_rows($conn, $id, true);
 $achievement_logs_by_assignment = bdta_get_achievement_logs_grouped(
@@ -1460,48 +1398,92 @@ include '../backend/includes/header.php';
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <div>
                             <h5 class="mb-0">Achievements</h5>
-                            <small class="text-muted">Manually manage badges and graduation certificates for this client.</small>
+                            <small class="text-muted">Manage this client's awarded badges, certificates, and achievement audit history.</small>
                         </div>
-                        <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">
-                            <i class="fas fa-award me-1"></i><?= $active_badge_count ?> badge<?= $active_badge_count === 1 ? '' : 's' ?> currently visible in the portal
-                        </span>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle">
+                                <i class="fas fa-list-check me-1"></i><?= count($client_achievements) ?> achievement<?= count($client_achievements) === 1 ? '' : 's' ?> on record
+                            </span>
+                            <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">
+                                <i class="fas fa-award me-1"></i><?= $active_badge_count ?> badge<?= $active_badge_count === 1 ? '' : 's' ?> visible in the portal
+                            </span>
+                            <a href="achievement_types.php" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-medal me-1"></i>Manage reusable templates
+                            </a>
+                        </div>
                     </div>
 
-                    <div class="row g-4 mb-4">
-                        <div class="col-xl-5">
-                            <div class="card h-100">
-                                <div class="card-header bg-primary text-white">
-                                    <strong><i class="fas fa-plus-circle me-2"></i>Award achievement</strong>
-                                </div>
-                                <div class="card-body">
+                    <div class="card mb-4">
+                        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <strong>Assign reusable template or create custom one-off</strong>
+                            <ul class="nav nav-pills card-header-pills" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button
+                                        class="nav-link <?= $achievement_form_mode === 'reusable' ? 'active' : '' ?>"
+                                        id="achievement-reusable-tab"
+                                        data-bs-toggle="pill"
+                                        data-bs-target="#achievement-reusable-pane"
+                                        type="button"
+                                        role="tab"
+                                    >
+                                        Assign reusable template
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button
+                                        class="nav-link <?= $achievement_form_mode === 'custom' ? 'active' : '' ?>"
+                                        id="achievement-custom-tab"
+                                        data-bs-toggle="pill"
+                                        data-bs-target="#achievement-custom-pane"
+                                        type="button"
+                                        role="tab"
+                                    >
+                                        Create custom one-off
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-body">
+                            <div class="tab-content">
+                                <div
+                                    class="tab-pane fade <?= $achievement_form_mode === 'reusable' ? 'show active' : '' ?>"
+                                    id="achievement-reusable-pane"
+                                    role="tabpanel"
+                                    aria-labelledby="achievement-reusable-tab"
+                                >
                                     <?php if (empty($achievement_types)): ?>
-                                        <p class="text-muted mb-0">Create an achievement type before assigning awards.</p>
+                                        <div class="alert alert-light border mb-0">
+                                            <p class="mb-2">No reusable achievement templates are configured yet.</p>
+                                            <a href="achievement_types.php" class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-medal me-1"></i>Open template management
+                                            </a>
+                                        </div>
                                     <?php else: ?>
                                         <form method="POST" action="<?= escape($client_view_url . '&tab=achievements') ?>">
                                             <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
                                             <input type="hidden" name="achievement_action" value="save_assignment">
-                                            <div class="mb-3">
-                                                <label for="achievementTypeId" class="form-label">Achievement type</label>
-                                                <select class="form-select" id="achievementTypeId" name="achievement_type_id" required>
-                                                    <option value="">Select an achievement</option>
-                                                    <?php foreach ($achievement_types as $achievement_type_option): ?>
-                                                        <option value="<?= (int) $achievement_type_option['id'] ?>">
-                                                            <?= escape(array_string_value($achievement_type_option, 'title')) ?>
-                                                            — <?= escape(bdta_achievement_modes()[bdta_normalize_achievement_mode(array_string_value($achievement_type_option, 'award_mode'))] ?? 'Achievement') ?>
-                                                        </option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                            </div>
                                             <div class="row g-3">
-                                                <div class="col-md-6">
+                                                <div class="col-lg-6">
+                                                    <label for="achievementTypeId" class="form-label">Reusable achievement template</label>
+                                                    <select class="form-select" id="achievementTypeId" name="achievement_type_id" required>
+                                                        <option value="">Select an achievement</option>
+                                                        <?php foreach ($achievement_types as $achievement_type_option): ?>
+                                                            <option value="<?= (int) $achievement_type_option['id'] ?>">
+                                                                <?= escape(array_string_value($achievement_type_option, 'title')) ?>
+                                                                — <?= escape(bdta_achievement_modes()[bdta_normalize_achievement_mode(array_string_value($achievement_type_option, 'award_mode'))] ?? 'Achievement') ?>
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                                <div class="col-lg-3">
                                                     <label for="achievementAwardedOn" class="form-label">Date awarded</label>
                                                     <input type="date" class="form-control" id="achievementAwardedOn" name="awarded_on" value="<?= date('Y-m-d') ?>" required>
                                                 </div>
-                                                <div class="col-md-6">
+                                                <div class="col-lg-3">
                                                     <label for="achievementDogName" class="form-label">Dog name</label>
                                                     <input type="text" class="form-control" id="achievementDogName" name="dog_name" list="clientDogNames" placeholder="Optional certificate field">
                                                 </div>
-                                                <div class="col-12">
+                                                <div class="col-lg-6">
                                                     <label for="achievementProgramName" class="form-label">Program name</label>
                                                     <input type="text" class="form-control" id="achievementProgramName" name="program_name" placeholder="Optional certificate field">
                                                 </div>
@@ -1514,164 +1496,77 @@ include '../backend/includes/header.php';
                                                 <i class="fas fa-award me-1"></i>Award achievement
                                             </button>
                                         </form>
-                                        <datalist id="clientDogNames">
-                                            <?php foreach ($pets as $pet): ?>
-                                                <option value="<?= escape(array_string_value($pet, 'name')) ?>"></option>
-                                            <?php endforeach; ?>
-                                        </datalist>
                                     <?php endif; ?>
                                 </div>
-                            </div>
-                        </div>
 
-                        <div class="col-xl-7">
-                            <div class="card h-100">
-                                <div class="card-header bg-secondary text-white">
-                                    <strong><i class="fas fa-medal me-2"></i>Create reusable or custom type</strong>
-                                </div>
-                                <div class="card-body">
+                                <div
+                                    class="tab-pane fade <?= $achievement_form_mode === 'custom' ? 'show active' : '' ?>"
+                                    id="achievement-custom-pane"
+                                    role="tabpanel"
+                                    aria-labelledby="achievement-custom-tab"
+                                >
                                     <form method="POST" action="<?= escape($client_view_url . '&tab=achievements') ?>" enctype="multipart/form-data">
                                         <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
-                                        <input type="hidden" name="achievement_action" value="save_type">
+                                        <input type="hidden" name="achievement_action" value="save_custom_assignment">
                                         <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label for="achievementTypeTitle" class="form-label">Title</label>
-                                                <input type="text" class="form-control" id="achievementTypeTitle" name="title" required>
+                                            <div class="col-lg-4">
+                                                <label for="customAchievementTitle" class="form-label">Title</label>
+                                                <input type="text" class="form-control" id="customAchievementTitle" name="title" required>
                                             </div>
-                                            <div class="col-md-3">
-                                                <label for="achievementScope" class="form-label">Type</label>
-                                                <select class="form-select" id="achievementScope" name="scope_type">
-                                                    <?php foreach (bdta_achievement_scopes() as $scope_value => $scope_label): ?>
-                                                        <option value="<?= escape($scope_value) ?>"><?= escape($scope_label) ?></option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label for="achievementAwardMode" class="form-label">Visibility</label>
-                                                <select class="form-select" id="achievementAwardMode" name="award_mode">
+                                            <div class="col-lg-4">
+                                                <label for="customAchievementAwardMode" class="form-label">Visibility</label>
+                                                <select class="form-select" id="customAchievementAwardMode" name="award_mode">
                                                     <?php foreach (bdta_achievement_modes() as $mode_value => $mode_label): ?>
                                                         <option value="<?= escape($mode_value) ?>"><?= escape($mode_label) ?></option>
                                                     <?php endforeach; ?>
                                                 </select>
                                             </div>
-                                            <div class="col-12">
-                                                <label for="achievementTypeDescription" class="form-label">Description</label>
-                                                <textarea class="form-control" id="achievementTypeDescription" name="description" rows="2"></textarea>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="achievementBadgeIcon" class="form-label">Badge icon</label>
-                                                <input type="file" class="form-control" id="achievementBadgeIcon" name="badge_icon" accept="image/png,image/jpeg,image/gif,image/webp">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="achievementCertificateTemplate" class="form-label">Certificate PDF template</label>
-                                                <input type="file" class="form-control" id="achievementCertificateTemplate" name="certificate_template" accept="application/pdf">
+                                            <div class="col-lg-4">
+                                                <label for="customAchievementAwardedOn" class="form-label">Date awarded</label>
+                                                <input type="date" class="form-control" id="customAchievementAwardedOn" name="awarded_on" value="<?= date('Y-m-d') ?>" required>
                                             </div>
                                             <div class="col-12">
-                                                <label for="achievementCertificateBody" class="form-label">Certificate body HTML</label>
-                                                <textarea class="form-control" id="achievementCertificateBody" name="certificate_body_html" rows="4" placeholder="Use placeholders like {{client_name}}, {{dog_name}}, {{program_name}}, {{award_date}}, and {{achievement_title}}"><?= escape(bdta_default_certificate_body_html()) ?></textarea>
-                                                <small class="text-muted">The uploaded PDF template is stored with the type, while this branded certificate layout fills the dynamic fields for print and PDF download.</small>
+                                                <label for="customAchievementDescription" class="form-label">Description</label>
+                                                <textarea class="form-control" id="customAchievementDescription" name="description" rows="2"></textarea>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <label for="customAchievementDogName" class="form-label">Dog name</label>
+                                                <input type="text" class="form-control" id="customAchievementDogName" name="dog_name" list="clientDogNames" placeholder="Optional certificate field">
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <label for="customAchievementProgramName" class="form-label">Program name</label>
+                                                <input type="text" class="form-control" id="customAchievementProgramName" name="program_name" placeholder="Optional certificate field">
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="customAchievementNotes" class="form-label">Notes</label>
+                                                <textarea class="form-control" id="customAchievementNotes" name="notes" rows="3" placeholder="Visible in admin details and audit history"></textarea>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <label for="customAchievementBadgeIcon" class="form-label">Badge icon</label>
+                                                <input type="file" class="form-control" id="customAchievementBadgeIcon" name="badge_icon" accept="image/png,image/jpeg,image/gif,image/webp">
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <label for="customAchievementCertificateTemplate" class="form-label">Certificate PDF template</label>
+                                                <input type="file" class="form-control" id="customAchievementCertificateTemplate" name="certificate_template" accept="application/pdf">
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="customAchievementCertificateBody" class="form-label">Certificate body HTML</label>
+                                                <textarea class="form-control" id="customAchievementCertificateBody" name="certificate_body_html" rows="4" placeholder="Use placeholders like {{client_name}}, {{dog_name}}, {{program_name}}, {{award_date}}, and {{achievement_title}}"><?= escape(bdta_default_certificate_body_html()) ?></textarea>
+                                                <small class="text-muted">Custom one-offs are created for this client from here, while reusable templates are managed on the dedicated templates page.</small>
                                             </div>
                                         </div>
                                         <button type="submit" class="btn btn-secondary mt-3">
-                                            <i class="fas fa-save me-1"></i>Create type
+                                            <i class="fas fa-certificate me-1"></i>Create and award custom achievement
                                         </button>
                                     </form>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <strong>Configured achievement types</strong>
-                        </div>
-                        <div class="card-body">
-                            <?php if (empty($achievement_types)): ?>
-                                <p class="text-muted mb-0">No achievement types have been configured yet.</p>
-                            <?php else: ?>
-                                <div class="accordion" id="achievementTypeAccordion">
-                                    <?php foreach ($achievement_types as $achievement_type): ?>
-                                        <?php
-                                        $type_mode = bdta_normalize_achievement_mode(array_string_value($achievement_type, 'award_mode'));
-                                        $type_scope = bdta_normalize_achievement_scope(array_string_value($achievement_type, 'scope_type'));
-                                        $type_icon_path = array_string_value($achievement_type, 'badge_icon_path');
-                                        ?>
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header" id="achievement-type-heading-<?= (int) $achievement_type['id'] ?>">
-                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#achievement-type-<?= (int) $achievement_type['id'] ?>">
-                                                    <span class="me-3">
-                                                        <?php if ($type_icon_path !== ''): ?>
-                                                            <img src="<?= escape($type_icon_path) ?>" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:50%;">
-                                                        <?php else: ?>
-                                                            <span class="badge bg-secondary rounded-circle p-3"><i class="fas <?= bdta_achievement_mode_supports_badge($type_mode) ? 'fa-award' : 'fa-certificate' ?>"></i></span>
-                                                        <?php endif; ?>
-                                                    </span>
-                                                    <span>
-                                                        <strong><?= escape(array_string_value($achievement_type, 'title')) ?></strong>
-                                                        <small class="d-block text-muted"><?= escape(bdta_achievement_scopes()[$type_scope] ?? 'General') ?> · <?= escape(bdta_achievement_modes()[$type_mode] ?? 'Achievement') ?></small>
-                                                    </span>
-                                                </button>
-                                            </h2>
-                                            <div id="achievement-type-<?= (int) $achievement_type['id'] ?>" class="accordion-collapse collapse" data-bs-parent="#achievementTypeAccordion">
-                                                <div class="accordion-body">
-                                                    <form method="POST" action="<?= escape($client_view_url . '&tab=achievements') ?>" enctype="multipart/form-data">
-                                                        <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
-                                                        <input type="hidden" name="achievement_action" value="save_type">
-                                                        <input type="hidden" name="type_id" value="<?= (int) $achievement_type['id'] ?>">
-                                                        <div class="row g-3">
-                                                            <div class="col-md-6">
-                                                                <label class="form-label">Title</label>
-                                                                <input type="text" class="form-control" name="title" value="<?= escape(array_string_value($achievement_type, 'title')) ?>" required>
-                                                            </div>
-                                                            <div class="col-md-3">
-                                                                <label class="form-label">Type</label>
-                                                                <select class="form-select" name="scope_type">
-                                                                    <?php foreach (bdta_achievement_scopes() as $scope_value => $scope_label): ?>
-                                                                        <option value="<?= escape($scope_value) ?>" <?= $type_scope === $scope_value ? 'selected' : '' ?>><?= escape($scope_label) ?></option>
-                                                                    <?php endforeach; ?>
-                                                                </select>
-                                                            </div>
-                                                            <div class="col-md-3">
-                                                                <label class="form-label">Visibility</label>
-                                                                <select class="form-select" name="award_mode">
-                                                                    <?php foreach (bdta_achievement_modes() as $mode_value => $mode_label): ?>
-                                                                        <option value="<?= escape($mode_value) ?>" <?= $type_mode === $mode_value ? 'selected' : '' ?>><?= escape($mode_label) ?></option>
-                                                                    <?php endforeach; ?>
-                                                                </select>
-                                                            </div>
-                                                            <div class="col-12">
-                                                                <label class="form-label">Description</label>
-                                                                <textarea class="form-control" name="description" rows="2"><?= escape(array_string_value($achievement_type, 'description')) ?></textarea>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label class="form-label">Replace badge icon</label>
-                                                                <input type="file" class="form-control" name="badge_icon" accept="image/png,image/jpeg,image/gif,image/webp">
-                                                                <?php if ($type_icon_path !== ''): ?>
-                                                                    <small class="text-muted d-block mt-1">Current icon: <?= escape(basename($type_icon_path)) ?></small>
-                                                                <?php endif; ?>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label class="form-label">Replace certificate PDF template</label>
-                                                                <input type="file" class="form-control" name="certificate_template" accept="application/pdf">
-                                                                <?php if (array_string_value($achievement_type, 'certificate_template_path') !== ''): ?>
-                                                                    <small class="text-muted d-block mt-1">Template on file: <?= escape(basename(array_string_value($achievement_type, 'certificate_template_path'))) ?></small>
-                                                                <?php endif; ?>
-                                                            </div>
-                                                            <div class="col-12">
-                                                                <label class="form-label">Certificate body HTML</label>
-                                                                <textarea class="form-control" name="certificate_body_html" rows="4"><?= escape(array_string_value($achievement_type, 'certificate_body_html', bdta_default_certificate_body_html())) ?></textarea>
-                                                            </div>
-                                                        </div>
-                                                        <button type="submit" class="btn btn-outline-secondary mt-3">
-                                                            <i class="fas fa-save me-1"></i>Update type
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
+                            <datalist id="clientDogNames">
+                                <?php foreach ($pets as $pet): ?>
+                                    <option value="<?= escape(array_string_value($pet, 'name')) ?>"></option>
+                                <?php endforeach; ?>
+                            </datalist>
                         </div>
                     </div>
 
@@ -1789,6 +1684,11 @@ include '../backend/includes/header.php';
                                                                                     <?= escape(array_string_value($achievement_type_option, 'title')) ?>
                                                                                 </option>
                                                                             <?php endforeach; ?>
+                                                                            <?php if (!isset($achievement_type_ids[array_int_value($achievement, 'achievement_type_id')])): ?>
+                                                                                <option value="<?= array_int_value($achievement, 'achievement_type_id') ?>" selected>
+                                                                                    <?= escape(array_string_value($achievement, 'achievement_title')) ?> — custom one-off
+                                                                                </option>
+                                                                            <?php endif; ?>
                                                                         </select>
                                                                     </div>
                                                                     <div class="col-md-6">

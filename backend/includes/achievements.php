@@ -100,6 +100,196 @@ HTML;
     }
 }
 
+if (!function_exists('bdta_achievement_store_upload')) {
+    /**
+     * @param array<string, mixed> $uploaded_file
+     * @param list<string> $allowed_extensions
+     * @param list<string> $allowed_mime_types
+     */
+    function bdta_achievement_store_upload(
+        array $uploaded_file,
+        string $subdirectory,
+        array $allowed_extensions,
+        array $allowed_mime_types
+    ): string {
+        $upload_error = bdta_achievement_row_int($uploaded_file, 'error', UPLOAD_ERR_NO_FILE);
+        if ($upload_error === UPLOAD_ERR_NO_FILE) {
+            return '';
+        }
+        if ($upload_error !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('The uploaded achievement file could not be processed.');
+        }
+
+        $tmp_name = bdta_achievement_row_string($uploaded_file, 'tmp_name');
+        $original_name = basename(bdta_achievement_row_string($uploaded_file, 'name'));
+        $extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
+
+        if (!in_array($extension, $allowed_extensions, true)) {
+            throw new RuntimeException('Unsupported achievement upload type.');
+        }
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo === false) {
+            throw new RuntimeException('File type validation is unavailable.');
+        }
+        $mime_type = finfo_file($finfo, $tmp_name);
+        finfo_close($finfo);
+
+        if (!in_array($mime_type, $allowed_mime_types, true)) {
+            throw new RuntimeException('Uploaded achievement files must match the allowed file types.');
+        }
+
+        $target_dir = __DIR__ . '/../uploads/achievements/' . trim($subdirectory, '/');
+        if (!is_dir($target_dir) && !mkdir($target_dir, 0755, true) && !is_dir($target_dir)) {
+            throw new RuntimeException('Could not create the achievement upload directory.');
+        }
+
+        $unique_name = uniqid('achievement_', true) . '.' . $extension;
+        $target_path = $target_dir . '/' . $unique_name;
+
+        if (!move_uploaded_file($tmp_name, $target_path)) {
+            throw new RuntimeException('Could not save the uploaded achievement file.');
+        }
+
+        return '/backend/uploads/achievements/' . trim($subdirectory, '/') . '/' . $unique_name;
+    }
+}
+
+if (!function_exists('bdta_get_achievement_types')) {
+    /**
+     * @return list<array<string, mixed>>
+     */
+    function bdta_get_achievement_types(PDO $conn, ?string $scope_type = null, bool $active_only = true): array
+    {
+        $sql = "SELECT * FROM achievement_types WHERE 1 = 1";
+        $params = [];
+
+        if ($scope_type !== null) {
+            $sql .= " AND scope_type = ?";
+            $params[] = bdta_normalize_achievement_scope($scope_type);
+        }
+
+        if ($active_only) {
+            $sql .= " AND is_active = 1";
+        }
+
+        $sql .= " ORDER BY title ASC, created_at DESC";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($params);
+
+        return assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+}
+
+if (!function_exists('bdta_save_achievement_type')) {
+    /**
+     * @param array<string, mixed> $input
+     * @param array<string, mixed> $badge_icon_upload
+     * @param array<string, mixed> $certificate_template_upload
+     */
+    function bdta_save_achievement_type(
+        PDO $conn,
+        array $input,
+        array $badge_icon_upload,
+        array $certificate_template_upload,
+        int $admin_id
+    ): int {
+        $type_id = bdta_achievement_row_int($input, 'type_id');
+        $title = trim(bdta_achievement_row_string($input, 'title'));
+        $description = trim(bdta_achievement_row_string($input, 'description'));
+        $scope_type = bdta_normalize_achievement_scope(bdta_achievement_row_string($input, 'scope_type', 'general'));
+        $award_mode = bdta_normalize_achievement_mode(bdta_achievement_row_string($input, 'award_mode', 'badge_certificate'));
+        $certificate_body_html = trim(bdta_achievement_row_string($input, 'certificate_body_html'));
+
+        if ($title === '') {
+            throw new RuntimeException('Achievement types must include a title.');
+        }
+
+        $existing_type = [];
+        if ($type_id > 0) {
+            $stmt = $conn->prepare("SELECT * FROM achievement_types WHERE id = ? LIMIT 1");
+            $stmt->execute([$type_id]);
+            $existing_type_row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $existing_type = is_array($existing_type_row) ? $existing_type_row : [];
+            if ($existing_type === []) {
+                throw new RuntimeException('Achievement type not found.');
+            }
+        }
+
+        $badge_icon_path = bdta_achievement_row_string($existing_type, 'badge_icon_path');
+        if ($badge_icon_upload !== [] && bdta_achievement_row_int($badge_icon_upload, 'error', UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $badge_icon_path = bdta_achievement_store_upload(
+                $badge_icon_upload,
+                'icons',
+                ['png', 'jpg', 'jpeg', 'gif', 'webp'],
+                ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+            );
+        }
+
+        $certificate_template_path = bdta_achievement_row_string($existing_type, 'certificate_template_path');
+        if (
+            $certificate_template_upload !== []
+            && bdta_achievement_row_int($certificate_template_upload, 'error', UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE
+        ) {
+            $certificate_template_path = bdta_achievement_store_upload(
+                $certificate_template_upload,
+                'templates',
+                ['pdf'],
+                ['application/pdf']
+            );
+        }
+
+        if ($type_id > 0) {
+            $stmt = $conn->prepare("
+                UPDATE achievement_types
+                SET title = ?,
+                    description = ?,
+                    scope_type = ?,
+                    award_mode = ?,
+                    badge_icon_path = ?,
+                    certificate_template_path = ?,
+                    certificate_body_html = ?,
+                    updated_by = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                $title,
+                $description,
+                $scope_type,
+                $award_mode,
+                $badge_icon_path !== '' ? $badge_icon_path : null,
+                $certificate_template_path !== '' ? $certificate_template_path : null,
+                $certificate_body_html !== '' ? $certificate_body_html : null,
+                $admin_id > 0 ? $admin_id : null,
+                $type_id,
+            ]);
+
+            return $type_id;
+        }
+
+        $stmt = $conn->prepare("
+            INSERT INTO achievement_types
+                (title, description, scope_type, award_mode, badge_icon_path, certificate_template_path, certificate_body_html, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $title,
+            $description,
+            $scope_type,
+            $award_mode,
+            $badge_icon_path !== '' ? $badge_icon_path : null,
+            $certificate_template_path !== '' ? $certificate_template_path : null,
+            $certificate_body_html !== '' ? $certificate_body_html : null,
+            $admin_id > 0 ? $admin_id : null,
+            $admin_id > 0 ? $admin_id : null,
+        ]);
+
+        return (int) $conn->lastInsertId();
+    }
+}
+
 if (!function_exists('bdta_achievement_certificate_placeholders')) {
     /**
      * @param array<string, mixed> $assignment
