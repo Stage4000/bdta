@@ -142,7 +142,7 @@ if (!function_exists('bdta_render_achievement_certificate_body')) {
 if (!function_exists('bdta_render_achievement_certificate_html')) {
     /**
      * @param array<string, mixed> $assignment
-     * @param list<array{label: string, href: string, class?: string}> $extra_actions
+     * @param list<array<string, mixed>> $extra_actions
      */
     function bdta_render_achievement_certificate_html(array $assignment, array $extra_actions = []): string
     {
