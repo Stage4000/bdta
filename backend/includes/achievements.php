@@ -142,6 +142,7 @@ if (!function_exists('bdta_render_achievement_certificate_body')) {
 if (!function_exists('bdta_render_achievement_certificate_html')) {
     /**
      * @param array<string, mixed> $assignment
+     * Runtime guards below accept partially formed action arrays before enforcing the documented string shape.
      * @param list<array{label?: string, href?: string, class?: string}> $extra_actions
      * @phpstan-param list<array{label?: mixed, href?: mixed, class?: mixed}> $extra_actions
      */
