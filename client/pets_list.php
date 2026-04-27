@@ -182,12 +182,16 @@ include '../backend/includes/header.php';
                                             <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
                                                 <i class="fas fa-pencil"></i>
                                             </a>
-                                            <a href="pets_delete.php?id=<?= $pet['id'] ?><?= $client_id ? '&client_id=' . $client_id : '' ?>" 
-                                               class="btn btn-sm btn-outline-danger table-action-btn" 
-                                               onclick="return confirm('Are you sure you want to delete this pet?')" 
-                                               title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
+                                            <form method="post" action="pets_delete.php" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this pet?')">
+                                                <input type="hidden" name="id" value="<?= (int) $pet['id'] ?>">
+                                                <?php if ($client_id): ?>
+                                                    <input type="hidden" name="client_id" value="<?= (int) $client_id ?>">
+                                                <?php endif; ?>
+                                                <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                         <div class="d-md-none table-action-dropdown">
                                             <div class="dropdown">
@@ -202,9 +206,16 @@ include '../backend/includes/header.php';
                                                     </li>
                                                     <li><hr class="dropdown-divider"></li>
                                                     <li>
-                                                        <a class="dropdown-item text-danger" href="pets_delete.php?id=<?= $pet['id'] ?><?= $client_id ? '&client_id=' . $client_id : '' ?>" onclick="return confirm('Are you sure you want to delete this pet?')">
-                                                            <i class="fas fa-trash me-2"></i>Delete
-                                                        </a>
+                                                        <form method="post" action="pets_delete.php" onsubmit="return confirm('Are you sure you want to delete this pet?')">
+                                                            <input type="hidden" name="id" value="<?= (int) $pet['id'] ?>">
+                                                            <?php if ($client_id): ?>
+                                                                <input type="hidden" name="client_id" value="<?= (int) $client_id ?>">
+                                                            <?php endif; ?>
+                                                            <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
+                                                            <button type="submit" class="dropdown-item text-danger">
+                                                                <i class="fas fa-trash me-2"></i>Delete
+                                                            </button>
+                                                        </form>
                                                     </li>
                                                 </ul>
                                             </div>

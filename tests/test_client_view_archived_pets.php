@@ -21,23 +21,70 @@ bdta_assert_true(
 );
 
 bdta_assert_true(
-    str_contains($clients_view, "\$pet_archived_classes = \$pet_is_active ? '' : ' bg-light rounded px-2 text-muted opacity-75';"),
-    'Expected client profile pet cards to derive archived styling from the pet active state.'
+    str_contains($clients_view, "\$pet_is_active = (!array_key_exists('is_active', \$pet) || \$pet['is_active'] === null)"),
+    'Expected client profile pet cards to treat missing archived state as active by default.'
 );
 
 bdta_assert_true(
-    str_contains($clients_view, "<span class=\"badge bg-secondary ms-1\">Archived</span>"),
+    str_contains($clients_view, ": ((int) \$pet['is_active'] === 1);"),
+    'Expected client profile pet cards to use integer active-state checks when the archived flag is present.'
+);
+
+bdta_assert_true(
+    str_contains($clients_view, "\$pet_archived_classes = \$pet_is_active ? '' : ' bg-light rounded px-2 text-muted opacity-75';"),
+    'Expected client profile pet cards to derive archived styling from the normalized pet active state.'
+);
+
+bdta_assert_true(
+    str_contains($clients_view, '<span class="badge bg-secondary ms-1">Archived</span>'),
     'Expected archived pets on the client profile to show an Archived badge.'
 );
 
 bdta_assert_true(
-    str_contains($clients_view, "bg-light rounded px-2 text-muted opacity-75"),
-    'Expected archived pets on the client profile to use muted archived styling.'
+    str_contains($clients_view, '<form method="post" action="pets_delete.php" class="d-inline" onsubmit="return confirm(\'Are you sure you want to delete this pet?\')">'),
+    'Expected client profile pets to delete through a POST form.'
 );
 
 bdta_assert_true(
-    str_contains($clients_view, "pets_delete.php?id=<?= (int) \$pet['id'] ?>&client_id=<?= (int) \$id ?>"),
-    'Expected client profile pets to expose a delete action that returns to the client profile.'
+    str_contains($clients_view, '<input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">'),
+    'Expected client profile pet delete forms to include a CSRF token.'
+);
+
+$pets_delete = file_get_contents(dirname(__DIR__) . '/client/pets_delete.php');
+if (!is_string($pets_delete)) {
+    fwrite(STDERR, 'Failed to read ' . dirname(__DIR__) . "/client/pets_delete.php\n");
+    exit(1);
+}
+
+$pets_list = file_get_contents(dirname(__DIR__) . '/client/pets_list.php');
+if (!is_string($pets_list)) {
+    fwrite(STDERR, 'Failed to read ' . dirname(__DIR__) . "/client/pets_list.php\n");
+    exit(1);
+}
+
+bdta_assert_true(
+    str_contains($pets_delete, 'if (!isPostRequest()) {'),
+    'Expected pet deletion endpoint to reject non-POST requests.'
+);
+
+bdta_assert_true(
+    str_contains($pets_delete, 'requireValidCsrfToken($redirect_url);'),
+    'Expected pet deletion endpoint to validate CSRF tokens.'
+);
+
+bdta_assert_true(
+    str_contains($pets_list, '<form method="post" action="pets_delete.php" class="d-inline" onsubmit="return confirm(\'Are you sure you want to delete this pet?\')">'),
+    'Expected the pets list to use a POST form for desktop delete actions.'
+);
+
+bdta_assert_true(
+    str_contains($pets_list, '<button type="submit" class="dropdown-item text-danger">'),
+    'Expected the pets list mobile delete action to submit a POST form.'
+);
+
+bdta_assert_true(
+    !str_contains($pets_list, 'pets_delete.php?'),
+    'Expected the pets list to stop linking directly to any GET-based pet deletion URL.'
 );
 
 echo "Client profile archived pet checks passed.\n";

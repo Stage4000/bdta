@@ -605,7 +605,9 @@ include '../backend/includes/header.php';
                     <?php else: ?>
                         <?php foreach ($pets as $pet): ?>
                             <?php
-                            $pet_is_active = !empty($pet['is_active']);
+                            $pet_is_active = (!array_key_exists('is_active', $pet) || $pet['is_active'] === null)
+                                ? true
+                                : ((int) $pet['is_active'] === 1);
                             $pet_archived_classes = $pet_is_active ? '' : ' bg-light rounded px-2 text-muted opacity-75';
                             ?>
                             <div class="border-bottom pb-2 mb-2<?= $pet_archived_classes ?>">
@@ -627,9 +629,14 @@ include '../backend/includes/header.php';
                                 <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-xs btn-outline-secondary mt-1">
                                     <i class="fas fa-pencil"></i> Edit
                                 </a>
-                                <a href="pets_delete.php?id=<?= (int) $pet['id'] ?>&client_id=<?= (int) $id ?>" class="btn btn-xs btn-outline-danger mt-1" onclick="return confirm('Are you sure you want to delete this pet?')">
-                                    <i class="fas fa-trash"></i> Delete
-                                </a>
+                                <form method="post" action="pets_delete.php" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this pet?')">
+                                    <input type="hidden" name="id" value="<?= (int) $pet['id'] ?>">
+                                    <input type="hidden" name="client_id" value="<?= (int) $id ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= escape(csrfToken()) ?>">
+                                    <button type="submit" class="btn btn-xs btn-outline-danger mt-1">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </form>
                                 <a href="form_requests_create.php?form_type=pet_form&amp;pet_id=<?= (int) $pet['id'] ?>" class="btn btn-xs btn-outline-success mt-1">
                                     <i class="fas fa-file-medical"></i> Pet Form
                                 </a>
