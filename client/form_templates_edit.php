@@ -109,13 +109,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     'booking.notes',
                 ];
                 $raw_mapping = scalar_string($field_mappings[$index] ?? '');
+                $field_type = scalar_string($field_types[$index] ?? 'text');
                 $field = [
                     'label' => trim($label),
-                    'type' => scalar_string($field_types[$index] ?? 'text'),
-                    'placeholder' => trim(scalar_string($field_placeholders[$index] ?? '')),
+                    'type' => $field_type,
+                    'placeholder' => $field_type === 'text_block' ? '' : trim(scalar_string($field_placeholders[$index] ?? '')),
                     'description' => trim(scalar_string($field_descriptions[$index] ?? '')),
-                    'required' => array_key_exists($index, $field_required) ? 1 : 0,
-                    'profile_mapping' => in_array($raw_mapping, $allowed_mappings, true) ? $raw_mapping : '',
+                    'required' => $field_type === 'text_block' ? 0 : (array_key_exists($index, $field_required) ? 1 : 0),
+                    'profile_mapping' => $field_type === 'text_block'
+                        ? ''
+                        : (in_array($raw_mapping, $allowed_mappings, true) ? $raw_mapping : ''),
                 ];
                 
                 // Add options for select, radio, checkbox
@@ -316,6 +319,7 @@ require_once '../backend/includes/header.php';
                                         <select name="field_type[]" class="form-select field-type-select" onchange="toggleOptions(this)">
                                             <option value="text" <?php echo $field_type == 'text' ? 'selected' : ''; ?>>Text</option>
                                             <option value="textarea" <?php echo $field_type == 'textarea' ? 'selected' : ''; ?>>Textarea</option>
+                                            <option value="text_block" <?php echo $field_type == 'text_block' ? 'selected' : ''; ?>>Text Block</option>
                                             <option value="select" <?php echo $field_type == 'select' ? 'selected' : ''; ?>>Select</option>
                                             <option value="checkbox" <?php echo $field_type == 'checkbox' ? 'selected' : ''; ?>>Checkbox</option>
                                             <option value="radio" <?php echo $field_type == 'radio' ? 'selected' : ''; ?>>Radio</option>
@@ -325,13 +329,13 @@ require_once '../backend/includes/header.php';
                                             <option value="phone" <?php echo $field_type == 'phone' ? 'selected' : ''; ?>>Phone</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-3 field-placeholder-col">
                                         <label class="form-label">Placeholder</label>
                                         <input type="text" name="field_placeholder[]" class="form-control" 
                                                value="<?php echo htmlspecialchars($field_placeholder); ?>">
                                     </div>
                                     <div class="col-md-2 d-flex flex-column align-items-start justify-content-end">
-                                        <div class="form-check">
+                                        <div class="form-check field-required-toggle">
                                             <input type="checkbox" name="field_required[<?php echo $index; ?>]" 
                                                    class="form-check-input" <?php echo $field_required ? 'checked' : ''; ?>>
                                             <label class="form-check-label">Required</label>
@@ -343,10 +347,10 @@ require_once '../backend/includes/header.php';
                                 </div>
                                 <div class="row mt-2">
                                     <div class="col-md-8">
-                                        <label class="form-label">Description <small class="text-muted">(optional — shown to clients below the field)</small></label>
+                                        <label class="form-label field-description-label">Description <small class="text-muted">(optional — shown to clients below the field)</small></label>
                                         <textarea name="field_description[]" class="form-control" rows="2" placeholder="Add a brief description or instructions for this field..."><?php echo htmlspecialchars($field_description); ?></textarea>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-4 field-mapping-col">
                                         <label class="form-label">
                                             Map to Profile
                                             <small class="text-muted d-block">Auto-update profile on submit</small>
@@ -682,6 +686,7 @@ function addField() {
                     <select name="field_type[]" class="form-select field-type-select" onchange="toggleOptions(this)">
                         <option value="text">Text</option>
                         <option value="textarea">Textarea</option>
+                        <option value="text_block">Text Block</option>
                         <option value="select">Select</option>
                         <option value="checkbox">Checkbox</option>
                         <option value="radio">Radio</option>
@@ -691,12 +696,12 @@ function addField() {
                         <option value="phone">Phone</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3 field-placeholder-col">
                     <label class="form-label">Placeholder</label>
                     <input type="text" name="field_placeholder[]" class="form-control">
                 </div>
                 <div class="col-md-2 d-flex flex-column align-items-start justify-content-end">
-                    <div class="form-check">
+                    <div class="form-check field-required-toggle">
                         <input type="checkbox" name="field_required[${fieldIndex}]" class="form-check-input">
                         <label class="form-check-label">Required</label>
                     </div>
@@ -707,10 +712,10 @@ function addField() {
             </div>
             <div class="row mt-2">
                 <div class="col-md-8">
-                    <label class="form-label">Description <small class="text-muted">(optional — shown to clients below the field)</small></label>
+                    <label class="form-label field-description-label">Description <small class="text-muted">(optional — shown to clients below the field)</small></label>
                     <textarea name="field_description[]" class="form-control" rows="2" placeholder="Add a brief description or instructions for this field..."></textarea>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 field-mapping-col">
                     <label class="form-label">
                         Map to Profile
                         <small class="text-muted d-block">Auto-update profile on submit</small>
@@ -777,6 +782,10 @@ function addField() {
 
     container.insertAdjacentHTML('beforeend', fieldHtml);
     fieldIndex++;
+    const newFieldTypeSelect = container.querySelector('.field-item:last-child .field-type-select');
+    if (newFieldTypeSelect) {
+        toggleOptions(newFieldTypeSelect);
+    }
     updateMoveButtons();
 }
 
@@ -833,6 +842,14 @@ function toggleOptions(select) {
     let optionsContainer = fieldItem.querySelector('.field-options-container');
     let optionsTextarea = fieldItem.querySelector('textarea[name="field_options[]"]');
     const isOptionType = ['select', 'radio', 'checkbox'].includes(select.value);
+    const isTextBlock = select.value === 'text_block';
+    const placeholderCol = fieldItem.querySelector('.field-placeholder-col');
+    const placeholderInput = fieldItem.querySelector('input[name="field_placeholder[]"]');
+    const requiredToggle = fieldItem.querySelector('.field-required-toggle');
+    const requiredInput = requiredToggle ? requiredToggle.querySelector('input[type="checkbox"]') : null;
+    const mappingCol = fieldItem.querySelector('.field-mapping-col');
+    const mappingSelect = mappingCol ? mappingCol.querySelector('select[name^="field_mapping"]') : null;
+    const descriptionLabel = fieldItem.querySelector('.field-description-label');
 
     // Ensure we always have a single textarea to reuse when toggling
     if (!optionsTextarea) {
@@ -884,6 +901,39 @@ function toggleOptions(select) {
             optionsContainer.classList.add('d-none');
         }
         optionsTextarea.classList.add('d-none');
+    }
+
+    if (placeholderCol) {
+        placeholderCol.classList.toggle('d-none', isTextBlock);
+    }
+    if (placeholderInput) {
+        if (isTextBlock) {
+            placeholderInput.value = '';
+        }
+        placeholderInput.disabled = isTextBlock;
+    }
+    if (requiredToggle) {
+        requiredToggle.classList.toggle('d-none', isTextBlock);
+    }
+    if (requiredInput) {
+        if (isTextBlock) {
+            requiredInput.checked = false;
+        }
+        requiredInput.disabled = isTextBlock;
+    }
+    if (mappingCol) {
+        mappingCol.classList.toggle('d-none', isTextBlock);
+    }
+    if (mappingSelect) {
+        if (isTextBlock) {
+            mappingSelect.value = '';
+        }
+        mappingSelect.disabled = isTextBlock;
+    }
+    if (descriptionLabel) {
+        descriptionLabel.innerHTML = isTextBlock
+            ? 'Content <small class="text-muted">(optional — shown to clients in the text block)</small>'
+            : 'Description <small class="text-muted">(optional — shown to clients below the field)</small>';
     }
 }
 

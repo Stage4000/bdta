@@ -127,6 +127,17 @@ include 'includes/header.php';
                 $response_text = is_array($response) ? '' : scalar_string($response);
                 ?>
                 <div class="mb-3">
+                    <?php if (bdta_form_field_is_display_only($field)): ?>
+                        <div class="p-3 rounded border bg-light">
+                            <div class="fw-semibold mb-1"><?php echo escape($label); ?></div>
+                            <?php $text_block_body = bdta_form_field_text_block_body($field); ?>
+                            <?php if ($text_block_body !== ''): ?>
+                                <div class="text-muted small"><?php echo nl2br(escape($text_block_body)); ?></div>
+                            <?php endif; ?>
+                        </div>
+                        </div>
+                        <?php continue; ?>
+                    <?php endif; ?>
                     <label class="fw-bold text-muted d-block mb-1"><?php echo escape($label); ?></label>
                     <div class="border-start border-3 border-primary ps-3">
                         <?php if ($type === 'checkbox' && is_array($response)): ?>

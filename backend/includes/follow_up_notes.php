@@ -109,7 +109,13 @@ function bdta_get_follow_up_note_email_details(array $fields, array $responses):
         $response = $responses[(string) $index] ?? null;
         $response_text = is_array($response) ? '' : scalar_string($response);
 
-        if ($field_type === 'checkbox' && is_array($response)) {
+        if (bdta_form_field_is_display_only($field)) {
+            $text_block_body = bdta_form_field_text_block_body($field);
+            $html_value = $text_block_body !== ''
+                ? nl2br(escape($text_block_body))
+                : '<span style="color:#6c757d;">No additional text</span>';
+            $text_value = $text_block_body !== '' ? $text_block_body : 'No additional text';
+        } elseif ($field_type === 'checkbox' && is_array($response)) {
             if ($response !== []) {
                 $html_values = [];
                 $text_values = [];

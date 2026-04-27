@@ -168,6 +168,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Collect form responses
         $responses = [];
         foreach ($fields as $index => $field) {
+            if (bdta_form_field_is_display_only($field)) {
+                continue;
+            }
+
             $field_type = array_string_value($field, 'type', 'text');
             $field_label = array_string_value($field, 'label', 'Field');
             $is_required = array_int_value($field, 'required') === 1;
@@ -359,6 +363,16 @@ require_once __DIR__ . '/includes/public_head.php';
                         $field_name = "field[{$index}]";
                         $existing_value = $prefill_responses[(string)$index] ?? '';
                     ?>
+                    <?php if (bdta_form_field_is_display_only($field)): ?>
+                        <div class="mb-4 p-3 rounded border bg-light">
+                            <div class="fw-semibold mb-1"><?= htmlspecialchars($field_label) ?></div>
+                            <?php $text_block_body = bdta_form_field_text_block_body($field); ?>
+                            <?php if ($text_block_body !== ''): ?>
+                                <div class="text-muted small"><?= nl2br(htmlspecialchars($text_block_body)) ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <?php continue; ?>
+                    <?php endif; ?>
                     <div class="mb-3">
                         <label class="form-label">
                             <?= htmlspecialchars($field_label) ?>

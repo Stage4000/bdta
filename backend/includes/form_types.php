@@ -179,6 +179,27 @@ function bdta_get_form_type_label(string $form_type): string
     );
 }
 
+/**
+ * @param array<string, mixed> $field
+ */
+function bdta_form_field_is_display_only(array $field): bool
+{
+    return array_string_value($field, 'type', 'text') === 'text_block';
+}
+
+/**
+ * @param array<string, mixed> $field
+ */
+function bdta_form_field_text_block_body(array $field): string
+{
+    $description = trim(array_string_value($field, 'description'));
+    if ($description !== '') {
+        return $description;
+    }
+
+    return trim(array_string_value($field, 'label'));
+}
+
 function bdta_normalize_form_required_frequency(string $frequency): string
 {
     $normalized = strtolower(trim($frequency));
