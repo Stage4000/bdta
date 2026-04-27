@@ -605,9 +605,7 @@ include '../backend/includes/header.php';
                     <?php else: ?>
                         <?php foreach ($pets as $pet): ?>
                             <?php
-                            $pet_is_active = (!array_key_exists('is_active', $pet) || $pet['is_active'] === null)
-                                ? true
-                                : ((int) $pet['is_active'] === 1);
+                            $pet_is_active = array_int_value($pet, 'is_active', 1) === 1;
                             $pet_archived_classes = $pet_is_active ? '' : ' bg-light rounded px-2 text-muted opacity-75';
                             ?>
                             <div class="border-bottom pb-2 mb-2<?= $pet_archived_classes ?>">

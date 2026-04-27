@@ -21,13 +21,8 @@ bdta_assert_true(
 );
 
 bdta_assert_true(
-    str_contains($clients_view, "\$pet_is_active = (!array_key_exists('is_active', \$pet) || \$pet['is_active'] === null)"),
-    'Expected client profile pet cards to treat missing archived state as active by default.'
-);
-
-bdta_assert_true(
-    str_contains($clients_view, ": ((int) \$pet['is_active'] === 1);"),
-    'Expected client profile pet cards to use integer active-state checks when the archived flag is present.'
+    str_contains($clients_view, "\$pet_is_active = array_int_value(\$pet, 'is_active', 1) === 1;"),
+    'Expected client profile pet cards to treat missing archived state as active by default via the shared integer helper.'
 );
 
 bdta_assert_true(
