@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/achievements.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -37,6 +38,13 @@ $stmt = $conn->prepare("SELECT COUNT(*) FROM contracts WHERE client_id = ? AND s
 $stmt->execute([$client_id]);
 $pending_agreements = safe_int($stmt->fetchColumn());
 
+// Achievements / badge dashboard data
+$achievement_rows = bdta_get_client_achievement_rows($conn, $client_id, false);
+$badge_rows = array_values(array_filter(
+    $achievement_rows,
+    static fn (array $row): bool => bdta_achievement_mode_supports_badge(array_string_value($row, 'award_mode'))
+));
+
 // Recent activity
 $stmt = $conn->prepare("SELECT * FROM client_activity_log WHERE client_id = ? ORDER BY created_at DESC LIMIT 5");
 $stmt->execute([$client_id]);
@@ -57,6 +65,32 @@ include '../portal/includes/header.php';
 <?php if (!empty($content['content_html'])): ?>
 <div class="mb-4">
     <?php echo $content['content_html']; ?>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($badge_rows)): ?>
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Earned Badges</strong>
+        <a href="achievements.php" class="small text-decoration-none">View all &rarr;</a>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-3">
+            <?php foreach ($badge_rows as $badge): ?>
+                <?php $badge_icon_path = array_string_value($badge, 'badge_icon_path'); ?>
+                <a href="achievements.php#portal-achievement-<?php echo array_int_value($badge, 'id'); ?>" class="text-decoration-none text-center" style="color:inherit;">
+                    <div class="border rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width:72px;height:72px;background:#f8f9fa;">
+                        <?php if ($badge_icon_path !== ''): ?>
+                            <img src="<?php echo escape($badge_icon_path); ?>" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:50%;">
+                        <?php else: ?>
+                            <span class="text-primary fs-3"><i class="fas fa-award"></i></span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="small mt-2" style="max-width:90px;"><?php echo escape(array_string_value($badge, 'achievement_title')); ?></div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -137,6 +171,7 @@ include '../portal/includes/header.php';
         ['href' => 'credits.php',      'icon' => 'fa-coins',                'label' => 'Credits'],
         ['href' => 'agreements.php',   'icon' => 'fa-file-contract',        'label' => 'Agreements'],
         ['href' => 'quotes.php',       'icon' => 'fa-file-invoice-dollar',  'label' => 'Quotes'],
+        ['href' => 'achievements.php', 'icon' => 'fa-award',                'label' => 'Achievements'],
         ['href' => 'pets.php',         'icon' => 'fa-dog',                  'label' => 'Pets'],
         ['href' => 'profile.php',      'icon' => 'fa-user',                 'label' => 'Profile'],
         ['href' => 'activity.php',     'icon' => 'fa-list-ul',              'label' => 'Activity Log'],

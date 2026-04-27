@@ -267,6 +267,7 @@
                         // Individual active states
                         $isClients        = strpos($currentPath, 'clients_') !== false;
                         $isPets           = strpos($currentPath, 'pets') !== false;
+                        $isAchievementTypes = $currentFile === 'achievement_types.php';
                         $isMoxieImport    = $currentFile === 'moxie_import.php';
                         $isBookings       = strpos($currentPath, 'booking') !== false;
                         $isApptTypes      = strpos($currentPath, 'appointment_types') !== false;
@@ -292,7 +293,7 @@
                         $isSettings       = $currentFile === 'settings.php';
                         $isChangePwd      = $currentFile === 'change_password.php';
                         // Group active states (any child active → group open)
-                        $clientsOpen      = $isClients || $isPets || $isMoxieImport;
+                        $clientsOpen      = $isClients || $isPets || $isAchievementTypes || $isMoxieImport;
                         $bookingsOpen     = $isBookings || $isApptTypes || $isPackages || $isTplDefaults;
                         $invoicesOpen     = $isInvoices || $isExpenses || $isQuotes || $isFinancial;
                         $contractsOpen    = $isContracts || $isContractTpls;
@@ -354,6 +355,11 @@
                                     <li class="nav-item">
                                         <a class="nav-link <?php echo $isPets ? 'active' : ''; ?>" href="pets_list.php">
                                             <i class="fas fa-dog me-2"></i> Pets
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo $isAchievementTypes ? 'active' : ''; ?>" href="achievement_types.php">
+                                            <i class="fas fa-medal me-2"></i> Achievement Templates
                                         </a>
                                     </li>
                                     <li class="nav-item">

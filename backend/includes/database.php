@@ -2168,6 +2168,107 @@ class Database {
             )
         ");
 
+        // Create reusable and custom achievement type definitions
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS achievement_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT,
+                scope_type VARCHAR(50) NOT NULL DEFAULT 'general',
+                award_mode VARCHAR(50) NOT NULL DEFAULT 'badge_certificate',
+                badge_icon_path TEXT,
+                certificate_template_path TEXT,
+                certificate_body_html TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_by INTEGER,
+                updated_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+                FOREIGN KEY (updated_by) REFERENCES admin_users(id) ON DELETE SET NULL
+            )
+        ");
+
+        $achievement_type_columns = $this->getTableColumns('achievement_types');
+        if (!in_array('scope_type', $achievement_type_columns, true)) {
+            $this->execSQL("ALTER TABLE achievement_types ADD COLUMN scope_type VARCHAR(50) NOT NULL DEFAULT 'general'");
+        }
+        if (!in_array('award_mode', $achievement_type_columns, true)) {
+            $this->execSQL("ALTER TABLE achievement_types ADD COLUMN award_mode VARCHAR(50) NOT NULL DEFAULT 'badge_certificate'");
+        }
+        if (!in_array('badge_icon_path', $achievement_type_columns, true)) {
+            $this->execSQL("ALTER TABLE achievement_types ADD COLUMN badge_icon_path VARCHAR(255) NULL");
+        }
+        if (!in_array('certificate_template_path', $achievement_type_columns, true)) {
+            $this->execSQL("ALTER TABLE achievement_types ADD COLUMN certificate_template_path VARCHAR(255) NULL");
+        }
+        if (!in_array('certificate_body_html', $achievement_type_columns, true)) {
+            $this->execSQL("ALTER TABLE achievement_types ADD COLUMN certificate_body_html TEXT NULL");
+        }
+
+        // Create achievement assignments for clients
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS client_achievements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL,
+                achievement_type_id INTEGER NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'awarded',
+                awarded_on DATE NOT NULL,
+                dog_name TEXT,
+                program_name TEXT,
+                notes TEXT,
+                awarded_by INTEGER,
+                updated_by INTEGER,
+                revoked_by INTEGER,
+                revoked_at TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+                FOREIGN KEY (achievement_type_id) REFERENCES achievement_types(id) ON DELETE CASCADE,
+                FOREIGN KEY (awarded_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+                FOREIGN KEY (updated_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+                FOREIGN KEY (revoked_by) REFERENCES admin_users(id) ON DELETE SET NULL
+            )
+        ");
+
+        $client_achievement_columns = $this->getTableColumns('client_achievements');
+        if (!in_array('status', $client_achievement_columns, true)) {
+            $this->execSQL("ALTER TABLE client_achievements ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'awarded'");
+        }
+        if (!in_array('dog_name', $client_achievement_columns, true)) {
+            $this->execSQL("ALTER TABLE client_achievements ADD COLUMN dog_name VARCHAR(255) NULL");
+        }
+        if (!in_array('program_name', $client_achievement_columns, true)) {
+            $this->execSQL("ALTER TABLE client_achievements ADD COLUMN program_name VARCHAR(255) NULL");
+        }
+        if (!in_array('notes', $client_achievement_columns, true)) {
+            $this->execSQL("ALTER TABLE client_achievements ADD COLUMN notes TEXT NULL");
+        }
+        if (!in_array('updated_by', $client_achievement_columns, true)) {
+            $this->execSQL("ALTER TABLE client_achievements ADD COLUMN updated_by INT NULL");
+        }
+        if (!in_array('revoked_by', $client_achievement_columns, true)) {
+            $this->execSQL("ALTER TABLE client_achievements ADD COLUMN revoked_by INT NULL");
+        }
+        if (!in_array('revoked_at', $client_achievement_columns, true)) {
+            $this->execSQL("ALTER TABLE client_achievements ADD COLUMN revoked_at TIMESTAMP NULL");
+        }
+
+        // Create assignment audit history for achievements
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS achievement_assignment_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_achievement_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                status TEXT NOT NULL,
+                notes TEXT,
+                admin_user_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_achievement_id) REFERENCES client_achievements(id) ON DELETE CASCADE,
+                FOREIGN KEY (admin_user_id) REFERENCES admin_users(id) ON DELETE SET NULL
+            )
+        ");
+
         // Create notifications table for admin and portal notification centers
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS notifications (

@@ -117,6 +117,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?php echo in_array($current_page, ['achievements.php', 'achievement_certificate.php'], true) ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>achievements.php">
+                                <i class="fas fa-award me-2"></i> Achievements
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?php echo $current_page === 'activity.php' ? 'active' : ''; ?>" href="<?php echo PORTAL_URL; ?>activity.php">
                                 <i class="fas fa-list-ul me-2"></i> Activity
                             </a>
