@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/form_types.php';
+
 /**
  * Survey reporting helpers for aggregating stored form submissions into
  * visualization-friendly summaries.
@@ -86,6 +88,10 @@ function bdta_build_survey_results(array $fields, array $submissions): array
     $prepared_submissions = bdta_prepare_survey_submissions($submissions);
 
     foreach ($fields as $index => $field) {
+        if (bdta_form_field_is_display_only($field)) {
+            continue;
+        }
+
         $type = array_string_value($field, 'type');
         $supports_visualization = bdta_survey_field_supports_visualization($field);
         $configured_options = bdta_survey_field_options($field);

@@ -519,6 +519,17 @@ include '../portal/includes/header.php';
                             $ph = htmlspecialchars(array_string_value($field, 'placeholder'));
                         ?>
                         <div class="mb-3">
+                            <?php if (bdta_form_field_is_display_only($field)): ?>
+                                <div class="p-3 rounded border bg-light">
+                                    <div class="fw-semibold mb-1"><?= htmlspecialchars($field_label) ?></div>
+                                    <?php $text_block_body = bdta_form_field_text_block_body($field); ?>
+                                    <?php if ($text_block_body !== ''): ?>
+                                        <div class="text-muted small"><?= nl2br(htmlspecialchars($text_block_body)) ?></div>
+                                    <?php endif; ?>
+                                </div>
+                                </div>
+                                <?php continue; ?>
+                            <?php endif; ?>
                             <label class="form-label">
                                 <?= htmlspecialchars($field_label) ?>
                                 <?php if ($is_req): ?><span class="text-danger">*</span><?php endif; ?>

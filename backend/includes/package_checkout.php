@@ -152,6 +152,10 @@ function bdta_validate_package_form_submission(?array $form, array $submitted_va
         $required = !empty($field['required']);
         $value = $submitted_values[$index] ?? null;
 
+        if (bdta_form_field_is_display_only($field)) {
+            continue;
+        }
+
         if ($field_type === 'checkbox') {
             $normalized_values = [];
             if (is_array($value)) {

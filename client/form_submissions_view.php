@@ -142,6 +142,17 @@ include '../backend/includes/header.php';
                             $response_text = is_array($response) ? '' : scalar_string($response);
                             ?>
                             <div class="mb-4">
+                                <?php if (bdta_form_field_is_display_only($field)): ?>
+                                    <div class="p-3 rounded border bg-light">
+                                        <div class="fw-semibold mb-1"><?= escape($field_label) ?></div>
+                                        <?php $text_block_body = bdta_form_field_text_block_body($field); ?>
+                                        <?php if ($text_block_body !== ''): ?>
+                                            <div class="text-muted small"><?= nl2br(escape($text_block_body)) ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                    </div>
+                                    <?php continue; ?>
+                                <?php endif; ?>
                                 <label class="fw-bold text-muted d-block mb-2">
                                     <?= escape($field_label) ?>
                                     <?php if ($field_required !== 0): ?>

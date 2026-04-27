@@ -612,6 +612,17 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                                     $field_value = $attached_form_posted_values[$field_index] ?? ($posted_field_values[$field_index] ?? null);
                                     ?>
                                     <div class="mb-3">
+                                        <?php if (bdta_form_field_is_display_only($field)): ?>
+                                            <div class="p-3 rounded border bg-light">
+                                                <div class="fw-semibold mb-1"><?= escape($field_label) ?></div>
+                                                <?php $text_block_body = bdta_form_field_text_block_body($field); ?>
+                                                <?php if ($text_block_body !== ''): ?>
+                                                    <div class="text-muted small"><?= nl2br(escape($text_block_body)) ?></div>
+                                                <?php endif; ?>
+                                            </div>
+                                            </div>
+                                            <?php continue; ?>
+                                        <?php endif; ?>
                                         <label class="form-label">
                                             <?= escape($field_label) ?>
                                             <?php if ($field_required): ?><span class="text-danger">*</span><?php endif; ?>
