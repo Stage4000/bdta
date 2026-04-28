@@ -50,6 +50,7 @@ class MailjetNewsletterService
                 $api_secret,
                 [
                     'Email' => $email,
+                    // Mailjet's addforce action subscribes the contact even if they had previously unsubscribed.
                     'Action' => 'addforce',
                 ]
             );

@@ -223,6 +223,20 @@ function bdta_form_field_newsletter_checkbox_label(): string
     return "Yes, I'd like to receive newsletters and updates.";
 }
 
+/**
+ * @return list<string>
+ */
+function bdta_form_field_newsletter_truthy_values(): array
+{
+    return ['1', 'true', 'yes', 'on'];
+}
+
+function bdta_form_field_newsletter_resolved_label(string $label): string
+{
+    $trimmed_label = trim($label);
+    return $trimmed_label !== '' ? $trimmed_label : bdta_form_field_newsletter_default_label();
+}
+
 function bdta_form_field_newsletter_normalize_value(mixed $value): string
 {
     if (is_array($value)) {
@@ -241,7 +255,7 @@ function bdta_form_field_newsletter_normalize_value(mixed $value): string
         return '';
     }
 
-    if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+    if (in_array($normalized, bdta_form_field_newsletter_truthy_values(), true)) {
         return bdta_form_field_newsletter_checkbox_label();
     }
 

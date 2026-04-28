@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $raw_mapping = scalar_string($field_mappings[$index] ?? '');
             $field_type = scalar_string($field_types[$index] ?? 'text');
             if ($field_type === bdta_newsletter_opt_in_field_type() && trim($label) === '') {
-                $label = bdta_form_field_newsletter_default_label();
+                $label = bdta_form_field_newsletter_resolved_label($label);
             }
             if (!empty(trim($label))) {
                 $field = [
@@ -309,7 +309,7 @@ require_once '../backend/includes/header.php';
                                 $field_label = array_string_value($field, 'label');
                                 $field_type = array_string_value($field, 'type');
                                 if ($field_type === bdta_newsletter_opt_in_field_type() && $field_label === '') {
-                                    $field_label = bdta_form_field_newsletter_default_label();
+                                    $field_label = bdta_form_field_newsletter_resolved_label($field_label);
                                 }
                                 $field_placeholder = array_string_value($field, 'placeholder');
                                 $field_required = array_int_value($field, 'required');
