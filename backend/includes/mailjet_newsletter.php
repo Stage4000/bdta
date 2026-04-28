@@ -79,7 +79,7 @@ class MailjetNewsletterService
         }
         $request_method = strtoupper(trim($method));
         if ($request_method === '') {
-            throw new RuntimeException('A Mailjet request method is required.');
+            throw new RuntimeException('A non-empty Mailjet HTTP request method is required.');
         }
 
         $ch = curl_init($url);
