@@ -101,7 +101,7 @@ if (!is_string($mailjet_helper_source)) {
 }
 
 assertNewsletterOptIn(
-    !str_contains($mailjet_helper_source, "require_once __DIR__ . '/form_types.php';"),
+    !str_contains($mailjet_helper_source, 'form_types.php'),
     'Expected the Mailjet newsletter helper to avoid unused form type includes.'
 );
 
