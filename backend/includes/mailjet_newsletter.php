@@ -10,6 +10,7 @@ class MailjetNewsletterService
     private const API_BASE_URL = 'https://api.mailjet.com/v3/REST';
     private const REQUEST_TIMEOUT = 15;
     private const CONNECT_TIMEOUT = 10;
+    private const ALLOWED_REQUEST_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
 
     /**
      * @return array{success: bool, message: string}
@@ -78,8 +79,8 @@ class MailjetNewsletterService
             throw new RuntimeException('Mailjet API credentials are required for newsletter subscriptions.');
         }
         $request_method = strtoupper(trim($method));
-        if ($request_method === '') {
-            throw new RuntimeException('A non-empty Mailjet HTTP request method is required.');
+        if (!in_array($request_method, self::ALLOWED_REQUEST_METHODS, true)) {
+            throw new RuntimeException('A valid Mailjet HTTP request method is required (GET, POST, PUT, DELETE, or PATCH).');
         }
 
         $ch = curl_init($url);
