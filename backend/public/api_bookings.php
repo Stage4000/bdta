@@ -1277,20 +1277,44 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         }
 
         if (!$newsletter_opt_in_selected && !empty($data['form_responses']) && is_array($data['form_responses'])) {
+            $newsletter_form_fields_by_template_id = [];
+            $newsletter_template_ids = array_values(array_unique(array_filter(
+                array_map('intval', array_keys($data['form_responses'])),
+                static fn (int $template_id): bool => $template_id > 0
+            )));
+
+            if ($newsletter_template_ids !== []) {
+                $newsletter_placeholders = implode(', ', array_fill(0, count($newsletter_template_ids), '?'));
+                // nosemgrep: php.lang.security.injection.tainted-sql-string.tainted-sql-string -- placeholder count is derived from sanitized positive integers and values are parameterized.
+                $stmt_newsletter_forms = $conn->prepare(
+                    "SELECT id, fields FROM form_templates WHERE id IN ($newsletter_placeholders)"
+                );
+                $stmt_newsletter_forms->execute($newsletter_template_ids);
+
+                while ($newsletter_form_row = $stmt_newsletter_forms->fetch(PDO::FETCH_ASSOC)) {
+                    $newsletter_form = api_booking_db_row($newsletter_form_row);
+                    if ($newsletter_form === []) {
+                        continue;
+                    }
+
+                    $newsletter_form_fields_by_template_id[array_int_value($newsletter_form, 'id')] = api_booking_assoc_rows(
+                        array_string_value($newsletter_form, 'fields')
+                    );
+                }
+            }
+
             foreach ($data['form_responses'] as $template_id => $responses) {
                 if (!is_array($responses)) {
                     continue;
                 }
 
-                $stmt_newsletter_form = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
-                $stmt_newsletter_form->execute([(int) $template_id]);
-                $newsletter_form = api_booking_db_row($stmt_newsletter_form->fetch(PDO::FETCH_ASSOC));
-                if ($newsletter_form === []) {
+                $template_id = (int) $template_id;
+                if (!isset($newsletter_form_fields_by_template_id[$template_id])) {
                     continue;
                 }
 
                 if (bdta_form_fields_include_newsletter_opt_in(
-                    api_booking_assoc_rows(array_string_value($newsletter_form, 'fields')),
+                    $newsletter_form_fields_by_template_id[$template_id],
                     $responses
                 )) {
                     $newsletter_opt_in_selected = true;

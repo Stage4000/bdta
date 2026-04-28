@@ -95,6 +95,16 @@ assertNewsletterOptIn(
     'Expected Mailjet list subscriptions to use addforce.'
 );
 
+$mailjet_helper_source = file_get_contents(dirname(__DIR__) . '/backend/includes/mailjet_newsletter.php');
+if (!is_string($mailjet_helper_source)) {
+    throw new RuntimeException('Expected to read the Mailjet newsletter helper source.');
+}
+
+assertNewsletterOptIn(
+    !str_contains($mailjet_helper_source, "require_once __DIR__ . '/form_types.php';"),
+    'Expected the Mailjet newsletter helper to avoid unused form type includes.'
+);
+
 $edit_page = file_get_contents(dirname(__DIR__) . '/client/form_templates_edit.php');
 if (!is_string($edit_page)) {
     throw new RuntimeException('Expected to read the form template edit page source.');
@@ -117,6 +127,26 @@ if (!is_string($settings_source)) {
 assertNewsletterOptIn(
     str_contains($settings_source, 'mailjet_newsletter_list_id'),
     'Expected Mailjet newsletter settings to be seeded for existing installations.'
+);
+
+$public_booking_source = file_get_contents(dirname(__DIR__) . '/backend/public/api_bookings.php');
+if (!is_string($public_booking_source)) {
+    throw new RuntimeException('Expected to read the public booking API source.');
+}
+
+assertNewsletterOptIn(
+    str_contains($public_booking_source, 'SELECT id, fields FROM form_templates WHERE id IN'),
+    'Expected public booking newsletter detection to preload template fields in one query.'
+);
+
+$portal_booking_source = file_get_contents(dirname(__DIR__) . '/portal/api_book_credit.php');
+if (!is_string($portal_booking_source)) {
+    throw new RuntimeException('Expected to read the portal booking API source.');
+}
+
+assertNewsletterOptIn(
+    str_contains($portal_booking_source, 'SELECT id, fields FROM form_templates WHERE id IN'),
+    'Expected portal credit booking newsletter detection to preload template fields in one query.'
 );
 
 echo "Newsletter opt-in regression checks passed.\n";

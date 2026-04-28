@@ -4,7 +4,6 @@
  */
 
 require_once __DIR__ . '/settings.php';
-require_once __DIR__ . '/form_types.php';
 
 class MailjetNewsletterService
 {
