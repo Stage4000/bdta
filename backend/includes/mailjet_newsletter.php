@@ -50,7 +50,7 @@ class MailjetNewsletterService
                 $api_secret,
                 [
                     'Email' => $email,
-                    // Mailjet's addforce action subscribes the contact even if they had previously unsubscribed.
+                    // This is intentional so a fresh form opt-in re-subscribes the contact to the newsletter list.
                     'Action' => 'addforce',
                 ]
             );

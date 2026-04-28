@@ -54,7 +54,7 @@ assertNewsletterOptIn(
     'Expected newsletter opt-in detection to ignore empty responses.'
 );
 
-$recording_service = new class() extends MailjetNewsletterService {
+$test_mailjet_service = new class() extends MailjetNewsletterService {
     /** @var list<array{method: string, url: string, payload: array<string, mixed>|null}> */
     public array $calls = [];
 
@@ -79,19 +79,19 @@ $recording_service = new class() extends MailjetNewsletterService {
     }
 };
 
-$subscribe_result = $recording_service->subscribeContact('newsletter@example.com', 'Newsletter Test');
+$subscribe_result = $test_mailjet_service->subscribeContact('newsletter@example.com', 'Newsletter Test');
 assertNewsletterOptIn($subscribe_result['success'] === true, 'Expected Mailjet newsletter subscriptions to succeed when requests succeed.');
-assertNewsletterOptIn(count($recording_service->calls) === 2, 'Expected Mailjet newsletter subscriptions to issue two API requests.');
+assertNewsletterOptIn(count($test_mailjet_service->calls) === 2, 'Expected Mailjet newsletter subscriptions to issue two API requests.');
 assertNewsletterOptIn(
-    str_contains($recording_service->calls[0]['url'], '/contact'),
+    str_contains($test_mailjet_service->calls[0]['url'], '/contact'),
     'Expected the first Mailjet call to create or update the contact.'
 );
 assertNewsletterOptIn(
-    str_contains($recording_service->calls[1]['url'], '/contactslist/123456/managecontact'),
+    str_contains($test_mailjet_service->calls[1]['url'], '/contactslist/123456/managecontact'),
     'Expected the second Mailjet call to subscribe the contact to the configured list.'
 );
 assertNewsletterOptIn(
-    ($recording_service->calls[1]['payload']['Action'] ?? '') === 'addforce',
+    ($test_mailjet_service->calls[1]['payload']['Action'] ?? '') === 'addforce',
     'Expected Mailjet list subscriptions to use addforce.'
 );
 
