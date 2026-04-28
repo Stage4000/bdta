@@ -77,6 +77,10 @@ class MailjetNewsletterService
         if ($api_key === '' || $api_secret === '') {
             throw new RuntimeException('Mailjet API credentials are required for newsletter subscriptions.');
         }
+        $request_method = strtoupper(trim($method));
+        if ($request_method === '') {
+            throw new RuntimeException('A Mailjet request method is required.');
+        }
 
         $ch = curl_init($url);
         if ($ch === false) {
@@ -91,12 +95,6 @@ class MailjetNewsletterService
         if ($payload !== null && $encoded_payload === false) {
             curl_close($ch);
             throw new RuntimeException('Unable to encode the Mailjet newsletter request payload.');
-        }
-
-        $request_method = strtoupper(trim($method));
-        if ($request_method === '') {
-            curl_close($ch);
-            throw new RuntimeException('A Mailjet request method is required.');
         }
 
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
