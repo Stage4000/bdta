@@ -92,10 +92,13 @@ class MailjetNewsletterService
             'Accept: application/json',
             'Content-Type: application/json',
         ];
-        $encoded_payload = $payload === null ? null : json_encode($payload, JSON_UNESCAPED_SLASHES);
-        if ($payload !== null && $encoded_payload === false) {
-            curl_close($ch);
-            throw new RuntimeException('Unable to encode the Mailjet newsletter request payload.');
+        $encoded_payload = null;
+        if ($payload !== null) {
+            $encoded_payload = json_encode($payload, JSON_UNESCAPED_SLASHES);
+            if ($encoded_payload === false) {
+                curl_close($ch);
+                throw new RuntimeException('Unable to encode the Mailjet newsletter request payload.');
+            }
         }
 
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
