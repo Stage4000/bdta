@@ -552,6 +552,17 @@ include '../portal/includes/header.php';
                                         <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
                                     <?php endforeach; ?>
                                 </select>
+                                <?php break; case 'newsletter_opt_in':
+                                    $newsletter_choice = bdta_form_field_newsletter_checkbox_label(); ?>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           data-form-field="<?= $fi ?>"
+                                           data-form-field-type="<?= htmlspecialchars($field_type) ?>"
+                                           id="<?= $fn ?>_newsletter"
+                                           value="<?= htmlspecialchars($newsletter_choice) ?>"
+                                           <?= $aria ?>>
+                                    <label class="form-check-label" for="<?= $fn ?>_newsletter"><?= htmlspecialchars($newsletter_choice) ?></label>
+                                </div>
                                 <?php break; case 'radio': ?>
                                 <?php foreach ($field_options as $oi => $opt): ?>
                                 <div class="form-check">
@@ -1277,6 +1288,10 @@ include '../portal/includes/header.php';
             section.querySelectorAll('input[type=checkbox]').forEach(el => {
                 const fi = el.dataset.formField;
                 if (fi !== undefined) {
+                    if (el.dataset.formFieldType === 'newsletter_opt_in') {
+                        fields[fi] = el.checked ? el.value : '';
+                        return;
+                    }
                     if (!cbGroups[fi]) cbGroups[fi] = [];
                     if (el.checked) cbGroups[fi].push(el.value);
                 }

@@ -7,6 +7,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/booking_resources.php';
 require_once '../backend/includes/form_types.php';
+require_once '../backend/includes/mailjet_newsletter.php';
 header('Content-Type: application/json');
 
 // Must be a logged-in portal client
@@ -816,6 +817,40 @@ if (!$is_pending_request) {
 
 // ── Log activity ──────────────────────────────────────────────────────────
 logClientActivity($client_id, 'booking_created', 'Created booking #' . $booking_id . ' for ' . array_string_value($apt_type, 'name'), $conn);
+
+$newsletter_opt_in_selected = false;
+if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+    foreach ($data['form_responses'] as $template_id => $responses) {
+        if (!is_array($responses)) {
+            continue;
+        }
+
+        $stmt_newsletter_form = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
+        $stmt_newsletter_form->execute([(int) $template_id]);
+        $newsletter_form = assoc_row($stmt_newsletter_form->fetch(PDO::FETCH_ASSOC));
+        if ($newsletter_form === []) {
+            continue;
+        }
+
+        if (bdta_form_fields_include_newsletter_opt_in(
+            decode_json_assoc_list(array_string_value($newsletter_form, 'fields')),
+            $responses
+        )) {
+            $newsletter_opt_in_selected = true;
+            break;
+        }
+    }
+}
+
+if ($newsletter_opt_in_selected) {
+    $newsletter_result = bdta_subscribe_mailjet_contact_to_newsletter($client_email, $client_name);
+    if (!$newsletter_result['success']) {
+        error_log(
+            'Mailjet newsletter opt-in failed for client portal booking #' . $booking_id . ': '
+            . scalar_string($newsletter_result['message'])
+        );
+    }
+}
 
 // ── Send confirmation email ───────────────────────────────────────────────
 require_once '../backend/includes/email_service.php';

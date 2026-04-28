@@ -1321,6 +1321,9 @@ class Database {
             ['sendgrid_api_key', '', 'password', 'email', 'SendGrid API Key', 'SendGrid API key (if using SendGrid)', 1],
             ['mailgun_api_key', '', 'password', 'email', 'Mailgun API Key', 'Mailgun API key (if using Mailgun)', 1],
             ['mailgun_domain', '', 'text', 'email', 'Mailgun Domain', 'Mailgun sending domain', 0],
+            ['mailjet_api_key', '', 'password', 'email', 'Mailjet API Key', 'Mailjet API key used for newsletter opt-ins', 1],
+            ['mailjet_api_secret', '', 'password', 'email', 'Mailjet API Secret', 'Mailjet API secret used for newsletter opt-ins', 1],
+            ['mailjet_newsletter_list_id', '0', 'number', 'email', 'Mailjet Newsletter List ID', 'Mailjet contacts list ID used for newsletter opt-ins', 0],
             ['default_email_signature_id', '0', 'number', 'email', 'Default Email Signature', 'Default email signature template (0 = none)', 0],
             ['enable_email_signatures', '1', 'checkbox', 'email', 'Enable Email Signatures', 'Automatically include email signatures in outgoing emails', 0],
             
@@ -2379,6 +2382,9 @@ class Database {
         // Add default email template settings for automated tasks
         $this->addEmailTemplateDefaultSettings();
 
+        // Add Mailjet newsletter settings for existing installations
+        $this->addMailjetNewsletterSettings();
+
         // Add database settings for existing installations
         $this->addDatabaseSettings();
 
@@ -2710,6 +2716,31 @@ class Database {
                     $insert->execute([$key, '0', 'number', 'email', $labels[$key], $descriptions[$key], 0]);
                 } catch (PDOException $e) {
                     // Already exists, ignore
+                }
+            }
+        }
+    }
+
+    private function addMailjetNewsletterSettings(): void {
+        $mailjet_settings = [
+            ['mailjet_api_key', '', 'password', 'email', 'Mailjet API Key', 'Mailjet API key used for newsletter opt-ins', 1],
+            ['mailjet_api_secret', '', 'password', 'email', 'Mailjet API Secret', 'Mailjet API secret used for newsletter opt-ins', 1],
+            ['mailjet_newsletter_list_id', '0', 'number', 'email', 'Mailjet Newsletter List ID', 'Mailjet contacts list ID used for newsletter opt-ins', 0],
+        ];
+
+        $check = $this->conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+        $insert = $this->conn->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_type, category, label, description, is_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($mailjet_settings as $setting) {
+            $check->execute([$setting[0]]);
+            if ($check->fetchColumn() == 0) {
+                try {
+                    $insert->execute($setting);
+                } catch (PDOException $e) {
+                    // Setting might already exist, ignore
                 }
             }
         }
