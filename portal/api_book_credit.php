@@ -85,6 +85,8 @@ if (!filter_var(scalar_string($data['client_email'] ?? ''), FILTER_VALIDATE_EMAI
     exit;
 }
 
+$client_name = trim(scalar_string($data['client_name'] ?? ''));
+$client_email = trim(scalar_string($data['client_email'] ?? ''));
 $appointment_type_id = safe_int($data['appointment_type_id'] ?? 0);
 
 // ── Verify this appointment type exists and is active ────────────────────
@@ -322,8 +324,8 @@ $stmt->execute([
     $client_id,
     $appointment_type_id,
     $appointment_type_admin_user_id > 0 ? $appointment_type_admin_user_id : null,
-    trim(scalar_string($data['client_name'] ?? '')),
-    trim(scalar_string($data['client_email'] ?? '')),
+    $client_name,
+    $client_email,
     trim(scalar_string($data['client_phone'] ?? '')),
     array_string_value($apt_type, 'name'),
     scalar_string($data['appointment_date'] ?? ''),

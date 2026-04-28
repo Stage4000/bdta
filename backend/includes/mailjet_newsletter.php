@@ -74,6 +74,9 @@ class MailjetNewsletterService
         if (!function_exists('curl_init')) {
             throw new RuntimeException('cURL is required for Mailjet newsletter subscriptions.');
         }
+        if ($api_key === '' || $api_secret === '') {
+            throw new RuntimeException('Mailjet API credentials are required for newsletter subscriptions.');
+        }
 
         $ch = curl_init($url);
         if ($ch === false) {
@@ -90,15 +93,19 @@ class MailjetNewsletterService
             throw new RuntimeException('Unable to encode the Mailjet newsletter request payload.');
         }
 
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => self::REQUEST_TIMEOUT,
-            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
-            CURLOPT_CUSTOMREQUEST => strtoupper($method),
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_USERPWD => $api_key . ':' . $api_secret,
-            CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
-        ]);
+        $request_method = strtoupper(trim($method));
+        if ($request_method === '') {
+            curl_close($ch);
+            throw new RuntimeException('A Mailjet request method is required.');
+        }
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, self::REQUEST_TIMEOUT);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, self::CONNECT_TIMEOUT);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $request_method);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_USERPWD, $api_key . ':' . $api_secret);
+        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 
         if ($encoded_payload !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $encoded_payload);
