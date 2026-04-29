@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/backend/includes/config.php';
+require_once __DIR__ . '/backend/includes/newsletter_embed.php';
 require_once __DIR__ . '/backend/includes/social_links.php';
 require_once __DIR__ . '/backend/includes/public_notice.php';
 require_once __DIR__ . '/backend/includes/tawk_to.php';
@@ -40,6 +41,7 @@ if (!$page || trim(array_string_value($page, 'html_content')) === '') {
         $html = bdta_apply_public_social_links($html);
         $html = bdta_inject_imported_page_runtime_css($html);
         $html = bdta_inject_public_notice_markup($html);
+        $html = bdta_inject_newsletter_embed_markup($html);
         $widget = bdta_get_tawk_to_widget_script();
         if ($widget !== '') {
             $html = preg_replace('/<\/body>/i', $widget . "\n</body>", $html, 1) ?? $html;
@@ -65,6 +67,7 @@ $rendered_page_html = bdta_inject_turnstile_widgets_into_forms(
         bdta_sync_public_navigation_links(bdta_apply_public_social_links($page_html_content))
     )
 );
+$rendered_page_html = bdta_inject_newsletter_embed_markup($rendered_page_html);
 $page_has_turnstile_widget = str_contains($rendered_page_html, 'bdta-turnstile');
 ?>
 <!DOCTYPE html>

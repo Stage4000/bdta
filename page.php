@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/backend/includes/config.php';
+require_once __DIR__ . '/backend/includes/newsletter_embed.php';
 require_once __DIR__ . '/backend/public/includes/public_error_page.php';
 require_once __DIR__ . '/backend/public/includes/public_navigation.php';
 require_once __DIR__ . '/backend/includes/public_notice.php';
@@ -53,6 +54,7 @@ $title        = htmlspecialchars($page['title'], ENT_QUOTES, 'UTF-8');
 $rendered_page_html = bdta_inject_turnstile_widgets_into_forms(
     bdta_wrap_imported_page_html(bdta_sync_public_navigation_links((string) $page['html_content']))
 );
+$rendered_page_html = bdta_inject_newsletter_embed_markup($rendered_page_html);
 $page_has_turnstile_widget = str_contains($rendered_page_html, 'bdta-turnstile');
 ?>
 <!DOCTYPE html>

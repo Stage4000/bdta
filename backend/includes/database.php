@@ -1392,6 +1392,7 @@ class Database {
             ['tawk_to_enabled', '0', 'checkbox', 'advanced', 'Enable Tawk.to Chat', 'Load the Tawk.to chat widget on public-facing pages and the client portal. Admin pages remain excluded.', 0],
             ['tawk_to_property_id', '', 'text', 'advanced', 'Tawk.to Property ID', 'Paste the property ID from your Tawk.to embed snippet.', 0],
             ['tawk_to_widget_id', 'default', 'text', 'advanced', 'Tawk.to Widget ID', 'Optional widget ID from the Tawk.to embed snippet. Leave as "default" unless Tawk.to specifies another value.', 0],
+            ['newsletter_embed_html', '', 'textarea', 'advanced', 'Newsletter Embed HTML', 'Paste the full newsletter signup embed code (for example from Mailjet). It will be added to public site pages.', 0],
             ['turnstile_site_key', '', 'text', 'advanced', 'Turnstile Site Key', 'Cloudflare Turnstile site key used to render spam protection on public forms.', 0],
             ['turnstile_secret_key', '', 'password', 'advanced', 'Turnstile Secret Key', 'Cloudflare Turnstile secret key used to verify public form submissions.', 1],
             
@@ -2471,6 +2472,9 @@ class Database {
         // Add Tawk.to chat widget settings for existing installations
         $this->addTawkToSettings();
 
+        // Add newsletter embed setting for existing installations
+        $this->addNewsletterEmbedSettings();
+
         // Add Turnstile settings for existing installations
         $this->addTurnstileSettings();
 
@@ -2917,6 +2921,14 @@ class Database {
         ];
 
         $this->insertMissingSettingsRows($tawk_settings);
+    }
+
+    private function addNewsletterEmbedSettings(): void {
+        $newsletter_settings = [
+            ['newsletter_embed_html', '', 'textarea', 'advanced', 'Newsletter Embed HTML', 'Paste the full newsletter signup embed code (for example from Mailjet). It will be added to public site pages.', 0],
+        ];
+
+        $this->insertMissingSettingsRows($newsletter_settings);
     }
 
     private function addTurnstileSettings(): void {
