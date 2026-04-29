@@ -351,6 +351,41 @@ footer a:hover {
 }
 
 /* ==========================================
+   Newsletter Embed
+   ========================================== */
+.bdta-newsletter-embed-section {
+    padding: clamp(2.5rem, 5vw, 4rem) 0;
+}
+
+.bdta-newsletter-embed-card {
+    width: min(100%, 46rem);
+    margin: 0 auto;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    border-radius: 1.5rem;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 251, 0.94));
+    border: 1px solid rgba(154, 0, 115, 0.12);
+    box-shadow: 0 1.25rem 3rem rgba(45, 24, 48, 0.12);
+}
+
+.bdta-newsletter-embed-card > * {
+    max-width: 100%;
+}
+
+.bdta-newsletter-embed-card iframe,
+.bdta-newsletter-embed-card form,
+.bdta-newsletter-embed-card input,
+.bdta-newsletter-embed-card button,
+.bdta-newsletter-embed-card select,
+.bdta-newsletter-embed-card textarea {
+    max-width: 100%;
+}
+
+.bdta-newsletter-embed-card iframe {
+    display: block;
+    margin: 0 auto;
+}
+
+/* ==========================================
    Back to Top Button
    ========================================== */
 #backToTop {
@@ -640,6 +675,12 @@ html {
 [data-bs-theme="dark"] .card {
     background-color: #1f2937;
     color: #e5e7eb;
+}
+
+[data-bs-theme="dark"] .bdta-newsletter-embed-card {
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.96), rgba(55, 65, 81, 0.92));
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, 0.28);
 }
 
 [data-bs-theme="dark"] .text-muted,

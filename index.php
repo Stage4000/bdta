@@ -67,6 +67,7 @@ $rendered_page_html = bdta_inject_turnstile_widgets_into_forms(
         bdta_sync_public_navigation_links(bdta_apply_public_social_links($page_html_content))
     )
 );
+$rendered_page_html = bdta_inject_newsletter_embed_markup($rendered_page_html);
 $page_has_turnstile_widget = str_contains($rendered_page_html, 'bdta-turnstile');
 ?>
 <!DOCTYPE html>
@@ -137,7 +138,6 @@ $page_has_turnstile_widget = str_contains($rendered_page_html, 'bdta-turnstile')
     <script src="/assets/js/public/site.js"></script>
     <!-- BDTA dynamic modules (Packages & Events blocks added via the site editor) -->
     <script src="/assets/js/public/modules.js"></script>
-    <?php bdta_render_newsletter_embed(); ?>
     <?php bdta_render_tawk_to_widget(); ?>
 </body>
 </html>

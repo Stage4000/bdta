@@ -32,16 +32,30 @@ assertNewsletterEmbed(
     'Expected newsletter embed helper to return the saved embed markup unchanged.'
 );
 
+$wrapped_markup = bdta_get_newsletter_embed_wrapped_markup();
+assertNewsletterEmbed(
+    str_contains($wrapped_markup, 'bdta-newsletter-embed-section')
+        && str_contains($wrapped_markup, 'bdta-newsletter-embed-card')
+        && str_contains($wrapped_markup, $embed_markup),
+    'Expected newsletter embed helper to wrap the saved embed in a centered section/card container.'
+);
+
 $html_without_body = '<div class="page-shell">Hello</div>';
 assertNewsletterEmbed(
-    bdta_inject_newsletter_embed_markup($html_without_body) === $html_without_body . "\n" . $embed_markup,
+    bdta_inject_newsletter_embed_markup($html_without_body) === $html_without_body . "\n" . $wrapped_markup,
     'Expected newsletter embed helper to append markup when no closing body tag exists.'
+);
+
+$html_with_footer = '<main>Page</main><footer class="site-footer">Footer</footer>';
+assertNewsletterEmbed(
+    bdta_inject_newsletter_embed_markup($html_with_footer) === '<main>Page</main>' . $wrapped_markup . "\n<footer class=\"site-footer\">Footer</footer>",
+    'Expected newsletter embed helper to inject markup before the footer when one exists.'
 );
 
 $html_with_body = '<html><body><main>Page</main></body></html>';
 $injected_html = bdta_inject_newsletter_embed_markup($html_with_body);
 assertNewsletterEmbed(
-    $injected_html === '<html><body><main>Page</main>' . $embed_markup . "\n</body></html>",
+    $injected_html === '<html><body><main>Page</main>' . $wrapped_markup . "\n</body></html>",
     'Expected newsletter embed helper to inject markup before the closing body tag.'
 );
 
@@ -70,23 +84,29 @@ assertNewsletterEmbed(
 $index_source = file_get_contents(dirname(__DIR__) . '/index.php');
 $page_source = file_get_contents(dirname(__DIR__) . '/page.php');
 $settings_source = file_get_contents(dirname(__DIR__) . '/client/settings.php');
+$site_css_source = file_get_contents(dirname(__DIR__) . '/assets/css/public/site.css');
 if (!is_string($index_source) || !is_string($page_source)) {
     throw new RuntimeException('Expected to read the public page renderers.');
 }
 if (!is_string($settings_source)) {
     throw new RuntimeException('Expected to read the settings page source.');
 }
+if (!is_string($site_css_source)) {
+    throw new RuntimeException('Expected to read the public site stylesheet.');
+}
 
 assertNewsletterEmbed(
     str_contains($index_source, "require_once __DIR__ . '/backend/includes/newsletter_embed.php';")
         && str_contains($index_source, 'bdta_inject_newsletter_embed_markup($html);')
-        && str_contains($index_source, 'bdta_render_newsletter_embed();'),
+        && str_contains($index_source, '$rendered_page_html = bdta_inject_newsletter_embed_markup($rendered_page_html);')
+        && !str_contains($index_source, 'bdta_render_newsletter_embed();'),
     'Expected homepage rendering to load and output the newsletter embed helper.'
 );
 
 assertNewsletterEmbed(
     str_contains($page_source, "require_once __DIR__ . '/backend/includes/newsletter_embed.php';")
-        && str_contains($page_source, 'bdta_render_newsletter_embed();'),
+        && str_contains($page_source, '$rendered_page_html = bdta_inject_newsletter_embed_markup($rendered_page_html);')
+        && !str_contains($page_source, 'bdta_render_newsletter_embed();'),
     'Expected dynamic public pages to load and output the newsletter embed helper.'
 );
 
@@ -95,6 +115,13 @@ assertNewsletterEmbed(
         && str_contains($settings_source, 'Only paste official embed code from trusted providers')
         && str_contains($settings_source, 'malicious scripts could create XSS risk for visitors'),
     'Expected settings UI to warn that newsletter embed HTML is rendered directly on public pages.'
+);
+
+assertNewsletterEmbed(
+    str_contains($site_css_source, '.bdta-newsletter-embed-section')
+        && str_contains($site_css_source, '.bdta-newsletter-embed-card')
+        && str_contains($site_css_source, 'width: min(100%, 46rem);'),
+    'Expected public site styles to constrain the newsletter embed into a centered desktop-friendly card.'
 );
 
 echo "Newsletter embed checks passed.\n";
