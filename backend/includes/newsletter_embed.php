@@ -15,11 +15,15 @@ function bdta_inject_newsletter_embed_markup(string $html): string
     }
 
     $html_with_embed = preg_replace('/<\/body>/i', $embed_markup . "\n</body>", $html, 1);
-    if (is_string($html_with_embed) && $html_with_embed !== $html) {
-        return $html_with_embed;
+    if (is_string($html_with_embed)) {
+        if ($html_with_embed !== $html) {
+            return $html_with_embed;
+        }
+
+        return rtrim($html) . "\n" . $embed_markup;
     }
 
-    return rtrim($html) . "\n" . $embed_markup;
+    return $html;
 }
 
 function bdta_render_newsletter_embed(): void

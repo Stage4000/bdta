@@ -22,7 +22,7 @@ assertNewsletterEmbed(
     'Expected empty newsletter embed settings to render nothing.'
 );
 
-$embed_markup = '<script src="https://app.mailjet.com/pas-nc-embedded-v1.js"></script><div class="mj-signup">Join</div>';
+$embed_markup = '<div class="newsletter-embed">Subscribe</div>';
 Settings::seedCacheForTesting([
     'newsletter_embed_html' => $embed_markup,
 ]);
@@ -69,8 +69,12 @@ assertNewsletterEmbed(
 
 $index_source = file_get_contents(dirname(__DIR__) . '/index.php');
 $page_source = file_get_contents(dirname(__DIR__) . '/page.php');
+$settings_source = file_get_contents(dirname(__DIR__) . '/client/settings.php');
 if (!is_string($index_source) || !is_string($page_source)) {
     throw new RuntimeException('Expected to read the public page renderers.');
+}
+if (!is_string($settings_source)) {
+    throw new RuntimeException('Expected to read the settings page source.');
 }
 
 assertNewsletterEmbed(
@@ -84,6 +88,11 @@ assertNewsletterEmbed(
     str_contains($page_source, "require_once __DIR__ . '/backend/includes/newsletter_embed.php';")
         && str_contains($page_source, 'bdta_render_newsletter_embed();'),
     'Expected dynamic public pages to load and output the newsletter embed helper.'
+);
+
+assertNewsletterEmbed(
+    str_contains($settings_source, 'Trusted admins only: this embed code is rendered as-is on public site pages.'),
+    'Expected settings UI to warn that newsletter embed HTML is rendered directly on public pages.'
 );
 
 echo "Newsletter embed checks passed.\n";
