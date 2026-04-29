@@ -28,5 +28,6 @@ function bdta_inject_newsletter_embed_markup(string $html): string
 
 function bdta_render_newsletter_embed(): void
 {
+    // This setting intentionally renders trusted admin-provided embed HTML/JS.
     echo bdta_get_newsletter_embed_markup();
 }
