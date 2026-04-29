@@ -31,8 +31,8 @@ class MailjetNewsletterService
         }
 
         try {
-            // Keep the name argument for caller compatibility; Mailjet's idempotent contact-management endpoint
-            // only needs the email identity before the list subscription call below.
+            // Keep accepting $name for caller compatibility, but ignore it here because Mailjet's idempotent
+            // contact-management endpoint only needs the email identity before the list subscription call below.
             $this->requestJson(
                 'POST',
                 self::API_BASE_URL . '/contact/managemanycontacts',
