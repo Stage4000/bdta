@@ -482,7 +482,7 @@ function api_booking_reserved_rows_for_schedule_date(
 /**
  * @return list<array<string, mixed>>
  */
-function api_booking_reserved_mini_session_rows(
+function api_booking_reserved_schedule_rows(
     SafePDO $conn,
     string $from_date,
     string $to_date,
@@ -508,8 +508,19 @@ function api_booking_reserved_mini_session_rows(
         'buffer_before_minutes' => in_array('buffer_before_minutes', $appointment_type_columns, true) ? 'buffer_before_minutes' : '0 AS buffer_before_minutes',
         'buffer_after_minutes' => in_array('buffer_after_minutes', $appointment_type_columns, true) ? 'buffer_after_minutes' : '0 AS buffer_after_minutes',
     ];
-    $where_clauses = ['is_active = 1', 'is_mini_session = 1', 'id != ?'];
+    $has_mini_session_column = in_array('is_mini_session', $appointment_type_columns, true);
+    $has_schedule_type_column = in_array('schedule_type', $appointment_type_columns, true);
+    $where_clauses = ['is_active = 1', 'id != ?'];
     $params = [$appointment_type_id];
+    if ($has_mini_session_column && $has_schedule_type_column) {
+        $where_clauses[] = "(is_mini_session = 1 OR schedule_type = 'specific_date')";
+    } elseif ($has_mini_session_column) {
+        $where_clauses[] = 'is_mini_session = 1';
+    } elseif ($has_schedule_type_column) {
+        $where_clauses[] = "schedule_type = 'specific_date'";
+    } else {
+        return [];
+    }
     if ($target_admin_user_id > 0 && in_array('admin_user_id', $appointment_type_columns, true)) {
         $where_clauses[] = '(COALESCE(admin_user_id, 0) = 0 OR admin_user_id = ?)';
         $params[] = $target_admin_user_id;
@@ -521,17 +532,17 @@ function api_booking_reserved_mini_session_rows(
         WHERE " . implode(' AND ', $where_clauses)
     );
     $stmt->execute($params);
-    $mini_session_types = api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
-    if ($mini_session_types === []) {
+    $reserved_types = api_booking_assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+    if ($reserved_types === []) {
         return [];
     }
 
     /** @var list<array<string, mixed>> $reserved_rows */
     $reserved_rows = [];
-    foreach ($mini_session_types as $mini_session_type) {
-        $schedule_type = array_string_value($mini_session_type, 'schedule_type', 'recurring');
+    foreach ($reserved_types as $reserved_type) {
+        $schedule_type = array_string_value($reserved_type, 'schedule_type', 'recurring');
         if ($schedule_type === 'specific_date') {
-            $specific_dates = api_booking_assoc_rows(array_string_value($mini_session_type, 'specific_dates'));
+            $specific_dates = api_booking_assoc_rows(array_string_value($reserved_type, 'specific_dates'));
             foreach ($specific_dates as $specific_date_entry) {
                 $specific_date = array_string_value($specific_date_entry, 'date');
                 if ($specific_date === '' || $specific_date < $from_date || $specific_date > $to_date) {
@@ -541,25 +552,25 @@ function api_booking_reserved_mini_session_rows(
                 api_booking_append_rows(
                     $reserved_rows,
                     api_booking_reserved_rows_for_schedule_date(
-                        $mini_session_type,
+                        $reserved_type,
                         $specific_date,
-                        array_string_value($mini_session_type, 'available_start_time', '09:00'),
-                        array_string_value($mini_session_type, 'available_end_time', '17:00'),
+                        array_string_value($reserved_type, 'available_start_time', '09:00'),
+                        array_string_value($reserved_type, 'available_end_time', '17:00'),
                         api_booking_assoc_rows($specific_date_entry['timeslots'] ?? [])
                     )
                 );
             }
 
             if ($specific_dates === []) {
-                $legacy_specific_date = array_string_value($mini_session_type, 'specific_date');
+                $legacy_specific_date = array_string_value($reserved_type, 'specific_date');
                 if ($legacy_specific_date !== '' && $legacy_specific_date >= $from_date && $legacy_specific_date <= $to_date) {
                     api_booking_append_rows(
                         $reserved_rows,
                         api_booking_reserved_rows_for_schedule_date(
-                            $mini_session_type,
+                            $reserved_type,
                             $legacy_specific_date,
-                            array_string_value($mini_session_type, 'available_start_time', '09:00'),
-                            array_string_value($mini_session_type, 'available_end_time', '17:00')
+                            array_string_value($reserved_type, 'available_start_time', '09:00'),
+                            array_string_value($reserved_type, 'available_end_time', '17:00')
                         )
                     );
                 }
@@ -568,11 +579,11 @@ function api_booking_reserved_mini_session_rows(
             continue;
         }
 
-        $available_days = api_booking_int_list(decode_json_assoc(array_string_value($mini_session_type, 'available_days', '[0,1,2,3,4,5,6]')));
+        $available_days = api_booking_int_list(decode_json_assoc(array_string_value($reserved_type, 'available_days', '[0,1,2,3,4,5,6]')));
         if ($available_days === []) {
             $available_days = [0, 1, 2, 3, 4, 5, 6];
         }
-        $per_day_schedule = api_booking_assoc_map(array_string_value($mini_session_type, 'per_day_schedule'));
+        $per_day_schedule = api_booking_assoc_map(array_string_value($reserved_type, 'per_day_schedule'));
 
         $current_date = new DateTime($from_date);
         $end_date = new DateTime($to_date);
@@ -584,8 +595,8 @@ function api_booking_reserved_mini_session_rows(
                 continue;
             }
 
-            $day_start = array_string_value($mini_session_type, 'available_start_time', '09:00');
-            $day_end = array_string_value($mini_session_type, 'available_end_time', '17:00');
+            $day_start = array_string_value($reserved_type, 'available_start_time', '09:00');
+            $day_end = array_string_value($reserved_type, 'available_end_time', '17:00');
             $day_config_key = (string) $day_of_week;
             if (array_key_exists($day_config_key, $per_day_schedule)) {
                 $day_config = $per_day_schedule[$day_config_key];
@@ -599,7 +610,7 @@ function api_booking_reserved_mini_session_rows(
 
             api_booking_append_rows(
                 $reserved_rows,
-                api_booking_reserved_rows_for_schedule_date($mini_session_type, $check_date, $day_start, $day_end)
+                api_booking_reserved_rows_for_schedule_date($reserved_type, $check_date, $day_start, $day_end)
             );
             $current_date->modify('+1 day');
         }
@@ -960,7 +971,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         }
 
         if ($appointment_type_id_value > 0) {
-            $reserved_mini_session_rows = api_booking_reserved_mini_session_rows(
+            $reserved_schedule_rows = api_booking_reserved_schedule_rows(
                 $conn,
                 $appointment_date,
                 $appointment_date,
@@ -968,7 +979,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 $appointment_type_admin_user_id
             );
             if (api_booking_slot_conflicts_with_rows(
-                $reserved_mini_session_rows,
+                $reserved_schedule_rows,
                 $appointment_time,
                 $duration_minutes,
                 max(0, array_int_value($apt_type, 'buffer_before_minutes')),
@@ -977,7 +988,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 if ($conn->inTransaction()) {
                     $conn->rollBack();
                 }
-                return ['error' => 'This time slot is reserved for a Mini Sessions event and is unavailable for this appointment type.'];
+                return ['error' => 'This time slot is reserved for another appointment type\'s scheduled window and is unavailable for this appointment type.'];
             }
         }
 
@@ -1775,7 +1786,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)),
         $ad_admin_user_id
     );
-    $reserved_mini_session_rows = api_booking_reserved_mini_session_rows(
+    $reserved_schedule_rows = api_booking_reserved_schedule_rows(
         $conn,
         $from_date,
         $to_date,
@@ -1790,7 +1801,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         $bookings_by_date[array_string_value($booking_row, 'appointment_date')][] = $booking_row;
     }
     $reserved_rows_by_date = [];
-    foreach ($reserved_mini_session_rows as $row) {
+    foreach ($reserved_schedule_rows as $row) {
         $reserved_row = api_booking_db_row($row);
         $reserved_rows_by_date[array_string_value($reserved_row, 'appointment_date')][] = $reserved_row;
     }
@@ -1921,7 +1932,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 $ad_resource,
                 $appointment_type_id
             );
-            $mini_session_reserved = api_booking_slot_conflicts_with_rows(
+            $schedule_reserved = api_booking_slot_conflicts_with_rows(
                 $reserved_rows_for_date,
                 $slot_str,
                 $ad_duration,
@@ -1932,7 +1943,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 || bdta_booking_resource_capacity_available($ad_resource, $slot_usage['overlapping_resource_units'], 1);
 
             if ($ad_is_group) {
-                if ($mini_session_reserved) {
+                if ($schedule_reserved) {
                     continue;
                 }
                 $count = $slot_usage['exact_type_slot_count'] ?: ($group_slot_counts[$slot_str] ?? 0);
@@ -1948,7 +1959,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                     break;
                 }
             } else {
-                $slot_free = !$slot_usage['has_overlap_conflict'] && !$mini_session_reserved && $resource_available;
+                $slot_free = !$slot_usage['has_overlap_conflict'] && !$schedule_reserved && $resource_available;
                 // Also check Google Calendar
                 if ($slot_free && !empty($gcal_busy_periods)) {
                     $slot_free = ad_slot_passes_gcal($check_date, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after, $gcal_busy_periods);
@@ -2132,7 +2143,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
         assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC)),
         $appointment_type_admin_user_id
     );
-    $reserved_mini_session_rows = api_booking_reserved_mini_session_rows(
+    $reserved_schedule_rows = api_booking_reserved_schedule_rows(
         $conn,
         $date,
         $date,
@@ -2223,8 +2234,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             $resource_config,
             $appointment_type_id
         );
-        $mini_session_reserved = api_booking_slot_conflicts_with_rows(
-            $reserved_mini_session_rows,
+        $schedule_reserved = api_booking_slot_conflicts_with_rows(
+            $reserved_schedule_rows,
             $time_slot,
             $slot_duration,
             $buffer_before,
@@ -2241,11 +2252,11 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             // Group class: count existing participants for this exact slot and type.
             // Allow booking as long as capacity is not yet reached.
             $participant_count = $slot_usage['exact_type_slot_count'];
-            if ($participant_count >= $max_participants || $mini_session_reserved) {
+            if ($participant_count >= $max_participants || $schedule_reserved) {
                 $is_available = false;
             }
         } else {
-            $is_available = !$slot_usage['has_overlap_conflict'] && !$mini_session_reserved;
+            $is_available = !$slot_usage['has_overlap_conflict'] && !$schedule_reserved;
         }
         if ($is_available) {
             $is_available = $resource_available;
