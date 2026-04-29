@@ -5,8 +5,7 @@ require_once __DIR__ . '/settings.php';
 function bdta_get_newsletter_embed_markup(): string
 {
     $embed_markup = trim(scalar_string(Settings::get('newsletter_embed_html', '')));
-
-    return $embed_markup !== '' ? $embed_markup : '';
+    return $embed_markup;
 }
 
 function bdta_inject_newsletter_embed_markup(string $html): string
