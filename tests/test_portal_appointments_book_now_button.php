@@ -20,5 +20,14 @@ bdta_assert(
     str_contains($appointments, 'class="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center"'),
     'Book Now links should use inline flex centering utilities so the label stays centered inside the button.'
 );
+bdta_assert(
+    str_contains($appointments, "/portal/book_credit.php?type=") ||
+    str_contains($appointments, "/portal/book_credit.php?link="),
+    'Portal appointments Book Now links should route into the authenticated portal booking flow.'
+);
+bdta_assert(
+    !str_contains($appointments, '/backend/public/book.php'),
+    'Portal appointments Book Now links should no longer send clients to the public booking page.'
+);
 
 echo "Portal appointments Book Now button alignment checks passed.\n";
