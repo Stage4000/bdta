@@ -125,13 +125,10 @@ class MailjetNewsletterService
 
         if ($http_code < 200 || $http_code >= 300) {
             $response_message = trim($response);
-            if ($response_message !== '') {
-                throw new RuntimeException(
-                    'Mailjet request failed with HTTP status ' . $http_code . ': ' . $response_message
-                );
-            }
-
-            throw new RuntimeException('Mailjet request failed with HTTP status ' . $http_code . '.');
+            throw new RuntimeException(
+                'Mailjet request failed with HTTP status ' . $http_code
+                . ($response_message !== '' ? ': ' . $response_message : '.')
+            );
         }
 
         $decoded = json_decode(scalar_string($response), true);
