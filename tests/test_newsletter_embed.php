@@ -41,7 +41,7 @@ assertNewsletterEmbed(
 $html_with_body = '<html><body><main>Page</main></body></html>';
 $injected_html = bdta_inject_newsletter_embed_markup($html_with_body);
 assertNewsletterEmbed(
-    str_contains($injected_html, '<main>Page</main>' . $embed_markup . "\n</body>"),
+    $injected_html === '<html><body><main>Page</main>' . $embed_markup . "\n</body></html>",
     'Expected newsletter embed helper to inject markup before the closing body tag.'
 );
 
