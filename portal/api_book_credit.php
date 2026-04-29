@@ -115,6 +115,8 @@ $appointment_type_admin_user_id = array_int_value($apt_type, 'admin_user_id');
 $resource_config = bdta_booking_resource_config($apt_type);
 
 // ── Verify that this appointment type is bookable from the portal ─────────
+// Prefer credits that expire soonest; non-expiring credits (NULL expires_at)
+// are treated as the far future so they are consumed last.
 $stmt = $conn->prepare("
     SELECT cpc.id
     FROM client_package_credits cpc
@@ -124,6 +126,7 @@ $stmt = $conn->prepare("
       AND (cpc.total_credits - cpc.used_credits) > 0
       AND cp.is_active = 1
       AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+    ORDER BY (cp.expires_at IS NULL) ASC, cp.expires_at ASC
     LIMIT 1
 ");
 $stmt->execute([$client_id, $appointment_type_id]);
