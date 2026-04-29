@@ -83,8 +83,12 @@ $subscribe_result = $test_mailjet_service->subscribeContact('newsletter@example.
 assertNewsletterOptIn($subscribe_result['success'] === true, 'Expected Mailjet newsletter subscriptions to succeed when requests succeed.');
 assertNewsletterOptIn(count($test_mailjet_service->calls) === 2, 'Expected Mailjet newsletter subscriptions to issue two API requests.');
 assertNewsletterOptIn(
-    str_contains($test_mailjet_service->calls[0]['url'], '/contact'),
-    'Expected the first Mailjet call to create or update the contact.'
+    str_contains($test_mailjet_service->calls[0]['url'], '/contact/managemanycontacts'),
+    'Expected the first Mailjet call to manage the contact without failing on duplicates.'
+);
+assertNewsletterOptIn(
+    (($test_mailjet_service->calls[0]['payload']['Contacts'][0]['Email'] ?? '') === 'newsletter@example.com'),
+    'Expected the first Mailjet call to pass the contact email in the manage-many-contacts payload.'
 );
 assertNewsletterOptIn(
     str_contains($test_mailjet_service->calls[1]['url'], '/contactslist/123456/managecontact'),

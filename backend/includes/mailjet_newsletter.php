@@ -30,18 +30,17 @@ class MailjetNewsletterService
             return ['success' => false, 'message' => 'Mailjet newsletter settings are incomplete.'];
         }
 
-        $contact_payload = ['Email' => $email];
-        if ($name !== '') {
-            $contact_payload['Name'] = $name;
-        }
-
         try {
             $this->requestJson(
                 'POST',
-                self::API_BASE_URL . '/contact',
+                self::API_BASE_URL . '/contact/managemanycontacts',
                 $api_key,
                 $api_secret,
-                $contact_payload
+                [
+                    'Contacts' => [
+                        ['Email' => $email],
+                    ],
+                ]
             );
             $this->requestJson(
                 'POST',
@@ -123,6 +122,13 @@ class MailjetNewsletterService
         }
 
         if ($http_code < 200 || $http_code >= 300) {
+            $response_message = trim(scalar_string($response));
+            if ($response_message !== '') {
+                throw new RuntimeException(
+                    'Mailjet request failed with HTTP status ' . $http_code . ': ' . $response_message
+                );
+            }
+
             throw new RuntimeException('Mailjet request failed with HTTP status ' . $http_code . '.');
         }
 
