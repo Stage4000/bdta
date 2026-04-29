@@ -788,7 +788,7 @@ include '../portal/includes/header.php';
     let selectedTime = null;
     const apptTypeId   = <?= intval($selected_type['id']) ?>;
     const apptTypeName = <?= json_encode($selected_type['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-    const hasAvailableCredit = <?= $has_available_credit ? 'true' : 'false' ?>;
+    const hasAvailableCredit = <?= json_encode($has_available_credit) ?>;
     const skipContract = <?= $skip_contract ? 'true' : 'false' ?>;
     // Pet names map built from PHP
     const petNames = {};

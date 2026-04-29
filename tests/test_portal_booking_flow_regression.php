@@ -32,7 +32,7 @@ bdta_assert_portal_booking(
     'Portal booking page should block appointment types that are neither portal-available nor credit-backed.'
 );
 bdta_assert_portal_booking(
-    str_contains($book_page, 'const hasAvailableCredit = <?= $has_available_credit ? \'true\' : \'false\' ?>;'),
+    str_contains($book_page, 'const hasAvailableCredit = <?= json_encode($has_available_credit) ?>;'),
     'Portal booking page should expose credit availability to the booking UI.'
 );
 bdta_assert_portal_booking(
