@@ -94,39 +94,50 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['field_label']) && is_array($_POST['field_label'])) {
         foreach ($_POST['field_label'] as $index => $label_value) {
             $label = scalar_string($label_value);
+            $allowed_mappings = [
+                '', 'client.name', 'client.email', 'client.phone', 'client.address',
+                'pet_1.name', 'pet_1.species', 'pet_1.breed', 'pet_1.date_of_birth',
+                'pet_1.source', 'pet_1.spayed_neutered', 'pet_1.vaccines_current',
+                'pet_1.vaccine_notes', 'pet_1.behavior_notes', 'pet_1.medical_notes', 'pet_1.training_notes', 'pet_1.pet_sitting_notes',
+                'pet_2.name', 'pet_2.species', 'pet_2.breed', 'pet_2.date_of_birth',
+                'pet_2.source', 'pet_2.spayed_neutered', 'pet_2.vaccines_current',
+                'pet_2.vaccine_notes', 'pet_2.behavior_notes', 'pet_2.medical_notes', 'pet_2.training_notes', 'pet_2.pet_sitting_notes',
+                'pet_3.name', 'pet_3.species', 'pet_3.breed', 'pet_3.date_of_birth',
+                'pet_3.source', 'pet_3.spayed_neutered', 'pet_3.vaccines_current',
+                'pet_3.vaccine_notes', 'pet_3.behavior_notes', 'pet_3.medical_notes', 'pet_3.training_notes', 'pet_3.pet_sitting_notes',
+                'booking.notes',
+            ];
+            $raw_mapping = scalar_string($field_mappings[$index] ?? '');
+            $field_type = scalar_string($field_types[$index] ?? 'text');
+            if ($field_type === bdta_newsletter_opt_in_field_type() && trim($label) === '') {
+                $label = bdta_form_field_newsletter_resolved_label($label);
+            }
             if (!empty(trim($label))) {
-                $allowed_mappings = [
-                    '', 'client.name', 'client.email', 'client.phone', 'client.address',
-                    'pet_1.name', 'pet_1.species', 'pet_1.breed', 'pet_1.date_of_birth',
-                    'pet_1.source', 'pet_1.spayed_neutered', 'pet_1.vaccines_current',
-                    'pet_1.vaccine_notes', 'pet_1.behavior_notes', 'pet_1.medical_notes', 'pet_1.training_notes', 'pet_1.pet_sitting_notes',
-                    'pet_2.name', 'pet_2.species', 'pet_2.breed', 'pet_2.date_of_birth',
-                    'pet_2.source', 'pet_2.spayed_neutered', 'pet_2.vaccines_current',
-                    'pet_2.vaccine_notes', 'pet_2.behavior_notes', 'pet_2.medical_notes', 'pet_2.training_notes', 'pet_2.pet_sitting_notes',
-                    'pet_3.name', 'pet_3.species', 'pet_3.breed', 'pet_3.date_of_birth',
-                    'pet_3.source', 'pet_3.spayed_neutered', 'pet_3.vaccines_current',
-                    'pet_3.vaccine_notes', 'pet_3.behavior_notes', 'pet_3.medical_notes', 'pet_3.training_notes', 'pet_3.pet_sitting_notes',
-                    'booking.notes',
-                ];
-                $raw_mapping = scalar_string($field_mappings[$index] ?? '');
-                $field_type = scalar_string($field_types[$index] ?? 'text');
                 $field = [
                     'label' => trim($label),
                     'type' => $field_type,
-                    'placeholder' => $field_type === 'text_block' ? '' : trim(scalar_string($field_placeholders[$index] ?? '')),
+                    'placeholder' => in_array($field_type, ['text_block', bdta_newsletter_opt_in_field_type()], true)
+                        ? ''
+                        : trim(scalar_string($field_placeholders[$index] ?? '')),
                     'description' => trim(scalar_string($field_descriptions[$index] ?? '')),
-                    'required' => $field_type === 'text_block' ? 0 : (array_key_exists($index, $field_required) ? 1 : 0),
-                    'profile_mapping' => $field_type === 'text_block'
+                    'required' => in_array($field_type, ['text_block', bdta_newsletter_opt_in_field_type()], true)
+                        ? 0
+                        : (array_key_exists($index, $field_required) ? 1 : 0),
+                    'profile_mapping' => in_array($field_type, ['text_block', bdta_newsletter_opt_in_field_type()], true)
                         ? ''
                         : (in_array($raw_mapping, $allowed_mappings, true) ? $raw_mapping : ''),
                 ];
-                
+
+                if ($field_type === bdta_newsletter_opt_in_field_type()) {
+                    $field['options'] = [bdta_form_field_newsletter_checkbox_label()];
+                }
+
                 // Add options for select, radio, checkbox
                 if (in_array(array_string_value($field, 'type'), ['select', 'radio', 'checkbox'], true)) {
                     $options_str = trim(scalar_string($field_options[$index] ?? ''));
                     $field['options'] = array_filter(array_map('trim', explode("\n", $options_str)));
                 }
-                
+
                 $fields[] = $field;
             }
         }
@@ -283,6 +294,10 @@ require_once '../backend/includes/header.php';
                         </button>
                     </div>
                     <div class="card-body">
+                        <div class="alert alert-info small">
+                            Newsletter Opt-In fields automatically use your Mailjet settings from <strong>Settings → Email</strong>.
+                            Before sharing a form, add your <strong>Mailjet API Key</strong>, <strong>Mailjet API Secret</strong>, and <strong>Mailjet Newsletter List ID</strong>.
+                        </div>
                         <div id="fieldsContainer">
                             <?php if (empty($fields)): ?>
                             <div class="text-muted text-center py-3 fields-empty-msg">
@@ -293,6 +308,9 @@ require_once '../backend/includes/header.php';
                             <?php
                                 $field_label = array_string_value($field, 'label');
                                 $field_type = array_string_value($field, 'type');
+                                if ($field_type === bdta_newsletter_opt_in_field_type() && $field_label === '') {
+                                    $field_label = bdta_form_field_newsletter_resolved_label($field_label);
+                                }
                                 $field_placeholder = array_string_value($field, 'placeholder');
                                 $field_required = array_int_value($field, 'required');
                                 $field_description = array_string_value($field, 'description');
@@ -322,6 +340,7 @@ require_once '../backend/includes/header.php';
                                             <option value="text_block" <?php echo $field_type == 'text_block' ? 'selected' : ''; ?>>Text Block</option>
                                             <option value="select" <?php echo $field_type == 'select' ? 'selected' : ''; ?>>Select</option>
                                             <option value="checkbox" <?php echo $field_type == 'checkbox' ? 'selected' : ''; ?>>Checkbox</option>
+                                            <option value="<?= htmlspecialchars(bdta_newsletter_opt_in_field_type()) ?>" <?php echo $field_type == bdta_newsletter_opt_in_field_type() ? 'selected' : ''; ?>>Newsletter Opt-In</option>
                                             <option value="radio" <?php echo $field_type == 'radio' ? 'selected' : ''; ?>>Radio</option>
                                             <option value="file" <?php echo $field_type == 'file' ? 'selected' : ''; ?>>File</option>
                                             <option value="date" <?php echo $field_type == 'date' ? 'selected' : ''; ?>>Date</option>
@@ -689,6 +708,7 @@ function addField() {
                         <option value="text_block">Text Block</option>
                         <option value="select">Select</option>
                         <option value="checkbox">Checkbox</option>
+                        <option value="<?= htmlspecialchars(bdta_newsletter_opt_in_field_type()) ?>">Newsletter Opt-In</option>
                         <option value="radio">Radio</option>
                         <option value="file">File</option>
                         <option value="date">Date</option>
@@ -843,6 +863,7 @@ function toggleOptions(select) {
     let optionsTextarea = fieldItem.querySelector('textarea[name="field_options[]"]');
     const isOptionType = ['select', 'radio', 'checkbox'].includes(select.value);
     const isTextBlock = select.value === 'text_block';
+    const isNewsletterOptIn = select.value === '<?= htmlspecialchars(bdta_newsletter_opt_in_field_type(), ENT_QUOTES, 'UTF-8') ?>';
     const placeholderCol = fieldItem.querySelector('.field-placeholder-col');
     const placeholderInput = fieldItem.querySelector('input[name="field_placeholder[]"]');
     const requiredToggle = fieldItem.querySelector('.field-required-toggle');
@@ -850,6 +871,7 @@ function toggleOptions(select) {
     const mappingCol = fieldItem.querySelector('.field-mapping-col');
     const mappingSelect = mappingCol ? mappingCol.querySelector('select[name^="field_mapping"]') : null;
     const descriptionLabel = fieldItem.querySelector('.field-description-label');
+    const labelInput = fieldItem.querySelector('input[name="field_label[]"]');
 
     // Ensure we always have a single textarea to reuse when toggling
     if (!optionsTextarea) {
@@ -904,36 +926,39 @@ function toggleOptions(select) {
     }
 
     if (placeholderCol) {
-        placeholderCol.classList.toggle('d-none', isTextBlock);
+        placeholderCol.classList.toggle('d-none', isTextBlock || isNewsletterOptIn);
     }
     if (placeholderInput) {
-        if (isTextBlock) {
+        if (isTextBlock || isNewsletterOptIn) {
             placeholderInput.value = '';
         }
-        placeholderInput.disabled = isTextBlock;
+        placeholderInput.disabled = isTextBlock || isNewsletterOptIn;
     }
     if (requiredToggle) {
-        requiredToggle.classList.toggle('d-none', isTextBlock);
+        requiredToggle.classList.toggle('d-none', isTextBlock || isNewsletterOptIn);
     }
     if (requiredInput) {
-        if (isTextBlock) {
+        if (isTextBlock || isNewsletterOptIn) {
             requiredInput.checked = false;
         }
-        requiredInput.disabled = isTextBlock;
+        requiredInput.disabled = isTextBlock || isNewsletterOptIn;
     }
     if (mappingCol) {
-        mappingCol.classList.toggle('d-none', isTextBlock);
+        mappingCol.classList.toggle('d-none', isTextBlock || isNewsletterOptIn);
     }
     if (mappingSelect) {
-        if (isTextBlock) {
+        if (isTextBlock || isNewsletterOptIn) {
             mappingSelect.value = '';
         }
-        mappingSelect.disabled = isTextBlock;
+        mappingSelect.disabled = isTextBlock || isNewsletterOptIn;
     }
     if (descriptionLabel) {
         descriptionLabel.innerHTML = isTextBlock
             ? 'Content <small class="text-muted">(optional — shown to clients in the text block)</small>'
             : 'Description <small class="text-muted">(optional — shown to clients below the field)</small>';
+    }
+    if (isNewsletterOptIn && labelInput && !labelInput.value.trim()) {
+        labelInput.value = '<?= htmlspecialchars(bdta_form_field_newsletter_default_label(), ENT_QUOTES, 'UTF-8') ?>';
     }
 }
 

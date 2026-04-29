@@ -7,6 +7,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/booking_resources.php';
 require_once '../backend/includes/form_types.php';
+require_once '../backend/includes/mailjet_newsletter.php';
 header('Content-Type: application/json');
 
 // Must be a logged-in portal client
@@ -84,6 +85,8 @@ if (!filter_var(scalar_string($data['client_email'] ?? ''), FILTER_VALIDATE_EMAI
     exit;
 }
 
+$client_name = trim(scalar_string($data['client_name'] ?? ''));
+$client_email = trim(scalar_string($data['client_email'] ?? ''));
 $appointment_type_id = safe_int($data['appointment_type_id'] ?? 0);
 
 // ── Verify this appointment type exists and is active ────────────────────
@@ -321,8 +324,8 @@ $stmt->execute([
     $client_id,
     $appointment_type_id,
     $appointment_type_admin_user_id > 0 ? $appointment_type_admin_user_id : null,
-    trim(scalar_string($data['client_name'] ?? '')),
-    trim(scalar_string($data['client_email'] ?? '')),
+    $client_name,
+    $client_email,
     trim(scalar_string($data['client_phone'] ?? '')),
     array_string_value($apt_type, 'name'),
     scalar_string($data['appointment_date'] ?? ''),
@@ -816,6 +819,64 @@ if (!$is_pending_request) {
 
 // ── Log activity ──────────────────────────────────────────────────────────
 logClientActivity($client_id, 'booking_created', 'Created booking #' . $booking_id . ' for ' . array_string_value($apt_type, 'name'), $conn);
+
+$newsletter_opt_in_selected = false;
+if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+    $newsletter_form_fields_by_template_id = [];
+    $newsletter_template_ids = array_values(array_unique(array_filter(
+        array_map('intval', array_keys($data['form_responses'])),
+        static fn (int $template_id): bool => $template_id > 0
+    )));
+
+    if ($newsletter_template_ids !== []) {
+        $newsletter_placeholders = implode(', ', array_fill(0, count($newsletter_template_ids), '?'));
+        // nosemgrep: php.lang.security.injection.tainted-sql-string.tainted-sql-string -- placeholder count is derived from sanitized positive integers and values are parameterized.
+        $stmt_newsletter_forms = $conn->prepare(
+            "SELECT id, fields FROM form_templates WHERE id IN ($newsletter_placeholders)"
+        );
+        $stmt_newsletter_forms->execute($newsletter_template_ids);
+
+        while ($newsletter_form_row = $stmt_newsletter_forms->fetch(PDO::FETCH_ASSOC)) {
+            $newsletter_form = assoc_row($newsletter_form_row);
+            if ($newsletter_form === []) {
+                continue;
+            }
+
+            $newsletter_form_fields_by_template_id[array_int_value($newsletter_form, 'id')] = decode_json_assoc_list(
+                array_string_value($newsletter_form, 'fields')
+            );
+        }
+    }
+
+    foreach ($data['form_responses'] as $template_id => $responses) {
+        if (!is_array($responses)) {
+            continue;
+        }
+
+        $template_id = (int) $template_id;
+        if (!isset($newsletter_form_fields_by_template_id[$template_id])) {
+            continue;
+        }
+
+        if (bdta_form_fields_include_newsletter_opt_in(
+            $newsletter_form_fields_by_template_id[$template_id],
+            $responses
+        )) {
+            $newsletter_opt_in_selected = true;
+            break;
+        }
+    }
+}
+
+if ($newsletter_opt_in_selected) {
+    $newsletter_result = bdta_subscribe_mailjet_contact_to_newsletter($client_email, $client_name);
+    if (!$newsletter_result['success']) {
+        error_log(
+            'Mailjet newsletter opt-in failed for client portal booking #' . $booking_id . ': '
+            . scalar_string($newsletter_result['message'])
+        );
+    }
+}
 
 // ── Send confirmation email ───────────────────────────────────────────────
 require_once '../backend/includes/email_service.php';

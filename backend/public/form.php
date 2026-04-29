@@ -15,6 +15,7 @@ require_once '../includes/public_form_context.php';
 require_once '../includes/turnstile.php';
 require_once '../includes/workflow_helper.php';
 require_once '../includes/follow_up_notes.php';
+require_once '../includes/mailjet_newsletter.php';
 require_once __DIR__ . '/includes/public_error_page.php';
 
 $db = new Database();
@@ -183,6 +184,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $errors[] = "Please select at least one option for {$field_label}.";
                 }
                 $responses[(string)$index] = $value;
+            } elseif (bdta_form_field_is_newsletter_opt_in($field)) {
+                $responses[(string)$index] = bdta_form_field_newsletter_normalize_value($raw_value);
             } else {
                 $value = is_array($raw_value) ? '' : trim(scalar_string($raw_value));
                 if ($is_required && $value === '') {
@@ -260,6 +263,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $workflow_helper->checkFormTriggers($new_submission_id);
             } catch (Throwable $e) {
                 error_log('Form submission workflow check failed for #' . $new_submission_id . ': ' . $e->getMessage());
+            }
+
+            if (bdta_form_fields_include_newsletter_opt_in($fields, $responses)) {
+                $newsletter_result = bdta_subscribe_mailjet_contact_to_newsletter($contact_email, $contact_name);
+                if (!$newsletter_result['success']) {
+                    error_log(
+                        'Mailjet newsletter opt-in failed for form submission #' . $new_submission_id . ': '
+                        . scalar_string($newsletter_result['message'])
+                    );
+                }
             }
 
             $success_message = 'Thank you! Your form has been submitted successfully.';
@@ -407,6 +420,19 @@ require_once __DIR__ . '/includes/public_head.php';
                                     </label>
                                 </div>
                             <?php endforeach; ?>
+                        <?php elseif (bdta_form_field_is_newsletter_opt_in($field)): ?>
+                            <?php $newsletter_choice = bdta_form_field_newsletter_checkbox_label(); ?>
+                            <input type="hidden" name="<?= $field_name ?>" value="">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       name="<?= $field_name ?>"
+                                       id="field_<?= $index ?>_newsletter"
+                                       value="<?= htmlspecialchars($newsletter_choice) ?>"
+                                       <?= bdta_form_field_newsletter_is_opted_in($existing_value) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="field_<?= $index ?>_newsletter">
+                                    <?= htmlspecialchars($newsletter_choice) ?>
+                                </label>
+                            </div>
                         <?php elseif ($field_type === 'radio'): ?>
                             <?php foreach ($field_options as $opt_idx => $opt): ?>
                                 <div class="form-check">

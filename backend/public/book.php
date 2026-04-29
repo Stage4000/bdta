@@ -928,11 +928,11 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                                 <?= htmlspecialchars($bi_label) ?>
                                 <?php if ($bi_req): ?><span class="text-danger">*</span><?php endif; ?>
                             </label>
-                            <?php if ($bi_description !== ''): ?>
-                            <div class="form-text text-muted mb-1"><?= htmlspecialchars($bi_description) ?></div>
-                            <?php endif; ?>
-                            <?php switch ($bi_type):
-                                case 'textarea': ?>
+                                    <?php if ($bi_description !== ''): ?>
+                                    <div class="form-text text-muted mb-1"><?= htmlspecialchars($bi_description) ?></div>
+                                    <?php endif; ?>
+                                    <?php switch ($bi_type):
+                                        case 'textarea': ?>
                             <textarea class="form-control form-control-lg"
                                       data-booking-intake-field="<?= $bifi ?>"
                                       data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
@@ -949,6 +949,18 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                                     <option value="<?= htmlspecialchars($bi_opt) ?>" <?= $bi_matches($bi_opt) ? 'selected' : '' ?>><?= htmlspecialchars($bi_opt) ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <?php break; case 'newsletter_opt_in':
+                                $newsletter_choice = bdta_form_field_newsletter_checkbox_label();
+                                $newsletter_checked = bdta_form_field_newsletter_is_opted_in($bi_prefill); ?>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       data-booking-intake-field="<?= $bifi ?>"
+                                       data-profile-mapping="<?= htmlspecialchars($bi_map) ?>"
+                                       id="<?= $bi_fn ?>_newsletter"
+                                       value="<?= htmlspecialchars($newsletter_choice) ?>"
+                                       <?= $newsletter_checked ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="<?= $bi_fn ?>_newsletter"><?= htmlspecialchars($newsletter_choice) ?></label>
+                            </div>
                             <?php break; case 'radio': ?>
                             <?php foreach ($bi_options as $bi_oi => $bi_opt): ?>
                             <div class="form-check">
@@ -1178,6 +1190,17 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                                                 <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
                                             <?php endforeach; ?>
                                         </select>
+                                        <?php break; case 'newsletter_opt_in':
+                                            $newsletter_choice = bdta_form_field_newsletter_checkbox_label(); ?>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   data-form-field="<?= $fi ?>"
+                                                   data-form-field-type="<?= htmlspecialchars($field_type) ?>"
+                                                   id="<?= $fn ?>_newsletter"
+                                                   value="<?= htmlspecialchars($newsletter_choice) ?>"
+                                                   <?= $aria ?>>
+                                            <label class="form-check-label" for="<?= $fn ?>_newsletter"><?= htmlspecialchars($newsletter_choice) ?></label>
+                                        </div>
                                         <?php break; case 'radio': ?>
                                         <?php foreach ($field_options as $oi => $opt): ?>
                                         <div class="form-check">
@@ -1499,6 +1522,9 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 if (field.type === 'checkbox') {
                     const checked = document.querySelectorAll('[data-booking-intake-field="' + fi + '"]:checked');
                     val = normalizeMappedFormValue(Array.from(checked).map(function(c) { return c.value; }));
+                } else if (field.type === 'newsletter_opt_in') {
+                    const checked = document.querySelector('[data-booking-intake-field="' + fi + '"]:checked');
+                    val = normalizeMappedFormValue(checked ? checked.value : '');
                 } else if (field.type === 'radio') {
                     const checked = document.querySelector('[data-booking-intake-field="' + fi + '"]:checked');
                     val = normalizeMappedFormValue(checked ? checked.value : '');
@@ -1672,6 +1698,9 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                         if (field.type === 'checkbox') {
                             const checked = document.querySelectorAll('[data-booking-intake-field="' + fi + '"]:checked');
                             val = checked.length > 0 ? 'ok' : '';
+                        } else if (field.type === 'newsletter_opt_in') {
+                            const checked = document.querySelector('[data-booking-intake-field="' + fi + '"]:checked');
+                            val = checked ? checked.value : '';
                         } else if (field.type === 'radio') {
                             const checked = document.querySelector('[data-booking-intake-field="' + fi + '"]:checked');
                             val = checked ? checked.value : '';
@@ -2230,6 +2259,10 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 section.querySelectorAll('input[type=checkbox]').forEach(el => {
                     const fi = el.dataset.formField;
                     if (fi !== undefined) {
+                        if (el.dataset.formFieldType === 'newsletter_opt_in') {
+                            fields[fi] = el.checked ? el.value : '';
+                            return;
+                        }
                         if (!cbGroups[fi]) cbGroups[fi] = [];
                         if (el.checked) cbGroups[fi].push(el.value);
                     }

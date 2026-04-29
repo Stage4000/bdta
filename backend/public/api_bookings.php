@@ -5,6 +5,7 @@ require_once '../includes/email_service.php';
 require_once '../includes/google_calendar.php';
 require_once '../includes/invoice_due.php';
 require_once '../includes/form_types.php';
+require_once '../includes/mailjet_newsletter.php';
 require_once '../includes/turnstile.php';
 require_once '../includes/workflow_helper.php';
 
@@ -1261,6 +1262,76 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         }
 
         $conn->commit();
+
+        $newsletter_opt_in_selected = false;
+        if (!empty($data['booking_form_id']) && isset($data['booking_intake_fields']) && is_array($data['booking_intake_fields'])) {
+            $stmt_newsletter_booking_form = $conn->prepare("SELECT fields FROM form_templates WHERE id = ? AND form_type = 'booking_form'");
+            $stmt_newsletter_booking_form->execute([safe_int($data['booking_form_id'])]);
+            $newsletter_booking_form = api_booking_db_row($stmt_newsletter_booking_form->fetch(PDO::FETCH_ASSOC));
+            if ($newsletter_booking_form !== []) {
+                $newsletter_opt_in_selected = bdta_form_fields_include_newsletter_opt_in(
+                    api_booking_assoc_rows(array_string_value($newsletter_booking_form, 'fields')),
+                    $data['booking_intake_fields']
+                );
+            }
+        }
+
+        if (!$newsletter_opt_in_selected && !empty($data['form_responses']) && is_array($data['form_responses'])) {
+            $newsletter_form_fields_by_template_id = [];
+            $newsletter_template_ids = array_values(array_unique(array_filter(
+                array_map('intval', array_keys($data['form_responses'])),
+                static fn (int $template_id): bool => $template_id > 0
+            )));
+
+            if ($newsletter_template_ids !== []) {
+                $newsletter_placeholders = implode(', ', array_fill(0, count($newsletter_template_ids), '?'));
+                // nosemgrep: php.lang.security.injection.tainted-sql-string.tainted-sql-string -- placeholder count is derived from sanitized positive integers and values are parameterized.
+                $stmt_newsletter_forms = $conn->prepare(
+                    "SELECT id, fields FROM form_templates WHERE id IN ($newsletter_placeholders)"
+                );
+                $stmt_newsletter_forms->execute($newsletter_template_ids);
+
+                while ($newsletter_form_row = $stmt_newsletter_forms->fetch(PDO::FETCH_ASSOC)) {
+                    $newsletter_form = api_booking_db_row($newsletter_form_row);
+                    if ($newsletter_form === []) {
+                        continue;
+                    }
+
+                    $newsletter_form_fields_by_template_id[array_int_value($newsletter_form, 'id')] = api_booking_assoc_rows(
+                        array_string_value($newsletter_form, 'fields')
+                    );
+                }
+            }
+
+            foreach ($data['form_responses'] as $template_id => $responses) {
+                if (!is_array($responses)) {
+                    continue;
+                }
+
+                $template_id = (int) $template_id;
+                if (!isset($newsletter_form_fields_by_template_id[$template_id])) {
+                    continue;
+                }
+
+                if (bdta_form_fields_include_newsletter_opt_in(
+                    $newsletter_form_fields_by_template_id[$template_id],
+                    $responses
+                )) {
+                    $newsletter_opt_in_selected = true;
+                    break;
+                }
+            }
+        }
+
+        if ($newsletter_opt_in_selected) {
+            $newsletter_result = bdta_subscribe_mailjet_contact_to_newsletter($client_email, $client_name);
+            if (!$newsletter_result['success']) {
+                error_log(
+                    'Mailjet newsletter opt-in failed for booking #' . $booking_id . ': '
+                    . scalar_string($newsletter_result['message'])
+                );
+            }
+        }
 
         $google_calendar_link = '';
         $ical_download_link = '';

@@ -200,6 +200,96 @@ function bdta_form_field_text_block_body(array $field): string
     return '';
 }
 
+function bdta_newsletter_opt_in_field_type(): string
+{
+    return 'newsletter_opt_in';
+}
+
+/**
+ * @param array<string, mixed> $field
+ */
+function bdta_form_field_is_newsletter_opt_in(array $field): bool
+{
+    return array_string_value($field, 'type', 'text') === bdta_newsletter_opt_in_field_type();
+}
+
+function bdta_form_field_newsletter_default_label(): string
+{
+    return 'Newsletter Opt-In';
+}
+
+function bdta_form_field_newsletter_checkbox_label(): string
+{
+    return "Yes, I'd like to receive newsletters and updates.";
+}
+
+/**
+ * @return list<string>
+ */
+function bdta_form_field_newsletter_truthy_values(): array
+{
+    return ['1', 'true', 'yes', 'on'];
+}
+
+function bdta_form_field_newsletter_resolved_label(string $label): string
+{
+    $trimmed_label = trim($label);
+    return $trimmed_label !== '' ? $trimmed_label : bdta_form_field_newsletter_default_label();
+}
+
+function bdta_form_field_newsletter_normalize_value(mixed $value): string
+{
+    if (is_array($value)) {
+        foreach ($value as $candidate) {
+            $normalized_candidate = bdta_form_field_newsletter_normalize_value($candidate);
+            if ($normalized_candidate !== '') {
+                return $normalized_candidate;
+            }
+        }
+
+        return '';
+    }
+
+    $normalized = strtolower(trim(scalar_string($value)));
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (in_array($normalized, bdta_form_field_newsletter_truthy_values(), true)) {
+        return bdta_form_field_newsletter_checkbox_label();
+    }
+
+    if ($normalized === strtolower(bdta_form_field_newsletter_checkbox_label())) {
+        return bdta_form_field_newsletter_checkbox_label();
+    }
+
+    return '';
+}
+
+function bdta_form_field_newsletter_is_opted_in(mixed $value): bool
+{
+    return bdta_form_field_newsletter_normalize_value($value) !== '';
+}
+
+/**
+ * @param list<array<string, mixed>> $fields
+ * @param array<int|string, mixed> $responses
+ */
+function bdta_form_fields_include_newsletter_opt_in(array $fields, array $responses): bool
+{
+    foreach ($fields as $index => $field) {
+        if (!bdta_form_field_is_newsletter_opt_in($field)) {
+            continue;
+        }
+
+        if (bdta_form_field_newsletter_is_opted_in($responses[$index] ?? $responses[(string) $index] ?? null)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function bdta_normalize_form_required_frequency(string $frequency): string
 {
     $normalized = strtolower(trim($frequency));

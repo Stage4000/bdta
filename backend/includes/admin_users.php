@@ -19,6 +19,9 @@ function bdta_api_key_setting_keys(): array
     return [
         'sendgrid_api_key',
         'mailgun_api_key',
+        'mailjet_api_key',
+        'mailjet_api_secret',
+        'mailjet_newsletter_list_id',
         'smtp_host',
         'smtp_port',
         'smtp_encryption',
