@@ -727,7 +727,7 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                                             rows="3"><?= escape($setting['actual_value']) ?></textarea>
                                         <?php if ($setting['key'] === 'newsletter_embed_html'): ?>
                                         <div class="form-text text-warning">
-                                            Trusted admins only: this embed code is rendered as-is on public site pages.
+                                            Trusted admins only: this embed code is rendered as-is on public site pages. Only paste official embed code from trusted providers, because malicious scripts could create XSS risk for visitors.
                                         </div>
                                         <?php endif; ?>
                                      

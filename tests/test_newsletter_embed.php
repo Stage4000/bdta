@@ -91,7 +91,9 @@ assertNewsletterEmbed(
 );
 
 assertNewsletterEmbed(
-    str_contains($settings_source, 'Trusted admins only: this embed code is rendered as-is on public site pages.'),
+    str_contains($settings_source, 'Trusted admins only: this embed code is rendered as-is on public site pages.')
+        && str_contains($settings_source, 'Only paste official embed code from trusted providers')
+        && str_contains($settings_source, 'malicious scripts could create XSS risk for visitors'),
     'Expected settings UI to warn that newsletter embed HTML is rendered directly on public pages.'
 );
 
