@@ -49,6 +49,7 @@ function bdta_api_key_setting_keys(): array
         'moxie_api_key',
         'tawk_to_property_id',
         'tawk_to_widget_id',
+        'newsletter_embed_html',
         'turnstile_site_key',
         'turnstile_secret_key',
         'db_host',

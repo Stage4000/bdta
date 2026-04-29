@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/backend/includes/config.php';
+require_once __DIR__ . '/backend/includes/newsletter_embed.php';
 require_once __DIR__ . '/backend/public/includes/public_error_page.php';
 require_once __DIR__ . '/backend/public/includes/public_navigation.php';
 require_once __DIR__ . '/backend/includes/public_notice.php';
@@ -119,6 +120,7 @@ $page_has_turnstile_widget = str_contains($rendered_page_html, 'bdta-turnstile')
     <?php endif; ?>
     <!-- BDTA dynamic modules (Packages & Events blocks added via the site editor) -->
     <script src="/assets/js/public/modules.js"></script>
+    <?php bdta_render_newsletter_embed(); ?>
     <?php bdta_render_tawk_to_widget(); ?>
 </body>
 </html>
