@@ -86,8 +86,18 @@ assertNewsletterOptIn(
     str_contains($test_mailjet_service->calls[0]['url'], '/contact/managemanycontacts'),
     'Expected the first Mailjet call to manage the contact without failing on duplicates.'
 );
+$first_contact_email = '';
+$first_contacts_payload = $test_mailjet_service->calls[0]['payload']['Contacts'] ?? null;
+if (
+    is_array($first_contacts_payload)
+    && isset($first_contacts_payload[0])
+    && is_array($first_contacts_payload[0])
+) {
+    $first_contact_email = array_string_value($first_contacts_payload[0], 'Email');
+}
+
 assertNewsletterOptIn(
-    (($test_mailjet_service->calls[0]['payload']['Contacts'][0]['Email'] ?? '') === 'newsletter@example.com'),
+    ($first_contact_email === 'newsletter@example.com'),
     'Expected the first Mailjet call to pass the contact email in the manage-many-contacts payload.'
 );
 assertNewsletterOptIn(

@@ -122,6 +122,9 @@ class MailjetNewsletterService
         if ($response === false) {
             throw new RuntimeException('Mailjet request failed: ' . $curl_error);
         }
+        if (!is_string($response)) {
+            throw new RuntimeException('Mailjet request returned an unexpected response type.');
+        }
 
         if ($http_code < 200 || $http_code >= 300) {
             $response_message = trim($response);
@@ -131,7 +134,7 @@ class MailjetNewsletterService
             );
         }
 
-        $decoded = json_decode(scalar_string($response), true);
+        $decoded = json_decode($response, true);
         if (!is_array($decoded)) {
             throw new RuntimeException('Mailjet response could not be decoded as JSON.');
         }
