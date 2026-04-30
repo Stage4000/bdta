@@ -1921,7 +1921,7 @@ let adminRescheduleAvailabilityRequestSequence = 0;
 let adminRescheduleAvailabilityController = null;
 
 function getAdminRescheduleCurrentDateTimeParts() {
-    const formatter = new Intl.DateTimeFormat('en-US', {
+    const formatter = new Intl.DateTimeFormat(undefined, {
         timeZone: adminRescheduleTimeZone,
         year: 'numeric',
         month: '2-digit',
@@ -2059,8 +2059,7 @@ function loadAdminRescheduleSlots() {
         .then(data => {
             const isStaleRequest = requestId !== adminRescheduleAvailabilityRequestSequence
                 || document.getElementById('adminRescheduleDate').value !== requestDate
-                || adminRescheduleTypeId !== requestTypeId
-                || !document.getElementById('adminRescheduleRespectGoogleCalendar').checked;
+                || adminRescheduleTypeId !== requestTypeId;
             if (isStaleRequest) {
                 return;
             }
