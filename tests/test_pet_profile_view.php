@@ -9,9 +9,9 @@ function bdta_assert_true(bool $condition, string $message): void
     }
 }
 
-function bdta_read_file(string $path, string $label): string
+function bdta_read_file(string $relative_path, string $label): string
 {
-    $contents = file_get_contents($path);
+    $contents = file_get_contents(dirname(__DIR__) . '/' . $relative_path);
     if (!is_string($contents)) {
         fwrite(STDERR, 'Failed to read ' . $label . PHP_EOL);
         exit(1);
@@ -20,7 +20,12 @@ function bdta_read_file(string $path, string $label): string
     return $contents;
 }
 
-$pets_view = bdta_read_file(dirname(__DIR__) . '/client/pets_view.php', 'client/pets_view.php');
+function bdta_source_file(string $relative_path): string
+{
+    return bdta_read_file($relative_path, $relative_path);
+}
+
+$pets_view = bdta_source_file('client/pets_view.php');
 bdta_assert_true(
     str_contains($pets_view, '<i class="fas fa-pencil me-1"></i>Edit Pet'),
     'Expected the pet profile view to provide an explicit Edit Pet button.'
@@ -42,7 +47,7 @@ bdta_assert_true(
     'Expected the pet profile query to avoid an unused file count aggregate.'
 );
 
-$pets_list = bdta_read_file(dirname(__DIR__) . '/client/pets_list.php', 'client/pets_list.php');
+$pets_list = bdta_source_file('client/pets_list.php');
 bdta_assert_true(
     str_contains($pets_list, 'pets_view.php?id=<?= (int) $pet[\'id\'] ?>'),
     'Expected the pets list pet names to link to the new read-only pet profile view.'
@@ -56,7 +61,7 @@ bdta_assert_true(
     'Expected the pets list icon-only view action to include an accessible label.'
 );
 
-$clients_view = bdta_read_file(dirname(__DIR__) . '/client/clients_view.php', 'client/clients_view.php');
+$clients_view = bdta_source_file('client/clients_view.php');
 bdta_assert_true(
     str_contains($clients_view, 'pets_view.php?id=<?= (int) $pet[\'id\'] ?>'),
     'Expected client profile pet names to open the new read-only pet profile view.'
@@ -66,13 +71,13 @@ bdta_assert_true(
     'Expected client profile pet actions to include a View button.'
 );
 
-$form_requests_create = bdta_read_file(dirname(__DIR__) . '/client/form_requests_create.php', 'client/form_requests_create.php');
+$form_requests_create = bdta_source_file('client/form_requests_create.php');
 bdta_assert_true(
     str_contains($form_requests_create, '$back_link = \'pets_view.php?id=\' . array_int_value($pet, \'id\');'),
     'Expected pet form requests to return to the read-only pet profile view.'
 );
 
-$pets_edit = bdta_read_file(dirname(__DIR__) . '/client/pets_edit.php', 'client/pets_edit.php');
+$pets_edit = bdta_source_file('client/pets_edit.php');
 bdta_assert_true(
     str_contains($pets_edit, '<a href="<?= htmlspecialchars($return_url) ?>" class="btn btn-secondary">'),
     'Expected pet edit cancel actions to return to the originating page, including the new pet profile view.'
