@@ -200,6 +200,28 @@ include '../backend/includes/header.php';
                                         } else {
                                             echo '<span class="text-muted">None selected</span>';
                                         }
+                                    } elseif (bdta_form_field_is_pet_info_group($field) && is_array($response)) {
+                                        $pets = bdta_form_field_pet_info_group_normalize_response($field, $response);
+                                        if ($pets !== []) {
+                                            foreach ($pets as $pet_index => $pet) {
+                                                echo '<div class="card mb-2">';
+                                                echo '<div class="card-header py-2 fw-semibold">Pet ' . ($pet_index + 1) . '</div>';
+                                                echo '<div class="card-body py-2 small">';
+                                                echo '<div><strong>Name:</strong> ' . escape($pet['name']) . '</div>';
+                                                echo '<div><strong>Age or DOB:</strong> ' . escape($pet['age_or_dob']) . '</div>';
+                                                echo '<div><strong>Breed:</strong> ' . escape($pet['breed']) . '</div>';
+                                                echo '<div><strong>Vaccine Status:</strong> ' . escape($pet['vaccines_current']) . '</div>';
+                                                echo '<div><strong>Spay/Neuter Status:</strong> ' . escape($pet['spayed_neutered']) . '</div>';
+                                                echo '<div><strong>Acquired From:</strong> ' . escape($pet['source']) . '</div>';
+                                                echo '<div><strong>Ownership Length:</strong> ' . escape($pet['ownership_length']) . '</div>';
+                                                if ($pet['species'] !== '') {
+                                                    echo '<div><strong>Species:</strong> ' . escape($pet['species']) . '</div>';
+                                                }
+                                                echo '</div></div>';
+                                            }
+                                        } else {
+                                            echo '<span class="text-muted">No pets provided</span>';
+                                        }
                                     } elseif ($field_type == 'textarea') {
                                         // Textarea - preserve line breaks
                                         echo '<p class="mb-0">' . nl2br(escape($response_text)) . '</p>';
