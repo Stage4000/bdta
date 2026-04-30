@@ -1945,15 +1945,25 @@ function clearAdminRescheduleAvailabilityDisplay() {
     document.getElementById('adminRescheduleError').classList.add('d-none');
 }
 
+function adminRescheduleSelectionIsFuture(date, time) {
+    if (!date || !time) {
+        return false;
+    }
+
+    const requestedDateTime = new Date(date + 'T' + time);
+    return !Number.isNaN(requestedDateTime.getTime()) && requestedDateTime.getTime() > Date.now();
+}
+
 function syncAdminRescheduleFormState() {
     const date = document.getElementById('adminRescheduleDate').value;
     const time = document.getElementById('adminRescheduleTime').value;
+    const hasValidSelection = !!(adminRescheduleBookingId && adminRescheduleSelectionIsFuture(date, time));
 
     adminRescheduleTime = time || null;
     document.getElementById('adminRescheduleBookingId').value = adminRescheduleBookingId || '';
     document.getElementById('adminRescheduleDateField').value = date;
     document.getElementById('adminRescheduleTimeField').value = time;
-    document.getElementById('confirmAdminRescheduleBtn').disabled = !(adminRescheduleBookingId && date && time);
+    document.getElementById('confirmAdminRescheduleBtn').disabled = !hasValidSelection;
 
     document.querySelectorAll('#adminRescheduleTimesGrid .btn').forEach(existingButton => {
         const isSelected = existingButton.dataset.time === time;

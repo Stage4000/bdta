@@ -76,9 +76,20 @@ assertAdminRescheduleOverride(
     'Admin reschedule handler should still require the rescheduled time to be in the future.'
 );
 assertAdminRescheduleOverride(
-    str_contains($api_bookings, "array_key_exists('respect_google_calendar', \$_GET)") &&
-    str_contains($api_bookings, 'if ($respect_google_calendar && GoogleCalendarIntegration::isOAuthConfigured())'),
+    str_contains($api_bookings, "array_key_exists('respect_google_calendar', \$_GET)"),
     'Booking availability API should keep the explicit Google Calendar filtering flag for the optional availability view.'
+);
+assertAdminRescheduleOverride(
+    str_contains($api_bookings, 'if ($respect_google_calendar && GoogleCalendarIntegration::isOAuthConfigured())'),
+    'Booking availability API should only enforce Google Calendar conflicts when the optional availability view requests it.'
+);
+assertAdminRescheduleOverride(
+    str_contains($clients_view, 'function adminRescheduleSelectionIsFuture(date, time) {'),
+    'Admin reschedule UI should validate future date/time selections before enabling submit.'
+);
+assertAdminRescheduleOverride(
+    str_contains($clients_view, 'adminRescheduleSelectionIsFuture(date, time)'),
+    'Admin reschedule submit state should depend on the future date/time validation helper.'
 );
 
 echo "Admin reschedule Google Calendar override checks passed.\n";
