@@ -52,10 +52,10 @@ assertAdminRescheduleOverride(
 
 $reschedule_block_start = strpos($clients_view, "if (\$booking_action === 'reschedule') {");
 $reschedule_block_end = strpos($clients_view, "setFlashMessage('Booking rescheduled.', 'success');");
-assertAdminRescheduleOverride(
-    $reschedule_block_start !== false && $reschedule_block_end !== false && $reschedule_block_end > $reschedule_block_start,
-    'Expected to locate the admin reschedule handler in client view.'
-);
+if ($reschedule_block_start === false || $reschedule_block_end === false || $reschedule_block_end <= $reschedule_block_start) {
+    fwrite(STDERR, "Expected to locate the admin reschedule handler in client view.\n");
+    exit(1);
+}
 
 $reschedule_block = substr($clients_view, $reschedule_block_start, $reschedule_block_end - $reschedule_block_start);
 
@@ -76,12 +76,24 @@ assertAdminRescheduleOverride(
     'Admin reschedule handler should still require the rescheduled time to be in the future.'
 );
 assertAdminRescheduleOverride(
-    str_contains($api_bookings, "array_key_exists('respect_google_calendar', \$_GET)"),
+    str_contains($api_bookings, 'if (!is_scalar($value)) {'),
+    'Booking availability API should ignore non-scalar Google Calendar filtering inputs safely.'
+);
+assertAdminRescheduleOverride(
+    str_contains($api_bookings, "array_key_exists('respect_google_calendar', \$input)"),
     'Booking availability API should keep the explicit Google Calendar filtering flag for the optional availability view.'
 );
 assertAdminRescheduleOverride(
-    str_contains($api_bookings, 'if ($respect_google_calendar && GoogleCalendarIntegration::isOAuthConfigured())'),
-    'Booking availability API should only enforce Google Calendar conflicts when the optional availability view requests it.'
+    str_contains($api_bookings, '$respect_google_calendar = api_booking_should_respect_google_calendar($_GET);'),
+    'Booking availability API should normalize Google Calendar filtering through one shared helper.'
+);
+assertAdminRescheduleOverride(
+    substr_count($api_bookings, 'if ($respect_google_calendar && GoogleCalendarIntegration::isOAuthConfigured())') >= 2,
+    'Booking availability API should only enforce Google Calendar conflicts when the optional availability view requests it in both availability endpoints.'
+);
+assertAdminRescheduleOverride(
+    str_contains($api_bookings, 'getFreeBusyRange('),
+    'Available-dates availability should still support Google Calendar range checks.'
 );
 assertAdminRescheduleOverride(
     str_contains($clients_view, 'function adminRescheduleSelectionIsFuture(date, time) {'),
@@ -90,6 +102,30 @@ assertAdminRescheduleOverride(
 assertAdminRescheduleOverride(
     str_contains($clients_view, 'adminRescheduleSelectionIsFuture(date, time)'),
     'Admin reschedule submit state should depend on the future date/time validation helper.'
+);
+assertAdminRescheduleOverride(
+    str_contains($clients_view, 'function getAdminRescheduleCurrentDateTimeParts() {'),
+    'Admin reschedule UI should derive current date/time from one shared helper.'
+);
+assertAdminRescheduleOverride(
+    !str_contains($clients_view, "currentDate.toISOString().split('T')[0]"),
+    'Admin reschedule UI should not derive the minimum date from UTC ISO timestamps.'
+);
+assertAdminRescheduleOverride(
+    !str_contains($clients_view, 'let adminRescheduleTime = null;'),
+    'Admin reschedule UI should not keep redundant manual time state.'
+);
+assertAdminRescheduleOverride(
+    str_contains($clients_view, 'new AbortController()'),
+    'Admin reschedule availability should cancel older requests.'
+);
+assertAdminRescheduleOverride(
+    str_contains($clients_view, 'requestId !== adminRescheduleAvailabilityRequestSequence'),
+    'Admin reschedule availability should ignore stale responses from older requests.'
+);
+assertAdminRescheduleOverride(
+    str_contains($clients_view, "if (error.name === 'AbortError') {"),
+    'Admin reschedule availability should ignore aborted request errors.'
 );
 
 echo "Admin reschedule Google Calendar override checks passed.\n";

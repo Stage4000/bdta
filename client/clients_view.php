@@ -1917,16 +1917,41 @@ const adminRescheduleTimeZone = <?= json_encode(date_default_timezone_get()) ?>;
 let emailTemplates = [];
 let adminRescheduleBookingId = null;
 let adminRescheduleTypeId = null;
-let adminRescheduleTime = null;
+let adminRescheduleAvailabilityRequestSequence = 0;
+let adminRescheduleAvailabilityController = null;
+
+function getAdminRescheduleCurrentDateTimeParts() {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: adminRescheduleTimeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    });
+
+    const parts = formatter.formatToParts(new Date()).reduce((map, part) => {
+        if (part.type !== 'literal') {
+            map[part.type] = part.value;
+        }
+
+        return map;
+    }, {});
+
+    return {
+        date: `${parts.year}-${parts.month}-${parts.day}`,
+        time: `${parts.hour}:${parts.minute}`,
+    };
+}
 
 function showAdminRescheduleModal(btn) {
     adminRescheduleBookingId = parseInt(btn.dataset.bookingId, 10);
     adminRescheduleTypeId = parseInt(btn.dataset.typeId, 10);
-    adminRescheduleTime = null;
-    const currentDate = new Date();
+    const currentDateTime = getAdminRescheduleCurrentDateTimeParts();
 
     document.getElementById('adminRescheduleBookingLabel').textContent = btn.dataset.typeName;
-    document.getElementById('adminRescheduleDate').min = currentDate.toISOString().split('T')[0];
+    document.getElementById('adminRescheduleDate').min = currentDateTime.date;
     document.getElementById('adminRescheduleDate').value = '';
     document.getElementById('adminRescheduleTime').value = '';
     document.getElementById('adminRescheduleRespectGoogleCalendar').checked = false;
@@ -1940,6 +1965,11 @@ function showAdminRescheduleModal(btn) {
 }
 
 function clearAdminRescheduleAvailabilityDisplay() {
+    if (adminRescheduleAvailabilityController) {
+        adminRescheduleAvailabilityController.abort();
+        adminRescheduleAvailabilityController = null;
+    }
+
     document.getElementById('adminRescheduleTimesGrid').innerHTML = '';
     document.getElementById('adminRescheduleTimesSection').style.display = 'none';
     document.getElementById('adminRescheduleNoSlots').classList.add('d-none');
@@ -1951,26 +1981,9 @@ function adminRescheduleSelectionIsFuture(date, time) {
         return false;
     }
 
-    const formatter = new Intl.DateTimeFormat('sv-SE', {
-        timeZone: adminRescheduleTimeZone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hourCycle: 'h23',
-    });
-    const parts = formatter.formatToParts(new Date()).reduce((map, part) => {
-        if (part.type !== 'literal') {
-            map[part.type] = part.value;
-        }
+    const currentDateTime = getAdminRescheduleCurrentDateTimeParts();
 
-        return map;
-    }, {});
-    const currentDate = `${parts.year}-${parts.month}-${parts.day}`;
-    const currentTime = `${parts.hour}:${parts.minute}`;
-
-    return date > currentDate || (date === currentDate && time > currentTime);
+    return date > currentDateTime.date || (date === currentDateTime.date && time > currentDateTime.time);
 }
 
 function syncAdminRescheduleFormState() {
@@ -1978,7 +1991,6 @@ function syncAdminRescheduleFormState() {
     const time = document.getElementById('adminRescheduleTime').value;
     const hasValidSelection = adminRescheduleBookingId && adminRescheduleSelectionIsFuture(date, time);
 
-    adminRescheduleTime = time || null;
     document.getElementById('adminRescheduleBookingId').value = adminRescheduleBookingId || '';
     document.getElementById('adminRescheduleDateField').value = date;
     document.getElementById('adminRescheduleTimeField').value = time;
@@ -2027,13 +2039,33 @@ function loadAdminRescheduleSlots() {
         return;
     }
 
+    adminRescheduleAvailabilityRequestSequence += 1;
+    const requestId = adminRescheduleAvailabilityRequestSequence;
+    const requestDate = date;
+    const requestTypeId = adminRescheduleTypeId;
+    if (adminRescheduleAvailabilityController) {
+        adminRescheduleAvailabilityController.abort();
+    }
+    adminRescheduleAvailabilityController = new AbortController();
+    const { signal } = adminRescheduleAvailabilityController;
+
     fetch(
         '/backend/public/api_bookings.php?date=' + encodeURIComponent(date)
         + '&appointment_type_id=' + adminRescheduleTypeId
-        + '&respect_google_calendar=1'
+        + '&respect_google_calendar=1',
+        { signal }
     )
         .then(response => response.json())
         .then(data => {
+            const isStaleRequest = requestId !== adminRescheduleAvailabilityRequestSequence
+                || document.getElementById('adminRescheduleDate').value !== requestDate
+                || adminRescheduleTypeId !== requestTypeId
+                || !document.getElementById('adminRescheduleRespectGoogleCalendar').checked;
+            if (isStaleRequest) {
+                return;
+            }
+
+            adminRescheduleAvailabilityController = null;
             grid.innerHTML = '';
             const slots = Array.isArray(data.available_slots) ? data.available_slots : [];
             if (slots.length === 0) {
@@ -2061,7 +2093,12 @@ function loadAdminRescheduleSlots() {
 
             syncAdminRescheduleFormState();
         })
-        .catch(() => {
+        .catch(error => {
+            if (error.name === 'AbortError') {
+                return;
+            }
+
+            adminRescheduleAvailabilityController = null;
             grid.innerHTML = '<span class="text-danger">Could not load available times.</span>';
         });
 }

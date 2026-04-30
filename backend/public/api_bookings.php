@@ -1509,6 +1509,21 @@ function api_booking_extract_profile_mapped_form_values(SafePDO $conn, array $fo
     return $mapped_values;
 }
 
+function api_booking_should_respect_google_calendar(array $input): bool
+{
+    if (!array_key_exists('respect_google_calendar', $input)) {
+        return true;
+    }
+
+    $value = $input['respect_google_calendar'];
+    if (!is_scalar($value)) {
+        return true;
+    }
+
+    $parsed = filter_var((string) $value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    return $parsed ?? true;
+}
+
 if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits') {
     // Check available credits for a client email + appointment type
     $email = scalar_string($_GET['email'] ?? '');
@@ -1653,6 +1668,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $appointment_type_id = isset($_GET['appointment_type_id']) ? safe_int($_GET['appointment_type_id']) : 0;
     $from_date = scalar_string($_GET['from'] ?? date('Y-m-d'));
     $to_date   = scalar_string($_GET['to']   ?? date('Y-m-d', strtotime('+60 days')));
+    $respect_google_calendar = api_booking_should_respect_google_calendar($_GET);
 
     // Sanitize date params
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from_date)) {
@@ -1821,7 +1837,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     // Mirrors the per-slot GCal check already done in the single-date slot endpoint,
     // so that dates blocked only by GCal events are correctly marked unavailable here too.
     $gcal_busy_periods = [];
-    if (GoogleCalendarIntegration::isOAuthConfigured()) {
+    if ($respect_google_calendar && GoogleCalendarIntegration::isOAuthConfigured()) {
         try {
             $calendar_admin_user_id = $ad_admin_user_id > 0
                 ? $ad_admin_user_id
@@ -1986,17 +2002,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     // Check availability
     $date = scalar_string($_GET['date'] ?? '');
     $appointment_type_id = isset($_GET['appointment_type_id']) ? safe_int($_GET['appointment_type_id']) : null;
-    $respect_google_calendar = true;
-    if (array_key_exists('respect_google_calendar', $_GET)) {
-        $respect_google_calendar = filter_var(
-            $_GET['respect_google_calendar'],
-            FILTER_VALIDATE_BOOLEAN,
-            FILTER_NULL_ON_FAILURE
-        );
-        if ($respect_google_calendar === null) {
-            $respect_google_calendar = true;
-        }
-    }
+    $respect_google_calendar = api_booking_should_respect_google_calendar($_GET);
     
     if (!$date) {
         echo json_encode(['error' => 'Date parameter required']);
