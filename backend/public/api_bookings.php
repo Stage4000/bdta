@@ -1986,6 +1986,17 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     // Check availability
     $date = scalar_string($_GET['date'] ?? '');
     $appointment_type_id = isset($_GET['appointment_type_id']) ? safe_int($_GET['appointment_type_id']) : null;
+    $respect_google_calendar = true;
+    if (array_key_exists('respect_google_calendar', $_GET)) {
+        $respect_google_calendar = filter_var(
+            $_GET['respect_google_calendar'],
+            FILTER_VALIDATE_BOOLEAN,
+            FILTER_NULL_ON_FAILURE
+        );
+        if ($respect_google_calendar === null) {
+            $respect_google_calendar = true;
+        }
+    }
     
     if (!$date) {
         echo json_encode(['error' => 'Date parameter required']);
@@ -2154,7 +2165,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     // Query Google Calendar for busy periods on this date (best-effort; errors are non-fatal)
     $google_busy_periods = [];
     $google_calendar_checked = false;
-    if (GoogleCalendarIntegration::isOAuthConfigured()) {
+    if ($respect_google_calendar && GoogleCalendarIntegration::isOAuthConfigured()) {
         try {
             $calendar_admin_user_id = $appointment_type_admin_user_id > 0
                 ? $appointment_type_admin_user_id

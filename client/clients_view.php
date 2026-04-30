@@ -1859,6 +1859,13 @@ include '../backend/includes/header.php';
                 <div class="mb-3">
                     <label for="adminRescheduleDate" class="form-label">New Date</label>
                     <input type="date" class="form-control" id="adminRescheduleDate" onchange="loadAdminRescheduleSlots()">
+                    <div class="form-check mt-2">
+                        <input type="checkbox" class="form-check-input" id="adminRescheduleRespectGoogleCalendar" onchange="loadAdminRescheduleSlots()">
+                        <label class="form-check-label" for="adminRescheduleRespectGoogleCalendar">
+                            Also filter by connected Google Calendar availability
+                        </label>
+                    </div>
+                    <div class="form-text">Website scheduling rules always apply. Leave this unchecked to override Google Calendar conflicts.</div>
                 </div>
                 <div class="mb-3" id="adminRescheduleTimesSection" style="display:none;">
                     <label class="form-label">Available Times</label>
@@ -1964,6 +1971,7 @@ function showAdminRescheduleModal(btn) {
     document.getElementById('adminRescheduleBookingLabel').textContent = btn.dataset.typeName;
     document.getElementById('adminRescheduleDate').min = minDate.toISOString().split('T')[0];
     document.getElementById('adminRescheduleDate').value = '';
+    document.getElementById('adminRescheduleRespectGoogleCalendar').checked = false;
     document.getElementById('adminRescheduleTimesGrid').innerHTML = '';
     document.getElementById('adminRescheduleTimesSection').style.display = 'none';
     document.getElementById('adminRescheduleNoSlots').classList.add('d-none');
@@ -1979,6 +1987,7 @@ function loadAdminRescheduleSlots() {
     const section = document.getElementById('adminRescheduleTimesSection');
     const noSlots = document.getElementById('adminRescheduleNoSlots');
     const errorBox = document.getElementById('adminRescheduleError');
+    const respectGoogleCalendar = document.getElementById('adminRescheduleRespectGoogleCalendar').checked;
 
     adminRescheduleTime = null;
     document.getElementById('confirmAdminRescheduleBtn').disabled = true;
@@ -1994,7 +2003,11 @@ function loadAdminRescheduleSlots() {
         return;
     }
 
-    fetch('/backend/public/api_bookings.php?date=' + encodeURIComponent(date) + '&appointment_type_id=' + adminRescheduleTypeId)
+    fetch(
+        '/backend/public/api_bookings.php?date=' + encodeURIComponent(date)
+        + '&appointment_type_id=' + adminRescheduleTypeId
+        + '&respect_google_calendar=' + encodeURIComponent(respectGoogleCalendar ? '1' : '0')
+    )
         .then(response => response.json())
         .then(data => {
             grid.innerHTML = '';
