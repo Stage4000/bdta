@@ -128,7 +128,9 @@ include '../backend/includes/header.php';
                             <?php foreach ($pets as $pet): ?>
                                 <tr>
                                     <td>
-                                        <strong><?= htmlspecialchars($pet['name']) ?></strong>
+                                        <a href="pets_view.php?id=<?= $pet['id'] ?>" class="fw-semibold text-decoration-none">
+                                            <?= htmlspecialchars($pet['name']) ?>
+                                        </a>
                                     </td>
                                     <td><?= htmlspecialchars($pet['species']) ?></td>
                                     <td><?= htmlspecialchars($pet['breed'] ?: '—') ?></td>
@@ -179,6 +181,9 @@ include '../backend/includes/header.php';
                                     </td>
                                     <td>
                                         <div class="d-none d-md-inline-flex gap-1 table-action-buttons">
+                                            <a href="pets_view.php?id=<?= $pet['id'] ?>" class="btn btn-sm btn-outline-info table-action-btn" title="View">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
                                             <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit">
                                                 <i class="fas fa-pencil"></i>
                                             </a>
@@ -199,6 +204,11 @@ include '../backend/includes/header.php';
                                                     <i class="fas fa-ellipsis-v"></i>
                                                 </button>
                                                 <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li>
+                                                        <a class="dropdown-item" href="pets_view.php?id=<?= $pet['id'] ?>">
+                                                            <i class="fas fa-eye me-2 text-info"></i>View
+                                                        </a>
+                                                    </li>
                                                     <li>
                                                         <a class="dropdown-item" href="pets_edit.php?id=<?= $pet['id'] ?>">
                                                             <i class="fas fa-pencil me-2 text-primary"></i>Edit

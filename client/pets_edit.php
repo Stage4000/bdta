@@ -93,6 +93,7 @@ if ($pet_id) {
     $client_id = array_int_value($pet, 'client_id');
 }
 $pet_row = is_array($pet) ? $pet : [];
+$return_url = pets_edit_return_url(scalar_string($_SERVER['HTTP_REFERER'] ?? ''));
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -427,11 +428,11 @@ include '../backend/includes/header.php';
                 </div>
 
                 <div class="card-footer">
-                    <input type="hidden" name="return_to" value="<?= htmlspecialchars(pets_edit_return_url(scalar_string($_SERVER['HTTP_REFERER'] ?? ''))) ?>">
+                    <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_url) ?>">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-check-circle"></i> <?= $pet_id ? 'Update' : 'Add' ?> Pet
                     </button>
-                    <a href="<?= $client_id ? 'clients_view.php?id=' . $client_id : 'pets_list.php' ?>" class="btn btn-secondary">
+                    <a href="<?= htmlspecialchars($return_url) ?>" class="btn btn-secondary">
                         Cancel
                     </a>
                 </div>

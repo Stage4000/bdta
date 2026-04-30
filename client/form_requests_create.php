@@ -216,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $back_link = 'form_templates_list.php';
 if ($pet !== []) {
-    $back_link = 'pets_edit.php?id=' . array_int_value($pet, 'id');
+    $back_link = 'pets_view.php?id=' . array_int_value($pet, 'id');
 } elseif ($client !== []) {
     $back_link = 'clients_view.php?id=' . array_int_value($client, 'id');
 } elseif ($appointment_type !== []) {
