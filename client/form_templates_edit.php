@@ -1050,8 +1050,20 @@ function toggleOptions(select) {
     }
     if (petInfoDogOnly) {
         petInfoDogOnly.disabled = !isPetInfoGroup;
-        petInfoDogOnly.addEventListener('change', function () {
-            if (!petInfoIncludeSpecies || !petInfoDefaultSpecies) return;
+        if (petInfoDogOnly.dataset.boundChange !== '1') {
+            petInfoDogOnly.dataset.boundChange = '1';
+            petInfoDogOnly.addEventListener('change', function () {
+                if (!petInfoIncludeSpecies || !petInfoDefaultSpecies) return;
+                if (petInfoDogOnly.checked) {
+                    petInfoIncludeSpecies.checked = true;
+                    petInfoDefaultSpecies.value = 'Dog';
+                    petInfoDefaultSpecies.setAttribute('readonly', 'readonly');
+                } else {
+                    petInfoDefaultSpecies.removeAttribute('readonly');
+                }
+            });
+        }
+        if (petInfoIncludeSpecies && petInfoDefaultSpecies) {
             if (petInfoDogOnly.checked) {
                 petInfoIncludeSpecies.checked = true;
                 petInfoDefaultSpecies.value = 'Dog';
@@ -1059,8 +1071,7 @@ function toggleOptions(select) {
             } else {
                 petInfoDefaultSpecies.removeAttribute('readonly');
             }
-        });
-        petInfoDogOnly.dispatchEvent(new Event('change'));
+        }
     }
     if (petInfoIncludeSpecies) {
         petInfoIncludeSpecies.disabled = !isPetInfoGroup;
