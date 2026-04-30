@@ -375,12 +375,6 @@ function bdta_form_field_pet_info_group_normalize_response(array $field, mixed $
     return $normalized;
 }
 
-function bdta_form_field_pet_info_group_count_prompt(array $field): string
-{
-    $prompt = trim(array_string_value($field, 'label'));
-    return $prompt !== '' ? $prompt : 'How many pets would you like to add?';
-}
-
 /**
  * @param array<string, mixed> $field
  * @param mixed $value

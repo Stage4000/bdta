@@ -65,10 +65,6 @@ $field = [
 ];
 
 assertPetInfoGroup(bdta_form_field_is_pet_info_group($field), 'Expected pet info group helper to recognize the new field type.');
-assertPetInfoGroup(
-    bdta_form_field_pet_info_group_count_prompt($field) === 'How many pets should we prepare for?',
-    'Expected the field label to drive the pet count prompt.'
-);
 
 $config = bdta_form_field_pet_info_group_config($field);
 assertPetInfoGroup($config['include_species'] === true, 'Dog-only pet groups should still include a species value.');

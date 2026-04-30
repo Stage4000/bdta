@@ -1238,15 +1238,15 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         'age_years'       => 'age_years',
         'age_months'      => 'age_months',
         'source'          => 'source',
-        'ownership_length_years' => 'ownership_length_years',
+        'ownership_length_years'  => 'ownership_length_years',
         'ownership_length_months' => 'ownership_length_months',
-        'spayed_neutered' => 'spayed_neutered',
-        'vaccines_current'=> 'vaccines_current',
-        'vaccine_notes'   => 'vaccine_notes',
-        'behavior_notes'  => 'behavior_notes',
-        'medical_notes'   => 'medical_notes',
-            'training_notes'  => 'training_notes',
-            'pet_sitting_notes' => 'pet_sitting_notes',
+        'spayed_neutered'        => 'spayed_neutered',
+        'vaccines_current'       => 'vaccines_current',
+        'vaccine_notes'          => 'vaccine_notes',
+        'behavior_notes'         => 'behavior_notes',
+        'medical_notes'          => 'medical_notes',
+        'training_notes'         => 'training_notes',
+        'pet_sitting_notes'      => 'pet_sitting_notes',
         ];
         $overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
 
