@@ -1811,7 +1811,7 @@ include '../backend/includes/header.php';
                 <p>Select a new date and time for <strong id="adminRescheduleBookingLabel"></strong>.</p>
                 <div class="mb-3">
                     <label for="adminRescheduleDate" class="form-label">New Date</label>
-                    <input type="date" class="form-control" id="adminRescheduleDate" onchange="handleAdminRescheduleAvailabilityChange()">
+                    <input type="date" class="form-control" id="adminRescheduleDate" onchange="syncAdminRescheduleState()">
                 </div>
                 <div class="mb-3">
                     <label for="adminRescheduleTime" class="form-label">New Time</label>
@@ -1820,7 +1820,7 @@ include '../backend/includes/header.php';
                 </div>
                 <div class="mb-3">
                     <div class="form-check mt-2">
-                        <input type="checkbox" class="form-check-input" id="adminRescheduleRespectGoogleCalendar" onchange="handleAdminRescheduleAvailabilityChange()">
+                        <input type="checkbox" class="form-check-input" id="adminRescheduleRespectGoogleCalendar" onchange="syncAdminRescheduleState()">
                         <label class="form-check-label" for="adminRescheduleRespectGoogleCalendar">
                             Show availability using website rules and connected Google Calendar
                         </label>
@@ -1913,6 +1913,7 @@ include '../backend/includes/header.php';
 <script>
 // Email management
 const clientId = <?= $id ?>;
+const adminRescheduleTimeZone = <?= json_encode(date_default_timezone_get()) ?>;
 let emailTemplates = [];
 let adminRescheduleBookingId = null;
 let adminRescheduleTypeId = null;
@@ -1950,9 +1951,26 @@ function adminRescheduleSelectionIsFuture(date, time) {
         return false;
     }
 
-    // Native date/time inputs provide YYYY-MM-DD and HH:MM values.
-    const requestedDateTime = new Date(`${date}T${time}:00`);
-    return !Number.isNaN(requestedDateTime.getTime()) && requestedDateTime.getTime() > Date.now();
+    const formatter = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: adminRescheduleTimeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    });
+    const parts = formatter.formatToParts(new Date()).reduce((map, part) => {
+        if (part.type !== 'literal') {
+            map[part.type] = part.value;
+        }
+
+        return map;
+    }, {});
+    const currentDate = `${parts.year}-${parts.month}-${parts.day}`;
+    const currentTime = `${parts.hour}:${parts.minute}`;
+
+    return date > currentDate || (date === currentDate && time > currentTime);
 }
 
 function syncAdminRescheduleFormState() {
@@ -1973,7 +1991,7 @@ function syncAdminRescheduleFormState() {
     });
 }
 
-function handleAdminRescheduleAvailabilityChange() {
+function syncAdminRescheduleState() {
     syncAdminRescheduleFormState();
 
     if (!document.getElementById('adminRescheduleRespectGoogleCalendar').checked) {
