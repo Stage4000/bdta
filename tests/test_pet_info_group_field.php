@@ -91,6 +91,23 @@ assertPetInfoGroup(($profile_values[0]['age_months'] ?? null) === 4, 'Expected a
 assertPetInfoGroup(($profile_values[0]['ownership_length_years'] ?? null) === 1, 'Expected ownership text to map to ownership_length_years.');
 assertPetInfoGroup(($profile_values[0]['vaccines_current'] ?? null) === 1, 'Expected vaccine status to map to the boolean pet profile field.');
 
+$species_optional_field = [
+    'type' => bdta_pet_info_group_field_type(),
+    'label' => 'Tell us about your pets',
+];
+$species_optional_profile_values = bdta_form_field_pet_info_group_profile_values($species_optional_field, [
+    [
+        'name' => 'Pixel',
+        'age_or_dob' => '1 year',
+        'breed' => 'Mixed breed',
+        'vaccines_current' => 'yes',
+        'spayed_neutered' => 'yes',
+        'source' => 'Breeder',
+        'ownership_length' => '8 months',
+    ],
+]);
+assertPetInfoGroup(!array_key_exists('species', $species_optional_profile_values[0] ?? []), 'Expected species to remain unset when the field configuration does not collect or default it.');
+
 $edit_page = file_get_contents(dirname(__DIR__) . '/client/form_templates_edit.php');
 if (!is_string($edit_page)) {
     throw new RuntimeException('Expected to read the form template editor.');

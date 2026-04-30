@@ -700,10 +700,6 @@ function api_booking_create_pets_from_profile_updates(PDO $conn, int $client_id,
             continue;
         }
 
-        if (!isset($pet_profile['species']) || trim(scalar_string($pet_profile['species'])) === '') {
-            $pet_profile['species'] = 'Dog';
-        }
-
         $find_pet_stmt->execute([$client_id, $pet_name]);
         $existing_pet_id = safe_int($find_pet_stmt->fetchColumn());
 

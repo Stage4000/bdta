@@ -178,9 +178,6 @@ function public_form_sync_pet_info_group_profiles(PDO $conn, int $client_id, arr
             }
 
             $resolved_profile = $pet_profile;
-            if (!isset($resolved_profile['species']) || trim(scalar_string($resolved_profile['species'])) === '') {
-                $resolved_profile['species'] = 'Dog';
-            }
 
             $find_pet_stmt->execute([$client_id, $pet_name]);
             $existing_pet_id = safe_int($find_pet_stmt->fetchColumn());

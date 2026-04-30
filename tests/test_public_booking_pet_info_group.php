@@ -160,6 +160,59 @@ try {
     assertPublicBookingPetInfoGroup(array_int_value($second_pet, 'ownership_length_months') === 6, 'Expected month-only ownership values to map to ownership_length_months.');
     assertPublicBookingPetInfoGroup(array_int_value($second_pet, 'vaccines_current') === 0, 'Expected negative vaccine status to map to 0.');
 
+    $conn->prepare('INSERT INTO appointment_types (name, is_active) VALUES (?, 1)')
+        ->execute(['Pet Info Group Optional Species ' . $suffix]);
+    $optional_species_type_id = (int) $conn->lastInsertId();
+
+    $conn->prepare('INSERT INTO form_templates (fields, form_type, is_active) VALUES (?, ?, 1)')
+        ->execute([json_encode([
+            [
+                'label' => 'Tell us about your pets',
+                'type' => 'pet_info_group',
+            ],
+        ]), 'client_form']);
+    $optional_species_template_id = (int) $conn->lastInsertId();
+
+    $optional_species_result = api_booking_create_booking($conn, [
+        'client_name' => 'No Species Owner ' . $suffix,
+        'client_email' => 'pet-group-no-species-' . $suffix . '@example.com',
+        'client_phone' => '555-0101',
+        'service_type' => 'Pet Info Group No Species Booking',
+        'appointment_type_id' => $optional_species_type_id,
+        'appointment_date' => '2026-07-13',
+        'appointment_time' => '11:00',
+        'location_type' => 'custom_address',
+        'location_value' => '456 Optional Species Lane',
+        'form_responses' => [
+            $optional_species_template_id => [
+                0 => [
+                    [
+                        'name' => 'Pixel',
+                        'age_or_dob' => '1 year',
+                        'breed' => 'Mixed breed',
+                        'vaccines_current' => 'yes',
+                        'spayed_neutered' => 'yes',
+                        'source' => 'Breeder',
+                        'ownership_length' => '8 months',
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    assertPublicBookingPetInfoGroup(($optional_species_result['success'] ?? false) === true, 'Expected pet info group bookings without species collection to succeed.');
+    $optional_booking_id = safe_int($optional_species_result['booking_id'] ?? 0);
+    assertPublicBookingPetInfoGroup($optional_booking_id > 0, 'Expected the second booking API call to return a booking ID.');
+
+    $pet_link_stmt->execute([$optional_booking_id]);
+    $optional_booking_pet_ids = array_map('safe_int', $pet_link_stmt->fetchAll(PDO::FETCH_COLUMN));
+    assertPublicBookingPetInfoGroup(count($optional_booking_pet_ids) === 1, 'Expected the booking without species collection to create one pet profile.');
+
+    $pet_stmt->execute([$optional_booking_pet_ids[0]]);
+    $optional_species_pet = assoc_row($pet_stmt->fetch(PDO::FETCH_ASSOC));
+    assertPublicBookingPetInfoGroup(array_string_value($optional_species_pet, 'name') === 'Pixel', 'Expected the optional-species booking to preserve the submitted pet name.');
+    assertPublicBookingPetInfoGroup(array_string_value($optional_species_pet, 'species') === '', 'Expected optional-species bookings not to force a Dog species.');
+
     echo "Public booking pet info group test passed.\n";
 } catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage() . PHP_EOL);
