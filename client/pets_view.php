@@ -18,7 +18,7 @@ if ($pet_id <= 0) {
 }
 
 $stmt = $conn->prepare("
-    SELECT p.*, c.name AS client_name, c.email AS client_email, COUNT(pf.id) AS file_count
+    SELECT p.*, c.name AS client_name, COUNT(pf.id) AS file_count
     FROM pets p
     JOIN clients c ON p.client_id = c.id
     LEFT JOIN pet_files pf ON pf.pet_id = p.id
@@ -65,7 +65,7 @@ include '../backend/includes/header.php';
 ?>
 
 <?php
-function pets_view_render_text(string $value, string $empty = 'No notes added yet.'): string
+function render_read_only_text(string $value, string $empty = 'No notes added yet.'): string
 {
     $value = trim($value);
     if ($value === '') {
@@ -176,12 +176,12 @@ function pets_view_render_text(string $value, string $empty = 'No notes added ye
 
                     <div class="mb-3">
                         <label class="text-muted small text-uppercase fw-semibold d-block mb-1">Vaccine Notes</label>
-                        <div><?= pets_view_render_text(array_string_value($pet, 'vaccine_notes')) ?></div>
+                        <div><?= render_read_only_text(array_string_value($pet, 'vaccine_notes')) ?></div>
                     </div>
 
                     <div>
                         <label class="text-muted small text-uppercase fw-semibold d-block mb-1">Medical Notes</label>
-                        <div><?= pets_view_render_text(array_string_value($pet, 'medical_notes')) ?></div>
+                        <div><?= render_read_only_text(array_string_value($pet, 'medical_notes')) ?></div>
                     </div>
                 </div>
             </div>
@@ -191,7 +191,7 @@ function pets_view_render_text(string $value, string $empty = 'No notes added ye
             <div class="card h-100">
                 <div class="card-body">
                     <h5 class="card-title mb-3">Behavior Notes</h5>
-                    <div><?= pets_view_render_text(array_string_value($pet, 'behavior_notes')) ?></div>
+                    <div><?= render_read_only_text(array_string_value($pet, 'behavior_notes')) ?></div>
                 </div>
             </div>
         </div>
@@ -200,7 +200,7 @@ function pets_view_render_text(string $value, string $empty = 'No notes added ye
             <div class="card h-100">
                 <div class="card-body">
                     <h5 class="card-title mb-3">Training Notes</h5>
-                    <div><?= pets_view_render_text(array_string_value($pet, 'training_notes')) ?></div>
+                    <div><?= render_read_only_text(array_string_value($pet, 'training_notes')) ?></div>
                 </div>
             </div>
         </div>
@@ -209,7 +209,7 @@ function pets_view_render_text(string $value, string $empty = 'No notes added ye
             <div class="card h-100">
                 <div class="card-body">
                     <h5 class="card-title mb-3">Pet Sitting Notes</h5>
-                    <div><?= pets_view_render_text(array_string_value($pet, 'pet_sitting_notes')) ?></div>
+                    <div><?= render_read_only_text(array_string_value($pet, 'pet_sitting_notes')) ?></div>
                 </div>
             </div>
         </div>
