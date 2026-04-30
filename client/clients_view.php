@@ -951,7 +951,7 @@ include '../backend/includes/header.php';
                             ?>
                             <div class="border-bottom pb-2 mb-2<?= $pet_archived_classes ?>">
                                 <strong>
-                                    <a href="pets_view.php?id=<?= $pet['id'] ?>" class="text-decoration-none">
+                                    <a href="pets_view.php?id=<?= (int) $pet['id'] ?>" class="text-decoration-none">
                                         <?= escape($pet['name']) ?>
                                     </a>
                                     <?php if (!$pet_is_active): ?>
@@ -967,7 +967,7 @@ include '../backend/includes/header.php';
                                         <i class="fas fa-paperclip"></i> <?= $pet['file_count'] ?> file(s) uploaded
                                     </small>
                                 <?php endif; ?>
-                                <a href="pets_view.php?id=<?= $pet['id'] ?>" class="btn btn-xs btn-outline-info mt-1">
+                                <a href="pets_view.php?id=<?= (int) $pet['id'] ?>" class="btn btn-xs btn-outline-info mt-1">
                                     <i class="fas fa-eye"></i> View
                                 </a>
                                 <a href="pets_edit.php?id=<?= $pet['id'] ?>" class="btn btn-xs btn-outline-secondary mt-1">

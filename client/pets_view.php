@@ -18,12 +18,10 @@ if ($pet_id <= 0) {
 }
 
 $stmt = $conn->prepare("
-    SELECT p.*, c.name AS client_name, COUNT(pf.id) AS file_count
+    SELECT p.*, c.name AS client_name
     FROM pets p
     JOIN clients c ON p.client_id = c.id
-    LEFT JOIN pet_files pf ON pf.pet_id = p.id
     WHERE p.id = ?
-    GROUP BY p.id
 ");
 $stmt->execute([$pet_id]);
 $pet = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
@@ -236,7 +234,7 @@ function render_read_only_text(string $value, string $empty = 'No notes added ye
                                         <div class="text-muted small"><?= escape(array_string_value($file, 'uploaded_at')) ?></div>
                                     </div>
                                     <div class="btn-group btn-group-sm">
-                                        <a href="pet_files_view.php?id=<?= (int) array_int_value($file, 'id') ?>" target="_blank" class="btn btn-outline-primary">
+                                        <a href="pet_files_view.php?id=<?= (int) array_int_value($file, 'id') ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
                                             <i class="fas fa-eye me-1"></i>View
                                         </a>
                                         <a href="pet_files_view.php?id=<?= (int) array_int_value($file, 'id') ?>&download=1" class="btn btn-outline-secondary">

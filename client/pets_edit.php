@@ -93,7 +93,10 @@ if ($pet_id) {
     $client_id = array_int_value($pet, 'client_id');
 }
 $pet_row = is_array($pet) ? $pet : [];
-$return_url = pets_edit_return_url(scalar_string($_SERVER['HTTP_REFERER'] ?? ''));
+$return_url = pets_edit_return_url(requestMethodIs('POST')
+    ? scalar_string($_POST['return_to'] ?? '')
+    : scalar_string($_SERVER['HTTP_REFERER'] ?? '')
+);
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
