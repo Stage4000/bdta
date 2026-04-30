@@ -1922,10 +1922,10 @@ function showAdminRescheduleModal(btn) {
     adminRescheduleBookingId = parseInt(btn.dataset.bookingId, 10);
     adminRescheduleTypeId = parseInt(btn.dataset.typeId, 10);
     adminRescheduleTime = null;
-    const minDate = new Date();
+    const currentDate = new Date();
 
     document.getElementById('adminRescheduleBookingLabel').textContent = btn.dataset.typeName;
-    document.getElementById('adminRescheduleDate').min = minDate.toISOString().split('T')[0];
+    document.getElementById('adminRescheduleDate').min = currentDate.toISOString().split('T')[0];
     document.getElementById('adminRescheduleDate').value = '';
     document.getElementById('adminRescheduleTime').value = '';
     document.getElementById('adminRescheduleRespectGoogleCalendar').checked = false;
@@ -1950,14 +1950,15 @@ function adminRescheduleSelectionIsFuture(date, time) {
         return false;
     }
 
-    const requestedDateTime = new Date(date + 'T' + time);
+    // Native date/time inputs provide YYYY-MM-DD and HH:MM values.
+    const requestedDateTime = new Date(`${date}T${time}:00`);
     return !Number.isNaN(requestedDateTime.getTime()) && requestedDateTime.getTime() > Date.now();
 }
 
 function syncAdminRescheduleFormState() {
     const date = document.getElementById('adminRescheduleDate').value;
     const time = document.getElementById('adminRescheduleTime').value;
-    const hasValidSelection = !!(adminRescheduleBookingId && adminRescheduleSelectionIsFuture(date, time));
+    const hasValidSelection = adminRescheduleBookingId && adminRescheduleSelectionIsFuture(date, time);
 
     adminRescheduleTime = time || null;
     document.getElementById('adminRescheduleBookingId').value = adminRescheduleBookingId || '';
