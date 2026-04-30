@@ -544,52 +544,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
             redirect($client_view_url);
         }
 
-        $advance_booking_min_days = safe_int($booking_for_action['advance_booking_min_days'] ?? 0);
-        $advance_booking_max_days = safe_int($booking_for_action['advance_booking_max_days'] ?? 365);
-        $days_until = ($new_datetime - time()) / BDTA_SECONDS_PER_DAY;
-
-        if ($advance_booking_min_days > 0 && $days_until < $advance_booking_min_days) {
-            setFlashMessage("This appointment type must be booked at least {$advance_booking_min_days} day(s) in advance.", 'danger');
-            redirect($client_view_url);
-        }
-
-        if ($days_until > $advance_booking_max_days) {
-            setFlashMessage("This appointment type can only be booked up to {$advance_booking_max_days} day(s) in advance.", 'danger');
-            redirect($client_view_url);
-        }
-
-        $duration = safe_int($booking_for_action['appointment_type_duration_minutes'] ?? $booking_for_action['duration_minutes'] ?? 60);
-        $new_end_dt = new DateTime($new_date . ' ' . $new_time_hhmm . ':00');
-        $new_end_dt->modify("+{$duration} minutes");
-        $new_end_time = $new_end_dt->format('H:i:s');
-
-        $stmt = $conn->prepare("
-            SELECT appointment_time, duration_minutes
-            FROM bookings
-            WHERE appointment_type_id = ?
-              AND appointment_date = ?
-              AND id != ?
-              AND status IN ('pending', 'confirmed')
-              AND appointment_time < ?
-        ");
-        $stmt->execute([$apt_type_id, $new_date, $booking_id, $new_end_time]);
-        $new_start_ts = strtotime($new_date . ' ' . $new_time_hhmm . ':00');
-        $conflict = false;
-        while (($row = assoc_row($stmt->fetch(PDO::FETCH_ASSOC))) !== []) {
-            $existing_start = new DateTime($new_date . ' ' . substr(array_string_value($row, 'appointment_time'), 0, 8));
-            $existing_end = clone $existing_start;
-            $existing_end->modify('+' . safe_int($row['duration_minutes'] ?? 60) . ' minutes');
-            if ($existing_end->getTimestamp() > $new_start_ts) {
-                $conflict = true;
-                break;
-            }
-        }
-
-        if ($conflict) {
-            setFlashMessage('That time slot is no longer available. Please choose another.', 'warning');
-            redirect($client_view_url);
-        }
-
         $old_date = array_string_value($booking_for_action, 'appointment_date');
         $old_time = array_string_value($booking_for_action, 'appointment_time');
 
@@ -1078,7 +1032,6 @@ include '../backend/includes/header.php';
                                                                     data-booking-id="<?= (int) $apt['id'] ?>"
                                                                     data-type-id="<?= (int) $apt['appointment_type_id'] ?>"
                                                                     data-type-name="<?= escape($apt['appointment_type_name'] ?: $apt['service_type']) ?>"
-                                                                    data-min-days="<?= (int) ($apt['advance_booking_min_days'] ?? 0) ?>"
                                                                     onclick="showAdminRescheduleModal(this)">
                                                                 <i class="fas fa-calendar-alt"></i> Reschedule
                                                             </button>
@@ -1858,7 +1811,20 @@ include '../backend/includes/header.php';
                 <p>Select a new date and time for <strong id="adminRescheduleBookingLabel"></strong>.</p>
                 <div class="mb-3">
                     <label for="adminRescheduleDate" class="form-label">New Date</label>
-                    <input type="date" class="form-control" id="adminRescheduleDate" onchange="loadAdminRescheduleSlots()">
+                    <input type="date" class="form-control" id="adminRescheduleDate" onchange="syncAdminRescheduleState()">
+                </div>
+                <div class="mb-3">
+                    <label for="adminRescheduleTime" class="form-label">New Time</label>
+                    <input type="time" class="form-control" id="adminRescheduleTime" onchange="syncAdminRescheduleFormState()">
+                    <div class="form-text">Enter any future date and time, or turn on availability suggestions below.</div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check mt-2">
+                        <input type="checkbox" class="form-check-input" id="adminRescheduleRespectGoogleCalendar" onchange="syncAdminRescheduleState()">
+                        <label class="form-check-label" for="adminRescheduleRespectGoogleCalendar">
+                            Show availability using website rules and connected Google Calendar
+                        </label>
+                    </div>
                 </div>
                 <div class="mb-3" id="adminRescheduleTimesSection" style="display:none;">
                     <label class="form-label">Available Times</label>
@@ -1947,30 +1913,105 @@ include '../backend/includes/header.php';
 <script>
 // Email management
 const clientId = <?= $id ?>;
+const adminRescheduleTimeZone = <?= json_encode(date_default_timezone_get()) ?>;
 let emailTemplates = [];
 let adminRescheduleBookingId = null;
 let adminRescheduleTypeId = null;
-let adminRescheduleTime = null;
+let adminRescheduleAvailabilityRequestSequence = 0;
+let adminRescheduleAvailabilityController = null;
+
+function getAdminRescheduleCurrentDateTimeParts() {
+    const formatter = new Intl.DateTimeFormat(undefined, {
+        timeZone: adminRescheduleTimeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    });
+
+    const parts = formatter.formatToParts(new Date()).reduce((map, part) => {
+        if (part.type !== 'literal') {
+            map[part.type] = part.value;
+        }
+
+        return map;
+    }, {});
+
+    return {
+        date: `${parts.year}-${parts.month}-${parts.day}`,
+        time: `${parts.hour}:${parts.minute}`,
+    };
+}
 
 function showAdminRescheduleModal(btn) {
     adminRescheduleBookingId = parseInt(btn.dataset.bookingId, 10);
     adminRescheduleTypeId = parseInt(btn.dataset.typeId, 10);
-    adminRescheduleTime = null;
-
-    const minDays = parseInt(btn.dataset.minDays, 10) || 0;
-    const minDate = new Date();
-    minDate.setDate(minDate.getDate() + minDays);
+    const currentDateTime = getAdminRescheduleCurrentDateTimeParts();
 
     document.getElementById('adminRescheduleBookingLabel').textContent = btn.dataset.typeName;
-    document.getElementById('adminRescheduleDate').min = minDate.toISOString().split('T')[0];
+    document.getElementById('adminRescheduleDate').min = currentDateTime.date;
     document.getElementById('adminRescheduleDate').value = '';
+    document.getElementById('adminRescheduleTime').value = '';
+    document.getElementById('adminRescheduleRespectGoogleCalendar').checked = false;
+    clearAdminRescheduleAvailabilityDisplay();
+    document.getElementById('adminRescheduleBookingId').value = adminRescheduleBookingId || '';
+    document.getElementById('adminRescheduleDateField').value = '';
+    document.getElementById('adminRescheduleTimeField').value = '';
+    document.getElementById('confirmAdminRescheduleBtn').disabled = true;
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('adminRescheduleModal')).show();
+}
+
+function clearAdminRescheduleAvailabilityDisplay() {
+    if (adminRescheduleAvailabilityController) {
+        adminRescheduleAvailabilityController.abort();
+        adminRescheduleAvailabilityController = null;
+    }
+
     document.getElementById('adminRescheduleTimesGrid').innerHTML = '';
     document.getElementById('adminRescheduleTimesSection').style.display = 'none';
     document.getElementById('adminRescheduleNoSlots').classList.add('d-none');
     document.getElementById('adminRescheduleError').classList.add('d-none');
-    document.getElementById('confirmAdminRescheduleBtn').disabled = true;
+}
 
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('adminRescheduleModal')).show();
+function adminRescheduleSelectionIsFuture(date, time) {
+    if (!date || !time) {
+        return false;
+    }
+
+    const currentDateTime = getAdminRescheduleCurrentDateTimeParts();
+
+    return date > currentDateTime.date || (date === currentDateTime.date && time > currentDateTime.time);
+}
+
+function syncAdminRescheduleFormState() {
+    const date = document.getElementById('adminRescheduleDate').value;
+    const time = document.getElementById('adminRescheduleTime').value;
+    const hasValidSelection = adminRescheduleBookingId && adminRescheduleSelectionIsFuture(date, time);
+
+    document.getElementById('adminRescheduleBookingId').value = adminRescheduleBookingId || '';
+    document.getElementById('adminRescheduleDateField').value = date;
+    document.getElementById('adminRescheduleTimeField').value = time;
+    document.getElementById('confirmAdminRescheduleBtn').disabled = !hasValidSelection;
+
+    document.querySelectorAll('#adminRescheduleTimesGrid .btn').forEach(existingButton => {
+        const isSelected = existingButton.dataset.time === time;
+        existingButton.classList.toggle('btn-primary', isSelected);
+        existingButton.classList.toggle('btn-outline-primary', !isSelected);
+    });
+}
+
+function syncAdminRescheduleState() {
+    syncAdminRescheduleFormState();
+
+    if (!document.getElementById('adminRescheduleRespectGoogleCalendar').checked) {
+        clearAdminRescheduleAvailabilityDisplay();
+        return;
+    }
+
+    loadAdminRescheduleSlots();
 }
 
 function loadAdminRescheduleSlots() {
@@ -1979,11 +2020,15 @@ function loadAdminRescheduleSlots() {
     const section = document.getElementById('adminRescheduleTimesSection');
     const noSlots = document.getElementById('adminRescheduleNoSlots');
     const errorBox = document.getElementById('adminRescheduleError');
+    const showAvailability = document.getElementById('adminRescheduleRespectGoogleCalendar').checked;
 
-    adminRescheduleTime = null;
-    document.getElementById('confirmAdminRescheduleBtn').disabled = true;
-    document.getElementById('adminRescheduleDateField').value = '';
-    document.getElementById('adminRescheduleTimeField').value = '';
+    syncAdminRescheduleFormState();
+
+    if (!showAvailability) {
+        clearAdminRescheduleAvailabilityDisplay();
+        return;
+    }
+
     section.style.display = 'block';
     noSlots.classList.add('d-none');
     errorBox.classList.add('d-none');
@@ -1994,9 +2039,32 @@ function loadAdminRescheduleSlots() {
         return;
     }
 
-    fetch('/backend/public/api_bookings.php?date=' + encodeURIComponent(date) + '&appointment_type_id=' + adminRescheduleTypeId)
+    adminRescheduleAvailabilityRequestSequence += 1;
+    const requestId = adminRescheduleAvailabilityRequestSequence;
+    const requestDate = date;
+    const requestTypeId = adminRescheduleTypeId;
+    if (adminRescheduleAvailabilityController) {
+        adminRescheduleAvailabilityController.abort();
+    }
+    adminRescheduleAvailabilityController = new AbortController();
+    const { signal } = adminRescheduleAvailabilityController;
+
+    fetch(
+        '/backend/public/api_bookings.php?date=' + encodeURIComponent(date)
+        + '&appointment_type_id=' + adminRescheduleTypeId
+        + '&respect_google_calendar=1',
+        { signal }
+    )
         .then(response => response.json())
         .then(data => {
+            const isStaleRequest = requestId !== adminRescheduleAvailabilityRequestSequence
+                || document.getElementById('adminRescheduleDate').value !== requestDate
+                || adminRescheduleTypeId !== requestTypeId;
+            if (isStaleRequest) {
+                return;
+            }
+
+            adminRescheduleAvailabilityController = null;
             grid.innerHTML = '';
             const slots = Array.isArray(data.available_slots) ? data.available_slots : [];
             if (slots.length === 0) {
@@ -2013,24 +2081,23 @@ function loadAdminRescheduleSlots() {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'btn btn-outline-primary btn-sm';
+                button.dataset.time = time;
                 button.textContent = formatAdminRescheduleTime(time);
                 button.addEventListener('click', function () {
-                    document.querySelectorAll('#adminRescheduleTimesGrid .btn').forEach(existingButton => {
-                        existingButton.classList.remove('btn-primary');
-                        existingButton.classList.add('btn-outline-primary');
-                    });
-                    button.classList.remove('btn-outline-primary');
-                    button.classList.add('btn-primary');
-                    adminRescheduleTime = time;
-                    document.getElementById('adminRescheduleBookingId').value = adminRescheduleBookingId || '';
-                    document.getElementById('adminRescheduleDateField').value = date;
-                    document.getElementById('adminRescheduleTimeField').value = time;
-                    document.getElementById('confirmAdminRescheduleBtn').disabled = false;
+                    document.getElementById('adminRescheduleTime').value = time;
+                    syncAdminRescheduleFormState();
                 });
                 grid.appendChild(button);
             });
+
+            syncAdminRescheduleFormState();
         })
-        .catch(() => {
+        .catch(error => {
+            if (error.name === 'AbortError') {
+                return;
+            }
+
+            adminRescheduleAvailabilityController = null;
             grid.innerHTML = '<span class="text-danger">Could not load available times.</span>';
         });
 }
