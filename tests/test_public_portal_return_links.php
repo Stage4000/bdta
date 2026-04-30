@@ -95,8 +95,8 @@ try {
         'Portal agreements page should add a portal return path to public contract links.'
     );
     bdta_assert(
-        str_contains($appointments_page, "bdta_append_public_portal_return(\$book_url, PORTAL_URL . 'appointments.php')"),
-        'Portal appointments page should add a portal return path to public booking links.'
+        str_contains($appointments_page, '/portal/book_credit.php?type=') || str_contains($appointments_page, '/portal/book_credit.php?link='),
+        'Portal appointments page should send Book Now actions through the authenticated portal booking flow.'
     );
 
     echo "Public portal return link checks passed.\n";

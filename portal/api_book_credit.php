@@ -1,6 +1,6 @@
 <?php
 /**
- * Portal Credit Booking API
+ * Portal Booking API
  * Handles authenticated booking submissions from the client portal.
  * Supports both booking creation and inline pet addition.
  */
@@ -91,7 +91,7 @@ $appointment_type_id = safe_int($data['appointment_type_id'] ?? 0);
 
 // ── Verify this appointment type exists and is active ────────────────────
 $stmt = $conn->prepare("
-    SELECT id, name, duration_minutes, contract_template_id,
+    SELECT id, name, duration_minutes, contract_template_id, portal_available,
            is_mini_session, mini_session_location,
            is_field_rental, field_rental_location,
            is_group_class, group_class_location,
@@ -114,7 +114,9 @@ $initial_status = $is_pending_request ? 'pending' : 'confirmed';
 $appointment_type_admin_user_id = array_int_value($apt_type, 'admin_user_id');
 $resource_config = bdta_booking_resource_config($apt_type);
 
-// ── Verify that the client actually has credits for this appointment type ─
+// ── Verify that this appointment type is bookable from the portal ─────────
+// Prefer credits that expire soonest; non-expiring credits (NULL expires_at)
+// are treated as the far future so they are consumed last.
 $stmt = $conn->prepare("
     SELECT cpc.id
     FROM client_package_credits cpc
@@ -124,15 +126,19 @@ $stmt = $conn->prepare("
       AND (cpc.total_credits - cpc.used_credits) > 0
       AND cp.is_active = 1
       AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+    ORDER BY (cp.expires_at IS NULL) ASC, cp.expires_at ASC
     LIMIT 1
 ");
 $stmt->execute([$client_id, $appointment_type_id]);
 $credit_row = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
-if ($credit_row === []) {
-    echo json_encode(['error' => 'No available credits for this appointment type.']);
+$has_available_credit = $credit_row !== [];
+$pkg_credit_id = $has_available_credit ? array_int_value($credit_row, 'id') : null;
+$portal_available = array_int_value($apt_type, 'portal_available') === 1;
+
+if (!$portal_available && !$has_available_credit) {
+    echo json_encode(['error' => 'This appointment type is not currently available to book from the portal.']);
     exit;
 }
-$pkg_credit_id = array_int_value($credit_row, 'id');
 
 // ── Contract validation (skip if client already has a current one) ────────
 $contract_typed_name = trim(scalar_string($data['contract_typed_name'] ?? ''));
@@ -334,7 +340,7 @@ $stmt->execute([
     array_int_value($apt_type, 'duration_minutes', 60),
     $location,
     $location_type,
-    $is_pending_request ? null : $pkg_credit_id,
+    (!$is_pending_request && $pkg_credit_id !== null) ? $pkg_credit_id : null,
     $contract_accepted,
     $contract_accepted_at,
     $contract_accepted ? $contract_typed_name : null,
@@ -797,7 +803,7 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
 $workflow_helper->checkAppointmentTriggers($booking_id);
 
 // ── Deduct credit ─────────────────────────────────────────────────────────
-if (!$is_pending_request) {
+if ($pkg_credit_id !== null && !$is_pending_request) {
     $conn->prepare("
         UPDATE client_package_credits
         SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
@@ -913,16 +919,26 @@ if (!$is_pending_request) {
     }
 }
 
-$message = $is_pending_request
-    ? 'Your appointment request has been received. We\'ll review it and email you once it is confirmed. If your appointment is confirmed and still eligible at that time, we\'ll attempt to apply your credit.'
-    : 'Your appointment has been successfully booked and a credit has been applied. Check your email for details and calendar links.';
+$credit_applied = $pkg_credit_id !== null && !$is_pending_request;
+$pending_credit_requested = $pkg_credit_id !== null && $is_pending_request;
+
+if ($is_pending_request) {
+    $message = 'Your appointment request has been received. We\'ll review it and email you once it is confirmed.';
+    if ($pending_credit_requested) {
+        $message .= ' If your appointment is confirmed and still eligible at that time, we\'ll attempt to apply your credit.';
+    }
+} elseif ($credit_applied) {
+    $message = 'Your appointment has been successfully booked and a credit has been applied. Check your email for details and calendar links.';
+} else {
+    $message = 'Your appointment has been successfully booked. Check your email for details and calendar links.';
+}
 
 echo json_encode([
     'success'              => true,
     'booking_id'           => $booking_id,
     'booking_status'       => $initial_status,
     'message'              => $message,
-    'credit_applied'       => !$is_pending_request,
+    'credit_applied'       => $credit_applied,
     'calendar_links'       => [
         'google_calendar' => $google_cal_link,
         'ical_download'   => $ical_link,

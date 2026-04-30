@@ -1,7 +1,7 @@
 <?php
 /**
- * Portal Credit Booking Page
- * Authenticated booking flow for logged-in portal clients using package credits.
+ * Portal Booking Page
+ * Authenticated booking flow for logged-in portal clients.
  * Provides contact/pet selection, add-pet capability, and intelligent form/contract skipping.
  */
 require_once '../backend/includes/config.php';
@@ -43,6 +43,30 @@ $client = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$client) {
     setFlashMessage('Client record not found.', 'error');
     redirect(PORTAL_URL . 'credits.php');
+}
+
+// ── Determine whether this appointment type is currently bookable in portal ──
+// Prefer credits that expire soonest; non-expiring credits (NULL expires_at)
+// are treated as the far future so they are consumed last.
+$stmt = $conn->prepare("
+    SELECT cpc.id
+    FROM client_package_credits cpc
+    JOIN client_packages cp ON cpc.client_package_id = cp.id
+    WHERE cpc.client_id = ?
+      AND cpc.appointment_type_id = ?
+      AND (cpc.total_credits - cpc.used_credits) > 0
+      AND cp.is_active = 1
+      AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+    ORDER BY (cp.expires_at IS NULL) ASC, cp.expires_at ASC
+    LIMIT 1
+");
+$stmt->execute([$client_id, $appointment_type_id]);
+$available_credit_id = safe_int($stmt->fetchColumn());
+$has_available_credit = $available_credit_id > 0;
+
+if (empty($selected_type['portal_available']) && !$has_available_credit) {
+    setFlashMessage('This appointment type is not currently available to book from the portal.', 'error');
+    redirect(PORTAL_URL . 'appointments.php');
 }
 
 // ── Load contacts (additional people linked to this account) ─────────────────
@@ -696,11 +720,16 @@ include '../portal/includes/header.php';
                     <i class="fas fa-circle-info me-2"></i>
                     A confirmation email will be sent to your address with appointment details and calendar links.
                 </div>
-                <!-- Credit auto-applied notice -->
+                <?php if ($has_available_credit): ?>
                 <div class="alert alert-success">
                     <i class="fas fa-ticket me-2"></i>
-                    A credit from your package will be applied automatically to this booking.
+                    <?php if (!empty($selected_type['requires_admin_confirmation'])): ?>
+                        If this request is approved, your available package credit will be applied automatically.
+                    <?php else: ?>
+                        An available package credit will be applied automatically to this booking.
+                    <?php endif; ?>
                 </div>
+                <?php endif; ?>
                 <div class="d-flex justify-content-between mt-4">
                     <button type="button" class="btn btn-outline-secondary btn-lg" onclick="prevStep()"><i class="fas fa-arrow-left me-2"></i> Back</button>
                     <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
@@ -761,6 +790,7 @@ include '../portal/includes/header.php';
     let selectedTime = null;
     const apptTypeId   = <?= intval($selected_type['id']) ?>;
     const apptTypeName = <?= json_encode($selected_type['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    const hasAvailableCredit = <?= json_encode($has_available_credit) ?>;
     const skipContract = <?= $skip_contract ? 'true' : 'false' ?>;
     // Pet names map built from PHP
     const petNames = {};
@@ -1375,7 +1405,10 @@ include '../portal/includes/header.php';
                     modalTitle.textContent = data.booking_status === 'pending' ? 'Request Received!' : 'Booking Confirmed!';
                 }
                 if (modalBody) {
-                    modalBody.textContent = data.message || 'Your booking details have been received.';
+                    modalBody.textContent = data.message
+                        || (hasAvailableCredit
+                            ? 'Your booking details have been received and any available credit will be applied when eligible.'
+                            : 'Your booking details have been received.');
                 }
                 new bootstrap.Modal(document.getElementById('successModal')).show();
             } else {

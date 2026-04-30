@@ -1,6 +1,5 @@
 <?php
 require_once '../backend/includes/config.php';
-require_once '../backend/includes/public_portal_return.php';
 requirePortalLogin();
 
 $client_id = portalClientId();
@@ -111,13 +110,12 @@ include '../portal/includes/header.php';
                         <?php endif; ?>
                         <?php
                         if (!empty($atype['unique_link'])) {
-                            $book_url = '/backend/public/book.php?link=' . urlencode($atype['unique_link']);
+                            $book_url = '/portal/book_credit.php?link=' . urlencode($atype['unique_link']);
                         } else {
-                            $book_url = '/backend/public/book.php?type=' . intval($atype['id']);
+                            $book_url = '/portal/book_credit.php?type=' . intval($atype['id']);
                         }
-                        $book_url = bdta_append_public_portal_return($book_url, PORTAL_URL . 'appointments.php');
                         ?>
-                        <a href="<?php echo escape($book_url); ?>" class="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center" target="_blank">
+                        <a href="<?php echo escape($book_url); ?>" class="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center">
                             Book Now
                         </a>
                     </div>
