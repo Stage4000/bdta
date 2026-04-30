@@ -1509,6 +1509,9 @@ function api_booking_extract_profile_mapped_form_values(SafePDO $conn, array $fo
     return $mapped_values;
 }
 
+/**
+ * @param array<string, mixed> $input
+ */
 function api_booking_should_respect_google_calendar(array $input): bool
 {
     if (!array_key_exists('respect_google_calendar', $input)) {
