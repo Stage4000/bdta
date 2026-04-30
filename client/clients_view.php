@@ -1922,23 +1922,27 @@ function showAdminRescheduleModal(btn) {
     adminRescheduleBookingId = parseInt(btn.dataset.bookingId, 10);
     adminRescheduleTypeId = parseInt(btn.dataset.typeId, 10);
     adminRescheduleTime = null;
-    const today = new Date();
+    const minDate = new Date();
 
     document.getElementById('adminRescheduleBookingLabel').textContent = btn.dataset.typeName;
-    document.getElementById('adminRescheduleDate').min = today.toISOString().split('T')[0];
+    document.getElementById('adminRescheduleDate').min = minDate.toISOString().split('T')[0];
     document.getElementById('adminRescheduleDate').value = '';
     document.getElementById('adminRescheduleTime').value = '';
     document.getElementById('adminRescheduleRespectGoogleCalendar').checked = false;
-    document.getElementById('adminRescheduleTimesGrid').innerHTML = '';
-    document.getElementById('adminRescheduleTimesSection').style.display = 'none';
-    document.getElementById('adminRescheduleNoSlots').classList.add('d-none');
-    document.getElementById('adminRescheduleError').classList.add('d-none');
+    clearAdminRescheduleAvailabilityDisplay();
     document.getElementById('adminRescheduleBookingId').value = adminRescheduleBookingId || '';
     document.getElementById('adminRescheduleDateField').value = '';
     document.getElementById('adminRescheduleTimeField').value = '';
     document.getElementById('confirmAdminRescheduleBtn').disabled = true;
 
     bootstrap.Modal.getOrCreateInstance(document.getElementById('adminRescheduleModal')).show();
+}
+
+function clearAdminRescheduleAvailabilityDisplay() {
+    document.getElementById('adminRescheduleTimesGrid').innerHTML = '';
+    document.getElementById('adminRescheduleTimesSection').style.display = 'none';
+    document.getElementById('adminRescheduleNoSlots').classList.add('d-none');
+    document.getElementById('adminRescheduleError').classList.add('d-none');
 }
 
 function syncAdminRescheduleFormState() {
@@ -1962,10 +1966,7 @@ function handleAdminRescheduleAvailabilityChange() {
     syncAdminRescheduleFormState();
 
     if (!document.getElementById('adminRescheduleRespectGoogleCalendar').checked) {
-        document.getElementById('adminRescheduleTimesSection').style.display = 'none';
-        document.getElementById('adminRescheduleTimesGrid').innerHTML = '';
-        document.getElementById('adminRescheduleNoSlots').classList.add('d-none');
-        document.getElementById('adminRescheduleError').classList.add('d-none');
+        clearAdminRescheduleAvailabilityDisplay();
         return;
     }
 
@@ -1983,8 +1984,7 @@ function loadAdminRescheduleSlots() {
     syncAdminRescheduleFormState();
 
     if (!showAvailability) {
-        section.style.display = 'none';
-        grid.innerHTML = '';
+        clearAdminRescheduleAvailabilityDisplay();
         return;
     }
 
