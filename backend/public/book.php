@@ -1731,7 +1731,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
                 requestedCount = Math.max(1, currentPets.length || selectedExistingPets.length || 1);
             }
-            requestedCount = Math.max(requestedCount, selectedExistingPets.length > 0 ? selectedExistingPets.length : 1);
+            requestedCount = Math.max(requestedCount, selectedExistingPets.length || 1);
             const configuredMax = maxPets();
             if (configuredMax > 0) {
                 requestedCount = Math.min(requestedCount, configuredMax);

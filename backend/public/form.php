@@ -888,7 +888,7 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
         if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
             requestedCount = Math.max(1, currentPets.length || selectedExistingPets.length || initialPets.length || 1);
         }
-        requestedCount = Math.max(requestedCount, selectedExistingPets.length > 0 ? selectedExistingPets.length : 1);
+        requestedCount = Math.max(requestedCount, selectedExistingPets.length || 1);
         if (configuredMax > 0) {
             requestedCount = Math.min(requestedCount, configuredMax);
         }
