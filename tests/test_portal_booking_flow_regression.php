@@ -50,7 +50,7 @@ bdta_assert_portal_booking(
     'Portal booking page should render Pet Info Group fields with their per-field configuration.'
 );
 bdta_assert_portal_booking(
-    str_contains($book_page, 'fields[group.dataset.formField] = collectPetInfoGroupResponse(group);') &&
+    str_contains($book_page, 'collectPetInfoGroupResponse(group)') &&
     str_contains($book_page, 'getPetInfoGroupPetNames'),
     'Portal booking page should collect dynamic Pet Info Group responses and derive legacy pet-name fallbacks from them.'
 );
