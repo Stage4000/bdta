@@ -120,11 +120,25 @@ if (!is_string($book_page)) {
     throw new RuntimeException('Expected to read the public booking page.');
 }
 assertPetInfoGroup(str_contains($book_page, 'data-pet-info-config'), 'Expected the public booking flow to render pet info group configuration data.');
+assertPetInfoGroup(str_contains($book_page, 'getPetInfoGroupPetNames'), 'Expected the public booking flow to derive legacy dog-name values from pet info group responses.');
+
+$public_form_page = file_get_contents(dirname(__DIR__) . '/backend/public/form.php');
+if (!is_string($public_form_page)) {
+    throw new RuntimeException('Expected to read the public form submission page.');
+}
+assertPetInfoGroup(str_contains($public_form_page, 'data-pet-info-config'), 'Expected the public form submission page to render pet info group configuration data.');
+assertPetInfoGroup(str_contains($public_form_page, 'public_form_sync_pet_info_group_profiles($conn, $client_id, $fields, $responses);'), 'Expected public form submissions to sync pet info group responses into pet profiles.');
 
 $portal_page = file_get_contents(dirname(__DIR__) . '/portal/book_credit.php');
 if (!is_string($portal_page)) {
     throw new RuntimeException('Expected to read the portal credit booking page.');
 }
 assertPetInfoGroup(str_contains($portal_page, 'data-pet-info-config'), 'Expected the portal booking flow to render pet info group configuration data.');
+
+$portal_api_page = file_get_contents(dirname(__DIR__) . '/portal/api_book_credit.php');
+if (!is_string($portal_api_page)) {
+    throw new RuntimeException('Expected to read the portal credit booking API.');
+}
+assertPetInfoGroup(str_contains($portal_api_page, 'bdta_form_field_pet_info_group_profile_values'), 'Expected the portal booking API to map pet info group responses into pet profile values.');
 
 echo "Pet info group helper and UI regression test passed.\n";

@@ -46,6 +46,15 @@ bdta_assert_portal_booking(
     'Portal booking page should expose credit availability to the booking UI.'
 );
 bdta_assert_portal_booking(
+    str_contains($book_page, 'data-pet-info-config'),
+    'Portal booking page should render Pet Info Group fields with their per-field configuration.'
+);
+bdta_assert_portal_booking(
+    str_contains($book_page, 'fields[group.dataset.formField] = collectPetInfoGroupResponse(group);') &&
+    str_contains($book_page, 'getPetInfoGroupPetNames'),
+    'Portal booking page should collect dynamic Pet Info Group responses and derive legacy pet-name fallbacks from them.'
+);
+bdta_assert_portal_booking(
     str_contains($api_page, '$portal_available = array_int_value($apt_type, \'portal_available\') === 1;'),
     'Portal booking API should allow standard portal booking types without requiring a package credit.'
 );
@@ -61,6 +70,10 @@ bdta_assert_portal_booking(
     str_contains($api_page, '$credit_applied = $pkg_credit_id !== null && !$is_pending_request;') &&
     str_contains($api_page, '$pending_credit_requested = $pkg_credit_id !== null && $is_pending_request;'),
     'Portal booking API should only report package credit usage when a credit actually exists.'
+);
+bdta_assert_portal_booking(
+    str_contains($api_page, 'bdta_form_field_pet_info_group_profile_values'),
+    'Portal booking API should translate submitted Pet Info Group responses into pet profile updates.'
 );
 
 echo "Portal booking flow regression checks passed.\n";
