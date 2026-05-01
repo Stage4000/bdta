@@ -1690,6 +1690,13 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 return parsed > 0 ? parsed : 0;
             }
 
+            function petHasMeaningfulData(pet) {
+                return ['name', 'age_or_dob', 'breed', 'vaccines_current', 'spayed_neutered', 'source', 'ownership_length', 'species']
+                    .some(function (key) {
+                        return String(pet?.[key] || '').trim() !== '';
+                    });
+            }
+
             const existingPets = parseExistingPets().map(clonePet);
             if (!Array.isArray(group.bdtaSelectedExistingPetIds)) {
                 group.bdtaSelectedExistingPetIds = [];
@@ -1700,7 +1707,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 } else if (initialPets.length === 0 && existingPets.length > 0) {
                     const allowed = maxPets();
                     group.bdtaSelectedExistingPetIds = existingPets
-                        .slice(0, allowed > 0 ? allowed : existingPets.length)
+                        .slice(0, allowed > 0 ? Math.min(1, allowed) : 1)
                         .map(pet => petIdValue(pet.existing_pet_id))
                         .filter(Boolean);
                     if (group.bdtaSelectedExistingPetIds.length > 0) {
@@ -1711,10 +1718,30 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 }
             }
 
-            const selectedExistingIds = group.bdtaSelectedExistingPetIds;
             const currentPets = list.children.length > 0
                 ? collectPetInfoGroupResponse(group).map(clonePet)
                 : parsePetInfoValue(group.dataset.petInfoValue || '[]').map(clonePet);
+            const newPets = currentPets
+                .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
+                .filter(petHasMeaningfulData)
+                .map(clonePet);
+
+            let requestedCount = Number.parseInt(String(countInput.value || ''), 10);
+            if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
+                requestedCount = Math.max(1, currentPets.length || group.bdtaSelectedExistingPetIds.length || 1);
+            }
+            requestedCount = Math.max(1, requestedCount);
+            const configuredMax = maxPets();
+            if (configuredMax > 0) {
+                requestedCount = Math.min(requestedCount, configuredMax);
+            }
+            group.bdtaSelectedExistingPetIds = existingPets
+                .map(pet => petIdValue(pet.existing_pet_id))
+                .filter(petId => group.bdtaSelectedExistingPetIds.includes(petId));
+            if (group.bdtaSelectedExistingPetIds.length > requestedCount) {
+                group.bdtaSelectedExistingPetIds = group.bdtaSelectedExistingPetIds.slice(0, requestedCount);
+            }
+            const selectedExistingIds = group.bdtaSelectedExistingPetIds;
             const selectedExistingPets = selectedExistingIds
                 .map(function (petId) {
                     return currentPets.find(function (pet) { return petIdValue(pet.existing_pet_id) === petId; })
@@ -1723,19 +1750,6 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 })
                 .filter(Boolean)
                 .map(clonePet);
-            const newPets = currentPets
-                .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
-                .map(clonePet);
-
-            let requestedCount = Number.parseInt(String(countInput.value || ''), 10);
-            if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
-                requestedCount = Math.max(1, currentPets.length || selectedExistingPets.length || 1);
-            }
-            requestedCount = Math.max(requestedCount, selectedExistingPets.length || 1);
-            const configuredMax = maxPets();
-            if (configuredMax > 0) {
-                requestedCount = Math.min(requestedCount, configuredMax);
-            }
             countInput.value = String(requestedCount);
 
             const editablePets = newPets.slice(0, Math.max(0, requestedCount - selectedExistingPets.length));
@@ -1764,6 +1778,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                     existingPetsSection.classList.remove('d-none');
                     existingPetsSection.innerHTML = `
                         <div class="small fw-semibold mb-2">Pets already on file</div>
+                        <div class="small text-muted mb-2">Select the pets attending and we’ll keep the pet count in sync automatically.</div>
                         <div class="d-flex flex-column gap-2">
                             ${existingPets.map(function (pet) {
                                 const petId = petIdValue(pet.existing_pet_id);
@@ -1781,6 +1796,11 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                     `;
                     existingPetsSection.querySelectorAll('[data-existing-pet-checkbox]').forEach(function (checkbox) {
                         checkbox.addEventListener('change', function () {
+                            const currentNewPetCount = collectPetInfoGroupResponse(group)
+                                .map(clonePet)
+                                .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
+                                .filter(petHasMeaningfulData)
+                                .length;
                             const petId = petIdValue(checkbox.value);
                             if (checkbox.checked) {
                                 if (!group.bdtaSelectedExistingPetIds.includes(petId)) {
@@ -1789,6 +1809,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                             } else {
                                 group.bdtaSelectedExistingPetIds = group.bdtaSelectedExistingPetIds.filter(function (id) { return id !== petId; });
                             }
+                            countInput.value = String(Math.max(1, group.bdtaSelectedExistingPetIds.length + currentNewPetCount));
                             renderPetInfoGroup(group);
                         });
                     });

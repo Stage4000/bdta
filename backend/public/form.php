@@ -774,6 +774,13 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
         return parsed > 0 ? parsed : 0;
     }
 
+    function petHasMeaningfulData(pet) {
+        return ['name', 'age_or_dob', 'breed', 'vaccines_current', 'spayed_neutered', 'source', 'ownership_length', 'species']
+            .some(function (key) {
+                return String(pet?.[key] || '').trim() !== '';
+            });
+    }
+
     function syncInitialExistingSelection() {
         if (selectedExistingIds.length > 0 || existingPets.length === 0) {
             return;
@@ -790,7 +797,7 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
         if (initialPets.length === 0) {
             const allowed = maxPets();
             selectedExistingIds = existingPets
-                .slice(0, allowed > 0 ? allowed : existingPets.length)
+                .slice(0, allowed > 0 ? Math.min(1, allowed) : 1)
                 .map(function (pet) { return petIdValue(pet?.existing_pet_id); })
                 .filter(Boolean);
             if (selectedExistingIds.length > 0) {
@@ -836,6 +843,7 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
         existingPetsSection.classList.remove('d-none');
         existingPetsSection.innerHTML = `
             <div class="small fw-semibold mb-2">Pets already on file</div>
+            <div class="small text-muted mb-2">Select the pets attending and we’ll keep the pet count in sync automatically.</div>
             <div class="d-flex flex-column gap-2">
                 ${existingPets.map(function (pet) {
                     const petId = petIdValue(pet?.existing_pet_id);
@@ -855,6 +863,11 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
 
         existingPetsSection.querySelectorAll('[data-existing-pet-checkbox]').forEach(function (checkbox) {
             checkbox.addEventListener('change', function () {
+                const currentNewPetCount = readPetsFromDom()
+                    .map(clonePet)
+                    .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
+                    .filter(petHasMeaningfulData)
+                    .length;
                 const petId = petIdValue(checkbox.value);
                 if (checkbox.checked) {
                     if (!selectedExistingIds.includes(petId)) {
@@ -863,6 +876,7 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
                 } else {
                     selectedExistingIds = selectedExistingIds.filter(function (id) { return id !== petId; });
                 }
+                countInput.value = String(Math.max(1, selectedExistingIds.length + currentNewPetCount));
                 renderPets();
             });
         });
@@ -871,7 +885,26 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
     function renderPets() {
         syncInitialExistingSelection();
         const currentPets = list.children.length ? readPetsFromDom().map(clonePet) : initialPets.map(clonePet);
+        const newPets = currentPets
+            .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
+            .filter(petHasMeaningfulData)
+            .map(clonePet);
+
+        let requestedCount = Number.parseInt(String(countInput.value || ''), 10);
+        if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
+            requestedCount = Math.max(1, currentPets.length || selectedExistingIds.length || initialPets.length || 1);
+        }
+        requestedCount = Math.max(1, requestedCount);
         const configuredMax = maxPets();
+        if (configuredMax > 0) {
+            requestedCount = Math.min(requestedCount, configuredMax);
+        }
+        selectedExistingIds = existingPets
+            .map(function (pet) { return petIdValue(pet?.existing_pet_id); })
+            .filter(function (petId) { return selectedExistingIds.includes(petId); });
+        if (selectedExistingIds.length > requestedCount) {
+            selectedExistingIds = selectedExistingIds.slice(0, requestedCount);
+        }
         const selectedExistingPets = selectedExistingIds
             .map(function (petId) {
                 return currentPets.find(function (pet) { return petIdValue(pet.existing_pet_id) === petId; })
@@ -880,18 +913,6 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
             })
             .filter(Boolean)
             .map(clonePet);
-        const newPets = currentPets
-            .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
-            .map(clonePet);
-
-        let requestedCount = Number.parseInt(String(countInput.value || ''), 10);
-        if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
-            requestedCount = Math.max(1, currentPets.length || selectedExistingPets.length || initialPets.length || 1);
-        }
-        requestedCount = Math.max(requestedCount, selectedExistingPets.length || 1);
-        if (configuredMax > 0) {
-            requestedCount = Math.min(requestedCount, configuredMax);
-        }
         countInput.value = String(requestedCount);
 
         const editablePets = newPets.slice(0, Math.max(0, requestedCount - selectedExistingPets.length));
