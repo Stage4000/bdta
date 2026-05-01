@@ -700,6 +700,7 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
     let initialPets = [];
     let existingPets = [];
     let selectedExistingIds = [];
+    let existingSelectionInitialized = false;
     try {
         config = JSON.parse(group.dataset.petInfoConfig || '{}') || {};
     } catch (err) {
@@ -789,7 +790,12 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
     }
 
     function syncInitialExistingSelection() {
-        if (selectedExistingIds.length > 0 || existingPets.length === 0) {
+        if (existingSelectionInitialized || existingPets.length === 0) {
+            return;
+        }
+        existingSelectionInitialized = true;
+
+        if (selectedExistingIds.length > 0) {
             return;
         }
 
