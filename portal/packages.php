@@ -19,9 +19,9 @@ $stmt = $conn->query("
 $packages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $items_by_package = [];
-$package_ids = array_map(static fn (array $package): int => safe_int($package['id'] ?? 0), $packages);
-if ($package_ids !== []) {
-    $placeholders = implode(',', array_fill(0, count($package_ids), '?'));
+$validated_package_ids = array_map(static fn (array $package): int => safe_int($package['id'] ?? 0), $packages);
+if ($validated_package_ids !== []) {
+    $placeholders = implode(',', array_fill(0, count($validated_package_ids), '?'));
     // Placeholder count is generated from trusted package IDs and values remain parameterized.
     // nosemgrep
     $items_stmt = $conn->prepare("
@@ -31,7 +31,7 @@ if ($package_ids !== []) {
         WHERE pi.package_id IN ($placeholders)
         ORDER BY at.name
     ");
-    $items_stmt->execute($package_ids);
+    $items_stmt->execute($validated_package_ids);
     foreach ($items_stmt->fetchAll(PDO::FETCH_ASSOC) as $item_row) {
         $package_id = safe_int($item_row['package_id'] ?? 0);
         $items_by_package[$package_id][] = $item_row;
