@@ -87,6 +87,33 @@ function bdta_public_portal_return_path(string $default = ''): string
     return $portal_return;
 }
 
+function bdta_public_current_path(string $default = ''): string
+{
+    return bdta_public_portal_return_sanitize_path(
+        bdta_public_portal_return_string($_SERVER['REQUEST_URI'] ?? ''),
+        $default
+    );
+}
+
+function bdta_public_login_return_path(string $default = ''): string
+{
+    return bdta_public_portal_return_sanitize_path(
+        bdta_public_portal_return_string($_POST['return_to'] ?? $_GET['return_to'] ?? ''),
+        $default
+    );
+}
+
+function bdta_public_portal_login_url(string $return_to): string
+{
+    $sanitized_return_to = bdta_public_portal_return_sanitize_path($return_to, '');
+    $portal_login_path = rtrim(bdta_public_portal_base_path(), '/') . '/login.php';
+    if ($sanitized_return_to === '') {
+        return $portal_login_path;
+    }
+
+    return $portal_login_path . '?return_to=' . rawurlencode($sanitized_return_to);
+}
+
 function bdta_append_public_portal_return(string $url, string $portal_return): string
 {
     $public_url = bdta_public_portal_return_sanitize_path($url, '');

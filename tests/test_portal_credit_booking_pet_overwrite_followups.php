@@ -209,6 +209,11 @@ try {
     $portal_api = scalar_string(file_get_contents(dirname(__DIR__) . '/portal/api_book_credit.php'));
     assertPortalPetOverwriteFollowup(strpos($portal_api, '$booking_pet_ids = $pet_ids;') !== false, 'Portal mapping should use the validated and cloned booking pet IDs.');
     assertPortalPetOverwriteFollowup(strpos($portal_api, 'api_booking_order_verified_pet_ids($requested_pet_ids, $verified_pet_ids)') !== false, 'Portal pet verification should preserve the original request order.');
+    assertPortalPetOverwriteFollowup(strpos($portal_api, 'api_booking_validate_pet_info_group_responses($conn, $data[\'form_responses\'])') !== false, 'Portal bookings should validate Pet Info Group responses before mapping them into pet updates.');
+    assertPortalPetOverwriteFollowup(strpos($portal_api, 'api_booking_merge_pet_ids_with_profile_updates($conn, $client_id, $pet_ids, $pet_updates)') !== false, 'Portal bookings should merge new Pet Info Group pets into the selected pet ID list before linking the booking.');
+    assertPortalPetOverwriteFollowup(strpos($portal_api, 'if (!array_key_exists($pet_index, $pet_ids) || safe_int($pet_ids[$pet_index]) <= 0)') !== false, 'Portal bookings should detect Pet Info Group indices that still need pet records created.');
+    assertPortalPetOverwriteFollowup(strpos($portal_api, 'foreach ($pet_updates as $pet_index => $pet_profile)') !== false, 'Portal pet creation should preserve the original mapped pet indices.');
+    assertPortalPetOverwriteFollowup(strpos($portal_api, '$created_pet_ids[$pet_index] = $existing_pet_id;') !== false, 'Portal pet creation should reuse existing pet IDs without mutating profiles before overwrite handling.');
     assertPortalPetOverwriteFollowup(strpos($portal_api, 'DateTime::getLastErrors()') !== false, 'Portal date parsing should reject values that produce warnings or errors.');
 
     echo "Portal credit booking pet overwrite follow-up test passed.\n";

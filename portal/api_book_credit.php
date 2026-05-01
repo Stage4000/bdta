@@ -269,6 +269,18 @@ if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
     }
 }
 
+$pet_updates = [];
+if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+    $pet_info_group_errors = api_booking_validate_pet_info_group_responses($conn, $data['form_responses']);
+    if ($pet_info_group_errors !== []) {
+        echo json_encode(['error' => $pet_info_group_errors[0]]);
+        exit;
+    }
+    $pet_updates = api_booking_collect_pet_profile_mapped_values($conn, $data['form_responses']);
+}
+
+$pet_ids = api_booking_merge_pet_ids_with_profile_updates($conn, $client_id, $pet_ids, $pet_updates);
+
 // Distinguish between three cases sent by the client:
 //   • overwrite_profile key absent  → modal was never shown (no detected conflict); always apply mapping
 //   • overwrite_profile: true       → user confirmed the overwrite prompt; always apply mapping
@@ -276,8 +288,7 @@ if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
 //                                       and create new pet profiles for conflicting pet mappings
 $overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
 
-if ($overwrite_declined && !empty($data['form_responses']) && is_array($data['form_responses'])) {
-    $pet_updates = api_booking_collect_pet_profile_mapped_values($conn, $data['form_responses']);
+if ($overwrite_declined) {
     if ($pet_updates !== []) {
         $pet_ids = api_booking_clone_conflicting_pets($conn, $client_id, $pet_ids, $pet_updates);
     }
@@ -405,7 +416,7 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
                 }
             }
             $submission_pet_ids = $insert_supports_pet_id
-                ? bdta_get_form_submission_pet_ids($template_frequency, $pet_ids)
+                ? bdta_get_form_submission_pet_ids($template_frequency, array_values($pet_ids))
                 : [null];
             foreach ($submission_pet_ids as $submission_pet_id) {
                 $params = $insert_supports_pet_id
@@ -461,8 +472,24 @@ function updatePetProfileField(PDO $conn, string $attr, string|int $value, int $
             $conn->prepare("UPDATE pets SET date_of_birth = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                  ->execute([$value, $pet_id]);
             return true;
+        case 'age_years':
+            $conn->prepare("UPDATE pets SET age_years = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'age_months':
+            $conn->prepare("UPDATE pets SET age_months = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
         case 'source':
             $conn->prepare("UPDATE pets SET source = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'ownership_length_years':
+            $conn->prepare("UPDATE pets SET ownership_length_years = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                 ->execute([$value, $pet_id]);
+            return true;
+        case 'ownership_length_months':
+            $conn->prepare("UPDATE pets SET ownership_length_months = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                  ->execute([$value, $pet_id]);
             return true;
         case 'spayed_neutered':
@@ -556,16 +583,88 @@ function api_booking_order_verified_pet_ids(array $requested_pet_ids, array $ver
 }
 
 /**
+ * @param array<int, int> $pet_ids
+ * @param array<int, array<string, string|int>> $pet_updates
+ * @return array<int, int>
+ */
+function api_booking_merge_pet_ids_with_profile_updates(SafePDO $conn, int $client_id, array $pet_ids, array $pet_updates): array {
+    if ($client_id <= 0 || $pet_updates === []) {
+        return $pet_ids;
+    }
+
+    if ($pet_ids === []) {
+        return api_booking_create_pets_from_profile_updates($conn, $client_id, $pet_updates);
+    }
+
+    $missing_pet_updates = [];
+    foreach ($pet_updates as $pet_index => $pet_profile) {
+        if (!array_key_exists($pet_index, $pet_ids) || safe_int($pet_ids[$pet_index]) <= 0) {
+            $missing_pet_updates[$pet_index] = $pet_profile;
+        }
+    }
+
+    if ($missing_pet_updates === []) {
+        return $pet_ids;
+    }
+
+    foreach (api_booking_create_pets_from_profile_updates($conn, $client_id, $missing_pet_updates) as $pet_index => $pet_id) {
+        if ($pet_id > 0) {
+            $pet_ids[$pet_index] = $pet_id;
+        }
+    }
+
+    return $pet_ids;
+}
+
+/**
+ * @param array<int|string, mixed> $form_responses
+ * @return list<string>
+ */
+function api_booking_validate_pet_info_group_responses(SafePDO $conn, array $form_responses): array {
+    $errors = [];
+
+    foreach ($form_responses as $tpl_id => $responses) {
+        if (!is_array($responses)) {
+            continue;
+        }
+
+        $tpl_stmt = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
+        $tpl_stmt->execute([(int)$tpl_id]);
+        $tpl_row = assoc_row($tpl_stmt->fetch(PDO::FETCH_ASSOC));
+        if ($tpl_row === []) {
+            continue;
+        }
+
+        $tpl_fields = decode_json_assoc_list(array_string_value($tpl_row, 'fields'));
+        foreach ($tpl_fields as $fi => $field) {
+            if (!bdta_form_field_is_pet_info_group($field)) {
+                continue;
+            }
+
+            foreach (bdta_form_field_pet_info_group_validate_response($field, $responses[$fi] ?? $responses[(string) $fi] ?? null) as $error) {
+                $errors[] = $error;
+            }
+        }
+    }
+
+    return $errors;
+}
+
+/**
  * @param array<int|string, mixed> $form_responses
  * @return array<int, array<string, string|int>>
  */
-function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_responses): array {
+function api_booking_collect_pet_profile_mapped_values(SafePDO $conn, array $form_responses): array {
     $supported_attrs = [
         'name' => true,
         'species' => true,
         'breed' => true,
         'date_of_birth' => true,
+        'age_years' => true,
+        'age_months' => true,
         'source' => true,
+        'ownership_length_years' => true,
+        'ownership_length_months' => true,
         'spayed_neutered' => true,
         'vaccines_current' => true,
         'vaccine_notes' => true,
@@ -590,6 +689,20 @@ function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_re
 
         $tpl_fields = decode_json_assoc_list(array_string_value($tpl_row, 'fields'));
         foreach ($tpl_fields as $fi => $field) {
+            if (bdta_form_field_is_pet_info_group($field)) {
+                foreach (bdta_form_field_pet_info_group_profile_values($field, $responses[$fi] ?? $responses[(string) $fi] ?? null) as $pet_index => $pet_profile) {
+                    if (!isset($pet_updates[$pet_index])) {
+                        $pet_updates[$pet_index] = [];
+                    }
+                    foreach ($pet_profile as $attr => $normalized_value) {
+                        if (isset($supported_attrs[$attr])) {
+                            $pet_updates[$pet_index][$attr] = $normalized_value;
+                        }
+                    }
+                }
+                continue;
+            }
+
             $mapping = array_string_value($field, 'profile_mapping');
             if (!preg_match('/^pet_([123])\.(.+)$/', $mapping, $matches)) {
                 continue;
@@ -617,6 +730,91 @@ function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_re
 }
 
 /**
+ * @param array<int, array<string, string|int>> $pet_updates
+ * @return array<int, int>
+ */
+function api_booking_create_pets_from_profile_updates(SafePDO $conn, int $client_id, array $pet_updates): array {
+    if ($client_id <= 0 || $pet_updates === []) {
+        return [];
+    }
+
+    $pet_columns = api_booking_pet_table_columns($conn);
+    if ($pet_columns === []) {
+        return [];
+    }
+
+    $supported_attrs = array_values(array_intersect([
+        'name',
+        'species',
+        'breed',
+        'date_of_birth',
+        'age_years',
+        'age_months',
+        'source',
+        'ownership_length_years',
+        'ownership_length_months',
+        'spayed_neutered',
+        'vaccines_current',
+        'vaccine_notes',
+        'behavior_notes',
+        'medical_notes',
+        'training_notes',
+        'pet_sitting_notes',
+    ], $pet_columns));
+
+    $created_pet_ids = [];
+    $find_pet_stmt = $conn->prepare('SELECT id FROM pets WHERE client_id = ? AND name = ? ORDER BY id ASC LIMIT 1');
+
+    foreach ($pet_updates as $pet_index => $pet_profile) {
+        $pet_name = trim(scalar_string($pet_profile['name'] ?? ''));
+        if ($pet_name === '') {
+            continue;
+        }
+
+        $find_pet_stmt->execute([$client_id, $pet_name]);
+        $existing_pet_id = safe_int($find_pet_stmt->fetchColumn());
+
+        $params = [];
+        if ($existing_pet_id > 0) {
+            $created_pet_ids[$pet_index] = $existing_pet_id;
+            continue;
+        }
+
+        $insert_columns = ['client_id'];
+        $insert_sql = ['?'];
+        $params[] = $client_id;
+        foreach ($supported_attrs as $attr) {
+            if (!array_key_exists($attr, $pet_profile)) {
+                continue;
+            }
+            $insert_columns[] = $attr;
+            $insert_sql[] = '?';
+            $params[] = $pet_profile[$attr];
+        }
+        if (in_array('is_active', $pet_columns, true)) {
+            $insert_columns[] = 'is_active';
+            $insert_sql[] = '?';
+            $params[] = 1;
+        }
+        if (in_array('created_at', $pet_columns, true)) {
+            $insert_columns[] = 'created_at';
+            $insert_sql[] = 'CURRENT_TIMESTAMP';
+        }
+        if (in_array('updated_at', $pet_columns, true)) {
+            $insert_columns[] = 'updated_at';
+            $insert_sql[] = 'CURRENT_TIMESTAMP';
+        }
+
+        $conn->prepare(
+            'INSERT INTO pets (' . implode(', ', $insert_columns) . ') VALUES (' . implode(', ', $insert_sql) . ')'
+        )->execute($params);
+        $created_pet_ids[$pet_index] = (int)$conn->lastInsertId();
+    }
+
+    return $created_pet_ids;
+}
+
+/**
  * @return list<string>
  */
 function api_booking_pet_table_columns(PDO $conn): array {
@@ -636,9 +834,9 @@ function api_booking_pet_table_columns(PDO $conn): array {
 }
 
 /**
- * @param list<int> $pet_ids
+ * @param array<int, int> $pet_ids
  * @param array<int, array<string, string|int>> $pet_updates
- * @return list<int>
+ * @return array<int, int>
  */
 function api_booking_clone_conflicting_pets(PDO $conn, int $client_id, array $pet_ids, array $pet_updates): array {
     if ($client_id <= 0 || $pet_ids === [] || $pet_updates === []) {
@@ -651,7 +849,11 @@ function api_booking_clone_conflicting_pets(PDO $conn, int $client_id, array $pe
         'species',
         'breed',
         'date_of_birth',
+        'age_years',
+        'age_months',
         'source',
+        'ownership_length_years',
+        'ownership_length_months',
         'spayed_neutered',
         'vaccines_current',
         'vaccine_notes',

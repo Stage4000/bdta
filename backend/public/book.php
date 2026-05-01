@@ -73,6 +73,9 @@ function public_book_portal_prefill_value(array $portal_profile, string $mapping
 $db = new Database();
 $conn = $db->getConnection();
 $portal_return = bdta_public_portal_return_path();
+$portal_login_url = bdta_public_portal_login_url(
+    bdta_public_current_path('/backend/public/book.php')
+);
 $portal_prefill_profile = [
     'name' => '',
     'email' => '',
@@ -97,7 +100,9 @@ if (isPortalLoggedIn()) {
         }
 
         $stmt = $conn->prepare("
-            SELECT id, name, species, breed, date_of_birth, source, spayed_neutered, vaccines_current
+            SELECT id, name, species, breed, date_of_birth, age_years, age_months,
+                   source, ownership_length_years, ownership_length_months,
+                   spayed_neutered, vaccines_current
             FROM pets
             WHERE client_id = ? AND is_active = 1
             ORDER BY name
@@ -932,6 +937,41 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                                     <div class="form-text text-muted mb-1"><?= htmlspecialchars($bi_description) ?></div>
                                     <?php endif; ?>
                                     <?php switch ($bi_type):
+                                        case bdta_pet_info_group_field_type():
+                                            $bi_pet_group_config = bdta_form_field_pet_info_group_config($bifield);
+                                            $bi_pet_group_config_json = json_encode($bi_pet_group_config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+                                            $bi_existing_pets = isPortalLoggedIn()
+                                                ? bdta_form_field_pet_info_group_prefill_pets($bifield, $portal_prefill_pets)
+                                                : [];
+                                            $bi_existing_pets_json = json_encode($bi_existing_pets, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
+                            <div class="pet-info-group border rounded p-3 bg-light"
+                                 data-booking-intake-field="<?= $bifi ?>"
+                                  data-form-field-type="<?= htmlspecialchars($bi_type) ?>"
+                                  data-pet-info-config="<?= htmlspecialchars($bi_pet_group_config_json === false ? '{}' : $bi_pet_group_config_json, ENT_QUOTES, 'UTF-8') ?>"
+                                 data-pet-info-value="[]"
+                                 data-existing-pets="<?= htmlspecialchars($bi_existing_pets_json === false ? '[]' : $bi_existing_pets_json, ENT_QUOTES, 'UTF-8') ?>"
+                                 data-login-url="<?= htmlspecialchars(isPortalLoggedIn() ? '' : $portal_login_url, ENT_QUOTES, 'UTF-8') ?>">
+                                <?php if (!isPortalLoggedIn()): ?>
+                                <div class="small text-muted mb-3">
+                                    Already a client with us?
+                                    <a href="<?= htmlspecialchars($portal_login_url) ?>">Login</a>
+                                    to skip the forms!
+                                </div>
+                                <?php endif; ?>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="petCountBookingIntake<?= (int) $bifi ?>">Number of Pets <span class="text-danger">*</span></label>
+                                        <input type="text" id="petCountBookingIntake<?= (int) $bifi ?>" inputmode="numeric" pattern="[0-9]*" class="form-control" data-pet-count value="1">
+                                        <div class="form-text d-none" id="petCountBookingIntakeLimit<?= (int) $bifi ?>" data-pet-limit-message aria-live="polite"></div>
+                                    </div>
+                                    <div class="col-md-auto d-flex align-items-end">
+                                        <button type="button" class="btn btn-outline-primary" data-add-pet-button>Add New Pet</button>
+                                    </div>
+                                </div>
+                                <div class="mt-3 d-none" data-existing-pets-section></div>
+                                <div class="mt-3" data-pet-list></div>
+                            </div>
+                            <?php break;
                                         case 'textarea': ?>
                             <textarea class="form-control form-control-lg"
                                       data-booking-intake-field="<?= $bifi ?>"
@@ -1178,6 +1218,41 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                                     <?php
                                     $aria = $field_description !== '' ? 'aria-describedby="field-desc-' . $form_id . '-' . $fi . '"' : '';
                                     switch ($field_type):
+                                        case bdta_pet_info_group_field_type():
+                                            $pet_group_config = bdta_form_field_pet_info_group_config($field);
+                                            $pet_group_config_json = json_encode($pet_group_config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+                                            $pet_group_existing_pets = isPortalLoggedIn()
+                                                ? bdta_form_field_pet_info_group_prefill_pets($field, $portal_prefill_pets)
+                                                : [];
+                                            $pet_group_existing_pets_json = json_encode($pet_group_existing_pets, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
+                                        <div class="pet-info-group border rounded p-3 bg-light"
+                                             data-form-field="<?= $fi ?>"
+                                             data-form-field-type="<?= htmlspecialchars($field_type) ?>"
+                                             data-pet-info-config="<?= htmlspecialchars($pet_group_config_json === false ? '{}' : $pet_group_config_json, ENT_QUOTES, 'UTF-8') ?>"
+                                             data-pet-info-value="[]"
+                                             data-existing-pets="<?= htmlspecialchars($pet_group_existing_pets_json === false ? '[]' : $pet_group_existing_pets_json, ENT_QUOTES, 'UTF-8') ?>"
+                                             data-login-url="<?= htmlspecialchars(isPortalLoggedIn() ? '' : $portal_login_url, ENT_QUOTES, 'UTF-8') ?>">
+                                            <?php if (!isPortalLoggedIn()): ?>
+                                            <div class="small text-muted mb-3">
+                                                Already a client with us?
+                                                <a href="<?= htmlspecialchars($portal_login_url) ?>">Login</a>
+                                                to skip the forms!
+                                            </div>
+                                            <?php endif; ?>
+                                            <div class="row g-3">
+                                                <div class="col-md-4">
+                                                    <label class="form-label" for="petCountRequiredForm<?= (int) $form_id ?>_<?= (int) $fi ?>">Number of Pets <span class="text-danger">*</span></label>
+                                                    <input type="text" id="petCountRequiredForm<?= (int) $form_id ?>_<?= (int) $fi ?>" inputmode="numeric" pattern="[0-9]*" class="form-control" data-pet-count value="1">
+                                                    <div class="form-text d-none" id="petCountRequiredFormLimit<?= (int) $form_id ?>_<?= (int) $fi ?>" data-pet-limit-message aria-live="polite"></div>
+                                                </div>
+                                                <div class="col-md-auto d-flex align-items-end">
+                                                    <button type="button" class="btn btn-outline-primary" data-add-pet-button>Add New Pet</button>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3 d-none" data-existing-pets-section></div>
+                                            <div class="mt-3" data-pet-list></div>
+                                        </div>
+                                        <?php break;
                                         case 'textarea': ?>
                                         <textarea class="form-control" data-form-field="<?= $fi ?>"
                                                   placeholder="<?= $ph ?>"
@@ -1502,6 +1577,372 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             return String(value ?? '').trim();
         }
 
+        function parsePetInfoConfig(rawConfig) {
+            if (!rawConfig) return {};
+            try {
+                return JSON.parse(rawConfig) || {};
+            } catch (err) {
+                return {};
+            }
+        }
+
+        function parsePetInfoValue(rawValue) {
+            if (!rawValue) return [];
+            try {
+                const parsed = JSON.parse(rawValue);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+                return [];
+            }
+        }
+
+        function collectPetInfoGroupResponse(group) {
+            if (!group) return [];
+            return Array.from(group.querySelectorAll('[data-pet-row]')).map(function (row) {
+                return {
+                    existing_pet_id: Number.parseInt(String(row.querySelector('[data-pet-existing-id]')?.value || '0'), 10) || 0,
+                    name: row.querySelector('[data-pet-attr="name"]')?.value.trim() || '',
+                    age_or_dob: row.querySelector('[data-pet-attr="age_or_dob"]')?.value.trim() || '',
+                    breed: row.querySelector('[data-pet-attr="breed"]')?.value.trim() || '',
+                    vaccines_current: row.querySelector('[data-pet-attr="vaccines_current"]')?.value || '',
+                    spayed_neutered: row.querySelector('[data-pet-attr="spayed_neutered"]')?.value || '',
+                    source: row.querySelector('[data-pet-attr="source"]')?.value.trim() || '',
+                    ownership_length: row.querySelector('[data-pet-attr="ownership_length"]')?.value.trim() || '',
+                    species: row.querySelector('[data-pet-attr="species"]')?.value.trim() || ''
+                };
+            });
+        }
+
+        function getPetInfoGroupPetNames(value) {
+            if (!Array.isArray(value)) return [];
+            return value
+                .map(function (pet) { return (pet && pet.name ? String(pet.name).trim() : ''); })
+                .filter(Boolean);
+        }
+
+        function escapePetInfoHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, function (char) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char;
+            });
+        }
+
+        function renderPetInfoGroup(group) {
+            if (!group) return;
+            const config = parsePetInfoConfig(group.dataset.petInfoConfig || '{}');
+            const countInput = group.querySelector('[data-pet-count]');
+            const list = group.querySelector('[data-pet-list]');
+            const addPetButton = group.querySelector('[data-add-pet-button]');
+            const existingPetsSection = group.querySelector('[data-existing-pets-section]');
+            const limitMessage = group.querySelector('[data-pet-limit-message]');
+            if (!countInput || !list) return;
+
+            function parseExistingPets() {
+                try {
+                    const parsed = JSON.parse(group.dataset.existingPets || '[]');
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (err) {
+                    return [];
+                }
+            }
+
+            function petIdValue(value) {
+                return Number.parseInt(String(value || '0'), 10) || 0;
+            }
+
+            function sanitizePetCountInput() {
+                countInput.value = countInput.value.replace(/[^\d]/g, '');
+            }
+
+            function petLimitMessageText(configuredMax) {
+                return 'This session allows up to ' + configuredMax + ' pet' + (configuredMax === 1 ? '' : 's') + '.';
+            }
+
+            function clonePet(pet) {
+                return {
+                    existing_pet_id: petIdValue(pet?.existing_pet_id),
+                    name: String(pet?.name || ''),
+                    age_or_dob: String(pet?.age_or_dob || ''),
+                    breed: String(pet?.breed || ''),
+                    vaccines_current: String(pet?.vaccines_current || ''),
+                    spayed_neutered: String(pet?.spayed_neutered || ''),
+                    source: String(pet?.source || ''),
+                    ownership_length: String(pet?.ownership_length || ''),
+                    species: String(pet?.species || '')
+                };
+            }
+
+            function blankPet() {
+                return {
+                    existing_pet_id: 0,
+                    name: '',
+                    age_or_dob: '',
+                    breed: '',
+                    vaccines_current: '',
+                    spayed_neutered: '',
+                    source: '',
+                    ownership_length: '',
+                    species: config.default_species || (config.dog_only_species ? 'Dog' : '')
+                };
+            }
+
+            function maxPets() {
+                const parsed = Number.parseInt(String(config.max_pets || '0'), 10) || 0;
+                return parsed > 0 ? parsed : 0;
+            }
+
+            function petHasMeaningfulData(pet) {
+                return ['name', 'age_or_dob', 'breed', 'vaccines_current', 'spayed_neutered', 'source', 'ownership_length', 'species']
+                    .some(function (key) {
+                        return String(pet?.[key] || '').trim() !== '';
+                    });
+            }
+
+            function meaningfulNewPets(pets) {
+                return pets
+                    .filter(function (pet) { return petIdValue(pet?.existing_pet_id) <= 0; })
+                    .filter(petHasMeaningfulData)
+                    .map(clonePet);
+            }
+
+            const existingPets = parseExistingPets().map(clonePet);
+            if (!Array.isArray(group.bdtaSelectedExistingPetIds)) {
+                group.bdtaSelectedExistingPetIds = [];
+                const initialPets = parsePetInfoValue(group.dataset.petInfoValue || '[]').map(clonePet);
+                const initialExistingIds = initialPets.map(pet => petIdValue(pet.existing_pet_id)).filter(Boolean);
+                if (initialExistingIds.length > 0) {
+                    group.bdtaSelectedExistingPetIds = initialExistingIds;
+                } else if (initialPets.length === 0 && existingPets.length > 0) {
+                    const allowed = maxPets();
+                    group.bdtaSelectedExistingPetIds = existingPets
+                        .slice(0, allowed > 0 ? Math.min(1, allowed) : 1)
+                        .map(pet => petIdValue(pet.existing_pet_id))
+                        .filter(Boolean);
+                    if (group.bdtaSelectedExistingPetIds.length > 0) {
+                        group.dataset.petInfoValue = JSON.stringify(group.bdtaSelectedExistingPetIds
+                            .map(id => existingPets.find(pet => petIdValue(pet.existing_pet_id) === id) || null)
+                            .filter(Boolean));
+                    }
+                }
+            }
+
+            const currentPets = list.children.length > 0
+                ? collectPetInfoGroupResponse(group).map(clonePet)
+                : parsePetInfoValue(group.dataset.petInfoValue || '[]').map(clonePet);
+            const newPets = meaningfulNewPets(currentPets);
+
+            let requestedCount = Number.parseInt(String(countInput.value || ''), 10);
+            if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
+                requestedCount = Math.max(1, currentPets.length || group.bdtaSelectedExistingPetIds.length || 1);
+            }
+            requestedCount = Math.max(1, requestedCount);
+            const configuredMax = maxPets();
+            if (configuredMax > 0) {
+                requestedCount = Math.min(requestedCount, configuredMax);
+            }
+            const validExistingPetIds = new Set(existingPets.map(pet => petIdValue(pet.existing_pet_id)));
+            group.bdtaSelectedExistingPetIds = group.bdtaSelectedExistingPetIds.filter(petId => validExistingPetIds.has(petId));
+            if (group.bdtaSelectedExistingPetIds.length > requestedCount) {
+                group.bdtaSelectedExistingPetIds = group.bdtaSelectedExistingPetIds.slice(0, requestedCount);
+            }
+            const selectedExistingIds = group.bdtaSelectedExistingPetIds;
+            const selectedExistingPets = selectedExistingIds
+                .map(function (petId) {
+                    return currentPets.find(function (pet) { return petIdValue(pet.existing_pet_id) === petId; })
+                        || existingPets.find(function (pet) { return petIdValue(pet.existing_pet_id) === petId; })
+                        || null;
+                })
+                .filter(Boolean)
+                .map(clonePet);
+            countInput.value = String(requestedCount);
+
+            const editablePets = newPets.slice(0, Math.max(0, requestedCount - selectedExistingPets.length));
+            while (editablePets.length < Math.max(0, requestedCount - selectedExistingPets.length)) {
+                editablePets.push(blankPet());
+            }
+            group.dataset.petInfoValue = JSON.stringify(selectedExistingPets.concat(editablePets));
+
+            if (limitMessage) {
+                if (configuredMax > 0) {
+                    limitMessage.classList.remove('d-none');
+                    limitMessage.textContent = petLimitMessageText(configuredMax);
+                } else {
+                    limitMessage.classList.add('d-none');
+                    limitMessage.textContent = '';
+                }
+            }
+            if (addPetButton) {
+                addPetButton.disabled = configuredMax > 0 && requestedCount >= configuredMax;
+            }
+            if (existingPetsSection) {
+                if (existingPets.length === 0) {
+                    existingPetsSection.classList.add('d-none');
+                    existingPetsSection.innerHTML = '';
+                } else {
+                    existingPetsSection.classList.remove('d-none');
+                    existingPetsSection.innerHTML = `
+                        <div class="small fw-semibold mb-2">Pets already on file</div>
+                        <div class="small text-muted mb-2">Select the pets attending and we’ll keep the pet count in sync automatically.</div>
+                        <div class="d-flex flex-column gap-2">
+                            ${existingPets.map(function (pet) {
+                                const petId = petIdValue(pet.existing_pet_id);
+                                const isSelected = selectedExistingIds.includes(petId);
+                                const disableUnchecked = configuredMax > 0 && !isSelected && selectedExistingIds.length >= configuredMax;
+                                return `
+                                    <label class="form-check border rounded px-3 py-2 bg-white">
+                                        <input class="form-check-input me-2" type="checkbox" data-existing-pet-checkbox value="${petId}" ${isSelected ? 'checked' : ''} ${disableUnchecked ? 'disabled' : ''}>
+                                        <span class="fw-semibold">${escapePetInfoHtml(pet.name || 'Pet')}</span>
+                                        ${pet.breed ? `<span class="text-muted small">(${escapePetInfoHtml(pet.breed)})</span>` : ''}
+                                    </label>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                    existingPetsSection.querySelectorAll('[data-existing-pet-checkbox]').forEach(function (checkbox) {
+                        checkbox.addEventListener('change', function () {
+                            const currentNewPetCount = meaningfulNewPets(collectPetInfoGroupResponse(group).map(clonePet)).length;
+                            const petId = petIdValue(checkbox.value);
+                            if (checkbox.checked) {
+                                if (!group.bdtaSelectedExistingPetIds.includes(petId)) {
+                                    group.bdtaSelectedExistingPetIds.push(petId);
+                                }
+                            } else {
+                                group.bdtaSelectedExistingPetIds = group.bdtaSelectedExistingPetIds.filter(function (id) { return id !== petId; });
+                            }
+                            countInput.value = String(Math.max(1, group.bdtaSelectedExistingPetIds.length + currentNewPetCount));
+                            renderPetInfoGroup(group);
+                        });
+                    });
+                }
+            }
+
+            const existingPetCards = selectedExistingPets.map(function (pet, index) {
+                const speciesSummary = config.include_species && (pet.species || config.default_species)
+                    ? ` • ${escapePetInfoHtml(pet.species || config.default_species)}`
+                    : '';
+                return `
+                    <div class="card mb-3 border-secondary-subtle" data-pet-row data-selected-existing-pet>
+                        <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                            <span>Pet ${index + 1}</span>
+                            <span class="badge text-bg-secondary">On File</span>
+                        </div>
+                        <div class="card-body py-3">
+                            <div class="small">
+                                <span class="fw-semibold">${escapePetInfoHtml(pet.name || 'Pet')}</span>
+                                ${pet.breed ? `<span class="text-muted"> • ${escapePetInfoHtml(pet.breed)}</span>` : ''}
+                                ${speciesSummary ? `<span class="text-muted">${speciesSummary}</span>` : ''}
+                            </div>
+                            <div class="small text-muted mt-1">Details already on file. Use Add New Pet to enter a different pet.</div>
+                            <input type="hidden" value="${petIdValue(pet.existing_pet_id)}" data-pet-existing-id>
+                            <input type="hidden" value="${escapePetInfoHtml(pet.name)}" data-pet-attr="name">
+                            <input type="hidden" value="${escapePetInfoHtml(pet.age_or_dob)}" data-pet-attr="age_or_dob">
+                            <input type="hidden" value="${escapePetInfoHtml(pet.breed)}" data-pet-attr="breed">
+                            <input type="hidden" value="${escapePetInfoHtml(pet.vaccines_current)}" data-pet-attr="vaccines_current">
+                            <input type="hidden" value="${escapePetInfoHtml(pet.spayed_neutered)}" data-pet-attr="spayed_neutered">
+                            <input type="hidden" value="${escapePetInfoHtml(pet.source)}" data-pet-attr="source">
+                            <input type="hidden" value="${escapePetInfoHtml(pet.ownership_length)}" data-pet-attr="ownership_length">
+                            <input type="hidden" value="${escapePetInfoHtml(pet.species || config.default_species || '')}" data-pet-attr="species">
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const editablePetCards = editablePets.map(function (pet, editableIndex) {
+                const index = selectedExistingPets.length + editableIndex;
+                const speciesField = config.include_species
+                    ? (config.dog_only_species
+                        ? `<div class="col-md-6">
+                                <label class="form-label">Species</label>
+                                <input type="text" class="form-control" value="Dog" readonly>
+                                <input type="hidden" value="Dog" data-pet-attr="species">
+                           </div>`
+                        : `<div class="col-md-6">
+                                <label class="form-label">Species</label>
+                                <input type="text" class="form-control" value="${escapePetInfoHtml(pet.species || config.default_species || '')}" data-pet-attr="species">
+                           </div>`)
+                    : '';
+                return `
+                    <div class="card mb-3" data-pet-row>
+                        <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                            <span>Pet ${index + 1}</span>
+                        </div>
+                        <div class="card-body">
+                            <input type="hidden" value="${petIdValue(pet.existing_pet_id)}" data-pet-existing-id>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Pet Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" value="${escapePetInfoHtml(pet.name)}" data-pet-attr="name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Age or Date of Birth <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" value="${escapePetInfoHtml(pet.age_or_dob)}" data-pet-attr="age_or_dob" placeholder="e.g. 2 years, 6 months or 2021-04-15" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Breed <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" value="${escapePetInfoHtml(pet.breed)}" data-pet-attr="breed" required>
+                                    <div class="form-text">If breed is unknown, describe the pet’s color, pattern, or identifying features.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Vaccine Status <span class="text-danger">*</span></label>
+                                    <select class="form-select" data-pet-attr="vaccines_current" required>
+                                        <option value="">— Select —</option>
+                                        <option value="yes" ${pet.vaccines_current === 'yes' ? 'selected' : ''}>Current</option>
+                                        <option value="no" ${pet.vaccines_current === 'no' ? 'selected' : ''}>Not Current</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Spay/Neuter Status <span class="text-danger">*</span></label>
+                                    <select class="form-select" data-pet-attr="spayed_neutered" required>
+                                        <option value="">— Select —</option>
+                                        <option value="yes" ${pet.spayed_neutered === 'yes' ? 'selected' : ''}>Yes, spayed/neutered</option>
+                                        <option value="no" ${pet.spayed_neutered === 'no' ? 'selected' : ''}>No, intact</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Where did you acquire this pet from? <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" value="${escapePetInfoHtml(pet.source)}" data-pet-attr="source" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">How long have you had this pet? <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" value="${escapePetInfoHtml(pet.ownership_length)}" data-pet-attr="ownership_length" placeholder="e.g. 1 year, 3 months" required>
+                                </div>
+                                ${speciesField}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            list.innerHTML = existingPetCards + editablePetCards;
+        }
+
+        function initPetInfoGroups() {
+            document.querySelectorAll('.pet-info-group').forEach(function (group) {
+                const countInput = group.querySelector('[data-pet-count]');
+                if (!countInput || countInput.dataset.petInfoBound === '1') return;
+                countInput.dataset.petInfoBound = '1';
+                countInput.addEventListener('input', function () {
+                    sanitizePetCountInput();
+                });
+                countInput.addEventListener('change', function () {
+                    renderPetInfoGroup(group);
+                });
+                countInput.addEventListener('blur', function () {
+                    renderPetInfoGroup(group);
+                });
+                const addPetButton = group.querySelector('[data-add-pet-button]');
+                if (addPetButton) {
+                    addPetButton.addEventListener('click', function () {
+                        const currentCount = Number.parseInt(String(countInput.value || '0'), 10)
+                            || collectPetInfoGroupResponse(group).length
+                            || 0;
+                        countInput.value = String(currentCount + 1);
+                        renderPetInfoGroup(group);
+                    });
+                }
+                renderPetInfoGroup(group);
+            });
+        }
+
         /**
          * Collect values from the dynamic booking intake form fields.
          * Returns an object with extracted profile values and a raw field index map.
@@ -1519,7 +1960,10 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             };
             bookingIntakeFields.forEach(function(field, fi) {
                 let val = '';
-                if (field.type === 'checkbox') {
+                if (field.type === '<?= bdta_pet_info_group_field_type() ?>') {
+                    const group = document.querySelector('.pet-info-group[data-booking-intake-field="' + fi + '"]');
+                    val = collectPetInfoGroupResponse(group);
+                } else if (field.type === 'checkbox') {
                     const checked = document.querySelectorAll('[data-booking-intake-field="' + fi + '"]:checked');
                     val = normalizeMappedFormValue(Array.from(checked).map(function(c) { return c.value; }));
                 } else if (field.type === 'newsletter_opt_in') {
@@ -1540,6 +1984,9 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 if (mapping === 'client.address') result.client_address = val;
                 if (mapping === 'pet_1.name')   result.dog_names    = val;
                 if (mapping === 'booking.notes') result.notes       = val;
+                if (field.type === '<?= bdta_pet_info_group_field_type() ?>' && !result.dog_names) {
+                    result.dog_names = getPetInfoGroupPetNames(val).join(', ');
+                }
             });
             return result;
         }
@@ -1565,6 +2012,19 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                     if (mapping === 'client.address' && !result.client_address) result.client_address = val;
                     if (mapping === 'pet_1.name' && !result.dog_names) result.dog_names = val;
                     if (mapping === 'booking.notes' && !result.notes) result.notes = val;
+                }
+            }
+
+            if (!result.dog_names) {
+                for (const responses of Object.values(formResponses || {})) {
+                    if (!responses || typeof responses !== 'object') continue;
+                    for (const value of Object.values(responses)) {
+                        const petNames = getPetInfoGroupPetNames(value);
+                        if (petNames.length > 0) {
+                            result.dog_names = petNames.join(', ');
+                            return result;
+                        }
+                    }
                 }
             }
 
@@ -1667,6 +2127,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 window.togglePortalPet(checkbox);
             });
             syncSelectedPortalPets();
+            initPetInfoGroups();
         });
         
         function nextStep() {
@@ -1695,7 +2156,10 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                         const field = bookingIntakeFields[fi];
                         const isReq = !!field.required;
                         let val = '';
-                        if (field.type === 'checkbox') {
+                        if (field.type === '<?= bdta_pet_info_group_field_type() ?>') {
+                            const group = document.querySelector('.pet-info-group[data-booking-intake-field="' + fi + '"]');
+                            val = collectPetInfoGroupResponse(group);
+                        } else if (field.type === 'checkbox') {
                             const checked = document.querySelectorAll('[data-booking-intake-field="' + fi + '"]:checked');
                             val = checked.length > 0 ? 'ok' : '';
                         } else if (field.type === 'newsletter_opt_in') {
@@ -1730,6 +2194,9 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                         showAlert('Please fill in your name and email', 'warning');
                         return;
                     }
+                }
+                if (!ensureRequiredFieldsValid()) {
+                    return;
                 }
                 // Validate location (only if selector is visible — not for fixed/single types)
                 const locTypeEl = document.getElementById('publicLocationType');
@@ -2102,7 +2569,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                     .catch(() => { creditToggleArea.classList.add('d-none'); });
 
                 // Load client+pet profiles for pre-submit conflict detection
-                if (Object.keys(formFieldMappings).length > 0) {
+                if (Object.keys(formFieldMappings).length > 0 || document.querySelector('.pet-info-group')) {
                     fetch(`api_bookings.php?action=profile&email=${encodeURIComponent(email)}&dog_names=${encodeURIComponent(dogNames)}`)
                         .then(r => r.json())
                         .then(data => {
@@ -2163,6 +2630,35 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                             newValue: newVal,
                         });
                     }
+                }
+            }
+            for (const responses of Object.values(formResponses || {})) {
+                if (!responses || typeof responses !== 'object') continue;
+                for (const value of Object.values(responses)) {
+                    if (!Array.isArray(value)) continue;
+                    value.forEach(function (pet, petIndex) {
+                        if (!pet || typeof pet !== 'object') return;
+                        const currentPet = currentPetProfiles[petIndex];
+                        if (!currentPet) return;
+                        [
+                            ['name', `Pet ${petIndex + 1}: Name`],
+                            ['species', `Pet ${petIndex + 1}: Species`],
+                            ['breed', `Pet ${petIndex + 1}: Breed`],
+                            ['source', `Pet ${petIndex + 1}: Source`],
+                            ['spayed_neutered', `Pet ${petIndex + 1}: Spayed/Neutered`],
+                            ['vaccines_current', `Pet ${petIndex + 1}: Vaccines Current`],
+                        ].forEach(function ([attr, label]) {
+                            const newVal = String(pet[attr] || '').trim();
+                            const currentVal = String((currentPet || {})[attr] || '').trim();
+                            if (newVal && currentVal && currentVal !== newVal) {
+                                conflicts.push({
+                                    label: label,
+                                    oldValue: currentVal,
+                                    newValue: newVal,
+                                });
+                            }
+                        });
+                    });
                 }
             }
             return conflicts;
@@ -2240,6 +2736,11 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             document.querySelectorAll('[data-form-id]').forEach(section => {
                 const formId = section.dataset.formId;
                 const fields = {};
+                section.querySelectorAll('.pet-info-group[data-form-field]').forEach(group => {
+                    if (group.dataset.formField !== undefined) {
+                        fields[group.dataset.formField] = collectPetInfoGroupResponse(group);
+                    }
+                });
                 // text, email, tel, number, date, textarea, select
                 section.querySelectorAll('input:not([type=checkbox]):not([type=radio]), textarea, select').forEach(el => {
                     if (el.dataset.formField !== undefined) {

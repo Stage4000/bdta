@@ -1,9 +1,12 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/public_portal_return.php';
+
+$return_to = bdta_public_login_return_path('');
 
 // Redirect if already logged in
 if (isPortalLoggedIn()) {
-    redirect(PORTAL_URL . 'index.php');
+    redirect($return_to !== '' ? $return_to : PORTAL_URL . 'index.php');
 }
 
 $error = '';
@@ -37,7 +40,7 @@ if (isPostRequest()) {
             logClientActivity($client['id'], 'login', 'Client logged in', $conn);
 
             setFlashMessage('Welcome back, ' . array_string_value($client, 'name') . '!', 'success');
-            redirect(PORTAL_URL . 'index.php');
+            redirect($return_to !== '' ? $return_to : PORTAL_URL . 'index.php');
         } else {
             $error = 'Invalid email address or password.';
         }
@@ -78,6 +81,9 @@ if (isPostRequest()) {
                         <?php endif; ?>
                         <form method="POST">
                             <?php echo csrfInput(); ?>
+                            <?php if ($return_to !== ''): ?>
+                                <input type="hidden" name="return_to" value="<?php echo escape($return_to); ?>">
+                            <?php endif; ?>
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email Address</label>
                                 <input type="email" class="form-control" id="email" name="email"

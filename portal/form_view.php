@@ -150,6 +150,29 @@ include 'includes/header.php';
                             <?php else: ?>
                                 <span class="text-muted">None selected</span>
                             <?php endif; ?>
+                        <?php elseif (bdta_form_field_is_pet_info_group($field) && is_array($response)): ?>
+                            <?php $pets = bdta_form_field_pet_info_group_normalize_response($field, $response); ?>
+                            <?php if ($pets !== []): ?>
+                                <?php foreach ($pets as $pet_index => $pet): ?>
+                                    <div class="card mb-2">
+                                        <div class="card-header py-2 fw-semibold">Pet <?= $pet_index + 1 ?></div>
+                                        <div class="card-body py-2 small">
+                                            <div><strong>Name:</strong> <?php echo escape($pet['name']); ?></div>
+                                            <div><strong>Age or DOB:</strong> <?php echo escape($pet['age_or_dob']); ?></div>
+                                            <div><strong>Breed:</strong> <?php echo escape($pet['breed']); ?></div>
+                                            <div><strong>Vaccine Status:</strong> <?php echo escape($pet['vaccines_current']); ?></div>
+                                            <div><strong>Spay/Neuter Status:</strong> <?php echo escape($pet['spayed_neutered']); ?></div>
+                                            <div><strong>Acquired From:</strong> <?php echo escape($pet['source']); ?></div>
+                                            <div><strong>Ownership Length:</strong> <?php echo escape($pet['ownership_length']); ?></div>
+                                            <?php if ($pet['species'] !== ''): ?>
+                                                <div><strong>Species:</strong> <?php echo escape($pet['species']); ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <span class="text-muted">No pets provided</span>
+                            <?php endif; ?>
                         <?php elseif ($type === 'textarea'): ?>
                             <p class="mb-0"><?php echo nl2br(escape($response_text)); ?></p>
                         <?php else: ?>

@@ -91,6 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $field_required = is_array($_POST['field_required'] ?? null) ? $_POST['field_required'] : [];
     $field_options = is_array($_POST['field_options'] ?? null) ? $_POST['field_options'] : [];
     $field_mappings = is_array($_POST['field_mapping'] ?? null) ? $_POST['field_mapping'] : [];
+    $pet_info_group_include_species = is_array($_POST['pet_info_group_include_species'] ?? null) ? $_POST['pet_info_group_include_species'] : [];
+    $pet_info_group_species_dog_only = is_array($_POST['pet_info_group_species_dog_only'] ?? null) ? $_POST['pet_info_group_species_dog_only'] : [];
+    $pet_info_group_default_species = is_array($_POST['pet_info_group_default_species'] ?? null) ? $_POST['pet_info_group_default_species'] : [];
+    $pet_info_group_max_pets = is_array($_POST['pet_info_group_max_pets'] ?? null) ? $_POST['pet_info_group_max_pets'] : [];
     if (isset($_POST['field_label']) && is_array($_POST['field_label'])) {
         foreach ($_POST['field_label'] as $index => $label_value) {
             $label = scalar_string($label_value);
@@ -116,20 +120,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $field = [
                     'label' => trim($label),
                     'type' => $field_type,
-                    'placeholder' => in_array($field_type, ['text_block', bdta_newsletter_opt_in_field_type()], true)
+                    'placeholder' => in_array($field_type, ['text_block', bdta_newsletter_opt_in_field_type(), bdta_pet_info_group_field_type()], true)
                         ? ''
                         : trim(scalar_string($field_placeholders[$index] ?? '')),
                     'description' => trim(scalar_string($field_descriptions[$index] ?? '')),
-                    'required' => in_array($field_type, ['text_block', bdta_newsletter_opt_in_field_type()], true)
+                    'required' => in_array($field_type, ['text_block', bdta_newsletter_opt_in_field_type(), bdta_pet_info_group_field_type()], true)
                         ? 0
                         : (array_key_exists($index, $field_required) ? 1 : 0),
-                    'profile_mapping' => in_array($field_type, ['text_block', bdta_newsletter_opt_in_field_type()], true)
+                    'profile_mapping' => in_array($field_type, ['text_block', bdta_newsletter_opt_in_field_type(), bdta_pet_info_group_field_type()], true)
                         ? ''
                         : (in_array($raw_mapping, $allowed_mappings, true) ? $raw_mapping : ''),
                 ];
 
                 if ($field_type === bdta_newsletter_opt_in_field_type()) {
                     $field['options'] = [bdta_form_field_newsletter_checkbox_label()];
+                }
+
+                if ($field_type === bdta_pet_info_group_field_type()) {
+                    $include_species = array_key_exists($index, $pet_info_group_include_species) ? 1 : 0;
+                    $dog_only_species = array_key_exists($index, $pet_info_group_species_dog_only) ? 1 : 0;
+                    $default_species = trim(scalar_string($pet_info_group_default_species[$index] ?? ''));
+                    $max_pets = max(0, safe_int($pet_info_group_max_pets[$index] ?? 0));
+                    if ($dog_only_species) {
+                        $include_species = 1;
+                        $default_species = 'Dog';
+                    }
+
+                    $field['pet_info_group_include_species'] = $include_species;
+                    $field['pet_info_group_species_dog_only'] = $dog_only_species;
+                    $field['pet_info_group_default_species'] = $default_species;
+                    $field['pet_info_group_max_pets'] = $max_pets;
                 }
 
                 // Add options for select, radio, checkbox
@@ -316,6 +336,7 @@ require_once '../backend/includes/header.php';
                                 $field_description = array_string_value($field, 'description');
                                 $cur_mapping = array_string_value($field, 'profile_mapping');
                                 $field_options = isset($field['options']) && is_array($field['options']) ? array_map('scalar_string', $field['options']) : [];
+                                $pet_group_config = bdta_form_field_pet_info_group_config($field);
                             ?>
                             <div class="field-item border rounded p-3 mb-3">
                                 <div class="field-item-header d-flex align-items-center pb-2 mb-3 border-bottom">
@@ -338,6 +359,7 @@ require_once '../backend/includes/header.php';
                                             <option value="text" <?php echo $field_type == 'text' ? 'selected' : ''; ?>>Text</option>
                                             <option value="textarea" <?php echo $field_type == 'textarea' ? 'selected' : ''; ?>>Textarea</option>
                                             <option value="text_block" <?php echo $field_type == 'text_block' ? 'selected' : ''; ?>>Text Block</option>
+                                            <option value="<?= htmlspecialchars(bdta_pet_info_group_field_type()) ?>" <?php echo $field_type == bdta_pet_info_group_field_type() ? 'selected' : ''; ?>>Pet Info Group</option>
                                             <option value="select" <?php echo $field_type == 'select' ? 'selected' : ''; ?>>Select</option>
                                             <option value="checkbox" <?php echo $field_type == 'checkbox' ? 'selected' : ''; ?>>Checkbox</option>
                                             <option value="<?= htmlspecialchars(bdta_newsletter_opt_in_field_type()) ?>" <?php echo $field_type == bdta_newsletter_opt_in_field_type() ? 'selected' : ''; ?>>Newsletter Opt-In</option>
@@ -418,6 +440,50 @@ require_once '../backend/includes/header.php';
                                 <?php else: ?>
                                 <textarea name="field_options[]" class="d-none"></textarea>
                                 <?php endif; ?>
+                                <div class="row mt-2 pet-info-group-config <?php echo $field_type === bdta_pet_info_group_field_type() ? '' : 'd-none'; ?>">
+                                    <div class="col-md-4">
+                                        <div class="form-check mt-4">
+                                            <input type="checkbox"
+                                                   name="pet_info_group_include_species[<?php echo $index; ?>]"
+                                                   class="form-check-input pet-info-group-include-species"
+                                                   <?php echo $pet_group_config['include_species'] ? 'checked' : ''; ?>>
+                                            <label class="form-check-label">Include species field</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check mt-4">
+                                            <input type="checkbox"
+                                                   name="pet_info_group_species_dog_only[<?php echo $index; ?>]"
+                                                   class="form-check-input pet-info-group-dog-only"
+                                                   <?php echo $pet_group_config['dog_only_species'] ? 'checked' : ''; ?>>
+                                            <label class="form-check-label">Restrict species to Dog only</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Default Species</label>
+                                        <input type="text"
+                                               name="pet_info_group_default_species[<?php echo $index; ?>]"
+                                               class="form-control pet-info-group-default-species"
+                                               value="<?php echo htmlspecialchars($pet_group_config['default_species']); ?>"
+                                               placeholder="Dog">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Max Pets Allowed</label>
+                                        <input type="number"
+                                               min="0"
+                                               step="1"
+                                               name="pet_info_group_max_pets[<?php echo $index; ?>]"
+                                               class="form-control pet-info-group-max-pets"
+                                               value="<?php echo $pet_group_config['max_pets'] > 0 ? (int) $pet_group_config['max_pets'] : ''; ?>"
+                                               placeholder="Any">
+                                        <div class="form-text">Leave blank or set to 0 to allow any number of pets.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-text">
+                                            The field label is used as the “how many pets” prompt. Each generated pet section always includes Pet Name, Age or Date of Birth, Breed, Vaccine Status, Spay/Neuter Status, Acquisition Source, and How Long You’ve Had This Pet.
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <?php endforeach; ?>
                             <?php endif; ?>
@@ -706,6 +772,7 @@ function addField() {
                         <option value="text">Text</option>
                         <option value="textarea">Textarea</option>
                         <option value="text_block">Text Block</option>
+                        <option value="<?= htmlspecialchars(bdta_pet_info_group_field_type()) ?>">Pet Info Group</option>
                         <option value="select">Select</option>
                         <option value="checkbox">Checkbox</option>
                         <option value="<?= htmlspecialchars(bdta_newsletter_opt_in_field_type()) ?>">Newsletter Opt-In</option>
@@ -797,6 +864,34 @@ function addField() {
                 </div>
             </div>
             <textarea name="field_options[]" class="d-none"></textarea>
+            <div class="row mt-2 pet-info-group-config d-none">
+                <div class="col-md-4">
+                    <div class="form-check mt-4">
+                        <input type="checkbox" name="pet_info_group_include_species[${fieldIndex}]" class="form-check-input pet-info-group-include-species">
+                        <label class="form-check-label">Include species field</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check mt-4">
+                        <input type="checkbox" name="pet_info_group_species_dog_only[${fieldIndex}]" class="form-check-input pet-info-group-dog-only">
+                        <label class="form-check-label">Restrict species to Dog only</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Default Species</label>
+                    <input type="text" name="pet_info_group_default_species[${fieldIndex}]" class="form-control pet-info-group-default-species" placeholder="Dog">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max Pets Allowed</label>
+                    <input type="number" min="0" step="1" name="pet_info_group_max_pets[${fieldIndex}]" class="form-control pet-info-group-max-pets" placeholder="Any">
+                    <div class="form-text">Leave blank or set to 0 to allow any number of pets.</div>
+                </div>
+                <div class="col-12">
+                    <div class="form-text">
+                        The field label is used as the “how many pets” prompt. Each generated pet section always includes Pet Name, Age or Date of Birth, Breed, Vaccine Status, Spay/Neuter Status, Acquisition Source, and How Long You’ve Had This Pet.
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 
@@ -854,6 +949,22 @@ function reindexFields() {
         if (mappingSelect) {
             mappingSelect.name = 'field_mapping[' + newIndex + ']';
         }
+        const speciesToggle = field.querySelector('input[name^="pet_info_group_include_species"]');
+        if (speciesToggle) {
+            speciesToggle.name = 'pet_info_group_include_species[' + newIndex + ']';
+        }
+        const dogOnlyToggle = field.querySelector('input[name^="pet_info_group_species_dog_only"]');
+        if (dogOnlyToggle) {
+            dogOnlyToggle.name = 'pet_info_group_species_dog_only[' + newIndex + ']';
+        }
+        const defaultSpeciesInput = field.querySelector('input[name^="pet_info_group_default_species"]');
+        if (defaultSpeciesInput) {
+            defaultSpeciesInput.name = 'pet_info_group_default_species[' + newIndex + ']';
+        }
+        const maxPetsInput = field.querySelector('input[name^="pet_info_group_max_pets"]');
+        if (maxPetsInput) {
+            maxPetsInput.name = 'pet_info_group_max_pets[' + newIndex + ']';
+        }
     });
 }
 
@@ -864,6 +975,7 @@ function toggleOptions(select) {
     const isOptionType = ['select', 'radio', 'checkbox'].includes(select.value);
     const isTextBlock = select.value === 'text_block';
     const isNewsletterOptIn = select.value === '<?= htmlspecialchars(bdta_newsletter_opt_in_field_type(), ENT_QUOTES, 'UTF-8') ?>';
+    const isPetInfoGroup = select.value === '<?= htmlspecialchars(bdta_pet_info_group_field_type(), ENT_QUOTES, 'UTF-8') ?>';
     const placeholderCol = fieldItem.querySelector('.field-placeholder-col');
     const placeholderInput = fieldItem.querySelector('input[name="field_placeholder[]"]');
     const requiredToggle = fieldItem.querySelector('.field-required-toggle');
@@ -872,6 +984,10 @@ function toggleOptions(select) {
     const mappingSelect = mappingCol ? mappingCol.querySelector('select[name^="field_mapping"]') : null;
     const descriptionLabel = fieldItem.querySelector('.field-description-label');
     const labelInput = fieldItem.querySelector('input[name="field_label[]"]');
+    const petInfoConfig = fieldItem.querySelector('.pet-info-group-config');
+    const petInfoDogOnly = fieldItem.querySelector('.pet-info-group-dog-only');
+    const petInfoIncludeSpecies = fieldItem.querySelector('.pet-info-group-include-species');
+    const petInfoDefaultSpecies = fieldItem.querySelector('.pet-info-group-default-species');
 
     // Ensure we always have a single textarea to reuse when toggling
     if (!optionsTextarea) {
@@ -926,36 +1042,72 @@ function toggleOptions(select) {
     }
 
     if (placeholderCol) {
-        placeholderCol.classList.toggle('d-none', isTextBlock || isNewsletterOptIn);
+        placeholderCol.classList.toggle('d-none', isTextBlock || isNewsletterOptIn || isPetInfoGroup);
     }
     if (placeholderInput) {
-        if (isTextBlock || isNewsletterOptIn) {
+        if (isTextBlock || isNewsletterOptIn || isPetInfoGroup) {
             placeholderInput.value = '';
         }
-        placeholderInput.disabled = isTextBlock || isNewsletterOptIn;
+        placeholderInput.disabled = isTextBlock || isNewsletterOptIn || isPetInfoGroup;
     }
     if (requiredToggle) {
-        requiredToggle.classList.toggle('d-none', isTextBlock || isNewsletterOptIn);
+        requiredToggle.classList.toggle('d-none', isTextBlock || isNewsletterOptIn || isPetInfoGroup);
     }
     if (requiredInput) {
-        if (isTextBlock || isNewsletterOptIn) {
+        if (isTextBlock || isNewsletterOptIn || isPetInfoGroup) {
             requiredInput.checked = false;
         }
-        requiredInput.disabled = isTextBlock || isNewsletterOptIn;
+        requiredInput.disabled = isTextBlock || isNewsletterOptIn || isPetInfoGroup;
     }
     if (mappingCol) {
-        mappingCol.classList.toggle('d-none', isTextBlock || isNewsletterOptIn);
+        mappingCol.classList.toggle('d-none', isTextBlock || isNewsletterOptIn || isPetInfoGroup);
     }
     if (mappingSelect) {
-        if (isTextBlock || isNewsletterOptIn) {
+        if (isTextBlock || isNewsletterOptIn || isPetInfoGroup) {
             mappingSelect.value = '';
         }
-        mappingSelect.disabled = isTextBlock || isNewsletterOptIn;
+        mappingSelect.disabled = isTextBlock || isNewsletterOptIn || isPetInfoGroup;
+    }
+    if (petInfoConfig) {
+        petInfoConfig.classList.toggle('d-none', !isPetInfoGroup);
+    }
+    if (petInfoDogOnly) {
+        petInfoDogOnly.disabled = !isPetInfoGroup;
+        if (petInfoDogOnly.dataset.boundChange !== '1') {
+            petInfoDogOnly.dataset.boundChange = '1';
+            petInfoDogOnly.addEventListener('change', function () {
+                if (!petInfoIncludeSpecies || !petInfoDefaultSpecies) return;
+                if (petInfoDogOnly.checked) {
+                    petInfoIncludeSpecies.checked = true;
+                    petInfoDefaultSpecies.value = 'Dog';
+                    petInfoDefaultSpecies.setAttribute('readonly', 'readonly');
+                } else {
+                    petInfoDefaultSpecies.removeAttribute('readonly');
+                }
+            });
+        }
+        if (petInfoIncludeSpecies && petInfoDefaultSpecies) {
+            if (petInfoDogOnly.checked) {
+                petInfoIncludeSpecies.checked = true;
+                petInfoDefaultSpecies.value = 'Dog';
+                petInfoDefaultSpecies.setAttribute('readonly', 'readonly');
+            } else {
+                petInfoDefaultSpecies.removeAttribute('readonly');
+            }
+        }
+    }
+    if (petInfoIncludeSpecies) {
+        petInfoIncludeSpecies.disabled = !isPetInfoGroup;
+    }
+    if (petInfoDefaultSpecies) {
+        petInfoDefaultSpecies.disabled = !isPetInfoGroup;
     }
     if (descriptionLabel) {
         descriptionLabel.innerHTML = isTextBlock
             ? 'Content <small class="text-muted">(optional — shown to clients in the text block)</small>'
-            : 'Description <small class="text-muted">(optional — shown to clients below the field)</small>';
+            : (isPetInfoGroup
+                ? 'Description <small class="text-muted">(optional — shown below the pet count question)</small>'
+                : 'Description <small class="text-muted">(optional — shown to clients below the field)</small>');
     }
     if (isNewsletterOptIn && labelInput && !labelInput.value.trim()) {
         labelInput.value = '<?= htmlspecialchars(bdta_form_field_newsletter_default_label(), ENT_QUOTES, 'UTF-8') ?>';

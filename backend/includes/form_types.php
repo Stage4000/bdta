@@ -205,12 +205,25 @@ function bdta_newsletter_opt_in_field_type(): string
     return 'newsletter_opt_in';
 }
 
+function bdta_pet_info_group_field_type(): string
+{
+    return 'pet_info_group';
+}
+
 /**
  * @param array<string, mixed> $field
  */
 function bdta_form_field_is_newsletter_opt_in(array $field): bool
 {
     return array_string_value($field, 'type', 'text') === bdta_newsletter_opt_in_field_type();
+}
+
+/**
+ * @param array<string, mixed> $field
+ */
+function bdta_form_field_is_pet_info_group(array $field): bool
+{
+    return array_string_value($field, 'type', 'text') === bdta_pet_info_group_field_type();
 }
 
 function bdta_form_field_newsletter_default_label(): string
@@ -288,6 +301,338 @@ function bdta_form_fields_include_newsletter_opt_in(array $fields, array $respon
     }
 
     return false;
+}
+
+/**
+ * @param array<string, mixed> $field
+ * @return array{
+ *   include_species: bool,
+ *   dog_only_species: bool,
+ *   default_species: string,
+ *   max_pets: int
+ * }
+ */
+function bdta_form_field_pet_info_group_config(array $field): array
+{
+    $include_species = array_int_value($field, 'pet_info_group_include_species') === 1;
+    $dog_only_species = array_int_value($field, 'pet_info_group_species_dog_only') === 1;
+    $default_species = trim(array_string_value($field, 'pet_info_group_default_species'));
+    $max_pets = max(0, array_int_value($field, 'pet_info_group_max_pets'));
+
+    if ($dog_only_species) {
+        $include_species = true;
+        $default_species = 'Dog';
+    }
+
+    return [
+        'include_species' => $include_species,
+        'dog_only_species' => $dog_only_species,
+        'default_species' => $default_species,
+        'max_pets' => $max_pets,
+    ];
+}
+
+/**
+ * @return array<string, string>
+ */
+function bdta_form_field_pet_info_group_spay_neuter_options(): array
+{
+    return [
+        'yes' => 'Yes, spayed/neutered',
+        'no' => 'No, intact',
+    ];
+}
+
+function bdta_form_field_pet_info_group_format_duration(int $years, int $months): string
+{
+    $parts = [];
+    if ($years > 0) {
+        $parts[] = $years . ' year' . ($years === 1 ? '' : 's');
+    }
+    if ($months > 0) {
+        $parts[] = $months . ' month' . ($months === 1 ? '' : 's');
+    }
+
+    return implode(', ', $parts);
+}
+
+/**
+ * @param array<string, mixed> $pet
+ */
+function bdta_form_field_pet_info_group_prefill_boolean(array $pet, string $key): string
+{
+    if (!array_key_exists($key, $pet)) {
+        return '';
+    }
+
+    return array_int_value($pet, $key) === 1 ? 'yes' : 'no';
+}
+
+/**
+ * @param array<string, mixed> $field
+ * @param array<string, mixed> $pet
+ * @return array<string, int|string>
+ */
+function bdta_form_field_pet_info_group_prefill_pet(array $field, array $pet): array
+{
+    $config = bdta_form_field_pet_info_group_config($field);
+    $age_or_dob = trim(array_string_value($pet, 'date_of_birth'));
+    if ($age_or_dob === '') {
+        $age_or_dob = bdta_form_field_pet_info_group_format_duration(
+            array_int_value($pet, 'age_years'),
+            array_int_value($pet, 'age_months')
+        );
+    }
+
+    $ownership_length = bdta_form_field_pet_info_group_format_duration(
+        array_int_value($pet, 'ownership_length_years'),
+        array_int_value($pet, 'ownership_length_months')
+    );
+
+    $species = $config['dog_only_species']
+        ? 'Dog'
+        : trim(array_string_value($pet, 'species', $config['default_species']));
+
+    return [
+        'existing_pet_id' => safe_int($pet['id'] ?? 0),
+        'name' => trim(array_string_value($pet, 'name')),
+        'age_or_dob' => $age_or_dob,
+        'breed' => trim(array_string_value($pet, 'breed')),
+        'vaccines_current' => bdta_form_field_pet_info_group_prefill_boolean($pet, 'vaccines_current'),
+        'spayed_neutered' => bdta_form_field_pet_info_group_prefill_boolean($pet, 'spayed_neutered'),
+        'source' => trim(array_string_value($pet, 'source')),
+        'ownership_length' => $ownership_length,
+        'species' => $species,
+    ];
+}
+
+/**
+ * @param array<string, mixed> $field
+ * @param list<array<string, mixed>> $pets
+ * @return list<array<string, int|string>>
+ */
+function bdta_form_field_pet_info_group_prefill_pets(array $field, array $pets): array
+{
+    $prefilled = [];
+    foreach ($pets as $pet) {
+        $prefilled[] = bdta_form_field_pet_info_group_prefill_pet($field, $pet);
+    }
+
+    return $prefilled;
+}
+
+/**
+ * @param array<string, mixed> $field
+ * @param mixed $value
+ * @return list<array<string, string>>
+ */
+function bdta_form_field_pet_info_group_normalize_response(array $field, mixed $value): array
+{
+    $config = bdta_form_field_pet_info_group_config($field);
+    $pet_rows = [];
+    if (is_array($value)) {
+        if (isset($value['pets']) && is_array($value['pets'])) {
+            $pet_rows = $value['pets'];
+        } else {
+            $pet_rows = $value;
+        }
+    }
+
+    $normalized = [];
+    foreach ($pet_rows as $pet_row) {
+        if (!is_array($pet_row)) {
+            continue;
+        }
+
+        $pet = [
+            'name' => trim(scalar_string($pet_row['name'] ?? '')),
+            'age_or_dob' => trim(scalar_string($pet_row['age_or_dob'] ?? '')),
+            'breed' => trim(scalar_string($pet_row['breed'] ?? '')),
+            'vaccines_current' => trim(scalar_string($pet_row['vaccines_current'] ?? '')),
+            'spayed_neutered' => trim(scalar_string($pet_row['spayed_neutered'] ?? '')),
+            'source' => trim(scalar_string($pet_row['source'] ?? '')),
+            'ownership_length' => trim(scalar_string($pet_row['ownership_length'] ?? '')),
+            'species' => '',
+        ];
+
+        if ($config['dog_only_species']) {
+            $pet['species'] = 'Dog';
+        } else {
+            $pet['species'] = trim(scalar_string($pet_row['species'] ?? $config['default_species']));
+        }
+
+        $normalized[] = $pet;
+    }
+
+    return $normalized;
+}
+
+/**
+ * @param array<string, mixed> $field
+ * @param mixed $value
+ * @return list<string>
+ */
+function bdta_form_field_pet_info_group_validate_response(array $field, mixed $value): array
+{
+    $pets = bdta_form_field_pet_info_group_normalize_response($field, $value);
+    if ($pets === []) {
+        return ['Please add at least one pet.'];
+    }
+
+    $config = bdta_form_field_pet_info_group_config($field);
+    $errors = [];
+    if ($config['max_pets'] > 0 && count($pets) > $config['max_pets']) {
+        $errors[] = 'You can submit information for a maximum of ' . $config['max_pets'] . ' pet' . ($config['max_pets'] === 1 ? '' : 's') . '.';
+    }
+    foreach ($pets as $index => $pet) {
+        $pet_number = $index + 1;
+        foreach ([
+            'name' => 'Pet name',
+            'age_or_dob' => 'Age or date of birth',
+            'breed' => 'Breed',
+            'vaccines_current' => 'Vaccine status',
+            'spayed_neutered' => 'Spay/neuter status',
+            'source' => 'Where did you acquire this pet from',
+            'ownership_length' => 'How long have you had this pet',
+        ] as $key => $label) {
+            if ($pet[$key] === '') {
+                $errors[] = 'Please complete ' . $label . ' for pet ' . $pet_number . '.';
+            }
+        }
+
+        if ($config['include_species'] && !$config['dog_only_species'] && $pet['species'] === '') {
+            $errors[] = 'Please complete Species for pet ' . $pet_number . '.';
+        }
+    }
+
+    return $errors;
+}
+
+function bdta_form_field_pet_info_group_parse_date(string $value): ?string
+{
+    $trimmed = trim($value);
+    if ($trimmed === '') {
+        return null;
+    }
+
+    foreach (['Y-m-d', 'm/d/Y', 'd/m/Y', 'm-d-Y', 'd-m-Y'] as $format) {
+        $date = date_create_from_format('!' . $format, $trimmed);
+        $errors = assoc_row(DateTime::getLastErrors());
+        $has_errors = array_int_value($errors, 'warning_count') > 0
+            || array_int_value($errors, 'error_count') > 0;
+        if ($date instanceof DateTime && !$has_errors) {
+            return $date->format('Y-m-d');
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @return array{years: int|null, months: int|null}|null
+ */
+function bdta_form_field_pet_info_group_parse_duration(string $value): ?array
+{
+    $trimmed = strtolower(trim($value));
+    if ($trimmed === '') {
+        return null;
+    }
+
+    $years = null;
+    $months = null;
+
+    if (preg_match('/(\d+)\s*(?:year|years|yr|yrs|y)\b/i', $trimmed, $matches)) {
+        $years = safe_int($matches[1]);
+    }
+    if (preg_match('/(\d+)\s*(?:month|months|mo|mos|m)\b/i', $trimmed, $matches)) {
+        $months = safe_int($matches[1]);
+    }
+
+    if ($years === null && $months === null && preg_match('/^\d+$/', $trimmed)) {
+        $years = safe_int($trimmed);
+    }
+
+    if ($years === null && $months === null) {
+        return null;
+    }
+
+    if ($months !== null && $months >= 12) {
+        $years = ($years ?? 0) + intdiv($months, 12);
+        $months = $months % 12;
+    }
+
+    return [
+        'years' => $years,
+        'months' => $months,
+    ];
+}
+
+function bdta_form_field_pet_info_group_normalize_boolean(string $value): int
+{
+    return in_array(strtolower(trim($value)), ['1', 'yes', 'true', 'on', 'current', 'up to date'], true) ? 1 : 0;
+}
+
+/**
+ * @param array<string, mixed> $field
+ * @param mixed $value
+ * @return array<int, array<string, string|int>>
+ */
+function bdta_form_field_pet_info_group_profile_values(array $field, mixed $value): array
+{
+    $config = bdta_form_field_pet_info_group_config($field);
+    $pets = bdta_form_field_pet_info_group_normalize_response($field, $value);
+    $profile_values = [];
+
+    foreach ($pets as $index => $pet) {
+        if ($pet['name'] === '' && $pet['breed'] === '' && $pet['age_or_dob'] === '' && $pet['source'] === '') {
+            continue;
+        }
+
+        $profile = [
+            'name' => $pet['name'],
+            'breed' => $pet['breed'],
+            'source' => $pet['source'],
+            'spayed_neutered' => bdta_form_field_pet_info_group_normalize_boolean($pet['spayed_neutered']),
+            'vaccines_current' => bdta_form_field_pet_info_group_normalize_boolean($pet['vaccines_current']),
+        ];
+
+        $resolved_species = $pet['species'];
+        if ($resolved_species === '' && $config['default_species'] !== '') {
+            $resolved_species = $config['default_species'];
+        }
+        if ($resolved_species !== '') {
+            $profile['species'] = $resolved_species;
+        }
+
+        $date_of_birth = bdta_form_field_pet_info_group_parse_date($pet['age_or_dob']);
+        if ($date_of_birth !== null) {
+            $profile['date_of_birth'] = $date_of_birth;
+        } else {
+            $age = bdta_form_field_pet_info_group_parse_duration($pet['age_or_dob']);
+            if ($age !== null) {
+                if ($age['years'] !== null) {
+                    $profile['age_years'] = $age['years'];
+                }
+                if ($age['months'] !== null) {
+                    $profile['age_months'] = $age['months'];
+                }
+            }
+        }
+
+        $ownership = bdta_form_field_pet_info_group_parse_duration($pet['ownership_length']);
+        if ($ownership !== null) {
+            if ($ownership['years'] !== null) {
+                $profile['ownership_length_years'] = $ownership['years'];
+            }
+            if ($ownership['months'] !== null) {
+                $profile['ownership_length_months'] = $ownership['months'];
+            }
+        }
+
+        $profile_values[$index] = $profile;
+    }
+
+    return $profile_values;
 }
 
 function bdta_normalize_form_required_frequency(string $frequency): string
