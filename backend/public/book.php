@@ -1697,6 +1697,13 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                     });
             }
 
+            function meaningfulNewPets(pets) {
+                return pets
+                    .filter(function (pet) { return petIdValue(pet?.existing_pet_id) <= 0; })
+                    .filter(petHasMeaningfulData)
+                    .map(clonePet);
+            }
+
             const existingPets = parseExistingPets().map(clonePet);
             if (!Array.isArray(group.bdtaSelectedExistingPetIds)) {
                 group.bdtaSelectedExistingPetIds = [];
@@ -1721,10 +1728,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             const currentPets = list.children.length > 0
                 ? collectPetInfoGroupResponse(group).map(clonePet)
                 : parsePetInfoValue(group.dataset.petInfoValue || '[]').map(clonePet);
-            const newPets = currentPets
-                .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
-                .filter(petHasMeaningfulData)
-                .map(clonePet);
+            const newPets = meaningfulNewPets(currentPets);
 
             let requestedCount = Number.parseInt(String(countInput.value || ''), 10);
             if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
@@ -1735,9 +1739,8 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             if (configuredMax > 0) {
                 requestedCount = Math.min(requestedCount, configuredMax);
             }
-            group.bdtaSelectedExistingPetIds = existingPets
-                .map(pet => petIdValue(pet.existing_pet_id))
-                .filter(petId => group.bdtaSelectedExistingPetIds.includes(petId));
+            const validExistingPetIds = new Set(existingPets.map(pet => petIdValue(pet.existing_pet_id)));
+            group.bdtaSelectedExistingPetIds = group.bdtaSelectedExistingPetIds.filter(petId => validExistingPetIds.has(petId));
             if (group.bdtaSelectedExistingPetIds.length > requestedCount) {
                 group.bdtaSelectedExistingPetIds = group.bdtaSelectedExistingPetIds.slice(0, requestedCount);
             }
@@ -1796,11 +1799,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                     `;
                     existingPetsSection.querySelectorAll('[data-existing-pet-checkbox]').forEach(function (checkbox) {
                         checkbox.addEventListener('change', function () {
-                            const currentNewPetCount = collectPetInfoGroupResponse(group)
-                                .map(clonePet)
-                                .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
-                                .filter(petHasMeaningfulData)
-                                .length;
+                            const currentNewPetCount = meaningfulNewPets(collectPetInfoGroupResponse(group).map(clonePet)).length;
                             const petId = petIdValue(checkbox.value);
                             if (checkbox.checked) {
                                 if (!group.bdtaSelectedExistingPetIds.includes(petId)) {

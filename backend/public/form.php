@@ -781,6 +781,13 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
             });
     }
 
+    function meaningfulNewPets(pets) {
+        return pets
+            .filter(function (pet) { return petIdValue(pet?.existing_pet_id) <= 0; })
+            .filter(petHasMeaningfulData)
+            .map(clonePet);
+    }
+
     function syncInitialExistingSelection() {
         if (selectedExistingIds.length > 0 || existingPets.length === 0) {
             return;
@@ -863,11 +870,7 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
 
         existingPetsSection.querySelectorAll('[data-existing-pet-checkbox]').forEach(function (checkbox) {
             checkbox.addEventListener('change', function () {
-                const currentNewPetCount = readPetsFromDom()
-                    .map(clonePet)
-                    .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
-                    .filter(petHasMeaningfulData)
-                    .length;
+                const currentNewPetCount = meaningfulNewPets(readPetsFromDom().map(clonePet)).length;
                 const petId = petIdValue(checkbox.value);
                 if (checkbox.checked) {
                     if (!selectedExistingIds.includes(petId)) {
@@ -885,10 +888,7 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
     function renderPets() {
         syncInitialExistingSelection();
         const currentPets = list.children.length ? readPetsFromDom().map(clonePet) : initialPets.map(clonePet);
-        const newPets = currentPets
-            .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
-            .filter(petHasMeaningfulData)
-            .map(clonePet);
+        const newPets = meaningfulNewPets(currentPets);
 
         let requestedCount = Number.parseInt(String(countInput.value || ''), 10);
         if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
@@ -899,9 +899,12 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
         if (configuredMax > 0) {
             requestedCount = Math.min(requestedCount, configuredMax);
         }
-        selectedExistingIds = existingPets
-            .map(function (pet) { return petIdValue(pet?.existing_pet_id); })
-            .filter(function (petId) { return selectedExistingIds.includes(petId); });
+        const validExistingPetIds = new Set(existingPets.map(function (pet) {
+            return petIdValue(pet?.existing_pet_id);
+        }));
+        selectedExistingIds = selectedExistingIds.filter(function (petId) {
+            return validExistingPetIds.has(petId);
+        });
         if (selectedExistingIds.length > requestedCount) {
             selectedExistingIds = selectedExistingIds.slice(0, requestedCount);
         }
