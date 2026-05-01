@@ -159,8 +159,16 @@ if ($required_contract) {
 // forms stay in this list so the browser can hide/show them as the selected pet
 // list changes during the booking flow.
 $forms_needing_completion = [];
+$portal_booking_has_pet_info_group_form = false;
 foreach ($all_required_forms as $form) {
     $form['required_frequency'] = bdta_normalize_form_required_frequency(array_string_value($form, 'required_frequency'));
+    $form_has_pet_info_group = false;
+    foreach (assoc_rows($form['fields'] ?? []) as $field) {
+        if (bdta_form_field_is_pet_info_group(assoc_row($field))) {
+            $form_has_pet_info_group = true;
+            break;
+        }
+    }
     if ($form['required_frequency'] === 'once_per_pet') {
         $form['completed_pet_ids'] = bdta_get_form_template_completed_pet_ids(
             $conn,
@@ -169,21 +177,13 @@ foreach ($all_required_forms as $form) {
             $appointment_type_id
         );
         $forms_needing_completion[] = $form;
+        $portal_booking_has_pet_info_group_form = $portal_booking_has_pet_info_group_form || $form_has_pet_info_group;
         continue;
     }
 
     if (bdta_form_template_needs_completion($conn, $form, $client_id, $appointment_type_id)) {
         $forms_needing_completion[] = $form;
-    }
-}
-
-$portal_booking_has_pet_info_group_form = false;
-foreach ($forms_needing_completion as $form) {
-    foreach (assoc_rows($form['fields'] ?? []) as $field) {
-        if (bdta_form_field_is_pet_info_group(assoc_row($field))) {
-            $portal_booking_has_pet_info_group_form = true;
-            break 2;
-        }
+        $portal_booking_has_pet_info_group_form = $portal_booking_has_pet_info_group_form || $form_has_pet_info_group;
     }
 }
 
