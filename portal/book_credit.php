@@ -1488,6 +1488,9 @@ include '../portal/includes/header.php';
         const existingPets = parseExistingPets().map(clonePet);
         if (!Array.isArray(group.bdtaSelectedExistingPetIds)) {
             group.bdtaSelectedExistingPetIds = [];
+        }
+        if (!group.bdtaExistingSelectionInitialized) {
+            group.bdtaExistingSelectionInitialized = true;
             const initialPets = parsePetInfoValue(group.dataset.petInfoValue || '[]').map(clonePet);
             const initialExistingIds = initialPets.map(pet => petIdValue(pet.existing_pet_id)).filter(Boolean);
             if (initialExistingIds.length > 0) {
