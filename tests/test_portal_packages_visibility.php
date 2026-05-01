@@ -48,7 +48,7 @@ bdta_assert(
 );
 bdta_assert(
     str_contains($portal_packages, 'portal_available = 1')
-        && str_contains($portal_packages, "share_token != ''")
+        && str_contains($portal_packages, 'share_token IS NOT NULL')
         && str_contains($portal_packages, "requirePortalLogin();")
         && str_contains($portal_packages, '/client/package_detail.php?token=')
         && str_contains($portal_packages, 'Available Packages'),

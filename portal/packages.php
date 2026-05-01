@@ -7,7 +7,7 @@ requirePortalLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-$stmt = $conn->query("
+$stmt = $conn->prepare("
     SELECT id, name, description, bullet_points, price, expiration_days, share_token
     FROM packages
     WHERE is_active = 1
@@ -16,6 +16,7 @@ $stmt = $conn->query("
       AND share_token != ''
     ORDER BY name ASC
 ");
+$stmt->execute();
 $packages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $items_by_package = [];
