@@ -418,7 +418,7 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
                 }
             }
             $submission_pet_ids = $insert_supports_pet_id
-                ? bdta_get_form_submission_pet_ids($template_frequency, $pet_ids)
+                ? bdta_get_form_submission_pet_ids($template_frequency, array_values($pet_ids))
                 : [null];
             foreach ($submission_pet_ids as $submission_pet_id) {
                 $params = $insert_supports_pet_id
@@ -802,9 +802,9 @@ function api_booking_pet_table_columns(PDO $conn): array {
 }
 
 /**
- * @param list<int> $pet_ids
+ * @param array<int, int> $pet_ids
  * @param array<int, array<string, string|int>> $pet_updates
- * @return list<int>
+ * @return array<int, int>
  */
 function api_booking_clone_conflicting_pets(PDO $conn, int $client_id, array $pet_ids, array $pet_updates): array {
     if ($client_id <= 0 || $pet_ids === [] || $pet_updates === []) {
