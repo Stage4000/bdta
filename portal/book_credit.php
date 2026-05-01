@@ -82,7 +82,9 @@ $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Note: additional fields (date_of_birth, source, spayed_neutered, vaccines_current)
 // are loaded here for profile-mapping conflict detection in JavaScript.
 $stmt = $conn->prepare("
-    SELECT id, name, species, breed, date_of_birth, source, spayed_neutered, vaccines_current
+    SELECT id, name, species, breed, date_of_birth, age_years, age_months,
+           source, ownership_length_years, ownership_length_months,
+           spayed_neutered, vaccines_current
     FROM pets
     WHERE client_id = ? AND is_active = 1
     ORDER BY name
@@ -566,18 +568,26 @@ include '../portal/includes/header.php';
                             switch ($field_type):
                                 case bdta_pet_info_group_field_type():
                                     $pet_group_config = bdta_form_field_pet_info_group_config($field);
-                                    $pet_group_config_json = json_encode($pet_group_config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
+                                    $pet_group_config_json = json_encode($pet_group_config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+                                    $pet_group_existing_pets = bdta_form_field_pet_info_group_prefill_pets($field, $pets);
+                                    $pet_group_existing_pets_json = json_encode($pet_group_existing_pets, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
                                 <div class="pet-info-group border rounded p-3 bg-light"
                                      data-form-field="<?= $fi ?>"
                                      data-form-field-type="<?= htmlspecialchars($field_type) ?>"
                                      data-pet-info-config="<?= htmlspecialchars($pet_group_config_json === false ? '{}' : $pet_group_config_json, ENT_QUOTES, 'UTF-8') ?>"
-                                     data-pet-info-value="[]">
+                                     data-pet-info-value="[]"
+                                     data-existing-pets="<?= htmlspecialchars($pet_group_existing_pets_json === false ? '[]' : $pet_group_existing_pets_json, ENT_QUOTES, 'UTF-8') ?>">
                                     <div class="row g-3">
                                         <div class="col-md-4">
-                                            <label class="form-label">Number of Pets <span class="text-danger">*</span></label>
-                                            <input type="number" min="1" step="1" class="form-control" data-pet-count value="1">
+                                            <label class="form-label" for="petCountPortalForm<?= (int) $form_id ?>_<?= (int) $fi ?>">Number of Pets <span class="text-danger">*</span></label>
+                                            <input type="text" id="petCountPortalForm<?= (int) $form_id ?>_<?= (int) $fi ?>" inputmode="numeric" pattern="[0-9]*" class="form-control" data-pet-count value="1">
+                                            <div class="form-text d-none" id="petCountPortalFormLimit<?= (int) $form_id ?>_<?= (int) $fi ?>" data-pet-limit-message aria-live="polite"></div>
+                                        </div>
+                                        <div class="col-md-auto d-flex align-items-end">
+                                            <button type="button" class="btn btn-outline-primary" data-add-pet-button>Add New Pet</button>
                                         </div>
                                     </div>
+                                    <div class="mt-3 d-none" data-existing-pets-section></div>
                                     <div class="mt-3" data-pet-list></div>
                                 </div>
                                 <?php break;
@@ -1359,6 +1369,7 @@ include '../portal/includes/header.php';
         if (!group) return [];
         return Array.from(group.querySelectorAll('[data-pet-row]')).map(function (row) {
             return {
+                existing_pet_id: Number.parseInt(String(row.querySelector('[data-pet-existing-id]')?.value || '0'), 10) || 0,
                 name: row.querySelector('[data-pet-attr="name"]')?.value.trim() || '',
                 age_or_dob: row.querySelector('[data-pet-attr="age_or_dob"]')?.value.trim() || '',
                 breed: row.querySelector('[data-pet-attr="breed"]')?.value.trim() || '',
@@ -1383,17 +1394,49 @@ include '../portal/includes/header.php';
         const config = parsePetInfoConfig(group.dataset.petInfoConfig || '{}');
         const countInput = group.querySelector('[data-pet-count]');
         const list = group.querySelector('[data-pet-list]');
+        const addPetButton = group.querySelector('[data-add-pet-button]');
+        const existingPetsSection = group.querySelector('[data-existing-pets-section]');
+        const limitMessage = group.querySelector('[data-pet-limit-message]');
         if (!countInput || !list) return;
 
-        const currentPets = list.children.length > 0
-            ? collectPetInfoGroupResponse(group)
-            : parsePetInfoValue(group.dataset.petInfoValue || '[]');
-        const requestedCount = Math.max(1, Math.min(10, parseInt(countInput.value || '1', 10) || 1));
-        countInput.value = requestedCount;
+        function parseExistingPets() {
+            try {
+                const parsed = JSON.parse(group.dataset.existingPets || '[]');
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+                return [];
+            }
+        }
 
-        const pets = currentPets.slice(0, requestedCount);
-        while (pets.length < requestedCount) {
-            pets.push({
+        function petIdValue(value) {
+            return Number.parseInt(String(value || '0'), 10) || 0;
+        }
+
+        function sanitizePetCountInput() {
+            countInput.value = countInput.value.replace(/[^\d]/g, '');
+        }
+
+        function petLimitMessageText(configuredMax) {
+            return 'This session allows up to ' + configuredMax + ' pet' + (configuredMax === 1 ? '' : 's') + '.';
+        }
+
+        function clonePet(pet) {
+            return {
+                existing_pet_id: petIdValue(pet?.existing_pet_id),
+                name: String(pet?.name || ''),
+                age_or_dob: String(pet?.age_or_dob || ''),
+                breed: String(pet?.breed || ''),
+                vaccines_current: String(pet?.vaccines_current || ''),
+                spayed_neutered: String(pet?.spayed_neutered || ''),
+                source: String(pet?.source || ''),
+                ownership_length: String(pet?.ownership_length || ''),
+                species: String(pet?.species || '')
+            };
+        }
+
+        function blankPet() {
+            return {
+                existing_pet_id: 0,
                 name: '',
                 age_or_dob: '',
                 breed: '',
@@ -1402,7 +1445,117 @@ include '../portal/includes/header.php';
                 source: '',
                 ownership_length: '',
                 species: config.default_species || (config.dog_only_species ? 'Dog' : '')
-            });
+            };
+        }
+
+        function maxPets() {
+            const parsed = Number.parseInt(String(config.max_pets || '0'), 10) || 0;
+            return parsed > 0 ? parsed : 0;
+        }
+
+        const existingPets = parseExistingPets().map(clonePet);
+        if (!Array.isArray(group.bdtaSelectedExistingPetIds)) {
+            group.bdtaSelectedExistingPetIds = [];
+            const initialPets = parsePetInfoValue(group.dataset.petInfoValue || '[]').map(clonePet);
+            const initialExistingIds = initialPets.map(pet => petIdValue(pet.existing_pet_id)).filter(Boolean);
+            if (initialExistingIds.length > 0) {
+                group.bdtaSelectedExistingPetIds = initialExistingIds;
+            } else if (initialPets.length === 0 && existingPets.length > 0) {
+                const allowed = maxPets();
+                group.bdtaSelectedExistingPetIds = existingPets
+                    .slice(0, allowed > 0 ? allowed : existingPets.length)
+                    .map(pet => petIdValue(pet.existing_pet_id))
+                    .filter(Boolean);
+                if (group.bdtaSelectedExistingPetIds.length > 0) {
+                    group.dataset.petInfoValue = JSON.stringify(group.bdtaSelectedExistingPetIds
+                        .map(id => existingPets.find(pet => petIdValue(pet.existing_pet_id) === id) || null)
+                        .filter(Boolean));
+                }
+            }
+        }
+
+        const selectedExistingIds = group.bdtaSelectedExistingPetIds;
+        const currentPets = list.children.length > 0
+            ? collectPetInfoGroupResponse(group).map(clonePet)
+            : parsePetInfoValue(group.dataset.petInfoValue || '[]').map(clonePet);
+        const selectedExistingPets = selectedExistingIds
+            .map(function (petId) {
+                return currentPets.find(function (pet) { return petIdValue(pet.existing_pet_id) === petId; })
+                    || existingPets.find(function (pet) { return petIdValue(pet.existing_pet_id) === petId; })
+                    || null;
+            })
+            .filter(Boolean)
+            .map(clonePet);
+        const newPets = currentPets
+            .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
+            .map(clonePet);
+
+        let requestedCount = Number.parseInt(String(countInput.value || ''), 10);
+        if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
+            requestedCount = Math.max(1, currentPets.length || selectedExistingPets.length || 1);
+        }
+        requestedCount = Math.max(requestedCount, selectedExistingPets.length || 1);
+        const configuredMax = maxPets();
+        if (configuredMax > 0) {
+            requestedCount = Math.min(requestedCount, configuredMax);
+        }
+        countInput.value = String(requestedCount);
+
+        const pets = selectedExistingPets.slice(0, requestedCount);
+        while (pets.length < requestedCount) {
+            pets.push(newPets.shift() || blankPet());
+        }
+        group.dataset.petInfoValue = JSON.stringify(pets);
+
+        if (limitMessage) {
+            if (configuredMax > 0) {
+                limitMessage.classList.remove('d-none');
+                limitMessage.textContent = petLimitMessageText(configuredMax);
+            } else {
+                limitMessage.classList.add('d-none');
+                limitMessage.textContent = '';
+            }
+        }
+        if (addPetButton) {
+            addPetButton.disabled = configuredMax > 0 && requestedCount >= configuredMax;
+        }
+        if (existingPetsSection) {
+            if (existingPets.length === 0) {
+                existingPetsSection.classList.add('d-none');
+                existingPetsSection.innerHTML = '';
+            } else {
+                existingPetsSection.classList.remove('d-none');
+                existingPetsSection.innerHTML = `
+                    <div class="small fw-semibold mb-2">Pets already on file</div>
+                    <div class="d-flex flex-column gap-2">
+                        ${existingPets.map(function (pet) {
+                            const petId = petIdValue(pet.existing_pet_id);
+                            const isSelected = selectedExistingIds.includes(petId);
+                            const disableUnchecked = configuredMax > 0 && !isSelected && selectedExistingIds.length >= configuredMax;
+                            return `
+                                <label class="form-check border rounded px-3 py-2 bg-white">
+                                    <input class="form-check-input me-2" type="checkbox" data-existing-pet-checkbox value="${petId}" ${isSelected ? 'checked' : ''} ${disableUnchecked ? 'disabled' : ''}>
+                                    <span class="fw-semibold">${escapeHtml(pet.name || 'Pet')}</span>
+                                    ${pet.breed ? `<span class="text-muted small">(${escapeHtml(pet.breed)})</span>` : ''}
+                                </label>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+                existingPetsSection.querySelectorAll('[data-existing-pet-checkbox]').forEach(function (checkbox) {
+                    checkbox.addEventListener('change', function () {
+                        const petId = petIdValue(checkbox.value);
+                        if (checkbox.checked) {
+                            if (!group.bdtaSelectedExistingPetIds.includes(petId)) {
+                                group.bdtaSelectedExistingPetIds.push(petId);
+                            }
+                        } else {
+                            group.bdtaSelectedExistingPetIds = group.bdtaSelectedExistingPetIds.filter(function (id) { return id !== petId; });
+                        }
+                        renderPetInfoGroup(group);
+                    });
+                });
+            }
         }
 
         list.innerHTML = pets.map(function (pet, index) {
@@ -1420,8 +1573,12 @@ include '../portal/includes/header.php';
                 : '';
             return `
                 <div class="card mb-3" data-pet-row>
-                    <div class="card-header fw-semibold">Pet ${index + 1}</div>
+                    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Pet ${index + 1}</span>
+                        ${petIdValue(pet.existing_pet_id) > 0 ? '<span class="badge text-bg-secondary">On File</span>' : ''}
+                    </div>
                     <div class="card-body">
+                        <input type="hidden" value="${petIdValue(pet.existing_pet_id)}" data-pet-existing-id>
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Pet Name <span class="text-danger">*</span></label>
@@ -1448,8 +1605,8 @@ include '../portal/includes/header.php';
                                 <label class="form-label">Spay/Neuter Status <span class="text-danger">*</span></label>
                                 <select class="form-select" data-pet-attr="spayed_neutered" required>
                                     <option value="">— Select —</option>
-                                    <option value="yes" ${pet.spayed_neutered === 'yes' ? 'selected' : ''}>Yes</option>
-                                    <option value="no" ${pet.spayed_neutered === 'no' ? 'selected' : ''}>No</option>
+                                    <option value="yes" ${pet.spayed_neutered === 'yes' ? 'selected' : ''}>Yes, spayed/neutered</option>
+                                    <option value="no" ${pet.spayed_neutered === 'no' ? 'selected' : ''}>No, intact</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -1474,8 +1631,24 @@ include '../portal/includes/header.php';
             if (!countInput || countInput.dataset.petInfoBound === '1') return;
             countInput.dataset.petInfoBound = '1';
             countInput.addEventListener('input', function () {
+                sanitizePetCountInput();
+            });
+            countInput.addEventListener('change', function () {
                 renderPetInfoGroup(group);
             });
+            countInput.addEventListener('blur', function () {
+                renderPetInfoGroup(group);
+            });
+            const addPetButton = group.querySelector('[data-add-pet-button]');
+            if (addPetButton) {
+                addPetButton.addEventListener('click', function () {
+                    const currentCount = Number.parseInt(String(countInput.value || '0'), 10)
+                        || collectPetInfoGroupResponse(group).length
+                        || 0;
+                    countInput.value = String(currentCount + 1);
+                    renderPetInfoGroup(group);
+                });
+            }
             renderPetInfoGroup(group);
         });
     }

@@ -12,6 +12,7 @@ require_once '../includes/config.php';
 require_once '../includes/database.php';
 require_once '../includes/form_types.php';
 require_once '../includes/public_form_context.php';
+require_once '../includes/public_portal_return.php';
 require_once '../includes/turnstile.php';
 require_once '../includes/workflow_helper.php';
 require_once '../includes/follow_up_notes.php';
@@ -20,6 +21,9 @@ require_once __DIR__ . '/includes/public_error_page.php';
 
 $db = new Database();
 $conn = $db->getConnection();
+$portal_login_url = bdta_public_portal_login_url(
+    bdta_public_current_path('/backend/public/form.php')
+);
 
 $submission_id = safe_int($_GET['id'] ?? 0);
 $template_id = safe_int($_GET['template_id'] ?? ($_GET['template'] ?? 0));
@@ -101,6 +105,46 @@ if (is_array($submission_row)) {
     $prefill_phone = array_string_value($context, 'contact_phone');
     $client_id = array_int_value($context, 'client_id');
     $booking_id = array_int_value($context, 'booking_id');
+}
+
+$portal_prefill_pets = [];
+if (isPortalLoggedIn()) {
+    $portal_client_id = portalClientId();
+    if ($portal_client_id > 0) {
+        $stmt = $conn->prepare("
+            SELECT name, email, phone
+            FROM clients
+            WHERE id = ?
+        ");
+        $stmt->execute([$portal_client_id]);
+        $portal_client = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (is_array($portal_client)) {
+            if ($prefill_name === '') {
+                $prefill_name = array_string_value($portal_client, 'name');
+            }
+            if ($prefill_email === '') {
+                $prefill_email = array_string_value($portal_client, 'email');
+            }
+            if ($prefill_phone === '') {
+                $prefill_phone = array_string_value($portal_client, 'phone');
+            }
+        }
+
+        if ($client_id <= 0) {
+            $client_id = $portal_client_id;
+        }
+
+        $stmt = $conn->prepare("
+            SELECT id, name, species, breed, date_of_birth, age_years, age_months,
+                   source, ownership_length_years, ownership_length_months,
+                   spayed_neutered, vaccines_current
+            FROM pets
+            WHERE client_id = ? AND is_active = 1
+            ORDER BY name
+        ");
+        $stmt->execute([$portal_client_id]);
+        $portal_prefill_pets = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
 }
 
 $errors = [];
@@ -537,18 +581,36 @@ require_once __DIR__ . '/includes/public_head.php';
                                 $pet_group_config = bdta_form_field_pet_info_group_config($field);
                                 $pet_group_config_json = json_encode($pet_group_config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
                                 $pet_group_value_json = json_encode($pet_group_value, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+                                $pet_group_existing_pets = isPortalLoggedIn()
+                                    ? bdta_form_field_pet_info_group_prefill_pets($field, $portal_prefill_pets)
+                                    : [];
+                                $pet_group_existing_pets_json = json_encode($pet_group_existing_pets, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
                             ?>
                             <div class="pet-info-group border rounded p-3 bg-light"
                                  data-field-index="<?= (int) $index ?>"
                                  data-field-name="<?= htmlspecialchars($field_name, ENT_QUOTES, 'UTF-8') ?>"
                                  data-pet-info-config="<?= htmlspecialchars($pet_group_config_json === false ? '{}' : $pet_group_config_json, ENT_QUOTES, 'UTF-8') ?>"
-                                 data-pet-info-value="<?= htmlspecialchars($pet_group_value_json === false ? '[]' : $pet_group_value_json, ENT_QUOTES, 'UTF-8') ?>">
+                                 data-pet-info-value="<?= htmlspecialchars($pet_group_value_json === false ? '[]' : $pet_group_value_json, ENT_QUOTES, 'UTF-8') ?>"
+                                 data-existing-pets="<?= htmlspecialchars($pet_group_existing_pets_json === false ? '[]' : $pet_group_existing_pets_json, ENT_QUOTES, 'UTF-8') ?>"
+                                 data-login-url="<?= htmlspecialchars(isPortalLoggedIn() ? '' : $portal_login_url, ENT_QUOTES, 'UTF-8') ?>">
+                                <?php if (!isPortalLoggedIn()): ?>
+                                    <div class="small text-muted mb-3">
+                                        Already a client with us?
+                                        <a href="<?= htmlspecialchars($portal_login_url) ?>">Login</a>
+                                        to skip the forms!
+                                    </div>
+                                <?php endif; ?>
                                 <div class="row g-3">
                                     <div class="col-md-4">
-                                        <label class="form-label">Number of Pets <span class="text-danger">*</span></label>
-                                        <input type="number" min="1" step="1" class="form-control" data-pet-count value="<?= max(1, count($pet_group_value)) ?>">
+                                        <label class="form-label" for="petCountForm<?= (int) $index ?>">Number of Pets <span class="text-danger">*</span></label>
+                                        <input type="text" id="petCountForm<?= (int) $index ?>" inputmode="numeric" pattern="[0-9]*" class="form-control" data-pet-count value="<?= max(1, count($pet_group_value)) ?>">
+                                        <div class="form-text d-none" id="petCountFormLimit<?= (int) $index ?>" data-pet-limit-message aria-live="polite"></div>
+                                    </div>
+                                    <div class="col-md-auto d-flex align-items-end">
+                                        <button type="button" class="btn btn-outline-primary" data-add-pet-button>Add New Pet</button>
                                     </div>
                                 </div>
+                                <div class="mt-3 d-none" data-existing-pets-section></div>
                                 <div class="mt-3" data-pet-list></div>
                             </div>
                         <?php elseif ($field_type === 'select'): ?>
@@ -636,6 +698,8 @@ require_once __DIR__ . '/includes/public_head.php';
 document.querySelectorAll('.pet-info-group').forEach(function (group) {
     let config = {};
     let initialPets = [];
+    let existingPets = [];
+    let selectedExistingIds = [];
     try {
         config = JSON.parse(group.dataset.petInfoConfig || '{}') || {};
     } catch (err) {
@@ -646,10 +710,18 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
     } catch (err) {
         initialPets = [];
     }
+    try {
+        existingPets = JSON.parse(group.dataset.existingPets || '[]') || [];
+    } catch (err) {
+        existingPets = [];
+    }
 
     const fieldName = group.dataset.fieldName || 'field[0]';
     const countInput = group.querySelector('[data-pet-count]');
     const list = group.querySelector('[data-pet-list]');
+    const addPetButton = group.querySelector('[data-add-pet-button]');
+    const existingPetsSection = group.querySelector('[data-existing-pets-section]');
+    const limitMessage = group.querySelector('[data-pet-limit-message]');
 
     function escapeHtml(value) {
         return String(value || '').replace(/[&<>"']/g, function (char) {
@@ -657,9 +729,85 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
         });
     }
 
+    function petIdValue(value) {
+        return Number.parseInt(String(value || '0'), 10) || 0;
+    }
+
+    function sanitizePetCountInput() {
+        countInput.value = countInput.value.replace(/[^\d]/g, '');
+    }
+
+    function petLimitMessageText(configuredMax) {
+        return 'This session allows up to ' + configuredMax + ' pet' + (configuredMax === 1 ? '' : 's') + '.';
+    }
+
+    function clonePet(pet) {
+        return {
+            existing_pet_id: petIdValue(pet?.existing_pet_id),
+            name: String(pet?.name || ''),
+            age_or_dob: String(pet?.age_or_dob || ''),
+            breed: String(pet?.breed || ''),
+            vaccines_current: String(pet?.vaccines_current || ''),
+            spayed_neutered: String(pet?.spayed_neutered || ''),
+            source: String(pet?.source || ''),
+            ownership_length: String(pet?.ownership_length || ''),
+            species: String(pet?.species || '')
+        };
+    }
+
+    function blankPet() {
+        return {
+            existing_pet_id: 0,
+            name: '',
+            age_or_dob: '',
+            breed: '',
+            vaccines_current: '',
+            spayed_neutered: '',
+            source: '',
+            ownership_length: '',
+            species: config.default_species || (config.dog_only_species ? 'Dog' : '')
+        };
+    }
+
+    function maxPets() {
+        const parsed = Number.parseInt(String(config.max_pets || '0'), 10) || 0;
+        return parsed > 0 ? parsed : 0;
+    }
+
+    function syncInitialExistingSelection() {
+        if (selectedExistingIds.length > 0 || existingPets.length === 0) {
+            return;
+        }
+
+        const initialExistingIds = initialPets
+            .map(function (pet) { return petIdValue(pet?.existing_pet_id); })
+            .filter(Boolean);
+        if (initialExistingIds.length > 0) {
+            selectedExistingIds = initialExistingIds;
+            return;
+        }
+
+        if (initialPets.length === 0) {
+            const allowed = maxPets();
+            selectedExistingIds = existingPets
+                .slice(0, allowed > 0 ? allowed : existingPets.length)
+                .map(function (pet) { return petIdValue(pet?.existing_pet_id); })
+                .filter(Boolean);
+            if (selectedExistingIds.length > 0) {
+                initialPets = selectedExistingIds
+                    .map(function (id) {
+                        return existingPets.find(function (pet) { return petIdValue(pet?.existing_pet_id) === id; }) || null;
+                    })
+                    .filter(Boolean)
+                    .map(clonePet);
+            }
+        }
+    }
+
     function readPetsFromDom() {
         return Array.from(list.querySelectorAll('[data-pet-row]')).map(function (row) {
             return {
+                existing_pet_id: petIdValue(row.querySelector('[data-pet-existing-id]')?.value || '0'),
                 name: row.querySelector('[data-pet-attr="name"]')?.value || '',
                 age_or_dob: row.querySelector('[data-pet-attr="age_or_dob"]')?.value || '',
                 breed: row.querySelector('[data-pet-attr="breed"]')?.value || '',
@@ -672,24 +820,99 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
         });
     }
 
-    function renderPets() {
-        const currentPets = list.children.length ? readPetsFromDom() : initialPets;
-        const requestedCount = Math.max(1, Math.min(10, parseInt(countInput.value || '1', 10) || 1));
-        countInput.value = requestedCount;
-        const pets = currentPets.slice(0, requestedCount);
-        while (pets.length < requestedCount) {
-            pets.push({
-                name: '',
-                age_or_dob: '',
-                breed: '',
-                vaccines_current: '',
-                spayed_neutered: '',
-                source: '',
-                ownership_length: '',
-                species: config.default_species || (config.dog_only_species ? 'Dog' : '')
-            });
+    function renderExistingPets(currentPets, requestedCount) {
+        if (!existingPetsSection) {
+            return;
         }
-        initialPets = pets;
+
+        if (existingPets.length === 0) {
+            existingPetsSection.classList.add('d-none');
+            existingPetsSection.innerHTML = '';
+            return;
+        }
+
+        const configuredMax = maxPets();
+        const selectedCount = selectedExistingIds.length;
+        existingPetsSection.classList.remove('d-none');
+        existingPetsSection.innerHTML = `
+            <div class="small fw-semibold mb-2">Pets already on file</div>
+            <div class="d-flex flex-column gap-2">
+                ${existingPets.map(function (pet) {
+                    const petId = petIdValue(pet?.existing_pet_id);
+                    const isSelected = selectedExistingIds.includes(petId);
+                    const disableUnchecked = configuredMax > 0 && !isSelected && selectedCount >= configuredMax;
+                    const currentPet = currentPets.find(function (rowPet) { return petIdValue(rowPet?.existing_pet_id) === petId; }) || pet;
+                    const breedLabel = currentPet.breed ? ` <span class="text-muted small">(${escapeHtml(currentPet.breed)})</span>` : '';
+                    return `
+                        <label class="form-check border rounded px-3 py-2 bg-white">
+                            <input class="form-check-input me-2" type="checkbox" data-existing-pet-checkbox value="${petId}" ${isSelected ? 'checked' : ''} ${disableUnchecked ? 'disabled' : ''}>
+                            <span class="fw-semibold">${escapeHtml(currentPet.name || 'Pet')}</span>${breedLabel}
+                        </label>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        existingPetsSection.querySelectorAll('[data-existing-pet-checkbox]').forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                const petId = petIdValue(checkbox.value);
+                if (checkbox.checked) {
+                    if (!selectedExistingIds.includes(petId)) {
+                        selectedExistingIds.push(petId);
+                    }
+                } else {
+                    selectedExistingIds = selectedExistingIds.filter(function (id) { return id !== petId; });
+                }
+                renderPets();
+            });
+        });
+    }
+
+    function renderPets() {
+        syncInitialExistingSelection();
+        const currentPets = list.children.length ? readPetsFromDom().map(clonePet) : initialPets.map(clonePet);
+        const configuredMax = maxPets();
+        const selectedExistingPets = selectedExistingIds
+            .map(function (petId) {
+                return currentPets.find(function (pet) { return petIdValue(pet.existing_pet_id) === petId; })
+                    || existingPets.find(function (pet) { return petIdValue(pet.existing_pet_id) === petId; })
+                    || null;
+            })
+            .filter(Boolean)
+            .map(clonePet);
+        const newPets = currentPets
+            .filter(function (pet) { return petIdValue(pet.existing_pet_id) <= 0; })
+            .map(clonePet);
+
+        let requestedCount = Number.parseInt(String(countInput.value || ''), 10);
+        if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
+            requestedCount = Math.max(1, currentPets.length || selectedExistingPets.length || initialPets.length || 1);
+        }
+        requestedCount = Math.max(requestedCount, selectedExistingPets.length || 1);
+        if (configuredMax > 0) {
+            requestedCount = Math.min(requestedCount, configuredMax);
+        }
+        countInput.value = String(requestedCount);
+
+        const pets = selectedExistingPets.slice(0, requestedCount);
+        while (pets.length < requestedCount) {
+            pets.push(newPets.shift() || blankPet());
+        }
+        initialPets = pets.map(clonePet);
+
+        if (limitMessage) {
+            if (configuredMax > 0) {
+                limitMessage.classList.remove('d-none');
+                limitMessage.textContent = petLimitMessageText(configuredMax);
+            } else {
+                limitMessage.classList.add('d-none');
+                limitMessage.textContent = '';
+            }
+        }
+        if (addPetButton) {
+            addPetButton.disabled = configuredMax > 0 && requestedCount >= configuredMax;
+        }
+        renderExistingPets(currentPets, requestedCount);
 
         list.innerHTML = pets.map(function (pet, index) {
             const speciesField = config.include_species
@@ -706,8 +929,12 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
                 : '';
             return `
                 <div class="card mb-3" data-pet-row>
-                    <div class="card-header fw-semibold">Pet ${index + 1}</div>
+                    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Pet ${index + 1}</span>
+                        ${petIdValue(pet.existing_pet_id) > 0 ? '<span class="badge text-bg-secondary">On File</span>' : ''}
+                    </div>
                     <div class="card-body">
+                        <input type="hidden" name="${fieldName}[pets][${index}][existing_pet_id]" value="${petIdValue(pet.existing_pet_id)}" data-pet-existing-id>
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Pet Name <span class="text-danger">*</span></label>
@@ -734,8 +961,8 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
                                 <label class="form-label">Spay/Neuter Status <span class="text-danger">*</span></label>
                                 <select class="form-select" name="${fieldName}[pets][${index}][spayed_neutered]" data-pet-attr="spayed_neutered" required>
                                     <option value="">— Select —</option>
-                                    <option value="yes" ${pet.spayed_neutered === 'yes' ? 'selected' : ''}>Yes</option>
-                                    <option value="no" ${pet.spayed_neutered === 'no' ? 'selected' : ''}>No</option>
+                                    <option value="yes" ${pet.spayed_neutered === 'yes' ? 'selected' : ''}>Yes, spayed/neutered</option>
+                                    <option value="no" ${pet.spayed_neutered === 'no' ? 'selected' : ''}>No, intact</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -754,7 +981,18 @@ document.querySelectorAll('.pet-info-group').forEach(function (group) {
         }).join('');
     }
 
-    countInput.addEventListener('input', renderPets);
+    countInput.addEventListener('input', function () {
+        sanitizePetCountInput();
+    });
+    countInput.addEventListener('change', renderPets);
+    countInput.addEventListener('blur', renderPets);
+    if (addPetButton) {
+        addPetButton.addEventListener('click', function () {
+            const currentCount = Number.parseInt(String(countInput.value || '0'), 10) || readPetsFromDom().length || initialPets.length || 0;
+            countInput.value = String(currentCount + 1);
+            renderPets();
+        });
+    }
     renderPets();
 });
 </script>

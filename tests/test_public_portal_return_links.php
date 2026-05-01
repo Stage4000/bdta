@@ -64,11 +64,24 @@ try {
         'Encoded traversal segments should not be accepted.'
     );
 
+    $_GET['return_to'] = '/backend/public/form.php?template_id=7';
+    bdta_assert(
+        bdta_public_login_return_path() === '/backend/public/form.php?template_id=7',
+        'Portal login should accept same-site public return paths.'
+    );
+    bdta_assert(
+        bdta_public_portal_login_url('/client/package_detail.php?token=abc') === '/portal/login.php?return_to=%2Fclient%2Fpackage_detail.php%3Ftoken%3Dabc',
+        'Portal login URLs should preserve the current public page as a return target.'
+    );
+
     $contract_page = bdta_read(dirname(__DIR__) . '/backend/public/contract.php');
     $quote_page = bdta_read(dirname(__DIR__) . '/backend/public/quote.php');
     $book_page = bdta_read(dirname(__DIR__) . '/backend/public/book.php');
+    $form_page = bdta_read(dirname(__DIR__) . '/backend/public/form.php');
     $agreements_page = bdta_read(dirname(__DIR__) . '/portal/agreements.php');
     $appointments_page = bdta_read(dirname(__DIR__) . '/portal/appointments.php');
+    $portal_login_page = bdta_read(dirname(__DIR__) . '/portal/login.php');
+    $package_page = bdta_read(dirname(__DIR__) . '/client/package_detail.php');
 
     bdta_assert(
         str_contains($contract_page, 'Back to Client Portal'),
@@ -89,6 +102,18 @@ try {
     bdta_assert(
         str_contains($book_page, "'Back to Client Portal' : 'Back to Home'"),
         'Public booking success modal should switch its label between the portal and home.'
+    );
+    bdta_assert(
+        str_contains($form_page, 'Already a client with us?'),
+        'Public form pages should render the client login shortcut copy for pet info groups.'
+    );
+    bdta_assert(
+        str_contains($portal_login_page, "redirect(\$return_to !== '' ? \$return_to : PORTAL_URL . 'index.php');"),
+        'Portal login should redirect back to the originating public page when a return target is provided.'
+    );
+    bdta_assert(
+        str_contains($package_page, '$portal_login_url'),
+        'Public package detail pages should preserve the current package page when linking to portal login.'
     );
     bdta_assert(
         str_contains($agreements_page, "bdta_append_public_portal_return("),

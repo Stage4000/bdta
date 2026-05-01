@@ -8,10 +8,14 @@ require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
 require_once __DIR__ . '/../backend/includes/package_contracts.php';
 require_once __DIR__ . '/../backend/includes/package_checkout.php';
+require_once __DIR__ . '/../backend/includes/public_portal_return.php';
 require_once __DIR__ . '/../backend/includes/tawk_to.php';
 
 $db = new Database();
 $conn = $db->getConnection();
+$portal_login_url = getDynamicBaseUrl() . bdta_public_portal_login_url(
+    bdta_public_current_path('/client/package_detail.php')
+);
 
 $token = trim(scalar_string($_GET['token'] ?? ''));
 if (!$token || !preg_match('/^[a-f0-9]{32}$/', $token)) {
@@ -440,7 +444,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                             <?php endforeach; ?>
                         </div>
                         <div class="d-flex flex-column flex-sm-row justify-content-center gap-2 mt-4">
-                            <a href="<?= htmlspecialchars(getDynamicBaseUrl() . '/portal/login.php') ?>" class="btn btn-brand">
+                            <a href="<?= htmlspecialchars($portal_login_url) ?>" class="btn btn-brand">
                                 <i class="fas fa-right-to-bracket me-2"></i>Go to Client Portal
                             </a>
                             <a href="<?= htmlspecialchars(getDynamicBaseUrl()) ?>" class="btn btn-outline-secondary">

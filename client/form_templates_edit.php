@@ -94,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $pet_info_group_include_species = is_array($_POST['pet_info_group_include_species'] ?? null) ? $_POST['pet_info_group_include_species'] : [];
     $pet_info_group_species_dog_only = is_array($_POST['pet_info_group_species_dog_only'] ?? null) ? $_POST['pet_info_group_species_dog_only'] : [];
     $pet_info_group_default_species = is_array($_POST['pet_info_group_default_species'] ?? null) ? $_POST['pet_info_group_default_species'] : [];
+    $pet_info_group_max_pets = is_array($_POST['pet_info_group_max_pets'] ?? null) ? $_POST['pet_info_group_max_pets'] : [];
     if (isset($_POST['field_label']) && is_array($_POST['field_label'])) {
         foreach ($_POST['field_label'] as $index => $label_value) {
             $label = scalar_string($label_value);
@@ -139,6 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $include_species = array_key_exists($index, $pet_info_group_include_species) ? 1 : 0;
                     $dog_only_species = array_key_exists($index, $pet_info_group_species_dog_only) ? 1 : 0;
                     $default_species = trim(scalar_string($pet_info_group_default_species[$index] ?? ''));
+                    $max_pets = max(0, safe_int($pet_info_group_max_pets[$index] ?? 0));
                     if ($dog_only_species) {
                         $include_species = 1;
                         $default_species = 'Dog';
@@ -147,6 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $field['pet_info_group_include_species'] = $include_species;
                     $field['pet_info_group_species_dog_only'] = $dog_only_species;
                     $field['pet_info_group_default_species'] = $default_species;
+                    $field['pet_info_group_max_pets'] = $max_pets;
                 }
 
                 // Add options for select, radio, checkbox
@@ -463,6 +466,17 @@ require_once '../backend/includes/header.php';
                                                class="form-control pet-info-group-default-species"
                                                value="<?php echo htmlspecialchars($pet_group_config['default_species']); ?>"
                                                placeholder="Dog">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Max Pets Allowed</label>
+                                        <input type="number"
+                                               min="0"
+                                               step="1"
+                                               name="pet_info_group_max_pets[<?php echo $index; ?>]"
+                                               class="form-control pet-info-group-max-pets"
+                                               value="<?php echo $pet_group_config['max_pets'] > 0 ? (int) $pet_group_config['max_pets'] : ''; ?>"
+                                               placeholder="Any">
+                                        <div class="form-text">Leave blank or set to 0 to allow any number of pets.</div>
                                     </div>
                                     <div class="col-12">
                                         <div class="form-text">
@@ -867,6 +881,11 @@ function addField() {
                     <label class="form-label">Default Species</label>
                     <input type="text" name="pet_info_group_default_species[${fieldIndex}]" class="form-control pet-info-group-default-species" placeholder="Dog">
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max Pets Allowed</label>
+                    <input type="number" min="0" step="1" name="pet_info_group_max_pets[${fieldIndex}]" class="form-control pet-info-group-max-pets" placeholder="Any">
+                    <div class="form-text">Leave blank or set to 0 to allow any number of pets.</div>
+                </div>
                 <div class="col-12">
                     <div class="form-text">
                         The field label is used as the “how many pets” prompt. Each generated pet section always includes Pet Name, Age or Date of Birth, Breed, Vaccine Status, Spay/Neuter Status, Acquisition Source, and How Long You’ve Had This Pet.
@@ -941,6 +960,10 @@ function reindexFields() {
         const defaultSpeciesInput = field.querySelector('input[name^="pet_info_group_default_species"]');
         if (defaultSpeciesInput) {
             defaultSpeciesInput.name = 'pet_info_group_default_species[' + newIndex + ']';
+        }
+        const maxPetsInput = field.querySelector('input[name^="pet_info_group_max_pets"]');
+        if (maxPetsInput) {
+            maxPetsInput.name = 'pet_info_group_max_pets[' + newIndex + ']';
         }
     });
 }
