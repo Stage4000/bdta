@@ -488,7 +488,7 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                         <div class="row g-3 text-center">
                             <div class="col-6">
                                 <div class="fs-4 fw-bold brand-purple">
-                                    <?= $package_price > 0 ? '$' . number_format($package_price, 2) : 'Contact Us' ?>
+                                    <?= '$' . number_format($package_price, 2) ?>
                                 </div>
                                 <small class="text-muted">Package Price</small>
                             </div>

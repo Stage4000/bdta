@@ -224,6 +224,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $selected_items_for_preview = $_SERVER['REQUEST_METHOD'] === 'POST' ? $items : $existing_items;
 $package_contracts_preview = package_edit_contract_summary($appointment_types, $selected_items_for_preview);
+$package_portal_available = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? isset($_POST['portal_available'])
+    : array_int_value($package ?? [], 'portal_available') === 1;
 
 $page_title = $is_edit ? 'Edit Package' : 'Add Package';
 include __DIR__ . '/../backend/includes/header.php';
@@ -369,7 +372,7 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="portal_available" name="portal_available"
-                                   <?= isset($_POST['portal_available']) || (!isset($_POST['portal_available']) && array_int_value($package ?? [], 'portal_available') === 1) ? 'checked' : '' ?>>
+                                   <?= $package_portal_available ? 'checked' : '' ?>>
                             <label class="form-check-label" for="portal_available">Available in Client Portal</label>
                             <div class="form-text">Show this package on the client portal packages page so logged-in clients can purchase it</div>
                         </div>

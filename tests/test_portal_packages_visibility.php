@@ -22,6 +22,7 @@ function bdta_read_file(string $path, string $label): string
 
 $database = bdta_read_file(dirname(__DIR__) . '/backend/includes/database.php', 'database.php');
 $packages_edit = bdta_read_file(dirname(__DIR__) . '/client/packages_edit.php', 'packages_edit.php');
+$package_detail = bdta_read_file(dirname(__DIR__) . '/client/package_detail.php', 'package_detail.php');
 $portal_header = bdta_read_file(dirname(__DIR__) . '/portal/includes/header.php', 'portal/includes/header.php');
 $portal_index = bdta_read_file(dirname(__DIR__) . '/portal/index.php', 'portal/index.php');
 $portal_packages = bdta_read_file(dirname(__DIR__) . '/portal/packages.php', 'portal/packages.php');
@@ -33,6 +34,7 @@ bdta_assert(
 );
 bdta_assert(
     str_contains($packages_edit, 'id="portal_available"')
+        && str_contains($packages_edit, '$package_portal_available')
         && str_contains($packages_edit, 'Available in Client Portal'),
     'Package editor should expose a client portal visibility toggle.'
 );
@@ -51,8 +53,13 @@ bdta_assert(
         && str_contains($portal_packages, 'share_token IS NOT NULL')
         && str_contains($portal_packages, "requirePortalLogin();")
         && str_contains($portal_packages, '/client/package_detail.php?token=')
+        && str_contains($portal_packages, "number_format(\$package_price, 2)")
         && str_contains($portal_packages, 'Available Packages'),
     'Portal packages page should require login, filter to portal-visible purchasable packages, and link into package checkout.'
+);
+bdta_assert(
+    str_contains($package_detail, "number_format(\$package_price, 2)"),
+    'Package detail page should display zero-priced packages as a real price amount.'
 );
 
 echo "Portal package visibility checks passed.\n";

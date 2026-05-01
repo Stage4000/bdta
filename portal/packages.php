@@ -70,7 +70,7 @@ include '../portal/includes/header.php';
                                         <?php endif; ?>
                                     </div>
                                     <div class="text-end">
-                                        <div class="fw-bold fs-5"><?php echo $package_price > 0 ? '$' . number_format($package_price, 2) : 'Contact Us'; ?></div>
+                                        <div class="fw-bold fs-5"><?php echo '$' . number_format($package_price, 2); ?></div>
                                         <div class="small text-muted">
                                             <?php if (array_string_value($package, 'expiration_days') !== ''): ?>
                                                 <?php $expiration_days = safe_int($package['expiration_days'] ?? 0); ?>
