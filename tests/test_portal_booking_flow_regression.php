@@ -55,9 +55,21 @@ bdta_assert_portal_booking(
     'Portal booking page should collect dynamic Pet Info Group responses and derive legacy pet-name fallbacks from them.'
 );
 bdta_assert_portal_booking(
-    str_contains($book_page, 'Use the <strong>Add New Pet</strong> button in the Pet Info Group section below so we can collect the full required details for this form.') &&
+    str_contains($book_page, '$portal_booking_has_stable_pet_info_group_form = false;') &&
+    str_contains($book_page, '$show_portal_top_pet_selector = !$portal_booking_has_stable_pet_info_group_form;'),
+    'Portal booking page should only hide the standalone pet picker when a non-once-per-pet Pet Info Group will remain visible.'
+);
+bdta_assert_portal_booking(
+    str_contains($book_page, 'id="petSelectionHandledInFormsNotice"') &&
+    str_contains($book_page, 'Pet selection and any new-pet details will be collected in the required form below, so you only need to choose your pet(s) once.') &&
     str_contains($book_page, 'id="requiredFormsSection"'),
-    'Portal booking page should steer add-new-pet entry through the full Pet Info Group form when a required Pet Info Group is present.'
+    'Portal booking page should avoid duplicate pet pickers and direct pet selection through the visible Pet Info Group form when one is required.'
+);
+bdta_assert_portal_booking(
+    str_contains($book_page, 'const legacySelectedPetIds = [...document.querySelectorAll(\'.pet-checkbox\')]') &&
+    str_contains($book_page, '.map(cb => parseInt(cb.dataset.petId, 10));') &&
+    str_contains($book_page, 'collectPetInfoGroupResponse(group).forEach(function (pet) {'),
+    'Portal booking page should derive selected pet IDs from Pet Info Group selections when the standalone pet picker is hidden.'
 );
 bdta_assert_portal_booking(
     str_contains($api_page, '$portal_available = array_int_value($apt_type, \'portal_available\') === 1;'),

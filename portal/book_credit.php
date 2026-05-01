@@ -159,7 +159,7 @@ if ($required_contract) {
 // forms stay in this list so the browser can hide/show them as the selected pet
 // list changes during the booking flow.
 $forms_needing_completion = [];
-$portal_booking_has_pet_info_group_form = false;
+$portal_booking_has_stable_pet_info_group_form = false;
 foreach ($all_required_forms as $form) {
     $form['required_frequency'] = bdta_normalize_form_required_frequency(array_string_value($form, 'required_frequency'));
     $form_has_pet_info_group = false;
@@ -177,15 +177,15 @@ foreach ($all_required_forms as $form) {
             $appointment_type_id
         );
         $forms_needing_completion[] = $form;
-        $portal_booking_has_pet_info_group_form = $portal_booking_has_pet_info_group_form || $form_has_pet_info_group;
         continue;
     }
 
     if (bdta_form_template_needs_completion($conn, $form, $client_id, $appointment_type_id)) {
         $forms_needing_completion[] = $form;
-        $portal_booking_has_pet_info_group_form = $portal_booking_has_pet_info_group_form || $form_has_pet_info_group;
+        $portal_booking_has_stable_pet_info_group_form = $portal_booking_has_stable_pet_info_group_form || $form_has_pet_info_group;
     }
 }
+$show_portal_top_pet_selector = !$portal_booking_has_stable_pet_info_group_form;
 
 // ── Location types config (same logic as book.php) ───────────────────────────
 $is_fixed_type = !empty($selected_type['is_mini_session']) || !empty($selected_type['is_field_rental']) || !empty($selected_type['is_group_class']);
@@ -399,12 +399,12 @@ include '../portal/includes/header.php';
                 <!-- Pet selection -->
                 <div class="mb-4">
                     <label class="form-label fw-bold">Which pet(s) is this booking for?</label>
-                    <?php if (empty($pets)): ?>
+                    <?php if ($show_portal_top_pet_selector && empty($pets)): ?>
                         <div class="alert alert-info py-2">
                             <i class="fas fa-info-circle me-1"></i>
                             No pets on file. Add one below or manage pets in <a href="pets.php">My Pets</a>.
                         </div>
-                    <?php else: ?>
+                    <?php elseif ($show_portal_top_pet_selector): ?>
                         <div id="petList">
                             <?php foreach ($pets as $pet): ?>
                             <div class="pet-option d-flex align-items-center gap-2" data-pet-id="<?= intval($pet['id']) ?>"
@@ -416,16 +416,16 @@ include '../portal/includes/header.php';
                             </div>
                             <?php endforeach; ?>
                         </div>
+                    <?php else: ?>
+                        <div class="alert alert-info py-2 mb-0" id="petSelectionHandledInFormsNotice">
+                            <i class="fas fa-paw me-1"></i>
+                            Pet selection and any new-pet details will be collected in the required form below, so you only need to choose your pet(s) once.
+                            <a href="#requiredFormsSection" class="alert-link ms-1">Jump to required forms</a>
+                        </div>
                     <?php endif; ?>
 
                     <!-- Add new pet inline -->
-                    <?php if ($portal_booking_has_pet_info_group_form): ?>
-                    <div class="alert alert-info py-2 mt-2 mb-0">
-                        <i class="fas fa-paw me-1"></i>
-                        Need to add a new pet? Use the <strong>Add New Pet</strong> button in the Pet Info Group section below so we can collect the full required details for this form.
-                        <a href="#requiredFormsSection" class="alert-link ms-1">Jump to required forms</a>
-                    </div>
-                    <?php else: ?>
+                    <?php if ($show_portal_top_pet_selector): ?>
                     <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="addPetToggleBtn"
                             onclick="document.getElementById('addPetForm').classList.toggle('d-none');this.classList.toggle('active');">
                         <i class="fas fa-plus me-1"></i> Add a New Pet
@@ -1167,9 +1167,29 @@ include '../portal/includes/header.php';
     };
 
     function getSelectedPetIds() {
-        return [...document.querySelectorAll('.pet-checkbox')]
+        const legacySelectedPetIds = [...document.querySelectorAll('.pet-checkbox')]
             .filter(cb => cb.checked)
-            .map(cb => parseInt(cb.dataset.petId));
+            .map(cb => parseInt(cb.dataset.petId, 10));
+        if (legacySelectedPetIds.length > 0) {
+            return legacySelectedPetIds;
+        }
+
+        const petInfoSelectedPetIds = [];
+        document.querySelectorAll('.pet-info-group').forEach(group => {
+            const section = group.closest('[data-form-id]');
+            if (section && (section.dataset.formActive === '0' || section.classList.contains('d-none'))) {
+                return;
+            }
+
+            collectPetInfoGroupResponse(group).forEach(function (pet) {
+                const petId = parseInt(pet?.existing_pet_id, 10) || 0;
+                if (petId > 0 && !petInfoSelectedPetIds.includes(petId)) {
+                    petInfoSelectedPetIds.push(petId);
+                }
+            });
+        });
+
+        return petInfoSelectedPetIds;
     }
 
     function getSelectedPetNames() {
@@ -1697,6 +1717,7 @@ include '../portal/includes/header.php';
         }).join('');
 
         list.innerHTML = existingPetCards + editablePetCards;
+        updateFormVisibilityByPetSelection();
     }
 
     function initPetInfoGroups() {
