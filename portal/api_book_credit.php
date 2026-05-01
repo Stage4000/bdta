@@ -587,7 +587,7 @@ function api_booking_order_verified_pet_ids(array $requested_pet_ids, array $ver
  * @param array<int, array<string, string|int>> $pet_updates
  * @return array<int, int>
  */
-function api_booking_merge_pet_ids_with_profile_updates(PDO $conn, int $client_id, array $pet_ids, array $pet_updates): array {
+function api_booking_merge_pet_ids_with_profile_updates(SafePDO $conn, int $client_id, array $pet_ids, array $pet_updates): array {
     if ($client_id <= 0 || $pet_updates === []) {
         return $pet_ids;
     }
@@ -620,7 +620,7 @@ function api_booking_merge_pet_ids_with_profile_updates(PDO $conn, int $client_i
  * @param array<int|string, mixed> $form_responses
  * @return list<string>
  */
-function api_booking_validate_pet_info_group_responses(PDO $conn, array $form_responses): array {
+function api_booking_validate_pet_info_group_responses(SafePDO $conn, array $form_responses): array {
     $errors = [];
 
     foreach ($form_responses as $tpl_id => $responses) {
@@ -654,7 +654,7 @@ function api_booking_validate_pet_info_group_responses(PDO $conn, array $form_re
  * @param array<int|string, mixed> $form_responses
  * @return array<int, array<string, string|int>>
  */
-function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_responses): array {
+function api_booking_collect_pet_profile_mapped_values(SafePDO $conn, array $form_responses): array {
     $supported_attrs = [
         'name' => true,
         'species' => true,
@@ -733,7 +733,7 @@ function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_re
  * @param array<int, array<string, string|int>> $pet_updates
  * @return array<int, int>
  */
-function api_booking_create_pets_from_profile_updates(PDO $conn, int $client_id, array $pet_updates): array {
+function api_booking_create_pets_from_profile_updates(SafePDO $conn, int $client_id, array $pet_updates): array {
     if ($client_id <= 0 || $pet_updates === []) {
         return [];
     }
