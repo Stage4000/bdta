@@ -19,6 +19,7 @@ class GoogleCalendarIntegration {
     private const HTTP_ERROR_CODE_CURL = 'curl';
     private const OAUTH_NOTIFICATION_ENTITY_TYPE = 'google_calendar_oauth';
     private const OAUTH_NOTIFICATION_TITLE = 'Google Calendar connection needs attention';
+    private const ACCESS_TOKEN_EXPIRY_BUFFER_SECONDS = 60;
     private static string $last_http_error_message = '';
     private string $credentials_file;
     private string $calendar_id;
@@ -503,9 +504,9 @@ class GoogleCalendarIntegration {
             return null;
         }
 
-        // Check if expired (with 60-second buffer)
+        // Check if expired with a small buffer so near-expiry tokens are refreshed proactively.
         $expires_at = self::rowString($token, 'expires_at');
-        if ($expires_at !== '' && safe_timestamp(strtotime($expires_at)) < (time() + 60)) {
+        if ($expires_at !== '' && safe_timestamp(strtotime($expires_at)) < (time() + self::ACCESS_TOKEN_EXPIRY_BUFFER_SECONDS)) {
             $refresh_token = self::rowString($token, 'refresh_token');
             if ($refresh_token === '') {
                 error_log('GoogleCalendarIntegration: token for admin_user_id=' . $admin_user_id . ' is expired and no refresh_token stored');
@@ -539,7 +540,16 @@ class GoogleCalendarIntegration {
             return null;
         }
 
-        return safe_timestamp(strtotime($expires_at)) >= (time() + 60) ? $access_token : null;
+        return safe_timestamp(strtotime($expires_at)) >= (time() + self::ACCESS_TOKEN_EXPIRY_BUFFER_SECONDS) ? $access_token : null;
+    }
+
+    private static function recoverFreshAccessTokenAfterRefreshFailure(int $admin_user_id): ?string {
+        $recovered_access_token = self::recoverFreshAccessTokenFromStorage($admin_user_id);
+        if ($recovered_access_token !== null) {
+            self::clearOAuthFailureNotifications($admin_user_id);
+        }
+
+        return $recovered_access_token;
     }
 
     /**
@@ -558,9 +568,8 @@ class GoogleCalendarIntegration {
         ]);
         $http_error_response = self::consumeLastHttpErrorResponse();
         if ($http_error_response !== []) {
-            $recovered_access_token = self::recoverFreshAccessTokenFromStorage($admin_user_id);
+            $recovered_access_token = self::recoverFreshAccessTokenAfterRefreshFailure($admin_user_id);
             if ($recovered_access_token !== null) {
-                self::clearOAuthFailureNotifications($admin_user_id);
                 return $recovered_access_token;
             }
             self::createOAuthFailureNotification($admin_user_id);
@@ -568,9 +577,8 @@ class GoogleCalendarIntegration {
         }
 
         if (empty($response['access_token'])) {
-            $recovered_access_token = self::recoverFreshAccessTokenFromStorage($admin_user_id);
+            $recovered_access_token = self::recoverFreshAccessTokenAfterRefreshFailure($admin_user_id);
             if ($recovered_access_token !== null) {
-                self::clearOAuthFailureNotifications($admin_user_id);
                 return $recovered_access_token;
             }
             self::createOAuthFailureNotification($admin_user_id);
