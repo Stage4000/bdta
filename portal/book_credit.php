@@ -159,7 +159,7 @@ if ($required_contract) {
 // forms stay in this list so the browser can hide/show them as the selected pet
 // list changes during the booking flow.
 $forms_needing_completion = [];
-$portal_booking_has_pet_info_group_form = false;
+$portal_booking_has_stable_pet_info_group_form = false;
 foreach ($all_required_forms as $form) {
     $form['required_frequency'] = bdta_normalize_form_required_frequency(array_string_value($form, 'required_frequency'));
     $form_has_pet_info_group = false;
@@ -177,16 +177,15 @@ foreach ($all_required_forms as $form) {
             $appointment_type_id
         );
         $forms_needing_completion[] = $form;
-        $portal_booking_has_pet_info_group_form = $portal_booking_has_pet_info_group_form || $form_has_pet_info_group;
         continue;
     }
 
     if (bdta_form_template_needs_completion($conn, $form, $client_id, $appointment_type_id)) {
         $forms_needing_completion[] = $form;
-        $portal_booking_has_pet_info_group_form = $portal_booking_has_pet_info_group_form || $form_has_pet_info_group;
+        $portal_booking_has_stable_pet_info_group_form = $portal_booking_has_stable_pet_info_group_form || $form_has_pet_info_group;
     }
 }
-$show_portal_top_pet_selector = !$portal_booking_has_pet_info_group_form;
+$show_portal_top_pet_selector = !$portal_booking_has_stable_pet_info_group_form;
 
 // ── Location types config (same logic as book.php) ───────────────────────────
 $is_fixed_type = !empty($selected_type['is_mini_session']) || !empty($selected_type['is_field_rental']) || !empty($selected_type['is_group_class']);
@@ -1170,7 +1169,7 @@ include '../portal/includes/header.php';
     function getSelectedPetIds() {
         const legacySelectedPetIds = [...document.querySelectorAll('.pet-checkbox')]
             .filter(cb => cb.checked)
-            .map(cb => parseInt(cb.dataset.petId));
+            .map(cb => parseInt(cb.dataset.petId, 10));
         if (legacySelectedPetIds.length > 0) {
             return legacySelectedPetIds;
         }
