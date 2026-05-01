@@ -43,7 +43,7 @@ $page_title = 'Packages';
 include '../portal/includes/header.php';
 ?>
 
-<h2 class="mb-4">Packages</h2>
+<h2 class="mb-4">Available Packages for Purchase</h2>
 
 <div class="card">
     <div class="card-header"><strong><i class="fas fa-box-open me-2"></i>Available Packages</strong></div>

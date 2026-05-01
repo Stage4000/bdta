@@ -49,12 +49,12 @@ bdta_assert(
     'Portal dashboard quick links should include Packages.'
 );
 bdta_assert(
-    str_contains($portal_packages, 'portal_available = 1')
-        && str_contains($portal_packages, 'share_token IS NOT NULL')
+    preg_match('/portal_available\s*=\s*1/', $portal_packages) === 1
+        && preg_match('/share_token\s+IS\s+NOT\s+NULL/', $portal_packages) === 1
         && str_contains($portal_packages, "requirePortalLogin();")
         && str_contains($portal_packages, '/client/package_detail.php?token=')
-        && str_contains($portal_packages, "number_format(\$package_price, 2)")
-        && str_contains($portal_packages, 'Available Packages'),
+        && preg_match('/number_format\\(\\$package_price,\\s*2\\)/', $portal_packages) === 1
+        && str_contains($portal_packages, 'Available Packages for Purchase'),
     'Portal packages page should require login, filter to portal-visible purchasable packages, and link into package checkout.'
 );
 bdta_assert(
