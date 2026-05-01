@@ -213,6 +213,91 @@ try {
     assertPublicBookingPetInfoGroup(array_string_value($optional_species_pet, 'name') === 'Pixel', 'Expected the optional-species booking to preserve the submitted pet name.');
     assertPublicBookingPetInfoGroup(array_string_value($optional_species_pet, 'species') === '', 'Expected optional-species bookings not to force a Dog species.');
 
+    $invalid_result = api_booking_create_booking($conn, [
+        'client_name' => 'Invalid Pet Group Owner ' . $suffix,
+        'client_email' => 'pet-group-invalid-' . $suffix . '@example.com',
+        'client_phone' => '555-0102',
+        'service_type' => 'Pet Info Group Invalid Booking',
+        'appointment_type_id' => $optional_species_type_id,
+        'appointment_date' => '2026-07-14',
+        'appointment_time' => '13:00',
+        'location_type' => 'custom_address',
+        'location_value' => '789 Invalid Lane',
+        'form_responses' => [
+            $optional_species_template_id => [
+                0 => [
+                    [
+                        'name' => '',
+                        'age_or_dob' => '1 year',
+                        'breed' => 'Mixed breed',
+                        'vaccines_current' => 'yes',
+                        'spayed_neutered' => 'yes',
+                        'source' => 'Shelter',
+                        'ownership_length' => '4 months',
+                    ],
+                ],
+            ],
+        ],
+    ]);
+    assertPublicBookingPetInfoGroup(
+        array_string_value($invalid_result, 'error') === 'Please complete Pet name for pet 1.',
+        'Expected invalid pet info group bookings to fail with a specific required-field error.'
+    );
+
+    $conn->prepare('INSERT INTO clients (name, email, phone, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)')
+        ->execute(['Existing Pet Group Owner ' . $suffix, 'pet-group-existing-' . $suffix . '@example.com', '555-0103']);
+    $existing_client_id = (int) $conn->lastInsertId();
+    $conn->prepare("
+        INSERT INTO pets (client_id, name, species, breed, is_active, created_at, updated_at)
+        VALUES (?, 'Buddy', 'Dog', 'Labrador', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ")->execute([$existing_client_id]);
+    $existing_buddy_id = (int) $conn->lastInsertId();
+
+    $overwrite_declined_result = api_booking_create_booking($conn, [
+        'client_name' => 'Existing Pet Group Owner ' . $suffix,
+        'client_email' => 'pet-group-existing-' . $suffix . '@example.com',
+        'client_phone' => '555-0103',
+        'service_type' => 'Pet Info Group Existing Pet Booking',
+        'appointment_type_id' => $optional_species_type_id,
+        'appointment_date' => '2026-07-15',
+        'appointment_time' => '15:00',
+        'location_type' => 'custom_address',
+        'location_value' => '159 Existing Lane',
+        'overwrite_profile' => false,
+        'form_responses' => [
+            $optional_species_template_id => [
+                0 => [
+                    [
+                        'name' => 'Buddy',
+                        'age_or_dob' => '3 years',
+                        'breed' => 'Poodle',
+                        'vaccines_current' => 'yes',
+                        'spayed_neutered' => 'yes',
+                        'source' => 'Rescue',
+                        'ownership_length' => '2 years',
+                    ],
+                ],
+            ],
+        ],
+    ]);
+    assertPublicBookingPetInfoGroup(($overwrite_declined_result['success'] ?? false) === true, 'Expected pet info group bookings with existing pet names to succeed when overwrite is declined.');
+    $overwrite_declined_booking_id = safe_int($overwrite_declined_result['booking_id'] ?? 0);
+    assertPublicBookingPetInfoGroup($overwrite_declined_booking_id > 0, 'Expected the overwrite-declined pet info group booking to return a booking ID.');
+
+    $pet_link_stmt->execute([$overwrite_declined_booking_id]);
+    $overwrite_declined_pet_ids = array_map('safe_int', $pet_link_stmt->fetchAll(PDO::FETCH_COLUMN));
+    assertPublicBookingPetInfoGroup(count($overwrite_declined_pet_ids) === 1, 'Expected the overwrite-declined booking to link one pet.');
+    assertPublicBookingPetInfoGroup($overwrite_declined_pet_ids[0] !== $existing_buddy_id, 'Expected overwrite-declined pet info group bookings to clone conflicting existing pets instead of reusing the original profile.');
+
+    $pet_stmt->execute([$existing_buddy_id]);
+    $existing_buddy = assoc_row($pet_stmt->fetch(PDO::FETCH_ASSOC));
+    assertPublicBookingPetInfoGroup(array_string_value($existing_buddy, 'breed') === 'Labrador', 'Expected existing pet profiles to remain unchanged until overwrite is explicitly confirmed.');
+
+    $pet_stmt->execute([$overwrite_declined_pet_ids[0]]);
+    $cloned_buddy = assoc_row($pet_stmt->fetch(PDO::FETCH_ASSOC));
+    assertPublicBookingPetInfoGroup(array_string_value($cloned_buddy, 'name') === 'Buddy', 'Expected cloned pet info group pets to preserve the matching pet name.');
+    assertPublicBookingPetInfoGroup(array_string_value($cloned_buddy, 'breed') === 'Poodle', 'Expected cloned pet info group pets to keep the newly submitted breed.');
+
     echo "Public booking pet info group test passed.\n";
 } catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage() . PHP_EOL);

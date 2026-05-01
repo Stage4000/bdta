@@ -271,6 +271,11 @@ if (is_array($pet_ids_raw) && !empty($pet_ids_raw)) {
 
 $pet_updates = [];
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
+    $pet_info_group_errors = api_booking_validate_pet_info_group_responses($conn, $data['form_responses']);
+    if ($pet_info_group_errors !== []) {
+        echo json_encode(['error' => $pet_info_group_errors[0]]);
+        exit;
+    }
     $pet_updates = api_booking_collect_pet_profile_mapped_values($conn, $data['form_responses']);
 }
 
@@ -581,6 +586,40 @@ function api_booking_order_verified_pet_ids(array $requested_pet_ids, array $ver
 
 /**
  * @param array<int|string, mixed> $form_responses
+ * @return list<string>
+ */
+function api_booking_validate_pet_info_group_responses(PDO $conn, array $form_responses): array {
+    $errors = [];
+
+    foreach ($form_responses as $tpl_id => $responses) {
+        if (!is_array($responses)) {
+            continue;
+        }
+
+        $tpl_stmt = $conn->prepare("SELECT fields FROM form_templates WHERE id = ?");
+        $tpl_stmt->execute([(int)$tpl_id]);
+        $tpl_row = assoc_row($tpl_stmt->fetch(PDO::FETCH_ASSOC));
+        if ($tpl_row === []) {
+            continue;
+        }
+
+        $tpl_fields = decode_json_assoc_list(array_string_value($tpl_row, 'fields'));
+        foreach ($tpl_fields as $fi => $field) {
+            if (!bdta_form_field_is_pet_info_group($field)) {
+                continue;
+            }
+
+            foreach (bdta_form_field_pet_info_group_validate_response($field, $responses[$fi] ?? $responses[(string) $fi] ?? null) as $error) {
+                $errors[] = $error;
+            }
+        }
+    }
+
+    return $errors;
+}
+
+/**
+ * @param array<int|string, mixed> $form_responses
  * @return array<int, array<string, string|int>>
  */
 function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_responses): array {
@@ -660,7 +699,7 @@ function api_booking_collect_pet_profile_mapped_values(PDO $conn, array $form_re
 
 /**
  * @param array<int, array<string, string|int>> $pet_updates
- * @return list<int>
+ * @return array<int, int>
  */
 function api_booking_create_pets_from_profile_updates(PDO $conn, int $client_id, array $pet_updates): array {
     if ($client_id <= 0 || $pet_updates === []) {
@@ -694,7 +733,7 @@ function api_booking_create_pets_from_profile_updates(PDO $conn, int $client_id,
     $created_pet_ids = [];
     $find_pet_stmt = $conn->prepare('SELECT id FROM pets WHERE client_id = ? AND name = ? ORDER BY id ASC LIMIT 1');
 
-    foreach ($pet_updates as $pet_profile) {
+    foreach ($pet_updates as $pet_index => $pet_profile) {
         $pet_name = trim(scalar_string($pet_profile['name'] ?? ''));
         if ($pet_name === '') {
             continue;
@@ -705,21 +744,7 @@ function api_booking_create_pets_from_profile_updates(PDO $conn, int $client_id,
 
         $params = [];
         if ($existing_pet_id > 0) {
-            $assignments = [];
-            foreach ($supported_attrs as $attr) {
-                if (!array_key_exists($attr, $pet_profile)) {
-                    continue;
-                }
-                $assignments[] = $attr . ' = ?';
-                $params[] = $pet_profile[$attr];
-            }
-            if ($assignments !== []) {
-                $params[] = $existing_pet_id;
-                $conn->prepare(
-                    'UPDATE pets SET ' . implode(', ', $assignments) . ', updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-                )->execute($params);
-            }
-            $created_pet_ids[] = $existing_pet_id;
+            $created_pet_ids[$pet_index] = $existing_pet_id;
             continue;
         }
 
@@ -751,7 +776,7 @@ function api_booking_create_pets_from_profile_updates(PDO $conn, int $client_id,
         $conn->prepare(
             'INSERT INTO pets (' . implode(', ', $insert_columns) . ') VALUES (' . implode(', ', $insert_sql) . ')'
         )->execute($params);
-        $created_pet_ids[] = (int)$conn->lastInsertId();
+        $created_pet_ids[$pet_index] = (int)$conn->lastInsertId();
     }
 
     return $created_pet_ids;
