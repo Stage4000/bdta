@@ -1919,6 +1919,7 @@ class Database {
                 price REAL DEFAULT 0,
                 expiration_days INTEGER,
                 is_active INTEGER DEFAULT 1,
+                portal_available INTEGER DEFAULT 0,
                 share_token TEXT,
                 form_template_id INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -2057,6 +2058,10 @@ class Database {
         }
         if (!in_array('bullet_points', $pkg_column_names)) {
             $this->execSQL("ALTER TABLE packages ADD COLUMN bullet_points TEXT");
+        }
+        if (!in_array('portal_available', $pkg_column_names)) {
+            $this->execSQL("ALTER TABLE packages ADD COLUMN portal_available INTEGER DEFAULT 0");
+            $this->execSQL("UPDATE packages SET portal_available = 0 WHERE portal_available IS NULL");
         }
         if (!in_array('form_template_id', $pkg_column_names)) {
             $this->execSQL("ALTER TABLE packages ADD COLUMN form_template_id INTEGER");

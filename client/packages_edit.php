@@ -138,6 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $price           = safe_float($_POST['price'] ?? 0);
     $expiration_days = !empty($_POST['expiration_days']) ? safe_int($_POST['expiration_days']) : null;
     $is_active       = isset($_POST['is_active']) ? 1 : 0;
+    $portal_available = isset($_POST['portal_available']) ? 1 : 0;
     $form_template_id_value = safe_int($_POST['form_template_id'] ?? 0);
     $form_template_id = $form_template_id_value > 0 ? $form_template_id_value : null;
 
@@ -178,10 +179,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($is_edit) {
                 $stmt = $conn->prepare("
-                    UPDATE packages SET name=?, description=?, bullet_points=?, price=?, expiration_days=?, is_active=?, form_template_id=?,
+                    UPDATE packages SET name=?, description=?, bullet_points=?, price=?, expiration_days=?, is_active=?, portal_available=?, form_template_id=?,
                     updated_at=CURRENT_TIMESTAMP WHERE id=?
                 ");
-                $stmt->execute([$name, $description, $bullet_points, $price, $expiration_days, $is_active, $form_template_id, $id]);
+                $stmt->execute([$name, $description, $bullet_points, $price, $expiration_days, $is_active, $portal_available, $form_template_id, $id]);
                 // Replace items
                 $conn->prepare("DELETE FROM package_items WHERE package_id = ?")->execute([$id]);
                 // Regenerate share token if requested
@@ -193,10 +194,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $share_token = bin2hex(random_bytes(16));
                 $stmt = $conn->prepare("
-                    INSERT INTO packages (name, description, bullet_points, price, expiration_days, is_active, share_token, form_template_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO packages (name, description, bullet_points, price, expiration_days, is_active, portal_available, share_token, form_template_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$name, $description, $bullet_points, $price, $expiration_days, $is_active, $share_token, $form_template_id]);
+                $stmt->execute([$name, $description, $bullet_points, $price, $expiration_days, $is_active, $portal_available, $share_token, $form_template_id]);
                 $id = $conn->lastInsertId();
                 $_SESSION['flash'] = ['type' => 'success', 'message' => 'Package created successfully!'];
             }
@@ -363,6 +364,14 @@ include __DIR__ . '/../backend/includes/header.php';
                                    <?= !isset($package) || !empty($package['is_active']) ? 'checked' : '' ?>>
                             <label class="form-check-label" for="is_active">Active</label>
                             <div class="form-text">Only active packages can be assigned to clients</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="portal_available" name="portal_available"
+                                   <?= isset($_POST['portal_available']) || (!isset($_POST['portal_available']) && array_int_value($package ?? [], 'portal_available') === 1) ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="portal_available">Available in Client Portal</label>
+                            <div class="form-text">Show this package on the client portal packages page so logged-in clients can purchase it</div>
                         </div>
                     </div>
                 </div>
