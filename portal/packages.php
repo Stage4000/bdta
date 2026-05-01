@@ -19,7 +19,7 @@ $stmt = $conn->query("
 $packages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $items_by_package = [];
-$package_ids = array_map(static fn (array $package_row): int => safe_int($package_row['id'] ?? 0), $packages);
+$package_ids = array_map(static fn (array $package): int => safe_int($package['id'] ?? 0), $packages);
 if ($package_ids !== []) {
     $placeholders = implode(',', array_fill(0, count($package_ids), '?'));
     // Placeholder count is generated from trusted package IDs and values remain parameterized.

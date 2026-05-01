@@ -2061,7 +2061,6 @@ class Database {
         }
         if (!in_array('portal_available', $pkg_column_names)) {
             $this->execSQL("ALTER TABLE packages ADD COLUMN portal_available INTEGER DEFAULT 0");
-            $this->execSQL("UPDATE packages SET portal_available = 0 WHERE portal_available IS NULL");
         }
         if (!in_array('form_template_id', $pkg_column_names)) {
             $this->execSQL("ALTER TABLE packages ADD COLUMN form_template_id INTEGER");
