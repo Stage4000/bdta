@@ -93,6 +93,8 @@ try {
     $google_calendar_reflection = new ReflectionClass(GoogleCalendarIntegration::class);
     $persist_refreshed_oauth_token = $google_calendar_reflection->getMethod('persistRefreshedOAuthToken');
     $persist_refreshed_oauth_token->setAccessible(true);
+    $recover_fresh_access_token_from_storage = $google_calendar_reflection->getMethod('recoverFreshAccessTokenFromStorage');
+    $recover_fresh_access_token_from_storage->setAccessible(true);
 
     $insert_token = $conn->prepare('
         INSERT INTO google_oauth_tokens (
@@ -156,6 +158,10 @@ try {
         scalar_string($rotated_row['refresh_token'] ?? '') === 'rotated-refresh-token',
         'Expected token refresh persistence to store a rotated refresh token returned by Google.'
     );
+    assertGoogleCalendarOAuth(
+        $recover_fresh_access_token_from_storage->invoke(null, 1) === 'rotated-access-token',
+        'Expected concurrent refresh recovery to reuse a freshly stored access token.'
+    );
 
     $active_notification_count = safe_int($conn->query("SELECT COUNT(*) FROM notifications WHERE entity_type = 'google_calendar_oauth' AND deleted_at IS NULL")->fetchColumn());
     assertGoogleCalendarOAuth($active_notification_count === 0, 'Expected successful OAuth token saves to clear any active Google Calendar OAuth warnings.');
@@ -168,6 +174,10 @@ try {
 
     $valid_access_token = GoogleCalendarIntegration::getValidAccessToken(1);
     assertGoogleCalendarOAuth($valid_access_token === null, 'Expected expired OAuth tokens without a refresh token to fail validation.');
+    assertGoogleCalendarOAuth(
+        $recover_fresh_access_token_from_storage->invoke(null, 1) === null,
+        'Expected concurrent refresh recovery to ignore expired stored access tokens.'
+    );
 
     $notification_count = safe_int($conn->query("SELECT COUNT(*) FROM notifications WHERE entity_type = 'google_calendar_oauth' AND deleted_at IS NULL")->fetchColumn());
     assertGoogleCalendarOAuth($notification_count === 2, 'Expected an admin-panel Google Calendar OAuth warning for each admin user.');
