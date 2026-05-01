@@ -177,6 +177,16 @@ foreach ($all_required_forms as $form) {
     }
 }
 
+$portal_booking_has_pet_info_group_form = false;
+foreach ($forms_needing_completion as $form) {
+    foreach (assoc_rows($form['fields'] ?? []) as $field) {
+        if (bdta_form_field_is_pet_info_group(assoc_row($field))) {
+            $portal_booking_has_pet_info_group_form = true;
+            break 2;
+        }
+    }
+}
+
 // ── Location types config (same logic as book.php) ───────────────────────────
 $is_fixed_type = !empty($selected_type['is_mini_session']) || !empty($selected_type['is_field_rental']) || !empty($selected_type['is_group_class']);
 $loc_types_all = [
@@ -409,6 +419,13 @@ include '../portal/includes/header.php';
                     <?php endif; ?>
 
                     <!-- Add new pet inline -->
+                    <?php if ($portal_booking_has_pet_info_group_form): ?>
+                    <div class="alert alert-info py-2 mt-2 mb-0">
+                        <i class="fas fa-paw me-1"></i>
+                        Need to add a new pet? Use the <strong>Add New Pet</strong> button in the Pet Info Group section below so we can collect the full required details for this form.
+                        <a href="#requiredFormsSection" class="alert-link ms-1">Jump to required forms</a>
+                    </div>
+                    <?php else: ?>
                     <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="addPetToggleBtn"
                             onclick="document.getElementById('addPetForm').classList.toggle('d-none');this.classList.toggle('active');">
                         <i class="fas fa-plus me-1"></i> Add a New Pet
@@ -440,6 +457,7 @@ include '../portal/includes/header.php';
                         </div>
                         <div id="addPetStatus" class="mt-2"></div>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Notes -->
@@ -505,7 +523,7 @@ include '../portal/includes/header.php';
                 <!-- Required Forms (only if not skippable) -->
                 <?php if (!empty($forms_needing_completion)): ?>
                 <hr class="my-4">
-                <h6><i class="fas fa-file-alt me-2"></i>Required Forms</h6>
+                <h6 id="requiredFormsSection"><i class="fas fa-file-alt me-2"></i>Required Forms</h6>
                 <p class="text-muted mb-3">Please complete the following forms as part of your booking.</p>
                 <div class="alert alert-success mb-4 d-none" id="requiredFormsCurrentNotice">
                     <i class="fas fa-circle-check me-2"></i>

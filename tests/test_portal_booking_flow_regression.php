@@ -55,6 +55,11 @@ bdta_assert_portal_booking(
     'Portal booking page should collect dynamic Pet Info Group responses and derive legacy pet-name fallbacks from them.'
 );
 bdta_assert_portal_booking(
+    str_contains($book_page, 'Use the <strong>Add New Pet</strong> button in the Pet Info Group section below so we can collect the full required details for this form.') &&
+    str_contains($book_page, 'id="requiredFormsSection"'),
+    'Portal booking page should steer add-new-pet entry through the full Pet Info Group form when a required Pet Info Group is present.'
+);
+bdta_assert_portal_booking(
     str_contains($api_page, '$portal_available = array_int_value($apt_type, \'portal_available\') === 1;'),
     'Portal booking API should allow standard portal booking types without requiring a package credit.'
 );
