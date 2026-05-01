@@ -1183,7 +1183,7 @@ include '../portal/includes/header.php';
             }
 
             collectPetInfoGroupResponse(group).forEach(function (pet) {
-                const petId = Number.parseInt(String(pet?.existing_pet_id || '0'), 10) || 0;
+                const petId = parseInt(pet?.existing_pet_id, 10) || 0;
                 if (petId > 0 && !petInfoSelectedPetIds.includes(petId)) {
                     petInfoSelectedPetIds.push(petId);
                 }
