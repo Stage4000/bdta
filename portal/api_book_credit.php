@@ -279,9 +279,7 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
     $pet_updates = api_booking_collect_pet_profile_mapped_values($conn, $data['form_responses']);
 }
 
-if ($pet_ids === [] && $pet_updates !== []) {
-    $pet_ids = api_booking_create_pets_from_profile_updates($conn, $client_id, $pet_updates);
-}
+$pet_ids = api_booking_merge_pet_ids_with_profile_updates($conn, $client_id, $pet_ids, $pet_updates);
 
 // Distinguish between three cases sent by the client:
 //   • overwrite_profile key absent  → modal was never shown (no detected conflict); always apply mapping
@@ -582,6 +580,40 @@ function api_booking_order_verified_pet_ids(array $requested_pet_ids, array $ver
     }
 
     return $ordered_pet_ids;
+}
+
+/**
+ * @param array<int, int> $pet_ids
+ * @param array<int, array<string, string|int>> $pet_updates
+ * @return array<int, int>
+ */
+function api_booking_merge_pet_ids_with_profile_updates(PDO $conn, int $client_id, array $pet_ids, array $pet_updates): array {
+    if ($client_id <= 0 || $pet_updates === []) {
+        return $pet_ids;
+    }
+
+    if ($pet_ids === []) {
+        return api_booking_create_pets_from_profile_updates($conn, $client_id, $pet_updates);
+    }
+
+    $missing_pet_updates = [];
+    foreach ($pet_updates as $pet_index => $pet_profile) {
+        if (!array_key_exists($pet_index, $pet_ids) || safe_int($pet_ids[$pet_index]) <= 0) {
+            $missing_pet_updates[$pet_index] = $pet_profile;
+        }
+    }
+
+    if ($missing_pet_updates === []) {
+        return $pet_ids;
+    }
+
+    foreach (api_booking_create_pets_from_profile_updates($conn, $client_id, $missing_pet_updates) as $pet_index => $pet_id) {
+        if ($pet_id > 0) {
+            $pet_ids[$pet_index] = $pet_id;
+        }
+    }
+
+    return $pet_ids;
 }
 
 /**
