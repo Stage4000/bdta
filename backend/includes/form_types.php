@@ -356,6 +356,9 @@ function bdta_form_field_pet_info_group_format_duration(int $years, int $months)
     return implode(', ', $parts);
 }
 
+/**
+ * @param array<string, mixed> $pet
+ */
 function bdta_form_field_pet_info_group_prefill_boolean(array $pet, string $key): string
 {
     if (!array_key_exists($key, $pet)) {

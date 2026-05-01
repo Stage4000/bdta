@@ -1494,18 +1494,18 @@ include '../portal/includes/header.php';
         if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
             requestedCount = Math.max(1, currentPets.length || selectedExistingPets.length || 1);
         }
-        requestedCount = Math.max(requestedCount, selectedExistingPets.length || 1);
+        requestedCount = Math.max(requestedCount, selectedExistingPets.length > 0 ? selectedExistingPets.length : 1);
         const configuredMax = maxPets();
         if (configuredMax > 0) {
             requestedCount = Math.min(requestedCount, configuredMax);
         }
         countInput.value = String(requestedCount);
 
-        const pets = selectedExistingPets.slice(0, requestedCount);
-        while (pets.length < requestedCount) {
-            pets.push(newPets.shift() || blankPet());
+        const editablePets = newPets.slice(0, Math.max(0, requestedCount - selectedExistingPets.length));
+        while (editablePets.length < Math.max(0, requestedCount - selectedExistingPets.length)) {
+            editablePets.push(blankPet());
         }
-        group.dataset.petInfoValue = JSON.stringify(pets);
+        group.dataset.petInfoValue = JSON.stringify(selectedExistingPets.concat(editablePets));
 
         if (limitMessage) {
             if (configuredMax > 0) {
@@ -1558,7 +1558,39 @@ include '../portal/includes/header.php';
             }
         }
 
-        list.innerHTML = pets.map(function (pet, index) {
+        const existingPetCards = selectedExistingPets.map(function (pet, index) {
+            const speciesSummary = config.include_species && (pet.species || config.default_species)
+                ? ` • ${escapeHtml(pet.species || config.default_species)}`
+                : '';
+            return `
+                <div class="card mb-3 border-secondary-subtle" data-pet-row data-selected-existing-pet>
+                    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Pet ${index + 1}</span>
+                        <span class="badge text-bg-secondary">On File</span>
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="small">
+                            <span class="fw-semibold">${escapeHtml(pet.name || 'Pet')}</span>
+                            ${pet.breed ? `<span class="text-muted"> • ${escapeHtml(pet.breed)}</span>` : ''}
+                            ${speciesSummary ? `<span class="text-muted">${speciesSummary}</span>` : ''}
+                        </div>
+                        <div class="small text-muted mt-1">Details already on file. Use Add New Pet to enter a different pet.</div>
+                        <input type="hidden" value="${petIdValue(pet.existing_pet_id)}" data-pet-existing-id>
+                        <input type="hidden" value="${escapeHtml(pet.name)}" data-pet-attr="name">
+                        <input type="hidden" value="${escapeHtml(pet.age_or_dob)}" data-pet-attr="age_or_dob">
+                        <input type="hidden" value="${escapeHtml(pet.breed)}" data-pet-attr="breed">
+                        <input type="hidden" value="${escapeHtml(pet.vaccines_current)}" data-pet-attr="vaccines_current">
+                        <input type="hidden" value="${escapeHtml(pet.spayed_neutered)}" data-pet-attr="spayed_neutered">
+                        <input type="hidden" value="${escapeHtml(pet.source)}" data-pet-attr="source">
+                        <input type="hidden" value="${escapeHtml(pet.ownership_length)}" data-pet-attr="ownership_length">
+                        <input type="hidden" value="${escapeHtml(pet.species || config.default_species || '')}" data-pet-attr="species">
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const editablePetCards = editablePets.map(function (pet, editableIndex) {
+            const index = selectedExistingPets.length + editableIndex;
             const speciesField = config.include_species
                 ? (config.dog_only_species
                     ? `<div class="col-md-6">
@@ -1575,7 +1607,6 @@ include '../portal/includes/header.php';
                 <div class="card mb-3" data-pet-row>
                     <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
                         <span>Pet ${index + 1}</span>
-                        ${petIdValue(pet.existing_pet_id) > 0 ? '<span class="badge text-bg-secondary">On File</span>' : ''}
                     </div>
                     <div class="card-body">
                         <input type="hidden" value="${petIdValue(pet.existing_pet_id)}" data-pet-existing-id>
@@ -1623,6 +1654,8 @@ include '../portal/includes/header.php';
                 </div>
             `;
         }).join('');
+
+        list.innerHTML = existingPetCards + editablePetCards;
     }
 
     function initPetInfoGroups() {

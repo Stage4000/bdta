@@ -138,6 +138,7 @@ assertPetInfoGroup(str_contains($book_page, 'data-pet-info-config'), 'Expected t
 assertPetInfoGroup(str_contains($book_page, 'getPetInfoGroupPetNames'), 'Expected the public booking flow to derive legacy dog-name values from pet info group responses.');
 assertPetInfoGroup(str_contains($book_page, 'data-existing-pets'), 'Expected the public booking flow to expose existing pet choices to pet info groups.');
 assertPetInfoGroup(str_contains($book_page, 'Yes, spayed/neutered'), 'Expected the public booking flow to use the updated spay/neuter labels.');
+assertPetInfoGroup(str_contains($book_page, 'Details already on file. Use Add New Pet to enter a different pet.'), 'Expected existing pets in public booking to render as on-file summaries instead of editable fields.');
 
 $public_form_page = file_get_contents(dirname(__DIR__) . '/backend/public/form.php');
 if (!is_string($public_form_page)) {
@@ -146,6 +147,7 @@ if (!is_string($public_form_page)) {
 assertPetInfoGroup(str_contains($public_form_page, 'data-pet-info-config'), 'Expected the public form submission page to render pet info group configuration data.');
 assertPetInfoGroup(str_contains($public_form_page, 'public_form_sync_pet_info_group_profiles($conn, $client_id, $fields, $responses);'), 'Expected public form submissions to sync pet info group responses into pet profiles.');
 assertPetInfoGroup(str_contains($public_form_page, 'Already a client with us?'), 'Expected the public form page to render the client login shortcut for pet info groups.');
+assertPetInfoGroup(str_contains($public_form_page, 'data-selected-existing-pet'), 'Expected selected existing pets in public forms to render without editable detail fields.');
 
 $portal_page = file_get_contents(dirname(__DIR__) . '/portal/book_credit.php');
 if (!is_string($portal_page)) {
@@ -153,6 +155,7 @@ if (!is_string($portal_page)) {
 }
 assertPetInfoGroup(str_contains($portal_page, 'data-pet-info-config'), 'Expected the portal booking flow to render pet info group configuration data.');
 assertPetInfoGroup(str_contains($portal_page, 'Pets already on file'), 'Expected the portal booking flow to expose existing pet choices to pet info groups.');
+assertPetInfoGroup(str_contains($portal_page, 'Details already on file. Use Add New Pet to enter a different pet.'), 'Expected selected existing pets in portal booking to render as on-file summaries instead of editable fields.');
 
 $portal_api_page = file_get_contents(dirname(__DIR__) . '/portal/api_book_credit.php');
 if (!is_string($portal_api_page)) {
