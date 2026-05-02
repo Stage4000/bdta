@@ -493,10 +493,6 @@ function bdta_finalize_package_purchase(
 
         if (is_array($existing_client)) {
             $client_id = $existing_client['id'];
-            if ($client_id <= 0) {
-                throw new RuntimeException('Unable to resolve existing client.');
-            }
-
             $updated_name = trim($existing_client['name']);
             $updated_phone = trim($existing_client['phone']);
             if ($updated_name === '') {
