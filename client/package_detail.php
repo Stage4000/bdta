@@ -52,7 +52,9 @@ $stmt->execute([$package['id']]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $package_contracts = bdta_get_package_contract_summary($conn, array_int_value($package, 'id'));
 $attached_form = bdta_get_package_attached_form($conn, safe_int($package['form_template_id'] ?? 0));
+$effective_attached_form = $attached_form;
 $attached_form_posted_values = [];
+$attached_form_skip_message = '';
 
 // Record page view (analytics)
 $ip = $_SERVER['REMOTE_ADDR'] ?? null;
@@ -86,6 +88,19 @@ if (!isset($_SESSION['package_purchase_success']) || !is_array($_SESSION['packag
 $pending_purchase_prefill = $_SESSION['pending_package_purchases'][$token] ?? null;
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && is_array($pending_purchase_prefill) && is_array($pending_purchase_prefill['form_responses'] ?? null)) {
     $attached_form_posted_values = $pending_purchase_prefill['form_responses'];
+}
+
+$package_checkout_form_email = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $package_checkout_form_email = trim(scalar_string($_POST['buyer_email'] ?? ''));
+} elseif (is_array($pending_purchase_prefill)) {
+    $package_checkout_form_email = trim(scalar_string($pending_purchase_prefill['buyer_email'] ?? ''));
+}
+
+$attached_form_state = bdta_get_package_checkout_form_state($conn, $attached_form, $package_checkout_form_email);
+if ($attached_form !== null && !$attached_form_state['form_due']) {
+    $effective_attached_form = null;
+    $attached_form_skip_message = $attached_form_state['skip_message'];
 }
 
 if ($purchase_status === 'success' && !empty($_SESSION['package_purchase_success'][$token])) {
@@ -184,7 +199,7 @@ if (!$success && $session_id !== '') {
                                 $pending_purchase['buyer_email'],
                                 $pending_purchase['buyer_phone'],
                                 $pending_purchase['notes'],
-                                $attached_form,
+                                $effective_attached_form,
                                 $pending_form_responses,
                                 $pending_purchase['view_id'],
                                 'credit_card',
@@ -213,12 +228,12 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
     $buyer_email = trim(scalar_string($_POST['buyer_email'] ?? ''));
     $buyer_phone = trim(scalar_string($_POST['buyer_phone'] ?? ''));
     $notes       = trim(scalar_string($_POST['notes'] ?? ''));
-    $attached_form_id = safe_int($attached_form['id'] ?? 0);
+    $attached_form_id = safe_int($effective_attached_form['id'] ?? 0);
     $posted_package_form_values = $_POST['package_form'][$attached_form_id] ?? null;
     $attached_form_posted_values = is_array($posted_package_form_values)
         ? $posted_package_form_values
         : [];
-    $form_validation = bdta_validate_package_form_submission($attached_form, $attached_form_posted_values);
+    $form_validation = bdta_validate_package_form_submission($effective_attached_form, $attached_form_posted_values);
 
     if (!hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $submitted_csrf_token)) {
         $error = 'Your session expired. Please refresh the page and try again.';
@@ -348,7 +363,7 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
                     $buyer_email,
                     $buyer_phone,
                     $notes,
-                    $attached_form,
+                    $effective_attached_form,
                     $form_validation['responses'],
                     $view_id !== null ? safe_int($view_id) : null,
                     'offline'
@@ -591,13 +606,19 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                                  <?php endif; ?>
                              </div>
 
-                            <?php if ($attached_form): ?>
-                            <?php $attached_form_id = safe_int($attached_form['id'] ?? 0); ?>
-                            <?php $attached_form_fields = bdta_package_checkout_fields($attached_form['fields'] ?? []); ?>
+                            <?php if ($attached_form_skip_message !== ''): ?>
+                            <div class="alert alert-success">
+                                <i class="fas fa-circle-check me-2"></i><?= escape($attached_form_skip_message) ?>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if ($effective_attached_form): ?>
+                            <?php $attached_form_id = safe_int($effective_attached_form['id'] ?? 0); ?>
+                            <?php $attached_form_fields = bdta_package_checkout_fields($effective_attached_form['fields'] ?? []); ?>
                             <div class="border rounded p-3 mb-3">
-                                <h6 class="mb-1"><i class="fas fa-file-lines me-2 brand-purple"></i><?= escape(array_string_value($attached_form, 'name')) ?></h6>
-                                <?php if (array_string_value($attached_form, 'description') !== ''): ?>
-                                    <p class="text-muted small mb-3"><?= escape(array_string_value($attached_form, 'description')) ?></p>
+                                <h6 class="mb-1"><i class="fas fa-file-lines me-2 brand-purple"></i><?= escape(array_string_value($effective_attached_form, 'name')) ?></h6>
+                                <?php if (array_string_value($effective_attached_form, 'description') !== ''): ?>
+                                    <p class="text-muted small mb-3"><?= escape(array_string_value($effective_attached_form, 'description')) ?></p>
                                 <?php else: ?>
                                     <p class="text-muted small mb-3">Please complete this form as part of your checkout.</p>
                                 <?php endif; ?>
