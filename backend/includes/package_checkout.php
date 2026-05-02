@@ -151,7 +151,15 @@ function bdta_find_package_checkout_client_by_email(SafePDO $conn, string $buyer
     $client_lookup->execute([$normalized_email]);
     $existing_client = $client_lookup->fetch(PDO::FETCH_ASSOC);
 
-    return is_array($existing_client) ? $existing_client : null;
+    if (!is_array($existing_client)) {
+        return null;
+    }
+
+    return [
+        'id' => safe_int($existing_client['id'] ?? 0),
+        'name' => scalar_string($existing_client['name'] ?? ''),
+        'phone' => scalar_string($existing_client['phone'] ?? ''),
+    ];
 }
 
 /**
@@ -186,7 +194,7 @@ function bdta_get_package_checkout_form_state(SafePDO $conn, ?array $form, strin
         ];
     }
 
-    $client_id = safe_int($existing_client['id'] ?? 0);
+    $client_id = $existing_client['id'];
     $appointment_type_id = array_int_value($form, 'appointment_type_id');
     $form_due = bdta_form_template_needs_completion($conn, $form, $client_id, $appointment_type_id);
     if ($form_due) {
@@ -479,13 +487,13 @@ function bdta_finalize_package_purchase(
         $existing_client = bdta_find_package_checkout_client_by_email($conn, $buyer_email);
 
         if (is_array($existing_client)) {
-            $client_id = safe_int($existing_client['id'] ?? 0);
+            $client_id = $existing_client['id'];
             if ($client_id <= 0) {
                 throw new RuntimeException('Unable to resolve existing client.');
             }
 
-            $updated_name = trim(scalar_string($existing_client['name'] ?? ''));
-            $updated_phone = trim(scalar_string($existing_client['phone'] ?? ''));
+            $updated_name = trim($existing_client['name']);
+            $updated_phone = trim($existing_client['phone']);
             if ($updated_name === '') {
                 $updated_name = $buyer_name;
             }
