@@ -108,7 +108,8 @@ function bdta_get_package_attached_form(SafePDO $conn, int $form_template_id): ?
     }
 
     $stmt = $conn->prepare("
-        SELECT id, name, description, fields, form_type, is_active, COALESCE(is_internal, 0) AS is_internal
+        SELECT id, name, description, fields, form_type, is_active, COALESCE(is_internal, 0) AS is_internal,
+               required_frequency, appointment_type_id
         FROM form_templates
         WHERE id = ? AND is_active = 1
     ");
@@ -128,6 +129,92 @@ function bdta_get_package_attached_form(SafePDO $conn, int $form_template_id): ?
     $form['fields'] = bdta_package_checkout_fields($form['fields'] ?? []);
 
     return $form;
+}
+
+/**
+ * @return array{id: int, name: string, phone: string}|null
+ */
+function bdta_find_package_checkout_client_by_email(SafePDO $conn, string $buyer_email): ?array
+{
+    $normalized_email = strtolower(trim($buyer_email));
+    if ($normalized_email === '') {
+        return null;
+    }
+
+    $client_lookup = $conn->prepare("
+        SELECT id, name, phone
+        FROM clients
+        WHERE LOWER(email) = ?
+        ORDER BY updated_at DESC, created_at DESC, id DESC
+        LIMIT 1
+    ");
+    $client_lookup->execute([$normalized_email]);
+    $existing_client = $client_lookup->fetch(PDO::FETCH_ASSOC);
+
+    if (!is_array($existing_client)) {
+        return null;
+    }
+
+    $client_id = safe_int($existing_client['id'] ?? 0);
+    if ($client_id <= 0) {
+        return null;
+    }
+
+    return [
+        'id' => $client_id,
+        'name' => scalar_string($existing_client['name'] ?? ''),
+        'phone' => scalar_string($existing_client['phone'] ?? ''),
+    ];
+}
+
+/**
+ * @param array<string, mixed>|null $form
+ * @return array{form_due: bool, client_id: int, skip_message: string}
+ */
+function bdta_get_package_checkout_form_state(SafePDO $conn, ?array $form, string $buyer_email): array
+{
+    if (!$form) {
+        return [
+            'form_due' => false,
+            'client_id' => 0,
+            'skip_message' => '',
+        ];
+    }
+
+    $normalized_email = strtolower(trim($buyer_email));
+    if ($normalized_email === '' || !filter_var($normalized_email, FILTER_VALIDATE_EMAIL)) {
+        return [
+            'form_due' => true,
+            'client_id' => 0,
+            'skip_message' => '',
+        ];
+    }
+
+    $existing_client = bdta_find_package_checkout_client_by_email($conn, $normalized_email);
+    if (!is_array($existing_client)) {
+        return [
+            'form_due' => true,
+            'client_id' => 0,
+            'skip_message' => '',
+        ];
+    }
+
+    $client_id = $existing_client['id'];
+    $appointment_type_id = array_int_value($form, 'appointment_type_id');
+    $form_due = bdta_form_template_needs_completion($conn, $form, $client_id, $appointment_type_id);
+    if ($form_due) {
+        return [
+            'form_due' => true,
+            'client_id' => $client_id,
+            'skip_message' => '',
+        ];
+    }
+
+    return [
+        'form_due' => false,
+        'client_id' => $client_id,
+        'skip_message' => 'Your ' . array_string_value($form, 'name', 'required form') . ' submission is already on file and still current. No re-submission is needed for this package purchase.',
+    ];
 }
 
 /**
@@ -402,24 +489,12 @@ function bdta_finalize_package_purchase(
     $conn->beginTransaction();
 
     try {
-        $client_lookup = $conn->prepare("
-            SELECT id, name, phone
-            FROM clients
-            WHERE LOWER(email) = ?
-            ORDER BY updated_at DESC, created_at DESC, id DESC
-            LIMIT 1
-        ");
-        $client_lookup->execute([$buyer_email]);
-        $existing_client = $client_lookup->fetch(PDO::FETCH_ASSOC);
+        $existing_client = bdta_find_package_checkout_client_by_email($conn, $buyer_email);
 
         if (is_array($existing_client)) {
-            $client_id = safe_int($existing_client['id'] ?? 0);
-            if ($client_id <= 0) {
-                throw new RuntimeException('Unable to resolve existing client.');
-            }
-
-            $updated_name = trim(scalar_string($existing_client['name'] ?? ''));
-            $updated_phone = trim(scalar_string($existing_client['phone'] ?? ''));
+            $client_id = $existing_client['id'];
+            $updated_name = trim($existing_client['name']);
+            $updated_phone = trim($existing_client['phone']);
             if ($updated_name === '') {
                 $updated_name = $buyer_name;
             }

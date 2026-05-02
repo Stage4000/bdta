@@ -169,6 +169,7 @@ include '../portal/includes/header.php';
         ['href' => 'invoices.php',     'icon' => 'fa-file-invoice',         'label' => 'Invoices'],
         ['href' => 'appointments.php', 'icon' => 'fa-calendar-check',       'label' => 'Appointments'],
         ['href' => 'credits.php',      'icon' => 'fa-coins',                'label' => 'Credits'],
+        ['href' => 'packages.php',     'icon' => 'fa-box-open',             'label' => 'Packages'],
         ['href' => 'agreements.php',   'icon' => 'fa-file-contract',        'label' => 'Agreements'],
         ['href' => 'quotes.php',       'icon' => 'fa-file-invoice-dollar',  'label' => 'Quotes'],
         ['href' => 'achievements.php', 'icon' => 'fa-award',                'label' => 'Achievements'],
