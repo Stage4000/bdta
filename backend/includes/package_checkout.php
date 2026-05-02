@@ -155,8 +155,13 @@ function bdta_find_package_checkout_client_by_email(SafePDO $conn, string $buyer
         return null;
     }
 
+    $client_id = safe_int($existing_client['id'] ?? 0);
+    if ($client_id <= 0) {
+        return null;
+    }
+
     return [
-        'id' => safe_int($existing_client['id'] ?? 0),
+        'id' => $client_id,
         'name' => scalar_string($existing_client['name'] ?? ''),
         'phone' => scalar_string($existing_client['phone'] ?? ''),
     ];
