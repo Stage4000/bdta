@@ -685,6 +685,16 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             <?php elseif ($is_standalone && $selected_type): ?>
                 <h1><i class="fas fa-calendar-check me-2"></i>Book <?= escape(public_book_string($selected_type, 'name')) ?></h1>
                 <p class="booking-subtitle mb-0"><?= escape(public_book_string($selected_type, 'description')) ?></p>
+                <p class="mt-2 mb-0 fw-semibold">
+                    Session Cost:
+                    <span class="text-primary">
+                        <?php if ((float) ($selected_type['default_amount'] ?? 0) > 0): ?>
+                            $<?= number_format((float) $selected_type['default_amount'], 2) ?>
+                        <?php else: ?>
+                            Free
+                        <?php endif; ?>
+                    </span>
+                </p>
                 <?php if (!empty($selected_type['is_mini_session'])): ?>
                     <div class="alert alert-info mt-3 mb-0">
                         <div class="d-flex align-items-start">
@@ -1410,6 +1420,9 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                                 
                                 <dt class="col-sm-4">Time:</dt>
                                 <dd class="col-sm-8" id="confirmTime">-</dd>
+
+                                <dt class="col-sm-4">Cost:</dt>
+                                <dd class="col-sm-8" id="confirmPrice">-</dd>
                                 
                                 <dt class="col-sm-4">Name:</dt>
                                 <dd class="col-sm-8" id="confirmName">-</dd>
@@ -1516,6 +1529,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
     $js_type_id = $selected_type ? public_book_int($selected_type, 'id') : 'null';
     $js_type_name = $selected_type ? json_encode(public_book_string($selected_type, 'name'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null';
     $selected_type_duration = $selected_type ? public_book_int($selected_type, 'duration_minutes') : 0;
+    $selected_type_price = $selected_type ? (float) ($selected_type['default_amount'] ?? 0) : 0.0;
     $js_type_duration = ($selected_type && $selected_type_duration > 0)
         ? $selected_type_duration
         : 'null';
@@ -1535,6 +1549,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
         let selectedType = <?= $js_type_id ?>;
         let selectedTypeName = <?= $js_type_name ?>;
         let selectedTypeDuration = <?= $js_type_duration ?>;
+        let selectedTypePrice = <?= json_encode($selected_type_price) ?>;
         let selectedDate = <?= $js_specific_date ?>;
         let selectedTime = null;
         const maxSteps = 4;
@@ -2511,6 +2526,15 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             return labels[type] || '';
         }
 
+        function formatBookingPrice(amount) {
+            const numericAmount = Number(amount);
+            if (!Number.isFinite(numericAmount)) {
+                return 'Not specified';
+            }
+
+            return numericAmount === 0 ? 'Free' : '$' + numericAmount.toFixed(2);
+        }
+
         function updateConfirmation() {
             const typeName = selectedTypeName || 'Appointment';
             
@@ -2519,6 +2543,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
             });
             document.getElementById('confirmTime').textContent = formatTime(selectedTime);
+            document.getElementById('confirmPrice').textContent = formatBookingPrice(selectedTypePrice);
 
             const formResponses = collectFormResponses();
             const mappedFormValues = getMappedFormValues(formResponses);
