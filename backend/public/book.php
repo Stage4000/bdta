@@ -688,8 +688,8 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 <p class="mt-2 mb-0 fw-semibold">
                     Session Cost:
                     <span class="text-primary">
-                        <?php if ((float) ($selected_type['default_amount'] ?? 0) > 0): ?>
-                            $<?= number_format((float) $selected_type['default_amount'], 2) ?>
+                        <?php if (safe_float($selected_type['default_amount'] ?? 0) > 0): ?>
+                            $<?= number_format(safe_float($selected_type['default_amount'] ?? 0), 2) ?>
                         <?php else: ?>
                             Free
                         <?php endif; ?>
@@ -1529,7 +1529,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
     $js_type_id = $selected_type ? public_book_int($selected_type, 'id') : 'null';
     $js_type_name = $selected_type ? json_encode(public_book_string($selected_type, 'name'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null';
     $selected_type_duration = $selected_type ? public_book_int($selected_type, 'duration_minutes') : 0;
-    $selected_type_price = $selected_type ? (float) ($selected_type['default_amount'] ?? 0) : 0.0;
+    $selected_type_price = $selected_type ? safe_float($selected_type['default_amount'] ?? 0) : 0.0;
     $js_type_duration = ($selected_type && $selected_type_duration > 0)
         ? $selected_type_duration
         : 'null';
