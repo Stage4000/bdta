@@ -2529,7 +2529,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
         function formatBookingPrice(amount) {
             const numericAmount = Number(amount);
             if (!Number.isFinite(numericAmount)) {
-                return 'Not specified';
+                return 'Price unavailable';
             }
 
             return numericAmount === 0 ? 'Free' : '$' + numericAmount.toFixed(2);
