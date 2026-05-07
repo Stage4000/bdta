@@ -352,6 +352,7 @@ class MoxieClientSync {
                         'request_method' => $request_payload === null ? 'GET' : 'POST',
                     ]);
                     $rate_limit_retry = 0;
+                    $response = [];
                     while (true) {
                         try {
                             $response = $this->requestJson($request_url, $api_key, $request_payload);

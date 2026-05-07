@@ -628,10 +628,8 @@ class GoogleCalendarIntegration {
             if ($recovered_access_token !== null) {
                 return $recovered_access_token;
             }
-            $http_error = $http_error_response['error'] ?? [];
-            $detail = is_array($http_error)
-                ? 'Google token refresh failed: ' . scalar_string($http_error['message'] ?? 'Unknown network error') . '.'
-                : '';
+            $http_error = $http_error_response['error'];
+            $detail = 'Google token refresh failed: ' . scalar_string($http_error['message'] ?? 'Unknown network error') . '.';
             self::createOAuthFailureNotification($admin_user_id, null, $detail);
             return null;
         }
