@@ -6,13 +6,16 @@
 require_once __DIR__ . '/../backend/includes/config.php';
 require_once __DIR__ . '/../backend/includes/database.php';
 
-// Check if user is logged in
-if (!isLoggedIn()) {
-    header('Location: login.php');
-    exit;
+requireLogin();
+
+if (!isPostRequest()) {
+    setFlashMessage('Invalid request.', 'danger');
+    redirect('appointment_types_list.php');
 }
 
-$id = safe_int($_GET['id'] ?? 0);
+requireValidCsrfToken('appointment_types_list.php');
+
+$id = safe_int($_POST['id'] ?? 0);
 
 if ($id > 0) {
     $db = new Database();
@@ -34,6 +37,5 @@ if ($id > 0) {
     }
 }
 
-header('Location: appointment_types_list.php');
-exit;
+redirect('appointment_types_list.php');
 ?>

@@ -4,6 +4,7 @@
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
+require_once '../includes/public_access_links.php';
 require_once '../includes/public_portal_return.php';
 require_once '../includes/turnstile.php';
 require_once __DIR__ . '/includes/public_error_page.php';
@@ -12,17 +13,20 @@ $db = new Database();
 $conn = $db->getConnection();
 
 $quote_id = safe_int($_GET['id'] ?? 0);
+$quote_token = trim(scalar_string($_GET['token'] ?? ''));
 $action = scalar_string($_POST['action'] ?? '');
 $portal_return = bdta_public_portal_return_path();
 
 // Get quote
+$quote_lookup_column = $quote_token !== '' ? 'q.access_token' : 'q.id';
+$quote_lookup_value = $quote_token !== '' ? $quote_token : (string) $quote_id;
 $stmt = $conn->prepare("
     SELECT q.*, c.name as client_name, c.email as client_email
     FROM quotes q
     INNER JOIN clients c ON q.client_id = c.id
-    WHERE q.id = ?
+    WHERE {$quote_lookup_column} = ?
 ");
-$stmt->execute([$quote_id]);
+$stmt->execute([$quote_lookup_value]);
 $quote = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$quote) {
@@ -34,6 +38,17 @@ if (!$quote) {
     );
 }
 
+$quote_access = bdta_public_record_access_context($quote, 'access_token', $quote_token);
+if (!$quote_access['has_valid_token'] && !$quote_access['is_portal_owner']) {
+    renderPublicErrorPage(
+        'Quote Not Found',
+        'Quote Not Found',
+        'The quote you are looking for does not exist or is no longer available.',
+        404
+    );
+}
+
+$quote_id = array_int_value($quote, 'id');
 $quote_status = array_string_value($quote, 'status');
 $quote_expiration_date = array_string_value($quote, 'expiration_date');
 $quote_quote_number = array_string_value($quote, 'quote_number');
@@ -48,10 +63,11 @@ $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Check if expired
 $is_expired = $quote_expiration_date !== '' && strtotime($quote_expiration_date) < time();
-$can_respond = $quote_status === 'sent' || $quote_status === 'viewed';
+$client_can_act = $quote_access['has_valid_token'] || $quote_access['is_portal_owner'];
+$can_respond = ($quote_status === 'sent' || $quote_status === 'viewed') && $client_can_act;
 
 // Mark as viewed if first time
-if ($quote_status === 'sent') {
+if ($quote_status === 'sent' && $client_can_act) {
     $stmt = $conn->prepare("UPDATE quotes SET status = 'viewed', viewed_at = CURRENT_TIMESTAMP WHERE id = ?");
     $stmt->execute([$quote_id]);
     $quote_status = 'viewed';

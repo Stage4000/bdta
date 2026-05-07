@@ -2,6 +2,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/follow_up_notes.php';
 require_once '../backend/includes/form_types.php';
+require_once '../backend/includes/public_access_links.php';
 require_once '../backend/includes/public_portal_return.php';
 requirePortalLogin();
 
@@ -64,7 +65,7 @@ include '../portal/includes/header.php';
                 };
                 $can_view = in_array($status, ['sent', 'signed']);
                 $contract_url = bdta_append_public_portal_return(
-                    '/backend/public/contract.php?id=' . intval($c['id']),
+                    bdta_get_public_contract_path($conn, intval($c['id']), $c['access_token'] ?? null),
                     PORTAL_URL . 'agreements.php'
                 );
                 ?>

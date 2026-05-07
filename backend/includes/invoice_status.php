@@ -25,6 +25,8 @@ function bdta_invoice_status_color(string $status): string
     return $colors[$status] ?? 'secondary';
 }
 
+const BDTA_INVOICE_PAY_TOKEN_BYTES = 32;
+
 /**
  * @param array<string, mixed> $invoice
  * @return array{paid_total: float, remaining_amount: float, status: string}
@@ -69,6 +71,82 @@ function bdta_invoice_can_void(array $invoice): bool
     $status = strtolower(array_string_value($invoice, 'status', 'draft'));
 
     return !in_array($status, ['paid', 'refunded', 'cancelled', 'void', 'partial'], true);
+}
+
+function bdta_generate_invoice_pay_token(int $bytes = BDTA_INVOICE_PAY_TOKEN_BYTES): string
+{
+    if ($bytes < 1) {
+        $bytes = BDTA_INVOICE_PAY_TOKEN_BYTES;
+    }
+
+    return bin2hex(random_bytes($bytes));
+}
+
+function bdta_ensure_invoice_pay_token(PDO $conn, int $invoice_id, mixed $existing_token = null): string
+{
+    if ($invoice_id <= 0) {
+        return '';
+    }
+
+    $token = trim(scalar_string($existing_token));
+    if ($token !== '') {
+        return $token;
+    }
+
+    while (true) {
+        $token = bdta_generate_invoice_pay_token();
+
+        $check_stmt = $conn->prepare('SELECT COUNT(*) FROM invoices WHERE pay_token = ?');
+        $check_stmt->execute([$token]);
+        if ((int) $check_stmt->fetchColumn() > 0) {
+            continue;
+        }
+
+        $update_stmt = $conn->prepare("
+            UPDATE invoices
+            SET pay_token = ?
+            WHERE id = ?
+              AND COALESCE(NULLIF(pay_token, ''), '') = ''
+        ");
+        $update_stmt->execute([$token, $invoice_id]);
+
+        if ($update_stmt->rowCount() > 0) {
+            return $token;
+        }
+
+        $existing_stmt = $conn->prepare('SELECT pay_token FROM invoices WHERE id = ?');
+        $existing_stmt->execute([$invoice_id]);
+        $existing = trim(scalar_string($existing_stmt->fetchColumn()));
+        if ($existing !== '') {
+            return $existing;
+        }
+    }
+}
+
+function bdta_get_public_invoice_pay_url(PDO $conn, int $invoice_id, mixed $existing_token = null, ?string $base_url = null): string
+{
+    $token = bdta_ensure_invoice_pay_token($conn, $invoice_id, $existing_token);
+    if ($token === '') {
+        $path = '/portal/invoice_view.php?id=' . rawurlencode((string) $invoice_id);
+    } else {
+        $path = '/portal/invoice_pay.php?token=' . urlencode($token);
+    }
+
+    $base = trim((string) $base_url);
+    return $base === '' ? $path : rtrim($base, '/') . $path;
+}
+
+function bdta_get_public_invoice_checkout_url(PDO $conn, int $invoice_id, mixed $existing_token = null, ?string $base_url = null): string
+{
+    $token = bdta_ensure_invoice_pay_token($conn, $invoice_id, $existing_token);
+    if ($token === '') {
+        $path = '/portal/invoice_checkout.php?id=' . rawurlencode((string) $invoice_id);
+    } else {
+        $path = '/portal/invoice_checkout.php?token=' . urlencode($token);
+    }
+
+    $base = trim((string) $base_url);
+    return $base === '' ? $path : rtrim($base, '/') . $path;
 }
 
 function bdta_invoice_get_refunded_total(PDO $conn, int $invoice_id): float
@@ -325,7 +403,7 @@ function bdta_void_invoice(PDO $conn, int $invoice_id, string $reason = ''): voi
             $conn->commit();
         }
     } catch (Throwable $e) {
-        if ($started_transaction && $conn->inTransaction()) {
+        if ($started_transaction) {
             $conn->rollBack();
         }
 
@@ -412,7 +490,7 @@ function bdta_record_invoice_refund(
             'status' => $new_status,
         ];
     } catch (Throwable $e) {
-        if ($started_transaction && $conn->inTransaction()) {
+        if ($started_transaction) {
             $conn->rollBack();
         }
 

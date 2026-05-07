@@ -1,8 +1,10 @@
 <?php
 
-const BDTA_CONTRACT_ACCESS_TOKEN_BYTES = 16;
+require_once dirname(__DIR__, 2) . '/includes/public_access_links.php';
+
+const BDTA_CONTRACT_ACCESS_TOKEN_BYTES = BDTA_PUBLIC_ACCESS_TOKEN_BYTES;
 // bin2hex() expands each byte into two hexadecimal characters.
-const BDTA_CONTRACT_ACCESS_TOKEN_LENGTH = BDTA_CONTRACT_ACCESS_TOKEN_BYTES * 2;
+const BDTA_CONTRACT_ACCESS_TOKEN_LENGTH = BDTA_PUBLIC_ACCESS_TOKEN_LENGTH;
 
 /**
  * Normalize contract helper input into a string for trimming/comparison.
@@ -13,31 +15,16 @@ const BDTA_CONTRACT_ACCESS_TOKEN_LENGTH = BDTA_CONTRACT_ACCESS_TOKEN_BYTES * 2;
  * @return string The normalized string value.
  */
 function bdta_normalize_to_string(mixed $value): string {
-    if (is_string($value)) {
-        return $value;
-    }
-
-    if (is_int($value) || is_float($value)) {
-        return (string) $value;
-    }
-
-    // Keep unsupported values non-renderable so public contract pages fail closed
-    // on unexpected data instead of rendering debug-ish placeholders to clients.
-    return '';
+    return bdta_public_access_string($value);
 }
 
 function bdta_generate_contract_access_token(): string {
-    return bin2hex(random_bytes(BDTA_CONTRACT_ACCESS_TOKEN_BYTES));
+    return bdta_generate_public_access_token(BDTA_CONTRACT_ACCESS_TOKEN_BYTES);
 }
 
 /**
  * @param array<string, mixed> $contract
  */
 function bdta_contract_has_valid_access_token(array $contract, string $provided_token): bool {
-    $stored_token = trim(bdta_normalize_to_string($contract['access_token'] ?? ''));
-    $provided_token = trim($provided_token);
-
-    return $stored_token !== ''
-        && $provided_token !== ''
-        && hash_equals($stored_token, $provided_token);
+    return bdta_has_valid_public_access_token($contract, 'access_token', $provided_token);
 }

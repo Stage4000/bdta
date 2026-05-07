@@ -5,6 +5,8 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
 require_once '../backend/includes/email_service.php';
+require_once '../backend/includes/public_access_links.php';
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -121,11 +123,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $quote_number = 'QT-' . $next_num;
                 
                 // Insert quote
+                $quote_access_token = bdta_generate_public_access_token();
                 $stmt = $conn->prepare("
-                    INSERT INTO quotes (quote_number, client_id, title, description, amount, expiration_date, notes, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'sent')
+                    INSERT INTO quotes (quote_number, client_id, title, description, amount, access_token, expiration_date, notes, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'sent')
                 ");
-                $stmt->execute([$quote_number, $client_id, $title, $description, $total_amount, $expiration_date, $notes]);
+                $stmt->execute([$quote_number, $client_id, $title, $description, $total_amount, $quote_access_token, $expiration_date, $notes]);
                 $quote_id = $conn->lastInsertId();
             }
             

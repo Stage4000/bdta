@@ -6,11 +6,12 @@
  *
  * Supports two access patterns:
  *  - /backend/public/form.php?template_id=123  (start a new submission)
- *  - /backend/public/form.php?id=456           (complete an existing pending submission)
+ *  - /backend/public/form.php?token=abc123     (complete an existing pending submission)
  */
 require_once '../includes/config.php';
 require_once '../includes/database.php';
 require_once '../includes/form_types.php';
+require_once '../includes/public_access_links.php';
 require_once '../includes/public_form_context.php';
 require_once '../includes/public_portal_return.php';
 require_once '../includes/turnstile.php';
@@ -26,14 +27,17 @@ $portal_login_url = bdta_public_portal_login_url(
 );
 
 $submission_id = safe_int($_GET['id'] ?? 0);
+$submission_token = trim(scalar_string($_GET['token'] ?? ''));
 $template_id = safe_int($_GET['template_id'] ?? ($_GET['template'] ?? 0));
 $can_apply_query_context = $submission_id === 0 && isLoggedIn();
 $requested_client_id = $can_apply_query_context ? safe_int($_GET['client_id'] ?? 0) : 0;
 $requested_booking_id = $can_apply_query_context ? safe_int($_GET['booking_id'] ?? 0) : 0;
 $submission_row = null;
 
-// If a submission ID is provided, load it (includes template + client info for prefill)
-if ($submission_id > 0) {
+// If a pending submission token or ID is provided, load it (includes template + client info for prefill).
+if ($submission_token !== '' || $submission_id > 0) {
+    $submission_lookup_column = $submission_token !== '' ? 'fs.access_token' : 'fs.id';
+    $submission_lookup_value = $submission_token !== '' ? $submission_token : (string) $submission_id;
     $stmt = $conn->prepare("
         SELECT fs.*, ft.name AS template_name, ft.description AS template_description,
                ft.fields AS template_fields, ft.is_active AS template_active, ft.is_internal AS template_internal,
@@ -41,9 +45,9 @@ if ($submission_id > 0) {
         FROM form_submissions fs
         JOIN form_templates ft ON fs.template_id = ft.id
         LEFT JOIN clients c ON fs.client_id = c.id
-        WHERE fs.id = ? AND fs.status = 'pending'
+        WHERE {$submission_lookup_column} = ? AND fs.status = 'pending'
     ");
-    $stmt->execute([$submission_id]);
+    $stmt->execute([$submission_lookup_value]);
     $submission_row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$submission_row) {
         renderPublicErrorPage(
@@ -53,7 +57,21 @@ if ($submission_id > 0) {
             404
         );
     }
+
+    if ($submission_token === '') {
+        $submission_access = bdta_public_record_access_context($submission_row, 'access_token', '');
+        if (!$submission_access['is_portal_owner'] && !$submission_access['is_admin']) {
+            renderPublicErrorPage(
+                'Form Not Found',
+                'Form Not Found',
+                'The form you are looking for does not exist or is no longer available.',
+                404
+            );
+        }
+    }
+
     $template_id = array_int_value($submission_row, 'template_id');
+    $submission_id = array_int_value($submission_row, 'id');
 }
 
 // Load template

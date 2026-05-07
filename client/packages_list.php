@@ -9,10 +9,7 @@ require_once __DIR__ . '/../backend/includes/database.php';
 require_once __DIR__ . '/../backend/includes/package_contracts.php';
 require_once __DIR__ . '/../backend/includes/package_checkout.php';
 
-if (!isLoggedIn()) {
-    header('Location: login.php');
-    exit;
-}
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -225,12 +222,16 @@ include __DIR__ . '/../backend/includes/header.php';
                                                 <i class="fas fa-share-nodes"></i>
                                             </button>
                                             <?php endif; ?>
-                                            <a href="packages_edit.php?id=<?= $pkg['id'] ?>&delete=1"
-                                               class="btn btn-sm btn-outline-danger table-action-btn"
-                                               onclick="return confirm('Delete this package? This cannot be undone if clients have purchased it.')"
-                                               title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
+                                            <form method="POST" action="packages_edit.php?id=<?= $pkg['id'] ?>" class="d-inline">
+                                                <input type="hidden" name="delete_package" value="1">
+                                                <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
+                                                <button type="submit"
+                                                        class="btn btn-sm btn-outline-danger table-action-btn"
+                                                        onclick="return confirm('Delete this package? This cannot be undone if clients have purchased it.')"
+                                                        title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                         <div class="d-md-none table-action-dropdown">
                                             <div class="dropdown">
@@ -252,9 +253,13 @@ include __DIR__ . '/../backend/includes/header.php';
                                                     <?php endif; ?>
                                                     <li><hr class="dropdown-divider"></li>
                                                     <li>
-                                                        <a class="dropdown-item text-danger" href="packages_edit.php?id=<?= $pkg['id'] ?>&delete=1" onclick="return confirm('Delete this package? This cannot be undone if clients have purchased it.')">
-                                                            <i class="fas fa-trash me-2"></i>Delete
-                                                        </a>
+                                                        <form method="POST" action="packages_edit.php?id=<?= $pkg['id'] ?>">
+                                                            <input type="hidden" name="delete_package" value="1">
+                                                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
+                                                            <button type="submit" class="dropdown-item w-100 text-start border-0 bg-transparent text-danger" onclick="return confirm('Delete this package? This cannot be undone if clients have purchased it.')">
+                                                                <i class="fas fa-trash me-2"></i>Delete
+                                                            </button>
+                                                        </form>
                                                     </li>
                                                 </ul>
                                             </div>

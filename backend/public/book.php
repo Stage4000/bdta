@@ -198,7 +198,7 @@ if (!$selected_type) {
 // Set page title based on booking type
 if (isset($error_mode) && $error_mode) {
     $page_title = "Invalid Booking Link";
-} elseif ($is_standalone && $selected_type) {
+} elseif ($is_standalone) {
     $page_title = "Book " . public_book_string($selected_type, 'name');
 } else {
     $page_title = "Book an Appointment";

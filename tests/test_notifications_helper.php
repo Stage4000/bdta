@@ -61,6 +61,7 @@ $conn->exec("
         client_id INTEGER NOT NULL,
         quote_number TEXT NOT NULL,
         title TEXT NOT NULL,
+        access_token TEXT NULL,
         status TEXT NOT NULL,
         created_at TEXT NOT NULL
     );
@@ -119,10 +120,10 @@ $conn->exec("
 ");
 
 $conn->exec("
-    INSERT INTO quotes (client_id, quote_number, title, status, created_at)
+    INSERT INTO quotes (client_id, quote_number, title, access_token, status, created_at)
     VALUES
-        (7, 'Q-100', 'Board & Train', 'sent', '2026-04-10 10:00:00'),
-        (7, 'Q-101', 'Follow Up', 'accepted', '2026-04-09 10:00:00');
+        (7, 'Q-100', 'Board & Train', 'quote-access-token', 'sent', '2026-04-10 10:00:00'),
+        (7, 'Q-101', 'Follow Up', NULL, 'accepted', '2026-04-09 10:00:00');
 ");
 $conn->exec("
     INSERT INTO contracts (client_id, contract_number, title, access_token, status, created_at)
@@ -141,7 +142,7 @@ $conn->exec("
 $portal_notifications = bdta_get_notifications($conn, 'portal', 7, 10);
 assertSameValue('portal notifications include stored and sticky items', 5, count($portal_notifications));
 assertSameValue('latest sticky quote notification sorts first', 'quote', $portal_notifications[0]['entity_type']);
-assertSameValue('sticky quote notification includes portal return path', '/backend/public/quote.php?id=1&portal_return=%2Fportal%2Fquotes.php', $portal_notifications[0]['url']);
+assertSameValue('sticky quote notification includes portal return path', '/backend/public/quote.php?token=quote-access-token&portal_return=%2Fportal%2Fquotes.php', $portal_notifications[0]['url']);
 assertSameValue('sent unpaid invoices remain sticky for the portal client', 'invoice', $portal_notifications[1]['entity_type']);
 assertSameValue('sent invoice notification has correct URL', '/portal/invoice_view.php?id=1', $portal_notifications[1]['url']);
 assertTrue(!str_contains((string) json_encode($portal_notifications), 'INV-301'), 'draft invoices are excluded from sticky notifications');

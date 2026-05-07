@@ -17,6 +17,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         exit;
     }
+
+    bdta_refresh_session_admin_account_type();
+    if (bdta_session_admin_is_accountant($_SESSION) && !bdta_is_accountant_allowed_admin_path(scalar_string($_SERVER['SCRIPT_NAME'] ?? ''))) {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Access denied.',
+        ]);
+        exit;
+    }
 } else {
     requireLogin();
 }

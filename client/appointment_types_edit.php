@@ -10,11 +10,7 @@ require_once __DIR__ . '/../backend/includes/appointment_type_public_services.ph
 require_once __DIR__ . '/../backend/includes/bullet_points.php';
 require_once __DIR__ . '/../backend/includes/invoice_due.php';
 
-// Check if user is logged in
-if (!isLoggedIn()) {
-    header('Location: login.php');
-    exit;
-}
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();

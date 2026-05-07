@@ -5,6 +5,7 @@
  */
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
+require_once dirname(dirname(__DIR__)) . '/includes/public_access_links.php';
 
 /**
  * @phpstan-type ContractRow array<string, mixed>
@@ -93,7 +94,11 @@ class ContractReminderTask {
         $email_service = new EmailService(null, $this->conn);
         
         $client_name = htmlspecialchars(scalar_string($contract['client_name'] ?? ''));
-        $contract_link = getDynamicBaseUrl() . '/backend/public/contract.php?id=' . scalar_string($contract['id'] ?? '');
+        $contract_link = bdta_get_public_contract_url(
+            $this->conn,
+            safe_int($contract['id'] ?? 0),
+            $contract['access_token'] ?? null
+        );
         $client_email = scalar_string($contract['client_email'] ?? '');
         $client_id = $contract['client_id'] ?? null;
         

@@ -83,9 +83,8 @@ if (isset($_POST['change_status'])) {
     }
 }
 
-// Generate public link dynamically from current request
-$base_url = getDynamicBaseUrl();
-$public_link = $base_url . '/backend/public/contract.php?token=' . rawurlencode(array_string_value($contract, 'access_token'));
+// Generate the shareable client link and lazily provision a token for older contracts.
+$public_link = bdta_get_public_contract_url($conn, $id, $contract['access_token'] ?? null);
 
 // Fetch audit log for this contract
 $log_stmt = $conn->prepare("

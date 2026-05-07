@@ -5,6 +5,7 @@
  */
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
+require_once dirname(dirname(__DIR__)) . '/includes/public_access_links.php';
 
 /**
  * @phpstan-type FormRow array<string, mixed>
@@ -95,7 +96,11 @@ class FormReminderTask {
         
         $client_name = htmlspecialchars(scalar_string($form['client_name'] ?? ''));
         $form_name = htmlspecialchars(scalar_string($form['form_name'] ?? 'Client Form'));
-        $form_link = getDynamicBaseUrl() . '/backend/public/form.php?id=' . scalar_string($form['id'] ?? '');
+        $form_link = bdta_get_public_form_submission_url(
+            $this->conn,
+            safe_int($form['id'] ?? 0),
+            $form['access_token'] ?? null
+        );
         $client_email = scalar_string($form['client_email'] ?? '');
         $client_id = $form['client_id'] ?? null;
         

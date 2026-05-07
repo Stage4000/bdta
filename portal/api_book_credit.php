@@ -8,6 +8,7 @@ require_once '../backend/includes/config.php';
 require_once '../backend/includes/booking_resources.php';
 require_once '../backend/includes/form_types.php';
 require_once '../backend/includes/mailjet_newsletter.php';
+require_once '../backend/includes/public_access_links.php';
 header('Content-Type: application/json');
 
 // Must be a logged-in portal client
@@ -80,14 +81,16 @@ foreach ($required as $f) {
     }
 }
 
-if (!filter_var(scalar_string($data['client_email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
+$appointment_type_id = safe_int($data['appointment_type_id']);
+$appointment_date = scalar_string($data['appointment_date']);
+$appointment_time = scalar_string($data['appointment_time']);
+$client_name = trim(scalar_string($data['client_name']));
+$client_email = trim(scalar_string($data['client_email']));
+
+if (!filter_var($client_email, FILTER_VALIDATE_EMAIL)) {
     echo json_encode(['error' => 'Invalid email address.']);
     exit;
 }
-
-$client_name = trim(scalar_string($data['client_name'] ?? ''));
-$client_email = trim(scalar_string($data['client_email'] ?? ''));
-$appointment_type_id = safe_int($data['appointment_type_id'] ?? 0);
 
 // ── Verify this appointment type exists and is active ────────────────────
 $stmt = $conn->prepare("
@@ -309,12 +312,12 @@ if (!empty($resource_config['enabled'])) {
         ) apc ON apc.booking_id = b.id
         WHERE b.appointment_date = ? AND b.status != 'cancelled' AND b.appointment_type_id = ?
     ");
-    $stmt->execute([scalar_string($data['appointment_date'] ?? ''), $appointment_type_id]);
+    $stmt->execute([$appointment_date, $appointment_type_id]);
     $existing_resource_bookings = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
     if (!bdta_booking_resource_has_capacity(
         $resource_config,
         $existing_resource_bookings,
-        scalar_string($data['appointment_time'] ?? ''),
+        $appointment_time,
         array_int_value($apt_type, 'duration_minutes', 60),
         max(0, array_int_value($apt_type, 'buffer_before_minutes')),
         max(0, array_int_value($apt_type, 'buffer_after_minutes')),
@@ -345,8 +348,8 @@ $stmt->execute([
     $client_email,
     trim(scalar_string($data['client_phone'] ?? '')),
     array_string_value($apt_type, 'name'),
-    scalar_string($data['appointment_date'] ?? ''),
-    scalar_string($data['appointment_time'] ?? ''),
+    $appointment_date,
+    $appointment_time,
     trim(scalar_string($data['notes'] ?? '')),
     array_int_value($apt_type, 'duration_minutes', 60),
     $location,
@@ -362,7 +365,7 @@ $booking_id = (int)$conn->lastInsertId();
 $booking_notification_title = $initial_status === 'pending'
     ? 'New appointment request'
     : 'New appointment booked';
-$booking_notification_message = trim(scalar_string($data['client_name'] ?? 'Client')) . ' booked ' . array_string_value($apt_type, 'name') . ' for ' . scalar_string($data['appointment_date'] ?? '');
+$booking_notification_message = $client_name . ' booked ' . array_string_value($apt_type, 'name') . ' for ' . $appointment_date;
 bdta_create_admin_notifications(
     $conn,
     'booking',
@@ -1099,12 +1102,11 @@ if (!$booking) {
     exit;
 }
 
-$base_url          = getDynamicBaseUrl();
 $google_cal_link   = '';
 $ical_link         = '';
 if (!$is_pending_request) {
     $google_cal_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
-    $ical_link       = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
+    $ical_link       = bdta_get_public_booking_ical_url($conn, $booking_id, $booking['ical_token'] ?? null);
 }
 
 $email_service = new EmailService(null, $conn);

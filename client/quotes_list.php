@@ -4,6 +4,7 @@
  */
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();

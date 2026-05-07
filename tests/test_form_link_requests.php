@@ -63,7 +63,7 @@ try {
     $submission_id = array_int_value($request, 'submission_id');
     $cleanup['submission_ids'][] = $submission_id;
 
-    $stmt = $conn->prepare("SELECT client_id, booking_id, pet_id, status, responses FROM form_submissions WHERE id = ?");
+    $stmt = $conn->prepare("SELECT client_id, booking_id, pet_id, access_token, status, responses FROM form_submissions WHERE id = ?");
     $stmt->execute([$submission_id]);
     $submission = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -71,14 +71,16 @@ try {
         || (int) $submission['client_id'] !== $client_id
         || (int) $submission['booking_id'] !== $booking_id
         || (int) $submission['pet_id'] !== $pet_id
+        || !preg_match('/^[a-f0-9]{32}$/', (string) ($submission['access_token'] ?? ''))
         || $submission['status'] !== 'pending'
         || $submission['responses'] !== '{}'
     ) {
-        throw new RuntimeException('Form request rows should preserve client, booking, and pet associations.');
+        throw new RuntimeException('Form request rows should preserve client, booking, pet, and token associations.');
     }
 
-    if (bdta_get_public_form_request_url($submission_id) !== getDynamicBaseUrl() . '/backend/public/form.php?id=' . $submission_id) {
-        throw new RuntimeException('Form request URLs should use the pending submission ID.');
+    $expected_public_form_url = getDynamicBaseUrl() . '/backend/public/form.php?token=' . $submission['access_token'];
+    if (bdta_get_public_form_request_url($conn, $submission_id) !== $expected_public_form_url) {
+        throw new RuntimeException('Form request URLs should use the pending submission access token.');
     }
 
     if (bdta_get_public_booking_request_url('link-' . $suffix) !== getDynamicBaseUrl() . '/backend/public/book.php?link=' . urlencode('link-' . $suffix)) {

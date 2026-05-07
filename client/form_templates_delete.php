@@ -7,14 +7,20 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
 
-// Check if user is logged in
 requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
 
-if (isset($_GET['id'])) {
-    $id = safe_int($_GET['id']);
+if (!isPostRequest()) {
+    setFlashMessage('Invalid request.', 'danger');
+    redirect('form_templates_list.php');
+}
+
+requireValidCsrfToken('form_templates_list.php');
+
+$id = safe_int($_POST['id'] ?? 0);
+if ($id > 0) {
     
     try {
         // Check if template has submissions
@@ -37,8 +43,9 @@ if (isset($_GET['id'])) {
         $_SESSION['flash_message'] = "Error deleting template: " . $e->getMessage();
         $_SESSION['flash_message_type'] = 'danger';
     }
+} else {
+    setFlashMessage('No template ID provided.', 'warning');
 }
 
-header("Location: form_templates_list.php");
-exit;
+redirect('form_templates_list.php');
 ?>

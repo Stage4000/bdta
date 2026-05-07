@@ -9,10 +9,7 @@ require_once __DIR__ . '/../backend/includes/database.php';
 require_once __DIR__ . '/../backend/includes/bullet_points.php';
 require_once __DIR__ . '/../backend/includes/package_checkout.php';
 
-if (!isLoggedIn()) {
-    header('Location: login.php');
-    exit;
-}
+requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -21,7 +18,9 @@ $id = safe_int($_GET['id'] ?? 0);
 $is_edit = $id > 0;
 
 // Handle delete
-if ($is_edit && isset($_GET['delete'])) {
+if ($is_edit && isset($_POST['delete_package'])) {
+    requireValidCsrfToken('packages_list.php');
+
     // Prevent deletion if any client has purchased this package
     $stmt = $conn->prepare("SELECT COUNT(*) FROM client_packages WHERE package_id = ?");
     $stmt->execute([$id]);
@@ -32,8 +31,7 @@ if ($is_edit && isset($_GET['delete'])) {
         $conn->prepare("DELETE FROM packages WHERE id = ?")->execute([$id]);
         $_SESSION['flash'] = ['type' => 'success', 'message' => 'Package deleted successfully.'];
     }
-    header('Location: packages_list.php');
-    exit;
+    redirect('packages_list.php');
 }
 
 // Load existing package

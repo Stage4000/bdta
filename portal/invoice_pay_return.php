@@ -14,10 +14,21 @@ $conn = $db->getConnection();
 
 $session_id = trim(scalar_string($_GET['session_id'] ?? ''));
 $token      = trim(scalar_string($_GET['token'] ?? ''));
+$requested_invoice_id = safe_int($_GET['id'] ?? 0);
 
 if (empty($session_id)) {
-    // No session_id — likely direct navigation, just redirect home
-    header('Location: /portal/invoices.php');
+    // Stripe can drop clients back here without a session_id after direct navigation,
+    // stale tabs, or partial URL rewrites. Preserve the auth context instead of
+    // forcing guests behind the portal login wall.
+    $fallback_location = $requested_invoice_id > 0
+        ? 'invoice_view.php?id=' . $requested_invoice_id
+        : 'invoices.php';
+
+    if ($token !== '') {
+        $fallback_location = 'invoice_pay.php?token=' . urlencode($token);
+    }
+
+    header('Location: ' . $fallback_location);
     exit;
 }
 

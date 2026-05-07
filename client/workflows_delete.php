@@ -7,8 +7,15 @@ requireLogin();
 $db = new Database();
 $conn = $db->getConnection();
 
-if (isset($_GET['id'])) {
-    $id = safe_int($_GET['id']);
+if (!isPostRequest()) {
+    setFlashMessage('Invalid request.', 'danger');
+    redirect('workflows_list.php');
+}
+
+requireValidCsrfToken('workflows_list.php');
+
+$id = safe_int($_POST['id'] ?? 0);
+if ($id > 0) {
 
     try {
         // Verify the workflow exists
@@ -34,8 +41,9 @@ if (isset($_GET['id'])) {
         }
         $_SESSION['error'] = 'Error deleting workflow. Please try again.';
     }
+} else {
+    setFlashMessage('Workflow ID is required.', 'danger');
 }
 
-header('Location: workflows_list.php');
-exit;
+redirect('workflows_list.php');
 ?>

@@ -6,6 +6,7 @@ require_once '../includes/google_calendar.php';
 require_once '../includes/invoice_due.php';
 require_once '../includes/form_types.php';
 require_once '../includes/mailjet_newsletter.php';
+require_once '../includes/public_access_links.php';
 require_once '../includes/turnstile.php';
 require_once '../includes/workflow_helper.php';
 
@@ -1508,8 +1509,7 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $ical_download_link = '';
         if (!$is_pending_request) {
             require_once __DIR__ . '/../includes/icalendar.php';
-            $base_url = getDynamicBaseUrl();
-            $ical_download_link = $base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
+            $ical_download_link = bdta_get_public_booking_ical_url($conn, $booking_id, $booking['ical_token'] ?? null);
             try {
                 $google_calendar_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
             } catch (Throwable $e) {
