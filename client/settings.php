@@ -405,10 +405,15 @@ if ($current_category === 'booking') {
 // For calendar category: load OAuth connection status and generate CSRF token
 $oauth_token_row  = null;
 $oauth_configured = false;
+$oauth_failure_notice = null;
+$oauth_connection_needs_attention = false;
 if ($current_category === 'calendar') {
     require_once __DIR__ . '/../backend/includes/google_calendar.php';
     $oauth_configured = GoogleCalendarIntegration::isOAuthConfigured();
-    $oauth_token_row  = GoogleCalendarIntegration::getOAuthToken(safe_int($_SESSION['admin_id'] ?? 0));
+    $calendar_admin_user_id = safe_int($_SESSION['admin_id'] ?? 0);
+    $oauth_token_row  = GoogleCalendarIntegration::getOAuthToken($calendar_admin_user_id);
+    $oauth_failure_notice = GoogleCalendarIntegration::getActiveOAuthFailureNotification($calendar_admin_user_id);
+    $oauth_connection_needs_attention = is_array($oauth_failure_notice);
     // Generate a CSRF token for the disconnect form
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
@@ -833,11 +838,19 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                                 </h6>
                             </div>
                             <div class="card-body">
+                                <div class="alert alert-info mb-3">
+                                    <i class="fas fa-circle-info"></i>
+                                    <strong>Important:</strong>
+                                    If your Google OAuth app audience is <strong>External</strong> and the publishing status is still <strong>Testing</strong>,
+                                    Google issues Calendar refresh tokens that expire after <strong>7 days</strong>.
+                                    Before live use, switch the OAuth consent screen to <strong>Production</strong>
+                                    (or use an <strong>Internal</strong> app for Google Workspace), then reconnect Google Calendar.
+                                </div>
                                 <?php if ($oauth_token_row): ?>
                                     <!-- Connected state -->
-                                    <div class="alert alert-success mb-3">
-                                        <i class="fas fa-circle-check"></i>
-                                        <strong>Connected</strong>
+                                    <div class="alert <?= $oauth_connection_needs_attention ? 'alert-warning' : 'alert-success' ?> mb-3">
+                                        <i class="fas <?= $oauth_connection_needs_attention ? 'fa-triangle-exclamation' : 'fa-circle-check' ?>"></i>
+                                        <strong><?= $oauth_connection_needs_attention ? 'Connection needs attention' : 'Connected' ?></strong>
                                         <?php if (!empty($oauth_token_row['google_email'])): ?>
                                             as <strong><?= escape($oauth_token_row['google_email']) ?></strong>
                                         <?php endif; ?>
@@ -847,6 +860,11 @@ $st_primary_dark = preg_match('/^#[0-9A-Fa-f]{6}$/', $theme_primary_dark) === 1 
                                             <strong><?= escape($oauth_token_row['calendar_id'] ?? 'primary') ?></strong>
                                             &mdash; connected <?= escape(formatDate(array_string_value($oauth_token_row, 'created_at'), 'M j, Y')) ?>
                                         </small>
+                                        <?php if ($oauth_connection_needs_attention && !empty($oauth_failure_notice['message'])): ?>
+                                            <div class="mt-2 small">
+                                                <?= escape(array_string_value($oauth_failure_notice, 'message')) ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
 
                                     <!-- Calendar selector -->
