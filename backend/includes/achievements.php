@@ -340,7 +340,7 @@ if (!function_exists('bdta_render_achievement_certificate_html')) {
     function bdta_render_achievement_certificate_html(array $assignment, array $extra_actions = [], array $options = []): string
     {
         $page_title = trim(bdta_achievement_row_string($assignment, 'achievement_title', 'Achievement Certificate'));
-        $document_title = trim(isset($options['document_title']) && is_string($options['document_title']) ? $options['document_title'] : '');
+        $document_title = trim(scalar_string($options['document_title'] ?? ''));
         if ($document_title === '') {
             $document_title = $page_title !== '' ? $page_title : 'Achievement Certificate';
         }

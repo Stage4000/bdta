@@ -141,10 +141,11 @@ function bdta_create_signed_contract_from_template(
         $signed_at
     );
     $contract_number = bdta_generate_contract_number($conn);
-    $created_date = substr($signed_at, 0, 10);
-    if ($created_date === '') {
-        $created_date = date('Y-m-d');
+    $signed_timestamp = strtotime($signed_at);
+    if ($signed_timestamp === false) {
+        $signed_timestamp = time();
     }
+    $created_date = date('Y-m-d', $signed_timestamp);
 
     $insert_stmt = $conn->prepare('
         INSERT INTO contracts (
