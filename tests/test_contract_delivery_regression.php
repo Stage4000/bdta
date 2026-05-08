@@ -45,6 +45,8 @@ bdta_contract_assert(
 
 $contracts_create = bdta_contract_read(dirname(__DIR__) . '/client/contracts_create.php', 'contracts_create.php');
 $contracts_view = bdta_contract_read(dirname(__DIR__) . '/client/contracts_view.php', 'contracts_view.php');
+$contract_signing = bdta_contract_read(dirname(__DIR__) . '/backend/includes/contract_signing.php', 'contract_signing.php');
+$api_bookings = bdta_contract_read(dirname(__DIR__) . '/backend/public/api_bookings.php', 'api_bookings.php');
 $public_contract = bdta_contract_read(dirname(__DIR__) . '/backend/public/contract.php', 'contract.php');
 
 bdta_contract_assert(
@@ -60,6 +62,15 @@ bdta_contract_assert(
         && str_contains($public_contract, 'signature_typed_name = ?')
         && str_contains($public_contract, 'signature_font       = ?'),
     'Public contract signing should persist signed status plus typed-signature fields.'
+);
+bdta_contract_assert(
+    str_contains($contract_signing, 'INSERT INTO contracts')
+        && str_contains($contract_signing, 'INSERT INTO contract_signature_log'),
+    'Shared contract-signing helper should persist both the contract record and its signature log entry.'
+);
+bdta_contract_assert(
+    str_contains($api_bookings, 'bdta_create_signed_contract_from_template('),
+    'Public booking API should persist a signed contract record when booking-time signing is completed.'
 );
 
 echo "Contract delivery regression checks passed.\n";

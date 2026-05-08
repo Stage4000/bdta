@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/booking_resources.php';
+require_once '../includes/contract_signing.php';
 require_once '../includes/email_service.php';
 require_once '../includes/google_calendar.php';
 require_once '../includes/invoice_due.php';
@@ -1188,6 +1189,23 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             $booking_notification_message,
             '/client/bookings_list.php'
         );
+
+        if ($contract_accepted && $appointment_type_id_value > 0 && !empty($apt_type['contract_template_id'])) {
+            bdta_create_signed_contract_from_template(
+                $conn,
+                $client_id,
+                array_int_value($apt_type, 'contract_template_id'),
+                $contract_typed_name,
+                $contract_sig_font,
+                $contract_accepted_at,
+                null,
+                scalar_string($_SERVER['HTTP_USER_AGENT'] ?? ''),
+                [
+                    'name' => $client_name,
+                    'email' => $client_email,
+                ]
+            );
+        }
 
         if (!empty($pet_ids)) {
             foreach ($pet_ids as $pet_id) {
