@@ -92,6 +92,38 @@ try {
     assertInvoicePaymentProgress($legacy_summary['paid_total'] === 75.00, 'Expected legacy paid invoices without ledger rows to report a fully paid total.');
     assertInvoicePaymentProgress($legacy_summary['remaining_amount'] === 0.00, 'Expected legacy paid invoices without ledger rows to have no remaining balance.');
 
+    $conn->prepare("
+        INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ")->execute([404, 100.00, '2026-04-22', 'cash', null, null]);
+    $manual_paid_invoice = [
+        'id' => 404,
+        'total_amount' => 300.00,
+        'status' => 'paid',
+        'payment_method' => 'cash',
+    ];
+    $manual_paid_summary = bdta_invoice_get_payment_summary($conn, $manual_paid_invoice);
+    assertInvoicePaymentProgress($manual_paid_summary['status'] === 'paid', 'Expected admin-closed paid invoices to retain the paid status.');
+    assertInvoicePaymentProgress($manual_paid_summary['paid_total'] === 100.00, 'Expected admin-closed paid invoices to preserve the actual collected amount.');
+    assertInvoicePaymentProgress($manual_paid_summary['remaining_amount'] === 0.00, 'Expected admin-closed paid invoices to stop showing a balance due.');
+    assertInvoicePaymentProgress(safe_float($manual_paid_summary['closed_balance_amount'] ?? -1) === 200.00, 'Expected admin-closed paid invoices to expose the closed balance separately.');
+
+    $conn->prepare("
+        INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ")->execute([405, 60.00, '2026-04-23', 'bank_transfer', null, null]);
+    $settled_invoice = [
+        'id' => 405,
+        'total_amount' => 180.00,
+        'status' => 'settled',
+        'payment_method' => 'bank_transfer',
+    ];
+    $settled_summary = bdta_invoice_get_payment_summary($conn, $settled_invoice);
+    assertInvoicePaymentProgress($settled_summary['status'] === 'settled', 'Expected settled invoices to retain the settled status.');
+    assertInvoicePaymentProgress($settled_summary['paid_total'] === 60.00, 'Expected settled invoices to preserve the actual collected amount.');
+    assertInvoicePaymentProgress($settled_summary['remaining_amount'] === 0.00, 'Expected settled invoices to stop showing a balance due.');
+    assertInvoicePaymentProgress(!bdta_invoice_is_payable($settled_invoice), 'Expected settled invoices to be treated as closed.');
+
     echo "Invoice payment progress tests passed.\n";
 } catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage() . PHP_EOL);

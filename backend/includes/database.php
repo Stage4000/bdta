@@ -282,7 +282,7 @@ class Database {
                 UPDATE invoices
                 SET status = 'cancelled',
                     updated_at = CURRENT_TIMESTAMP
-                WHERE client_id = ? AND status NOT IN ('paid', 'refunded', 'cancelled', 'void')
+                WHERE client_id = ? AND status NOT IN ('paid', 'settled', 'refunded', 'cancelled', 'void')
             ")->execute([$client_id]);
 
             $this->conn->prepare("

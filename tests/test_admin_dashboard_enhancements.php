@@ -45,6 +45,10 @@ assert_dashboard_contains(
     'Admin dashboard should link to invoices from the new cards and shortcuts.'
 );
 assert_dashboard_contains(
+    str_contains($dashboard, 'bdta_invoice_get_income_events'),
+    'Admin dashboard should base invoice revenue summaries on collected income events.'
+);
+assert_dashboard_contains(
     str_contains($dashboard, 'bookings_list.php'),
     'Admin dashboard should link to bookings from the new cards and shortcuts.'
 );

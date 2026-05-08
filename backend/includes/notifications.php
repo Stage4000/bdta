@@ -134,7 +134,7 @@ function bdta_notification_bind_values(PDOStatement $stmt, array $values): void 
  */
 function bdta_notification_client_invoice_excluded_statuses(): array {
     /** @var list<string> $statuses */
-    $statuses = array_map('strtolower', ['draft', 'paid', 'refunded', 'cancelled', 'void']);
+    $statuses = array_map('strtolower', ['draft', 'paid', 'settled', 'refunded', 'cancelled', 'void']);
 
     return $statuses;
 }
@@ -143,7 +143,7 @@ function bdta_notification_client_invoice_excluded_statuses(): array {
  * Matches the fixed-size exclusion list returned by bdta_notification_client_invoice_excluded_statuses().
  */
 function bdta_notification_client_invoice_status_placeholders(): string {
-    return '?, ?, ?, ?, ?';
+    return '?, ?, ?, ?, ?, ?';
 }
 
 function bdta_notification_fetch_count(PDOStatement $stmt): int {

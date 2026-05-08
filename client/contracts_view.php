@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/contract_delivery.php';
 requireLogin();
 
 $db = new Database();
@@ -46,6 +47,25 @@ if (is_array($refreshed_contract)) {
     $contract = $refreshed_contract;
 }
 
+// Handle send/resend action
+if (isset($_POST['resend_contract'])) {
+    $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+    if ($csrf_token === '' || !hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $csrf_token)) {
+        setFlashMessage('Invalid request.', 'danger');
+        header('Location: contracts_view.php?id=' . $id);
+        exit;
+    }
+
+    $send_result = bdta_send_contract_to_client($conn, $id);
+    if ($send_result['success']) {
+        setFlashMessage('Contract email sent successfully!', 'success');
+    } else {
+        setFlashMessage('Contract email could not be sent: ' . $send_result['message'], 'warning');
+    }
+    header('Location: contracts_view.php?id=' . $id);
+    exit;
+}
+
 // Handle delete action
 if (isset($_POST['delete_contract'])) {
     $csrf_token = scalar_string($_POST['csrf_token'] ?? '');
@@ -75,8 +95,17 @@ if (isset($_POST['change_status'])) {
     $new_status = scalar_string($_POST['new_status'] ?? '');
     $allowed_statuses = ['draft', 'sent', 'signed', 'expired'];
     if (in_array($new_status, $allowed_statuses, true)) {
-        $stmt = $conn->prepare("UPDATE contracts SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
-        $stmt->execute([$new_status, $id]);
+        $stmt = $conn->prepare("
+            UPDATE contracts
+            SET status = ?,
+                sent_at = CASE
+                    WHEN ? = 'sent' THEN COALESCE(sent_at, CURRENT_TIMESTAMP)
+                    ELSE sent_at
+                END,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ");
+        $stmt->execute([$new_status, $new_status, $id]);
         setFlashMessage('Contract status updated successfully!', 'success');
         header('Location: contracts_view.php?id=' . $id);
         exit;
@@ -132,6 +161,15 @@ include '../backend/includes/header.php';
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2><i class="fas fa-file-circle-check me-2"></i>Contract: <?= escape($contract['contract_number']) ?></h2>
                 <div>
+                    <?php if ($contract['status'] === 'draft' || $contract['status'] === 'sent'): ?>
+                        <form method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
+                            <button type="submit" name="resend_contract" class="btn btn-success me-2">
+                                <i class="fas fa-paper-plane"></i>
+                                <?= $contract['status'] === 'draft' ? ' Send to Client' : ' Resend Contract' ?>
+                            </button>
+                        </form>
+                    <?php endif; ?>
                     <?php if ($contract['status'] === 'draft'): ?>
                         <a href="contracts_create.php?id=<?= $id ?>" class="btn btn-primary me-2">
                             <i class="fas fa-pencil"></i> Edit

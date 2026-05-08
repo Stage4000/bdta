@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/invoice_status.php';
 requireLogin();
 
 $db = new Database();
@@ -48,8 +49,14 @@ $forms_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM form_sub
 $appointments_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM bookings WHERE created_at >= ?"), [$thirty_days_ago_sql]);
 $quotes_accepted_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM quotes WHERE status = 'accepted' AND accepted_at IS NOT NULL AND accepted_at >= ?"), [$thirty_days_ago_sql]);
 $contracts_signed_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM contracts WHERE status = 'signed' AND signed_date IS NOT NULL AND signed_date >= ?"), [$thirty_days_ago_date]);
-$paid_invoices_last_30_days = $fetch_count($conn->prepare("SELECT COUNT(*) FROM invoices WHERE status = 'paid' AND payment_date IS NOT NULL AND payment_date >= ?"), [$thirty_days_ago_date]);
-$income_last_30_days = $fetch_sum($conn->prepare("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status = 'paid' AND payment_date IS NOT NULL AND payment_date >= ?"), [$thirty_days_ago_date]);
+$income_events_last_30_days = bdta_invoice_get_income_events($conn, $thirty_days_ago_date, $now->format('Y-m-d'));
+$income_last_30_days = 0.0;
+$invoice_ids_with_payments_last_30_days = [];
+foreach ($income_events_last_30_days as $income_event) {
+    $income_last_30_days += safe_float($income_event['amount'] ?? 0);
+    $invoice_ids_with_payments_last_30_days[safe_int($income_event['invoice_id'] ?? 0)] = true;
+}
+$paid_invoices_last_30_days = count(array_filter(array_keys($invoice_ids_with_payments_last_30_days), static fn (int $invoice_id): bool => $invoice_id > 0));
 
 $dashboard_cards = [
     [
@@ -85,7 +92,7 @@ $dashboard_cards = [
         'icon_color' => 'text-warning',
         'value' => (string) $format_money($income_last_30_days),
         'label' => 'Income (30 Days)',
-        'meta' => $paid_invoices_last_30_days . ' invoices paid',
+        'meta' => $paid_invoices_last_30_days . ' invoices with payments',
         'meta_class' => 'text-warning-emphasis',
     ],
 ];
@@ -187,8 +194,42 @@ foreach ($fetch_rows($conn->prepare("
         UNION ALL
 
         SELECT
+            ip.payment_date AS action_at,
+            'invoice_payment' AS action_type,
+            i.id AS record_id,
+            c.name AS subject_name,
+            i.invoice_number AS detail_primary,
+            NULL AS detail_date,
+            NULL AS detail_time,
+            ip.amount AS amount_value
+        FROM invoice_payments ip
+        INNER JOIN invoices i ON ip.invoice_id = i.id
+        INNER JOIN clients c ON i.client_id = c.id
+        WHERE TRIM(COALESCE(ip.payment_date, '')) <> '' AND ip.payment_date >= ?
+
+        UNION ALL
+
+        SELECT
+            ii.payment_date AS action_at,
+            'invoice_payment' AS action_type,
+            i.id AS record_id,
+            c.name AS subject_name,
+            i.invoice_number AS detail_primary,
+            NULL AS detail_date,
+            NULL AS detail_time,
+            ii.amount AS amount_value
+        FROM invoice_installments ii
+        INNER JOIN invoices i ON ii.invoice_id = i.id
+        INNER JOIN clients c ON i.client_id = c.id
+        WHERE ii.status = 'paid'
+          AND TRIM(COALESCE(ii.payment_date, '')) <> ''
+          AND ii.payment_date >= ?
+
+        UNION ALL
+
+        SELECT
             i.payment_date AS action_at,
-            'invoice' AS action_type,
+            'invoice_payment' AS action_type,
             i.id AS record_id,
             c.name AS subject_name,
             i.invoice_number AS detail_primary,
@@ -197,12 +238,26 @@ foreach ($fetch_rows($conn->prepare("
             i.total_amount AS amount_value
         FROM invoices i
         INNER JOIN clients c ON i.client_id = c.id
-        WHERE i.status = 'paid' AND i.payment_date IS NOT NULL AND i.payment_date >= ?
+        WHERE TRIM(COALESCE(i.payment_date, '')) <> ''
+          AND i.payment_date >= ?
+          AND i.status NOT IN ('draft', 'sent', 'overdue', 'cancelled', 'void')
+          AND NOT EXISTS (
+              SELECT 1
+              FROM invoice_payments ip
+              WHERE ip.invoice_id = i.id
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM invoice_installments ii
+              WHERE ii.invoice_id = i.id
+                AND ii.status = 'paid'
+                AND TRIM(COALESCE(ii.payment_date, '')) <> ''
+          )
     ) dashboard_recent_activity
     WHERE action_at IS NOT NULL AND action_at <> ''
     ORDER BY action_at DESC
     LIMIT 12
-"), [$ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_date, $ninety_days_ago_date]) as $row) {
+"), [$ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_sql, $ninety_days_ago_date, $ninety_days_ago_date, $ninety_days_ago_date, $ninety_days_ago_date]) as $row) {
     $action_type = scalar_string($row['action_type'] ?? '');
     $record_id = safe_int($row['record_id'] ?? 0);
     $detail_primary = scalar_string($row['detail_primary'] ?? '');
@@ -233,8 +288,8 @@ foreach ($fetch_rows($conn->prepare("
         $label = 'Contract signed';
         $href = 'contracts_view.php?id=' . $record_id;
         $badge_class = 'bg-warning-subtle text-warning-emphasis';
-    } elseif ($action_type === 'invoice') {
-        $label = 'Invoice paid';
+    } elseif ($action_type === 'invoice_payment') {
+        $label = 'Invoice payment received';
         $details = $format_amount_detail($detail_primary, $amount_value);
         $href = 'invoices_view.php?id=' . $record_id;
         $badge_class = 'bg-secondary-subtle text-secondary-emphasis';
