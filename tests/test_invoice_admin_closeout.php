@@ -75,22 +75,30 @@ try {
 
     $updated_due_date = bdta_update_invoice_due_date($conn, 1, '2026-06-15');
     assertInvoiceAdminCloseout($updated_due_date['due_date'] === '2026-06-15', 'Expected the due-date helper to return the updated due date.');
-    $stored_due_date = scalar_string($conn->query("SELECT due_date FROM invoices WHERE id = 1")->fetchColumn());
+    $stored_due_date_stmt = $conn->query("SELECT due_date FROM invoices WHERE id = 1");
+    if (!$stored_due_date_stmt instanceof PDOStatement) {
+        throw new RuntimeException('Expected a statement when loading the stored due date.');
+    }
+    $stored_due_date = scalar_string($stored_due_date_stmt->fetchColumn());
     assertInvoiceAdminCloseout($stored_due_date === '2026-06-15', 'Expected the updated due date to be stored.');
 
     $settled_result = bdta_close_invoice_at_current_amount($conn, 1, 'settled');
     assertInvoiceAdminCloseout($settled_result['status'] === 'settled', 'Expected closeout helper to support the settled status.');
     assertInvoiceAdminCloseout($settled_result['paid_total'] === 100.00, 'Expected settled invoices to preserve the actual collected amount.');
     assertInvoiceAdminCloseout($settled_result['remaining_amount'] === 0.00, 'Expected settled invoices to stop showing a balance due.');
-    assertInvoiceAdminCloseout(safe_float($settled_result['closed_balance_amount'] ?? -1) === 200.00, 'Expected settled invoices to expose the waived balance.');
+    assertInvoiceAdminCloseout($settled_result['closed_balance_amount'] === 200.00, 'Expected settled invoices to expose the waived balance.');
 
     $paid_result = bdta_close_invoice_at_current_amount($conn, 2, 'paid');
     assertInvoiceAdminCloseout($paid_result['status'] === 'paid', 'Expected closeout helper to support paid-at-current-amount.');
     assertInvoiceAdminCloseout($paid_result['paid_total'] === 75.00, 'Expected paid-at-current-amount invoices to preserve the actual collected amount.');
     assertInvoiceAdminCloseout($paid_result['remaining_amount'] === 0.00, 'Expected paid-at-current-amount invoices to stop showing a balance due.');
-    assertInvoiceAdminCloseout(safe_float($paid_result['closed_balance_amount'] ?? -1) === 175.00, 'Expected paid-at-current-amount invoices to expose the waived balance.');
+    assertInvoiceAdminCloseout($paid_result['closed_balance_amount'] === 175.00, 'Expected paid-at-current-amount invoices to expose the waived balance.');
 
-    $settled_invoice_row = $conn->query("SELECT status FROM invoices WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+    $settled_invoice_stmt = $conn->query("SELECT status FROM invoices WHERE id = 1");
+    if (!$settled_invoice_stmt instanceof PDOStatement) {
+        throw new RuntimeException('Expected a statement when loading the settled invoice row.');
+    }
+    $settled_invoice_row = $settled_invoice_stmt->fetch(PDO::FETCH_ASSOC);
     assertInvoiceAdminCloseout(is_array($settled_invoice_row) && scalar_string($settled_invoice_row['status'] ?? '') === 'settled', 'Expected settled status to persist to the invoice row.');
 
     $refund_progress = bdta_record_invoice_refund($conn, 1, 40.00, '2026-05-03', 'cash', 'Partial refund after settlement');

@@ -12,7 +12,10 @@ function bdta_assert(bool $condition, string $message): void
 $path = dirname(__DIR__) . '/client/appointment_types_edit.php';
 $contents = file_get_contents($path);
 
-bdta_assert($contents !== false, 'Test setup failed: unable to read appointment_types_edit.php');
+if ($contents === false) {
+    fwrite(STDERR, "Test setup failed: unable to read appointment_types_edit.php\n");
+    exit(1);
+}
 
 $matched = preg_match(
     '/\$stmt = \$conn->prepare\("\s*INSERT INTO appointment_types\s*\((?<columns>[\s\S]*?)\)\s*VALUES\s*\((?<placeholders>[\s\S]*?)\)\s*"\s*\);\s*\/\/ Keep this value list in the same order as the INSERT columns above\.\s*\$stmt->execute\(\[(?<values>[\s\S]*?)\]\);/s',
@@ -20,9 +23,22 @@ $matched = preg_match(
     $matches
 );
 
-bdta_assert($matched === 1, 'Could not locate the appointment type create INSERT statement.');
+if ($matched !== 1) {
+    fwrite(STDERR, "Could not locate the appointment type create INSERT statement.\n");
+    exit(1);
+}
 
-$columns = preg_split('/\s*,\s*/', trim(preg_replace('/\s+/', ' ', $matches['columns'])));
+$normalized_columns = preg_replace('/\s+/', ' ', $matches['columns']);
+if (!is_string($normalized_columns)) {
+    fwrite(STDERR, "Appointment type create INSERT columns could not be normalized.\n");
+    exit(1);
+}
+
+$columns = preg_split('/\s*,\s*/', trim($normalized_columns));
+if (!is_array($columns)) {
+    fwrite(STDERR, "Appointment type create INSERT columns could not be split.\n");
+    exit(1);
+}
 $columns = array_values(array_filter($columns, static fn(string $column): bool => $column !== ''));
 $placeholder_count = preg_match_all('/\?/', $matches['placeholders']);
 $value_count = preg_match_all('/\$[A-Za-z_][A-Za-z0-9_]*/', $matches['values']);

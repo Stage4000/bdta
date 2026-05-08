@@ -106,7 +106,7 @@ try {
     assertInvoicePaymentProgress($manual_paid_summary['status'] === 'paid', 'Expected admin-closed paid invoices to retain the paid status.');
     assertInvoicePaymentProgress($manual_paid_summary['paid_total'] === 100.00, 'Expected admin-closed paid invoices to preserve the actual collected amount.');
     assertInvoicePaymentProgress($manual_paid_summary['remaining_amount'] === 0.00, 'Expected admin-closed paid invoices to stop showing a balance due.');
-    assertInvoicePaymentProgress(safe_float($manual_paid_summary['closed_balance_amount'] ?? -1) === 200.00, 'Expected admin-closed paid invoices to expose the closed balance separately.');
+    assertInvoicePaymentProgress($manual_paid_summary['closed_balance_amount'] === 200.00, 'Expected admin-closed paid invoices to expose the closed balance separately.');
 
     $conn->prepare("
         INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)

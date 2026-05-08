@@ -106,11 +106,9 @@ jobs:
         id: phpstan
         if: ${{ always() }}
         continue-on-error: true
-        uses: php-actions/phpstan@v3
-        with:
-          version: 2.1.40
-          php_version: ${{ env.PHP_VERSION }}
-          configuration: phpstan.neon
+        run: |
+          curl -LsS -o phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.40/phpstan.phar
+          php phpstan.phar analyse --configuration=phpstan.neon --no-progress --memory-limit=1G
 
       - name: Summarize static analysis results
         if: ${{ always() }}

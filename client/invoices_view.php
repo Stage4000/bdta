@@ -36,7 +36,7 @@ $installments = $inst_stmt->fetchAll(PDO::FETCH_ASSOC);
 $payment_summary = bdta_invoice_get_payment_summary($conn, $invoice, $installments);
 $payment_summary_paid_total = safe_float($payment_summary['paid_total']);
 $payment_summary_remaining_amount = safe_float($payment_summary['remaining_amount']);
-$payment_summary_closed_balance_amount = safe_float($payment_summary['closed_balance_amount'] ?? 0);
+$payment_summary_closed_balance_amount = $payment_summary['closed_balance_amount'];
 
 $refunded_total = bdta_invoice_get_refunded_total($conn, $id);
 $refunds = bdta_invoice_get_refunds($conn, $id);
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_invoice_at_curr
     } else {
         try {
             $closeout_summary = bdta_close_invoice_at_current_amount($conn, $id, scalar_string($_POST['target_status'] ?? ''));
-            $closed_balance = safe_float($closeout_summary['closed_balance_amount'] ?? 0);
+            $closed_balance = $closeout_summary['closed_balance_amount'];
             $message = scalar_string($closeout_summary['status']) === 'settled'
                 ? 'Invoice settled and closed at the current amount.'
                 : 'Invoice marked paid at the current amount.';

@@ -53,8 +53,8 @@ $income_events_last_30_days = bdta_invoice_get_income_events($conn, $thirty_days
 $income_last_30_days = 0.0;
 $invoice_ids_with_payments_last_30_days = [];
 foreach ($income_events_last_30_days as $income_event) {
-    $income_last_30_days += safe_float($income_event['amount'] ?? 0);
-    $invoice_ids_with_payments_last_30_days[safe_int($income_event['invoice_id'] ?? 0)] = true;
+    $income_last_30_days += $income_event['amount'];
+    $invoice_ids_with_payments_last_30_days[$income_event['invoice_id']] = true;
 }
 $paid_invoices_last_30_days = count(array_filter(array_keys($invoice_ids_with_payments_last_30_days), static fn (int $invoice_id): bool => $invoice_id > 0));
 

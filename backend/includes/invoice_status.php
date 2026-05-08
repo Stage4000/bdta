@@ -48,6 +48,9 @@ function bdta_invoice_status_color(string $status): string
 }
 
 if (!function_exists('array_string_value')) {
+    /**
+     * @param array<array-key, mixed> $row
+     */
     function array_string_value(array $row, string|int $key, string $default = ''): string
     {
         return scalar_string($row[$key] ?? $default);
@@ -476,7 +479,7 @@ function bdta_invoice_get_payment_summary(PDO $conn, array $invoice, ?array $ins
         $effective_status = $status;
     }
 
-    $uncollected_amount = round(max(0, safe_float($summary['remaining_amount'] ?? 0)), 2);
+    $uncollected_amount = round(max(0, $summary['remaining_amount']), 2);
     $remaining_amount = $uncollected_amount;
     $closed_balance_amount = 0.0;
 
@@ -488,7 +491,7 @@ function bdta_invoice_get_payment_summary(PDO $conn, array $invoice, ?array $ins
     }
 
     return [
-        'paid_total' => round(max(0, safe_float($summary['paid_total'] ?? 0)), 2),
+        'paid_total' => round(max(0, $summary['paid_total']), 2),
         'remaining_amount' => $remaining_amount,
         'uncollected_amount' => $uncollected_amount,
         'closed_balance_amount' => $closed_balance_amount,
