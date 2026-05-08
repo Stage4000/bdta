@@ -95,8 +95,8 @@ include '../portal/includes/header.php';
                                         <a href="achievement_certificate.php?id=<?= $assignment_id ?>" class="btn btn-outline-primary btn-sm">
                                             <i class="fas fa-print me-1"></i>Print certificate
                                         </a>
-                                        <a href="achievement_certificate.php?id=<?= $assignment_id ?>&amp;download=1" class="btn btn-primary btn-sm">
-                                            <i class="fas fa-download me-1"></i>Download PDF
+                                        <a href="achievement_certificate.php?id=<?= $assignment_id ?>&amp;download=1" class="btn btn-primary btn-sm" target="_blank" rel="noopener">
+                                            <i class="fas fa-download me-1"></i>Save PDF
                                         </a>
                                     </div>
                                 <?php endif; ?>

@@ -335,45 +335,74 @@ if (!function_exists('bdta_render_achievement_certificate_html')) {
      * Runtime guards below accept partially formed action arrays before enforcing the documented string shape.
      * @param list<array{label?: string, href?: string, class?: string}> $extra_actions
      * @phpstan-param list<array{label?: mixed, href?: mixed, class?: mixed}> $extra_actions
+     * @param array{auto_print?: bool, hide_actions?: bool, document_title?: string} $options
      */
-    function bdta_render_achievement_certificate_html(array $assignment, array $extra_actions = []): string
+    function bdta_render_achievement_certificate_html(array $assignment, array $extra_actions = [], array $options = []): string
     {
-        $title = htmlspecialchars(bdta_achievement_row_string($assignment, 'achievement_title', 'Achievement Certificate'), ENT_QUOTES, 'UTF-8');
+        $page_title = trim(bdta_achievement_row_string($assignment, 'achievement_title', 'Achievement Certificate'));
+        $document_title = trim(isset($options['document_title']) && is_string($options['document_title']) ? $options['document_title'] : '');
+        if ($document_title === '') {
+            $document_title = $page_title !== '' ? $page_title : 'Achievement Certificate';
+        }
+
+        $title = htmlspecialchars($document_title, ENT_QUOTES, 'UTF-8');
         $description = htmlspecialchars(trim(bdta_achievement_row_string($assignment, 'achievement_description')), ENT_QUOTES, 'UTF-8');
         $body_html = bdta_render_achievement_certificate_body(bdta_achievement_row_string($assignment, 'certificate_body_html'), $assignment);
         $logo_url = htmlspecialchars(bdta_achievement_logo_url(), ENT_QUOTES, 'UTF-8');
         $assignment_id = bdta_achievement_row_int($assignment, 'id');
         $download_href = htmlspecialchars('?id=' . $assignment_id . '&download=1', ENT_QUOTES, 'UTF-8');
+        $auto_print = !empty($options['auto_print']);
+        $hide_actions = !empty($options['hide_actions']);
 
         $description_block = $description === ''
             ? ''
             : '<p style="margin:1rem auto 0;max-width:640px;color:#5b5661;">' . $description . '</p>';
 
         $action_html = '';
-        foreach ($extra_actions as $action) {
-            if (!array_key_exists('label', $action) || !array_key_exists('href', $action)) {
-                continue;
+        if (!$hide_actions) {
+            foreach ($extra_actions as $action) {
+                if (!array_key_exists('label', $action) || !array_key_exists('href', $action)) {
+                    continue;
+                }
+
+                if (!is_scalar($action['label']) || !is_scalar($action['href'])) {
+                    continue;
+                }
+
+                $action_label = htmlspecialchars(trim((string) $action['label']), ENT_QUOTES, 'UTF-8');
+                $action_href = htmlspecialchars(trim((string) $action['href']), ENT_QUOTES, 'UTF-8');
+                $action_class = isset($action['class']) && is_string($action['class'])
+                    ? trim($action['class'])
+                    : '';
+                $action_class = $action_class === 'secondary' ? 'secondary' : '';
+                $action_class_attr = $action_class !== ''
+                    ? ' class="' . htmlspecialchars($action_class, ENT_QUOTES, 'UTF-8') . '"'
+                    : '';
+                if ($action_label === '' || $action_href === '') {
+                    continue;
+                }
+
+                $action_html .= '<a' . $action_class_attr . ' href="' . $action_href . '">' . $action_label . '</a>';
             }
 
-            if (!is_scalar($action['label']) || !is_scalar($action['href'])) {
-                continue;
-            }
-
-            $action_label = htmlspecialchars(trim((string) $action['label']), ENT_QUOTES, 'UTF-8');
-            $action_href = htmlspecialchars(trim((string) $action['href']), ENT_QUOTES, 'UTF-8');
-            $action_class = isset($action['class']) && is_string($action['class'])
-                ? trim($action['class'])
-                : '';
-            $action_class = $action_class === 'secondary' ? 'secondary' : '';
-            $action_class_attr = $action_class !== ''
-                ? ' class="' . htmlspecialchars($action_class, ENT_QUOTES, 'UTF-8') . '"'
-                : '';
-            if ($action_label === '' || $action_href === '') {
-                continue;
-            }
-
-            $action_html .= '<a' . $action_class_attr . ' href="' . $action_href . '">' . $action_label . '</a>';
+            $action_html .= '<button type="button" onclick="window.print()">Print certificate</button>';
+            $action_html .= '<a class="secondary" href="' . $download_href . '" target="_blank" rel="noopener">Save PDF</a>';
         }
+
+        $actions_block = $action_html === ''
+            ? ''
+            : '<div class="certificate-actions">' . $action_html . '</div>';
+        $auto_print_script = $auto_print
+            ? <<<HTML
+    <script>
+        window.addEventListener('load', function () {
+            window.setTimeout(function () {
+                window.print();
+            }, 150);
+        });
+    </script>
+HTML
+            : '';
 
         return <<<HTML
 <!DOCTYPE html>
@@ -436,7 +465,13 @@ if (!function_exists('bdta_render_achievement_certificate_html')) {
         .certificate-actions button.secondary {
             background: #0a9a9c;
         }
+        @page {
+            margin: 0.45in;
+        }
         @media print {
+            body {
+                background: #ffffff;
+            }
             .certificate-actions {
                 display: none !important;
             }
@@ -452,11 +487,7 @@ if (!function_exists('bdta_render_achievement_certificate_html')) {
 </head>
 <body>
     <div class="certificate-shell">
-        <div class="certificate-actions">
-            {$action_html}
-            <button type="button" onclick="window.print()">Print certificate</button>
-            <a class="secondary" href="{$download_href}">Download PDF</a>
-        </div>
+        {$actions_block}
         <div class="certificate-card">
             <img class="certificate-logo" src="{$logo_url}" alt="Brook's Dog Training Academy logo">
             <div class="certificate-ribbon" aria-hidden="true"></div>
@@ -466,6 +497,7 @@ if (!function_exists('bdta_render_achievement_certificate_html')) {
             <div style="margin-top:2rem;">{$body_html}</div>
         </div>
     </div>
+{$auto_print_script}
 </body>
 </html>
 HTML;

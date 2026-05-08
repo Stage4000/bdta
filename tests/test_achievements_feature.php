@@ -44,9 +44,18 @@ bdta_assert_true(str_contains($rendered_body, 'Leash Foundations'), 'Certificate
 
 $rendered_html = bdta_render_achievement_certificate_html($assignment);
 bdta_assert_true(str_contains($rendered_html, '/assets/images/bdta-logo.png'), 'Certificate HTML should reference the local BDTA logo asset.');
-bdta_assert_true(str_contains($rendered_html, 'Download PDF'), 'Certificate HTML should include a PDF download action.');
+bdta_assert_true(str_contains($rendered_html, 'Save PDF'), 'Certificate HTML should include a PDF save action.');
 bdta_assert_true(str_contains($rendered_html, 'window.print()'), 'Certificate HTML should include a print action.');
 bdta_assert_true(str_contains($rendered_html, '?id=42&amp;download=1'), 'Certificate HTML should cast and escape the assignment ID in the download link.');
+
+$download_html = bdta_render_achievement_certificate_html($assignment, [], [
+    'auto_print' => true,
+    'hide_actions' => true,
+    'document_title' => 'taylor-trainer-leash-legend-2026-04-27',
+]);
+bdta_assert_true(str_contains($download_html, 'window.addEventListener(\'load\''), 'Download certificate HTML should auto-open the print flow.');
+bdta_assert_true(!str_contains($download_html, 'Save PDF'), 'Auto-print certificate HTML should hide action buttons.');
+bdta_assert_true(str_contains($download_html, '<title>taylor-trainer-leash-legend-2026-04-27</title>'), 'Download certificate HTML should use the PDF filename as the document title.');
 
 $extra_actions = [];
 $extra_actions[] = [
@@ -99,17 +108,21 @@ bdta_assert_true(str_contains($portal_index, 'Earned Badges'), 'Portal dashboard
 bdta_assert_true(str_contains($portal_index, "'label' => 'Achievements'"), 'Portal dashboard quick links should include Achievements.');
 
 $portal_achievements = bdta_read(dirname(__DIR__) . '/portal/achievements.php');
-bdta_assert_true(str_contains($portal_achievements, 'Download PDF'), 'Portal achievements page should expose certificate downloads.');
+bdta_assert_true(str_contains($portal_achievements, 'Save PDF'), 'Portal achievements page should expose certificate PDF saving.');
 bdta_assert_true(str_contains($portal_achievements, 'Print certificate'), 'Portal achievements page should expose print actions.');
 bdta_assert_true(!str_contains($portal_achievements, 'document.querySelector(window.location.hash)'), 'Portal achievement hash handling should avoid unsafe selector queries.');
 
 $admin_certificate = bdta_read(dirname(__DIR__) . '/client/achievement_certificate.php');
 bdta_assert_true(str_contains($admin_certificate, 'Back to client'), 'Admin certificate endpoint should render a direct back action.');
 bdta_assert_true(!str_contains($admin_certificate, "str_replace('<div class=\"certificate-actions\">'"), 'Admin certificate endpoint should not rely on brittle string replacement.');
+bdta_assert_true(!str_contains($admin_certificate, "Content-Type: application/pdf"), 'Admin certificate endpoint should reuse the print HTML flow for PDF saving.');
+bdta_assert_true(!str_contains($admin_certificate, 'bdta_generate_achievement_certificate_pdf('), 'Admin certificate endpoint should not use the legacy raw PDF renderer.');
 
 $portal_certificate = bdta_read(dirname(__DIR__) . '/portal/achievement_certificate.php');
 bdta_assert_true(str_contains($portal_certificate, 'Back to achievements'), 'Portal certificate endpoint should render a direct back action.');
 bdta_assert_true(!str_contains($portal_certificate, "str_replace('<div class=\"certificate-actions\">'"), 'Portal certificate endpoint should not rely on brittle string replacement.');
+bdta_assert_true(!str_contains($portal_certificate, "Content-Type: application/pdf"), 'Portal certificate endpoint should reuse the print HTML flow for PDF saving.');
+bdta_assert_true(!str_contains($portal_certificate, 'bdta_generate_achievement_certificate_pdf('), 'Portal certificate endpoint should not use the legacy raw PDF renderer.');
 
 bdta_assert_true(file_exists(dirname(__DIR__) . '/client/achievement_certificate.php'), 'Admin achievement certificate endpoint should exist.');
 bdta_assert_true(file_exists(dirname(__DIR__) . '/client/achievement_types.php'), 'Admin achievement template management page should exist.');
