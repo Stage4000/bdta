@@ -593,11 +593,7 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
-            try {
-                $this->ensureBookingIcalTokenIndex();
-            } catch (PDOException $e) {
-                // Index already exists, ignore
-            }
+            $this->ensureBookingIcalTokenIndex();
             
             // Clients table
             $this->execSQL("
