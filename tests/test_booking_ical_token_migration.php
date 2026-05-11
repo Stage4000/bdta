@@ -33,7 +33,18 @@ if (
     throw new RuntimeException('Bookings ical_token column definition helper should use the expected bounded VARCHAR length.');
 }
 
-if (!str_contains($database_source, '" . $this->bookingIcalTokenColumnDefinition() . "')) {
+$bookings_create_start = strpos($database_source, 'CREATE TABLE IF NOT EXISTS bookings (');
+if ($bookings_create_start === false) {
+    throw new RuntimeException('Unable to locate bookings CREATE TABLE SQL.');
+}
+
+$bookings_create_end = strpos($database_source, '");', $bookings_create_start);
+if ($bookings_create_end === false) {
+    throw new RuntimeException('Unable to isolate bookings CREATE TABLE SQL.');
+}
+
+$bookings_create_sql = substr($database_source, $bookings_create_start, $bookings_create_end - $bookings_create_start);
+if (!is_string($bookings_create_sql) || !str_contains($bookings_create_sql, '$this->bookingIcalTokenColumnDefinition()')) {
     throw new RuntimeException('Bookings table creation should use the shared ical_token column definition helper.');
 }
 
@@ -41,8 +52,12 @@ if (!str_contains($database_source, 'ALTER TABLE bookings ADD COLUMN " . $this->
     throw new RuntimeException('Bookings migration should add ical_token using the shared bounded VARCHAR helper.');
 }
 
-if (!str_contains($database_source, "in_array('ical_token', \$booking_column_names, true)")) {
-    throw new RuntimeException('Bookings migration should confirm the ical_token column exists before indexing it.');
+if (!str_contains($database_source, '$this->ensureBookingIcalTokenIndex()')) {
+    throw new RuntimeException('Bookings schema setup should use the shared iCal token index helper.');
+}
+
+if (!str_contains($database_source, "if (!in_array('ical_token', \$booking_column_names, true))")) {
+    throw new RuntimeException('Bookings iCal token index helper should confirm the column exists before indexing it.');
 }
 
 if (!str_contains($database_source, "!\$this->indexExists('bookings', 'idx_bookings_ical_token')")) {

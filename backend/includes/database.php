@@ -165,6 +165,17 @@ class Database {
     private function bookingIcalTokenColumnDefinition(): string {
         return sprintf('ical_token VARCHAR(%d)', self::PUBLIC_ACCESS_TOKEN_LENGTH);
     }
+
+    private function ensureBookingIcalTokenIndex(): void {
+        $booking_column_names = $this->getTableColumns('bookings');
+        if (!in_array('ical_token', $booking_column_names, true)) {
+            return;
+        }
+
+        if (!$this->indexExists('bookings', 'idx_bookings_ical_token')) {
+            $this->execSQL("CREATE UNIQUE INDEX idx_bookings_ical_token ON bookings(ical_token)");
+        }
+    }
     
     public function __construct() {
         if (self::$sharedConnection !== null) {
@@ -582,8 +593,10 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
-            if (!$this->indexExists('bookings', 'idx_bookings_ical_token')) {
-                $this->execSQL("CREATE UNIQUE INDEX idx_bookings_ical_token ON bookings(ical_token)");
+            try {
+                $this->ensureBookingIcalTokenIndex();
+            } catch (PDOException $e) {
+                // Index already exists, ignore
             }
             
             // Clients table
@@ -1630,9 +1643,7 @@ class Database {
             $booking_column_names = $this->getTableColumns('bookings');
         }
         try {
-            if (in_array('ical_token', $booking_column_names, true) && !$this->indexExists('bookings', 'idx_bookings_ical_token')) {
-                $this->execSQL("CREATE UNIQUE INDEX idx_bookings_ical_token ON bookings(ical_token)");
-            }
+            $this->ensureBookingIcalTokenIndex();
         } catch (PDOException $e) {
             // Index already exists, ignore
         }
