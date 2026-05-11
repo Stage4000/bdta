@@ -97,6 +97,7 @@ directly from the admin panel.  No file uploads or calendar sharing required.
 > - User type: **External** (or Internal for Google Workspace)
 > - Scopes: `../auth/calendar` and `openid`, `email`
 > - Add your domain to authorised domains
+> - Publishing status: use **Testing** only during setup. For live use, switch to **Production** (or use **Internal** for Google Workspace). External apps left in **Testing** issue Calendar refresh tokens that expire after **7 days**.
 
 ### Step 3: Configure in Admin Panel
 
@@ -114,6 +115,8 @@ directly from the admin panel.  No file uploads or calendar sharing required.
 3. Sign in with your Google account and grant Calendar access
 4. You are redirected back – a success message confirms the connection
 5. Use the **Choose Booking Calendar** dropdown to select which calendar receives new bookings
+
+> ⚠️ If you connected while the Google OAuth app was still in **Testing**, publish it to **Production** first and then **reconnect** Google Calendar so Google issues a long-lived refresh token.
 
 ### Step 5: Test
 
@@ -302,6 +305,11 @@ Update `/backend/includes/email_service.php` to use your chosen service.
 - Check service account has calendar access
 - Install Google API client: `composer require google/apiclient`
 - Check error logs: `/backend/logs/`
+
+### Google Calendar reconnect needed every 7 days
+- If your OAuth app audience is **External** and the publishing status is **Testing**, Google expires Calendar refresh tokens after **7 days**.
+- In Google Auth Platform / OAuth consent screen settings, switch the publishing status to **Production** (or use **Internal** for Google Workspace).
+- After publishing, disconnect and **reconnect** Google Calendar so a new long-lived refresh token is issued.
 
 ### iCal download not working
 - Check file permissions on `/backend/public/`

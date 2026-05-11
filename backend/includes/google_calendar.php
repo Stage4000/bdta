@@ -20,6 +20,7 @@ class GoogleCalendarIntegration {
     private const OAUTH_NOTIFICATION_ENTITY_TYPE = 'google_calendar_oauth';
     private const OAUTH_NOTIFICATION_TITLE = 'Google Calendar connection needs attention';
     private const ACCESS_TOKEN_EXPIRY_BUFFER_SECONDS = 60;
+    private const OAUTH_TESTING_MODE_GUIDANCE = 'If this started about 7 days after connecting, your Google OAuth app is likely still in Testing. Publish the OAuth consent screen to Production (or use an Internal app for Google Workspace) and reconnect Google Calendar.';
     private static string $last_http_error_message = '';
     private string $credentials_file;
     private string $calendar_id;
@@ -65,7 +66,7 @@ class GoogleCalendarIntegration {
     /**
      * @param array<string, mixed>|null $token
      */
-    private static function createOAuthFailureNotification(int $admin_user_id, ?array $token = null): void {
+    private static function createOAuthFailureNotification(int $admin_user_id, ?array $token = null, string $detail = ''): void {
         if ($admin_user_id <= 0) {
             return;
         }
@@ -86,6 +87,9 @@ class GoogleCalendarIntegration {
             'Google Calendar OAuth%s needs attention. Booking availability and sync may be inaccurate until it is reconnected.',
             $connected_account !== '' ? ' for ' . $connected_account : ''
         );
+        if ($detail !== '') {
+            $message .= ' ' . trim($detail);
+        }
 
         bdta_create_admin_notifications(
             $conn,
@@ -95,6 +99,32 @@ class GoogleCalendarIntegration {
             $message,
             self::getOAuthNotificationUrl()
         );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function getActiveOAuthFailureNotification(int $admin_user_id): ?array {
+        if ($admin_user_id <= 0) {
+            return null;
+        }
+
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("
+            SELECT title, message, url
+            FROM notifications
+            WHERE audience = 'admin'
+              AND recipient_id = ?
+              AND entity_type = ?
+              AND entity_id = ?
+              AND deleted_at IS NULL
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$admin_user_id, self::OAUTH_NOTIFICATION_ENTITY_TYPE, $admin_user_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
     }
 
     private static function clearOAuthFailureNotifications(int $admin_user_id): void {
@@ -553,6 +583,32 @@ class GoogleCalendarIntegration {
     }
 
     /**
+     * @param array<string, mixed> $response
+     */
+    private static function describeOAuthRefreshFailure(array $response): string {
+        $error = self::rowString($response, 'error');
+        if ($error === 'invalid_grant') {
+            $error_subtype = self::rowString($response, 'error_subtype');
+            if ($error_subtype === 'invalid_rapt') {
+                return 'Google rejected the stored refresh token (invalid_grant) because the Google Workspace session expired or needs re-authentication. Have the affected admin sign in again and reconnect Google Calendar.';
+            }
+
+            return 'Google rejected the stored refresh token (invalid_grant). Common causes are revoked access, too many refresh tokens issued for the same Google account, or an OAuth app still in Testing. ' . self::OAUTH_TESTING_MODE_GUIDANCE;
+        }
+
+        $error_description = self::rowString($response, 'error_description');
+        if ($error_description !== '') {
+            return 'Google token refresh failed: ' . $error_description . '.';
+        }
+
+        if ($error !== '') {
+            return 'Google token refresh failed: ' . $error . '.';
+        }
+
+        return '';
+    }
+
+    /**
      * Refresh the access token using the stored refresh token.
      * Saves the new token to the database and returns the new access token, or null on failure.
      */
@@ -572,7 +628,9 @@ class GoogleCalendarIntegration {
             if ($recovered_access_token !== null) {
                 return $recovered_access_token;
             }
-            self::createOAuthFailureNotification($admin_user_id);
+            $http_error = $http_error_response['error'];
+            $detail = 'Google token refresh failed: ' . scalar_string($http_error['message'] ?? 'Unknown network error') . '.';
+            self::createOAuthFailureNotification($admin_user_id, null, $detail);
             return null;
         }
 
@@ -581,7 +639,11 @@ class GoogleCalendarIntegration {
             if ($recovered_access_token !== null) {
                 return $recovered_access_token;
             }
-            self::createOAuthFailureNotification($admin_user_id);
+            $detail = self::describeOAuthRefreshFailure($response);
+            if ($detail !== '') {
+                error_log('GoogleCalendarIntegration: refresh token rejected for admin_user_id=' . $admin_user_id . ': ' . json_encode($response));
+            }
+            self::createOAuthFailureNotification($admin_user_id, null, $detail);
             return null;
         }
 

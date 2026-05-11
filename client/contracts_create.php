@@ -1,6 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/public/includes/public_contract_access.php';
+require_once '../backend/includes/contract_delivery.php';
 requireLogin();
 
 $db = new Database();
@@ -81,8 +82,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?, 'draft', ?)
                 ");
                 $stmt->execute([$contract_number, $client_id, $title, $description, $contract_text, $effective_date, $access_token]);
-                setFlashMessage('Contract created successfully!', 'success');
-                redirect('contracts_list.php');
+                $new_contract_id = safe_int($conn->lastInsertId());
+                $send_result = bdta_send_contract_to_client($conn, $new_contract_id);
+                if ($send_result['success']) {
+                    setFlashMessage('Contract created and sent successfully!', 'success');
+                } else {
+                    setFlashMessage('Contract created, but the client email could not be sent: ' . $send_result['message'], 'warning');
+                }
+                redirect('contracts_view.php?id=' . $new_contract_id);
             }
         }
     }

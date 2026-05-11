@@ -5,6 +5,7 @@
  */
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
+require_once dirname(dirname(__DIR__)) . '/includes/public_access_links.php';
 
 /**
  * @phpstan-type QuoteRow array<string, mixed>
@@ -98,7 +99,11 @@ class QuoteReminderTask {
         $client_name = htmlspecialchars(scalar_string($quote['client_name'] ?? ''));
         $quote_title = htmlspecialchars(scalar_string($quote['title'] ?? ''));
         $quote_amount = number_format(safe_float($quote['amount'] ?? 0), 2);
-        $quote_link = getDynamicBaseUrl() . '/backend/public/quote.php?id=' . scalar_string($quote['id'] ?? '');
+        $quote_link = bdta_get_public_quote_url(
+            $this->conn,
+            safe_int($quote['id'] ?? 0),
+            $quote['access_token'] ?? null
+        );
         $expiration_date = scalar_string($quote['expiration_date'] ?? '');
         $client_email = scalar_string($quote['client_email'] ?? '');
         $client_id = $quote['client_id'] ?? null;

@@ -10,6 +10,7 @@ $success = '';
 $token = scalar_string($_GET['token'] ?? '');
 $valid_token = false;
 $client = null;
+$client_email = '';
 
 if (empty($token)) {
     $error = 'Invalid password reset link.';
@@ -22,8 +23,9 @@ if (empty($token)) {
     $stmt->execute([$token]);
     $client = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if ($client) {
+    if (is_array($client)) {
         $valid_token = true;
+        $client_email = array_string_value($client, 'email');
         
         // Handle form submission
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -52,7 +54,6 @@ if (empty($token)) {
 }
 
 $page_title = 'Reset Password';
-$client_email = $valid_token && is_array($client) ? array_string_value($client, 'email') : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">

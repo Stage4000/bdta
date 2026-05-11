@@ -5,6 +5,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
 require_once '../backend/includes/email_service.php';
+require_once '../backend/includes/public_access_links.php';
 requireLogin();
 
 $db = new Database();
@@ -96,9 +97,8 @@ $is_expired = array_string_value($quote, 'expiration_date') !== ''
     && array_string_value($quote, 'status') === 'sent';
 $display_status = $is_expired ? 'expired' : $quote['status'];
 
-// Generate public link dynamically from current request
-$base_url = getDynamicBaseUrl();
-$public_link = $base_url . '/backend/public/quote.php?id=' . $quote_id;
+// Generate the shareable client link and lazily provision a token for older quotes.
+$public_link = bdta_get_public_quote_url($conn, $quote_id, $quote['access_token'] ?? null);
 
 $page_title = "Quote " . escape($quote['quote_number']);
 include '../backend/includes/header.php';

@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/invoice_status.php';
+require_once __DIR__ . '/public_access_links.php';
 require_once __DIR__ . '/public_portal_return.php';
 
 /**
@@ -133,7 +134,7 @@ function bdta_notification_bind_values(PDOStatement $stmt, array $values): void 
  */
 function bdta_notification_client_invoice_excluded_statuses(): array {
     /** @var list<string> $statuses */
-    $statuses = array_map('strtolower', ['draft', 'paid', 'refunded', 'cancelled', 'void']);
+    $statuses = array_map('strtolower', ['draft', 'paid', 'settled', 'refunded', 'cancelled', 'void']);
 
     return $statuses;
 }
@@ -142,7 +143,7 @@ function bdta_notification_client_invoice_excluded_statuses(): array {
  * Matches the fixed-size exclusion list returned by bdta_notification_client_invoice_excluded_statuses().
  */
 function bdta_notification_client_invoice_status_placeholders(): string {
-    return '?, ?, ?, ?, ?';
+    return '?, ?, ?, ?, ?, ?';
 }
 
 function bdta_notification_fetch_count(PDOStatement $stmt): int {
@@ -356,7 +357,7 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
     }
 
     $quote_stmt = $conn->prepare("
-        SELECT id, quote_number, title, created_at
+        SELECT id, quote_number, title, access_token, created_at
         FROM quotes
         WHERE client_id = ?
           AND status IN ('sent', 'viewed')
@@ -380,7 +381,10 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
             'entity_id' => $quote_id,
             'title' => 'Quote awaiting your response',
             'message' => $quote_number . ' — ' . $title,
-            'url' => bdta_append_public_portal_return('/backend/public/quote.php?id=' . $quote_id, '/portal/quotes.php'),
+            'url' => bdta_append_public_portal_return(
+                bdta_get_public_quote_path($conn, $quote_id, $quote['access_token'] ?? null),
+                '/portal/quotes.php'
+            ),
             'created_at' => trim((string) ($quote['created_at'] ?? '')),
             'is_read' => false,
             'can_mark_read' => false,
@@ -407,11 +411,10 @@ function bdta_get_client_sticky_notifications(PDO $conn, int $client_id, int $li
 
         $contract_number = trim((string) ($contract['contract_number'] ?? ('#' . $contract_id)));
         $title = trim((string) ($contract['title'] ?? 'Contract'));
-        $access_token = trim((string) ($contract['access_token'] ?? ''));
-        $contract_url = $access_token !== ''
-            ? '/backend/public/contract.php?token=' . rawurlencode($access_token)
-            : '/backend/public/contract.php?id=' . $contract_id;
-        $contract_url = bdta_append_public_portal_return($contract_url, '/portal/agreements.php');
+        $contract_url = bdta_append_public_portal_return(
+            bdta_get_public_contract_path($conn, $contract_id, $contract['access_token'] ?? null),
+            '/portal/agreements.php'
+        );
 
         $notifications[] = [
             'id' => 'contract-' . $contract_id,

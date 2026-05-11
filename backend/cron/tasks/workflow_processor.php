@@ -6,6 +6,8 @@
 
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 require_once dirname(dirname(__DIR__)) . '/includes/form_link_requests.php';
+require_once dirname(dirname(__DIR__)) . '/includes/public_access_links.php';
+require_once dirname(dirname(__DIR__)) . '/includes/invoice_status.php';
 
 /**
  * @phpstan-type WorkflowExecutionRow array<string, mixed>
@@ -217,7 +219,7 @@ class WorkflowProcessorTask {
         }
 
         if (!empty($attach_quote_id)) {
-            $link = $base_url . '/backend/public/quote.php?id=' . scalar_string($attach_quote_id);
+            $link = bdta_get_public_quote_url($this->conn, safe_int($attach_quote_id));
             if ($html) {
                 $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">💬 View Quote</a></p>';
             } else {
@@ -227,9 +229,12 @@ class WorkflowProcessorTask {
 
         if (!empty($attach_invoice_id)) {
             $invoice_pay_token = scalar_string($execution['attach_invoice_pay_token'] ?? '');
-            $link = $invoice_pay_token !== ''
-                ? $base_url . '/portal/invoice_pay.php?token=' . urlencode($invoice_pay_token)
-                : $base_url . '/portal/invoice_view.php?id=' . urlencode(scalar_string($attach_invoice_id));
+            $link = bdta_get_public_invoice_pay_url(
+                $this->conn,
+                safe_int($attach_invoice_id),
+                $invoice_pay_token,
+                $base_url
+            );
             if ($html) {
                 $links[] = '<p><a href="' . $link . '" style="display: inline-block; padding: 12px 24px; background: #16a34a; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">💳 View Invoice</a></p>';
             } else {

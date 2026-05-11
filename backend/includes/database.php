@@ -282,7 +282,7 @@ class Database {
                 UPDATE invoices
                 SET status = 'cancelled',
                     updated_at = CURRENT_TIMESTAMP
-                WHERE client_id = ? AND status NOT IN ('paid', 'refunded', 'cancelled', 'void')
+                WHERE client_id = ? AND status NOT IN ('paid', 'settled', 'refunded', 'cancelled', 'void')
             ")->execute([$client_id]);
 
             $this->conn->prepare("
@@ -571,11 +571,15 @@ class Database {
                     appointment_time TIME NOT NULL,
                     duration_minutes INTEGER DEFAULT 60,
                     status TEXT DEFAULT 'pending',
+                    ical_token TEXT,
                     notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
+            if (!$this->indexExists('bookings', 'idx_bookings_ical_token')) {
+                $this->execSQL("CREATE UNIQUE INDEX idx_bookings_ical_token ON bookings(ical_token)");
+            }
             
             // Clients table
             $this->execSQL("
@@ -977,6 +981,7 @@ class Database {
                     template_id INTEGER NOT NULL,
                     booking_id INTEGER,
                     pet_id INTEGER,
+                    access_token TEXT,
                     responses MEDIUMTEXT NOT NULL,
                     status TEXT DEFAULT 'submitted',
                     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -992,6 +997,9 @@ class Database {
                     FOREIGN KEY (reviewed_by) REFERENCES admin_users(id) ON DELETE SET NULL
                 )
             ");
+            if (!$this->indexExists('form_submissions', 'idx_form_submissions_access_token')) {
+                $this->execSQL("CREATE UNIQUE INDEX idx_form_submissions_access_token ON form_submissions(access_token)");
+            }
             
             // Quotes table
             $this->execSQL("
@@ -1002,6 +1010,7 @@ class Database {
                     title TEXT NOT NULL,
                     description TEXT,
                     amount DECIMAL(10,2) NOT NULL,
+                    access_token TEXT,
                     expiration_date DATE,
                     status TEXT DEFAULT 'sent',
                     accepted_at TIMESTAMP,
@@ -1013,6 +1022,9 @@ class Database {
                     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
                 )
             ");
+            if (!$this->indexExists('quotes', 'idx_quotes_access_token')) {
+                $this->execSQL("CREATE UNIQUE INDEX idx_quotes_access_token ON quotes(access_token)");
+            }
             
             // Quote items table  
             $this->execSQL("
@@ -1578,14 +1590,46 @@ class Database {
         if (!in_array('pet_id', $form_column_names)) {
             $this->execSQL("ALTER TABLE form_submissions ADD COLUMN pet_id INTEGER");
         }
-        
+        if (!in_array('access_token', $form_column_names)) {
+            $this->execSQL("ALTER TABLE form_submissions ADD COLUMN access_token TEXT");
+        }
+        try {
+            if (!$this->indexExists('form_submissions', 'idx_form_submissions_access_token')) {
+                $this->execSQL("CREATE UNIQUE INDEX idx_form_submissions_access_token ON form_submissions(access_token)");
+            }
+        } catch (PDOException $e) {
+            // Index already exists, ignore
+        }
+
         // Update quotes table to add reminder tracking
         $quote_column_names = $this->getTableColumns('quotes');
         
         if (!in_array('last_reminder_sent', $quote_column_names)) {
             $this->execSQL("ALTER TABLE quotes ADD COLUMN last_reminder_sent TIMESTAMP");
         }
-        
+        if (!in_array('access_token', $quote_column_names)) {
+            $this->execSQL("ALTER TABLE quotes ADD COLUMN access_token TEXT");
+        }
+        try {
+            if (!$this->indexExists('quotes', 'idx_quotes_access_token')) {
+                $this->execSQL("CREATE UNIQUE INDEX idx_quotes_access_token ON quotes(access_token)");
+            }
+        } catch (PDOException $e) {
+            // Index already exists, ignore
+        }
+
+        $booking_column_names = $this->getTableColumns('bookings');
+        if (!in_array('ical_token', $booking_column_names)) {
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN ical_token TEXT");
+        }
+        try {
+            if (!$this->indexExists('bookings', 'idx_bookings_ical_token')) {
+                $this->execSQL("CREATE UNIQUE INDEX idx_bookings_ical_token ON bookings(ical_token)");
+            }
+        } catch (PDOException $e) {
+            // Index already exists, ignore
+        }
+
         // Update invoices table to add reminder tracking and receipt audit trail
         $invoice_column_names = $this->getTableColumns('invoices');
         

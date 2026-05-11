@@ -351,8 +351,8 @@ class MoxieClientSync {
                         'count' => $count,
                         'request_method' => $request_payload === null ? 'GET' : 'POST',
                     ]);
-                    $response = null;
                     $rate_limit_retry = 0;
+                    $response = [];
                     while (true) {
                         try {
                             $response = $this->requestJson($request_url, $api_key, $request_payload);
@@ -372,9 +372,6 @@ class MoxieClientSync {
                             ]);
                             $this->pauseBeforeRateLimitRetry($delay_seconds);
                         }
-                    }
-                    if ($response === null) {
-                        throw new RuntimeException('Moxie request did not return a response for URL: ' . $request_url);
                     }
                     $page_clients = self::extractClientRows($response);
                     foreach ($page_clients as $page_client) {

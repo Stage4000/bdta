@@ -44,6 +44,16 @@ if (!$contract) {
     );
 }
 
+$contract_access = bdta_public_record_access_context($contract, 'access_token', $contract_token);
+if (!$contract_access['has_valid_token'] && !$contract_access['is_portal_owner']) {
+    renderPublicErrorPage(
+        'Contract Not Found',
+        'Contract Not Found',
+        'The contract you are looking for does not exist or is no longer available.',
+        404
+    );
+}
+
 $contract_status = array_string_value($contract, 'status');
 $contract_id = array_int_value($contract, 'id');
 $contract_number = array_string_value($contract, 'contract_number');
@@ -55,10 +65,11 @@ $contract_signature_typed_name = array_string_value($contract, 'signature_typed_
 $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
 $contract_signed_date = array_string_value($contract, 'signed_date');
 $contract_signature_data = array_string_value($contract, 'signature_data');
-$can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
+$can_view_private_contact_details = $contract_access['has_valid_token'] || $contract_access['is_portal_owner'];
 
 // Check if contract is viewable
-$can_sign = in_array($contract_status, ['sent'], true);
+$can_sign = in_array($contract_status, ['sent'], true)
+    && ($contract_access['has_valid_token'] || $contract_access['is_portal_owner']);
 $already_signed = $contract_status === 'signed';
 $page_has_turnstile_widget = $can_sign;
 
@@ -156,7 +167,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'sign' && $can_sign) {
         $contract_signature_font = array_string_value($contract, 'signature_font', 'font-dancing');
         $contract_signed_date = array_string_value($contract, 'signed_date');
         $contract_signature_data = array_string_value($contract, 'signature_data');
-        $can_view_private_contact_details = bdta_contract_has_valid_access_token($contract, $contract_token);
+        $contract_access = bdta_public_record_access_context($contract, 'access_token', $contract_token);
+        $can_view_private_contact_details = $contract_access['has_valid_token'] || $contract_access['is_portal_owner'];
 
         $already_signed = true;
         $can_sign       = false;

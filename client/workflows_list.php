@@ -119,11 +119,15 @@ include '../backend/includes/header.php';
                                            class="btn btn-sm btn-outline-info">
                                             <i class="fas fa-list"></i>
                                         </a>
-                                        <a href="workflows_delete.php?id=<?php echo $workflow['id']; ?>" 
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Are you sure you want to delete this workflow? This will also delete all associated steps and enrollments.')">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                                        <form method="POST" action="workflows_delete.php" class="d-inline-flex">
+                                            <input type="hidden" name="id" value="<?php echo (int) $workflow['id']; ?>">
+                                            <input type="hidden" name="csrf_token" value="<?php echo escape($_SESSION['csrf_token'] ?? ''); ?>">
+                                            <button type="submit"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    onclick="return confirm('Are you sure you want to delete this workflow? This will also delete all associated steps and enrollments.')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </div>

@@ -29,16 +29,71 @@ $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?")
 $items_stmt->execute([$id]);
 $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch installments before calculating payment/refund state
+$inst_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id = ? ORDER BY installment_number");
+$inst_stmt->execute([$id]);
+$installments = $inst_stmt->fetchAll(PDO::FETCH_ASSOC);
+$payment_summary = bdta_invoice_get_payment_summary($conn, $invoice, $installments);
+$payment_summary_paid_total = safe_float($payment_summary['paid_total']);
+$payment_summary_remaining_amount = safe_float($payment_summary['remaining_amount']);
+$payment_summary_closed_balance_amount = $payment_summary['closed_balance_amount'];
+
 $refunded_total = bdta_invoice_get_refunded_total($conn, $id);
 $refunds = bdta_invoice_get_refunds($conn, $id);
-$net_amount = bdta_invoice_get_net_amount($invoice, $refunded_total);
+$net_amount = bdta_invoice_get_net_amount($invoice, $refunded_total, $payment_summary_paid_total);
 $can_pay_invoice = bdta_invoice_is_payable($invoice);
 $can_void_invoice = bdta_invoice_can_void($invoice);
-$can_refund_invoice = bdta_invoice_can_refund($invoice, $refunded_total);
+$can_refund_invoice = bdta_invoice_can_refund($invoice, $refunded_total, $payment_summary_paid_total);
+$can_receipt_invoice = in_array(array_string_value($invoice, 'status'), bdta_invoice_receipt_statuses(), true)
+    && $payment_summary_paid_total > 0;
+$can_adjust_due_date = $can_modify_accounting && bdta_invoice_can_adjust_due_date($invoice);
+$can_close_at_current_amount = $can_modify_accounting && $can_pay_invoice && $payment_summary_paid_total > 0;
 $csrf_token_value = scalar_string($_SESSION['csrf_token'] ?? '');
+$payments = bdta_invoice_get_payments($conn, $id);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$can_modify_accounting) {
     setFlashMessage('Your accountant account has read-only invoice access.', 'danger');
+    redirect('invoices_view.php?id=' . $id);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_due_date'])) {
+    $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+
+    if ($submitted_csrf_token === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
+        setFlashMessage('Invalid request.', 'danger');
+    } else {
+        try {
+            $updated_invoice = bdta_update_invoice_due_date($conn, $id, scalar_string($_POST['due_date'] ?? ''));
+            setFlashMessage('Invoice due date updated to ' . formatDate(array_string_value($updated_invoice, 'due_date')) . '.', 'success');
+        } catch (Throwable $e) {
+            setFlashMessage('Unable to update due date: ' . $e->getMessage(), 'danger');
+        }
+    }
+
+    redirect('invoices_view.php?id=' . $id);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_invoice_at_current_amount'])) {
+    $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
+
+    if ($submitted_csrf_token === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
+        setFlashMessage('Invalid request.', 'danger');
+    } else {
+        try {
+            $closeout_summary = bdta_close_invoice_at_current_amount($conn, $id, scalar_string($_POST['target_status'] ?? ''));
+            $closed_balance = $closeout_summary['closed_balance_amount'];
+            $message = scalar_string($closeout_summary['status']) === 'settled'
+                ? 'Invoice settled and closed at the current amount.'
+                : 'Invoice marked paid at the current amount.';
+            if ($closed_balance > 0) {
+                $message .= ' Closed balance: $' . number_format($closed_balance, 2) . '.';
+            }
+            setFlashMessage($message, 'success');
+        } catch (Throwable $e) {
+            setFlashMessage('Unable to close invoice: ' . $e->getMessage(), 'danger');
+        }
+    }
+
     redirect('invoices_view.php?id=' . $id);
 }
 
@@ -48,8 +103,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_receipt'])) {
 
     if ($submitted_csrf_token === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
         setFlashMessage('Invalid request.', 'danger');
-    } elseif (!in_array(array_string_value($invoice, 'status'), ['paid', 'refunded'], true)) {
-        setFlashMessage('Cannot send receipt: invoice is not fully paid.', 'danger');
+    } elseif (!$can_receipt_invoice) {
+        setFlashMessage('Cannot send receipt: invoice is not closed or paid.', 'danger');
     } else {
         $email_service = new EmailService(null, $conn);
         $result = $email_service->sendPaymentReceipt($invoice, null, $items);
@@ -135,11 +190,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_invoice'])) {
             redirect('invoices_view.php?id=' . $id);
         }
 
+        $current_payment_summary = bdta_invoice_get_payment_summary($conn, $current_invoice);
+        $current_paid_total = safe_float($current_payment_summary['paid_total']);
         $current_refunded_total = bdta_invoice_get_refunded_total($conn, $id);
-        $current_remaining_amount = bdta_invoice_get_net_amount($current_invoice, $current_refunded_total);
+        $current_remaining_amount = bdta_invoice_get_net_amount($current_invoice, $current_refunded_total, $current_paid_total);
         $refund_method = array_string_value($current_invoice, 'payment_method', 'other');
 
-        if (!bdta_invoice_can_refund($current_invoice, $current_refunded_total)) {
+        if (!bdta_invoice_can_refund($current_invoice, $current_refunded_total, $current_paid_total)) {
             setFlashMessage('This invoice cannot be refunded.', 'danger');
             redirect('invoices_view.php?id=' . $id);
         }
@@ -190,15 +247,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_invoice'])) {
     redirect('invoices_view.php?id=' . $id);
 }
 
-// Fetch installments
-$inst_stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE invoice_id = ? ORDER BY installment_number");
-$inst_stmt->execute([$id]);
-$installments = $inst_stmt->fetchAll(PDO::FETCH_ASSOC);
-$payment_summary = bdta_invoice_get_payment_summary($conn, $invoice, $installments);
-$payment_summary_paid_total = safe_float($payment_summary['paid_total']);
-$payment_summary_remaining_amount = safe_float($payment_summary['remaining_amount']);
-$payments = bdta_invoice_get_payments($conn, $id);
-
 include '../backend/includes/header.php';
 ?>
 
@@ -224,6 +272,29 @@ include '../backend/includes/header.php';
                                 </button>
                             </form>
                         <?php endif; ?>
+                    <?php if ($can_adjust_due_date): ?>
+                        <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#updateDueDateForm" aria-expanded="false" aria-controls="updateDueDateForm">
+                            <i class="fas fa-calendar-day"></i> Update Due Date
+                        </button>
+                    <?php endif; ?>
+                    <?php if ($can_close_at_current_amount): ?>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('Mark this invoice as paid at its current collected amount? The remaining balance will be closed.');">
+                            <input type="hidden" name="close_invoice_at_current_amount" value="1">
+                            <input type="hidden" name="target_status" value="paid">
+                            <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
+                            <button type="submit" class="btn btn-outline-success">
+                                <i class="fas fa-circle-check"></i> Mark Paid at Current Amount
+                            </button>
+                        </form>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('Settle and close this invoice at its current collected amount? The remaining balance will no longer be due.');">
+                            <input type="hidden" name="close_invoice_at_current_amount" value="1">
+                            <input type="hidden" name="target_status" value="settled">
+                            <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
+                            <button type="submit" class="btn btn-outline-secondary">
+                                <i class="fas fa-handshake"></i> Settle / Close Invoice
+                            </button>
+                        </form>
+                    <?php endif; ?>
                     <?php if ($can_modify_accounting && $can_void_invoice): ?>
                         <button class="btn btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#voidInvoiceForm" aria-expanded="false" aria-controls="voidInvoiceForm">
                             <i class="fas fa-ban"></i> Void Invoice
@@ -234,7 +305,7 @@ include '../backend/includes/header.php';
                             <i class="fas fa-rotate-left"></i> Record Refund
                         </button>
                     <?php endif; ?>
-                    <?php if ($can_modify_accounting && in_array(array_string_value($invoice, 'status'), ['paid', 'refunded'], true)): ?>
+                    <?php if ($can_modify_accounting && $can_receipt_invoice): ?>
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="send_receipt" value="1">
                             <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
@@ -297,6 +368,29 @@ include '../backend/includes/header.php';
                     </div>
 
                     <?php if ($can_modify_accounting): ?>
+                        <?php if ($can_adjust_due_date): ?>
+                            <div class="collapse mb-4" id="updateDueDateForm">
+                                <div class="card border-primary">
+                                    <div class="card-header bg-primary-subtle">Update Due Date</div>
+                                    <div class="card-body">
+                                        <form method="POST" class="row g-3 align-items-end">
+                                            <input type="hidden" name="update_due_date" value="1">
+                                            <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Due Date</label>
+                                                <input type="date" class="form-control" name="due_date" value="<?= escape(array_string_value($invoice, 'due_date')) ?>" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fas fa-calendar-check"></i> Save Due Date
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
                         <div class="collapse mb-4" id="voidInvoiceForm">
                             <div class="card border-dark">
                                 <div class="card-header bg-dark text-white">Void Invoice</div>
@@ -422,24 +516,33 @@ include '../backend/includes/header.php';
                                         <td class="text-end"><strong>Total Paid:</strong></td>
                                         <td class="text-end">$<?= number_format($payment_summary_paid_total, 2) ?></td>
                                     </tr>
-                                    <tr class="<?= $payment_summary_remaining_amount > 0 ? 'table-warning' : 'table-success' ?>">
+                                    <tr class="<?= $payment_summary_remaining_amount > 0 ? 'table-warning' : ($payment_summary_closed_balance_amount > 0 ? 'table-secondary' : 'table-success') ?>">
                                         <td class="text-end"><strong>Remaining Balance:</strong></td>
                                         <td class="text-end">$<?= number_format($payment_summary_remaining_amount, 2) ?></td>
                                     </tr>
+                                    <?php if ($payment_summary_closed_balance_amount > 0): ?>
+                                        <tr class="table-secondary">
+                                            <td class="text-end"><strong>Balance Closed:</strong></td>
+                                            <td class="text-end">$<?= number_format($payment_summary_closed_balance_amount, 2) ?></td>
+                                        </tr>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </table>
                         </div>
                     </div>
                     
                     <?php if ($payment_summary_paid_total > 0): ?>
-                        <div class="alert alert-<?= $payment_summary_remaining_amount > 0 ? 'info' : 'success' ?> mt-3">
-                            <strong><?= $payment_summary_remaining_amount > 0 ? 'Payments Recorded:' : 'Payment Received:' ?></strong>
+                        <div class="alert alert-<?= $payment_summary_remaining_amount > 0 ? 'info' : ($payment_summary_closed_balance_amount > 0 ? 'secondary' : 'success') ?> mt-3">
+                            <strong><?= ($payment_summary_remaining_amount > 0 || $payment_summary_closed_balance_amount > 0) ? 'Payments Recorded:' : 'Payment Received:' ?></strong>
                             $<?= number_format($payment_summary_paid_total, 2) ?>
                             <?php if ($invoice['payment_method']): ?>
                                 via <?= escape(ucwords(str_replace('_', ' ', array_string_value($invoice, 'payment_method')))) ?>
                             <?php endif; ?>
                             <?php if ($payment_summary_remaining_amount > 0): ?>
                                 <br><small>Remaining balance: $<?= number_format($payment_summary_remaining_amount, 2) ?></small>
+                            <?php endif; ?>
+                            <?php if ($payment_summary_closed_balance_amount > 0): ?>
+                                <br><small>Closed balance: $<?= number_format($payment_summary_closed_balance_amount, 2) ?></small>
                             <?php endif; ?>
                             <?php if ($invoice['stripe_payment_intent_id']): ?>
                                 <br><small>Stripe Payment ID: <?= escape($invoice['stripe_payment_intent_id']) ?></small>
@@ -565,7 +668,10 @@ include '../backend/includes/header.php';
                                     <td><strong>Total Paid</strong></td>
                                      <td><strong>$<?= number_format((float) $paid_amount, 2) ?></strong></td>
                                       <td colspan="<?= ($can_modify_accounting && $can_pay_invoice) ? 5 : 4 ?>">
-                                          Remaining: <strong>$<?= number_format(safe_float($invoice['total_amount']) - (float) $paid_amount, 2) ?></strong>
+                                          Remaining: <strong>$<?= number_format($payment_summary_remaining_amount, 2) ?></strong>
+                                          <?php if ($payment_summary_closed_balance_amount > 0): ?>
+                                              <br><small>Closed balance: $<?= number_format($payment_summary_closed_balance_amount, 2) ?></small>
+                                          <?php endif; ?>
                                       </td>
                                  </tr>
                             </tfoot>

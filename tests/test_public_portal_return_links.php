@@ -26,9 +26,9 @@ $original_get = $_GET;
 
 try {
     bdta_assert(
-        bdta_append_public_portal_return('/backend/public/quote.php?id=5', '/portal/quotes.php')
-            === '/backend/public/quote.php?id=5&portal_return=%2Fportal%2Fquotes.php',
-        'Quote URLs should preserve the quote ID and append the portal return path.'
+        bdta_append_public_portal_return('/backend/public/quote.php?token=quote-token', '/portal/quotes.php')
+            === '/backend/public/quote.php?token=quote-token&portal_return=%2Fportal%2Fquotes.php',
+        'Quote URLs should preserve the access token and append the portal return path.'
     );
     bdta_assert(
         bdta_append_public_portal_return('/backend/public/contract.php?token=abc123', '/portal/agreements.php')

@@ -9,6 +9,7 @@
 require_once dirname(dirname(__DIR__)) . '/includes/email_service.php';
 require_once dirname(dirname(__DIR__)) . '/includes/settings.php';
 require_once dirname(dirname(__DIR__)) . '/includes/booking_action_links.php';
+require_once dirname(dirname(__DIR__)) . '/includes/public_access_links.php';
 
 /**
  * @phpstan-type BookingRow array<string, mixed>
@@ -268,7 +269,11 @@ class BookingReminderTask {
         // Get calendar links
         require_once dirname(dirname(__DIR__)) . '/includes/icalendar.php';
         $google_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
-        $ical_link   = getDynamicBaseUrl() . '/backend/public/download_ical.php?booking_id=' . $booking_id;
+        $ical_link   = bdta_get_public_booking_ical_url(
+            $this->conn,
+            $booking_id_int,
+            $booking['ical_token'] ?? null
+        );
 
         $appointment_type_id = !empty($booking['appointment_type_id']) ? safe_int($booking['appointment_type_id']) : null;
         $rule_template_id    = !empty($rule['template_id']) ? safe_int($rule['template_id']) : null;

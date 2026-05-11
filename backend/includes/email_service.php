@@ -18,6 +18,7 @@
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/booking_action_links.php';
+require_once __DIR__ . '/public_access_links.php';
 require_once __DIR__ . '/email_signature_helper.php';
 require_once __DIR__ . '/phpmailer/src/Exception.php';
 require_once __DIR__ . '/phpmailer/src/PHPMailer.php';
@@ -775,7 +776,16 @@ HTML;
         // Generate calendar links
         require_once __DIR__ . '/icalendar.php';
         $google_link = ICalendarGenerator::generateGoogleCalendarLink($booking);
-        $ical_link = $this->base_url . '/backend/public/download_ical.php?booking_id=' . $booking_id;
+        $ical_link = '';
+        $existing_ical_token = self::rowString($booking, 'ical_token');
+        if ($existing_ical_token !== '') {
+            $ical_link = $this->base_url . '/backend/public/download_ical.php?token=' . urlencode($existing_ical_token);
+        } else {
+            $conn = $this->getClientEmailLogConnection();
+            if ($conn instanceof PDO) {
+            $ical_link = bdta_get_public_booking_ical_url($conn, safe_int($booking_id), $booking['ical_token'] ?? null);
+            }
+        }
         
         // Format date and time nicely
         $date = date('l, F j, Y', safe_timestamp(strtotime($appointment_date)));
@@ -1247,18 +1257,27 @@ HTML;
 
         $subject = "Invoice {$invoice_number} — {$business_name}";
 
-        // Use the secure pay_token for guest-accessible invoice view / payment links when available
+        // Ensure invoice emails keep the client on the guest-accessible payment flow,
+        // even for older invoices that predate pay_token generation.
+        require_once __DIR__ . '/invoice_status.php';
         $pay_token = self::rowString($invoice, 'pay_token');
-        $invoice_view_url = !empty($pay_token)
-            ? $this->base_url . '/portal/invoice_pay.php?token=' . urlencode($pay_token)
-            : $this->base_url . '/portal/invoice_view.php?id=' . $invoice_id;
-        $pay_invoice_url = !empty($pay_token)
-            ? $this->base_url . '/portal/invoice_checkout.php?token=' . urlencode($pay_token)
-            : $this->base_url . '/portal/invoice_checkout.php?id=' . $invoice_id;
+        $invoice_connection = $this->conn instanceof PDO ? $this->conn : $this->getClientEmailLogConnection();
+        if ($invoice_connection instanceof PDO) {
+            $pay_token = bdta_ensure_invoice_pay_token($invoice_connection, safe_int($invoice_id), $pay_token);
+        }
+        $invoice_view_url = $invoice_connection instanceof PDO
+            ? bdta_get_public_invoice_pay_url($invoice_connection, safe_int($invoice_id), $pay_token, $this->base_url)
+            : (!empty($pay_token)
+                ? $this->base_url . '/portal/invoice_pay.php?token=' . urlencode($pay_token)
+                : $this->base_url . '/portal/invoice_view.php?id=' . $invoice_id);
+        $pay_invoice_url = $invoice_connection instanceof PDO
+            ? bdta_get_public_invoice_checkout_url($invoice_connection, safe_int($invoice_id), $pay_token, $this->base_url)
+            : (!empty($pay_token)
+                ? $this->base_url . '/portal/invoice_checkout.php?token=' . urlencode($pay_token)
+                : $this->base_url . '/portal/invoice_checkout.php?id=' . $invoice_id);
 
         // Build "Pay Now" button section if Stripe is enabled and invoice is unpaid
         require_once __DIR__ . '/stripe_config.php';
-        require_once __DIR__ . '/invoice_status.php';
         $pay_now_html = '';
         $pay_now_text = '';
         if (isStripeEnabled() && bdta_invoice_is_payable($invoice)) {
@@ -1449,7 +1468,16 @@ HTML;
         $quote_title   = htmlspecialchars(self::rowString($quote, 'title'));
         $quote_number  = self::rowString($quote, 'quote_number');
         $quote_amount  = number_format(self::rowFloat($quote, 'amount'), 2);
-        $quote_link    = $this->base_url . '/backend/public/quote.php?id=' . self::rowString($quote, 'id', '0');
+        $quote_link    = '';
+        $existing_quote_token = self::rowString($quote, 'access_token');
+        if ($existing_quote_token !== '') {
+            $quote_link = $this->base_url . '/backend/public/quote.php?token=' . urlencode($existing_quote_token);
+        } else {
+            $conn = $this->getClientEmailLogConnection();
+            if ($conn instanceof PDO) {
+                $quote_link = bdta_get_public_quote_url($conn, safe_int($quote['id'] ?? 0), $quote['access_token'] ?? null);
+            }
+        }
         $business_name = self::settingString('site_name', "Brook's Dog Training Academy");
         $business_email = self::settingString('business_email', 'bookings@brooksdogtrainingacademy.com');
 

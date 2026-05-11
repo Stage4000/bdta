@@ -3,11 +3,12 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/form_types.php';
 require_once __DIR__ . '/email_service.php';
+require_once __DIR__ . '/public_access_links.php';
 require_once __DIR__ . '/settings.php';
 
-function bdta_get_public_form_request_url(int $submission_id): string
+function bdta_get_public_form_request_url(PDO $conn, int $submission_id, mixed $existing_token = null): string
 {
-    return getDynamicBaseUrl() . '/backend/public/form.php?id=' . $submission_id;
+    return bdta_get_public_form_submission_url($conn, $submission_id, $existing_token);
 }
 
 function bdta_get_public_booking_request_url(string $unique_link): string
@@ -41,10 +42,12 @@ function bdta_create_form_request(PDO $conn, int $template_id, int $client_id, ?
     ]);
 
     $submission_id = (int) $conn->lastInsertId();
+    $access_token = bdta_generate_public_access_token();
+    $conn->prepare('UPDATE form_submissions SET access_token = ? WHERE id = ?')->execute([$access_token, $submission_id]);
 
     return [
         'submission_id' => $submission_id,
-        'url' => bdta_get_public_form_request_url($submission_id),
+        'url' => bdta_get_public_form_request_url($conn, $submission_id, $access_token),
     ];
 }
 

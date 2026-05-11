@@ -100,7 +100,7 @@ class InvoiceReminderTask {
         $total_amount_value = safe_float($invoice['total_amount'] ?? 0);
         $total_amount = number_format($total_amount_value, 2);
         $due_date_string = scalar_string($invoice['due_date'] ?? '');
-        $invoice_id = scalar_string($invoice['id'] ?? '');
+        $invoice_id = safe_int($invoice['id'] ?? 0);
         $client_email = scalar_string($invoice['client_email'] ?? '');
         $client_id = $invoice['client_id'] ?? null;
         $status = scalar_string($invoice['status'] ?? '');
@@ -110,8 +110,14 @@ class InvoiceReminderTask {
         $now = time();
         $days_overdue = (int) ceil(($now - safe_timestamp($due_date)) / 86400);
         
-        // Check for payment link
-        $invoice_link = getDynamicBaseUrl() . '/client/invoices_view.php?id=' . $invoice_id;
+        // Reminders should keep the client on the same guest invoice flow as the
+        // original invoice email, even for older rows that are missing pay_token.
+        $invoice_link = bdta_get_public_invoice_pay_url(
+            $this->conn,
+            $invoice_id,
+            $invoice['pay_token'] ?? null,
+            getDynamicBaseUrl()
+        );
         
         // Calculate amount due (for partial payments)
         $amount_due = $total_amount;

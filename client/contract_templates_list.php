@@ -201,11 +201,15 @@ include '../backend/includes/header.php';
                                         <i class="fas fa-copy me-1"></i>Duplicate
                                     </button>
                                 </form>
-                                <a href="contract_templates_delete.php?id=<?= (int) $template['id'] ?>"
-                                   class="btn btn-sm btn-outline-danger flex-fill"
-                                   onclick="return confirm('Are you sure you want to delete this contract template? This action cannot be undone.');">
-                                    <i class="fas fa-trash me-1"></i>Delete
-                                </a>
+                                <form method="POST" action="contract_templates_delete.php" class="flex-fill">
+                                    <input type="hidden" name="id" value="<?= (int) $template['id'] ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
+                                    <button type="submit"
+                                            class="btn btn-sm btn-outline-danger w-100"
+                                            onclick="return confirm('Are you sure you want to delete this contract template? This action cannot be undone.');">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>

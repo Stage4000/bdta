@@ -201,11 +201,15 @@ require_once '../backend/includes/header.php';
                                             <i class="fas fa-copy"></i>
                                         </button>
                                     </form>
-                                    <a href="form_templates_delete.php?id=<?php echo $template['id']; ?>" class="btn btn-sm btn-danger table-action-btn" 
-                                       onclick="return confirm('Are you sure you want to delete this template?');"
-                                       title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
+                                    <form method="POST" action="form_templates_delete.php" class="d-inline">
+                                        <input type="hidden" name="id" value="<?php echo (int) $template['id']; ?>">
+                                        <input type="hidden" name="csrf_token" value="<?php echo escape($_SESSION['csrf_token'] ?? ''); ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger table-action-btn"
+                                                onclick="return confirm('Are you sure you want to delete this template?');"
+                                                title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
                                 <div class="d-md-none table-action-dropdown">
                                     <div class="dropdown">
@@ -236,9 +240,13 @@ require_once '../backend/includes/header.php';
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
                                             <li>
-                                                <a class="dropdown-item text-danger" href="form_templates_delete.php?id=<?php echo $template['id']; ?>" onclick="return confirm('Are you sure you want to delete this template?');">
-                                                    <i class="fas fa-trash me-2"></i>Delete
-                                                </a>
+                                                <form method="POST" action="form_templates_delete.php">
+                                                    <input type="hidden" name="id" value="<?php echo (int) $template['id']; ?>">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo escape($_SESSION['csrf_token'] ?? ''); ?>">
+                                                    <button type="submit" class="dropdown-item w-100 text-start border-0 bg-transparent text-danger" onclick="return confirm('Are you sure you want to delete this template?');">
+                                                        <i class="fas fa-trash me-2"></i>Delete
+                                                    </button>
+                                                </form>
                                             </li>
                                         </ul>
                                     </div>

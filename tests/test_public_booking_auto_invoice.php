@@ -68,6 +68,7 @@ $conn->exec('
         contract_signature_name TEXT,
         contract_signature_font TEXT,
         status TEXT,
+        ical_token TEXT,
         google_event_id TEXT
     )
 ');

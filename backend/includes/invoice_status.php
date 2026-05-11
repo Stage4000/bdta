@@ -10,11 +10,33 @@ function bdta_invoice_status_colors(): array
         'sent' => 'info',
         'partial' => 'warning',
         'paid' => 'success',
+        'settled' => 'primary',
         'overdue' => 'danger',
         'cancelled' => 'dark',
         'void' => 'dark',
         'refunded' => 'warning',
     ];
+}
+
+/**
+ * @return list<string>
+ */
+function bdta_invoice_closed_statuses(): array
+{
+    return ['paid', 'settled', 'refunded', 'cancelled', 'void'];
+}
+
+/**
+ * @return list<string>
+ */
+function bdta_invoice_receipt_statuses(): array
+{
+    return ['paid', 'settled', 'refunded'];
+}
+
+function bdta_invoice_status_closes_balance(string $status): bool
+{
+    return in_array(strtolower(trim($status)), bdta_invoice_closed_statuses(), true);
 }
 
 function bdta_invoice_status_color(string $status): string
@@ -24,6 +46,18 @@ function bdta_invoice_status_color(string $status): string
 
     return $colors[$status] ?? 'secondary';
 }
+
+if (!function_exists('array_string_value')) {
+    /**
+     * @param array<array-key, mixed> $row
+     */
+    function array_string_value(array $row, string|int $key, string $default = ''): string
+    {
+        return scalar_string($row[$key] ?? $default);
+    }
+}
+
+const BDTA_INVOICE_PAY_TOKEN_BYTES = 32;
 
 /**
  * @param array<string, mixed> $invoice
@@ -58,7 +92,7 @@ function bdta_invoice_is_payable(array $invoice): bool
 {
     $status = strtolower(array_string_value($invoice, 'status', 'draft'));
 
-    return !in_array($status, ['paid', 'refunded', 'cancelled', 'void'], true);
+    return !bdta_invoice_status_closes_balance($status);
 }
 
 /**
@@ -68,7 +102,190 @@ function bdta_invoice_can_void(array $invoice): bool
 {
     $status = strtolower(array_string_value($invoice, 'status', 'draft'));
 
-    return !in_array($status, ['paid', 'refunded', 'cancelled', 'void', 'partial'], true);
+    return !in_array($status, [...bdta_invoice_closed_statuses(), 'partial'], true);
+}
+
+/**
+ * @param array<string, mixed> $invoice
+ */
+function bdta_invoice_can_adjust_due_date(array $invoice): bool
+{
+    $status = strtolower(array_string_value($invoice, 'status', 'draft'));
+
+    return in_array($status, ['draft', 'sent', 'partial', 'overdue'], true);
+}
+
+function bdta_generate_invoice_pay_token(int $bytes = BDTA_INVOICE_PAY_TOKEN_BYTES): string
+{
+    if ($bytes < 1) {
+        $bytes = BDTA_INVOICE_PAY_TOKEN_BYTES;
+    }
+
+    return bin2hex(random_bytes($bytes));
+}
+
+function bdta_ensure_invoice_pay_token(PDO $conn, int $invoice_id, mixed $existing_token = null): string
+{
+    if ($invoice_id <= 0) {
+        return '';
+    }
+
+    $token = trim(scalar_string($existing_token));
+    if ($token !== '') {
+        return $token;
+    }
+
+    while (true) {
+        $token = bdta_generate_invoice_pay_token();
+
+        $check_stmt = $conn->prepare('SELECT COUNT(*) FROM invoices WHERE pay_token = ?');
+        $check_stmt->execute([$token]);
+        if ((int) $check_stmt->fetchColumn() > 0) {
+            continue;
+        }
+
+        $update_stmt = $conn->prepare("
+            UPDATE invoices
+            SET pay_token = ?
+            WHERE id = ?
+              AND COALESCE(NULLIF(pay_token, ''), '') = ''
+        ");
+        $update_stmt->execute([$token, $invoice_id]);
+
+        if ($update_stmt->rowCount() > 0) {
+            return $token;
+        }
+
+        $existing_stmt = $conn->prepare('SELECT pay_token FROM invoices WHERE id = ?');
+        $existing_stmt->execute([$invoice_id]);
+        $existing = trim(scalar_string($existing_stmt->fetchColumn()));
+        if ($existing !== '') {
+            return $existing;
+        }
+    }
+}
+
+function bdta_get_public_invoice_pay_url(PDO $conn, int $invoice_id, mixed $existing_token = null, ?string $base_url = null): string
+{
+    $token = bdta_ensure_invoice_pay_token($conn, $invoice_id, $existing_token);
+    if ($token === '') {
+        $path = '/portal/invoice_view.php?id=' . rawurlencode((string) $invoice_id);
+    } else {
+        $path = '/portal/invoice_pay.php?token=' . urlencode($token);
+    }
+
+    $base = trim((string) $base_url);
+    return $base === '' ? $path : rtrim($base, '/') . $path;
+}
+
+function bdta_get_public_invoice_checkout_url(PDO $conn, int $invoice_id, mixed $existing_token = null, ?string $base_url = null): string
+{
+    $token = bdta_ensure_invoice_pay_token($conn, $invoice_id, $existing_token);
+    if ($token === '') {
+        $path = '/portal/invoice_checkout.php?id=' . rawurlencode((string) $invoice_id);
+    } else {
+        $path = '/portal/invoice_checkout.php?token=' . urlencode($token);
+    }
+
+    $base = trim((string) $base_url);
+    return $base === '' ? $path : rtrim($base, '/') . $path;
+}
+
+function bdta_invoice_is_valid_date_string(string $value): bool
+{
+    $value = trim($value);
+    if ($value === '') {
+        return false;
+    }
+
+    [$year, $month, $day] = array_pad(array_map('intval', explode('-', $value)), 3, 0);
+    return checkdate($month, $day, $year);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function bdta_invoice_fetch_row(PDO $conn, int $invoice_id): array
+{
+    if ($invoice_id <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare('SELECT * FROM invoices WHERE id = ?');
+    $stmt->execute([$invoice_id]);
+    $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return is_array($invoice) ? $invoice : [];
+}
+
+/**
+ * @return array{payment_date: string, payment_method: string}
+ */
+function bdta_invoice_get_latest_payment_details(PDO $conn, int $invoice_id): array
+{
+    if ($invoice_id <= 0) {
+        return ['payment_date' => '', 'payment_method' => ''];
+    }
+
+    $stmt = $conn->prepare("
+        SELECT payment_date, payment_method
+        FROM (
+            SELECT payment_date, payment_method
+            FROM invoice_payments
+            WHERE invoice_id = ?
+              AND TRIM(COALESCE(payment_date, '')) <> ''
+
+            UNION ALL
+
+            SELECT payment_date, payment_method
+            FROM invoice_installments
+            WHERE invoice_id = ?
+              AND status = 'paid'
+              AND TRIM(COALESCE(payment_date, '')) <> ''
+        ) payment_events
+        ORDER BY payment_date DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$invoice_id, $invoice_id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!is_array($row)) {
+        return ['payment_date' => '', 'payment_method' => ''];
+    }
+
+    return [
+        'payment_date' => array_string_value($row, 'payment_date'),
+        'payment_method' => array_string_value($row, 'payment_method'),
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function bdta_update_invoice_due_date(PDO $conn, int $invoice_id, string $due_date): array
+{
+    $due_date = trim($due_date);
+    if (!bdta_invoice_is_valid_date_string($due_date)) {
+        throw new RuntimeException('Please enter a valid due date.');
+    }
+
+    $invoice = bdta_invoice_fetch_row($conn, $invoice_id);
+    if ($invoice === []) {
+        throw new RuntimeException('Invoice not found.');
+    }
+
+    if (!bdta_invoice_can_adjust_due_date($invoice)) {
+        throw new RuntimeException('Only draft, sent, partial, or overdue invoices can have their due date updated.');
+    }
+
+    $conn->prepare("
+        UPDATE invoices
+        SET due_date = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    ")->execute([$due_date, $invoice_id]);
+
+    return bdta_invoice_fetch_row($conn, $invoice_id);
 }
 
 function bdta_invoice_get_refunded_total(PDO $conn, int $invoice_id): float
@@ -96,9 +313,11 @@ function bdta_invoice_get_refunds(PDO $conn, int $invoice_id): array
 /**
  * @param array<string, mixed> $invoice
  */
-function bdta_invoice_get_net_amount(array $invoice, float $refunded_total): float
+function bdta_invoice_get_net_amount(array $invoice, float $refunded_total, ?float $base_amount = null): float
 {
-    return max(0, safe_float($invoice['total_amount'] ?? 0) - $refunded_total);
+    $amount = $base_amount ?? safe_float($invoice['total_amount'] ?? 0);
+
+    return round(max(0, $amount - $refunded_total), 2);
 }
 
 function bdta_invoice_get_recorded_payment_total(PDO $conn, int $invoice_id): float
@@ -216,13 +435,21 @@ function bdta_invoice_get_income_events(PDO $conn, string $start_date, string $e
 /**
  * @param array<string, mixed> $invoice
  * @param list<array<string, mixed>>|null $installments
- * @return array{paid_total: float, remaining_amount: float, status: string}
+ * @return array{paid_total: float, remaining_amount: float, uncollected_amount: float, closed_balance_amount: float, status: string}
  */
 function bdta_invoice_get_payment_summary(PDO $conn, array $invoice, ?array $installments = null): array
 {
     $invoice_id = safe_int($invoice['id'] ?? 0);
     if ($invoice_id <= 0) {
-        return bdta_invoice_calculate_payment_progress($invoice, 0);
+        $empty_summary = bdta_invoice_calculate_payment_progress($invoice, 0);
+
+        return [
+            'paid_total' => $empty_summary['paid_total'],
+            'remaining_amount' => $empty_summary['remaining_amount'],
+            'uncollected_amount' => $empty_summary['remaining_amount'],
+            'closed_balance_amount' => 0.0,
+            'status' => $empty_summary['status'],
+        ];
     }
 
     $recorded_total = bdta_invoice_get_recorded_payment_total($conn, $invoice_id);
@@ -243,29 +470,107 @@ function bdta_invoice_get_payment_summary(PDO $conn, array $invoice, ?array $ins
     $summary = bdta_invoice_calculate_payment_progress($invoice, $recorded_total + $installment_total);
     $status = strtolower(trim(scalar_string($invoice['status'] ?? '')));
 
-    if (
-        $summary['paid_total'] <= 0.0
-        && !empty($invoice['payment_method'])
-        && in_array($status, ['paid', 'refunded'], true)
-    ) {
-        return bdta_invoice_calculate_payment_progress($invoice, safe_float($invoice['total_amount'] ?? 0));
+    if ($summary['paid_total'] <= 0.0 && in_array($status, ['paid', 'refunded'], true)) {
+        $summary = bdta_invoice_calculate_payment_progress($invoice, safe_float($invoice['total_amount'] ?? 0));
     }
 
-    return $summary;
+    $effective_status = $summary['status'];
+    if ($status !== '' && bdta_invoice_status_closes_balance($status)) {
+        $effective_status = $status;
+    }
+
+    $uncollected_amount = round(max(0, $summary['remaining_amount']), 2);
+    $remaining_amount = $uncollected_amount;
+    $closed_balance_amount = 0.0;
+
+    if (in_array($effective_status, ['paid', 'settled'], true) && $uncollected_amount > 0.0) {
+        $closed_balance_amount = $uncollected_amount;
+        $remaining_amount = 0.0;
+    } elseif (in_array($effective_status, ['refunded', 'cancelled', 'void'], true)) {
+        $remaining_amount = 0.0;
+    }
+
+    return [
+        'paid_total' => round(max(0, $summary['paid_total']), 2),
+        'remaining_amount' => $remaining_amount,
+        'uncollected_amount' => $uncollected_amount,
+        'closed_balance_amount' => $closed_balance_amount,
+        'status' => $effective_status,
+    ];
+}
+
+/**
+ * @return array{paid_total: float, remaining_amount: float, uncollected_amount: float, closed_balance_amount: float, status: string}
+ */
+function bdta_close_invoice_at_current_amount(PDO $conn, int $invoice_id, string $target_status): array
+{
+    $target_status = strtolower(trim($target_status));
+    if (!in_array($target_status, ['paid', 'settled'], true)) {
+        throw new RuntimeException('Invalid invoice closeout status.');
+    }
+
+    $invoice = bdta_invoice_fetch_row($conn, $invoice_id);
+    if ($invoice === []) {
+        throw new RuntimeException('Invoice not found.');
+    }
+
+    if (!bdta_invoice_is_payable($invoice)) {
+        throw new RuntimeException('Only open invoices can be closed at the current amount.');
+    }
+
+    $summary = bdta_invoice_get_payment_summary($conn, $invoice);
+    if (safe_float($summary['paid_total']) <= 0.0) {
+        throw new RuntimeException('Only invoices with recorded partial payments can be closed at the current amount.');
+    }
+
+    $conn->prepare("
+        UPDATE invoice_installments
+        SET status = 'cancelled'
+        WHERE invoice_id = ?
+          AND status = 'unpaid'
+    ")->execute([$invoice_id]);
+
+    $latest_payment = bdta_invoice_get_latest_payment_details($conn, $invoice_id);
+    $payment_method = array_string_value($invoice, 'payment_method');
+    $payment_date = array_string_value($invoice, 'payment_date');
+
+    if ($payment_method === '') {
+        $payment_method = $latest_payment['payment_method'];
+    }
+
+    if ($payment_date === '') {
+        $payment_date = $latest_payment['payment_date'];
+    }
+
+    $conn->prepare("
+        UPDATE invoices
+        SET status = ?,
+            payment_method = ?,
+            payment_date = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    ")->execute([
+        $target_status,
+        $payment_method !== '' ? $payment_method : null,
+        $payment_date !== '' ? $payment_date : null,
+        $invoice_id,
+    ]);
+
+    return bdta_invoice_get_payment_summary($conn, bdta_invoice_fetch_row($conn, $invoice_id));
 }
 
 /**
  * @param array<string, mixed> $invoice
  */
-function bdta_invoice_can_refund(array $invoice, float $refunded_total): bool
+function bdta_invoice_can_refund(array $invoice, float $refunded_total, ?float $collected_total = null): bool
 {
     $status = strtolower(array_string_value($invoice, 'status', 'draft'));
 
-    if (!in_array($status, ['paid', 'refunded'], true)) {
+    if (!in_array($status, ['paid', 'settled', 'refunded'], true)) {
         return false;
     }
 
-    return bdta_invoice_get_net_amount($invoice, $refunded_total) > 0;
+    return bdta_invoice_get_net_amount($invoice, $refunded_total, $collected_total) > 0;
 }
 
 function bdta_void_invoice(PDO $conn, int $invoice_id, string $reason = ''): void
@@ -325,7 +630,7 @@ function bdta_void_invoice(PDO $conn, int $invoice_id, string $reason = ''): voi
             $conn->commit();
         }
     } catch (Throwable $e) {
-        if ($started_transaction && $conn->inTransaction()) {
+        if ($started_transaction) {
             $conn->rollBack();
         }
 
@@ -354,8 +659,10 @@ function bdta_record_invoice_refund(
     }
     /** @var array<string, mixed> $invoice */
 
+    $payment_summary = bdta_invoice_get_payment_summary($conn, $invoice);
+    $collected_total = safe_float($payment_summary['paid_total']);
     $refunded_total = bdta_invoice_get_refunded_total($conn, $invoice_id);
-    if (!bdta_invoice_can_refund($invoice, $refunded_total)) {
+    if (!bdta_invoice_can_refund($invoice, $refunded_total, $collected_total)) {
         throw new RuntimeException('This invoice cannot be refunded.');
     }
 
@@ -364,7 +671,7 @@ function bdta_record_invoice_refund(
         throw new RuntimeException('Refund amount must be greater than zero.');
     }
 
-    $remaining_amount = bdta_invoice_get_net_amount($invoice, $refunded_total);
+    $remaining_amount = bdta_invoice_get_net_amount($invoice, $refunded_total, $collected_total);
     if ($amount > $remaining_amount) {
         throw new RuntimeException('Refund amount cannot exceed the remaining paid balance.');
     }
@@ -392,8 +699,10 @@ function bdta_record_invoice_refund(
         ")->execute([$invoice_id, $amount, $refund_date, $refund_method, $stripe_refund_id, $note_value]);
 
         $updated_total = bdta_invoice_get_refunded_total($conn, $invoice_id);
-        $new_status = $updated_total >= safe_float($invoice['total_amount'] ?? 0) ? 'refunded' : 'paid';
-        $remaining_amount = max(0, safe_float($invoice['total_amount'] ?? 0) - $updated_total);
+        $new_status = $updated_total >= $collected_total
+            ? 'refunded'
+            : (strtolower(array_string_value($invoice, 'status')) === 'settled' ? 'settled' : 'paid');
+        $remaining_amount = bdta_invoice_get_net_amount($invoice, $updated_total, $collected_total);
 
         $conn->prepare("
             UPDATE invoices
@@ -412,7 +721,7 @@ function bdta_record_invoice_refund(
             'status' => $new_status,
         ];
     } catch (Throwable $e) {
-        if ($started_transaction && $conn->inTransaction()) {
+        if ($started_transaction) {
             $conn->rollBack();
         }
 

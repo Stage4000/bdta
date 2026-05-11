@@ -42,22 +42,20 @@ if (
     die('This achievement does not currently have a printable certificate.');
 }
 
+$back_link = 'clients_view.php?id=' . array_int_value($assignment, 'client_id') . '&tab=achievements';
+$render_options = [];
 if (isset($_GET['download']) && scalar_string($_GET['download']) === '1') {
-    $pdf = bdta_generate_achievement_certificate_pdf($assignment);
-    header('Content-Type: application/pdf');
-    header('Content-Length: ' . strlen($pdf));
-    header('Content-Disposition: attachment; filename="' . bdta_achievement_certificate_filename($assignment) . '"');
-    header('Cache-Control: private, max-age=0, no-cache, must-revalidate');
-    header('Pragma: no-cache');
-    echo $pdf;
-    exit;
+    $render_options = [
+        'auto_print' => true,
+        'hide_actions' => true,
+        'document_title' => pathinfo(bdta_achievement_certificate_filename($assignment), PATHINFO_FILENAME),
+    ];
 }
 
-$back_link = 'clients_view.php?id=' . array_int_value($assignment, 'client_id') . '&tab=achievements';
 $html = bdta_render_achievement_certificate_html($assignment, [[
     'label' => 'Back to client',
     'href' => $back_link,
     'class' => 'secondary',
-]]);
+]], $render_options);
 
 echo $html;

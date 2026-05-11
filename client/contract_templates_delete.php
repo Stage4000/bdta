@@ -7,14 +7,20 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
 
-// Check if user is logged in
 requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
 
-if (isset($_GET['id'])) {
-    $id = safe_int($_GET['id']);
+if (!isPostRequest()) {
+    setFlashMessage('Invalid request.', 'danger');
+    redirect('contract_templates_list.php');
+}
+
+requireValidCsrfToken('contract_templates_list.php');
+
+$id = safe_int($_POST['id'] ?? 0);
+if ($id > 0) {
 
     try {
         // Verify template exists
@@ -37,6 +43,5 @@ if (isset($_GET['id'])) {
     setFlashMessage("No template ID provided.", 'warning');
 }
 
-header("Location: contract_templates_list.php");
-exit;
+redirect('contract_templates_list.php');
 ?>
