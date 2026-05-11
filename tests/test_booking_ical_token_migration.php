@@ -13,7 +13,7 @@ $reflection = new ReflectionClass(Database::class);
 $length_constant = $reflection->getReflectionConstant('PUBLIC_ACCESS_TOKEN_LENGTH');
 $definition_method = $reflection->getMethod('bookingIcalTokenColumnDefinition');
 
-if (!$length_constant instanceof ReflectionClassConstant || !$definition_method instanceof ReflectionMethod) {
+if (!$length_constant instanceof ReflectionClassConstant) {
     throw new RuntimeException('Unable to inspect bookings iCal token schema helpers.');
 }
 
@@ -44,7 +44,7 @@ if ($bookings_create_end === false) {
 }
 
 $bookings_create_sql = substr($database_source, $bookings_create_start, $bookings_create_end - $bookings_create_start);
-if (!is_string($bookings_create_sql) || !str_contains($bookings_create_sql, '$this->bookingIcalTokenColumnDefinition()')) {
+if (!str_contains($bookings_create_sql, '$this->bookingIcalTokenColumnDefinition()')) {
     throw new RuntimeException('Bookings table creation should use the shared ical_token column definition helper.');
 }
 
