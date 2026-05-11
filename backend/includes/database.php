@@ -117,7 +117,6 @@ function safe_float(mixed $value): float {
 
 class Database {
     private const PUBLIC_ACCESS_TOKEN_LENGTH = 32;
-    private const BOOKING_ICAL_TOKEN_COLUMN_DEFINITION = 'ical_token VARCHAR(' . self::PUBLIC_ACCESS_TOKEN_LENGTH . ')';
     private const MYSQL_CLIENT_NAME_PHONE_INDEX_SQL = 'CREATE INDEX idx_clients_name_phone ON clients(name(128), phone(32))';
     private const MYSQL_CLIENT_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_client_emails_message_id ON client_emails(direction(8), message_id(160))';
     private const MYSQL_CLIENT_EMAILS_UTF8MB4_SQL = 'ALTER TABLE client_emails CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
@@ -161,6 +160,10 @@ class Database {
         }
 
         $this->execSQL("ALTER TABLE {$table} ADD COLUMN {$column_definition}");
+    }
+
+    private function bookingIcalTokenColumnDefinition(): string {
+        return sprintf('ical_token VARCHAR(%d)', self::PUBLIC_ACCESS_TOKEN_LENGTH);
     }
     
     public function __construct() {
@@ -573,7 +576,7 @@ class Database {
                     appointment_time TIME NOT NULL,
                     duration_minutes INTEGER DEFAULT 60,
                     status TEXT DEFAULT 'pending',
-                    " . self::BOOKING_ICAL_TOKEN_COLUMN_DEFINITION . ",
+                    " . $this->bookingIcalTokenColumnDefinition() . ",
                     notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1622,7 +1625,7 @@ class Database {
 
         $booking_column_names = $this->getTableColumns('bookings');
         if (!in_array('ical_token', $booking_column_names)) {
-            $this->execSQL("ALTER TABLE bookings ADD COLUMN " . self::BOOKING_ICAL_TOKEN_COLUMN_DEFINITION);
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN " . $this->bookingIcalTokenColumnDefinition());
             unset($this->tableColumnsCache['bookings']);
             $booking_column_names = $this->getTableColumns('bookings');
         }
