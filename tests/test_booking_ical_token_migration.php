@@ -56,6 +56,10 @@ if (!str_contains($database_source, '$this->ensureBookingIcalTokenIndex()')) {
     throw new RuntimeException('Bookings schema setup should use the shared iCal token index helper.');
 }
 
+if (!str_contains($database_source, "try {\n                \$this->ensureBookingIcalTokenIndex();\n            } catch (PDOException \$e) {")) {
+    throw new RuntimeException('Bookings initTables path should defer booking iCal index failures until migrations can add the column.');
+}
+
 if (!str_contains($database_source, "if (!in_array('ical_token', \$booking_column_names, true))")) {
     throw new RuntimeException('Bookings iCal token index helper should confirm the column exists before indexing it.');
 }

@@ -593,7 +593,12 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
-            $this->ensureBookingIcalTokenIndex();
+            try {
+                $this->ensureBookingIcalTokenIndex();
+            } catch (PDOException $e) {
+                // Older schemas can still reach initTables() before bookings.ical_token exists.
+                // runMigrations() will add the column and retry the guarded index creation.
+            }
             
             // Clients table
             $this->execSQL("
