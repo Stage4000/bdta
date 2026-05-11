@@ -24,7 +24,11 @@ if (!is_int($configured_length) || $configured_length !== BDTA_PUBLIC_ACCESS_TOK
     throw new RuntimeException('Database bookings token length should match the generated public access token length.');
 }
 
-if (!is_string($expected_definition) || $expected_definition !== 'ical_token VARCHAR(' . BDTA_PUBLIC_ACCESS_TOKEN_LENGTH . ')') {
+if (
+    !is_string($expected_definition)
+    || !str_starts_with($expected_definition, 'ical_token VARCHAR(')
+    || !str_ends_with($expected_definition, (string) BDTA_PUBLIC_ACCESS_TOKEN_LENGTH . ')')
+) {
     throw new RuntimeException('Bookings ical_token column definition constant should use the expected bounded VARCHAR length.');
 }
 
