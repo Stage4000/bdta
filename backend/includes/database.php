@@ -571,7 +571,7 @@ class Database {
                     appointment_time TIME NOT NULL,
                     duration_minutes INTEGER DEFAULT 60,
                     status TEXT DEFAULT 'pending',
-                    ical_token TEXT,
+                    ical_token VARCHAR(32),
                     notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1620,10 +1620,12 @@ class Database {
 
         $booking_column_names = $this->getTableColumns('bookings');
         if (!in_array('ical_token', $booking_column_names)) {
-            $this->execSQL("ALTER TABLE bookings ADD COLUMN ical_token TEXT");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN ical_token VARCHAR(32)");
+            unset($this->tableColumnsCache['bookings']);
+            $booking_column_names = $this->getTableColumns('bookings');
         }
         try {
-            if (!$this->indexExists('bookings', 'idx_bookings_ical_token')) {
+            if (in_array('ical_token', $booking_column_names, true) && !$this->indexExists('bookings', 'idx_bookings_ical_token')) {
                 $this->execSQL("CREATE UNIQUE INDEX idx_bookings_ical_token ON bookings(ical_token)");
             }
         } catch (PDOException $e) {
