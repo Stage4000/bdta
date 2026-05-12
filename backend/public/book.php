@@ -938,13 +938,15 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                             $bi_options = public_book_string_list($bifield['options'] ?? []);
                             $bi_fn   = 'booking_intake_' . $bifi;
                         ?>
-                        <div class="col-12 mb-3">
+                        <div class="col-12 mb-3"<?= $bi_map === 'client.address' ? ' data-booking-intake-address-field="1"' : '' ?>>
                             <label class="form-label">
                                 <?= htmlspecialchars($bi_label) ?>
                                 <?php if ($bi_req): ?><span class="text-danger">*</span><?php endif; ?>
                             </label>
                                     <?php if ($bi_description !== ''): ?>
                                     <div class="form-text text-muted mb-1"><?= htmlspecialchars($bi_description) ?></div>
+                                    <?php else: ?>
+                                    <input type="hidden" name="location_value" value="">
                                     <?php endif; ?>
                                     <?php switch ($bi_type):
                                         case bdta_pet_info_group_field_type():
@@ -1178,6 +1180,22 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                                         <input type="text" class="form-control form-control-lg" name="location_value" id="publicLocationValueInput" placeholder="">
                                     </div>
                                 <?php endif; ?>
+                                    <div id="publicRegisteredAddressGroup" class="mt-3 d-none">
+                                        <div class="alert alert-info py-2 mb-3 small" id="publicRegisteredAddressHelp">
+                                            We’ll save this as your registered address and use it as the appointment location.
+                                        </div>
+                                        <label class="form-label fw-semibold" for="publicRegisteredAddressInput">
+                                            Client's Registered Address <span class="text-danger">*</span>
+                                        </label>
+                                        <textarea class="form-control form-control-lg"
+                                                  id="publicRegisteredAddressInput"
+                                                  rows="3"
+                                                  maxlength="500"
+                                                  placeholder="Enter the full address for this appointment"><?= escape($portal_prefill_profile['address']) ?></textarea>
+                                        <div class="form-text" id="publicRegisteredAddressNote">
+                                            Review the saved address or update it here before you confirm the booking.
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1205,8 +1223,9 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                                     $field_description = array_string_value($field, 'description');
                                     $field_type = array_string_value($field, 'type', 'text');
                                     $field_options = public_book_string_list($field['options'] ?? []);
+                                    $field_profile_mapping = array_string_value($field, 'profile_mapping');
                                 ?>
-                                <div class="mb-3">
+                                <div class="mb-3"<?= $field_profile_mapping === 'client.address' ? ' data-required-form-address-field="1"' : '' ?>>
                                     <?php if (bdta_form_field_is_display_only($field)): ?>
                                         <div class="p-3 rounded border bg-light">
                                             <div class="fw-semibold mb-1"><?= htmlspecialchars($field_label) ?></div>
@@ -1439,6 +1458,11 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                                 <dt class="col-sm-4">Location:</dt>
                                 <dd class="col-sm-8" id="confirmLocation">-</dd>
                             </dl>
+                            <div class="mt-3 d-none" id="publicRegisteredAddressConfirmActions">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="publicEditRegisteredAddressBtn">
+                                    <i class="fas fa-pen me-1" aria-hidden="true"></i>Edit address
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
@@ -2062,8 +2086,80 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             };
         }
 
+        function getSelectedPublicLocationType() {
+            const locTypeEl = document.getElementById('publicLocationType');
+            if (locTypeEl) {
+                return String(locTypeEl.value || '').trim();
+            }
+
+            const hiddenType = document.querySelector('input[name="location_type"]');
+            return hiddenType ? String(hiddenType.value || '').trim() : '';
+        }
+
+        function getPublicRegisteredAddressInput() {
+            return document.getElementById('publicRegisteredAddressInput');
+        }
+
+        function getPublicRegisteredAddressValue() {
+            const input = getPublicRegisteredAddressInput();
+            return input ? input.value.trim() : '';
+        }
+
+        function syncPublicRegisteredAddressMappedFields(active) {
+            ['[data-booking-intake-address-field]', '[data-required-form-address-field]'].forEach(function (selector) {
+                document.querySelectorAll(selector).forEach(function (wrapper) {
+                    wrapper.classList.toggle('d-none', active);
+                    wrapper.querySelectorAll('input, textarea, select').forEach(function (field) {
+                        if (active) {
+                            if (!field.dataset.registeredAddressOriginalRequired) {
+                                field.dataset.registeredAddressOriginalRequired = field.required ? '1' : '0';
+                            }
+                            field.required = false;
+                        } else {
+                            field.required = field.dataset.registeredAddressOriginalRequired === '1';
+                        }
+                    });
+                });
+            });
+        }
+
+        function syncPublicRegisteredAddressUI() {
+            const group = document.getElementById('publicRegisteredAddressGroup');
+            const help = document.getElementById('publicRegisteredAddressHelp');
+            const input = getPublicRegisteredAddressInput();
+            const confirmActions = document.getElementById('publicRegisteredAddressConfirmActions');
+            const active = getSelectedPublicLocationType() === 'client_address';
+
+            if (!group || !input) {
+                return;
+            }
+
+            if (active && !input.value.trim() && currentClientProfile.address) {
+                input.value = String(currentClientProfile.address).trim();
+            }
+
+            group.classList.toggle('d-none', !active);
+            input.required = active;
+            syncPublicRegisteredAddressMappedFields(active);
+
+            if (help) {
+                help.textContent = currentClientProfile.address
+                    ? 'We’ll use the registered address on your profile for this appointment. Review it below and update it if needed.'
+                    : 'Enter the address that should be saved to your profile and used as the appointment location.';
+            }
+
+            if (confirmActions) {
+                confirmActions.classList.toggle('d-none', !active || currentStep !== maxSteps);
+            }
+        }
+
         // Loaded on confirm step from profile lookup API
-        let currentClientProfile = {};
+        let currentClientProfile = <?= json_encode([
+            'name' => $portal_prefill_profile['name'],
+            'email' => $portal_prefill_profile['email'],
+            'phone' => $portal_prefill_profile['phone'],
+            'address' => $portal_prefill_profile['address'],
+        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         let currentPetProfiles   = []; // ordered by dog_names
 
         // Pending booking payload waiting for overwrite confirmation
@@ -2131,15 +2227,29 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                         input.required = false;
                         input.value = '';
                     }
+                    syncPublicRegisteredAddressUI();
                 });
             }
-            
+
+            syncPublicRegisteredAddressUI();
+
             if (bookingForm) {
                 // Disable native browser validation so hidden steps don't block submit silently
                 bookingForm.setAttribute('novalidate', 'novalidate');
                 // Form submission
                 bookingForm.addEventListener('submit', submitBooking);
             }
+
+            document.getElementById('publicEditRegisteredAddressBtn')?.addEventListener('click', function () {
+                currentStep = 3;
+                updateSteps();
+                syncPublicRegisteredAddressUI();
+                const input = getPublicRegisteredAddressInput();
+                if (input) {
+                    input.focus();
+                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
 
             document.querySelectorAll('.portal-pet-checkbox').forEach(function (checkbox) {
                 window.togglePortalPet(checkbox);
@@ -2223,6 +2333,11 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                         showAlert('Please select a location type for your appointment', 'warning');
                         return;
                     }
+                    if (locTypeEl.value === 'client_address' && !getPublicRegisteredAddressValue()) {
+                        showAlert('Please enter the client\'s registered address.', 'warning');
+                        getPublicRegisteredAddressInput()?.focus();
+                        return;
+                    }
                     if (['custom_address', 'webcall'].includes(locTypeEl.value)) {
                         const locVal = document.getElementById('publicLocationValueInput');
                         if (!locVal || !locVal.value.trim()) {
@@ -2235,6 +2350,11 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                     const locVal = document.getElementById('publicLocationValueInput');
                     if (locVal && locVal.required && !locVal.value.trim()) {
                         showAlert('Please enter the required location information.', 'warning');
+                        return;
+                    }
+                    if (getSelectedPublicLocationType() === 'client_address' && !getPublicRegisteredAddressValue()) {
+                        showAlert('Please enter the client\'s registered address.', 'warning');
+                        getPublicRegisteredAddressInput()?.focus();
                         return;
                     }
                 }
@@ -2287,6 +2407,7 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 step.classList.remove('active');
             });
             document.querySelector(`.form-step[data-step="${currentStep}"]`).classList.add('active');
+            syncPublicRegisteredAddressUI();
             
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2508,7 +2629,10 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 const hiddenVal = document.querySelector('input[name="location_value"]');
                 const hiddenTypeValue = hiddenType ? hiddenType.value : '';
                 if (hiddenTypeValue === 'client_address') {
-                    return resolvedMappedFormValues.client_address || 'My registered address';
+                    return getPublicRegisteredAddressValue()
+                        || String(currentClientProfile.address || '').trim()
+                        || resolvedMappedFormValues.client_address
+                        || 'My registered address';
                 }
                 if (hiddenTypeValue === 'custom_address' || hiddenTypeValue === 'webcall') {
                     return hiddenVal && hiddenVal.value ? hiddenVal.value : 'Not specified';
@@ -2517,7 +2641,10 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
             }
             const type = locTypeEl.value;
             const labels = {
-                'client_address': resolvedMappedFormValues.client_address || 'My registered address',
+                'client_address': getPublicRegisteredAddressValue()
+                    || String(currentClientProfile.address || '').trim()
+                    || resolvedMappedFormValues.client_address
+                    || 'My registered address',
                 'custom_address': document.getElementById('publicLocationValueInput')?.value || 'Custom address',
                 'phone_inbound': 'Phone call (I call the trainer)',
                 'phone_outbound': 'Phone call (trainer calls me)',
@@ -2576,6 +2703,10 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 dogNames = String(confirmDogs || '').trim();
             }
             document.getElementById('confirmLocation').textContent = getLocationSummary(combinedMappedValues) || 'Not specified';
+            document.getElementById('publicRegisteredAddressConfirmActions')?.classList.toggle(
+                'd-none',
+                getSelectedPublicLocationType() !== 'client_address'
+            );
 
             const creditToggleArea    = document.getElementById('creditToggleArea');
             const creditRemainingNote = document.getElementById('creditRemainingNote');
@@ -2597,22 +2728,28 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                     .catch(() => { creditToggleArea.classList.add('d-none'); });
 
                 // Load client+pet profiles for pre-submit conflict detection
-                if (Object.keys(formFieldMappings).length > 0 || document.querySelector('.pet-info-group')) {
+                if (Object.keys(formFieldMappings).length > 0
+                    || document.querySelector('.pet-info-group')
+                    || getSelectedPublicLocationType() === 'client_address') {
                     fetch(`api_bookings.php?action=profile&email=${encodeURIComponent(email)}&dog_names=${encodeURIComponent(dogNames)}`)
                         .then(r => r.json())
                         .then(data => {
                             currentClientProfile = data.client || {};
                             currentPetProfiles   = data.pets  || [];
+                            syncPublicRegisteredAddressUI();
+                            document.getElementById('confirmLocation').textContent = getLocationSummary(combinedMappedValues) || 'Not specified';
                         })
                         .catch(() => {
                             currentClientProfile = {};
                             currentPetProfiles   = [];
+                            syncPublicRegisteredAddressUI();
                         });
                 }
             } else {
                 creditToggleArea.classList.add('d-none');
                 currentClientProfile = {};
                 currentPetProfiles   = [];
+                syncPublicRegisteredAddressUI();
             }
         }
 
@@ -2658,6 +2795,17 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                             newValue: newVal,
                         });
                     }
+                }
+            }
+            if (getSelectedPublicLocationType() === 'client_address') {
+                const newAddress = getPublicRegisteredAddressValue();
+                const currentAddress = String(currentClientProfile.address || '').trim();
+                if (newAddress && currentAddress && currentAddress !== newAddress) {
+                    conflicts.push({
+                        label: profileLabels['client.address'],
+                        oldValue: currentAddress,
+                        newValue: newAddress,
+                    });
                 }
             }
             for (const responses of Object.values(formResponses || {})) {
@@ -2959,7 +3107,9 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 client_name    = combinedMappedValues.client_name;
                 client_email   = combinedMappedValues.client_email;
                 client_phone   = combinedMappedValues.client_phone;
-                client_address = combinedMappedValues.client_address;
+                client_address = location_type === 'client_address'
+                    ? getPublicRegisteredAddressValue() || combinedMappedValues.client_address
+                    : combinedMappedValues.client_address;
                 dog_names      = selectedPortalDogNames || combinedMappedValues.dog_names;
                 notes          = combinedMappedValues.notes;
                 booking_intake_field_values = iv.intake_field_values;
@@ -2967,7 +3117,9 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                 client_name    = document.getElementById('clientName').value || mappedFormValues.client_name;
                 client_email   = document.getElementById('clientEmail').value || mappedFormValues.client_email;
                 client_phone   = document.getElementById('clientPhone').value || mappedFormValues.client_phone;
-                client_address = mappedFormValues.client_address;
+                client_address = location_type === 'client_address'
+                    ? getPublicRegisteredAddressValue() || mappedFormValues.client_address
+                    : mappedFormValues.client_address;
                 dog_names      = selectedPortalDogNames || document.getElementById('dogNames').value || mappedFormValues.dog_names;
                 notes          = document.getElementById('notes').value || mappedFormValues.notes;
             }

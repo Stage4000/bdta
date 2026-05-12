@@ -2,7 +2,9 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/email_service.php';
 require_once __DIR__ . '/form_types.php';
+require_once __DIR__ . '/invoice_status.php';
 require_once __DIR__ . '/workflow_helper.php';
 
 /**
@@ -416,6 +418,379 @@ function bdta_delete_pending_package_purchase(SafePDO $conn, int $package_id, st
     ")->execute([$package_id, $stripe_checkout_session_id]);
 }
 
+function bdta_generate_package_invoice_number(SafePDO $conn): string
+{
+    $stmt = $conn->prepare("SELECT COUNT(*) FROM invoices WHERE invoice_number = ?");
+    for ($attempt = 0; $attempt < 10; $attempt++) {
+        $invoice_number = 'INV-' . date('Ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+        $stmt->execute([$invoice_number]);
+        if (safe_int($stmt->fetchColumn()) === 0) {
+            return $invoice_number;
+        }
+    }
+
+    $invoice_number = 'INV-' . date('Ymd') . '-' . bin2hex(random_bytes(8));
+    $stmt->execute([$invoice_number]);
+    if (safe_int($stmt->fetchColumn()) > 0) {
+        throw new RuntimeException('Unable to generate a unique invoice number for the package purchase.');
+    }
+
+    return $invoice_number;
+}
+
+/**
+ * @return array{name: string, email: string}
+ */
+function bdta_get_package_checkout_client_contact(SafePDO $conn, int $client_id): array
+{
+    if ($client_id <= 0) {
+        return ['name' => '', 'email' => ''];
+    }
+
+    $stmt = $conn->prepare("SELECT name, email FROM clients WHERE id = ? LIMIT 1");
+    $stmt->execute([$client_id]);
+    $client = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($client)) {
+        return ['name' => '', 'email' => ''];
+    }
+
+    return [
+        'name' => scalar_string($client['name'] ?? ''),
+        'email' => strtolower(trim(scalar_string($client['email'] ?? ''))),
+    ];
+}
+
+function bdta_build_package_invoice_description(array $package): string
+{
+    $package_name = trim(scalar_string($package['name'] ?? 'Package'));
+    $package_description = trim(scalar_string($package['description'] ?? ''));
+
+    if ($package_name === '') {
+        $package_name = 'Package';
+    }
+
+    return $package_description !== ''
+        ? $package_name . ' — ' . $package_description
+        : $package_name;
+}
+
+function bdta_package_purchase_invoice_note_prefix(int $client_package_id): string
+{
+    return 'Auto-generated for package purchase #' . $client_package_id;
+}
+
+function bdta_package_purchase_invoice_note(int $client_package_id, string $package_name): string
+{
+    return bdta_package_purchase_invoice_note_prefix($client_package_id) . ' (' . $package_name . ')';
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function bdta_find_package_purchase_invoice(SafePDO $conn, int $client_id, int $client_package_id): array
+{
+    if ($client_id <= 0 || $client_package_id <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare("
+        SELECT *
+        FROM invoices
+        WHERE client_id = ?
+          AND notes LIKE ?
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([
+        $client_id,
+        bdta_package_purchase_invoice_note_prefix($client_package_id) . '%',
+    ]);
+
+    return assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function bdta_get_package_invoice_items(SafePDO $conn, int $invoice_id): array
+{
+    if ($invoice_id <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY id ASC");
+    $stmt->execute([$invoice_id]);
+
+    return assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function bdta_mark_package_invoice_sent(SafePDO $conn, int $invoice_id): void
+{
+    if ($invoice_id <= 0) {
+        return;
+    }
+
+    $conn->prepare("
+        UPDATE invoices
+        SET
+            status = CASE WHEN status = 'draft' THEN 'sent' ELSE status END,
+            invoice_sent_at = COALESCE(invoice_sent_at, CURRENT_TIMESTAMP)
+        WHERE id = ?
+    ")->execute([$invoice_id]);
+}
+
+function bdta_mark_package_receipt_sent(SafePDO $conn, int $invoice_id): void
+{
+    if ($invoice_id <= 0) {
+        return;
+    }
+
+    $conn->prepare("
+        UPDATE invoices
+        SET receipt_sent_at = COALESCE(receipt_sent_at, CURRENT_TIMESTAMP)
+        WHERE id = ?
+    ")->execute([$invoice_id]);
+}
+
+/**
+ * @param array<string, mixed> $invoice
+ * @param list<array<string, mixed>> $invoice_items
+ */
+function bdta_send_package_purchase_email(
+    SafePDO $conn,
+    array $invoice,
+    array $invoice_items,
+    bool $payment_confirmed
+): void {
+    $invoice_id = safe_int($invoice['id'] ?? 0);
+    if ($invoice_id <= 0) {
+        return;
+    }
+
+    $email_service = new EmailService(null, $conn);
+    if ($payment_confirmed) {
+        if (trim(scalar_string($invoice['receipt_sent_at'] ?? '')) !== '') {
+            return;
+        }
+
+        $receipt_result = $email_service->sendPaymentReceipt($invoice, null, $invoice_items);
+        if (!empty($receipt_result['success'])) {
+            bdta_mark_package_receipt_sent($conn, $invoice_id);
+        }
+
+        return;
+    }
+
+    if (!bdta_invoice_is_payable($invoice) || trim(scalar_string($invoice['invoice_sent_at'] ?? '')) !== '') {
+        return;
+    }
+
+    $invoice_result = $email_service->sendInvoiceEmail($invoice, $invoice_items);
+    if (!empty($invoice_result['success'])) {
+        bdta_mark_package_invoice_sent($conn, $invoice_id);
+    }
+}
+
+/**
+ * @param array<string, mixed> $package
+ * @return array{invoice: array<string, mixed>, items: list<array<string, mixed>>, payment_confirmed: bool}
+ */
+function bdta_ensure_package_purchase_invoice(
+    SafePDO $conn,
+    int $client_id,
+    int $client_package_id,
+    array $package,
+    string $client_name,
+    string $client_email,
+    ?string $payment_method = null,
+    ?string $stripe_checkout_session_id = null,
+    ?string $stripe_payment_intent_id = null
+): array {
+    if ($client_id <= 0 || $client_package_id <= 0) {
+        throw new InvalidArgumentException('Client and package purchase identifiers are required to create a package invoice.');
+    }
+
+    $package_name = trim(scalar_string($package['name'] ?? 'Package'));
+    if ($package_name === '') {
+        $package_name = 'Package';
+    }
+
+    $package_price = round(max(0, safe_float($package['price'] ?? 0)), 2);
+    $payment_method = trim((string) $payment_method);
+    $payment_confirmed = ($payment_method === 'credit_card');
+    $invoice_is_paid = $payment_confirmed || $package_price <= 0.0;
+    $invoice_payment_method = $payment_confirmed ? 'credit_card' : null;
+    $invoice_payment_date = $payment_confirmed ? date('Y-m-d') : null;
+    $invoice_note = bdta_package_purchase_invoice_note($client_package_id, $package_name);
+
+    $invoice = bdta_find_package_purchase_invoice($conn, $client_id, $client_package_id);
+    $invoice_id = safe_int($invoice['id'] ?? 0);
+    if ($invoice_id <= 0) {
+        $invoice_number = bdta_generate_package_invoice_number($conn);
+        $issue_date = date('Y-m-d');
+        $due_date = $issue_date;
+        $pay_token = bdta_generate_invoice_pay_token();
+
+        $stmt = $conn->prepare("
+            INSERT INTO invoices (
+                invoice_number,
+                client_id,
+                issue_date,
+                due_date,
+                subtotal,
+                tax_rate,
+                tax_amount,
+                total_amount,
+                notes,
+                status,
+                pay_token,
+                payment_method,
+                payment_date,
+                stripe_payment_intent_id
+            )
+            VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $invoice_number,
+            $client_id,
+            $issue_date,
+            $due_date,
+            $package_price,
+            $package_price,
+            $invoice_note,
+            $invoice_is_paid ? 'paid' : 'draft',
+            $pay_token,
+            $invoice_payment_method,
+            $invoice_payment_date,
+            $payment_confirmed && $stripe_payment_intent_id !== null && trim($stripe_payment_intent_id) !== ''
+                ? trim($stripe_payment_intent_id)
+                : null,
+        ]);
+        $invoice_id = safe_int($conn->lastInsertId());
+        $invoice = bdta_invoice_fetch_row($conn, $invoice_id);
+    } else {
+        $pay_token = bdta_ensure_invoice_pay_token($conn, $invoice_id, $invoice['pay_token'] ?? null);
+        if (scalar_string($invoice['pay_token'] ?? '') !== $pay_token) {
+            $invoice['pay_token'] = $pay_token;
+        }
+    }
+
+    if ($invoice_id <= 0) {
+        throw new RuntimeException('Unable to create or locate the package invoice.');
+    }
+
+    $line_description = bdta_build_package_invoice_description($package);
+    $item_stmt = $conn->prepare("
+        SELECT *
+        FROM invoice_items
+        WHERE invoice_id = ?
+          AND item_type = 'package'
+          AND reference_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $package_id = safe_int($package['id'] ?? 0);
+    $item_stmt->execute([$invoice_id, $package_id]);
+    $existing_item = $item_stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($existing_item)) {
+        $conn->prepare("
+            INSERT INTO invoice_items (invoice_id, item_type, reference_id, description, quantity, rate, amount)
+            VALUES (?, 'package', ?, ?, 1, ?, ?)
+        ")->execute([
+            $invoice_id,
+            $package_id,
+            $line_description,
+            $package_price,
+            $package_price,
+        ]);
+    }
+
+    if ($payment_confirmed) {
+        $payment_note = $stripe_checkout_session_id !== null && trim($stripe_checkout_session_id) !== ''
+            ? 'Stripe Checkout session ' . trim($stripe_checkout_session_id)
+            : 'Stripe package checkout';
+        $payment_exists = false;
+
+        $normalized_payment_intent_id = $stripe_payment_intent_id !== null ? trim($stripe_payment_intent_id) : '';
+        if ($normalized_payment_intent_id !== '') {
+            $existing_payment_stmt = $conn->prepare("
+                SELECT invoice_id
+                FROM invoice_payments
+                WHERE stripe_payment_intent_id = ?
+                LIMIT 1
+            ");
+            $existing_payment_stmt->execute([$normalized_payment_intent_id]);
+            $existing_payment_invoice_id = safe_int($existing_payment_stmt->fetchColumn());
+            if ($existing_payment_invoice_id > 0 && $existing_payment_invoice_id !== $invoice_id) {
+                throw new RuntimeException('This Stripe payment intent is already linked to a different invoice.');
+            }
+            $payment_exists = ($existing_payment_invoice_id === $invoice_id);
+        } else {
+            $existing_payment_stmt = $conn->prepare("
+                SELECT id
+                FROM invoice_payments
+                WHERE invoice_id = ?
+                  AND payment_method = 'credit_card'
+                  AND notes = ?
+                ORDER BY id DESC
+                LIMIT 1
+            ");
+            $existing_payment_stmt->execute([$invoice_id, $payment_note]);
+            $payment_exists = safe_int($existing_payment_stmt->fetchColumn()) > 0;
+        }
+
+        if (!$payment_exists && $package_price > 0.0) {
+            $conn->prepare("
+                INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)
+                VALUES (?, ?, ?, 'credit_card', ?, ?)
+            ")->execute([
+                $invoice_id,
+                $package_price,
+                date('Y-m-d'),
+                $normalized_payment_intent_id !== '' ? $normalized_payment_intent_id : null,
+                $payment_note,
+            ]);
+        }
+
+        $payment_summary = bdta_invoice_get_payment_summary($conn, bdta_invoice_fetch_row($conn, $invoice_id));
+        $conn->prepare("
+            UPDATE invoices
+            SET status = ?,
+                payment_method = 'credit_card',
+                payment_date = COALESCE(payment_date, ?),
+                stripe_payment_intent_id = COALESCE(NULLIF(?, ''), stripe_payment_intent_id),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ")->execute([
+            array_string_value($payment_summary, 'status', 'paid'),
+            date('Y-m-d'),
+            $normalized_payment_intent_id,
+            $invoice_id,
+        ]);
+    } elseif ($invoice_is_paid && strtolower(array_string_value($invoice, 'status', 'draft')) !== 'paid') {
+        $conn->prepare("
+            UPDATE invoices
+            SET status = 'paid',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ")->execute([$invoice_id]);
+    }
+
+    $invoice = bdta_invoice_fetch_row($conn, $invoice_id);
+    if ($invoice === []) {
+        throw new RuntimeException('Package invoice could not be loaded after save.');
+    }
+
+    $invoice['client_name'] = $client_name;
+    $invoice['client_email'] = $client_email;
+
+    return [
+        'invoice' => $invoice,
+        'items' => bdta_get_package_invoice_items($conn, $invoice_id),
+        'payment_confirmed' => $payment_confirmed,
+    ];
+}
+
 /**
  * @param array<string, mixed> $package
  * @param list<array<string, mixed>> $items
@@ -435,7 +810,8 @@ function bdta_finalize_package_purchase(
     array $form_responses = [],
     ?int $view_id = null,
     ?string $payment_method = null,
-    ?string $stripe_checkout_session_id = null
+    ?string $stripe_checkout_session_id = null,
+    ?string $stripe_payment_intent_id = null
 ): array {
     $package_id = safe_int($package['id'] ?? 0);
 
@@ -455,6 +831,30 @@ function bdta_finalize_package_purchase(
                 if ($view_id !== null && $view_id > 0) {
                     $conn->prepare("UPDATE package_link_views SET purchased = 1, client_id = ? WHERE id = ?")
                         ->execute([safe_int($existing_purchase['client_id'] ?? 0), $view_id]);
+                }
+
+                try {
+                    $existing_client_id = safe_int($existing_purchase['client_id'] ?? 0);
+                    $existing_client_contact = bdta_get_package_checkout_client_contact($conn, $existing_client_id);
+                    $invoice_context = bdta_ensure_package_purchase_invoice(
+                        $conn,
+                        $existing_client_id,
+                        safe_int($existing_purchase['id'] ?? 0),
+                        $package,
+                        $existing_client_contact['name'] !== '' ? $existing_client_contact['name'] : $buyer_name,
+                        $existing_client_contact['email'] !== '' ? $existing_client_contact['email'] : strtolower(trim($buyer_email)),
+                        $payment_method,
+                        $stripe_checkout_session_id,
+                        $stripe_payment_intent_id
+                    );
+                    bdta_send_package_purchase_email(
+                        $conn,
+                        $invoice_context['invoice'],
+                        $invoice_context['items'],
+                        $invoice_context['payment_confirmed']
+                    );
+                } catch (Throwable $invoiceRecoveryError) {
+                    error_log('Package checkout invoice recovery failed for package purchase #' . safe_int($existing_purchase['id'] ?? 0) . ': ' . $invoiceRecoveryError->getMessage());
                 }
 
                 return [
@@ -486,6 +886,7 @@ function bdta_finalize_package_purchase(
         throw new InvalidArgumentException('Buyer name and email are required.');
     }
 
+    $invoice_context = null;
     $conn->beginTransaction();
 
     try {
@@ -587,6 +988,17 @@ function bdta_finalize_package_purchase(
         }
 
         $package_name = scalar_string($package['name'] ?? 'Package');
+        $invoice_context = bdta_ensure_package_purchase_invoice(
+            $conn,
+            $client_id,
+            $client_package_id,
+            $package,
+            $buyer_name,
+            $buyer_email,
+            $payment_method,
+            $stripe_checkout_session_id,
+            $stripe_payment_intent_id
+        );
         $conn->commit();
 
         try {
@@ -610,6 +1022,19 @@ function bdta_finalize_package_purchase(
             );
         } catch (Throwable $notificationError) {
             error_log('Package checkout notification creation failed: ' . $notificationError->getMessage());
+        }
+
+        if (is_array($invoice_context)) {
+            try {
+                bdta_send_package_purchase_email(
+                    $conn,
+                    $invoice_context['invoice'],
+                    $invoice_context['items'],
+                    !empty($invoice_context['payment_confirmed'])
+                );
+            } catch (Throwable $emailError) {
+                error_log('Package checkout email failed for package purchase #' . $client_package_id . ': ' . $emailError->getMessage());
+            }
         }
 
         return [
