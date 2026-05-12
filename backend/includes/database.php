@@ -121,6 +121,11 @@ class Database {
     private const MYSQL_CLIENT_EMAILS_UTF8MB4_SQL = 'ALTER TABLE client_emails CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
     private const MYSQL_EMAIL_TEMPLATES_UTF8MB4_SQL = 'ALTER TABLE email_templates CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
     private const MYSQL_UNMATCHED_EMAILS_MESSAGE_ID_INDEX_SQL = 'CREATE INDEX idx_unmatched_emails_message_id ON unmatched_emails(message_id(191))';
+    private const MYSQL_PUBLIC_ACCESS_TOKEN_COLUMN_LENGTH = 32;
+    private const MYSQL_PUBLIC_ACCESS_TOKEN_COLUMN_TYPE = 'VARCHAR(32)';
+    private const MYSQL_FORM_SUBMISSIONS_ACCESS_TOKEN_INDEX_SQL = 'CREATE UNIQUE INDEX idx_form_submissions_access_token ON form_submissions(access_token)';
+    private const MYSQL_QUOTES_ACCESS_TOKEN_INDEX_SQL = 'CREATE UNIQUE INDEX idx_quotes_access_token ON quotes(access_token)';
+    private const MYSQL_BOOKINGS_ICAL_TOKEN_INDEX_SQL = 'CREATE UNIQUE INDEX idx_bookings_ical_token ON bookings(ical_token)';
 
     private static ?SafePDO $sharedConnection = null;
     private SafePDO $conn;
@@ -499,7 +504,45 @@ class Database {
 
         return strtolower($collation);
     }
-    
+
+    private function ensureIndexedTokenColumn(string $tableName, string $columnName): void {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
+            throw new InvalidArgumentException("Invalid table name: $tableName");
+        }
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $columnName)) {
+            throw new InvalidArgumentException("Invalid column name: $columnName");
+        }
+
+        $stmt = $this->conn->prepare("
+            SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$tableName, $columnName]);
+        $column = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($column)) {
+            return;
+        }
+
+        $data_type = strtolower(scalar_string($column['DATA_TYPE'] ?? ''));
+        $max_length = $column['CHARACTER_MAXIMUM_LENGTH'] ?? null;
+        $is_indexable_token_column = ($data_type === 'varchar' || $data_type === 'char')
+            && is_numeric($max_length)
+            && (int) $max_length >= self::MYSQL_PUBLIC_ACCESS_TOKEN_COLUMN_LENGTH;
+
+        if ($is_indexable_token_column) {
+            return;
+        }
+
+        $this->execSQL("
+            ALTER TABLE {$tableName}
+            MODIFY COLUMN {$columnName} " . self::MYSQL_PUBLIC_ACCESS_TOKEN_COLUMN_TYPE . " NULL
+        ");
+    }
+     
     /**
      * Check if a table exists
      */
@@ -571,14 +614,17 @@ class Database {
                     appointment_time TIME NOT NULL,
                     duration_minutes INTEGER DEFAULT 60,
                     status TEXT DEFAULT 'pending',
-                    ical_token TEXT,
+                    ical_token VARCHAR(32),
                     notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
+            if (in_array('ical_token', $this->getTableColumns('bookings'), true)) {
+                $this->ensureIndexedTokenColumn('bookings', 'ical_token');
+            }
             if (!$this->indexExists('bookings', 'idx_bookings_ical_token')) {
-                $this->execSQL("CREATE UNIQUE INDEX idx_bookings_ical_token ON bookings(ical_token)");
+                $this->execSQL(self::MYSQL_BOOKINGS_ICAL_TOKEN_INDEX_SQL);
             }
             
             // Clients table
@@ -981,7 +1027,7 @@ class Database {
                     template_id INTEGER NOT NULL,
                     booking_id INTEGER,
                     pet_id INTEGER,
-                    access_token TEXT,
+                    access_token VARCHAR(32),
                     responses MEDIUMTEXT NOT NULL,
                     status TEXT DEFAULT 'submitted',
                     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -997,8 +1043,11 @@ class Database {
                     FOREIGN KEY (reviewed_by) REFERENCES admin_users(id) ON DELETE SET NULL
                 )
             ");
+            if (in_array('access_token', $this->getTableColumns('form_submissions'), true)) {
+                $this->ensureIndexedTokenColumn('form_submissions', 'access_token');
+            }
             if (!$this->indexExists('form_submissions', 'idx_form_submissions_access_token')) {
-                $this->execSQL("CREATE UNIQUE INDEX idx_form_submissions_access_token ON form_submissions(access_token)");
+                $this->execSQL(self::MYSQL_FORM_SUBMISSIONS_ACCESS_TOKEN_INDEX_SQL);
             }
             
             // Quotes table
@@ -1010,7 +1059,7 @@ class Database {
                     title TEXT NOT NULL,
                     description TEXT,
                     amount DECIMAL(10,2) NOT NULL,
-                    access_token TEXT,
+                    access_token VARCHAR(32),
                     expiration_date DATE,
                     status TEXT DEFAULT 'sent',
                     accepted_at TIMESTAMP,
@@ -1022,8 +1071,11 @@ class Database {
                     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
                 )
             ");
+            if (in_array('access_token', $this->getTableColumns('quotes'), true)) {
+                $this->ensureIndexedTokenColumn('quotes', 'access_token');
+            }
             if (!$this->indexExists('quotes', 'idx_quotes_access_token')) {
-                $this->execSQL("CREATE UNIQUE INDEX idx_quotes_access_token ON quotes(access_token)");
+                $this->execSQL(self::MYSQL_QUOTES_ACCESS_TOKEN_INDEX_SQL);
             }
             
             // Quote items table  
@@ -1591,11 +1643,12 @@ class Database {
             $this->execSQL("ALTER TABLE form_submissions ADD COLUMN pet_id INTEGER");
         }
         if (!in_array('access_token', $form_column_names)) {
-            $this->execSQL("ALTER TABLE form_submissions ADD COLUMN access_token TEXT");
+            $this->execSQL("ALTER TABLE form_submissions ADD COLUMN access_token VARCHAR(32)");
         }
+        $this->ensureIndexedTokenColumn('form_submissions', 'access_token');
         try {
             if (!$this->indexExists('form_submissions', 'idx_form_submissions_access_token')) {
-                $this->execSQL("CREATE UNIQUE INDEX idx_form_submissions_access_token ON form_submissions(access_token)");
+                $this->execSQL(self::MYSQL_FORM_SUBMISSIONS_ACCESS_TOKEN_INDEX_SQL);
             }
         } catch (PDOException $e) {
             // Index already exists, ignore
@@ -1608,11 +1661,12 @@ class Database {
             $this->execSQL("ALTER TABLE quotes ADD COLUMN last_reminder_sent TIMESTAMP");
         }
         if (!in_array('access_token', $quote_column_names)) {
-            $this->execSQL("ALTER TABLE quotes ADD COLUMN access_token TEXT");
+            $this->execSQL("ALTER TABLE quotes ADD COLUMN access_token VARCHAR(32)");
         }
+        $this->ensureIndexedTokenColumn('quotes', 'access_token');
         try {
             if (!$this->indexExists('quotes', 'idx_quotes_access_token')) {
-                $this->execSQL("CREATE UNIQUE INDEX idx_quotes_access_token ON quotes(access_token)");
+                $this->execSQL(self::MYSQL_QUOTES_ACCESS_TOKEN_INDEX_SQL);
             }
         } catch (PDOException $e) {
             // Index already exists, ignore
@@ -1620,11 +1674,12 @@ class Database {
 
         $booking_column_names = $this->getTableColumns('bookings');
         if (!in_array('ical_token', $booking_column_names)) {
-            $this->execSQL("ALTER TABLE bookings ADD COLUMN ical_token TEXT");
+            $this->execSQL("ALTER TABLE bookings ADD COLUMN ical_token VARCHAR(32)");
         }
+        $this->ensureIndexedTokenColumn('bookings', 'ical_token');
         try {
             if (!$this->indexExists('bookings', 'idx_bookings_ical_token')) {
-                $this->execSQL("CREATE UNIQUE INDEX idx_bookings_ical_token ON bookings(ical_token)");
+                $this->execSQL(self::MYSQL_BOOKINGS_ICAL_TOKEN_INDEX_SQL);
             }
         } catch (PDOException $e) {
             // Index already exists, ignore
