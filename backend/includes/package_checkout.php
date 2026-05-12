@@ -460,6 +460,9 @@ function bdta_get_package_checkout_client_contact(SafePDO $conn, int $client_id)
     ];
 }
 
+/**
+ * @param array<string, mixed> $package
+ */
 function bdta_build_package_invoice_description(array $package): string
 {
     $package_name = trim(scalar_string($package['name'] ?? 'Package'));
@@ -1024,17 +1027,15 @@ function bdta_finalize_package_purchase(
             error_log('Package checkout notification creation failed: ' . $notificationError->getMessage());
         }
 
-        if (is_array($invoice_context)) {
-            try {
-                bdta_send_package_purchase_email(
-                    $conn,
-                    $invoice_context['invoice'],
-                    $invoice_context['items'],
-                    !empty($invoice_context['payment_confirmed'])
-                );
-            } catch (Throwable $emailError) {
-                error_log('Package checkout email failed for package purchase #' . $client_package_id . ': ' . $emailError->getMessage());
-            }
+        try {
+            bdta_send_package_purchase_email(
+                $conn,
+                $invoice_context['invoice'],
+                $invoice_context['items'],
+                $invoice_context['payment_confirmed']
+            );
+        } catch (Throwable $emailError) {
+            error_log('Package checkout email failed for package purchase #' . $client_package_id . ': ' . $emailError->getMessage());
         }
 
         return [

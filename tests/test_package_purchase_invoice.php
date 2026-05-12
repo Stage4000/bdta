@@ -267,7 +267,7 @@ $result = bdta_finalize_package_purchase(
     'cs_pkg_test_123'
 );
 
-assertPackagePurchaseInvoice(($result['client_package_id'] ?? 0) > 0, 'Expected package purchase to complete successfully.');
+assertPackagePurchaseInvoice($result['client_package_id'] > 0, 'Expected package purchase to complete successfully.');
 
 $invoice = $conn->query('SELECT invoice_number, total_amount, status, payment_method, payment_date, receipt_sent_at FROM invoices ORDER BY id DESC LIMIT 1')
     ->fetch(PDO::FETCH_ASSOC);
