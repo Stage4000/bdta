@@ -542,7 +542,23 @@ class Database {
             MODIFY COLUMN {$columnName} " . self::MYSQL_PUBLIC_ACCESS_TOKEN_COLUMN_TYPE . " NULL
         ");
     }
-     
+
+    private function ensureTokenColumnExists(string $tableName, string $columnName): void {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
+            throw new InvalidArgumentException("Invalid table name: $tableName");
+        }
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $columnName)) {
+            throw new InvalidArgumentException("Invalid column name: $columnName");
+        }
+
+        if (in_array($columnName, $this->getTableColumns($tableName), true)) {
+            return;
+        }
+
+        $this->execSQL("ALTER TABLE {$tableName} ADD COLUMN {$columnName} " . self::MYSQL_PUBLIC_ACCESS_TOKEN_COLUMN_TYPE);
+        unset($this->tableColumnsCache[$tableName]);
+    }
+      
     /**
      * Check if a table exists
      */
@@ -620,9 +636,8 @@ class Database {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ");
-            if (in_array('ical_token', $this->getTableColumns('bookings'), true)) {
-                $this->ensureIndexedTokenColumn('bookings', 'ical_token');
-            }
+            $this->ensureTokenColumnExists('bookings', 'ical_token');
+            $this->ensureIndexedTokenColumn('bookings', 'ical_token');
             if (!$this->indexExists('bookings', 'idx_bookings_ical_token')) {
                 $this->execSQL(self::MYSQL_BOOKINGS_ICAL_TOKEN_INDEX_SQL);
             }
@@ -1043,9 +1058,8 @@ class Database {
                     FOREIGN KEY (reviewed_by) REFERENCES admin_users(id) ON DELETE SET NULL
                 )
             ");
-            if (in_array('access_token', $this->getTableColumns('form_submissions'), true)) {
-                $this->ensureIndexedTokenColumn('form_submissions', 'access_token');
-            }
+            $this->ensureTokenColumnExists('form_submissions', 'access_token');
+            $this->ensureIndexedTokenColumn('form_submissions', 'access_token');
             if (!$this->indexExists('form_submissions', 'idx_form_submissions_access_token')) {
                 $this->execSQL(self::MYSQL_FORM_SUBMISSIONS_ACCESS_TOKEN_INDEX_SQL);
             }
@@ -1071,9 +1085,8 @@ class Database {
                     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
                 )
             ");
-            if (in_array('access_token', $this->getTableColumns('quotes'), true)) {
-                $this->ensureIndexedTokenColumn('quotes', 'access_token');
-            }
+            $this->ensureTokenColumnExists('quotes', 'access_token');
+            $this->ensureIndexedTokenColumn('quotes', 'access_token');
             if (!$this->indexExists('quotes', 'idx_quotes_access_token')) {
                 $this->execSQL(self::MYSQL_QUOTES_ACCESS_TOKEN_INDEX_SQL);
             }

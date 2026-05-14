@@ -71,6 +71,41 @@ assertTokenSchemaSource(
     'bookings should define ical_token as VARCHAR(32) for fresh MySQL installs.'
 );
 
+$init_tables_start = strpos($database_source, 'private function initTables(): void');
+$clients_table_start = strpos($database_source, 'CREATE TABLE IF NOT EXISTS clients');
+if ($init_tables_start === false || $clients_table_start === false || $clients_table_start <= $init_tables_start) {
+    throw new RuntimeException('Unable to inspect bookings bootstrap schema block.');
+}
+$bookings_bootstrap_source = substr($database_source, $init_tables_start, $clients_table_start - $init_tables_start);
+
+assertTokenSchemaSource(
+    preg_match('/ensureTokenColumnExists\(\s*[\'"]bookings[\'"]\s*,\s*[\'"]ical_token[\'"]\s*\)[\s\S]*?execSQL\(\s*self::MYSQL_BOOKINGS_ICAL_TOKEN_INDEX_SQL\s*\)/', $bookings_bootstrap_source) === 1,
+    'bookings bootstrap should add ical_token before creating its index when an older table already exists.'
+);
+
+$form_submissions_table_start = strpos($database_source, 'CREATE TABLE IF NOT EXISTS form_submissions');
+$quotes_table_start = strpos($database_source, 'CREATE TABLE IF NOT EXISTS quotes');
+if ($form_submissions_table_start === false || $quotes_table_start === false || $quotes_table_start <= $form_submissions_table_start) {
+    throw new RuntimeException('Unable to inspect form submissions bootstrap schema block.');
+}
+$form_submissions_bootstrap_source = substr($database_source, $form_submissions_table_start, $quotes_table_start - $form_submissions_table_start);
+
+assertTokenSchemaSource(
+    preg_match('/ensureTokenColumnExists\(\s*[\'"]form_submissions[\'"]\s*,\s*[\'"]access_token[\'"]\s*\)[\s\S]*?execSQL\(\s*self::MYSQL_FORM_SUBMISSIONS_ACCESS_TOKEN_INDEX_SQL\s*\)/', $form_submissions_bootstrap_source) === 1,
+    'form_submissions bootstrap should add access_token before creating its index when an older table already exists.'
+);
+
+$quote_items_table_start = strpos($database_source, 'CREATE TABLE IF NOT EXISTS quote_items');
+if ($quote_items_table_start === false || $quote_items_table_start <= $quotes_table_start) {
+    throw new RuntimeException('Unable to inspect quotes bootstrap schema block.');
+}
+$quotes_bootstrap_source = substr($database_source, $quotes_table_start, $quote_items_table_start - $quotes_table_start);
+
+assertTokenSchemaSource(
+    preg_match('/ensureTokenColumnExists\(\s*[\'"]quotes[\'"]\s*,\s*[\'"]access_token[\'"]\s*\)[\s\S]*?execSQL\(\s*self::MYSQL_QUOTES_ACCESS_TOKEN_INDEX_SQL\s*\)/', $quotes_bootstrap_source) === 1,
+    'quotes bootstrap should add access_token before creating its index when an older table already exists.'
+);
+
 assertTokenSchemaSource(
     preg_match('/ALTER TABLE form_submissions ADD COLUMN access_token VARCHAR\(32\)/', $database_source) === 1,
     'form_submissions migration should add access_token as VARCHAR(32).'
