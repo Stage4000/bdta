@@ -206,6 +206,10 @@ if (!empty($apt_type['contract_template_id'])) {
 $location       = null;
 $location_type  = trim(scalar_string($data['location_type'] ?? ''));
 $location_value = trim(scalar_string($data['location_value'] ?? ''));
+$submitted_client_address = trim(scalar_string($data['client_address'] ?? ''));
+$overwrite_profile = filter_var($data['overwrite_profile'] ?? false, FILTER_VALIDATE_BOOLEAN);
+$resolved_client_address = '';
+$should_persist_client_address = false;
 $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
 
 if (!empty($apt_type['is_mini_session'])) {
@@ -237,15 +241,27 @@ if (!empty($apt_type['is_mini_session'])) {
             exit;
         }
         if ($location_type === 'client_address') {
+            if ($submitted_client_address !== '' && mb_strlen($submitted_client_address) > 500) {
+                echo json_encode(['error' => 'The address provided is too long. Please keep it under 500 characters.']);
+                exit;
+            }
             $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
             $stmt->execute([$client_id]);
             $cl = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
-            $resolved = trim(array_string_value($cl, 'address'));
-            if (empty($resolved)) {
-                echo json_encode(['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.']);
-                exit;
+            $resolved_client_address = trim(array_string_value($cl, 'address'));
+            if ($resolved_client_address === '') {
+                if ($submitted_client_address === '') {
+                    echo json_encode(['error' => 'Please enter your registered address to continue with this booking.']);
+                    exit;
+                }
+                $location = $submitted_client_address;
+                $should_persist_client_address = true;
+            } elseif ($overwrite_profile && $submitted_client_address !== '') {
+                $location = $submitted_client_address;
+                $should_persist_client_address = true;
+            } else {
+                $location = $resolved_client_address;
             }
-            $location = $resolved;
         } else {
             $location = $location_value;
         }
@@ -289,7 +305,7 @@ $pet_ids = api_booking_merge_pet_ids_with_profile_updates($conn, $client_id, $pe
 //   • overwrite_profile: true       → user confirmed the overwrite prompt; always apply mapping
 //   • overwrite_profile: false      → user explicitly chose "Keep Existing"; skip conflicting client fields
 //                                       and create new pet profiles for conflicting pet mappings
-$overwrite_declined = isset($data['overwrite_profile']) && !(bool)$data['overwrite_profile'];
+$overwrite_declined = isset($data['overwrite_profile']) && !$overwrite_profile;
 
 if ($overwrite_declined) {
     if ($pet_updates !== []) {
@@ -1002,6 +1018,17 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
             }
         }
     }
+}
+
+if ($should_persist_client_address && $submitted_client_address !== '') {
+    $conn->prepare("UPDATE clients SET address = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+        ->execute([$submitted_client_address, $client_id]);
+    logClientActivity(
+        $client_id,
+        'profile_update_from_booking',
+        "Client address updated during portal registered-address booking #{$booking_id}",
+        $conn
+    );
 }
 
 // ── Trigger auto-enrollment for appointment workflow triggers ─────────────

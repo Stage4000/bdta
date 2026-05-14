@@ -516,6 +516,22 @@ include '../portal/includes/header.php';
                                 <input type="text" class="form-control form-control-lg" id="locationValue" placeholder="">
                             </div>
                         <?php endif; ?>
+                            <div id="registeredAddressGroup" class="mt-3 d-none">
+                                <div class="alert alert-info py-2 mb-3 small" id="registeredAddressHelp">
+                                    We’ll save this as your registered address and use it as the appointment location.
+                                </div>
+                                <label class="form-label fw-semibold" for="registeredAddressInput">
+                                    Client's Registered Address <span class="text-danger">*</span>
+                                </label>
+                                <textarea class="form-control form-control-lg"
+                                          id="registeredAddressInput"
+                                          rows="3"
+                                          maxlength="500"
+                                          placeholder="Enter the full address for this appointment"><?= escape($client['address'] ?? '') ?></textarea>
+                                <div class="form-text">
+                                    Review the saved address or update it here before you confirm the booking.
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -558,11 +574,12 @@ include '../portal/includes/header.php';
                             $field_description = array_string_value($field, 'description');
                             $field_type = array_string_value($field, 'type', 'text');
                             $field_options = string_list($field['options'] ?? []);
+                            $field_profile_mapping = array_string_value($field, 'profile_mapping');
                             $fn = 'form_resp_' . $form_id . '_' . $fi;
                             $is_req = !empty($field['required']);
                             $ph = htmlspecialchars(array_string_value($field, 'placeholder'));
                         ?>
-                        <div class="mb-3">
+                        <div class="mb-3"<?= $field_profile_mapping === 'client.address' ? ' data-required-form-address-field="1"' : '' ?>>
                             <?php if (bdta_form_field_is_display_only($field)): ?>
                                 <div class="p-3 rounded border bg-light">
                                     <div class="fw-semibold mb-1"><?= htmlspecialchars($field_label) ?></div>
@@ -761,6 +778,11 @@ include '../portal/includes/header.php';
                         </dl>
                     </div>
                 </div>
+                <div class="mt-3 d-none" id="registeredAddressConfirmActions">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="editRegisteredAddressBtn">
+                        <i class="fas fa-pen me-1"></i>Edit address
+                    </button>
+                </div>
                 <div class="alert alert-info">
                     <i class="fas fa-circle-info me-2"></i>
                     A confirmation email will be sent to your address with appointment details and calendar links.
@@ -884,6 +906,60 @@ include '../portal/includes/header.php';
         }
         return json_encode($map, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     })() ?>;
+
+    function getSelectedLocationType() {
+        const locEl = document.getElementById('locationType');
+        return locEl ? String(locEl.value || '').trim() : '';
+    }
+
+    function getRegisteredAddressValue() {
+        const input = document.getElementById('registeredAddressInput');
+        return input ? input.value.trim() : '';
+    }
+
+    function syncRegisteredAddressMappedFields(active) {
+        document.querySelectorAll('[data-required-form-address-field]').forEach(function (wrapper) {
+            wrapper.classList.toggle('d-none', active);
+            wrapper.querySelectorAll('input, textarea, select').forEach(function (field) {
+                if (active) {
+                    if (!field.dataset.registeredAddressOriginalRequired) {
+                        field.dataset.registeredAddressOriginalRequired = field.required ? '1' : '0';
+                    }
+                    field.required = false;
+                } else {
+                    field.required = field.dataset.registeredAddressOriginalRequired === '1';
+                }
+            });
+        });
+    }
+
+    function syncRegisteredAddressUI() {
+        const group = document.getElementById('registeredAddressGroup');
+        const help = document.getElementById('registeredAddressHelp');
+        const input = document.getElementById('registeredAddressInput');
+        const confirmActions = document.getElementById('registeredAddressConfirmActions');
+        const active = getSelectedLocationType() === 'client_address';
+
+        if (!group || !input) return;
+
+        if (active && !input.value.trim() && currentClientProfile.address) {
+            input.value = String(currentClientProfile.address).trim();
+        }
+
+        group.classList.toggle('d-none', !active);
+        input.required = active;
+        syncRegisteredAddressMappedFields(active);
+
+        if (help) {
+            help.textContent = currentClientProfile.address
+                ? 'We’ll use the registered address on your profile for this appointment. Review it below and update it if needed.'
+                : 'Enter the address that should be saved to your profile and used as the appointment location.';
+        }
+
+        if (confirmActions) {
+            confirmActions.classList.toggle('d-none', !active || currentStep !== maxSteps);
+        }
+    }
 
     /* ─── Helpers ─────────────────────────────────────────────────── */
     function showAlert(msg, type) {
@@ -1062,6 +1138,7 @@ include '../portal/includes/header.php';
         document.querySelectorAll('.form-step').forEach(s => {
             s.classList.toggle('active', parseInt(s.dataset.step) === currentStep);
         });
+        syncRegisteredAddressUI();
         window.scrollTo({ top: 0, behavior: 'smooth' });
         if (currentStep === 2) loadTimeSlots();
     }
@@ -1082,6 +1159,11 @@ include '../portal/includes/header.php';
             const locEl = document.getElementById('locationType');
             if (locEl && locEl.tagName === 'SELECT') {
                 if (!locEl.value) { showAlert('Please select a location type.', 'warning'); return false; }
+                if (locEl.value === 'client_address' && !getRegisteredAddressValue()) {
+                    showAlert('Please enter the client\'s registered address.', 'warning');
+                    document.getElementById('registeredAddressInput')?.focus();
+                    return false;
+                }
                 if (['custom_address', 'webcall'].includes(locEl.value)) {
                     const lv = document.getElementById('locationValue');
                     if (!lv || !lv.value.trim()) {
@@ -1091,6 +1173,10 @@ include '../portal/includes/header.php';
                 }
             } else if (locEl && locEl.tagName === 'INPUT' && locEl.required && !locEl.value.trim()) {
                 showAlert('Please enter the required location information.', 'warning');
+                return false;
+            } else if (getSelectedLocationType() === 'client_address' && !getRegisteredAddressValue()) {
+                showAlert('Please enter the client\'s registered address.', 'warning');
+                document.getElementById('registeredAddressInput')?.focus();
                 return false;
             }
             // Contract validation (only if not skipped)
@@ -1339,10 +1425,22 @@ include '../portal/includes/header.php';
             input.required = false;
             input.value = '';
         }
+        syncRegisteredAddressUI();
     };
 
     updateFormVisibilityByPetSelection();
     initPetInfoGroups();
+    syncRegisteredAddressUI();
+    document.getElementById('editRegisteredAddressBtn')?.addEventListener('click', function () {
+        currentStep = 3;
+        renderStep();
+        syncRegisteredAddressUI();
+        const input = document.getElementById('registeredAddressInput');
+        if (input) {
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
 
     /* ─── Confirmation summary ─────────────────────────────────────── */
     function populateConfirm() {
@@ -1367,15 +1465,27 @@ include '../portal/includes/header.php';
         }
         document.getElementById('confirmPets').textContent = petNames2.length ? petNames2.join(', ') : 'Not specified';
         document.getElementById('confirmLocation').textContent = getLocationSummary();
+        document.getElementById('registeredAddressConfirmActions')?.classList.toggle(
+            'd-none',
+            getSelectedLocationType() !== 'client_address'
+        );
     }
 
     function getLocationSummary() {
         const locEl = document.getElementById('locationType');
         if (!locEl) return 'Not specified';
-        if (locEl.tagName === 'INPUT') return locEl.value || 'Fixed location';
+        if (locEl.tagName === 'INPUT') {
+            if (locEl.value === 'client_address') {
+                return getRegisteredAddressValue() || String(currentClientProfile.address || '').trim() || 'My registered address';
+            }
+            if (locEl.value === 'custom_address' || locEl.value === 'webcall') {
+                return document.getElementById('locationValue')?.value || 'Not specified';
+            }
+            return locEl.value || 'Fixed location';
+        }
         const type = locEl.value;
         const labels = {
-            client_address: 'My registered address',
+            client_address: getRegisteredAddressValue() || String(currentClientProfile.address || '').trim() || 'My registered address',
             phone_inbound:  'Phone call (I call the trainer)',
             phone_outbound: 'Phone call (trainer calls me)',
             custom_address: document.getElementById('locationValue')?.value || 'Custom address',
@@ -1840,6 +1950,17 @@ include '../portal/includes/header.php';
                 }
             }
         }
+        if (getSelectedLocationType() === 'client_address') {
+            const newAddress = getRegisteredAddressValue();
+            const currentAddress = String(currentClientProfile.address || '').trim();
+            if (newAddress && currentAddress && currentAddress !== newAddress) {
+                conflicts.push({
+                    label: profileLabels['client.address'],
+                    oldValue: currentAddress,
+                    newValue: newAddress,
+                });
+            }
+        }
         for (const responses of Object.values(formResponses || {})) {
             if (!responses || typeof responses !== 'object') continue;
             for (const value of Object.values(responses)) {
@@ -1969,6 +2090,7 @@ include '../portal/includes/header.php';
             client_name:          document.getElementById('clientName').value,
             client_email:         document.getElementById('clientEmail').value,
             client_phone:         document.getElementById('clientPhone').value,
+            client_address:       location_type === 'client_address' ? getRegisteredAddressValue() : '',
             pet_ids:              petIds,
             notes:                document.getElementById('notes').value,
             location_type:        location_type,

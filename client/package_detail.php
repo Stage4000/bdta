@@ -203,7 +203,8 @@ if (!$success && $session_id !== '') {
                                 $pending_form_responses,
                                 $pending_purchase['view_id'],
                                 'credit_card',
-                                $session_id
+                                $session_id,
+                                array_string_value($session, 'payment_intent')
                             );
                             bdta_delete_pending_package_purchase($conn, $package_id, $session_id);
                             unset($_SESSION['pending_package_purchases'][$token]);
