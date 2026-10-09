@@ -496,17 +496,20 @@ function bdta_find_package_purchase_invoice(SafePDO $conn, int $client_id, int $
         return [];
     }
 
+    // Match the complete identifier: #1 must not recover an invoice for #10.
+    // Keep exact bare prefixes and generated notes with their package-name delimiter.
     $stmt = $conn->prepare("
         SELECT *
         FROM invoices
         WHERE client_id = ?
-          AND notes LIKE ?
+          AND (notes = ? OR notes LIKE ?)
         ORDER BY id DESC
         LIMIT 1
     ");
     $stmt->execute([
         $client_id,
-        bdta_package_purchase_invoice_note_prefix($client_package_id) . '%',
+        bdta_package_purchase_invoice_note_prefix($client_package_id),
+        bdta_package_purchase_invoice_note_prefix($client_package_id) . ' (%',
     ]);
 
     return assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
