@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 
-require_once dirname(__DIR__) . '/backend/includes/config.php';
+require_once __DIR__ . '/support/survey_test_bootstrap.php';
 require_once dirname(__DIR__) . '/backend/includes/survey_results.php';
 
 echo "=== Survey Results Tests ===\n\n";

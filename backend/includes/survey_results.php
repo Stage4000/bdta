@@ -55,6 +55,12 @@ function bdta_prepare_survey_submissions(array $submissions): array
     $prepared_submissions = [];
 
     foreach ($submissions as $submission) {
+        // Older callers provide only completed rows and omit status.
+        $status = array_string_value($submission, 'status', 'submitted');
+        if (!in_array($status, ['submitted', 'reviewed'], true)) {
+            continue;
+        }
+
         $prepared_submission = $submission;
         $prepared_submission['decoded_responses'] = bdta_survey_submission_responses($submission);
 
@@ -84,8 +90,8 @@ function bdta_build_survey_results(array $fields, array $submissions): array
 {
     $field_summaries = [];
     $visualized_field_count = 0;
-    $total_submissions = count($submissions);
     $prepared_submissions = bdta_prepare_survey_submissions($submissions);
+    $total_submissions = count($prepared_submissions);
 
     foreach ($fields as $index => $field) {
         if (bdta_form_field_is_display_only($field)) {
@@ -116,6 +122,13 @@ function bdta_build_survey_results(array $fields, array $submissions): array
                         $selected_values = [$single_value];
                     }
                 }
+
+                // Count each non-empty choice once per respondent, including
+                // historical options no longer present in the configured list.
+                $selected_values = array_values(array_unique(array_filter(
+                    array_map('trim', $selected_values),
+                    static fn(string $value): bool => $value !== ''
+                )));
 
                 if ($selected_values === []) {
                     continue;
