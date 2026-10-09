@@ -28,10 +28,11 @@ if (!is_array($template) || bdta_normalize_form_type(array_string_value($templat
 }
 
 $submissions_stmt = $conn->prepare("
-    SELECT fs.id, fs.responses, fs.submitted_at, c.name AS client_name
+    SELECT fs.id, fs.responses, fs.status, fs.submitted_at, c.name AS client_name
     FROM form_submissions fs
     LEFT JOIN clients c ON fs.client_id = c.id
     WHERE fs.template_id = ?
+      AND fs.status IN ('submitted', 'reviewed')
     ORDER BY fs.submitted_at DESC, fs.id DESC
 ");
 $submissions_stmt->execute([$template_id]);
@@ -74,7 +75,7 @@ require_once '../backend/includes/header.php';
         <div class="col-md-4">
             <div class="card h-100">
                 <div class="card-body">
-                    <div class="text-muted small text-uppercase mb-1">Total Submissions</div>
+                    <div class="text-muted small text-uppercase mb-1">Completed Responses</div>
                     <div class="fs-3 fw-bold"><?= (int) $survey_results['total_submissions'] ?></div>
                 </div>
             </div>
@@ -110,6 +111,8 @@ require_once '../backend/includes/header.php';
             <i class="fas fa-triangle-exclamation me-1"></i> This survey does not have any configured questions.
         </div>
     <?php endif; ?>
+
+    <p class="text-muted small">Charts show the percentage of completed responses selecting each choice. Unanswered questions are included in that denominator; checkbox questions can have multiple choices. Pending requests and drafts are excluded.</p>
 
     <div class="row g-4">
         <?php foreach ($survey_results['fields'] as $field_summary): ?>
