@@ -7,6 +7,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/database.php';
 require_once '../backend/includes/form_types.php';
+require_once '../backend/includes/survey_template_integrity.php';
 
 // Check if user is logged in
 requireLogin();
@@ -16,6 +17,7 @@ $conn = $db->getConnection();
 
 $template_id = isset($_GET['id']) ? safe_int($_GET['id']) : null;
 $is_edit = $template_id !== null;
+$survey_structure_locked = false;
 
 // Initialize variables
 $name = '';
@@ -59,6 +61,13 @@ if ($is_edit) {
                 : 0;
         }
         $is_active = array_int_value($template, 'is_active');
+        $survey_structure_locked = bdta_survey_template_structure_is_locked(
+            $template,
+            bdta_form_template_has_submissions($conn, $template_id)
+        );
+    } else {
+        setFlashMessage('Form template not found.', 'danger');
+        redirect('form_templates_list.php');
     }
 }
 
@@ -167,6 +176,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     try {
         if ($is_edit) {
+            // Serialize edits and recheck history at save time, including requests
+            // created after the editor was opened. Never trust the UI lock alone.
+            $conn->beginTransaction();
+            $current_stmt = $conn->prepare('SELECT * FROM form_templates WHERE id = ? FOR UPDATE');
+            $current_stmt->execute([$template_id]);
+            $current_template = $current_stmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($current_template)) {
+                throw new RuntimeException('Form template not found.');
+            }
+            $has_submissions = bdta_form_template_has_submissions($conn, safe_int($template_id));
+            $survey_structure_locked = bdta_survey_template_structure_is_locked($current_template, $has_submissions);
+            if ($survey_structure_locked && !isset($_POST['field_label']) && isset($_POST['preserve_survey_fields'])) {
+                $fields = decode_json_assoc_list(array_string_value($current_template, 'fields'));
+                // Preserve the exact stored definition on metadata-only saves.
+                $fields_json = array_string_value($current_template, 'fields');
+            }
+            bdta_validate_survey_template_edit($current_template, $form_type, $fields, $has_submissions);
+
             // Update
             $stmt = $conn->prepare("
                 UPDATE form_templates 
@@ -180,6 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $required_frequency, $appointment_type_id,
                 $is_internal, $show_in_client_portal, $is_active, $template_id
             ]);
+            $conn->commit();
             
             $_SESSION['flash_message'] = "Form template updated successfully!";
         } else {
@@ -203,7 +231,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         header("Location: form_templates_list.php");
         exit;
         
-    } catch (PDOException $e) {
+    } catch (Throwable $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        if ($survey_structure_locked && isset($current_template) && is_array($current_template)) {
+            $fields = decode_json_assoc_list(array_string_value($current_template, 'fields'));
+            $form_type = bdta_normalize_form_type(array_string_value($current_template, 'form_type'));
+        }
         $error = "Error saving template: " . $e->getMessage();
     }
 }
@@ -271,10 +306,27 @@ require_once '../backend/includes/header.php';
     </div>
     <?php endif; ?>
 
+    <?php if ($survey_structure_locked): ?>
+    <div class="alert alert-info">
+        This survey already has requests or responses. Questions and form type are locked to preserve the original answers.
+        You can still edit its name, description, and availability settings. Duplicate it to revise the questions;
+        the copy will have its own results, and existing requests and answers will remain with this version.
+        <form method="POST" action="form_templates_duplicate.php" class="mt-2">
+            <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token'] ?? '') ?>">
+            <input type="hidden" name="id" value="<?= (int) $template_id ?>">
+            <button type="submit" class="btn btn-sm btn-outline-primary">Duplicate survey to revise questions</button>
+        </form>
+    </div>
+    <?php endif; ?>
+
     <form method="POST" id="templateForm">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="is_internal" value="<?= (int) $is_internal ?>">
         <input type="hidden" name="show_in_client_portal" value="<?= (int) $show_in_client_portal ?>">
+        <?php if ($survey_structure_locked): ?>
+            <input type="hidden" name="preserve_survey_fields" value="1">
+            <input type="hidden" name="form_type" value="<?= escape($form_type) ?>">
+        <?php endif; ?>
         <div class="row">
             <div class="col-md-8">
                 <div class="card mb-4">
@@ -294,7 +346,7 @@ require_once '../backend/includes/header.php';
                         
                         <div class="mb-3">
                             <label class="form-label">Form Type *</label>
-                            <select name="form_type" id="form_type" class="form-select" required>
+                            <select name="form_type" id="form_type" class="form-select" required <?= $survey_structure_locked ? 'disabled' : '' ?>>
                                 <?php foreach ($form_type_options as $type_key => $type_option): ?>
                                 <option value="<?php echo htmlspecialchars($type_key); ?>" <?php echo $form_type === $type_key ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars(scalar_string($type_option['label'] ?? $type_key)); ?>
@@ -306,6 +358,7 @@ require_once '../backend/includes/header.php';
                     </div>
                 </div>
 
+                <fieldset <?= $survey_structure_locked ? 'disabled' : '' ?>>
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Form Fields</h5>
@@ -490,6 +543,7 @@ require_once '../backend/includes/header.php';
                         </div>
                     </div>
                 </div>
+                </fieldset>
             </div>
 
             <div class="col-md-4">
@@ -1126,6 +1180,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize drag-and-drop reordering
     Sortable.create(document.getElementById('fieldsContainer'), {
         handle: '.drag-handle',
+        disabled: <?= $survey_structure_locked ? 'true' : 'false' ?>,
         animation: 150,
         ghostClass: 'sortable-ghost',
         onEnd: function() {
