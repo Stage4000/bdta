@@ -212,18 +212,17 @@ try {
     /** @var Closure(array<mixed>): array{result: array<string, mixed>, failure: string, mail_calls: int} $run */
     $run = static fn (array $request): array => finishCreditAtomicityWorker(startCreditAtomicityWorker($schema, $request));
     $count = static function (string $table, string $column, int $id, string $extra = '') use ($conn): int {
-        $sql = match ($table . '.' . $column . $extra) {
-            'bookings.client_id' => 'SELECT COUNT(*) FROM bookings WHERE client_id = ?',
-            'form_submissions.client_id' => 'SELECT COUNT(*) FROM form_submissions WHERE client_id = ?',
-            'workflow_enrollments.client_id' => 'SELECT COUNT(*) FROM workflow_enrollments WHERE client_id = ?',
-            'package_credit_transactions.client_id' => 'SELECT COUNT(*) FROM package_credit_transactions WHERE client_id = ?',
-            "package_credit_transactions.client_id AND transaction_type = 'consume'" => "SELECT COUNT(*) FROM package_credit_transactions WHERE client_id = ? AND transaction_type = 'consume'",
-            "package_credit_transactions.client_id AND transaction_type = 'refund'" => "SELECT COUNT(*) FROM package_credit_transactions WHERE client_id = ? AND transaction_type = 'refund'",
-            'booking_change_log.client_id' => 'SELECT COUNT(*) FROM booking_change_log WHERE client_id = ?',
-            'invoices.client_id' => 'SELECT COUNT(*) FROM invoices WHERE client_id = ?',
+        $stmt = match ([$table, $column, $extra]) {
+            ['bookings', 'client_id', ''] => $conn->prepare('SELECT COUNT(*) FROM bookings WHERE client_id = ?'),
+            ['form_submissions', 'client_id', ''] => $conn->prepare('SELECT COUNT(*) FROM form_submissions WHERE client_id = ?'),
+            ['workflow_enrollments', 'client_id', ''] => $conn->prepare('SELECT COUNT(*) FROM workflow_enrollments WHERE client_id = ?'),
+            ['package_credit_transactions', 'client_id', ''] => $conn->prepare('SELECT COUNT(*) FROM package_credit_transactions WHERE client_id = ?'),
+            ['package_credit_transactions', 'client_id', " AND transaction_type = 'consume'"] => $conn->prepare("SELECT COUNT(*) FROM package_credit_transactions WHERE client_id = ? AND transaction_type = 'consume'"),
+            ['package_credit_transactions', 'client_id', " AND transaction_type = 'refund'"] => $conn->prepare("SELECT COUNT(*) FROM package_credit_transactions WHERE client_id = ? AND transaction_type = 'refund'"),
+            ['booking_change_log', 'client_id', ''] => $conn->prepare('SELECT COUNT(*) FROM booking_change_log WHERE client_id = ?'),
+            ['invoices', 'client_id', ''] => $conn->prepare('SELECT COUNT(*) FROM invoices WHERE client_id = ?'),
             default => throw new LogicException('Unsupported synthetic count query.'),
         };
-        $stmt = $conn->prepare($sql);
         $stmt->execute([$id]);
         return safe_int($stmt->fetchColumn());
     };
