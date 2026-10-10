@@ -130,6 +130,14 @@ jobs:
           curl -LsS -o phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.40/phpstan.phar
           php phpstan.phar analyse --configuration=phpstan.neon --no-progress --memory-limit=1G
 
+      - name: Run pet file regressions
+        id: pet_files
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          php tests/test_pet_file_paths.php
+          python tests/test_pet_files_http.py
+
       - name: Summarize static analysis results
         if: ${{ always() }}
         run: |
@@ -147,6 +155,7 @@ jobs:
           [ "${{ steps.phpstan.outcome }}" = "failure" ] && failures+=("PHPStan")
           [ "${{ steps.survey_integrity.outcome }}" = "failure" ] && failures+=("Survey integrity regressions")
           [ "${{ steps.reminder_login.outcome }}" = "failure" ] && failures+=("Reminder login regressions")
+          [ "${{ steps.pet_files.outcome }}" = "failure" ] && failures+=("Pet file regressions")
 
           if [ ${#failures[@]} -eq 0 ]; then
             echo "All static analysis steps completed successfully." >> "$GITHUB_STEP_SUMMARY"
