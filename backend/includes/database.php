@@ -2186,6 +2186,31 @@ class Database {
             $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id VARCHAR(255) NULL");
         }
 
+        // Verified provider receipts retain excess separately from applied invoice income.
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS invoice_checkout_receipts (
+                payment_intent_id VARCHAR(255) PRIMARY KEY,
+                checkout_session_id VARCHAR(255) NOT NULL UNIQUE,
+                invoice_id INTEGER NOT NULL,
+                received_cents BIGINT NOT NULL,
+                applied_cents BIGINT NOT NULL,
+                excess_cents BIGINT NOT NULL,
+                currency VARCHAR(10) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE RESTRICT
+            ) ENGINE=InnoDB
+        ");
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS invoice_package_fulfillments (
+                invoice_item_id INTEGER NOT NULL,
+                unit_number INTEGER NOT NULL,
+                client_package_id INTEGER NOT NULL,
+                PRIMARY KEY (invoice_item_id, unit_number),
+                FOREIGN KEY (invoice_item_id) REFERENCES invoice_items(id) ON DELETE RESTRICT,
+                FOREIGN KEY (client_package_id) REFERENCES client_packages(id) ON DELETE RESTRICT
+            ) ENGINE=InnoDB
+        ");
+
         // Create package_link_views table for analytics
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS package_link_views (
