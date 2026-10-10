@@ -162,6 +162,10 @@ if ($path === '/snapshot') {
 }
 if ($path === '/type') {
     $conn->prepare('UPDATE appointment_types SET is_active=? WHERE id=?')->execute([safe_int($_GET['active'] ?? 1), safe_int($_GET['id'] ?? 0)]);
+    if (isset($_GET['start'], $_GET['end'])) {
+        $conn->prepare('UPDATE appointment_types SET available_start_time=?, available_end_time=? WHERE id=?')
+            ->execute([scalar_string($_GET['start']), scalar_string($_GET['end']), safe_int($_GET['id'] ?? 0)]);
+    }
     echo 'ready';
     return;
 }

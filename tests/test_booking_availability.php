@@ -194,6 +194,68 @@ try {
     $result = identityRequest($base, $public, $cookie, (string) json_encode($group));
     identityCheck(isset($result['error']) && identityRequest($base, '/state', $cookie) === $before,
         'full group class rejects another participant without writes');
+
+    $ordinary = array_replace($payload, ['appointment_date'=>$wednesday, 'appointment_time'=>'11:00']);
+    $result = identityRequest($base, $public, $cookie, (string) json_encode($ordinary));
+    identityCheck(($result['success'] ?? false) === true, 'ordinary booking occupies the class trainer');
+    $occupied_class = array_replace($group, ['appointment_time'=>'11:00']);
+    foreach ([$public, $portal] as $endpoint) {
+        foreach ([15, 16] as $class_type) {
+            $slots = identityRequest($base, $public . '?appointment_type_id=' . $class_type . '&date=' . $wednesday, $cookie);
+            $class_slots = is_array($slots['available_slots'] ?? null) ? $slots['available_slots'] : [];
+            $before = identityRequest($base, '/state', $cookie);
+            $result = identityRequest($base, $endpoint, $cookie, (string) json_encode(array_replace($occupied_class, ['appointment_type_id'=>$class_type])));
+            identityCheck(isset($result['error']) && identityRequest($base, '/state', $cookie) === $before,
+                $endpoint . ' rejects class/ordinary trainer overlap: ' . json_encode([
+                    'class_type'=>$class_type, 'advertised'=>in_array('11:00', $class_slots, true),
+                    'accepted'=>($result['success'] ?? false) === true,
+                ]));
+            identityCheck(!in_array('11:00', $class_slots, true), 'class availability excludes its trainer occupied by an ordinary booking');
+        }
+    }
+    $class_booking_id = 0;
+    foreach (identityRows($before, 'schedule') as $row) {
+        if (($row['appointment_type_id'] ?? 0) === 15 && ($row['appointment_date'] ?? '') === $wednesday) {
+            $class_booking_id = (int) $row['id']; break;
+        }
+    }
+    $before = identityRequest($base, '/state', $cookie);
+    $result = identityRequest($base, $reschedule, $cookie, (string) json_encode([
+        'action'=>'reschedule', 'booking_id'=>$class_booking_id, 'new_date'=>$wednesday, 'new_time'=>'11:00',
+    ]));
+    identityCheck(isset($result['error']) && identityRequest($base, '/state', $cookie) === $before,
+        'class reschedule rejects an ordinary trainer conflict without moving participants');
+    identityRequest($base, '/type?id=15&start=11:00&end=12:00', $cookie);
+    $dates = identityRequest($base, $public . '?action=available_dates&appointment_type_id=15&from=' . $wednesday . '&to=' . $wednesday, $cookie);
+    identityCheck(!in_array($wednesday, is_array($dates['available_dates'] ?? null) ? $dates['available_dates'] : [], true), 'month availability excludes a class date with only an ordinary-occupied slot');
+    identityRequest($base, '/type?id=15&start=09:00&end=17:00', $cookie);
+    $before = identityRequest($base, '/state', $cookie);
+    $result = identityRequest($base, $portal, $cookie, (string) json_encode(array_replace($payload, ['appointment_date'=>$wednesday])));
+    identityCheck(isset($result['error']) && identityRequest($base, '/state', $cookie) === $before,
+        'ordinary booking also rejects the trainer occupied by a class');
+    $before = identityRequest($base, '/state', $cookie);
+    $result = identityRequest($base, $portal, $cookie, (string) json_encode(array_replace($group, ['appointment_date'=>$tuesday, 'appointment_time'=>'10:00'])));
+    identityCheck(isset($result['error']) && identityRequest($base, '/state', $cookie) === $before,
+        'ordinary booking buffers also block class participants');
+    $result = identityRequest($base, $public, $cookie, (string) json_encode(array_replace($ordinary, ['appointment_type_id'=>12, 'appointment_time'=>'12:00'])));
+    identityCheck(($result['success'] ?? false) === true, 'other trainer ordinary booking can coexist with the class trainer');
+    $other_trainer_id = is_int($result['booking_id'] ?? null) ? $result['booking_id'] : 0;
+    identityRequest($base, '/snapshot?id=' . $other_trainer_id . '&booking_admin=0', $cookie);
+    $before = identityRequest($base, '/state', $cookie);
+    $result = identityRequest($base, $portal, $cookie, (string) json_encode(array_replace($group, ['appointment_time'=>'12:00'])));
+    identityCheck(isset($result['error']) && identityRequest($base, '/state', $cookie) === $before,
+        'legacy shared trainer booking also blocks the class trainer');
+    identityRequest($base, '/snapshot?id=' . $other_trainer_id . '&booking_admin=2', $cookie);
+    identityRequest($base, '/type?id=15&start=12:00&end=13:00', $cookie);
+    $slots = identityRequest($base, $public . '?appointment_type_id=15&date=' . $wednesday, $cookie);
+    identityCheck(in_array('12:00', is_array($slots['available_slots'] ?? null) ? $slots['available_slots'] : [], true), 'class slot at exact ordinary end boundary remains available');
+    $dates = identityRequest($base, $public . '?action=available_dates&appointment_type_id=15&from=' . $wednesday . '&to=' . $wednesday, $cookie);
+    identityCheck(in_array($wednesday, is_array($dates['available_dates'] ?? null) ? $dates['available_dates'] : [], true), 'month availability preserves a class date served by a different trainer');
+    identityRequest($base, '/type?id=15&start=09:00&end=17:00', $cookie);
+    foreach ([$public, $portal] as $endpoint) {
+        $result = identityRequest($base, $endpoint, $cookie, (string) json_encode(array_replace($group, ['appointment_time'=>'12:00'])));
+        identityCheck(($result['success'] ?? false) === true, 'different trainer conflict preserves class participant capacity');
+    }
     $point = array_replace($payload, ['appointment_type_id'=>14, 'appointment_time'=>'10:00',
         'location_type'=>'fixed', 'location_value'=>'Caller venue']);
     $result = identityRequest($base, $public, $cookie, (string) json_encode($point));
