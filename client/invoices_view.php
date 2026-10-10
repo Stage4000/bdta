@@ -3,6 +3,7 @@ require_once '../backend/includes/config.php';
 require_once '../backend/includes/email_service.php';
 require_once '../backend/includes/invoice_status.php';
 require_once '../backend/includes/stripe_config.php';
+require_once '../backend/includes/invoice_refund_operation.php';
 requireLogin();
 
 $db = new Database();
@@ -181,56 +182,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_invoice'])) {
         } elseif ($refund_amount <= 0) {
         setFlashMessage('Refund amount must be greater than zero.', 'danger');
         } else {
-        $fresh_invoice_stmt = $conn->prepare('SELECT * FROM invoices WHERE id = ?');
-        $fresh_invoice_stmt->execute([$id]);
-        $current_invoice = $fresh_invoice_stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!is_array($current_invoice)) {
-            setFlashMessage('Invoice not found.', 'danger');
-            redirect('invoices_view.php?id=' . $id);
-        }
-
-        $current_payment_summary = bdta_invoice_get_payment_summary($conn, $current_invoice);
-        $current_paid_total = safe_float($current_payment_summary['paid_total']);
-        $current_refunded_total = bdta_invoice_get_refunded_total($conn, $id);
-        $current_remaining_amount = bdta_invoice_get_net_amount($current_invoice, $current_refunded_total, $current_paid_total);
-        $refund_method = array_string_value($current_invoice, 'payment_method', 'other');
-
-        if (!bdta_invoice_can_refund($current_invoice, $current_refunded_total, $current_paid_total)) {
-            setFlashMessage('This invoice cannot be refunded.', 'danger');
-            redirect('invoices_view.php?id=' . $id);
-        }
-
-        if ($refund_amount > $current_remaining_amount) {
-            setFlashMessage('Refund amount cannot exceed the remaining paid balance.', 'danger');
-            redirect('invoices_view.php?id=' . $id);
-        }
-
-        $stripe_refund_id = null;
-        $payment_intent_id = array_string_value($current_invoice, 'stripe_payment_intent_id');
-        if ($payment_intent_id !== '') {
-            $stripe_refund = createStripeRefund($payment_intent_id, $refund_amount, [
-                'invoice_id' => $id,
-                'invoice_number' => array_string_value($current_invoice, 'invoice_number'),
-            ]);
-
-            if (!($stripe_refund['success'] ?? false)) {
-                setFlashMessage('Stripe refund failed: ' . array_string_value($stripe_refund, 'error', 'Unknown error'), 'danger');
-                redirect('invoices_view.php?id=' . $id);
-            }
-
-            $stripe_refund_id = scalar_string($stripe_refund['refund_id'] ?? '');
-        }
-
         try {
-            $refund_result = bdta_record_invoice_refund(
+            $refund_result = bdta_refund_invoice(
                 $conn,
                 $id,
+                scalar_string($_POST['refund_operation_key'] ?? ''),
                 $refund_amount,
                 $refund_date,
-                $refund_method,
-                $refund_note,
-                $stripe_refund_id
+                $refund_note
             );
 
             $remaining_amount = safe_float($refund_result['remaining_amount']);
@@ -239,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_invoice'])) {
                 : 'Refund recorded successfully. Remaining paid balance: $' . number_format($remaining_amount, 2);
             setFlashMessage($status_message, 'success');
         } catch (Throwable $e) {
-            setFlashMessage('Unable to record refund: ' . $e->getMessage(), 'danger');
+            setFlashMessage('Unable to complete refund: ' . $e->getMessage(), 'danger');
         }
         }
     }
@@ -247,6 +206,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_invoice'])) {
     redirect('invoices_view.php?id=' . $id);
 }
 
+$pending_refund = bdta_invoice_pending_refund($conn, $id);
+$refund_operation_key = array_string_value($pending_refund, 'operation_key', bin2hex(random_bytes(32)));
+$refund_form_amount = $pending_refund !== [] ? safe_float($pending_refund['amount'] ?? 0) : $net_amount;
+$refund_form_date = array_string_value($pending_refund, 'refund_date', date('Y-m-d'));
 include '../backend/includes/header.php';
 ?>
 
@@ -414,17 +377,21 @@ include '../backend/includes/header.php';
                             <div class="card border-warning">
                                 <div class="card-header bg-warning-subtle">Record Refund</div>
                                 <div class="card-body">
+                                    <?php if ($pending_refund !== []): ?>
+                                        <p class="alert alert-warning">An earlier refund is unresolved. Submit its original details to resume safely. If reconciliation fails, review the provider refund before making another request.</p>
+                                    <?php endif; ?>
                                     <form method="POST">
                                         <input type="hidden" name="refund_invoice" value="1">
                                         <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
+                                        <input type="hidden" name="refund_operation_key" value="<?= escape($refund_operation_key) ?>">
                                         <div class="row">
                                             <div class="col-md-4 mb-3">
                                                 <label class="form-label">Refund Amount</label>
-                                                <input type="number" class="form-control" name="refund_amount" min="0.01" max="<?= escape(number_format($net_amount, 2, '.', '')) ?>" step="0.01" value="<?= escape(number_format($net_amount, 2, '.', '')) ?>" required>
+                                                <input type="number" class="form-control" name="refund_amount" min="0.01" max="<?= escape(number_format($net_amount, 2, '.', '')) ?>" step="0.01" value="<?= escape(number_format($refund_form_amount, 2, '.', '')) ?>" <?= $pending_refund !== [] ? 'readonly' : '' ?> required>
                                             </div>
                                             <div class="col-md-4 mb-3">
                                                 <label class="form-label">Refund Date</label>
-                                                <input type="date" class="form-control" name="refund_date" value="<?= escape(date('Y-m-d')) ?>" required>
+                                                <input type="date" class="form-control" name="refund_date" value="<?= escape($refund_form_date) ?>" <?= $pending_refund !== [] ? 'readonly' : '' ?> required>
                                             </div>
                                             <div class="col-md-4 mb-3">
                                                 <label class="form-label">Refund Method</label>
@@ -433,7 +400,7 @@ include '../backend/includes/header.php';
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Refund note</label>
-                                            <textarea class="form-control" name="refund_note" rows="3" placeholder="Optional note explaining the refund"></textarea>
+                                            <textarea class="form-control" name="refund_note" rows="3" placeholder="Optional note explaining the refund" <?= $pending_refund !== [] ? 'readonly' : '' ?>><?= escape(array_string_value($pending_refund, 'notes')) ?></textarea>
                                         </div>
                                         <button type="submit" class="btn btn-warning">
                                             <i class="fas fa-rotate-left"></i> Confirm Refund

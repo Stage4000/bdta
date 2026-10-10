@@ -1,0 +1,22 @@
+<?php
+require __DIR__ . '/invoice_refund_fake.inc';
+$request = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+$root = getenv('BDTA_REFUND_TEST_ROOT');
+if (!is_string($root) || !is_file($root . '/client/invoices_view.php')) throw new RuntimeException('Missing isolated test source');
+$_SERVER['REQUEST_METHOD'] = empty($request['post']) ? 'GET' : 'POST';
+$_SERVER['SCRIPT_NAME'] = '/client/invoices_view.php';
+$_SERVER['REQUEST_URI'] = '/client/invoices_view.php?id=' . $request['id'];
+$_SERVER['HTTP_HOST'] = '127.0.0.1';
+$_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+require $root . '/backend/includes/config.php';
+$_SESSION['admin_id'] = $request['admin_id'];
+$_SESSION['user_type'] = 'admin';
+$_SESSION['admin_account_type'] = $request['role'] ?? 'main';
+$_SESSION['admin_account_type_refreshed_at'] = time();
+$_SESSION['csrf_token'] = 'synthetic-refund-csrf';
+$_GET = ['id' => (string)$request['id']];
+$_POST = $request['post'] ?? [];
+$_REQUEST = $_GET + $_POST;
+register_shutdown_function(function () { echo "\nFLASH:" . ($_SESSION['flash_message'] ?? '') . "\n"; });
+chdir($root . '/client');
+require 'invoices_view.php';

@@ -1785,6 +1785,29 @@ class Database {
             )
         ");
 
+        // Durable refund intent is committed before any provider request. Existing
+        // invoice_refunds rows remain unchanged; unresolved legacy calls need review.
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS invoice_refund_operations (
+                operation_key VARCHAR(64) PRIMARY KEY,
+                invoice_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                refund_date DATE NOT NULL,
+                refund_method TEXT,
+                notes TEXT,
+                payment_intent_id TEXT,
+                invoice_number TEXT,
+                provider_key_hash VARCHAR(64),
+                currency VARCHAR(10),
+                first_attempt_at BIGINT NULL,
+                stripe_refund_id VARCHAR(255) NULL,
+                completed_at TIMESTAMP NULL DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_refund_operations_invoice (invoice_id),
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB
+        ");
+
         try {
             $this->execSQL("CREATE INDEX idx_invoice_refunds_invoice_id ON invoice_refunds(invoice_id)");
         } catch (PDOException $e) {
