@@ -17,11 +17,11 @@ mkdir($directory . '/empty_ini', 0700);
 copy(__DIR__ . '/fixtures/invoice_refund_request.inc', $directory . '/request.inc');
 copy(__DIR__ . '/fixtures/invoice_refund_fake.inc', $directory . '/invoice_refund_fake.inc');
 $extensions = PHP_OS_FAMILY === 'Windows' ? ['php_pdo_mysql.dll', 'php_mbstring.dll', 'php_openssl.dll', 'php_fileinfo.dll'] : ['pdo_mysql', 'mbstring', 'fileinfo'];
-// The isolated worker scans no host ini files. Linux may ship PDO and the
-// MySQL native driver separately, so load these dependencies before pdo_mysql.
+// The isolated worker scans no host ini files. Linux may ship its database,
+// session and basic string dependencies separately; retain those without cURL.
 if (PHP_OS_FAMILY !== 'Windows') {
     $dependencies = [];
-    foreach (['pdo', 'mysqlnd'] as $dependency) {
+    foreach (['pdo', 'mysqlnd', 'ctype', 'session', 'openssl'] as $dependency) {
         if (is_file(ini_get('extension_dir') . '/' . $dependency . '.' . PHP_SHLIB_SUFFIX)) $dependencies[] = $dependency;
     }
     $extensions = array_merge($dependencies, $extensions);
