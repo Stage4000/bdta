@@ -125,7 +125,7 @@ function verifyPaymentIntent(string $payment_intent_id): array {
  * @param array<string, scalar> $metadata
  * @return array<string, scalar>
  */
-function createStripeRefund(string $payment_intent_id, ?float $amount = null, array $metadata = []): array
+function createStripeRefund(string $payment_intent_id, ?float $amount = null, array $metadata = [], ?string $idempotency_key = null): array
 {
     if (!isStripeEnabled()) {
         return [
@@ -162,13 +162,20 @@ function createStripeRefund(string $payment_intent_id, ?float $amount = null, ar
         $post_fields['metadata[' . $key . ']'] = scalar_string($value);
     }
 
+    $headers = ['Content-Type: application/x-www-form-urlencoded'];
+    if ($idempotency_key !== null) {
+        if (preg_match('/^bdta-refund-[a-f0-9]{64}$/', $idempotency_key) !== 1) {
+            return ['success' => false, 'error' => 'Invalid refund idempotency key'];
+        }
+        $headers[] = 'Idempotency-Key: ' . $idempotency_key;
+    }
     $ch = curl_init('https://api.stripe.com/v1/refunds');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => http_build_query($post_fields),
         CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
-        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_HTTPHEADER => $headers,
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_TIMEOUT => 30,
     ]);
@@ -196,9 +203,68 @@ function createStripeRefund(string $payment_intent_id, ?float $amount = null, ar
         ];
     }
 
+    if (!in_array(array_string_value($refund, 'status'), ['succeeded', 'pending', 'requires_action'], true)) {
+        return ['success' => false, 'error' => 'Refund outcome requires reconciliation'];
+    }
+
     return [
         'success' => true,
         'refund_id' => array_string_value($refund, 'id'),
         'status' => array_string_value($refund, 'status'),
     ];
+}
+
+/**
+ * Read-only recovery after Stripe's idempotency retention window. An absent or
+ * ambiguous match must never be interpreted as permission to create a refund.
+ *
+ * @return array<string, scalar>
+ */
+function findStripeRefundForOperation(string $payment_intent_id, string $operation_key, float $amount, string $currency): array
+{
+    if (!isStripeEnabled()) {
+        return ['success' => false, 'error' => 'Stripe is not enabled or configured'];
+    }
+    $cursor = '';
+    $match = [];
+    // Bound read-only recovery; unusually long histories require manual review.
+    for ($page = 0; $page < 100; $page++) {
+        $params = ['payment_intent' => $payment_intent_id, 'limit' => 100];
+        if ($cursor !== '') $params['starting_after'] = $cursor;
+        $ch = curl_init('https://api.stripe.com/v1/refunds?' . http_build_query($params));
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_USERPWD => scalar_string(STRIPE_SECRET_KEY) . ':',
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $body = decode_json_assoc(scalar_string($response));
+        if ($response === false || $http_code < 200 || $http_code >= 300 || !is_array($body['data'] ?? null)) {
+            return ['success' => false, 'error' => 'Unable to reconcile Stripe refund; no new refund was sent'];
+        }
+        $last_id = '';
+        foreach ($body['data'] as $refund) {
+            if (!is_array($refund)) return ['success' => false, 'error' => 'Invalid refund reconciliation response'];
+            $last_id = array_string_value($refund, 'id');
+            $metadata = is_array($refund['metadata'] ?? null) ? $refund['metadata'] : [];
+            if (array_string_value($metadata, 'bdta_refund_operation') !== $operation_key) continue;
+            if ($match !== [] || $last_id === '' || array_string_value($refund, 'payment_intent') !== $payment_intent_id
+                || safe_int($refund['amount'] ?? 0) !== (int) round($amount * 100)
+                || array_string_value($refund, 'currency') !== $currency
+                || !in_array(array_string_value($refund, 'status'), ['succeeded', 'pending', 'requires_action'], true)) {
+                return ['success' => false, 'error' => 'Ambiguous Stripe refund; manual reconciliation required'];
+            }
+            $match = ['success' => true, 'refund_id' => $last_id, 'status' => array_string_value($refund, 'status')];
+        }
+        $has_more = $body['has_more'] ?? null;
+        if ($has_more === false) {
+            return $match !== [] ? $match : ['success' => false, 'error' => 'No matching Stripe refund; manual reconciliation required'];
+        }
+        if ($has_more !== true || $last_id === '' || $last_id === $cursor) break;
+        $cursor = $last_id;
+    }
+    return ['success' => false, 'error' => 'Incomplete Stripe refund reconciliation; manual review required'];
 }
