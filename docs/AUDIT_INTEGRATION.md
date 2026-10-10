@@ -81,12 +81,15 @@ the default is `bdta-private/pets` beside the application directory.
    `.htaccess` requires enabled overrides and other servers need their own deny
    rule. Controllers have no public-storage fallback. See
    [PET_FILE_STORAGE.md](PET_FILE_STORAGE.md).
-5. **Legacy refund reconciliation is a deployment gate.** Review any provider
+5. **Legacy refund reconciliation gates affected refund operations.** Review any provider
    success whose local record was interrupted before P1 supplied durable identity.
    Do not retry those old refunds blindly or invent operation rows from incomplete
    evidence. New unresolved P1 operations retain their identity; older ambiguous
    outcomes use read-only reconciliation and stay blocked without a unique match.
    See [INVOICE_REFUND_RETRY.md](INVOICE_REFUND_RETRY.md).
+   Unrelated code can be staged while affected refunds are held closed. These old
+   calls have no operation rows and are not automatically quarantined by P1; if
+   the affected cohort cannot be isolated, hold all invoice refund mutations.
 6. Reconcile historical package credits before backfill or settling pre-existing
    unpaid checkout-generated invoices whose credits were already issued without
    fulfillment markers. The bridge writes identities only for new purchase
@@ -94,6 +97,10 @@ the default is `bdta-private/pets` beside the application directory.
    or notes. Review excess receipts separately from invoice income/refunds as in
    [INVOICE_PAYMENT_SETTLEMENT.md](INVOICE_PAYMENT_SETTLEMENT.md); no automatic
    refund or excess allocation occurs.
+   Hold settlement/backfill of affected historical invoices until reviewed; the
+   rest of the application need not wait if the request boundary enforces that
+   restriction. See [AUDIT_RELEASE_PREFLIGHT.md](AUDIT_RELEASE_PREFLIGHT.md) for
+   the precise backup, relocation, cutover and rollback sequence.
 
 No production schema conversion, file relocation, provider reconciliation, merge
 into main or deployment was performed to prepare this candidate. Those gates require actual
