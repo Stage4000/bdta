@@ -35,6 +35,9 @@ affected module or application in maintenance until reconciliation is complete.
 The rest of the release need not wait for unrelated historical cases once these
 restrictions are demonstrably enforced.
 
+Whenever the document root is served, legacy static pet-file URLs and equivalent
+aliases must already be denied, even if file controllers are held closed.
+
 ## Minimal cutover sequence
 
 1. Pin the final independently reviewed integration commit and successful workflow
