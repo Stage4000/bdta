@@ -565,7 +565,8 @@ function isPortalLoggedIn(): bool {
 
 function requirePortalLogin(): void {
     if (!isPortalLoggedIn()) {
-        redirect(PORTAL_URL . 'login.php');
+        require_once __DIR__ . '/public_portal_return.php';
+        redirect(bdta_public_portal_login_url(bdta_public_current_path()));
     }
 
     $client_id = portalClientId();

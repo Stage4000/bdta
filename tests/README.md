@@ -18,3 +18,9 @@ Set `DB_PORT`, `DB_USER`, and `DB_PASSWORD` for that disposable local instance a
 Never point these fixtures at application data. The fixture creates its own tables; the caller owns
 database creation/cleanup. Deterministic stale-state cases simulate another writer immediately before
 the transaction; they do not claim simultaneous multi-process concurrency coverage.
+
+Run reminder login regressions with `php tests/test_portal_reminder_login.php` (requires `pdo_sqlite`).
+The test starts a temporary loopback PHP server, uses synthetic in-memory clients/bookings and private
+session files, and disables outbound application transports. It checks both reminder actions through
+the real login controller, query preservation, login retries, authenticated access, unavailable bookings,
+and rejection of unsafe return targets. The router is restricted to CLI-server test mode and loopback.
