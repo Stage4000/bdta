@@ -48,6 +48,7 @@ $conn->exec('
 $conn->exec('CREATE TABLE client_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, name TEXT, email TEXT, phone TEXT, is_primary INTEGER DEFAULT 0)');
 $conn->exec('CREATE TABLE admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT)');
 $conn->exec('CREATE TABLE bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER, client_email TEXT)');
+$conn->exec('CREATE TABLE invoice_package_fulfillments (invoice_item_id INTEGER, unit_number INTEGER, client_package_id INTEGER, PRIMARY KEY (invoice_item_id, unit_number))');
 $conn->exec('CREATE TABLE packages (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT, price REAL DEFAULT 0, expiration_days INTEGER DEFAULT 0)');
 $conn->exec('CREATE TABLE package_items (id INTEGER PRIMARY KEY AUTOINCREMENT, package_id INTEGER NOT NULL, appointment_type_id INTEGER NOT NULL, quantity INTEGER NOT NULL)');
 $conn->exec('
