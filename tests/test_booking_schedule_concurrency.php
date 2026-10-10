@@ -141,6 +141,7 @@ try {
     // Fixed prefix plus random identifier created above; never an application DB name.
     $root->exec('DROP DATABASE '.$schema);
     foreach(glob($temp.'/worker*')?:[] as $file) {
+        // nosemgrep: php.lang.security.unlink-use.unlink-use -- PHP session files in this test's newly-created private worker directories only.
         if(is_dir($file)) { foreach(glob($file.'/*')?:[] as $child) { unlink($child); } rmdir($file); }
     }
     // nosemgrep: php.lang.security.unlink-use.unlink-use -- only files under this test's private random directory.

@@ -24,8 +24,12 @@ if ($path==='/identity') { $_SESSION=['portal_client_id'=>1]; echo 'ready'; retu
 $race=scalar_string($_SERVER['HTTP_X_SYNTHETIC_RACE']??'');
 if ($race!=='') {
     if (!preg_match('/^[a-f0-9]{16}$/D',$race)) { throw new RuntimeException('Invalid race identifier.'); }
-    $root=scalar_string($config['temp']??'');
+    // Keep the validated header as a filename component at the filesystem boundary.
+    $race=basename($race);
+    $root=realpath(scalar_string($config['temp']??''));
+    if ($root===false || basename($root)!==$config['schema']) { throw new RuntimeException('Invalid private race directory.'); }
     $worker=scalar_string(getenv('BDTA_SCHEDULE_INDEX'));
+    if (!in_array($worker,['0','1'],true)) { throw new RuntimeException('Invalid race worker.'); }
     file_put_contents($root.'/'.$race.'-'.$worker,'ready');
     $deadline=microtime(true)+5;
     while (!is_file($root.'/'.$race.'-0') || !is_file($root.'/'.$race.'-1')) {
