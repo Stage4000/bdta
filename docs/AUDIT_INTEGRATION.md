@@ -16,7 +16,10 @@ heads without modifying their source branches:
 The only merge conflicts were in CI and test documentation. All survey, reminder,
 booking-ownership and pet-file regression groups and failure gates are retained.
 `database.php` contains the three reviewed changes together. Other runtime files
-retain their reviewed contents. B2/B3/P2/P3 remain separate; later reviewed heads
+retain their reviewed contents. Two test-harness portability adjustments remove
+an unnecessary PHP 8.5-deprecated reflection call and load shared PDO where Linux
+requires it. CI adds a disposable MariaDB service for the four MySQL repair suites.
+B2/B3/P2/P3 remain separate; later reviewed heads
 can be merged into this branch and their overlaps retested before inclusion.
 
 ## Runtime manifest
@@ -69,7 +72,7 @@ the default is `bdta-private/pets` beside the application directory.
    See [INVOICE_REFUND_RETRY.md](INVOICE_REFUND_RETRY.md).
 
 No production schema conversion, file relocation, provider reconciliation, merge
-or deployment was performed to prepare this candidate. Those gates require actual
+into main or deployment was performed to prepare this candidate. Those gates require actual
 environment validation before activation.
 
 ## Rollback

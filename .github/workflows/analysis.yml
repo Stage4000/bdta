@@ -11,6 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PHP_VERSION: '8.2'
+    services:
+      audit_mysql:
+        image: mariadb:11.4.13
+        env:
+          MARIADB_ROOT_PASSWORD: synthetic-audit-fixture
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
 
     steps:
       - name: Checkout repo
@@ -101,7 +111,35 @@ jobs:
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: pdo_sqlite
+          extensions: pdo_mysql, pdo_sqlite, mbstring, fileinfo
+
+      - name: Run audit MySQL regressions
+        id: audit_mysql
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          DB_TYPE: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: '3307'
+          DB_NAME: bdta_p1_ci
+          DB_USER: root
+          DB_PASSWORD: synthetic-audit-fixture
+          BDTA_REFUND_TEST_DISPOSABLE: '1'
+          BDTA_MIGRATION_TEST_PORT: '3307'
+          BDTA_MIGRATION_TEST_USER: root
+          BDTA_MIGRATION_TEST_PASSWORD: synthetic-audit-fixture
+          BDTA_ADMIN_TEST_PORT: '3307'
+          BDTA_ADMIN_TEST_USER: root
+          BDTA_ADMIN_TEST_PASSWORD: synthetic-audit-fixture
+          BDTA_CHECKOUT_TEST_PORT: '3307'
+          BDTA_CHECKOUT_TEST_USER: root
+          BDTA_CHECKOUT_TEST_PASSWORD: synthetic-audit-fixture
+        run: |
+          php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect -r '$c = new PDO("mysql:host=127.0.0.1;port=3307", getenv("DB_USER"), getenv("DB_PASSWORD")); $c->exec("CREATE DATABASE bdta_p1_ci CHARACTER SET utf8mb4"); echo "Disposable MariaDB ", $c->query("SELECT VERSION()")->fetchColumn(), PHP_EOL;'
+          php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_legacy_package_schema_preservation.php
+          php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_client_admin_mutation_guards.php
+          php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_invoice_refund_retry.php
+          php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_offline_package_checkout_retries.php
 
       - name: Run survey integrity regressions
         id: survey_integrity
@@ -162,6 +200,7 @@ jobs:
           [ "${{ steps.semgrep.outcome }}" = "failure" ] && failures+=("Semgrep")
           [ "${{ steps.setup_php.outcome }}" = "failure" ] && failures+=("Setup PHP")
           [ "${{ steps.phpstan.outcome }}" = "failure" ] && failures+=("PHPStan")
+          [ "${{ steps.audit_mysql.outcome }}" = "failure" ] && failures+=("Audit MySQL regressions")
           [ "${{ steps.survey_integrity.outcome }}" = "failure" ] && failures+=("Survey integrity regressions")
           [ "${{ steps.reminder_login.outcome }}" = "failure" ] && failures+=("Reminder login regressions")
           [ "${{ steps.public_booking_identity.outcome }}" = "failure" ] && failures+=("Public booking identity regressions")

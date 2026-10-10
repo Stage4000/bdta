@@ -17,6 +17,9 @@ mkdir($directory . '/empty_ini', 0700);
 copy(__DIR__ . '/fixtures/invoice_refund_request.inc', $directory . '/request.inc');
 copy(__DIR__ . '/fixtures/invoice_refund_fake.inc', $directory . '/invoice_refund_fake.inc');
 $extensions = PHP_OS_FAMILY === 'Windows' ? ['php_pdo_mysql.dll', 'php_mbstring.dll', 'php_openssl.dll', 'php_fileinfo.dll'] : ['pdo_mysql', 'mbstring', 'fileinfo'];
+// Some Linux distributions ship PDO itself as a shared module. The isolated
+// worker intentionally scans no host ini files, so load its dependency first.
+if (PHP_OS_FAMILY !== 'Windows' && is_file(ini_get('extension_dir') . '/pdo.' . PHP_SHLIB_SUFFIX)) array_unshift($extensions, 'pdo');
 $private_ini = 'extension_dir="' . ini_get('extension_dir') . '"' . PHP_EOL;
 foreach ($extensions as $extension) $private_ini .= 'extension=' . $extension . PHP_EOL;
 $private_ini .= "allow_url_fopen=0\ndisable_functions=mail,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect,exec,shell_exec,system,passthru,popen,proc_open\n";

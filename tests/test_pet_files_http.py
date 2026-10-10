@@ -68,7 +68,6 @@ $conn = new SafePDO('sqlite:' . getenv('BDTA_TEST_WORK') . '/fixtures.sqlite');
 $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $conn->setAttribute(PDO::ATTR_STATEMENT_CLASS, [SafePDOStatement::class]);
 $property = (new ReflectionClass(Database::class))->getProperty('sharedConnection');
-$property->setAccessible(true);
 $property->setValue(null, $conn);
 session_save_path(getenv('BDTA_TEST_WORK'));
 session_start();
