@@ -14,6 +14,7 @@ heads without modifying their source branches:
 | C1 offline checkout retries | [#582](https://github.com/Stage4000/bdta/pull/582) | `dabe90ec7a351fba82f3dcddf430159d23bca5ae` |
 | P2/P3 invoice settlement/fulfillment | [#583](https://github.com/Stage4000/bdta/pull/583) | `e781bbb337c6455a457b267bf51196e98c07eaee` |
 | B2/B4/S5 booking/reschedule availability | [#584](https://github.com/Stage4000/bdta/pull/584) | `4f6dccb692e6e89bd03e0d5cfd571b1743a1accc` |
+| B3/S6 website credit/cancellation atomicity | [#586](https://github.com/Stage4000/bdta/pull/586) | `9d97bb26606271473b8fdbd88cbeffbeda70f4f9` |
 
 The only merge conflicts were in CI and test documentation. All survey, reminder,
 booking-ownership, pet-file and invoice-payment regression groups and failure
@@ -26,10 +27,13 @@ Test-harness adjustments remove an unnecessary PHP 8.5-deprecated reflection cal
 load shared PDO/MySQL-native-driver dependencies where Linux requires them, and accommodate the new fulfillment table
 in the legacy/SQLite fixtures. CI adds a disposable MariaDB service for the four
 MySQL repair suites, the cross-fix regression and invoice concurrency cases.
-The availability head descends from B1, which is retained only once. Its runtime
-and tests retain their reviewed contents; CI uses the same disposable service for
-its separate random scheduling schemas. B3/S6 remains separate; its reviewed head
-can be merged later and the cancellation/credit transaction overlaps retested.
+The availability head descends from B1, which is retained only once. B3/S6 then
+extends its three website endpoints without changing the availability helper or
+adding schema. Its booking transaction includes the checked debit, profile/form
+and queued workflow changes; cancellation commits its current ownership/status
+check, verified credit refund and audit records together. External Calendar/mail
+calls follow commit. CI uses the same disposable service for separate random
+scheduling and credit-atomicity schemas, retaining both failure gates.
 
 ## Runtime manifest
 
@@ -43,6 +47,7 @@ can be merged later and the cancellation/credit transaction overlaps retested.
 | C1 | `backend/includes/package_checkout.php`, `client/package_detail.php` |
 | P2/P3 | `backend/includes/invoice_payment.php`, `client/invoices_payment.php`, `portal/invoice_pay_return.php` |
 | B2/B4/S5 | `backend/includes/booking_availability.php`, `backend/includes/google_calendar.php`, `backend/public/api_bookings.php`, `portal/api_book_credit.php`, `portal/api_appointments.php` |
+| B3/S6 | `backend/public/api_bookings.php`, `portal/api_book_credit.php`, `portal/api_appointments.php` |
 
 Storage configuration/example and ignore rules accompany U1. No shared auth,
 CSRF, survey or reminder runtime helper is changed by this integration.
@@ -134,6 +139,9 @@ The availability regression scripts are `test_booking_availability.php`,
 `test_booking_schedule_concurrency.php` and
 `test_admin_reschedule_google_calendar_override.php`; concurrent scheduling uses
 new random MySQL schemas and independent loopback HTTP workers.
+`test_booking_credit_atomicity.php` exercises controller persistence failures,
+retry, final-credit and cancellation races, credit evidence, transaction rollback
+and post-commit fake-provider failures in its own disposable schema.
 Survey/reminder regressions also run
 against the combined candidate. Opt-in database tests must use disposable loopback
 schemas, never application data; the individual test headers document variables.

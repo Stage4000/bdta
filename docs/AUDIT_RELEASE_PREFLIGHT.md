@@ -2,8 +2,8 @@
 
 Owner deadline: **October 12, 2026, 6:00 p.m. Pacific**
 (`America/Los_Angeles`; October 13, 01:00 UTC). This plan applies to the reviewed
-integration draft #585. B3/S6 still requires its published exact reviewed head,
-successful CI and combined verification before the release candidate is final.
+integration draft #585. B3/S6's reviewed head is composed; the final combined head
+requires successful CI and independent verification before cutover.
 No production access, migration, relocation, reconciliation, merge or deployment
 has been performed in preparing this plan.
 
@@ -37,8 +37,8 @@ restrictions are demonstrably enforced.
 
 ## Minimal cutover sequence
 
-1. Pin the final integration commit and successful workflow run after B3/S6 is
-   composed and independently reviewed. Confirm the target main baseline and the
+1. Pin the final independently reviewed integration commit and successful workflow
+   run. Confirm the target main baseline and the
    release artifact include the already released survey/reminder changes. Record
    the actual production PHP/extensions, database version/engines, served roots,
    aliases and PHP service identity; current validation covers PHP 8.2 hosted CI,
@@ -55,6 +55,8 @@ restrictions are demonstrably enforced.
    token and full unique single-column index. Confirm tables participating in
    payment/purchase/booking transactions use transactional engines. Do not
    fabricate historical refund operations or fulfillment markers during bootstrap.
+   B3/S6 adds no schema; its booking, credit/ledger, profile/form, queued workflow,
+   notification and audit writes still depend on transactional table engines.
 4. Relocate pet files as below while writes remain paused. Stage the pinned code
    and operator configuration, then perform authorized local smoke checks on the
    restored copy. Do not use customer/provider transactions as a deployment test.
@@ -123,6 +125,13 @@ snapshot does not reverse an external provider outcome and may erase its local
 identity; reconcile post-cutover outcomes and records before reopening. Do not
 replay charges/refunds or move private files back into public storage. Code rollback
 does not undo DDL or safely reverse an explicit legacy conversion.
+
+B3/S6 preserves unmatched historical credit evidence without inventing a refund.
+It does not reconcile prior partial booking/debit/refund mutations, serialize
+existing admin credit writers, or supply durable recovery after a lost commit
+acknowledgment. Preserve those records for separate operator review; do not clear
+ledger rows or resend a booking merely because its response was interrupted.
+These scope limits are distinct from the verified website transaction repairs.
 
 ## Booking acceptance boundary
 
