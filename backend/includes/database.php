@@ -2185,6 +2185,27 @@ class Database {
         if (!in_array('stripe_checkout_session_id', $client_package_column_names)) {
             $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id VARCHAR(255) NULL");
         }
+        if (!in_array('checkout_attempt_token', $client_package_column_names)) {
+            $this->execSQL("ALTER TABLE client_packages ADD COLUMN checkout_attempt_token VARCHAR(64) NULL");
+        }
+        // Offline retries require database-enforced uniqueness; fail closed on DDL errors.
+        if (!$this->indexExists('client_packages', 'idx_client_packages_checkout_attempt')) {
+            $this->execSQL("CREATE UNIQUE INDEX idx_client_packages_checkout_attempt ON client_packages(checkout_attempt_token)");
+        }
+        $attempt_index_stmt = $this->conn->prepare("
+            SELECT NON_UNIQUE, COLUMN_NAME, SUB_PART
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'client_packages'
+              AND INDEX_NAME = 'idx_client_packages_checkout_attempt'
+            ORDER BY SEQ_IN_INDEX
+        ");
+        $attempt_index_stmt->execute();
+        $attempt_index = $attempt_index_stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($attempt_index) !== 1 || safe_int($attempt_index[0]['NON_UNIQUE'] ?? 1) !== 0
+            || scalar_string($attempt_index[0]['COLUMN_NAME'] ?? '') !== 'checkout_attempt_token'
+            || ($attempt_index[0]['SUB_PART'] ?? null) !== null) {
+            throw new RuntimeException('Offline package checkout requires a unique attempt-token index.');
+        }
 
         // Create package_link_views table for analytics
         $this->execSQL("
