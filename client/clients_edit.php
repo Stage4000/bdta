@@ -4,6 +4,7 @@ requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
+$can_manage_admin_users = bdta_admin_user_can_manage_admin_users(bdta_current_admin_user($conn, $_SESSION));
 
 $id = safe_int($_GET['id'] ?? 0);
 $client = null;
@@ -17,16 +18,25 @@ if ($id > 0) {
         setFlashMessage('Client not found!', 'danger');
         redirect('clients_list.php');
     }
+    if (!empty($client['is_admin']) && !$can_manage_admin_users) {
+        setFlashMessage('You do not have permission to manage admin clients.', 'danger');
+        redirect('clients_list.php');
+    }
 }
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireValidCsrfToken('clients_edit.php' . ($id > 0 ? '?id=' . $id : ''));
     $name = trim(scalar_string($_POST['name'] ?? ''));
     $email = trim(scalar_string($_POST['email'] ?? ''));
     $phone = trim(scalar_string($_POST['phone'] ?? ''));
     $address = trim(scalar_string($_POST['address'] ?? ''));
     $notes = trim(scalar_string($_POST['notes'] ?? ''));
     $is_admin = isset($_POST['is_admin']) ? 1 : 0;
+    if ($is_admin && !$can_manage_admin_users) {
+        setFlashMessage('You do not have permission to manage admin clients.', 'danger');
+        redirect('clients_list.php');
+    }
     
     if (empty($name) || empty($email)) {
         setFlashMessage('Name and email are required!', 'danger');
@@ -36,9 +46,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $conn->prepare("
                 UPDATE clients 
                 SET name = ?, email = ?, phone = ?, address = ?, notes = ?, is_admin = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                WHERE id = ? AND (COALESCE(is_admin, 0) = 0 OR ? = 1)
             ");
-            $stmt->execute([$name, $email, $phone, $address, $notes, $is_admin, $id]);
+            $stmt->execute([$name, $email, $phone, $address, $notes, $is_admin, $id, $can_manage_admin_users ? 1 : 0]);
+            if (!$can_manage_admin_users && $stmt->rowCount() === 0) {
+                // A no-op ordinary edit is valid; a newly promoted/deleted target is not.
+                $stmt = $conn->prepare("SELECT is_admin FROM clients WHERE id = ?");
+                $stmt->execute([$id]);
+                $current_client = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$current_client || !empty($current_client['is_admin'])) {
+                    setFlashMessage('Client could not be updated. Please refresh and try again.', 'danger');
+                    redirect('clients_list.php');
+                }
+            }
             setFlashMessage('Client updated successfully!', 'success');
         } else {
             // Create new client
@@ -92,6 +112,7 @@ include '../backend/includes/header.php';
             <div class="card">
                 <div class="card-body">
                     <form method="POST">
+                        <?= csrfInput() ?>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="name" class="form-label">Client Name *</label>
@@ -123,6 +144,7 @@ include '../backend/includes/header.php';
                             <textarea class="form-control" id="notes" name="notes" rows="4"><?= escape($client['notes'] ?? '') ?></textarea>
                         </div>
 
+                        <?php if ($can_manage_admin_users): ?>
                         <div class="mb-3">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="is_admin" name="is_admin" 
@@ -136,6 +158,8 @@ include '../backend/includes/header.php';
                                 </div>
                             </div>
                         </div>
+
+                        <?php endif; ?>
 
                         <?php if ($id > 0): ?>
                             <div class="alert alert-info">
