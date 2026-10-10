@@ -229,7 +229,7 @@ try {
         'owner address changes and foreign pet ID is excluded');
 
     $result = identityRequest($base, $endpoint, $cookie, (string) json_encode(array_replace($payload, [
-        'use_credit' => false, 'overwrite_profile' => false, 'client_address' => 'Ignored replacement',
+        'use_credit' => false, 'appointment_time' => '10:00', 'overwrite_profile' => false, 'client_address' => 'Ignored replacement',
     ])));
     identityCheck(($result['success'] ?? false) === true, 'owner can decline profile overwrite');
     $state = identityRequest($base, '/state', $cookie);
@@ -237,7 +237,7 @@ try {
         && identityRows($state, 'bookings')[1]['location'] === 'Synthetic replacement venue', 'declined overwrite keeps saved address');
 
     identityRequest($base, '/identity?id=0', $cookie);
-    $guest = array_replace($payload, ['client_name' => 'New Guest', 'client_email' => 'new-guest@example.invalid', 'use_credit' => false, 'dog_names' => 'Guest dog',
+    $guest = array_replace($payload, ['appointment_time' => '11:00', 'client_name' => 'New Guest', 'client_email' => 'new-guest@example.invalid', 'use_credit' => false, 'dog_names' => 'Guest dog',
         'form_responses' => [9 => ['New Guest', 'new-guest@example.invalid']]]);
     $result = identityRequest($base, $endpoint, $cookie, (string) json_encode($guest));
     identityCheck(($result['success'] ?? false) === true && ($result['credit_applied'] ?? true) === false, 'new-email guest can still book without login');
@@ -251,7 +251,7 @@ try {
 
     identityRequest($base, '/identity?id=4', $cookie);
     $result = identityRequest($base, $endpoint, $cookie, (string) json_encode(array_replace($payload, [
-        'client_address' => '', 'overwrite_profile' => false, 'dog_names' => 'Buddy',
+        'appointment_time' => '12:00', 'client_address' => '', 'overwrite_profile' => false, 'dog_names' => 'Buddy',
     ])));
     identityCheck(($result['success'] ?? false) === true && ($result['credit_applied'] ?? true) === false,
         'duplicate-email owner can book without claiming another owner credit');
@@ -263,7 +263,7 @@ try {
 
     identityRequest($base, '/identity?id=0', $cookie);
     identityRequest($base, '/fault?enabled=1', $cookie);
-    $failed_guest = array_replace($guest, ['client_email' => '', 'form_responses' => [9 => ['New Guest', 'rollback-guest@example.invalid']]]);
+    $failed_guest = array_replace($guest, ['appointment_time' => '13:00', 'client_email' => '', 'form_responses' => [9 => ['New Guest', 'rollback-guest@example.invalid']]]);
     $result = identityRequest($base, $endpoint, $cookie, (string) json_encode($failed_guest));
     identityCheck(isset($result['error']) && identityRequest($base, '/state', $cookie) === $state,
         'failed new-guest booking rolls back client and pet writes');

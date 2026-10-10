@@ -12,6 +12,17 @@ jobs:
     env:
       PHP_VERSION: '8.2'
 
+    services:
+      mariadb:
+        image: mariadb:11.4.13
+        env:
+          MARIADB_ROOT_PASSWORD: synthetic-ci-only
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -101,7 +112,7 @@ jobs:
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: pdo_sqlite
+          extensions: pdo_sqlite, pdo_mysql, curl
 
       - name: Run public booking identity regressions
         id: public_booking_identity
@@ -111,6 +122,20 @@ jobs:
           php tests/test_public_booking_identity.php
           php tests/test_registered_address_booking_regression.php
           php tests/test_portal_credit_booking_pet_overwrite_followups.php
+
+      - name: Run booking availability and concurrency regressions
+        id: booking_availability
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          BDTA_SCHEDULE_MYSQL_TEST: '1'
+          BDTA_SCHEDULE_MYSQL_PORT: ${{ job.services.mariadb.ports[3306] }}
+          BDTA_SCHEDULE_MYSQL_USER: root
+          BDTA_SCHEDULE_MYSQL_PASSWORD: synthetic-ci-only
+        run: |
+          php tests/test_booking_availability.php
+          php tests/test_booking_schedule_concurrency.php
+          php tests/test_admin_reschedule_google_calendar_override.php
 
       - name: Run PHPStan
         id: phpstan
@@ -136,6 +161,7 @@ jobs:
           [ "${{ steps.setup_php.outcome }}" = "failure" ] && failures+=("Setup PHP")
           [ "${{ steps.phpstan.outcome }}" = "failure" ] && failures+=("PHPStan")
           [ "${{ steps.public_booking_identity.outcome }}" = "failure" ] && failures+=("Public booking identity regressions")
+          [ "${{ steps.booking_availability.outcome }}" = "failure" ] && failures+=("Booking availability and concurrency regressions")
 
           if [ ${#failures[@]} -eq 0 ]; then
             echo "All static analysis steps completed successfully." >> "$GITHUB_STEP_SUMMARY"

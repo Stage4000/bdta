@@ -7,6 +7,7 @@
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/email_service.php';
 require_once '../backend/includes/google_calendar.php';
+require_once '../backend/includes/booking_availability.php';
 header('Content-Type: application/json');
 
 // Must be a logged-in portal client
@@ -199,89 +200,66 @@ if ($action === 'reschedule') {
     $new_date = trim(scalar_string($data['new_date'] ?? ''));
     $new_time = trim(scalar_string($data['new_time'] ?? ''));
 
-    // Validate date/time format
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $new_date)) {
-        echo json_encode(['error' => 'Invalid date format. Use YYYY-MM-DD.']);
-        exit;
-    }
-    if (!preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $new_time)) {
-        echo json_encode(['error' => 'Invalid time format. Use HH:MM.']);
-        exit;
-    }
+    $schedule_lock = null;
+    $reschedule_error = null;
     $new_time_hhmm = substr($new_time, 0, 5);
+    try {
+        $schedule_lock = new BookingScheduleLock($conn);
+        $conn->beginTransaction();
+        $lock_sql = $conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+        $stmt = $conn->prepare('SELECT * FROM bookings WHERE id = ?' . $lock_sql);
+        $stmt->execute([$booking_id]);
+        $current = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+        if ($current === [] || !in_array(array_string_value($current, 'status'), $allowed_statuses, true)
+            || array_string_value($current, 'appointment_date') !== array_string_value($booking, 'appointment_date')
+            || array_string_value($current, 'appointment_time') !== array_string_value($booking, 'appointment_time')
+            || array_int_value($current, 'appointment_type_id') !== array_int_value($booking, 'appointment_type_id')
+            || array_int_value($current, 'client_id') !== array_int_value($booking, 'client_id')) {
+            throw new RuntimeException('This appointment has changed. Please refresh your bookings.');
+        }
+        $stmt = $conn->prepare('SELECT COUNT(*) FROM appointment_pets WHERE booking_id = ?');
+        $stmt->execute([$booking_id]);
+        $pet_count = safe_int($stmt->fetchColumn());
+        $stmt = $conn->prepare('SELECT * FROM appointment_types WHERE id = ? AND is_active = 1');
+        $stmt->execute([array_int_value($booking, 'appointment_type_id')]);
+        $current_type = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+        $resource = bdta_booking_resource_config($current_type);
+        $slot_error = bdta_booking_slot_error($conn, array_int_value($booking, 'appointment_type_id'), $new_date, $new_time,
+            $booking_id, bdta_booking_resource_units($resource, $pet_count), max(1, array_int_value($current, 'duration_minutes', 60)),
+            ($current['admin_user_id'] ?? null) === null ? null : array_int_value($current, 'admin_user_id'));
+        if ($slot_error !== null) { throw new RuntimeException($slot_error); }
+        $old_date = $booking['appointment_date'];
+        $old_time = $booking['appointment_time'];
 
-    // Validate new date is in the future
-    $new_datetime = strtotime($new_date . ' ' . $new_time_hhmm);
-    if ($new_datetime === false || $new_datetime <= time()) {
-        echo json_encode(['error' => 'The new date and time must be in the future.']);
+        // Update booking with new date and time
+        $conn->prepare("
+            UPDATE bookings
+            SET appointment_date = ?, appointment_time = ?, status = 'confirmed', updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ")->execute([$new_date, $new_time_hhmm, $booking_id]);
+
+        // Log the change
+        $conn->prepare("
+            INSERT INTO booking_change_log
+                (booking_id, client_id, change_type, reason, old_date, old_time, new_date, new_time, initiated_by, ip_address)
+            VALUES (?, ?, 'reschedule', ?, ?, ?, ?, ?, 'client', ?)
+        ")->execute([$booking_id, $client_id, $reason ?: null, $old_date, $old_time, $new_date, $new_time_hhmm, $client_ip]);
+
+        // Activity log
+        logClientActivity($client_id, 'appointment_reschedule', "Rescheduled booking #{$booking_id} to {$new_date} {$new_time_hhmm}", $conn);
+
+        $conn->commit();
+    } catch (Throwable $e) {
+        if ($conn->inTransaction()) { $conn->rollBack(); }
+        $reschedule_error = $e instanceof RuntimeException && !($e instanceof PDOException)
+            ? $e->getMessage() : 'The appointment could not be rescheduled. Please try again.';
+    } finally {
+        $schedule_lock?->release();
+    }
+    if ($reschedule_error !== null) {
+        echo json_encode(['error' => $reschedule_error]);
         exit;
     }
-
-    // Enforce advance booking minimum on new slot
-    $apt_type_id = safe_int($booking['appointment_type_id'] ?? 0);
-    if ($apt_type_id > 0) {
-        $min_days = safe_int($booking['advance_booking_min_days'] ?? 0);
-        $max_days = safe_int($booking['advance_booking_max_days'] ?? 365);
-        $days_until = ($new_datetime - time()) / 86400;
-        if ($min_days > 0 && $days_until < $min_days) {
-            echo json_encode(['error' => "Appointments must be booked at least {$min_days} day(s) in advance."]);
-            exit;
-        }
-        if ($days_until > $max_days) {
-            echo json_encode(['error' => "Appointments cannot be booked more than {$max_days} day(s) in advance."]);
-            exit;
-        }
-    }
-
-    // Check the new slot isn't already taken by another confirmed/pending booking
-    // (for this appointment type; excludes the current booking being rescheduled)
-    // Use a PHP-computed end time so overlap checks stay consistent.
-    if ($apt_type_id > 0) {
-        $duration = safe_int($booking['apt_duration_minutes'] ?? ($booking['duration_minutes'] ?? 60));
-        // Use DateTime for safe end-time arithmetic (avoids integer overflow with strtotime)
-        $new_end_dt = new DateTime($new_date . ' ' . $new_time_hhmm . ':00');
-        $new_end_dt->modify("+{$duration} minutes");
-        $new_end_time = $new_end_dt->format('H:i:s');
-        // Fetch all bookings that start before our new appointment ends on the same date
-        $stmt = $conn->prepare("
-            SELECT appointment_time, duration_minutes FROM bookings
-            WHERE appointment_type_id = ?
-              AND appointment_date = ?
-              AND id != ?
-              AND status IN ('pending', 'confirmed')
-              AND appointment_time < ?
-        ");
-        $stmt->execute([$apt_type_id, $new_date, $booking_id, $new_end_time]);
-        $conflict = false;
-        $new_start_ts = strtotime($new_date . ' ' . $new_time_hhmm . ':00');
-        while (($row = assoc_row($stmt->fetch(PDO::FETCH_ASSOC))) !== []) {
-            // Compute existing booking's end time using DateTime for consistency
-            $existing_start = new DateTime($new_date . ' ' . substr(array_string_value($row, 'appointment_time'), 0, 8));
-            $existing_dur   = safe_int($row['duration_minutes'] ?? 60);
-            $existing_end   = clone $existing_start;
-            $existing_end->modify("+{$existing_dur} minutes");
-            // Overlap if existing_end > new_start (we already know existing_start < new_end from query)
-            if ($existing_end->getTimestamp() > $new_start_ts) {
-                $conflict = true;
-                break;
-            }
-        }
-        if ($conflict) {
-            echo json_encode(['error' => 'That time slot is not available. Please choose another time.']);
-            exit;
-        }
-    }
-
-    $old_date = $booking['appointment_date'];
-    $old_time = $booking['appointment_time'];
-
-    // Update booking with new date and time
-    $conn->prepare("
-        UPDATE bookings
-        SET appointment_date = ?, appointment_time = ?, status = 'confirmed', updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    ")->execute([$new_date, $new_time_hhmm, $booking_id]);
-
     // Update or remove the Google Calendar event
     if (!empty($booking['google_event_id'])) {
         // Build a synthetic booking row with updated date/time for calendar update
@@ -297,16 +275,6 @@ if ($action === 'reschedule') {
             $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
         }
     }
-
-    // Log the change
-    $conn->prepare("
-        INSERT INTO booking_change_log
-            (booking_id, client_id, change_type, reason, old_date, old_time, new_date, new_time, initiated_by, ip_address)
-        VALUES (?, ?, 'reschedule', ?, ?, ?, ?, ?, 'client', ?)
-    ")->execute([$booking_id, $client_id, $reason ?: null, $old_date, $old_time, $new_date, $new_time_hhmm, $client_ip]);
-
-    // Activity log
-    logClientActivity($client_id, 'appointment_reschedule', "Rescheduled booking #{$booking_id} to {$new_date} {$new_time_hhmm}", $conn);
 
     // Fetch updated booking row for emails
     $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");

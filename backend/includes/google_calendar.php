@@ -908,9 +908,10 @@ class GoogleCalendarIntegration {
      *
      * @param  string $date          Date string in Y-m-d format.
      * @param  int    $admin_user_id The admin user whose connected calendar is queried.
+     * @param list<string> $excluded_event_ids Identified website events already accounted for by booking rules.
      * @return array<int, array{start: string, end: string}>
      */
-    public static function getFreeBusy(string $date, int $admin_user_id): array {
+    public static function getFreeBusy(string $date, int $admin_user_id, array $excluded_event_ids = []): array {
         $access_token = self::getValidAccessToken($admin_user_id);
         if (!$access_token) {
             return [];
@@ -936,6 +937,11 @@ class GoogleCalendarIntegration {
             'items'    => [['id' => $calendar_id]],
         ];
 
+        // Anonymous free/busy windows cannot safely subtract an identified event.
+        if ($excluded_event_ids !== []) {
+            return self::busyPeriodsExcludingEvents($day_start->format(DateTime::RFC3339),
+                (clone $day_start)->modify('+1 day')->format(DateTime::RFC3339), $timezone, $calendar_id, $access_token, $admin_user_id, $token_row, $excluded_event_ids);
+        }
         $response = self::httpPost(
             'https://www.googleapis.com/calendar/v3/freeBusy',
             $request_body,
@@ -972,6 +978,62 @@ class GoogleCalendarIntegration {
     }
 
     /**
+     * @param list<array<string, mixed>> $events
+     * @param list<string> $excluded_event_ids
+     * @return list<array{start: string, end: string}>
+     */
+    public static function busyPeriodsFromEvents(array $events, array $excluded_event_ids, string $timezone): array {
+        $busy = [];
+        foreach ($events as $event) {
+            if (in_array(array_string_value($event, 'id'), $excluded_event_ids, true)
+                || array_string_value($event, 'status') === 'cancelled'
+                || array_string_value($event, 'transparency') === 'transparent') { continue; }
+            $start = assoc_row($event['start'] ?? []);
+            $end = assoc_row($event['end'] ?? []);
+            $start_time = array_string_value($start, 'dateTime');
+            $end_time = array_string_value($end, 'dateTime');
+            if ($start_time === '' && array_string_value($start, 'date') !== '') {
+                $start_time = (new DateTimeImmutable(array_string_value($start, 'date'), new DateTimeZone($timezone)))->format(DateTime::RFC3339);
+            }
+            if ($end_time === '' && array_string_value($end, 'date') !== '') {
+                $end_time = (new DateTimeImmutable(array_string_value($end, 'date'), new DateTimeZone($timezone)))->format(DateTime::RFC3339);
+            }
+            if ($start_time !== '' && $end_time !== '') { $busy[] = ['start' => $start_time, 'end' => $end_time]; }
+        }
+        return $busy;
+    }
+
+    /**
+     * @param list<string> $excluded_event_ids
+     * @param array<string, mixed>|null $token_row
+     * @return array<int, array{start: string, end: string}>
+     */
+    private static function busyPeriodsExcludingEvents(string $start, string $end, string $timezone, string $calendar_id, string $access_token, int $admin_user_id, ?array $token_row, array $excluded_event_ids): array {
+        $busy = [];
+        $page_token = '';
+        do {
+            $params = [
+                'timeMin' => $start,
+                'timeMax' => $end,
+                'timeZone' => $timezone, 'singleEvents' => 'true', 'maxResults' => 2500,
+            ];
+            if ($page_token !== '') { $params['pageToken'] = $page_token; }
+            $response = self::httpGet('https://www.googleapis.com/calendar/v3/calendars/'
+                . rawurlencode($calendar_id) . '/events?' . http_build_query($params), ['Authorization: Bearer ' . $access_token]);
+            if (self::consumeLastHttpErrorResponse() !== [] || !empty($response['error']) || !isset($response['items']) || !is_array($response['items'])) {
+                self::createOAuthFailureNotification($admin_user_id, $token_row);
+                // Preserve the existing best-effort Calendar policy; do not
+                // use a partial page as if it were a complete availability check.
+                return [];
+            }
+            $busy = array_merge($busy, self::busyPeriodsFromEvents(assoc_rows($response['items']), $excluded_event_ids, $timezone));
+            $page_token = array_string_value($response, 'nextPageToken');
+        } while ($page_token !== '');
+        self::clearOAuthFailureNotifications($admin_user_id);
+        return $busy;
+    }
+
+    /**
      * Query Google Calendar free/busy for a DATE RANGE in a single API call.
      *
      * Returns all busy windows across the range as a flat array:
@@ -983,9 +1045,10 @@ class GoogleCalendarIntegration {
      * @param  string $start_date     First date of the range (Y-m-d).
      * @param  string $end_date       Last date of the range  (Y-m-d, inclusive).
      * @param  int    $admin_user_id  The admin whose connected calendar is queried.
+     * @param list<string> $excluded_event_ids
      * @return array<int, array{start: string, end: string}>
      */
-    public static function getFreeBusyRange(string $start_date, string $end_date, int $admin_user_id): array {
+    public static function getFreeBusyRange(string $start_date, string $end_date, int $admin_user_id, array $excluded_event_ids = []): array {
         $access_token = self::getValidAccessToken($admin_user_id);
         if (!$access_token) {
             return [];
@@ -1011,6 +1074,10 @@ class GoogleCalendarIntegration {
             'items'    => [['id' => $calendar_id]],
         ];
 
+        if ($excluded_event_ids !== []) {
+            return self::busyPeriodsExcludingEvents($range_start->format(DateTime::RFC3339),
+                (clone $range_end)->modify('+1 second')->format(DateTime::RFC3339), $timezone, $calendar_id, $access_token, $admin_user_id, $token_row, $excluded_event_ids);
+        }
         $response = self::httpPost(
             'https://www.googleapis.com/calendar/v3/freeBusy',
             $request_body,
@@ -1101,6 +1168,8 @@ class GoogleCalendarIntegration {
         self::$last_http_error_message = '';
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
         curl_setopt($ch, CURLOPT_POST, true);
         if ($json) {
             $body = scalar_string(json_encode($data));
@@ -1135,6 +1204,8 @@ class GoogleCalendarIntegration {
         self::$last_http_error_message = '';
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
         if (!empty($headers)) {
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
