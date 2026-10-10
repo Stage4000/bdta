@@ -849,6 +849,10 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $location = null;
         $location_type = trim(array_string_value($data, 'location_type'));
         $location_value = trim(array_string_value($data, 'location_value'));
+        $submitted_client_address = trim(array_string_value($data, 'client_address'));
+        $resolved_client_address = '';
+        $overwrite_profile = filter_var($data['overwrite_profile'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $should_persist_client_address = false;
         $allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
         $appointment_type_admin_user_id = 0;
 
@@ -923,43 +927,43 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                 return ['error' => $location_type === 'webcall' ? 'Webcall URL is required.' : 'Custom address is required.'];
             }
             if ($location_type === 'client_address') {
-                $form_provided_address = trim(array_string_value($data, 'client_address'));
-                // Interpret overwrite_profile flag from the request; defaults to false when not provided.
-                $overwrite_profile = filter_var($data['overwrite_profile'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                if ($submitted_client_address !== '' && mb_strlen($submitted_client_address) > 500) {
+                    return ['error' => 'The address provided is too long. Please keep it under 500 characters.'];
+                }
 
-                // Resolve stored client address, if this is an existing client.
-                $resolved_address = '';
                 if ($client_id > 0) {
                     $stmt = $conn->prepare("SELECT address FROM clients WHERE id = ?");
                     $stmt->execute([$client_id]);
                     $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
-                    $resolved_address = trim(array_string_value($client_row, 'address'));
+                    $resolved_client_address = trim(array_string_value($client_row, 'address'));
                 }
 
                 if ($client_id === 0) {
                     // New client: require an address in the form and use it for this booking.
-                    if (!empty($form_provided_address)) {
-                        $location = $form_provided_address;
+                    if (!empty($submitted_client_address)) {
+                        $location = $submitted_client_address;
                     } else {
                         return ['error' => 'An address is required for this booking. Please provide your address in the booking form.'];
                     }
                 } else {
                     // Existing client.
-                    if ($resolved_address === '') {
-                        if ($form_provided_address === '') {
+                    if ($resolved_client_address === '') {
+                        if ($submitted_client_address === '') {
                             // No stored address and none provided in the form.
                             return ['error' => 'Your account does not have an address on file. Please update your profile or choose a different location type.'];
                         }
 
                         // Existing client without a stored address: use the form-provided one.
-                        $location = $form_provided_address;
-                    } elseif ($overwrite_profile && $form_provided_address !== '') {
+                        $location = $submitted_client_address;
+                        $should_persist_client_address = true;
+                    } elseif ($overwrite_profile && $submitted_client_address !== '') {
                         // Client agreed to overwrite profile: use the new form address.
-                        $location = $form_provided_address;
+                        $location = $submitted_client_address;
+                        $should_persist_client_address = true;
                     } else {
                         // Existing client with a stored address: keep using it when no replacement address was provided
                         // or the client declined overwriting their saved profile address.
-                        $location = $resolved_address;
+                        $location = $resolved_client_address;
                     }
                 }
             } else {
@@ -1365,6 +1369,17 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
                     }
                 }
             }
+        }
+
+        if ($should_persist_client_address && $client_id > 0 && $submitted_client_address !== '') {
+            $conn->prepare("UPDATE clients SET address = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                ->execute([$submitted_client_address, $client_id]);
+            logClientActivity(
+                $client_id,
+                'profile_update_from_booking',
+                "Client address updated during registered-address booking #{$booking_id}",
+                $conn
+            );
         }
 
         $workflow_helper->checkAppointmentTriggers(scalar_string($booking_id));
