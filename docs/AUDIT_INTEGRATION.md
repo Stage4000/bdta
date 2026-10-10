@@ -13,6 +13,7 @@ heads without modifying their source branches:
 | P1 refund retries | [#581](https://github.com/Stage4000/bdta/pull/581) | `5a7c309f672ddda3b5734a249b093bde339f22d9` |
 | C1 offline checkout retries | [#582](https://github.com/Stage4000/bdta/pull/582) | `dabe90ec7a351fba82f3dcddf430159d23bca5ae` |
 | P2/P3 invoice settlement/fulfillment | [#583](https://github.com/Stage4000/bdta/pull/583) | `e781bbb337c6455a457b267bf51196e98c07eaee` |
+| B2/B4/S5 booking/reschedule availability | [#584](https://github.com/Stage4000/bdta/pull/584) | `4f6dccb692e6e89bd03e0d5cfd571b1743a1accc` |
 
 The only merge conflicts were in CI and test documentation. All survey, reminder,
 booking-ownership, pet-file and invoice-payment regression groups and failure
@@ -22,11 +23,13 @@ identity in the original purchase transaction; settling its unpaid invoice then
 reuses that purchase. Existing identities are checked before validating today's
 package definition. Other runtime files retain their reviewed contents.
 Test-harness adjustments remove an unnecessary PHP 8.5-deprecated reflection call,
-load shared PDO where Linux requires it, and accommodate the new fulfillment table
+load shared PDO/MySQL-native-driver dependencies where Linux requires them, and accommodate the new fulfillment table
 in the legacy/SQLite fixtures. CI adds a disposable MariaDB service for the four
 MySQL repair suites, the cross-fix regression and invoice concurrency cases.
-B2/B3 remain separate; later reviewed heads
-can be merged into this branch and their overlaps retested before inclusion.
+The availability head descends from B1, which is retained only once. Its runtime
+and tests retain their reviewed contents; CI uses the same disposable service for
+its separate random scheduling schemas. B3/S6 remains separate; its reviewed head
+can be merged later and the cancellation/credit transaction overlaps retested.
 
 ## Runtime manifest
 
@@ -39,11 +42,15 @@ can be merged into this branch and their overlaps retested before inclusion.
 | P1 | `backend/includes/invoice_refund_operation.php`, `backend/includes/stripe_config.php`, `client/invoices_view.php` |
 | C1 | `backend/includes/package_checkout.php`, `client/package_detail.php` |
 | P2/P3 | `backend/includes/invoice_payment.php`, `client/invoices_payment.php`, `portal/invoice_pay_return.php` |
+| B2/B4/S5 | `backend/includes/booking_availability.php`, `backend/includes/google_calendar.php`, `backend/public/api_bookings.php`, `portal/api_book_credit.php`, `portal/api_appointments.php` |
 
 Storage configuration/example and ignore rules accompany U1. No shared auth,
 CSRF, survey or reminder runtime helper is changed by this integration.
 Existing MySQL runtime and PHP PDO/extensions remain required. Refund serialization
 uses MySQL/MariaDB `GET_LOCK` on the same connection through provider/local completion.
+Booking and client reschedule checks/writes share a separate MySQL schedule lock;
+the availability repair adds no database schema. Existing manual admin overrides
+remain available. External Calendar updates are not protected by the website lock.
 U1 requires a PHP-writable `PET_FILES_DIRECTORY` outside **every** served root/alias;
 the default is `bdta-private/pets` beside the application directory.
 
@@ -116,6 +123,10 @@ The focused tests are `test_legacy_package_schema_preservation.php`,
 `test_invoice_payment_atomicity.php`, `test_invoice_payment_concurrency.php` and
 `test_package_checkout_invoice_settlement.php`. The cross-fix regression covers
 manual/online settlement, changed definitions, replay and marker-write rollback.
+The availability regression scripts are `test_booking_availability.php`,
+`test_booking_schedule_concurrency.php` and
+`test_admin_reschedule_google_calendar_override.php`; concurrent scheduling uses
+new random MySQL schemas and independent loopback HTTP workers.
 Survey/reminder regressions also run
 against the combined candidate. Opt-in database tests must use disposable loopback
 schemas, never application data; the individual test headers document variables.
