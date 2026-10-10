@@ -12,6 +12,8 @@ $case = $argv[1] ?? '';
 if ($case === '') {
     $failed = false;
     foreach ($cases as $test_case) {
+        // No shell is invoked: executable/file are fixed and cases come from the literal list above.
+        // nosemgrep: php.lang.security.exec-use.exec-use
         $process = proc_open([PHP_BINARY, '-d', 'display_errors=stderr', '-d', 'allow_url_fopen=0',
             '-d', 'disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect,exec,shell_exec,system,passthru,popen,proc_open,imap_open',
             __FILE__, $test_case], [
