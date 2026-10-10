@@ -211,6 +211,16 @@ jobs:
           php tests/test_pet_file_paths.php
           python tests/test_pet_files_http.py
 
+      - name: Run booking credit atomicity regressions
+        id: booking_credit_atomicity
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          BDTA_CREDIT_TEST_PORT: '3307'
+          BDTA_CREDIT_TEST_USER: root
+          BDTA_CREDIT_TEST_PASSWORD: synthetic-audit-fixture
+        run: php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_booking_credit_atomicity.php
+
       - name: Summarize static analysis results
         if: ${{ always() }}
         run: |
@@ -234,6 +244,7 @@ jobs:
           [ "${{ steps.invoice_payment.outcome }}" = "failure" ] && failures+=("Invoice payment regressions")
 
           [ "${{ steps.booking_availability.outcome }}" = "failure" ] && failures+=("Booking availability and concurrency regressions")
+          [ "${{ steps.booking_credit_atomicity.outcome }}" = "failure" ] && failures+=("Booking credit atomicity regressions")
 
           if [ ${#failures[@]} -eq 0 ]; then
             echo "All static analysis steps completed successfully." >> "$GITHUB_STEP_SUMMARY"
