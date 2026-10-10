@@ -807,8 +807,9 @@ function api_booking_slot_conflicts_with_rows(
  * @return array<string, mixed>
  */
 function api_booking_create_booking(SafePDO $conn, array $data): array {
+    $mapped_emails = [];
     if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
-        $mapped_form_values = api_booking_extract_profile_mapped_form_values($conn, $data['form_responses']);
+        $mapped_form_values = api_booking_extract_profile_mapped_form_values($conn, $data['form_responses'], $mapped_emails);
         foreach ($mapped_form_values as $key => $value) {
             if (array_string_value($data, $key) === '') {
                 $data[$key] = $value;
@@ -840,10 +841,29 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         if (!filter_var($client_email, FILTER_VALIDATE_EMAIL)) {
             return ['error' => 'Invalid email format for client_email'];
         }
+        // Every email mapping must agree before any client, booking, or form writes.
+        foreach ($mapped_emails as $mapped_email) {
+            if (strcasecmp($mapped_email, $client_email) !== 0) {
+                return ['error' => 'Please use the same email address throughout your booking details.'];
+            }
+        }
 
-        $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
-        $stmt->execute([$client_email]);
-        $existing_client = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+        // Email is intake data, not proof of ownership. Resolve the session owner first,
+        // including when several legacy client records share an email address.
+        $portal_client_id = isPortalLoggedIn() ? portalClientId() : 0;
+        $existing_client = [];
+        if ($portal_client_id > 0) {
+            $stmt = $conn->prepare("SELECT id FROM clients WHERE id = ? AND email = ? AND COALESCE(is_archived, 0) = 0");
+            $stmt->execute([$portal_client_id, $client_email]);
+            $existing_client = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
+        }
+        if ($existing_client === []) {
+            $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ? LIMIT 1");
+            $stmt->execute([$client_email]);
+            if ($stmt->fetch(PDO::FETCH_ASSOC)) {
+                return ['error' => 'Please verify your booking details by signing in to the client portal, or contact us for assistance.'];
+            }
+        }
         $client_id = $existing_client !== [] ? array_int_value($existing_client, 'id') : 0;
 
         $location = null;
@@ -1031,8 +1051,6 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
             ));
             $requested_pet_ids = array_slice($requested_pet_ids, 0, 100);
         }
-        $portal_client_id = isPortalLoggedIn() ? portalClientId() : 0;
-
         if ($requested_pet_ids !== [] && $client_id > 0 && $portal_client_id === $client_id) {
             $placeholders = implode(', ', array_fill(0, count($requested_pet_ids), '?'));
             // nosemgrep: php.doctrine.security.audit.doctrine-dbal-dangerous-query.doctrine-dbal-dangerous-query, php.lang.security.injection.tainted-sql-string.tainted-sql-string -- placeholder count comes from safe_int()-sanitized positive pet IDs and every value is bound separately.
@@ -1628,9 +1646,10 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
 
 /**
  * @param array<int|string, mixed> $form_responses
+ * @param list<string> $mapped_emails
  * @return array<string, string>
  */
-function api_booking_extract_profile_mapped_form_values(SafePDO $conn, array $form_responses): array {
+function api_booking_extract_profile_mapped_form_values(SafePDO $conn, array $form_responses, array &$mapped_emails = []): array {
     $mapped_values = [];
     $template_ids = [];
 
@@ -1683,6 +1702,9 @@ function api_booking_extract_profile_mapped_form_values(SafePDO $conn, array $fo
                 continue;
             }
 
+            if ($mapping === 'client.email' && filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                $mapped_emails[] = $value;
+            }
             if ($mapping === 'client.name' && !isset($mapped_values['client_name'])) {
                 $mapped_values['client_name'] = $value;
             } elseif ($mapping === 'client.email' && !isset($mapped_values['client_email'])) {
@@ -1721,11 +1743,11 @@ function api_booking_should_respect_google_calendar(array $input): bool
 }
 
 if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits') {
-    // Check available credits for a client email + appointment type
+    // Credit details belong only to the active authenticated portal owner.
     $email = scalar_string($_GET['email'] ?? '');
     $appointment_type_id = isset($_GET['appointment_type_id']) ? safe_int($_GET['appointment_type_id']) : 0;
 
-    if (!$email || !$appointment_type_id) {
+    if (!$email || !$appointment_type_id || !isPortalLoggedIn() || portalClientId() <= 0) {
         echo json_encode(['credits' => []]);
         exit;
     }
@@ -1733,9 +1755,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $db = new Database();
     $conn = $db->getConnection();
 
-    // Look up client by email
-    $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
-    $stmt->execute([$email]);
+    $stmt = $conn->prepare("SELECT id FROM clients WHERE id = ? AND email = ? AND COALESCE(is_archived, 0) = 0");
+    $stmt->execute([portalClientId(), $email]);
     $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
 
     if ($client_row === []) {
@@ -1766,13 +1787,11 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     exit;
 
 } elseif ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'profile') {
-    // Look up current client+pet profiles by email and dog names for pre-submit conflict detection.
-    // Only returns data that the user themselves would have on file; no auth required because
-    // the caller must supply the correct email to get any data back.
+    // Prefill and conflict detection may read only the active authenticated owner's profile.
     $email      = trim(scalar_string($_GET['email'] ?? ''));
     $dog_names_raw = trim(scalar_string($_GET['dog_names'] ?? ''));
 
-    if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL) || !isPortalLoggedIn() || portalClientId() <= 0) {
         echo json_encode(['client' => null, 'pets' => []]);
         exit;
     }
@@ -1780,8 +1799,8 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
     $db   = new Database();
     $conn = $db->getConnection();
 
-    $stmt = $conn->prepare("SELECT id, name, email, phone, address FROM clients WHERE email = ?");
-    $stmt->execute([$email]);
+    $stmt = $conn->prepare("SELECT id, name, email, phone, address FROM clients WHERE id = ? AND email = ? AND COALESCE(is_archived, 0) = 0");
+    $stmt->execute([portalClientId(), $email]);
     $client_row = api_booking_db_row($stmt->fetch(PDO::FETCH_ASSOC));
 
     if ($client_row === []) {
