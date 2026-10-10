@@ -1,5 +1,5 @@
 <?php
-// Run only with php -n: the cURL extension must be absent and socket functions disabled.
+// Run only with the private test ini: cURL must be absent and sockets disabled.
 if (extension_loaded('curl') || ini_get('allow_url_fopen') !== '0') {
     throw new RuntimeException('Refund fixture requires network-disabled PHP without cURL');
 }

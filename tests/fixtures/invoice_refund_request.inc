@@ -1,7 +1,8 @@
 <?php
 require __DIR__ . '/invoice_refund_fake.inc';
-$request = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
-$root = dirname(__DIR__, 2);
+$request = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+$root = getenv('BDTA_REFUND_TEST_ROOT');
+if (!is_string($root) || !is_file($root . '/client/invoices_view.php')) throw new RuntimeException('Missing isolated test source');
 $_SERVER['REQUEST_METHOD'] = empty($request['post']) ? 'GET' : 'POST';
 $_SERVER['SCRIPT_NAME'] = '/client/invoices_view.php';
 $_SERVER['REQUEST_URI'] = '/client/invoices_view.php?id=' . $request['id'];

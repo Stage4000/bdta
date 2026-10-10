@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 // Use a disposable MySQL schema. Every provider request goes to the local fake in a
-// separate php -n process; cURL is absent and network stream functions are disabled.
+// separate process with a private ini; cURL is absent and network streams disabled.
 if (getenv('BDTA_REFUND_TEST_DISPOSABLE') !== '1' || getenv('DB_HOST') !== '127.0.0.1'
     || preg_match('/^bdta_(?:p1|refund_test)_[a-z0-9_]+$/', scalar_string_test(getenv('DB_NAME'))) !== 1) {
     fwrite(STDERR, "Refund tests require explicit BDTA_REFUND_TEST_DISPOSABLE=1 and a disposable localhost bdta_p1_* or bdta_refund_test_* schema.\n");
@@ -12,7 +12,15 @@ require_once dirname(__DIR__) . '/backend/includes/config.php';
 require_once dirname(__DIR__) . '/backend/includes/invoice_status.php';
 $conn = (new Database())->getConnection();
 $directory = sys_get_temp_dir() . '/bdta-refund-' . bin2hex(random_bytes(8));
-mkdir($directory);
+mkdir($directory, 0700);
+mkdir($directory . '/empty_ini', 0700);
+copy(__DIR__ . '/fixtures/invoice_refund_request.inc', $directory . '/request.inc');
+copy(__DIR__ . '/fixtures/invoice_refund_fake.inc', $directory . '/invoice_refund_fake.inc');
+$extensions = PHP_OS_FAMILY === 'Windows' ? ['php_pdo_mysql.dll', 'php_mbstring.dll', 'php_openssl.dll', 'php_fileinfo.dll'] : ['pdo_mysql', 'mbstring', 'fileinfo'];
+$private_ini = 'extension_dir="' . ini_get('extension_dir') . '"' . PHP_EOL;
+foreach ($extensions as $extension) $private_ini .= 'extension=' . $extension . PHP_EOL;
+$private_ini .= "allow_url_fopen=0\ndisable_functions=mail,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect,exec,shell_exec,system,passthru,popen,proc_open\n";
+file_put_contents($directory . '/php.ini', $private_ini);
 $store = $directory . '/provider.json';
 putenv('BDTA_REFUND_FAKE_STORE=' . $store);
 file_put_contents($store, '{"refunds":[],"calls":[]}');
@@ -44,16 +52,15 @@ function refundFakeMode(string $mode): void {
  */
 function refundStartRequest(int $id, array $post = [], string $role = 'main'): array {
     global $directory;
-    $request = $directory . '/request-' . bin2hex(random_bytes(4)) . '.json';
-    file_put_contents($request, json_encode(['id' => $id, 'post' => $post, 'admin_id' => 1, 'role' => $role], JSON_THROW_ON_ERROR));
-    $command = [PHP_BINARY, '-n', '-d', 'extension_dir=' . ini_get('extension_dir'), '-d', 'extension=php_pdo_mysql.dll', '-d', 'extension=php_mbstring.dll', '-d', 'extension=php_openssl.dll', '-d', 'extension=php_fileinfo.dll', '-d', 'allow_url_fopen=0', '-d', 'disable_functions=mail,fsockopen,pfsockopen,stream_socket_client,socket_create', __DIR__ . '/fixtures/invoice_refund_request.inc', $request];
-    if (PHP_OS_FAMILY !== 'Windows') {
-        $command = array_map(static fn(string $arg): string => str_replace(['php_pdo_mysql.dll', 'php_mbstring.dll', 'php_openssl.dll', 'php_fileinfo.dll'], ['pdo_mysql', 'mbstring', 'openssl', 'fileinfo'], $arg), $command);
-        // OpenSSL is built in on most Unix PHP builds.
-        $command = array_values(array_filter($command, static fn(string $arg): bool => $arg !== 'extension=openssl'));
-    }
-    $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    // Literal command and private working directory: request data goes only to
+    // stdin, never through command interpolation. Empty ini scan directory keeps
+    // the provider transport absent even when the host normally enables cURL.
+    $environment = getenv();
+    $environment['PHP_INI_SCAN_DIR'] = $directory . '/empty_ini';
+    $environment['BDTA_REFUND_TEST_ROOT'] = dirname(__DIR__);
+    $process = proc_open('php -c php.ini request.inc', [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $directory, $environment);
     if (!is_resource($process)) throw new RuntimeException('Unable to start refund request');
+    fwrite($pipes[0], json_encode(['id' => $id, 'post' => $post, 'admin_id' => 1, 'role' => $role], JSON_THROW_ON_ERROR));
     fclose($pipes[0]);
     return [$process, $pipes];
 }
@@ -77,6 +84,13 @@ function refundInvoice(): int {
     $token = bin2hex(random_bytes(8));
     $conn->prepare("INSERT INTO invoices(invoice_number,client_id,issue_date,due_date,subtotal,total_amount,status,payment_method,stripe_payment_intent_id) VALUES(?,?,CURRENT_DATE,CURRENT_DATE,100,100,'paid','stripe',?)")->execute(['REFUND-' . $token, $client_id, 'pi_fake_' . $token]);
     return safe_int($conn->lastInsertId());
+}
+function refundReleaseProviderHold(): void {
+    global $directory;
+    $previous_directory = getcwd();
+    if ($previous_directory === false || !chdir($directory)) throw new RuntimeException('Unable to enter private fixture directory');
+    try { if (file_exists('provider-hold')) unlink('provider-hold'); }
+    finally { chdir($previous_directory); }
 }
 try {
     Settings::set('stripe_enabled', true); Settings::set('stripe_test_secret_key', 'sk_fake_local_only'); Settings::set('stripe_mode', 'test');
@@ -129,7 +143,7 @@ try {
         if (safe_int($waiting->fetchColumn()) > 0) { $contending = true; break; }
         usleep(10000);
     }
-    unlink($hold);
+    refundReleaseProviderHold();
     refundFinishRequest($first); refundFinishRequest($second);
     $state = refundProviderState(); unset($state['hold_file']); file_put_contents($store, json_encode($state, JSON_THROW_ON_ERROR));
     refundAssert($contending, true, 'second worker waits on the invoice lock during the provider persistence gap');
@@ -231,7 +245,7 @@ try {
     refundAssert(count(refundProviderState()['calls']), $before, 'CSRF, accountant restrictions and over-refunds make no provider calls');
     echo "All $checks refund retry checks passed\n";
 } finally {
-    if (file_exists($directory . '/provider-hold')) unlink($directory . '/provider-hold');
+    refundReleaseProviderHold();
     $conn->exec('DROP TRIGGER IF EXISTS p1_refund_fault');
     foreach (['p1_identity_fault', 'p1_completion_fault', 'p1_intent_fault', 'p1_attempt_fault'] as $trigger) $conn->exec('DROP TRIGGER IF EXISTS ' . $trigger);
     if ($client_id > 0) {
@@ -239,6 +253,12 @@ try {
         $conn->prepare('DELETE FROM clients WHERE id = ?')->execute([$client_id]);
     }
     foreach ($original_settings as $setting => $value) Settings::set($setting, $value);
-    foreach (glob($directory . '/*') ?: [] as $file) unlink($file);
+    $previous_directory = getcwd();
+    if ($previous_directory === false || !chdir($directory)) throw new RuntimeException('Unable to clean private fixture directory');
+    try {
+        unlink('provider.json'); unlink('php.ini'); unlink('request.inc'); unlink('invoice_refund_fake.inc');
+        if (file_exists('provider-hold.entered')) unlink('provider-hold.entered');
+        rmdir('empty_ini');
+    } finally { chdir($previous_directory); }
     rmdir($directory);
 }

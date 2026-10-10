@@ -52,9 +52,11 @@ currency changes deliberately require review while the provider ID is unknown.
 Run `tests/test_invoice_refund_retry.php` with `BDTA_REFUND_TEST_DISPOSABLE=1`,
 `DB_HOST=127.0.0.1`, an explicitly disposable `bdta_p1_*` or
 `bdta_refund_test_*` schema, the normal MySQL test configuration and `pdo_mysql`
-available. It refuses to bootstrap without that opt-in. It launches workers with
-`php -n`, no cURL extension, disabled URL streams and disabled network socket/mail
-functions. The `.inc` fixtures implement an in-process provider fake only; they
+available and PHP on PATH. It refuses to bootstrap without that opt-in. Workers
+use a fixed launcher, request data over stdin, a private ini with an empty extra
+ini scan directory, no cURL extension, and disabled URL/socket/mail/command
+functions. Cleanup deletes only fixed filenames in the private fixture directory.
+The `.inc` fixtures implement an in-process provider fake only; they
 reject all endpoints except refund creation and read-only refund listing.
 The test uses synthetic `example.test` data, restores Stripe settings, removes
 its own fixtures and never requires a provider account or credentials.
