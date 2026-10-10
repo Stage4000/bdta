@@ -122,6 +122,15 @@ jobs:
           php tests/test_booking_action_links.php
           php tests/test_public_portal_return_links.php
 
+      - name: Run public booking identity regressions
+        id: public_booking_identity
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          php tests/test_public_booking_identity.php
+          php tests/test_registered_address_booking_regression.php
+          php tests/test_portal_credit_booking_pet_overwrite_followups.php
+
       - name: Run PHPStan
         id: phpstan
         if: ${{ always() }}
@@ -147,6 +156,7 @@ jobs:
           [ "${{ steps.phpstan.outcome }}" = "failure" ] && failures+=("PHPStan")
           [ "${{ steps.survey_integrity.outcome }}" = "failure" ] && failures+=("Survey integrity regressions")
           [ "${{ steps.reminder_login.outcome }}" = "failure" ] && failures+=("Reminder login regressions")
+          [ "${{ steps.public_booking_identity.outcome }}" = "failure" ] && failures+=("Public booking identity regressions")
 
           if [ ${#failures[@]} -eq 0 ]; then
             echo "All static analysis steps completed successfully." >> "$GITHUB_STEP_SUMMARY"
