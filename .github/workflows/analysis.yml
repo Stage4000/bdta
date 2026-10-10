@@ -101,6 +101,16 @@ jobs:
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_sqlite
+
+      - name: Run reminder login regressions
+        id: reminder_login
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          php tests/test_portal_reminder_login.php
+          php tests/test_booking_action_links.php
+          php tests/test_public_portal_return_links.php
 
       - name: Run PHPStan
         id: phpstan
@@ -125,6 +135,7 @@ jobs:
           [ "${{ steps.semgrep.outcome }}" = "failure" ] && failures+=("Semgrep")
           [ "${{ steps.setup_php.outcome }}" = "failure" ] && failures+=("Setup PHP")
           [ "${{ steps.phpstan.outcome }}" = "failure" ] && failures+=("PHPStan")
+          [ "${{ steps.reminder_login.outcome }}" = "failure" ] && failures+=("Reminder login regressions")
 
           if [ ${#failures[@]} -eq 0 ]; then
             echo "All static analysis steps completed successfully." >> "$GITHUB_STEP_SUMMARY"
