@@ -313,8 +313,8 @@ try {
     if ($slot_error !== null) { throw new RuntimeException($slot_error); }
     $appointment_time = substr($appointment_time, 0, 5);
     $conn->beginTransaction();
-    $lock_sql = $conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
-    $stmt = $conn->prepare('SELECT id FROM clients WHERE id = ?' . $lock_sql);
+    $stmt = $conn->prepare($conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+        ? 'SELECT id FROM clients WHERE id = ? FOR UPDATE' : 'SELECT id FROM clients WHERE id = ?');
     $stmt->execute([$client_id]);
     if ($stmt->fetchColumn() === false) { throw new RuntimeException('Client profile is no longer available.'); }
     $pet_ids = api_booking_merge_pet_ids_with_profile_updates($conn, $client_id, $pet_ids, $pet_updates);

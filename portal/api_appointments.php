@@ -118,17 +118,20 @@ if ($action === 'cancel') {
     $cancel_error = null;
     try {
         $conn->beginTransaction();
-        $lock_sql = $conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+        $lock_rows = $conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
         // Email ownership may use another client record. Lock both owners in ID
         // order before booking/credit rows, matching booking creation's order.
         $original_owner_id = array_int_value($booking, 'client_id');
-        $stmt = $conn->prepare('SELECT id, email FROM clients WHERE id IN (?, ?) ORDER BY id' . $lock_sql);
+        $stmt = $conn->prepare($lock_rows
+            ? 'SELECT id, email FROM clients WHERE id IN (?, ?) ORDER BY id FOR UPDATE'
+            : 'SELECT id, email FROM clients WHERE id IN (?, ?) ORDER BY id');
         $stmt->execute([$client_id, $original_owner_id]);
         $current_email = '';
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $owner) {
             if (array_int_value($owner, 'id') === $client_id) { $current_email = array_string_value($owner, 'email'); }
         }
-        $stmt = $conn->prepare('SELECT * FROM bookings WHERE id = ?' . $lock_sql);
+        $stmt = $conn->prepare($lock_rows
+            ? 'SELECT * FROM bookings WHERE id = ? FOR UPDATE' : 'SELECT * FROM bookings WHERE id = ?');
         $stmt->execute([$booking_id]);
         $current = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
         if ($current === [] || array_int_value($current, 'client_id') !== $original_owner_id
@@ -160,19 +163,25 @@ if ($action === 'cancel') {
     // Refund package credit if applicable
     $pkg_credit_id = safe_int($booking['package_credit_id'] ?? 0);
     if ($pkg_credit_id > 0) {
-        $stmt = $conn->prepare('SELECT appointment_type_id, client_id FROM client_package_credits WHERE id = ?' . $lock_sql);
+        $stmt = $conn->prepare($lock_rows
+            ? 'SELECT appointment_type_id, client_id FROM client_package_credits WHERE id = ? FOR UPDATE'
+            : 'SELECT appointment_type_id, client_id FROM client_package_credits WHERE id = ?');
         $stmt->execute([$pkg_credit_id]);
         $cpc = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
         // A link alone does not prove a debit. Preserve unmatched historical rows.
-        $stmt = $conn->prepare("SELECT id FROM package_credit_transactions
+        $stmt = $conn->prepare($lock_rows ? "SELECT id FROM package_credit_transactions
             WHERE client_package_credit_id = ? AND booking_id = ? AND client_id = ?
-              AND appointment_type_id = ? AND transaction_type = 'consume' AND amount = -1" . $lock_sql);
+              AND appointment_type_id = ? AND transaction_type = 'consume' AND amount = -1 FOR UPDATE"
+            : "SELECT id FROM package_credit_transactions
+            WHERE client_package_credit_id = ? AND booking_id = ? AND client_id = ?
+              AND appointment_type_id = ? AND transaction_type = 'consume' AND amount = -1");
         $stmt->execute([$pkg_credit_id, $booking_id, array_int_value($booking, 'client_id'), array_int_value($booking, 'appointment_type_id')]);
         $consumed = $stmt->fetchColumn() !== false;
-        $stmt = $conn->prepare("
-            SELECT id FROM package_credit_transactions
+        $stmt = $conn->prepare($lock_rows ? "SELECT id FROM package_credit_transactions
+            WHERE client_package_credit_id = ? AND booking_id = ? AND transaction_type = 'refund' FOR UPDATE"
+            : "SELECT id FROM package_credit_transactions
             WHERE client_package_credit_id = ? AND booking_id = ? AND transaction_type = 'refund'
-        " . $lock_sql);
+        ");
         $stmt->execute([$pkg_credit_id, $booking_id]);
         $already_refunded = $stmt->fetchColumn() !== false;
         if ($cpc !== [] && $consumed && !$already_refunded
