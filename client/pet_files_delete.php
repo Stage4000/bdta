@@ -4,6 +4,7 @@
  */
 
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/pet_files.php';
 requireLogin();
 
 header('Content-Type: application/json');
@@ -15,6 +16,12 @@ $conn = $db->getConnection();
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    exit;
+}
+
+if (!is_string($_POST['csrf_token'] ?? null) || !isValidCsrfToken($_POST['csrf_token'])) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Invalid request. Please refresh and try again.']);
     exit;
 }
 
@@ -43,19 +50,21 @@ if (!$file) {
 }
 
 // Delete file from filesystem
-$file_path = __DIR__ . '/../backend/uploads/pets/' . $file['pet_id'] . '/' . $file['file_name'];
-$file_deleted = false;
-
-if (file_exists($file_path)) {
-    // file_path is scoped to the fixed pet uploads directory plus database-owned identifiers.
-    // nosemgrep
-    $file_deleted = unlink($file_path);
-} else {
-    // File doesn't exist on filesystem, but we'll still remove the database record
-    $file_deleted = true;
+try {
+    $file_path = bdta_pet_file_path(safe_int($file['pet_id']), scalar_string($file['file_name']));
+} catch (InvalidArgumentException | RuntimeException $e) {
+    http_response_code(404);
+    echo json_encode(['success' => false, 'message' => 'File not found']);
+    exit;
+}
+// nosemgrep: php.lang.security.unlink-use.unlink-use -- realpath validated inside authorized pet directory
+$file_deleted = $file_path === null || unlink($file_path);
+if (!$file_deleted) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Failed to delete file. Please try again.']);
+    exit;
 }
 
-// Delete record from database
 try {
     $stmt = $conn->prepare("DELETE FROM pet_files WHERE id = ?");
     $stmt->execute([$file_id]);
