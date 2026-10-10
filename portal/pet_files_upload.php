@@ -1,5 +1,6 @@
 <?php
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/pet_files.php';
 requirePortalLogin();
 
 header('Content-Type: application/json');
@@ -12,6 +13,12 @@ $conn = $db->getConnection();
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    exit;
+}
+
+if (!is_string($_POST['csrf_token'] ?? null) || !isValidCsrfToken($_POST['csrf_token'])) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Invalid request. Please refresh and try again.']);
     exit;
 }
 
@@ -96,24 +103,16 @@ if (!in_array($mime_type, $allowed_mime_types)) {
 
 $file_type = in_array($file_extension, ['jpg', 'jpeg', 'png', 'gif']) ? 'photo' : 'document';
 
-$upload_base_dir = __DIR__ . '/../backend/uploads/pets';
-$upload_pet_dir  = $upload_base_dir . '/' . $pet_id;
-
-if (!is_dir($upload_base_dir) && !mkdir($upload_base_dir, 0755, true)) {
+try {
+    $upload_pet_dir = bdta_pet_files_directory($pet_id, true);
+} catch (RuntimeException $e) {
+    error_log('Pet file storage error: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Failed to create upload directory']);
+    echo json_encode(['success' => false, 'message' => 'Unable to save uploaded file. Please contact support.']);
     exit;
 }
 
-// upload_pet_dir is built from a fixed base directory plus a validated integer pet ID.
-// nosemgrep
-if (!is_dir($upload_pet_dir) && !mkdir($upload_pet_dir, 0755, true)) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Failed to create pet upload directory']);
-    exit;
-}
-
-// unique_filename is server-generated and never derived from the uploaded original filename.
+// unique_filename is server-generated, never derived from the original filename.
 // nosemgrep
 $unique_filename = uniqid('pet_' . $pet_id . '_') . '.' . $file_extension;
 $file_path       = $upload_pet_dir . '/' . $unique_filename;

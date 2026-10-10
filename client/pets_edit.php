@@ -592,6 +592,7 @@ include '../backend/includes/header.php';
         const formData = new FormData();
         formData.append('file', file);
         formData.append('pet_id', petId);
+        formData.append('csrf_token', <?= json_encode(csrfToken()) ?>);
         formData.append('description', descriptionInput.value);
         
         fetch('pet_files_upload.php', {
@@ -633,6 +634,7 @@ include '../backend/includes/header.php';
         
         const formData = new FormData();
         formData.append('file_id', fileId);
+        formData.append('csrf_token', <?= json_encode(csrfToken()) ?>);
         
         fetch('pet_files_delete.php', {
             method: 'POST',
