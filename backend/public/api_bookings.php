@@ -650,6 +650,13 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $appointment_time = substr($appointment_time, 0, 5);
         $conn->beginTransaction();
 
+        if ($client_id > 0) {
+            $lock_sql = $conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $stmt = $conn->prepare('SELECT id FROM clients WHERE id = ?' . $lock_sql);
+            $stmt->execute([$client_id]);
+            if ($stmt->fetchColumn() === false) { throw new RuntimeException('Client profile is no longer available.'); }
+        }
+
         if ($client_id === 0) {
             $client_address = trim(array_string_value($data, 'client_address'));
             $stmt = $conn->prepare("
@@ -978,11 +985,21 @@ function api_booking_create_booking(SafePDO $conn, array $data): array {
         $workflow_helper->checkAppointmentTriggers(scalar_string($booking_id));
 
         if ($pkg_credit_id_to_use && !$is_pending_request) {
-            $conn->prepare("
+            $debit = $conn->prepare("
                 UPDATE client_package_credits
                 SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ")->execute([$pkg_credit_id_to_use]);
+                WHERE id = ? AND client_id = ? AND appointment_type_id = ?
+                  AND used_credits < total_credits
+                  AND EXISTS (
+                      SELECT 1 FROM client_packages cp
+                      WHERE cp.id = client_package_credits.client_package_id AND cp.is_active = 1
+                        AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+                  )
+            ");
+            $debit->execute([$pkg_credit_id_to_use, $client_id, $appointment_type_id_value]);
+            if ($debit->rowCount() !== 1) {
+                throw new RuntimeException('The selected credit is no longer available.');
+            }
 
             $apt_type_id_for_log = $appointment_type_id_value;
             $conn->prepare("

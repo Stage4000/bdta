@@ -313,6 +313,10 @@ try {
     if ($slot_error !== null) { throw new RuntimeException($slot_error); }
     $appointment_time = substr($appointment_time, 0, 5);
     $conn->beginTransaction();
+    $lock_sql = $conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+    $stmt = $conn->prepare('SELECT id FROM clients WHERE id = ?' . $lock_sql);
+    $stmt->execute([$client_id]);
+    if ($stmt->fetchColumn() === false) { throw new RuntimeException('Client profile is no longer available.'); }
     $pet_ids = api_booking_merge_pet_ids_with_profile_updates($conn, $client_id, $pet_ids, $pet_updates);
 
     // Distinguish between three cases sent by the client:
@@ -382,19 +386,6 @@ try {
         ")->execute([$booking_id, $pid]);
     }
 
-    // Commit the schedule-dependent booking/pet rows; credit/ledger work remains separate.
-    $conn->commit();
-} catch (Throwable $e) {
-    if ($conn->inTransaction()) { $conn->rollBack(); }
-    $booking_error = $e instanceof RuntimeException && !($e instanceof PDOException)
-        ? $e->getMessage() : 'Booking could not be created. Please try again.';
-} finally {
-    $schedule_lock?->release();
-}
-if ($booking_error !== null) {
-    echo json_encode(['error' => $booking_error]);
-    exit;
-}
 // ── Save form responses ───────────────────────────────────────────────────
 require_once '../backend/includes/workflow_helper.php';
 $workflow_helper = new WorkflowHelper($conn);
@@ -446,6 +437,15 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
 }
 
 // ── Apply profile mappings from form responses ────────────────────────────
+} catch (Throwable $e) {
+    if ($conn->inTransaction()) { $conn->rollBack(); }
+    $schedule_lock?->release();
+    $booking_error = $e instanceof RuntimeException && !($e instanceof PDOException)
+        ? $e->getMessage() : 'Booking could not be created. Please try again.';
+    echo json_encode(['error' => $booking_error]);
+    exit;
+}
+// Keep helper declarations at file scope. The same transaction continues below.
 function updateClientProfileField(PDO $conn, string $attr, string $value, int $client_id): bool {
     switch ($attr) {
         case 'name':
@@ -942,6 +942,7 @@ function api_booking_clone_conflicting_pets(PDO $conn, int $client_id, array $pe
     /** @var list<int> $pet_ids */
     return $pet_ids;
 }
+try {
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
     // Ordered list of pet IDs selected for this booking (0-based)
     $booking_pet_ids = $pet_ids;
@@ -1032,11 +1033,21 @@ $workflow_helper->checkAppointmentTriggers($booking_id);
 
 // ── Deduct credit ─────────────────────────────────────────────────────────
 if ($pkg_credit_id !== null && !$is_pending_request) {
-    $conn->prepare("
+    $debit = $conn->prepare("
         UPDATE client_package_credits
         SET used_credits = used_credits + 1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    ")->execute([$pkg_credit_id]);
+        WHERE id = ? AND client_id = ? AND appointment_type_id = ?
+          AND used_credits < total_credits
+          AND EXISTS (
+              SELECT 1 FROM client_packages cp
+              WHERE cp.id = client_package_credits.client_package_id AND cp.is_active = 1
+                AND (cp.expires_at IS NULL OR cp.expires_at > CURRENT_TIMESTAMP)
+          )
+    ");
+    $debit->execute([$pkg_credit_id, $client_id, $appointment_type_id]);
+    if ($debit->rowCount() !== 1) {
+        throw new RuntimeException('This credit is no longer available. Please refresh and try again.');
+    }
 
     $conn->prepare("
         INSERT INTO package_credit_transactions
@@ -1053,6 +1064,20 @@ if ($pkg_credit_id !== null && !$is_pending_request) {
 
 // ── Log activity ──────────────────────────────────────────────────────────
 logClientActivity($client_id, 'booking_created', 'Created booking #' . $booking_id . ' for ' . array_string_value($apt_type, 'name'), $conn);
+
+    // Booking, profile/form/workflow writes and the debit/ledger succeed together.
+    $conn->commit();
+} catch (Throwable $e) {
+    if ($conn->inTransaction()) { $conn->rollBack(); }
+    $booking_error = $e instanceof RuntimeException && !($e instanceof PDOException)
+        ? $e->getMessage() : 'Booking could not be created. Please try again.';
+} finally {
+    $schedule_lock->release();
+}
+if ($booking_error !== null) {
+    echo json_encode(['error' => $booking_error]);
+    exit;
+}
 
 $newsletter_opt_in_selected = false;
 if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
@@ -1103,12 +1128,16 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
 }
 
 if ($newsletter_opt_in_selected) {
+    try {
     $newsletter_result = bdta_subscribe_mailjet_contact_to_newsletter($client_email, $client_name);
     if (!$newsletter_result['success']) {
         error_log(
             'Mailjet newsletter opt-in failed for client portal booking #' . $booking_id . ': '
             . scalar_string($newsletter_result['message'])
         );
+    }
+    } catch (Throwable $e) {
+        error_log('Newsletter opt-in failed for client portal booking #' . $booking_id);
     }
 }
 
@@ -1132,17 +1161,26 @@ if (!$is_pending_request) {
     $ical_link       = bdta_get_public_booking_ical_url($conn, $booking_id, $booking['ical_token'] ?? null);
 }
 
-$email_service = new EmailService(null, $conn);
-$email_result  = $is_pending_request
-    ? $email_service->sendBookingRequest($booking)
-    : $email_service->sendBookingConfirmation($booking);
+$email_result = ['success' => false];
+try {
+    $email_service = new EmailService(null, $conn);
+    $email_result = $is_pending_request
+        ? $email_service->sendBookingRequest($booking)
+        : $email_service->sendBookingConfirmation($booking);
+} catch (Throwable $e) {
+    error_log('Confirmation email failed for client portal booking #' . $booking_id);
+}
 
 $gcal_result = ['success' => false];
 if (!$is_pending_request) {
+    try {
     $gcal_result = GoogleCalendarIntegration::addEventForBooking($booking);
     if (!empty($gcal_result['event_id'])) {
         $conn->prepare("UPDATE bookings SET google_event_id = ? WHERE id = ?")
              ->execute([$gcal_result['event_id'], $booking_id]);
+    }
+    } catch (Throwable $e) {
+        error_log('Google Calendar sync failed for client portal booking #' . $booking_id);
     }
 }
 
