@@ -78,6 +78,8 @@ try {
         (new ReflectionProperty(Database::class, 'sharedConnection'))->setValue(null, null);
         (new ReflectionProperty(Settings::class, 'db'))->setValue(null, null);
         unset($conn);
+        // CLI-only cleanup of the exact file created by tempnam() above; no request input.
+        // nosemgrep: php.lang.security.unlink-use.unlink-use
         unlink($temporary_file);
     }
 }
