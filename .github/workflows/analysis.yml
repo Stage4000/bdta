@@ -169,6 +169,15 @@ jobs:
           php tests/test_registered_address_booking_regression.php
           php tests/test_portal_credit_booking_pet_overwrite_followups.php
 
+      - name: Run invoice payment regressions
+        id: invoice_payment
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          php tests/test_invoice_settlement.php
+          php tests/test_invoice_payment_atomicity.php
+          php tests/test_invoice_payment_concurrency.php
+
       - name: Run PHPStan
         id: phpstan
         if: ${{ always() }}
@@ -205,6 +214,7 @@ jobs:
           [ "${{ steps.reminder_login.outcome }}" = "failure" ] && failures+=("Reminder login regressions")
           [ "${{ steps.public_booking_identity.outcome }}" = "failure" ] && failures+=("Public booking identity regressions")
           [ "${{ steps.pet_files.outcome }}" = "failure" ] && failures+=("Pet file regressions")
+          [ "${{ steps.invoice_payment.outcome }}" = "failure" ] && failures+=("Invoice payment regressions")
 
           if [ ${#failures[@]} -eq 0 ]; then
             echo "All static analysis steps completed successfully." >> "$GITHUB_STEP_SUMMARY"
