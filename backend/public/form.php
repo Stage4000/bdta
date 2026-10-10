@@ -305,8 +305,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = scalar_string($turnstile_result['error'] ?? 'Please confirm you are not a robot and try again.');
         }
 
-        $submission_id = safe_int($_POST['submission_id'] ?? 0);
-        $template_id = safe_int($_POST['template_id'] ?? 0);
+        // The URL/token lookup authorizes the request. Hidden fields only confirm it.
+        if (
+            safe_int($_POST['submission_id'] ?? 0) !== $submission_id
+            || safe_int($_POST['template_id'] ?? 0) !== $template_id
+        ) {
+            $errors[] = 'This form does not match the requested submission. Please refresh the page and try again.';
+        }
         $allow_posted_context = $submission_id === 0 && isLoggedIn();
         $client_id = $allow_posted_context ? safe_int($_POST['client_id'] ?? 0) : 0;
         $booking_id = $allow_posted_context ? safe_int($_POST['booking_id'] ?? 0) : 0;
@@ -394,97 +399,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Persist when no validation errors
         if (empty($errors)) {
-            // Resolve or create client
-            if ($submission_id > 0 && is_array($submission_row)) {
-                $client_id = array_int_value($submission_row, 'client_id');
-                $booking_id = array_int_value($submission_row, 'booking_id');
-            }
-
-            if ($client_id === 0) {
-                // Find by email or create new client record
-                $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
-                $stmt->execute([$contact_email]);
-                $existing = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($existing) {
-                    $client_id = array_int_value($existing, 'id');
-                } else {
-                    $stmt = $conn->prepare("
-                        INSERT INTO clients (name, email, phone, created_at, updated_at)
-                        VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    ");
-                    $stmt->execute([$contact_name, $contact_email, $contact_phone]);
-                    $client_id = (int) $conn->lastInsertId();
-                }
-            } else {
-                // Update stored contact info for the known client
-                $stmt_update = $conn->prepare("
-                    UPDATE clients
-                    SET name = ?, email = ?, phone = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                ");
-                $stmt_update->execute([$contact_name, $contact_email, $contact_phone, $client_id]);
-            }
-
-            // Save submission
-            $json_responses = json_encode($responses);
-            $submitted_by = isLoggedIn() ? safe_int($_SESSION['admin_id'] ?? 0) : 0;
-            if ($submission_id > 0 && is_array($submission_row)) {
-                $stmt = $conn->prepare("
-                    UPDATE form_submissions
-                    SET responses = ?, status = 'submitted', submitted_at = CURRENT_TIMESTAMP, submitted_by = ?
-                    WHERE id = ? AND status = 'pending'
-                ");
-                $stmt->execute([$json_responses, $submitted_by > 0 ? $submitted_by : null, $submission_id]);
-                $new_submission_id = $submission_id;
-            } else {
-                $stmt = $conn->prepare("
-                    INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at, submitted_by)
-                    VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP, ?)
-                ");
-                $stmt->execute([
-                    $client_id,
-                    $template_id,
-                    $booking_id > 0 ? $booking_id : null,
-                    $json_responses,
-                    $submitted_by > 0 ? $submitted_by : null,
-                ]);
-                $new_submission_id = (int) $conn->lastInsertId();
-            }
-
-            // Trigger any workflows attached to this form
-            $workflow_helper = new WorkflowHelper($conn);
+            $new_submission_id = 0;
             try {
-                $workflow_helper->checkFormTriggers($new_submission_id);
-            } catch (Throwable $e) {
-                error_log('Form submission workflow check failed for #' . $new_submission_id . ': ' . $e->getMessage());
-            }
-
-            public_form_sync_pet_info_group_profiles($conn, $client_id, $fields, $responses);
-
-            if (bdta_form_fields_include_newsletter_opt_in($fields, $responses)) {
-                $newsletter_result = bdta_subscribe_mailjet_contact_to_newsletter($contact_email, $contact_name);
-                if (!$newsletter_result['success']) {
-                    error_log(
-                        'Mailjet newsletter opt-in failed for form submission #' . $new_submission_id . ': '
-                        . scalar_string($newsletter_result['message'])
-                    );
+                $conn->beginTransaction();
+                // Coordinate with the template editor, including the first direct response.
+                $stmt_lock = $conn->prepare('SELECT * FROM form_templates WHERE id = ? FOR UPDATE');
+                $stmt_lock->execute([$template_id]);
+                $current_template = $stmt_lock->fetch(PDO::FETCH_ASSOC);
+                if (
+                    !is_array($current_template)
+                    || array_int_value($current_template, 'is_active') === 0
+                    || array_string_value($current_template, 'fields') !== array_string_value(is_array($template) ? $template : [], 'fields')
+                    || array_string_value($current_template, 'form_type', 'client_form') !== $template_form_type
+                    || (array_int_value($current_template, 'is_internal') !== 0 && !isLoggedIn())
+                ) {
+                    throw new RuntimeException('Form template changed before submission.');
                 }
+
+                $json_responses = json_encode($responses, JSON_THROW_ON_ERROR);
+                $submitted_by = isLoggedIn() ? safe_int($_SESSION['admin_id'] ?? 0) : 0;
+                if (is_array($submission_row)) {
+                    // Claim the authorized pending row before any contact/profile changes.
+                    // A stale request must not submit a rebound, revoked or completed invitation.
+                    $stmt = $conn->prepare("
+                        UPDATE form_submissions
+                        SET responses = ?, status = 'submitted', submitted_at = CURRENT_TIMESTAMP, submitted_by = ?
+                        WHERE id = ? AND template_id = ? AND client_id = ? AND status = 'pending'
+                          AND COALESCE(booking_id, 0) = ? AND COALESCE(pet_id, 0) = ?
+                          AND COALESCE(access_token, '') = ?
+                    ");
+                    $stmt->execute([
+                        $json_responses, $submitted_by > 0 ? $submitted_by : null,
+                        $submission_id, $template_id, array_int_value($submission_row, 'client_id'),
+                        array_int_value($submission_row, 'booking_id'), array_int_value($submission_row, 'pet_id'),
+                        array_string_value($submission_row, 'access_token'),
+                    ]);
+                    if ($stmt->rowCount() !== 1) {
+                        throw new RuntimeException('Pending form request changed before submission.');
+                    }
+                    $new_submission_id = $submission_id;
+                }
+
+                // Resolve or create client
+                if ($submission_id > 0 && is_array($submission_row)) {
+                    $client_id = array_int_value($submission_row, 'client_id');
+                    $booking_id = array_int_value($submission_row, 'booking_id');
+                }
+
+                if ($client_id === 0) {
+                    // Find by email or create new client record
+                    $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
+                    $stmt->execute([$contact_email]);
+                    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($existing) {
+                        $client_id = array_int_value($existing, 'id');
+                    } else {
+                        $stmt = $conn->prepare("
+                            INSERT INTO clients (name, email, phone, created_at, updated_at)
+                            VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        ");
+                        $stmt->execute([$contact_name, $contact_email, $contact_phone]);
+                        $client_id = (int) $conn->lastInsertId();
+                    }
+                } else {
+                    // Update stored contact info for the known client
+                    $stmt_update = $conn->prepare("
+                        UPDATE clients
+                        SET name = ?, email = ?, phone = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    ");
+                    $stmt_update->execute([$contact_name, $contact_email, $contact_phone, $client_id]);
+                }
+
+                // Save submission
+                if (!is_array($submission_row)) {
+                    $stmt = $conn->prepare("
+                        INSERT INTO form_submissions (client_id, template_id, booking_id, responses, status, submitted_at, submitted_by)
+                        VALUES (?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP, ?)
+                    ");
+                    $stmt->execute([
+                        $client_id,
+                        $template_id,
+                        $booking_id > 0 ? $booking_id : null,
+                        $json_responses,
+                        $submitted_by > 0 ? $submitted_by : null,
+                    ]);
+                    $new_submission_id = (int) $conn->lastInsertId();
+                }
+
+                public_form_sync_pet_info_group_profiles($conn, $client_id, $fields, $responses);
+                $conn->commit();
+            } catch (Throwable $e) {
+                if ($conn->inTransaction()) {
+                    $conn->rollBack();
+                }
+                error_log('Form submission persistence failed for request #' . $submission_id . '.');
+                $errors[] = 'This form could not be submitted. It may already have been completed or changed. Please refresh the page and try again.';
             }
 
-            $success_message = 'Thank you! Your form has been submitted successfully.';
-            if (
-                bdta_form_submission_requires_client_review($template_form_type)
-                && bdta_form_template_is_client_portal_visible(is_array($template) ? $template : [])
-            ) {
-                $notification_result = bdta_notify_follow_up_note_completed($conn, $new_submission_id);
-                if ($notification_result['success']) {
-                    $success_message .= ' The client has been notified to review it in the portal.';
-                } else {
-                    error_log(
-                        'Client notification email failed for submission #' . $new_submission_id . ': '
-                        . scalar_string($notification_result['message'])
-                    );
-                    $success_message .= ' The follow-up note was saved, but the client notification email could not be sent at this time.';
+            if (empty($errors)) {
+                // Trigger any workflows attached to this form
+                $workflow_helper = new WorkflowHelper($conn);
+                try {
+                    $workflow_helper->checkFormTriggers($new_submission_id);
+                } catch (Throwable $e) {
+                    error_log('Form submission workflow check failed for #' . $new_submission_id . ': ' . $e->getMessage());
+                }
+
+                if (bdta_form_fields_include_newsletter_opt_in($fields, $responses)) {
+                    $newsletter_result = bdta_subscribe_mailjet_contact_to_newsletter($contact_email, $contact_name);
+                    if (!$newsletter_result['success']) {
+                        error_log(
+                            'Mailjet newsletter opt-in failed for form submission #' . $new_submission_id . ': '
+                            . scalar_string($newsletter_result['message'])
+                        );
+                    }
+                }
+
+                $success_message = 'Thank you! Your form has been submitted successfully.';
+                if (
+                    bdta_form_submission_requires_client_review($template_form_type)
+                    && bdta_form_template_is_client_portal_visible(is_array($template) ? $template : [])
+                ) {
+                    $notification_result = bdta_notify_follow_up_note_completed($conn, $new_submission_id);
+                    if ($notification_result['success']) {
+                        $success_message .= ' The client has been notified to review it in the portal.';
+                    } else {
+                        error_log(
+                            'Client notification email failed for submission #' . $new_submission_id . ': '
+                            . scalar_string($notification_result['message'])
+                        );
+                        $success_message .= ' The follow-up note was saved, but the client notification email could not be sent at this time.';
+                    }
                 }
             }
         }
