@@ -2,8 +2,8 @@
 
 Owner deadline: **October 12, 2026, 6:00 p.m. Pacific**
 (`America/Los_Angeles`; October 13, 01:00 UTC). This plan applies to the reviewed
-integration draft #585. B3/S6's reviewed head is composed; the final combined head
-requires successful CI and independent verification before cutover.
+integration draft #585. All ten reviewed source heads are composed; the final
+combined head requires successful CI and independent verification before cutover.
 No production access, migration, relocation, reconciliation, merge or deployment
 has been performed in preparing this plan.
 
@@ -141,14 +141,13 @@ B4 adds configured venues, S5 rescheduling and the repair covers class/resource
 capacity and managed/external Calendar conflicts. These checks pass on the reviewed
 repair, including concurrent ordinary-slot protection.
 
-An additional bounded comparison found an inherited asymmetry: after an ordinary
-60-minute booking for trainer 1 at 11:00, a group class for the same trainer/time is
-advertised and accepted on exact main, PR #584 and the integration. Group admission
-counts its own type/capacity instead of excluding that ordinary booking. This is
-not a composition regression or a failure of the original ordinary-duplicate
-reproduction. It **does** violate a broader requirement that a trainer must never
-have overlapping appointments of different kinds. If that is the release's actual
-acceptance policy, resolve this bounded case before reopening class scheduling;
-otherwise record the inherited limitation explicitly and avoid claiming universal
-trainer-conflict prevention. No broader scheduling audit or speculative policy
-change is part of this preflight.
+An additional bounded comparison found an inherited asymmetry on main, PR #584
+and the earlier integration: a group class was advertised and accepted over an
+ordinary booking for the same trainer/time. This was not a composition regression.
+The reviewed follow-up #587 now rejects other appointment types occupying that
+trainer, using the existing buffered, half-open overlap predicate in both slot
+validation and date advertising. Same-type class participant/resource capacity
+remains unchanged. Its regression checks cover both request orders, different and
+shared trainers, buffers, end-boundary adjacency and rejected reschedules with no
+writes. This closes the concrete ordinary/class case; no broader scheduling audit
+or speculative policy change is part of this preflight.

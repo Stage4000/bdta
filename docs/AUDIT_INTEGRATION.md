@@ -15,6 +15,7 @@ heads without modifying their source branches:
 | P2/P3 invoice settlement/fulfillment | [#583](https://github.com/Stage4000/bdta/pull/583) | `e781bbb337c6455a457b267bf51196e98c07eaee` |
 | B2/B4/S5 booking/reschedule availability | [#584](https://github.com/Stage4000/bdta/pull/584) | `4f6dccb692e6e89bd03e0d5cfd571b1743a1accc` |
 | B3/S6 website credit/cancellation atomicity | [#586](https://github.com/Stage4000/bdta/pull/586) | `9d97bb26606271473b8fdbd88cbeffbeda70f4f9` |
+| B2/S5 class trainer overlap | [#587](https://github.com/Stage4000/bdta/pull/587) | `92a8a8d274d049277380a306f9affdd082b059cd` |
 
 The only merge conflicts were in CI and test documentation. All survey, reminder,
 booking-ownership, pet-file and invoice-payment regression groups and failure
@@ -34,6 +35,9 @@ and queued workflow changes; cancellation commits its current ownership/status
 check, verified credit refund and audit records together. External Calendar/mail
 calls follow commit. CI uses the same disposable service for separate random
 scheduling and credit-atomicity schemas, retaining both failure gates.
+The bounded class-overlap follow-up reuses the existing buffered trainer-conflict
+predicate in class slot validation and date advertising. It preserves same-type
+participant/resource capacity and the reviewed B3/S6 transaction boundaries.
 
 ## Runtime manifest
 
@@ -48,6 +52,7 @@ scheduling and credit-atomicity schemas, retaining both failure gates.
 | P2/P3 | `backend/includes/invoice_payment.php`, `client/invoices_payment.php`, `portal/invoice_pay_return.php` |
 | B2/B4/S5 | `backend/includes/booking_availability.php`, `backend/includes/google_calendar.php`, `backend/public/api_bookings.php`, `portal/api_book_credit.php`, `portal/api_appointments.php` |
 | B3/S6 | `backend/public/api_bookings.php`, `portal/api_book_credit.php`, `portal/api_appointments.php` |
+| B2/S5 class overlap | `backend/includes/booking_availability.php`, `backend/public/api_bookings.php` (date advertising) |
 
 Storage configuration/example and ignore rules accompany U1. No shared auth,
 CSRF, survey or reminder runtime helper is changed by this integration.
