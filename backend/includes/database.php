@@ -559,25 +559,28 @@ class Database {
         unset($this->tableColumnsCache[$tableName]);
     }
       
-    /**
-     * Check if a table exists
-     */
-    private function tableExists(string $tableName): bool {
-        // Validate table name to prevent SQL injection
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
-            throw new InvalidArgumentException("Invalid table name: $tableName");
-        }
-        
-        try {
-            $stmt = $this->conn->prepare("SHOW TABLES LIKE ?");
-            $stmt->execute([$tableName]);
-            return $stmt->rowCount() > 0;
-        } catch (PDOException $e) {
-            return false;
+    private function assertPackageSchemaCompatible(): void {
+        // Legacy categories cannot be mapped safely to individual appointment types.
+        // Check every table independently so an interrupted conversion also fails closed.
+        foreach (['package_items', 'client_package_credits', 'package_credit_transactions'] as $table) {
+            $columns = $this->getTableColumns($table);
+            if ($columns !== [] && (
+                in_array('session_type', $columns, true)
+                || !in_array('appointment_type_id', $columns, true)
+            )) {
+                throw new RuntimeException(
+                    'Legacy package schema detected in ' . $table . '. '
+                    . 'Bootstrap stopped to preserve purchase and credit history. '
+                    . 'Complete an explicit data-preserving conversion before retrying; '
+                    . 'see backend/MYSQL_MIGRATION.md.'
+                );
+            }
         }
     }
-    
+
     private function initTables(): void {
+        // Preflight before any DDL: MySQL schema changes cannot be rolled back together.
+        $this->assertPackageSchemaCompatible();
         try {
             // Admin users table
             $this->execSQL("
@@ -2039,19 +2042,6 @@ class Database {
             )
         ");
         
-        // Migrate legacy session_type-based tables to appointment_type_id-based schema.
-        // Since the app is in development mode, existing data is intentionally wiped.
-        if ($this->tableExists('package_items')) {
-            $pi_cols = $this->getTableColumns('package_items');
-            if (in_array('session_type', $pi_cols)) {
-                // Old schema detected — drop all dependent tables in reverse-dependency order
-                $this->execSQL("DROP TABLE IF EXISTS package_credit_transactions");
-                $this->execSQL("DROP TABLE IF EXISTS client_package_credits");
-                $this->execSQL("DROP TABLE IF EXISTS client_packages");
-                $this->execSQL("DROP TABLE IF EXISTS package_items");
-            }
-        }
-
         // Create package_items table (per appointment-type allocations within a package)
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS package_items (
