@@ -115,40 +115,87 @@ if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
  *  Action: cancel
  * ═════════════════════════════════════════════════════════════════════════ */
 if ($action === 'cancel') {
+    $cancel_error = null;
+    try {
+        $conn->beginTransaction();
+        $lock_rows = $conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
+        // Email ownership may use another client record. Lock both owners in ID
+        // order before booking/credit rows, matching booking creation's order.
+        $original_owner_id = array_int_value($booking, 'client_id');
+        $stmt = $conn->prepare($lock_rows
+            ? 'SELECT id, email FROM clients WHERE id IN (?, ?) ORDER BY id FOR UPDATE'
+            : 'SELECT id, email FROM clients WHERE id IN (?, ?) ORDER BY id');
+        $stmt->execute([$client_id, $original_owner_id]);
+        $current_email = '';
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $owner) {
+            if (array_int_value($owner, 'id') === $client_id) { $current_email = array_string_value($owner, 'email'); }
+        }
+        $stmt = $conn->prepare($lock_rows
+            ? 'SELECT * FROM bookings WHERE id = ? FOR UPDATE' : 'SELECT * FROM bookings WHERE id = ?');
+        $stmt->execute([$booking_id]);
+        $current = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+        if ($current === [] || array_int_value($current, 'client_id') !== $original_owner_id
+            || !in_array(array_string_value($current, 'status'), $allowed_statuses, true)
+            || !(array_int_value($current, 'client_id') === $client_id
+                || ($current_email !== '' && strtolower(array_string_value($current, 'client_email')) === strtolower($current_email)))) {
+            throw new RuntimeException('This appointment has changed. Please refresh your bookings.');
+        }
+        $stmt = $conn->prepare('SELECT cancellation_notice_hours FROM appointment_types WHERE id = ?');
+        $stmt->execute([array_int_value($current, 'appointment_type_id')]);
+        $current_notice = safe_int($stmt->fetchColumn());
+        $current_start = strtotime(array_string_value($current, 'appointment_date') . ' ' . array_string_value($current, 'appointment_time'));
+        $current_hours = ($current_start - time()) / 3600.0;
+        if ($current_hours <= 0 || ($current_notice > 0 && $current_hours < $current_notice)) {
+            throw new RuntimeException('This appointment cannot be changed online. Please contact us directly.');
+        }
+        $booking = array_merge($booking, $current);
     // Record old values for the log
     $old_date = $booking['appointment_date'];
     $old_time = $booking['appointment_time'];
 
     // Update booking status to cancelled
-    $conn->prepare("UPDATE bookings SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$booking_id]);
-
-    // Remove from Google Calendar if linked
-    if (!empty($booking['google_event_id'])) {
-        $gcal_event_id = array_string_value($booking, 'google_event_id');
-        if (GoogleCalendarIntegration::deleteEventForBooking($gcal_event_id, $booking)) {
-            $conn->prepare("UPDATE bookings SET google_event_id = NULL WHERE id = ?")->execute([$booking_id]);
-        }
+    $status_update = $conn->prepare("UPDATE bookings SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status IN ('pending', 'confirmed')");
+    $status_update->execute([$booking_id]);
+    if ($status_update->rowCount() !== 1) {
+        throw new RuntimeException('This appointment has changed. Please refresh your bookings.');
     }
 
     // Refund package credit if applicable
     $pkg_credit_id = safe_int($booking['package_credit_id'] ?? 0);
     if ($pkg_credit_id > 0) {
-        $stmt = $conn->prepare("
-            SELECT COUNT(*) FROM package_credit_transactions
+        $stmt = $conn->prepare($lock_rows
+            ? 'SELECT appointment_type_id, client_id FROM client_package_credits WHERE id = ? FOR UPDATE'
+            : 'SELECT appointment_type_id, client_id FROM client_package_credits WHERE id = ?');
+        $stmt->execute([$pkg_credit_id]);
+        $cpc = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+        // A link alone does not prove a debit. Preserve unmatched historical rows.
+        $stmt = $conn->prepare($lock_rows ? "SELECT id FROM package_credit_transactions
+            WHERE client_package_credit_id = ? AND booking_id = ? AND client_id = ?
+              AND appointment_type_id = ? AND transaction_type = 'consume' AND amount = -1 FOR UPDATE"
+            : "SELECT id FROM package_credit_transactions
+            WHERE client_package_credit_id = ? AND booking_id = ? AND client_id = ?
+              AND appointment_type_id = ? AND transaction_type = 'consume' AND amount = -1");
+        $stmt->execute([$pkg_credit_id, $booking_id, array_int_value($booking, 'client_id'), array_int_value($booking, 'appointment_type_id')]);
+        $consumed = $stmt->fetchColumn() !== false;
+        $stmt = $conn->prepare($lock_rows ? "SELECT id FROM package_credit_transactions
+            WHERE client_package_credit_id = ? AND booking_id = ? AND transaction_type = 'refund' FOR UPDATE"
+            : "SELECT id FROM package_credit_transactions
             WHERE client_package_credit_id = ? AND booking_id = ? AND transaction_type = 'refund'
         ");
         $stmt->execute([$pkg_credit_id, $booking_id]);
-        if (!safe_int($stmt->fetchColumn())) {
-            $conn->prepare("
+        $already_refunded = $stmt->fetchColumn() !== false;
+        if ($cpc !== [] && $consumed && !$already_refunded
+            && array_int_value($cpc, 'client_id') === array_int_value($booking, 'client_id')
+            && array_int_value($cpc, 'appointment_type_id') === array_int_value($booking, 'appointment_type_id')) {
+            $refund = $conn->prepare("
                 UPDATE client_package_credits
                 SET used_credits = used_credits - 1, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ? AND used_credits > 0
-            ")->execute([$pkg_credit_id]);
-
-            $stmt2 = $conn->prepare("SELECT appointment_type_id, client_id FROM client_package_credits WHERE id = ?");
-            $stmt2->execute([$pkg_credit_id]);
-            $cpc = assoc_row($stmt2->fetch(PDO::FETCH_ASSOC));
-            if ($cpc !== []) {
+            ");
+            $refund->execute([$pkg_credit_id]);
+            if ($refund->rowCount() !== 1) {
+                throw new RuntimeException('The booking credit could not be refunded. Please contact us directly.');
+            }
                 $conn->prepare("
                     INSERT INTO package_credit_transactions
                         (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, booking_id, notes, created_by)
@@ -160,7 +207,6 @@ if ($action === 'cancel') {
                     $booking_id,
                     "Credit refunded — client self-cancelled booking #{$booking_id}",
                 ]);
-            }
         }
     }
 
@@ -174,12 +220,6 @@ if ($action === 'cancel') {
     // Activity log
     logClientActivity($client_id, 'appointment_cancel', "Cancelled booking #{$booking_id}", $conn);
 
-    // Send emails
-    $email_service = new EmailService(null, $conn);
-    if (!empty($booking['client_email'])) {
-        $email_service->sendBookingCancellation($booking, $reason);
-    }
-    $email_service->sendAdminBookingChangeNotification($booking, 'cancellation', $reason);
     bdta_create_admin_notifications(
         $conn,
         'booking',
@@ -188,6 +228,37 @@ if ($action === 'cancel') {
         array_string_value($booking, 'client_name', 'Client') . ' cancelled booking #' . $booking_id . ' for ' . array_string_value($booking, 'appointment_date') . '.',
         '/client/bookings_list.php'
     );
+        $conn->commit();
+    } catch (Throwable $e) {
+        if ($conn->inTransaction()) { $conn->rollBack(); }
+        $cancel_error = $e instanceof RuntimeException && !($e instanceof PDOException)
+            ? $e->getMessage() : 'The appointment could not be cancelled. Please try again.';
+    }
+    if ($cancel_error !== null) {
+        echo json_encode(['error' => $cancel_error]);
+        exit;
+    }
+
+    // Provider failures cannot undo or repeat a committed cancellation/refund.
+    try {
+        if (!empty($booking['google_event_id'])) {
+            $gcal_event_id = array_string_value($booking, 'google_event_id');
+            if (GoogleCalendarIntegration::deleteEventForBooking($gcal_event_id, $booking)) {
+                $conn->prepare('UPDATE bookings SET google_event_id = NULL WHERE id = ? AND google_event_id = ?')->execute([$booking_id, $gcal_event_id]);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('Google Calendar deletion failed for cancelled booking #' . $booking_id);
+    }
+    try {
+        $email_service = new EmailService(null, $conn);
+        if (!empty($booking['client_email'])) {
+            $email_service->sendBookingCancellation($booking, $reason);
+        }
+        $email_service->sendAdminBookingChangeNotification($booking, 'cancellation', $reason);
+    } catch (Throwable $e) {
+        error_log('Cancellation email failed for booking #' . $booking_id);
+    }
 
     echo json_encode(['success' => true, 'message' => 'Your appointment has been cancelled.']);
     exit;
