@@ -147,6 +147,10 @@ try {
     echo "✓ Public form links resolve existing client and appointment context correctly\n";
 
     $missing_address_email = 'missing-address-' . $suffix . '@example.com';
+    $conn->prepare("INSERT INTO appointment_types (name,is_active,available_days,available_start_time,available_end_time,time_slot_interval) VALUES (?,1,'[0,1,2,3,4,5,6]','09:00','17:00',30)")
+        ->execute(['Form intake fixture ' . $suffix]);
+    $intake_type_id = (int)$conn->lastInsertId();
+    $cleanup['appointment_type_ids'][] = $intake_type_id;
     $client_count_stmt = $conn->prepare("SELECT COUNT(*) FROM clients WHERE email = ?");
     $client_count_stmt->execute([$missing_address_email]);
     $client_count_before = safe_int($client_count_stmt->fetchColumn());
@@ -160,6 +164,7 @@ try {
         'client_email' => $missing_address_email,
         'client_phone' => '555-9999',
         'service_type' => 'At Home Consultation',
+        'appointment_type_id' => $intake_type_id,
         'appointment_date' => date('Y-m-d', strtotime('+5 days')),
         'appointment_time' => '11:00',
         'location_type' => 'client_address',
@@ -202,6 +207,7 @@ try {
         'client_email' => $mapped_form_email,
         'client_phone' => '555-1111',
         'service_type' => 'At Home Consultation',
+        'appointment_type_id' => $intake_type_id,
         'appointment_date' => date('Y-m-d', strtotime('+6 days')),
         'appointment_time' => '14:00',
         'location_type' => 'client_address',
@@ -270,6 +276,8 @@ try {
     ")->execute(['Immediate Confirmation Type ' . $suffix]);
     $confirmed_type_id = (int) $conn->lastInsertId();
     $cleanup['appointment_type_ids'][] = $confirmed_type_id;
+    $conn->prepare("UPDATE appointment_types SET available_days='[0,1,2,3,4,5,6]', available_start_time='09:00', available_end_time='17:00', time_slot_interval=30 WHERE id IN (?,?)")
+        ->execute([$pending_type_id,$confirmed_type_id]);
 
     $pending_result = api_booking_create_booking($conn, [
         'client_name' => 'Pending Approval ' . $suffix,
