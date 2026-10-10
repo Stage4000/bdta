@@ -139,6 +139,7 @@ try {
 } finally {
     proc_terminate($server);
     proc_close($server);
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- only test-created files in the random, private 0700 directory; no user-supplied paths.
     foreach (glob($temp . '/*') ?: [] as $file) { unlink($file); }
     rmdir($temp);
 }
