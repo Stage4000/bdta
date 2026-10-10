@@ -95,6 +95,9 @@ if (($argv[1] ?? '') === '--worker') {
     ob_start();
     register_shutdown_function(static function (): void {
         $html = (string) ob_get_clean();
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
         echo json_encode([
             'form' => strpos($html, '<form method="POST">') !== false,
             'csrf' => preg_match('/<form method="POST">.*?name="csrf_token"/s', $html) === 1,
@@ -186,7 +189,9 @@ try {
             $command[] = 'extension=' . $extension;
         }
         $command = array_merge($command, [__FILE__, '--worker', $schema, json_encode($request, JSON_THROW_ON_ERROR)]);
-        $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        // Fixed PHP binary/script, array arguments and no shell; fixture requests are data.
+        // nosemgrep: php.lang.security.exec-use.exec-use
+        $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, null, ['bypass_shell' => true]);
         if (!is_resource($process)) {
             throw new RuntimeException('Unable to launch synthetic controller worker.');
         }
@@ -235,9 +240,6 @@ try {
     echo 'Controller mutation cases: ' . count($cases) . '; failures: ' . $failures . ".\n";
 } finally {
     $server->exec("DROP DATABASE {$schema}");
-    foreach (glob($sessionDirectory . DIRECTORY_SEPARATOR . 'sess_*') ?: [] as $sessionFile) {
-        unlink($sessionFile);
-    }
     rmdir($sessionDirectory);
 }
 exit($failures === 0 ? 0 : 1);
