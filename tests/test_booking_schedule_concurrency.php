@@ -109,6 +109,13 @@ try {
         scheduleCheck($successes===1 && safe_int($conn->query('SELECT COUNT(*) FROM bookings')->fetchColumn())===1,'concurrent '.implode(' / ',$paths).' stores exactly one ordinary booking');
         $conn->exec('DELETE FROM appointment_pets'); $conn->exec('DELETE FROM bookings');
     }
+    foreach ([[7,9], [9,7]] as $types) {
+        $results=scheduleRace($addresses,$cookies,[['path'=>$public,'payload'=>array_replace($payload,['appointment_type_id'=>$types[0]])],
+            ['path'=>$portal,'payload'=>array_replace($payload,['appointment_type_id'=>$types[1]])]]);
+        scheduleCheck(count(array_filter($results,static fn(array $row):bool=>($row['success']??false)===true))===1
+            && safe_int($conn->query('SELECT COUNT(*) FROM bookings')->fetchColumn())===1,'concurrent ordinary/class requests store exactly one trainer booking');
+        $conn->exec('DELETE FROM appointment_pets'); $conn->exec('DELETE FROM bookings');
+    }
     foreach ([9,10] as $type) {
         $seed=$conn->prepare("INSERT INTO bookings (client_id,appointment_type_id,admin_user_id,client_name,client_email,service_type,appointment_date,appointment_time,duration_minutes,status) VALUES (1,?,1,'Synthetic owner','owner@example.invalid','Synthetic',?,'09:00',60,'confirmed')");
         $seed->execute([$type,$day]);

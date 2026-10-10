@@ -520,6 +520,12 @@ function bdta_booking_slot_passes_calendar(string $date, string $time, int $dura
     return true;
 }
 
+/** @param list<array<string, mixed>> $bookings */
+function bdta_booking_other_type_conflict(array $bookings, int $appointment_type_id, string $time, int $duration, int $before, int $after): bool {
+    $other_types = array_values(array_filter($bookings, static fn(array $row): bool => array_int_value($row, 'appointment_type_id') !== $appointment_type_id));
+    return api_booking_slot_conflicts_with_rows($other_types, $time, $duration, $before, $after);
+}
+
 /** @return array{date: string, available_slots: list<string>, google_calendar_checked: bool} */
 function bdta_booking_available_slots(SafePDO $conn, int $appointment_type_id, string $date, int $exclude_booking_id = 0, int $requested_units = 1, bool $respect_google_calendar = true, ?int $persisted_duration = null, ?int $persisted_admin = null): array {
     $result = ['date'=>$date, 'available_slots'=>[], 'google_calendar_checked'=>false];
@@ -575,11 +581,12 @@ function bdta_booking_available_slots(SafePDO $conn, int $appointment_type_id, s
         if (api_booking_slot_conflicts_with_rows($reserved, $slot, $duration, $before, $after)) { continue; }
         if (!empty($appointment_type['is_group_class'])) {
             if ($usage['exact_type_slot_count'] >= max(1, array_int_value($appointment_type, 'max_participants', 1))) { continue; }
+            // Class capacity permits its own participants, not another type using this trainer.
+            if (bdta_booking_other_type_conflict($bookings, $appointment_type_id, $slot, $duration, $before, $after)) { continue; }
         } elseif (!empty($resource['enabled'])) {
             // This type's resource bookings share its configured capacity. Other
             // appointment types still occupy the assigned trainer's schedule.
-            $other_types = array_values(array_filter($bookings, static fn(array $row): bool => array_int_value($row, 'appointment_type_id') !== $appointment_type_id));
-            if (api_booking_slot_conflicts_with_rows($other_types, $slot, $duration, $before, $after)) { continue; }
+            if (bdta_booking_other_type_conflict($bookings, $appointment_type_id, $slot, $duration, $before, $after)) { continue; }
         } elseif ($usage['has_overlap_conflict']) { continue; }
         if (!empty($resource['enabled']) && !bdta_booking_resource_capacity_available($resource, $usage['overlapping_resource_units'], $requested_units)) { continue; }
         if (!bdta_booking_slot_passes_calendar($date, $slot, $duration, $before, $after, $busy)) { continue; }

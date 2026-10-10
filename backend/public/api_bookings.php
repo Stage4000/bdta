@@ -1695,7 +1695,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
                 || bdta_booking_resource_capacity_available($ad_resource, $slot_usage['overlapping_resource_units'], 1);
 
             if ($ad_is_group) {
-                if ($schedule_reserved) {
+                if ($schedule_reserved || bdta_booking_other_type_conflict($normalized_existing_bookings, $appointment_type_id, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after)) {
                     continue;
                 }
                 $count = $slot_usage['exact_type_slot_count'] ?: ($group_slot_counts[$slot_str] ?? 0);
@@ -1713,8 +1713,7 @@ if ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'credits'
             } else {
                 $overlap_conflict = $slot_usage['has_overlap_conflict'];
                 if (!empty($ad_resource['enabled'])) {
-                    $other_types = array_values(array_filter($normalized_existing_bookings, static fn(array $row): bool => array_int_value($row, 'appointment_type_id') !== $appointment_type_id));
-                    $overlap_conflict = api_booking_slot_conflicts_with_rows($other_types, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after);
+                    $overlap_conflict = bdta_booking_other_type_conflict($normalized_existing_bookings, $appointment_type_id, $slot_str, $ad_duration, $ad_buf_before, $ad_buf_after);
                 }
                 $slot_free = !$overlap_conflict && !$schedule_reserved && $resource_available;
                 // Also check Google Calendar
