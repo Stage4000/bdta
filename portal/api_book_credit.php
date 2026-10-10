@@ -6,6 +6,7 @@
  */
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/booking_resources.php';
+require_once '../backend/includes/booking_availability.php';
 require_once '../backend/includes/form_types.php';
 require_once '../backend/includes/mailjet_newsletter.php';
 require_once '../backend/includes/public_access_links.php';
@@ -210,7 +211,7 @@ $submitted_client_address = trim(scalar_string($data['client_address'] ?? ''));
 $overwrite_profile = filter_var($data['overwrite_profile'] ?? false, FILTER_VALIDATE_BOOLEAN);
 $resolved_client_address = '';
 $should_persist_client_address = false;
-$allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall', 'fixed'];
+$allowed_location_types = ['client_address', 'custom_address', 'phone_inbound', 'phone_outbound', 'webcall'];
 
 if (!empty($apt_type['is_mini_session'])) {
     $location_type = 'fixed';
@@ -228,8 +229,12 @@ if (!empty($apt_type['is_mini_session'])) {
         $location_types_raw = json_decode($location_types_json, true);
         $configured = string_list($location_types_raw);
         if (!empty($configured)) {
-            $allowed_location_types = array_merge($configured, ['fixed']);
+            $allowed_location_types = array_values(array_diff($configured, ['fixed']));
         }
+    }
+    if ($location_type === 'fixed') {
+        echo json_encode(['error' => 'A valid location type is required.']);
+        exit;
     }
     if ($location_type !== 'fixed') {
         if (empty($location_type) || !in_array($location_type, $allowed_location_types)) {
@@ -298,107 +303,98 @@ if (!empty($data['form_responses']) && is_array($data['form_responses'])) {
     $pet_updates = api_booking_collect_pet_profile_mapped_values($conn, $data['form_responses']);
 }
 
-$pet_ids = api_booking_merge_pet_ids_with_profile_updates($conn, $client_id, $pet_ids, $pet_updates);
-
-// Distinguish between three cases sent by the client:
-//   • overwrite_profile key absent  → modal was never shown (no detected conflict); always apply mapping
-//   • overwrite_profile: true       → user confirmed the overwrite prompt; always apply mapping
-//   • overwrite_profile: false      → user explicitly chose "Keep Existing"; skip conflicting client fields
-//                                       and create new pet profiles for conflicting pet mappings
+$booking_id = 0;
+$booking_error = null;
+$schedule_lock = null;
 $overwrite_declined = isset($data['overwrite_profile']) && !$overwrite_profile;
+try {
+    $schedule_lock = new BookingScheduleLock($conn);
+    $slot_error = bdta_booking_slot_error($conn, $appointment_type_id, $appointment_date, $appointment_time);
+    if ($slot_error !== null) { throw new RuntimeException($slot_error); }
+    $appointment_time = substr($appointment_time, 0, 5);
+    $conn->beginTransaction();
+    $pet_ids = api_booking_merge_pet_ids_with_profile_updates($conn, $client_id, $pet_ids, $pet_updates);
 
-if ($overwrite_declined) {
-    if ($pet_updates !== []) {
-        $pet_ids = api_booking_clone_conflicting_pets($conn, $client_id, $pet_ids, $pet_updates);
+    // Distinguish between three cases sent by the client:
+    //   • overwrite_profile key absent  → modal was never shown (no detected conflict); always apply mapping
+    //   • overwrite_profile: true       → user confirmed the overwrite prompt; always apply mapping
+    //   • overwrite_profile: false      → user explicitly chose "Keep Existing"; skip conflicting client fields
+    //                                       and create new pet profiles for conflicting pet mappings
+    if ($overwrite_declined) {
+        if ($pet_updates !== []) {
+            $pet_ids = api_booking_clone_conflicting_pets($conn, $client_id, $pet_ids, $pet_updates);
+        }
     }
-}
 
-if (!empty($resource_config['enabled'])) {
+    $slot_error = bdta_booking_slot_error($conn, $appointment_type_id, $appointment_date, $appointment_time, 0,
+        bdta_booking_resource_units($resource_config, count($pet_ids)));
+    if ($slot_error !== null) { throw new RuntimeException($slot_error); }
+    // ── Insert booking ────────────────────────────────────────────────────────
     $stmt = $conn->prepare("
-        SELECT b.appointment_time, b.duration_minutes, b.appointment_type_id,
-               COALESCE(at.buffer_before_minutes, 0) AS b_buffer_before,
-               COALESCE(at.buffer_after_minutes, 0) AS b_buffer_after,
-               COALESCE(apc.pet_count, 0) AS pet_count
-        FROM bookings b
-        LEFT JOIN appointment_types at ON at.id = b.appointment_type_id
-        LEFT JOIN (
-            SELECT booking_id, COUNT(*) AS pet_count
-            FROM appointment_pets
-            GROUP BY booking_id
-        ) apc ON apc.booking_id = b.id
-        WHERE b.appointment_date = ? AND b.status != 'cancelled' AND b.appointment_type_id = ?
+        INSERT INTO bookings
+            (client_id, appointment_type_id, admin_user_id, client_name, client_email, client_phone,
+             service_type, appointment_date, appointment_time, notes, duration_minutes,
+             location, location_type, package_credit_id,
+             contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font,
+             status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     ");
-    $stmt->execute([$appointment_date, $appointment_type_id]);
-    $existing_resource_bookings = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
-    if (!bdta_booking_resource_has_capacity(
-        $resource_config,
-        $existing_resource_bookings,
+    $stmt->execute([
+        $client_id,
+        $appointment_type_id,
+        $appointment_type_admin_user_id > 0 ? $appointment_type_admin_user_id : null,
+        $client_name,
+        $client_email,
+        trim(scalar_string($data['client_phone'] ?? '')),
+        array_string_value($apt_type, 'name'),
+        $appointment_date,
         $appointment_time,
+        trim(scalar_string($data['notes'] ?? '')),
         array_int_value($apt_type, 'duration_minutes', 60),
-        max(0, array_int_value($apt_type, 'buffer_before_minutes')),
-        max(0, array_int_value($apt_type, 'buffer_after_minutes')),
-        bdta_booking_resource_units($resource_config, count($pet_ids)),
-        $appointment_type_id
-    )) {
-        $resource_label = trim($resource_config['name']);
-        echo json_encode(['error' => 'No ' . ($resource_label !== '' ? $resource_label : 'resource') . ' units are available for this time slot.']);
-        exit;
+        $location,
+        $location_type,
+        (!$is_pending_request && $pkg_credit_id !== null) ? $pkg_credit_id : null,
+        $contract_accepted,
+        $contract_accepted_at,
+        $contract_accepted ? $contract_typed_name : null,
+        $contract_accepted ? $contract_sig_font   : null,
+        $initial_status,
+    ]);
+    $booking_id = (int)$conn->lastInsertId();
+    $booking_notification_title = $initial_status === 'pending'
+        ? 'New appointment request'
+        : 'New appointment booked';
+    $booking_notification_message = $client_name . ' booked ' . array_string_value($apt_type, 'name') . ' for ' . $appointment_date;
+    bdta_create_admin_notifications(
+        $conn,
+        'booking',
+        $booking_id,
+        $booking_notification_title,
+        $booking_notification_message,
+        '/client/bookings_list.php'
+    );
+
+    // ── Link pets ─────────────────────────────────────────────────────────────
+    foreach ($pet_ids as $pid) {
+        $conn->prepare("
+            INSERT INTO appointment_pets (booking_id, pet_id, created_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+        ")->execute([$booking_id, $pid]);
     }
+
+    // Commit the schedule-dependent booking/pet rows; credit/ledger work remains separate.
+    $conn->commit();
+} catch (Throwable $e) {
+    if ($conn->inTransaction()) { $conn->rollBack(); }
+    $booking_error = $e instanceof RuntimeException && !($e instanceof PDOException)
+        ? $e->getMessage() : 'Booking could not be created. Please try again.';
+} finally {
+    $schedule_lock?->release();
 }
-
-// ── Insert booking ────────────────────────────────────────────────────────
-$stmt = $conn->prepare("
-    INSERT INTO bookings
-        (client_id, appointment_type_id, admin_user_id, client_name, client_email, client_phone,
-         service_type, appointment_date, appointment_time, notes, duration_minutes,
-         location, location_type, package_credit_id,
-         contract_accepted, contract_accepted_at, contract_signature_name, contract_signature_font,
-         status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-");
-$stmt->execute([
-    $client_id,
-    $appointment_type_id,
-    $appointment_type_admin_user_id > 0 ? $appointment_type_admin_user_id : null,
-    $client_name,
-    $client_email,
-    trim(scalar_string($data['client_phone'] ?? '')),
-    array_string_value($apt_type, 'name'),
-    $appointment_date,
-    $appointment_time,
-    trim(scalar_string($data['notes'] ?? '')),
-    array_int_value($apt_type, 'duration_minutes', 60),
-    $location,
-    $location_type,
-    (!$is_pending_request && $pkg_credit_id !== null) ? $pkg_credit_id : null,
-    $contract_accepted,
-    $contract_accepted_at,
-    $contract_accepted ? $contract_typed_name : null,
-    $contract_accepted ? $contract_sig_font   : null,
-    $initial_status,
-]);
-$booking_id = (int)$conn->lastInsertId();
-$booking_notification_title = $initial_status === 'pending'
-    ? 'New appointment request'
-    : 'New appointment booked';
-$booking_notification_message = $client_name . ' booked ' . array_string_value($apt_type, 'name') . ' for ' . $appointment_date;
-bdta_create_admin_notifications(
-    $conn,
-    'booking',
-    $booking_id,
-    $booking_notification_title,
-    $booking_notification_message,
-    '/client/bookings_list.php'
-);
-
-// ── Link pets ─────────────────────────────────────────────────────────────
-foreach ($pet_ids as $pid) {
-    $conn->prepare("
-        INSERT INTO appointment_pets (booking_id, pet_id, created_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
-    ")->execute([$booking_id, $pid]);
+if ($booking_error !== null) {
+    echo json_encode(['error' => $booking_error]);
+    exit;
 }
-
 // ── Save form responses ───────────────────────────────────────────────────
 require_once '../backend/includes/workflow_helper.php';
 $workflow_helper = new WorkflowHelper($conn);
