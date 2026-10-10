@@ -945,8 +945,6 @@ $page_has_turnstile_widget = !isset($error_mode) || !$error_mode;
                             </label>
                                     <?php if ($bi_description !== ''): ?>
                                     <div class="form-text text-muted mb-1"><?= htmlspecialchars($bi_description) ?></div>
-                                    <?php else: ?>
-                                    <input type="hidden" name="location_value" value="">
                                     <?php endif; ?>
                                     <?php switch ($bi_type):
                                         case bdta_pet_info_group_field_type():
