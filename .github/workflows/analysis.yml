@@ -140,6 +140,9 @@ jobs:
           php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_client_admin_mutation_guards.php
           php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_invoice_refund_retry.php
           php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_offline_package_checkout_retries.php
+          php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_package_checkout_invoice_settlement.php
+          php -r '$c = new PDO("mysql:host=127.0.0.1;port=3307", getenv("DB_USER"), getenv("DB_PASSWORD")); $c->exec("CREATE DATABASE bdta_invoice_test_concurrency_ci CHARACTER SET utf8mb4");'
+          BDTA_INVOICE_TEST_MYSQL=1 DB_NAME=bdta_invoice_test_concurrency_ci php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_invoice_payment_concurrency.php
 
       - name: Run survey integrity regressions
         id: survey_integrity

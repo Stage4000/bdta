@@ -91,6 +91,8 @@ function seedPackageHistory(PDO $conn, bool $legacy): void {
 
 function createLegacyPackageTables(PDO $conn): void {
     // The schemas before commit 64d3488, with their original FK relationships.
+    // This newer empty fixture table references client_packages and did not exist then.
+    $conn->exec('DROP TABLE invoice_package_fulfillments');
     foreach (['package_credit_transactions', 'client_package_credits', 'client_packages', 'package_items'] as $table) {
         $conn->exec("DROP TABLE {$table}");
     }

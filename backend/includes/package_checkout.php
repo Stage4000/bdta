@@ -1022,6 +1022,14 @@ function bdta_finalize_package_purchase(
             $stripe_checkout_session_id,
             $stripe_payment_intent_id
         );
+        // These credits already exist in this transaction. Bind their invoice
+        // item to this purchase so later invoice settlement cannot grant them again.
+        $item_identity = $conn->prepare("SELECT id FROM invoice_items WHERE invoice_id = ? AND item_type = 'package' AND reference_id = ? ORDER BY id LIMIT 1");
+        $item_identity->execute([array_int_value($invoice_context['invoice'], 'id'), $package_id]);
+        $invoice_item_id = safe_int($item_identity->fetchColumn());
+        if ($invoice_item_id <= 0) throw new RuntimeException('Package purchase invoice item is missing.');
+        $conn->prepare('INSERT INTO invoice_package_fulfillments (invoice_item_id, unit_number, client_package_id) VALUES (?, 1, ?)')
+            ->execute([$invoice_item_id, $client_package_id]);
         $conn->commit();
 
         try {

@@ -1,4 +1,4 @@
-# Six-fix audit integration candidate
+# Reviewed audit integration candidate
 
 This candidate starts from main `5281e8fd7911e3f3f024df4cd3f9a492daa4c31f`,
 including the survey/reminder releases #575/#576. It combines these exact reviewed
@@ -12,14 +12,20 @@ heads without modifying their source branches:
 | U1 private pet files | [#580](https://github.com/Stage4000/bdta/pull/580) | `dab654fc32d96a770433942613075c3bbacd5b3f` |
 | P1 refund retries | [#581](https://github.com/Stage4000/bdta/pull/581) | `5a7c309f672ddda3b5734a249b093bde339f22d9` |
 | C1 offline checkout retries | [#582](https://github.com/Stage4000/bdta/pull/582) | `dabe90ec7a351fba82f3dcddf430159d23bca5ae` |
+| P2/P3 invoice settlement/fulfillment | [#583](https://github.com/Stage4000/bdta/pull/583) | `e781bbb337c6455a457b267bf51196e98c07eaee` |
 
 The only merge conflicts were in CI and test documentation. All survey, reminder,
-booking-ownership and pet-file regression groups and failure gates are retained.
-`database.php` contains the three reviewed changes together. Other runtime files
-retain their reviewed contents. Two test-harness portability adjustments remove
-an unnecessary PHP 8.5-deprecated reflection call and load shared PDO where Linux
-requires it. CI adds a disposable MariaDB service for the four MySQL repair suites.
-B2/B3/P2/P3 remain separate; later reviewed heads
+booking-ownership, pet-file and invoice-payment regression groups and failure
+gates are retained. `database.php` contains the four reviewed changes together.
+The C1/P3 bridge also records the already-issued checkout credits' fulfillment
+identity in the original purchase transaction; settling its unpaid invoice then
+reuses that purchase. Existing identities are checked before validating today's
+package definition. Other runtime files retain their reviewed contents.
+Test-harness adjustments remove an unnecessary PHP 8.5-deprecated reflection call,
+load shared PDO where Linux requires it, and accommodate the new fulfillment table
+in the legacy/SQLite fixtures. CI adds a disposable MariaDB service for the four
+MySQL repair suites, the cross-fix regression and invoice concurrency cases.
+B2/B3 remain separate; later reviewed heads
 can be merged into this branch and their overlaps retested before inclusion.
 
 ## Runtime manifest
@@ -32,6 +38,7 @@ can be merged into this branch and their overlaps retested before inclusion.
 | U1 | `backend/includes/pet_files.php`; `client/` and `portal/` `pet_files_upload.php`, `pet_files_delete.php`, `pet_files_view.php`; `client/pets_edit.php`, `portal/pets.php`; `backend/uploads/pets/.htaccess` |
 | P1 | `backend/includes/invoice_refund_operation.php`, `backend/includes/stripe_config.php`, `client/invoices_view.php` |
 | C1 | `backend/includes/package_checkout.php`, `client/package_detail.php` |
+| P2/P3 | `backend/includes/invoice_payment.php`, `client/invoices_payment.php`, `portal/invoice_pay_return.php` |
 
 Storage configuration/example and ignore rules accompany U1. No shared auth,
 CSRF, survey or reminder runtime helper is changed by this integration.
@@ -57,6 +64,9 @@ the default is `bdta-private/pets` beside the application directory.
    rows remain intact. A missing C1 index is created; an invalid/nonunique/prefix
    index or DDL error blocks startup rather than weakening idempotency. Inspect
    and reconcile any prior partial migration before activation.
+   P2/P3 also adds InnoDB `invoice_checkout_receipts` (unique provider intent and
+   session; received/applied/excess cents) and `invoice_package_fulfillments`
+   (unique invoice-item/unit mapped to its purchase). No existing data is backfilled.
 4. **Private-file relocation is a deployment gate.** Move existing
    `backend/uploads/pets/<pet_id>/<file_name>` files into the private directory,
    preserve filenames/metadata, verify bytes and authorized downloads, and remove
@@ -70,6 +80,13 @@ the default is `bdta-private/pets` beside the application directory.
    evidence. New unresolved P1 operations retain their identity; older ambiguous
    outcomes use read-only reconciliation and stay blocked without a unique match.
    See [INVOICE_REFUND_RETRY.md](INVOICE_REFUND_RETRY.md).
+6. Reconcile historical package credits before backfill or settling pre-existing
+   unpaid checkout-generated invoices whose credits were already issued without
+   fulfillment markers. The bridge writes identities only for new purchase
+   transactions; it does not guess old fulfillment from matching clients/packages
+   or notes. Review excess receipts separately from invoice income/refunds as in
+   [INVOICE_PAYMENT_SETTLEMENT.md](INVOICE_PAYMENT_SETTLEMENT.md); no automatic
+   refund or excess allocation occurs.
 
 No production schema conversion, file relocation, provider reconciliation, merge
 into main or deployment was performed to prepare this candidate. Those gates require actual
@@ -78,7 +95,8 @@ environment validation before activation.
 ## Rollback
 
 Pause writes and preserve `invoice_refund_operations`, checkout attempt tokens
-and their unique index, original history, and private files. Do not drop these
+and their unique index, checkout receipts and fulfillment markers, original
+history, and private files. Do not drop these
 records or replay provider calls to make older code appear consistent. Do not
 restore public-file access or the destructive legacy-package bootstrap. A rollback
 must retain those safeguards or keep affected writes disabled until a reviewed
@@ -94,11 +112,16 @@ The focused tests are `test_legacy_package_schema_preservation.php`,
 `test_portal_credit_booking_pet_overwrite_followups.php`,
 `test_client_admin_mutation_guards.php`, `test_pet_file_paths.php`,
 `test_pet_files_http.py`, `test_invoice_refund_retry.php`, and
-`test_offline_package_checkout_retries.php`. Survey/reminder regressions also run
+`test_offline_package_checkout_retries.php`, plus `test_invoice_settlement.php`,
+`test_invoice_payment_atomicity.php`, `test_invoice_payment_concurrency.php` and
+`test_package_checkout_invoice_settlement.php`. The cross-fix regression covers
+manual/online settlement, changed definitions, replay and marker-write rollback.
+Survey/reminder regressions also run
 against the combined candidate. Opt-in database tests must use disposable loopback
 schemas, never application data; the individual test headers document variables.
 Payment workers use local fakes with network transports disabled. CI also runs
-the static analyzers and the existing HTTP/SQLite regression groups.
+the static analyzers, existing HTTP/SQLite groups and disposable MySQL suites,
+including independent-process invoice races on both SQLite and MariaDB.
 
 Local validation uses PHP 8.5.5 and MariaDB 11.4.13 with synthetic records/files.
 Exact head, combined focused results, same-main aggregate comparison, independent

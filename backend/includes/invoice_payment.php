@@ -38,20 +38,26 @@ function bdta_invoice_fulfill_packages(PDO $conn, array $invoice, ?int $admin_id
     foreach (assoc_rows($items_stmt->fetchAll(PDO::FETCH_ASSOC)) as $item) {
         $item_id = array_int_value($item, 'id');
         $quantity = max(1, array_int_value($item, 'quantity', 1));
-        $stmt = $conn->prepare('SELECT * FROM packages WHERE id = ? AND is_active = 1');
-        $stmt->execute([array_int_value($item, 'reference_id')]);
-        $package = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
-        $stmt = $conn->prepare('SELECT * FROM package_items WHERE package_id = ?');
-        $stmt->execute([array_int_value($item, 'reference_id')]);
-        $package_items = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
-        if ($package === [] || $package_items === []) {
-            throw new RuntimeException('Invoice package is unavailable or has no credits. Please contact an administrator.');
-        }
+        $package = null;
+        $package_items = [];
         for ($unit = 1; $unit <= $quantity; $unit++) {
             $stmt = $conn->prepare('SELECT client_package_id FROM invoice_package_fulfillments WHERE invoice_item_id = ? AND unit_number = ?');
             $stmt->execute([$item_id, $unit]);
             if ($stmt->fetchColumn() !== false) {
                 continue;
+            }
+            // Already fulfilled units do not depend on today's package definition.
+            // Validate it only when new credits must actually be granted.
+            if ($package === null) {
+                $stmt = $conn->prepare('SELECT * FROM packages WHERE id = ? AND is_active = 1');
+                $stmt->execute([array_int_value($item, 'reference_id')]);
+                $package = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+                $stmt = $conn->prepare('SELECT * FROM package_items WHERE package_id = ?');
+                $stmt->execute([array_int_value($item, 'reference_id')]);
+                $package_items = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+                if ($package === [] || $package_items === []) {
+                    throw new RuntimeException('Invoice package is unavailable or has no credits. Please contact an administrator.');
+                }
             }
             $expiration_days = array_int_value($package, 'expiration_days');
             $expires_at = $expiration_days > 0 ? date('Y-m-d H:i:s', safe_timestamp(strtotime('+' . $expiration_days . ' days'))) : null;
