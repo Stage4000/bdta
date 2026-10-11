@@ -88,7 +88,7 @@ assertAdminRescheduleOverride(
     'Booking availability API should normalize Google Calendar filtering through one shared helper.'
 );
 assertAdminRescheduleOverride(
-    substr_count($api_bookings, 'if ($respect_google_calendar && GoogleCalendarIntegration::isOAuthConfigured())') >= 2,
+    substr_count($api_bookings . file_get_contents(dirname(__DIR__) . '/backend/includes/booking_availability.php'), 'if ($respect_google_calendar && GoogleCalendarIntegration::isOAuthConfigured())') >= 2,
     'Booking availability API should only enforce Google Calendar conflicts when the optional availability view requests it in both availability endpoints.'
 );
 assertAdminRescheduleOverride(

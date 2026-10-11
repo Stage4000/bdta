@@ -817,9 +817,20 @@ function bdta_finalize_package_purchase(
     ?int $view_id = null,
     ?string $payment_method = null,
     ?string $stripe_checkout_session_id = null,
-    ?string $stripe_payment_intent_id = null
+    ?string $stripe_payment_intent_id = null,
+    ?string $checkout_attempt_token = null
 ): array {
     $package_id = safe_int($package['id'] ?? 0);
+
+    if ($checkout_attempt_token !== null) {
+        if ($payment_method !== 'offline' || preg_match('/^[a-f0-9]{64}$/', $checkout_attempt_token) !== 1) {
+            throw new InvalidArgumentException('A valid offline checkout attempt token is required.');
+        }
+        $completed_attempt = bdta_find_offline_package_purchase($conn, $package_id, $checkout_attempt_token);
+        if ($completed_attempt !== null) {
+            return $completed_attempt;
+        }
+    }
 
     if ($stripe_checkout_session_id !== null && $stripe_checkout_session_id !== '') {
         $package_id = safe_int($package['id'] ?? 0);
@@ -924,12 +935,14 @@ function bdta_finalize_package_purchase(
         }
 
         $note_text = $notes !== '' ? $notes : $purchase_default_note;
+        $attempt_column = $checkout_attempt_token !== null ? ', checkout_attempt_token' : '';
+        $attempt_placeholder = $checkout_attempt_token !== null ? ', ?' : '';
         $purchase_stmt = $conn->prepare("
             INSERT INTO client_packages
-                (client_id, package_id, package_name, expires_at, is_active, notes, created_by, payment_method, stripe_checkout_session_id)
-            VALUES (?, ?, ?, ?, 1, ?, NULL, ?, ?)
+                (client_id, package_id, package_name, expires_at, is_active, notes, created_by, payment_method, stripe_checkout_session_id{$attempt_column})
+            VALUES (?, ?, ?, ?, 1, ?, NULL, ?, ?{$attempt_placeholder})
         ");
-        $purchase_stmt->execute([
+        $purchase_values = [
             $client_id,
             $package_id,
             scalar_string($package['name'] ?? ''),
@@ -937,7 +950,11 @@ function bdta_finalize_package_purchase(
             $note_text,
             $payment_method !== null && $payment_method !== '' ? $payment_method : null,
             $stripe_checkout_session_id !== null && $stripe_checkout_session_id !== '' ? $stripe_checkout_session_id : null,
-        ]);
+        ];
+        if ($checkout_attempt_token !== null) {
+            $purchase_values[] = $checkout_attempt_token;
+        }
+        $purchase_stmt->execute($purchase_values);
         $client_package_id = safe_int($conn->lastInsertId());
 
         $credit_stmt = $conn->prepare("
@@ -1005,6 +1022,14 @@ function bdta_finalize_package_purchase(
             $stripe_checkout_session_id,
             $stripe_payment_intent_id
         );
+        // These credits already exist in this transaction. Bind their invoice
+        // item to this purchase so later invoice settlement cannot grant them again.
+        $item_identity = $conn->prepare("SELECT id FROM invoice_items WHERE invoice_id = ? AND item_type = 'package' AND reference_id = ? ORDER BY id LIMIT 1");
+        $item_identity->execute([array_int_value($invoice_context['invoice'], 'id'), $package_id]);
+        $invoice_item_id = safe_int($item_identity->fetchColumn());
+        if ($invoice_item_id <= 0) throw new RuntimeException('Package purchase invoice item is missing.');
+        $conn->prepare('INSERT INTO invoice_package_fulfillments (invoice_item_id, unit_number, client_package_id) VALUES (?, 1, ?)')
+            ->execute([$invoice_item_id, $client_package_id]);
         $conn->commit();
 
         try {
@@ -1050,6 +1075,34 @@ function bdta_finalize_package_purchase(
         if ($conn->inTransaction()) {
             $conn->rollBack();
         }
+        // A concurrent winner or lost commit acknowledgement can leave a complete
+        // purchase. Re-read after rollback, without repeating any fulfillment.
+        if ($checkout_attempt_token !== null) {
+            $completed_attempt = bdta_find_offline_package_purchase($conn, $package_id, $checkout_attempt_token);
+            if ($completed_attempt !== null) {
+                return $completed_attempt;
+            }
+        }
         throw $e;
     }
+}
+
+/** @return array{client_id: int, client_package_id: int, form_submission_id: int}|null */
+function bdta_find_offline_package_purchase(SafePDO $conn, int $package_id, string $checkout_attempt_token): ?array
+{
+    if (preg_match('/^[a-f0-9]{64}$/', $checkout_attempt_token) !== 1) {
+        return null;
+    }
+    $stmt = $conn->prepare("
+        SELECT id, client_id FROM client_packages
+        WHERE package_id = ? AND checkout_attempt_token = ? AND payment_method = 'offline'
+        LIMIT 1
+    ");
+    $stmt->execute([$package_id, $checkout_attempt_token]);
+    $purchase = $stmt->fetch(PDO::FETCH_ASSOC);
+    return is_array($purchase) ? [
+        'client_id' => safe_int($purchase['client_id'] ?? 0),
+        'client_package_id' => safe_int($purchase['id'] ?? 0),
+        'form_submission_id' => 0,
+    ] : null;
 }

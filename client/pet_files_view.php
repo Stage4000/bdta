@@ -4,6 +4,7 @@
  */
 
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/pet_files.php';
 requireLogin();
 
 $db = new Database();
@@ -32,15 +33,17 @@ if (!$file) {
 }
 
 // Build file path
-$file_path = __DIR__ . '/../backend/uploads/pets/' . $file['pet_id'] . '/' . $file['file_name'];
-
-// Check if file exists
-if (!file_exists($file_path)) {
+try {
+    $file_path = bdta_pet_file_path(safe_int($file['pet_id']), scalar_string($file['file_name']));
+} catch (InvalidArgumentException | RuntimeException $e) {
+    http_response_code(404);
+    die('File not found');
+}
+if ($file_path === null) {
     http_response_code(404);
     die('File not found on server');
 }
 
-// Determine if we should force download or display inline
 $download = isset($_GET['download']) && $_GET['download'] == '1';
 
 // Sanitize filename for Content-Disposition header
@@ -65,5 +68,6 @@ header('Cache-Control: private, max-age=0, no-cache, must-revalidate');
 header('Pragma: no-cache');
 
 // Output file
+// nosemgrep: php.lang.security.readfile-use.readfile-use -- realpath validated inside authorized pet directory
 readfile($file_path);
 exit;

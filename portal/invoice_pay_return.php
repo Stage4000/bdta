@@ -7,7 +7,7 @@
  *   - Portal session: ?id=INVOICE_ID&session_id=...      — requires portal login
  */
 require_once '../backend/includes/config.php';
-require_once '../backend/includes/invoice_status.php';
+require_once '../backend/includes/invoice_payment.php';
 
 $db   = new Database();
 $conn = $db->getConnection();
@@ -82,13 +82,7 @@ if (!empty($token)) {
     $success_url = PORTAL_URL . 'invoice_view.php?id=' . $id;
 }
 
-// Already settled — nothing to do
-if (!bdta_invoice_is_payable($invoice)) {
-    setFlashMessage('This invoice is no longer payable.', 'info');
-    header('Location: ' . $success_url);
-    exit;
-}
-
+// Verify paid returns even if another payment closed the invoice; excess must be retained.
 require_once '../backend/includes/stripe_config.php';
 
 if (!isStripeEnabled()) {
@@ -118,7 +112,7 @@ curl_close($ch);
 
 $session = decode_json_assoc(scalar_string($response));
 
-if ($http_code !== 200 || empty($session['id'])) {
+if ($http_code !== 200 || array_string_value($session, 'id') !== $session_id) {
     error_log("Stripe session retrieval failed for session $session_id (HTTP $http_code)");
     setFlashMessage('Could not verify payment. If you were charged, please contact us.', 'danger');
     header('Location: ' . $cancel_url);
@@ -153,6 +147,7 @@ if (
     || $session_client_id !== $invoice_client_id
     || $session_amount_cents <= 0
     || $session_amount_cents !== $amount_total_cents
+    || array_string_value($session, 'currency') !== scalar_string(STRIPE_CURRENCY)
 ) {
     error_log("Stripe session $session_id metadata mismatch for invoice $id");
     setFlashMessage('Could not verify that this payment belongs to the requested invoice. Please contact us if you were charged.', 'danger');
@@ -167,65 +162,23 @@ if ($payment_amount <= 0) {
     exit;
 }
 
-$existing_payment_stmt = $conn->prepare("
-    SELECT invoice_id
-    FROM invoice_payments
-    WHERE stripe_payment_intent_id = ?
-    LIMIT 1
-");
-$existing_payment_stmt->execute([$payment_intent_id]);
-$existing_payment_invoice_id = safe_int($existing_payment_stmt->fetchColumn());
-
-if ($existing_payment_invoice_id > 0) {
-    if ($existing_payment_invoice_id !== safe_int($id)) {
-        error_log("Stripe payment intent $payment_intent_id already recorded for invoice $existing_payment_invoice_id");
-        setFlashMessage('This payment was already recorded for a different invoice. Please contact us.', 'danger');
-        header('Location: ' . $cancel_url);
+try {
+    $payment_result = bdta_invoice_record_checkout_payment($conn, safe_int($id), $invoice_client_id,
+        $amount_total_cents, $session_id, $payment_intent_id, array_string_value($session, 'currency'));
+    $invoice = array_merge($invoice, $payment_result['invoice']);
+    $invoice_marked_paid = !$payment_result['replayed'] && $payment_result['applied_cents'] > 0 && array_string_value($invoice, 'status') === 'paid';
+    if ($payment_result['excess_cents'] > 0) {
+        setFlashMessage('Payment received. $' . number_format($payment_result['excess_cents'] / 100, 2)
+            . ' exceeded the current invoice balance and has been flagged for reconciliation. Please contact us.', 'warning');
+        header('Location: ' . $success_url);
         exit;
     }
-
-    setFlashMessage('This payment was already recorded.', 'info');
-    header('Location: ' . $success_url);
-    exit;
-}
-
-$conn->beginTransaction();
-
-try {
-    $conn->prepare("
-        INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)
-        VALUES (?, ?, CURRENT_DATE, 'credit_card', ?, ?)
-    ")->execute([$id, $payment_amount, $payment_intent_id, 'Stripe Checkout session ' . $session_id]);
-
-    $updated_summary = bdta_invoice_get_payment_summary($conn, $invoice);
-    $invoice_update = $conn->prepare("
-        UPDATE invoices
-        SET status = ?,
-            payment_method = 'credit_card',
-            payment_date = CURRENT_DATE,
-            stripe_payment_intent_id = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND status NOT IN ('paid', 'refunded', 'void', 'cancelled')
-    ");
-    $invoice_update->execute([array_string_value($updated_summary, 'status', 'paid'), $payment_intent_id, $id]);
-    $invoice_marked_paid = $invoice_update->rowCount() > 0;
-    $invoice['status'] = array_string_value($updated_summary, 'status', 'paid');
-    $invoice['payment_method'] = 'credit_card';
-    $invoice['payment_date'] = date('Y-m-d');
-    $invoice['stripe_payment_intent_id'] = $payment_intent_id;
-
-    $conn->commit();
-} catch (Throwable $e) {
-    if ($conn->inTransaction()) {
-        $conn->rollBack();
-    }
-
-    if (str_contains(strtolower($e->getMessage()), 'duplicate')) {
+    if ($payment_result['replayed']) {
         setFlashMessage('This payment was already recorded.', 'info');
         header('Location: ' . $success_url);
         exit;
     }
-
+} catch (Throwable $e) {
     error_log('Failed to record Stripe invoice payment: ' . $e->getMessage());
     setFlashMessage('Payment was received but could not be recorded automatically. Please contact us.', 'danger');
     header('Location: ' . $cancel_url);
@@ -248,7 +201,7 @@ if (array_string_value($invoice, 'status') === 'paid') {
 
 if ($client_id !== null) {
     // Only log activity for portal-logged-in users (guest doesn't have client_activity_log entry)
-    logClientActivity($client_id, 'invoice_paid', 'Paid invoice #' . $invoice['invoice_number'] . ' via Stripe', $conn);
+    logClientActivity($client_id, 'invoice_paid', 'Paid invoice #' . array_string_value($invoice, 'invoice_number') . ' via Stripe', $conn);
 }
 
 if ($invoice_marked_paid) {

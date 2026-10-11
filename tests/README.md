@@ -24,3 +24,12 @@ The test starts a temporary loopback PHP server, uses synthetic in-memory client
 session files, and disables outbound application transports. It checks both reminder actions through
 the real login controller, query preservation, login retries, authenticated access, unavailable bookings,
 and rejection of unsafe return targets. The router is restricted to CLI-server test mode and loopback.
+
+Run public booking ownership regressions with `php tests/test_public_booking_identity.php`
+(requires `pdo_sqlite`). The test uses the real API and existing portal login controller on a
+temporary loopback PHP server with disposable synthetic data and outbound transports disabled.
+It covers anonymous/foreign/archived/deleted/admin-only sessions, mapped email inputs, owner
+profile/credit access, duplicate-email owners, new guests, and rollback/retry. It creates and
+removes its own database and session files. The support router refuses ordinary web requests.
+`php tests/test_registered_address_booking_regression.php` checks authenticated address updates
+and new-guest address capture. No production configuration or external services are required.

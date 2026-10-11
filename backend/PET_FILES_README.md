@@ -1,5 +1,8 @@
 # Pet File Upload Feature - Documentation
 
+For private storage configuration and the required relocation of existing files,
+follow [Private pet-file storage](../docs/PET_FILE_STORAGE.md) before deployment.
+
 ## Overview
 The pet file upload feature allows users to upload and manage documents and photos for each pet profile. This includes vaccination records, medical documents, photos, and other pet-related files.
 
@@ -8,7 +11,7 @@ The pet file upload feature allows users to upload and manage documents and phot
 ### File Upload
 - **Supported Formats**: JPG, JPEG, PNG, GIF, PDF
 - **File Size Limit**: 10MB maximum
-- **Storage Location**: `/backend/uploads/pets/{pet_id}/`
+- **Storage Location**: `<PET_FILES_DIRECTORY>/{pet_id}/`, outside the document root
 - **File Types**: Automatically categorized as "photo" (jpg, jpeg, png, gif) or "document" (pdf)
 
 ### File Management
@@ -30,6 +33,7 @@ The pet file upload feature allows users to upload and manage documents and phot
 4. **File Size Limits**: 10MB maximum enforced on both client and server
 5. **Secure File Serving**: Files served through authenticated endpoint, not directly accessible
 6. **Error Handling**: Generic error messages (no sensitive database info leaked)
+7. **CSRF Protection**: Upload and delete require the current session's `csrf_token`
 
 ## Usage
 
@@ -77,6 +81,7 @@ Parameters:
   - file: File upload
   - pet_id: Pet ID (integer)
   - description: Optional description (string)
+  - csrf_token: Current session CSRF token (string)
   
 Response (JSON):
 {
@@ -117,6 +122,7 @@ GET /client/pet_files_view.php?id=123&download=1
 POST /client/pet_files_delete.php
 Parameters:
   - file_id: File ID (integer)
+  - csrf_token: Current session CSRF token (string)
   
 Response (JSON):
 {
@@ -130,7 +136,7 @@ Response (JSON):
 
 Files are organized by pet ID:
 ```
-backend/uploads/pets/
+<PET_FILES_DIRECTORY>/
 ├── 1/
 │   ├── pet_1_abc123.jpg
 │   └── pet_1_def456.pdf
@@ -139,7 +145,9 @@ backend/uploads/pets/
 └── .gitignore
 ```
 
-The `.gitignore` file prevents uploaded files from being committed to version control while preserving the directory structure.
+Private storage must remain outside the repository and all web-server roots or aliases.
+The legacy public directory is denied on Apache by `.htaccess`; other servers need
+an explicit deny rule and public originals must be removed after relocation.
 
 ## Integration Points
 
@@ -159,12 +167,14 @@ The `.gitignore` file prevents uploaded files from being committed to version co
 ## Maintenance Notes
 
 ### Database Migration
-The `pet_files` table is automatically created when the database is initialized. No manual migration needed.
+The `pet_files` table is automatically created when the database is initialized.
+No database migration is needed, but existing public files must be relocated before
+this change is activated. See the deployment prerequisite linked above.
 
 ### Backup Considerations
 When backing up the system, ensure both:
-1. Database file (contains file metadata)
-2. Uploads directory (contains actual files)
+1. Database backup (contains file metadata)
+2. Private `PET_FILES_DIRECTORY` (contains actual files)
 
 If restoring from backup, both must be restored to maintain consistency.
 
@@ -172,18 +182,20 @@ If restoring from backup, both must be restored to maintain consistency.
 If files are deleted from the database but not from the filesystem (or vice versa), you may need to run a cleanup:
 
 ```php
+require_once 'backend/includes/pet_files.php';
+
 // Check for database entries without files
 $stmt = $conn->query("SELECT * FROM pet_files");
 foreach ($stmt->fetchAll() as $file) {
-    $path = "backend/uploads/pets/{$file['pet_id']}/{$file['file_name']}";
-    if (!file_exists($path)) {
-        echo "Missing file: {$path}\n";
+    $path = bdta_pet_file_path((int) $file['pet_id'], (string) $file['file_name']);
+    if ($path === null) {
+        echo "Missing file ID: {$file['id']}\n";
         // Optionally delete DB record
     }
 }
 
 // Check for files without database entries
-// Scan uploads directory and compare with database
+// Scan private storage and compare with database; require the pet_files.php helper above.
 ```
 
 ### Disk Space Monitoring
@@ -195,7 +207,7 @@ With a 10MB per-file limit, monitor disk usage:
 ## Troubleshooting
 
 ### Files Not Uploading
-1. Check directory permissions: `chmod 755 backend/uploads/pets`
+1. Check that PHP can write the private `PET_FILES_DIRECTORY`; do not publish it or make it world-writable
 2. Verify PHP upload settings in `php.ini`:
    - `upload_max_filesize = 10M`
    - `post_max_size = 10M`

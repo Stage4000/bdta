@@ -8,6 +8,7 @@ requireLogin();
 
 $db = new Database();
 $conn = $db->getConnection();
+$can_manage_admin_users = bdta_admin_user_can_manage_admin_users(bdta_current_admin_user($conn, $_SESSION));
 
 $client_id = safe_int($_GET['client_id'] ?? 0);
 $error = '';
@@ -28,9 +29,14 @@ if (!$client) {
     redirect('clients_list.php');
 }
 $client_row = $client;
+if (!empty($client_row['is_admin']) && !$can_manage_admin_users) {
+    setFlashMessage('You do not have permission to manage admin clients.', 'danger');
+    redirect('clients_list.php');
+}
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireValidCsrfToken('client_set_password.php?client_id=' . $client_id);
     $new_password = scalar_string($_POST['new_password'] ?? '');
     $confirm_password = scalar_string($_POST['confirm_password'] ?? '');
     
@@ -44,8 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Set password
         $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("UPDATE clients SET password_hash = ? WHERE id = ?");
-        $stmt->execute([$password_hash, $client_id]);
+        $stmt = $conn->prepare("UPDATE clients SET password_hash = ? WHERE id = ? AND (COALESCE(is_admin, 0) = 0 OR ? = 1)");
+        $stmt->execute([$password_hash, $client_id, $can_manage_admin_users ? 1 : 0]);
+        if ($stmt->rowCount() === 0) {
+            setFlashMessage('Client could not be updated. Please refresh and try again.', 'danger');
+            redirect('clients_list.php');
+        }
         
         setFlashMessage('Password set successfully for ' . escape(array_string_value($client_row, 'name')) . '!', 'success');
         redirect('clients_view.php?id=' . $client_id);
@@ -80,6 +90,7 @@ include '../backend/includes/header.php';
                     </div>
 
                     <form method="POST">
+                        <?= csrfInput() ?>
                         <div class="mb-3">
                             <label for="new_password" class="form-label">New Password *</label>
                             <input type="password" class="form-control" id="new_password" name="new_password" required minlength="8" autofocus>

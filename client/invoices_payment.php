@@ -1,7 +1,7 @@
 <?php
 require_once '../backend/includes/config.php';
 require_once '../backend/includes/email_service.php';
-require_once '../backend/includes/invoice_status.php';
+require_once '../backend/includes/invoice_payment.php';
 requireLogin();
 
 $db = new Database();
@@ -62,86 +62,6 @@ function sendFullInvoiceReceipt(PDO $conn, int $invoice_id): void {
     }
 }
 
-/**
- * Apply package credits to a client for all package items on an invoice.
- */
-function applyPackageCredits(PDO $conn, int $invoice_id, int|string $client_id, int|string $admin_id): void {
-    $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ? AND item_type = 'package' AND reference_id IS NOT NULL");
-    $items_stmt->execute([$invoice_id]);
-    $package_items = assoc_rows($items_stmt->fetchAll(PDO::FETCH_ASSOC));
-
-    foreach ($package_items as $item) {
-        $pkg_id = array_int_value($item, 'reference_id');
-        $qty    = max(1, array_int_value($item, 'quantity', 1));
-
-        $stmt = $conn->prepare("SELECT * FROM packages WHERE id = ? AND is_active = 1");
-        $stmt->execute([$pkg_id]);
-        $package = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
-        if ($package === []) continue;
-
-        $stmt = $conn->prepare("SELECT * FROM package_items WHERE package_id = ?");
-        $stmt->execute([$pkg_id]);
-        $pkg_items = assoc_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
-        if (empty($pkg_items)) continue;
-
-        // For each unit quantity on the invoice line, assign one package instance
-        for ($q = 0; $q < $qty; $q++) {
-            $expires_at = null;
-            $expiration_days = array_int_value($package, 'expiration_days');
-            if ($expiration_days > 0) {
-                $expires_at = date('Y-m-d H:i:s', safe_timestamp(strtotime('+' . $expiration_days . ' days')));
-            }
-
-            $stmt = $conn->prepare("
-                INSERT INTO client_packages
-                    (client_id, package_id, package_name, expires_at, is_active, notes, created_by)
-                VALUES (?, ?, ?, ?, 1, ?, ?)
-            ");
-            $package_name = array_string_value($package, 'name');
-            $stmt->execute([$client_id, $pkg_id, $package_name, $expires_at,
-                'Auto-applied from invoice payment', $admin_id]);
-            $cp_id = $conn->lastInsertId();
-
-            $credit_stmt = $conn->prepare("
-                INSERT INTO client_package_credits
-                    (client_package_id, client_id, appointment_type_id, total_credits, used_credits)
-                VALUES (?, ?, ?, ?, 0)
-            ");
-            foreach ($pkg_items as $pi) {
-                $credit_stmt->execute([$cp_id, $client_id, array_int_value($pi, 'appointment_type_id'), array_int_value($pi, 'quantity')]);
-            }
-
-            // Audit trail
-            $cred_stmt = $conn->prepare("SELECT * FROM client_package_credits WHERE client_package_id = ?");
-            $cred_stmt->execute([$cp_id]);
-            $tx_stmt = $conn->prepare("
-                INSERT INTO package_credit_transactions
-                    (client_package_credit_id, client_id, appointment_type_id, transaction_type, amount, notes, created_by)
-                VALUES (?, ?, ?, 'purchase', ?, ?, ?)
-            ");
-            foreach (assoc_rows($cred_stmt->fetchAll(PDO::FETCH_ASSOC)) as $cred) {
-                $tx_stmt->execute([
-                    array_int_value($cred, 'id'), $client_id, array_int_value($cred, 'appointment_type_id'),
-                    array_int_value($cred, 'total_credits'),
-                    "Package '{$package_name}' from invoice payment",
-                    $admin_id
-                ]);
-            }
-
-            bdta_create_notification(
-                $conn,
-                'portal',
-                (int) $client_id,
-                'package',
-                (int) $cp_id,
-                'Package credits added',
-                "Your '{$package_name}' package credits are now available.",
-                '/portal/credits.php'
-            );
-        }
-    }
-}
-
 // Handle manual payment recording
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
@@ -169,105 +89,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlashMessage('Invalid payment method!', 'danger');
     } elseif (!$payment_date_is_valid) {
         setFlashMessage('Please enter a valid payment date.', 'danger');
-    } elseif ($installment) {
-        // Pay a single installment
-        $conn->prepare("
-            UPDATE invoice_installments
-            SET status = 'paid', payment_method = ?, payment_date = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ")->execute([$payment_method, $payment_date, $installment_id]);
-
-        // Reload installment to get fresh data for the receipt
-        $stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE id = ?");
-        $stmt->execute([$installment_id]);
-        $installment = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
-        if ($installment === []) {
-            setFlashMessage('Installment not found or already paid!', 'danger');
-            redirect('invoices_view.php?id=' . $id);
-        }
-
-        // Fetch client info for receipt
-        $client_stmt = $conn->prepare("SELECT name as client_name, email as client_email FROM clients WHERE id = ?");
-        $client_stmt->execute([array_int_value($invoice, 'client_id')]);
-        $client = assoc_row($client_stmt->fetch(PDO::FETCH_ASSOC));
-        $invoice_for_receipt = array_merge($invoice, $client);
-
-        // Send installment receipt
-        $email_service = new EmailService(null, $conn);
-        $receipt_result = $email_service->sendPaymentReceipt($invoice_for_receipt, $installment);
-        if ($receipt_result['success']) {
-            $conn->prepare("UPDATE invoice_installments SET receipt_sent_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$installment_id]);
-        }
-
-        // Check if all installments are now paid
-        $unpaid = $conn->prepare("SELECT COUNT(*) FROM invoice_installments WHERE invoice_id = ? AND status = 'unpaid'");
-        $unpaid->execute([$id]);
-        if ($unpaid->fetchColumn() === '0') {
-            // All installments paid — mark invoice paid and apply credits
-            $conn->prepare("
-                UPDATE invoices SET status = 'paid', payment_method = ?, payment_date = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ")->execute([$payment_method, $payment_date, $id]);
-            applyPackageCredits($conn, $id, array_int_value($invoice, 'client_id'), safe_int($_SESSION['admin_id'] ?? 0));
-
-            // Send final invoice receipt and update audit timestamp
-            sendFullInvoiceReceipt($conn, $id);
-
-            setFlashMessage('Final installment paid! Invoice marked as paid and package credits applied.', 'success');
-        } else {
-            setFlashMessage('Installment #' . array_string_value($installment, 'installment_number') . ' recorded as paid.', 'success');
-        }
-        redirect('invoices_view.php?id=' . $id);
     } else {
-        $current_summary = bdta_invoice_get_payment_summary($conn, $invoice, $invoice_installments);
-        $remaining_amount = safe_float($current_summary['remaining_amount']);
-
-        if (!empty($invoice_installments)) {
-            setFlashMessage('Use the installment payment actions to record payments for this invoice.', 'warning');
-        } elseif ($payment_amount <= 0) {
-            setFlashMessage('Payment amount must be greater than zero.', 'danger');
-        } elseif ($payment_amount > $remaining_amount) {
-            setFlashMessage('Payment amount cannot exceed the remaining balance of $' . number_format($remaining_amount, 2) . '.', 'danger');
-        } else {
-            try {
-                $conn->beginTransaction();
-
-                $conn->prepare("
-                    INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method, stripe_payment_intent_id, notes)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ")->execute([$id, $payment_amount, $payment_date, $payment_method, null, null]);
-
-                $updated_summary = bdta_invoice_get_payment_summary($conn, $invoice);
-                $updated_status = array_string_value($updated_summary, 'status', 'sent');
-
-                $conn->prepare("
-                    UPDATE invoices
-                    SET status = ?, payment_method = ?, payment_date = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                ")->execute([$updated_status, $payment_method, $payment_date, $id]);
-
-                if ($updated_status === 'paid') {
-                    applyPackageCredits($conn, $id, array_int_value($invoice, 'client_id'), safe_int($_SESSION['admin_id'] ?? 0));
-                    sendFullInvoiceReceipt($conn, $id);
+        try {
+            $result = bdta_invoice_record_manual_payment($conn, $id, $payment_amount, $payment_method, $payment_date,
+                safe_int($_SESSION['admin_id'] ?? 0) ?: null, $installment_id);
+            $invoice = $result['invoice'];
+            $installment = $result['installment'];
+            // Receipts are sent only after the payment and all credits commit.
+            if ($installment !== null) {
+                $client_stmt = $conn->prepare('SELECT name as client_name, email as client_email FROM clients WHERE id = ?');
+                $client_stmt->execute([array_int_value($invoice, 'client_id')]);
+                $client = assoc_row($client_stmt->fetch(PDO::FETCH_ASSOC));
+                $email_service = new EmailService(null, $conn);
+                $receipt_result = $email_service->sendPaymentReceipt(array_merge($invoice, $client), $installment);
+                if ($receipt_result['success']) {
+                    $conn->prepare('UPDATE invoice_installments SET receipt_sent_at = CURRENT_TIMESTAMP WHERE id = ?')->execute([$installment_id]);
                 }
-
-                $conn->commit();
-                if ($updated_status === 'paid') {
-                    setFlashMessage('Final payment recorded successfully! Invoice marked as paid and package credits applied.', 'success');
-                } else {
-                    setFlashMessage(
-                        'Partial payment of $' . number_format($payment_amount, 2) . ' recorded. Remaining balance: $' . number_format(safe_float($updated_summary['remaining_amount']), 2) . '.',
-                        'success'
-                    );
-                }
-            } catch (Throwable $e) {
-                if ($conn->inTransaction()) {
-                    $conn->rollBack();
-                }
-                setFlashMessage('Unable to record payment: ' . $e->getMessage(), 'danger');
             }
+            if (array_string_value($invoice, 'status') === 'paid') {
+                sendFullInvoiceReceipt($conn, $id);
+                setFlashMessage('Final payment recorded successfully! Invoice marked as paid and package credits applied.', 'success');
+            } else {
+                $updated_summary = bdta_invoice_get_payment_summary($conn, $invoice);
+                setFlashMessage('Payment recorded. Remaining balance: $' . number_format($updated_summary['remaining_amount'], 2) . '.', 'success');
+            }
+        } catch (Throwable $e) {
+            setFlashMessage('Unable to record payment: ' . $e->getMessage(), 'danger');
         }
-
         redirect('invoices_view.php?id=' . $id);
     }
 }

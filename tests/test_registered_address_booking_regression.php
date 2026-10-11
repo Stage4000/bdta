@@ -38,7 +38,7 @@ if ($can_run_runtime_api_checks) {
 
     $conn->exec('CREATE TABLE settings (setting_key TEXT PRIMARY KEY, setting_value TEXT, setting_type TEXT)');
     $conn->exec('CREATE TABLE admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT)');
-    $conn->exec('CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT, address TEXT, notes TEXT, created_at TEXT, updated_at TEXT)');
+    $conn->exec('CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT, address TEXT, notes TEXT, is_archived INTEGER DEFAULT 0, created_at TEXT, updated_at TEXT)');
     $conn->exec('CREATE TABLE client_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, name TEXT, email TEXT, phone TEXT, is_primary INTEGER DEFAULT 0)');
     $conn->exec('CREATE TABLE bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER, appointment_type_id INTEGER, admin_user_id INTEGER, client_name TEXT, client_email TEXT NOT NULL, client_phone TEXT, service_type TEXT, appointment_date TEXT, appointment_time TEXT, notes TEXT, duration_minutes INTEGER, location TEXT, location_type TEXT, package_credit_id INTEGER, contract_accepted INTEGER, contract_accepted_at TEXT, contract_signature_name TEXT, contract_signature_font TEXT, status TEXT, google_event_id TEXT, ical_token TEXT)');
     $conn->exec('CREATE TABLE appointment_types (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, is_active INTEGER DEFAULT 1, admin_user_id INTEGER, duration_minutes INTEGER DEFAULT 60, buffer_before_minutes INTEGER DEFAULT 0, buffer_after_minutes INTEGER DEFAULT 0, requires_admin_confirmation INTEGER DEFAULT 0, confirmation_template_id INTEGER, booking_request_template_id INTEGER, reminder_template_id INTEGER, cancellation_template_id INTEGER, is_mini_session INTEGER DEFAULT 0, mini_session_location TEXT, is_field_rental INTEGER DEFAULT 0, field_rental_location TEXT, is_group_class INTEGER DEFAULT 0, group_class_location TEXT, location_types TEXT, contract_template_id INTEGER, uses_resource INTEGER DEFAULT 0, resource_name TEXT, resource_capacity INTEGER DEFAULT 1, resource_allocation TEXT DEFAULT \'per_appointment\')');
@@ -108,7 +108,7 @@ try {
             'client_phone' => '555-1000',
             'service_type' => 'Registered Address Visit',
             'appointment_type_id' => $appointment_type_id,
-            'appointment_date' => '2026-06-01',
+            'appointment_date' => (new DateTimeImmutable('+7 days'))->format('Y-m-d'),
             'appointment_time' => '09:00',
             'location_type' => 'client_address',
             'client_address' => '101 New Client Way',
@@ -127,6 +127,7 @@ try {
 
         $conn->prepare('INSERT INTO clients (name, email, phone, address, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)')
             ->execute(['Stored Address Client', 'stored-address@example.com', '555-2000', '12 Existing Street']);
+        $_SESSION['portal_client_id'] = safe_int($conn->lastInsertId());
 
         $overwrite_result = api_booking_create_booking($conn, [
             'client_name' => 'Stored Address Client',
@@ -134,7 +135,7 @@ try {
             'client_phone' => '555-2000',
             'service_type' => 'Registered Address Visit',
             'appointment_type_id' => $appointment_type_id,
-            'appointment_date' => '2026-06-02',
+            'appointment_date' => (new DateTimeImmutable('+8 days'))->format('Y-m-d'),
             'appointment_time' => '10:00',
             'location_type' => 'client_address',
             'client_address' => '34 Updated Road',
@@ -150,6 +151,7 @@ try {
 
         $conn->prepare('INSERT INTO clients (name, email, phone, address, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)')
             ->execute(['Keep Existing Client', 'keep-existing@example.com', '555-3000', '56 Keep Lane']);
+        $_SESSION['portal_client_id'] = safe_int($conn->lastInsertId());
 
         $keep_existing_result = api_booking_create_booking($conn, [
             'client_name' => 'Keep Existing Client',
@@ -157,7 +159,7 @@ try {
             'client_phone' => '555-3000',
             'service_type' => 'Registered Address Visit',
             'appointment_type_id' => $appointment_type_id,
-            'appointment_date' => '2026-06-03',
+            'appointment_date' => (new DateTimeImmutable('+9 days'))->format('Y-m-d'),
             'appointment_time' => '11:00',
             'location_type' => 'client_address',
             'client_address' => '78 Ignored Avenue',
@@ -173,6 +175,7 @@ try {
 
         $conn->prepare('INSERT INTO clients (name, email, phone, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)')
             ->execute(['Missing Address Client', 'missing-address@example.com', '555-4000']);
+        $_SESSION['portal_client_id'] = safe_int($conn->lastInsertId());
 
         $missing_address_result = api_booking_create_booking($conn, [
             'client_name' => 'Missing Address Client',
@@ -180,7 +183,7 @@ try {
             'client_phone' => '555-4000',
             'service_type' => 'Registered Address Visit',
             'appointment_type_id' => $appointment_type_id,
-            'appointment_date' => '2026-06-04',
+            'appointment_date' => (new DateTimeImmutable('+10 days'))->format('Y-m-d'),
             'appointment_time' => '12:00',
             'location_type' => 'client_address',
             'client_address' => '90 Captured Circle',

@@ -262,13 +262,14 @@ if ($original_request_method === null) {
     $_SERVER['REQUEST_METHOD'] = $original_request_method;
 }
 
+$fixture_date = new DateTimeImmutable('+7 days');
 $result = api_booking_create_booking($conn, [
     'client_name' => 'Invoice Client',
     'client_email' => 'invoice-client@example.com',
     'client_phone' => '555-3000',
     'service_type' => 'Auto Invoice Session',
     'appointment_type_id' => $appointment_type_id,
-    'appointment_date' => '2026-05-20',
+    'appointment_date' => $fixture_date->format('Y-m-d'),
     'appointment_time' => '10:30',
     'location_type' => 'custom_address',
     'location_value' => '789 Training Way',
@@ -277,7 +278,7 @@ $result = api_booking_create_booking($conn, [
 assertPublicBookingAutoInvoice(($result['success'] ?? false) === true, 'Expected auto-invoice booking to succeed.');
 $invoice = $conn->query('SELECT invoice_number, due_date, total_amount, pay_token, status, invoice_sent_at FROM invoices ORDER BY id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
 assertPublicBookingAutoInvoice(is_array($invoice), 'Expected an invoice row to be created for auto-invoice bookings.');
-assertPublicBookingAutoInvoice(($invoice['due_date'] ?? '') === '2026-05-25', 'Expected invoice due date to be offset from the appointment date.');
+assertPublicBookingAutoInvoice(($invoice['due_date'] ?? '') === $fixture_date->modify('+5 days')->format('Y-m-d'), 'Expected invoice due date to be offset from the appointment date.');
 assertPublicBookingAutoInvoice(abs((float) ($invoice['total_amount'] ?? 0) - 125.50) < 0.0001, 'Expected invoice total amount to match the appointment type default amount.');
 assertPublicBookingAutoInvoice(trim((string) ($invoice['pay_token'] ?? '')) !== '', 'Expected auto-generated invoices to include a guest payment token.');
 assertPublicBookingAutoInvoice(($invoice['status'] ?? '') === 'draft', 'Expected failed invoice email sends to leave the invoice in draft status.');
@@ -292,7 +293,7 @@ $mail_rows = $conn->query('SELECT mail_type, subject, body_text FROM client_emai
 assertPublicBookingAutoInvoice(count($mail_rows) === 2, 'Expected both the booking confirmation and invoice email attempts to be logged.');
 assertPublicBookingAutoInvoice(($mail_rows[1]['mail_type'] ?? '') === EmailService::MAIL_TYPE_INVOICE, 'Expected the second logged email to be the invoice email.');
 assertPublicBookingAutoInvoice(str_contains((string) ($mail_rows[1]['body_text'] ?? ''), 'Auto Invoice Session — Detailed session description'), 'Expected the invoice email body to include the appointment type description.');
-assertPublicBookingAutoInvoice(str_contains((string) ($mail_rows[1]['body_text'] ?? ''), 'Due Date       : May 25, 2026'), 'Expected the invoice email body to include the calculated due date.');
+assertPublicBookingAutoInvoice(str_contains((string) ($mail_rows[1]['body_text'] ?? ''), 'Due Date       : ' . $fixture_date->modify('+5 days')->format('F j, Y')), 'Expected the invoice email body to include the calculated due date.');
 
 $before_result = api_booking_create_booking($conn, [
     'client_name' => 'Prepaid Client',
@@ -300,7 +301,7 @@ $before_result = api_booking_create_booking($conn, [
     'client_phone' => '555-3001',
     'service_type' => 'Prepaid Session',
     'appointment_type_id' => $prepaid_appointment_type_id,
-    'appointment_date' => '2026-05-20',
+    'appointment_date' => $fixture_date->format('Y-m-d'),
     'appointment_time' => '12:00',
     'location_type' => 'custom_address',
     'location_value' => '123 Payment Ln',
@@ -309,12 +310,12 @@ $before_result = api_booking_create_booking($conn, [
 assertPublicBookingAutoInvoice(($before_result['success'] ?? false) === true, 'Expected before-due auto-invoice booking to succeed.');
 $before_invoice = $conn->query("SELECT invoice_number, due_date, total_amount FROM invoices WHERE notes LIKE 'Auto-generated for booking #%Prepaid Session)%' ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 assertPublicBookingAutoInvoice(is_array($before_invoice), 'Expected a second invoice row to be created for before-due auto-invoice bookings.');
-assertPublicBookingAutoInvoice(($before_invoice['due_date'] ?? '') === '2026-05-18', 'Expected before-due invoices to be offset before the appointment date.');
+assertPublicBookingAutoInvoice(($before_invoice['due_date'] ?? '') === $fixture_date->modify('-2 days')->format('Y-m-d'), 'Expected before-due invoices to be offset before the appointment date.');
 assertPublicBookingAutoInvoice(abs((float) ($before_invoice['total_amount'] ?? 0) - 98.75) < 0.0001, 'Expected before-due invoice total amount to match the appointment type default amount.');
 
 $latest_invoice_mail = $conn->query("SELECT body_text FROM client_emails WHERE mail_type = 'invoice' ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 assertPublicBookingAutoInvoice(is_array($latest_invoice_mail), 'Expected the before-due invoice email to be logged.');
-assertPublicBookingAutoInvoice(str_contains((string) ($latest_invoice_mail['body_text'] ?? ''), 'Due Date       : May 18, 2026'), 'Expected the before-due invoice email body to include the calculated due date.');
+assertPublicBookingAutoInvoice(str_contains((string) ($latest_invoice_mail['body_text'] ?? ''), 'Due Date       : ' . $fixture_date->modify('-2 days')->format('F j, Y')), 'Expected the before-due invoice email body to include the calculated due date.');
 
 $conn->prepare("
     INSERT INTO invoices (invoice_number, client_id, issue_date, due_date, total_amount, status, pay_token)

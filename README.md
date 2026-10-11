@@ -74,6 +74,28 @@ Change the default password immediately after first login.
 
 See `backend/MYSQL_MIGRATION.md` for MySQL deployment and legacy import guidance.
 
+## Booking Regression Checks
+
+Run `php tests/test_booking_availability.php` for synthetic loopback HTTP tests of
+configured booking/reschedule slots, conflicts, capacity, venues, and Calendar
+event exclusions. Its worker disables outbound transports and uses fake Calendar
+responses.
+
+For cross-process races, use a disposable MySQL/MariaDB instance on `127.0.0.1`.
+Set `BDTA_SCHEDULE_MYSQL_TEST=1`, `BDTA_SCHEDULE_MYSQL_PORT`,
+`BDTA_SCHEDULE_MYSQL_USER`, and `BDTA_SCHEDULE_MYSQL_PASSWORD`, then run
+`php tests/test_booking_schedule_concurrency.php` with `pdo_mysql` enabled.
+The test creates and drops only its own random `bdta_schedule_test_*` schema;
+the fixture user needs permission to create that schema and its test triggers.
+CI runs both checks against a temporary MariaDB service.
+
+For booking debit/refund failure and race checks, set `BDTA_CREDIT_TEST_PORT`,
+`BDTA_CREDIT_TEST_USER`, and optionally `BDTA_CREDIT_TEST_PASSWORD` for a disposable
+loopback server, then run `php tests/test_booking_credit_atomicity.php` with
+`pdo_mysql` enabled. It creates and drops its own random `bdta_test_credit_*`
+schema, uses bounded private worker gates, and disables outbound provider
+transports. CI runs this check on the same temporary MariaDB service.
+
 ## Helpful Docs
 
 - `backend/README.md`

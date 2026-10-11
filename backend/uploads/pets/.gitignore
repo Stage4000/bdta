@@ -1,3 +1,4 @@
 # Ignore all uploaded files but keep directory structure
 *
 !.gitignore
+!.htaccess

@@ -559,25 +559,28 @@ class Database {
         unset($this->tableColumnsCache[$tableName]);
     }
       
-    /**
-     * Check if a table exists
-     */
-    private function tableExists(string $tableName): bool {
-        // Validate table name to prevent SQL injection
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
-            throw new InvalidArgumentException("Invalid table name: $tableName");
-        }
-        
-        try {
-            $stmt = $this->conn->prepare("SHOW TABLES LIKE ?");
-            $stmt->execute([$tableName]);
-            return $stmt->rowCount() > 0;
-        } catch (PDOException $e) {
-            return false;
+    private function assertPackageSchemaCompatible(): void {
+        // Legacy categories cannot be mapped safely to individual appointment types.
+        // Check every table independently so an interrupted conversion also fails closed.
+        foreach (['package_items', 'client_package_credits', 'package_credit_transactions'] as $table) {
+            $columns = $this->getTableColumns($table);
+            if ($columns !== [] && (
+                in_array('session_type', $columns, true)
+                || !in_array('appointment_type_id', $columns, true)
+            )) {
+                throw new RuntimeException(
+                    'Legacy package schema detected in ' . $table . '. '
+                    . 'Bootstrap stopped to preserve purchase and credit history. '
+                    . 'Complete an explicit data-preserving conversion before retrying; '
+                    . 'see backend/MYSQL_MIGRATION.md.'
+                );
+            }
         }
     }
-    
+
     private function initTables(): void {
+        // Preflight before any DDL: MySQL schema changes cannot be rolled back together.
+        $this->assertPackageSchemaCompatible();
         try {
             // Admin users table
             $this->execSQL("
@@ -1782,6 +1785,29 @@ class Database {
             )
         ");
 
+        // Durable refund intent is committed before any provider request. Existing
+        // invoice_refunds rows remain unchanged; unresolved legacy calls need review.
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS invoice_refund_operations (
+                operation_key VARCHAR(64) PRIMARY KEY,
+                invoice_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                refund_date DATE NOT NULL,
+                refund_method TEXT,
+                notes TEXT,
+                payment_intent_id TEXT,
+                invoice_number TEXT,
+                provider_key_hash VARCHAR(64),
+                currency VARCHAR(10),
+                first_attempt_at BIGINT NULL,
+                stripe_refund_id VARCHAR(255) NULL,
+                completed_at TIMESTAMP NULL DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_refund_operations_invoice (invoice_id),
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB
+        ");
+
         try {
             $this->execSQL("CREATE INDEX idx_invoice_refunds_invoice_id ON invoice_refunds(invoice_id)");
         } catch (PDOException $e) {
@@ -2039,19 +2065,6 @@ class Database {
             )
         ");
         
-        // Migrate legacy session_type-based tables to appointment_type_id-based schema.
-        // Since the app is in development mode, existing data is intentionally wiped.
-        if ($this->tableExists('package_items')) {
-            $pi_cols = $this->getTableColumns('package_items');
-            if (in_array('session_type', $pi_cols)) {
-                // Old schema detected — drop all dependent tables in reverse-dependency order
-                $this->execSQL("DROP TABLE IF EXISTS package_credit_transactions");
-                $this->execSQL("DROP TABLE IF EXISTS client_package_credits");
-                $this->execSQL("DROP TABLE IF EXISTS client_packages");
-                $this->execSQL("DROP TABLE IF EXISTS package_items");
-            }
-        }
-
         // Create package_items table (per appointment-type allocations within a package)
         $this->execSQL("
             CREATE TABLE IF NOT EXISTS package_items (
@@ -2185,6 +2198,52 @@ class Database {
         if (!in_array('stripe_checkout_session_id', $client_package_column_names)) {
             $this->execSQL("ALTER TABLE client_packages ADD COLUMN stripe_checkout_session_id VARCHAR(255) NULL");
         }
+        if (!in_array('checkout_attempt_token', $client_package_column_names)) {
+            $this->execSQL("ALTER TABLE client_packages ADD COLUMN checkout_attempt_token VARCHAR(64) NULL");
+        }
+        // Offline retries require database-enforced uniqueness; fail closed on DDL errors.
+        if (!$this->indexExists('client_packages', 'idx_client_packages_checkout_attempt')) {
+            $this->execSQL("CREATE UNIQUE INDEX idx_client_packages_checkout_attempt ON client_packages(checkout_attempt_token)");
+        }
+        $attempt_index_stmt = $this->conn->prepare("
+            SELECT NON_UNIQUE, COLUMN_NAME, SUB_PART
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'client_packages'
+              AND INDEX_NAME = 'idx_client_packages_checkout_attempt'
+            ORDER BY SEQ_IN_INDEX
+        ");
+        $attempt_index_stmt->execute();
+        $attempt_index = $attempt_index_stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($attempt_index) !== 1 || safe_int($attempt_index[0]['NON_UNIQUE'] ?? 1) !== 0
+            || scalar_string($attempt_index[0]['COLUMN_NAME'] ?? '') !== 'checkout_attempt_token'
+            || ($attempt_index[0]['SUB_PART'] ?? null) !== null) {
+            throw new RuntimeException('Offline package checkout requires a unique attempt-token index.');
+        }
+
+        // Verified provider receipts retain excess separately from applied invoice income.
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS invoice_checkout_receipts (
+                payment_intent_id VARCHAR(255) PRIMARY KEY,
+                checkout_session_id VARCHAR(255) NOT NULL UNIQUE,
+                invoice_id INTEGER NOT NULL,
+                received_cents BIGINT NOT NULL,
+                applied_cents BIGINT NOT NULL,
+                excess_cents BIGINT NOT NULL,
+                currency VARCHAR(10) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE RESTRICT
+            ) ENGINE=InnoDB
+        ");
+        $this->execSQL("
+            CREATE TABLE IF NOT EXISTS invoice_package_fulfillments (
+                invoice_item_id INTEGER NOT NULL,
+                unit_number INTEGER NOT NULL,
+                client_package_id INTEGER NOT NULL,
+                PRIMARY KEY (invoice_item_id, unit_number),
+                FOREIGN KEY (invoice_item_id) REFERENCES invoice_items(id) ON DELETE RESTRICT,
+                FOREIGN KEY (client_package_id) REFERENCES client_packages(id) ON DELETE RESTRICT
+            ) ENGINE=InnoDB
+        ");
 
         // Create package_link_views table for analytics
         $this->execSQL("

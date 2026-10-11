@@ -76,6 +76,10 @@ $package_price = safe_float($package['price'] ?? 0);
 $payment_required = $package_price > 0;
 $session_id = trim(scalar_string($_GET['session_id'] ?? ''));
 $purchase_status = trim(scalar_string($_GET['purchase'] ?? ''));
+$checkout_attempt_token = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? trim(scalar_string($_POST['checkout_attempt_token'] ?? ''))
+    : (!$payment_required ? bin2hex(random_bytes(32)) : '');
+$offline_success_url = 'package_detail.php?token=' . urlencode($token) . '&purchase=success&checkout_attempt=' . urlencode($checkout_attempt_token);
 
 if (!isset($_SESSION['pending_package_purchases']) || !is_array($_SESSION['pending_package_purchases'])) {
     $_SESSION['pending_package_purchases'] = [];
@@ -106,6 +110,10 @@ if ($attached_form !== null && !$attached_form_state['form_due']) {
 if ($purchase_status === 'success' && !empty($_SESSION['package_purchase_success'][$token])) {
     $success = true;
     unset($_SESSION['package_purchase_success'][$token]);
+}
+if ($purchase_status === 'success' && $_SERVER['REQUEST_METHOD'] !== 'POST'
+    && bdta_find_offline_package_purchase($conn, safe_int($package['id'] ?? 0), trim(scalar_string($_GET['checkout_attempt'] ?? ''))) !== null) {
+    $success = true;
 }
 
 if (!$success && $session_id !== '') {
@@ -238,6 +246,12 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
 
     if (!hash_equals(scalar_string($_SESSION['csrf_token'] ?? ''), $submitted_csrf_token)) {
         $error = 'Your session expired. Please refresh the page and try again.';
+    } elseif (bdta_find_offline_package_purchase($conn, safe_int($package['id'] ?? 0), $checkout_attempt_token) !== null) {
+        // Recover a committed offline attempt before changed form/package validation.
+        header('Location: ' . $offline_success_url);
+        exit;
+    } elseif (!$payment_required && preg_match('/^[a-f0-9]{64}$/', $checkout_attempt_token) !== 1) {
+        $error = 'Your checkout expired. Please refresh the page and try again.';
     } elseif ($buyer_name === '' || $buyer_email === '') {
         $error = 'Please enter your name and email address.';
     } elseif (!filter_var($buyer_email, FILTER_VALIDATE_EMAIL)) {
@@ -367,10 +381,13 @@ if (!$success && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '
                     $effective_attached_form,
                     $form_validation['responses'],
                     $view_id !== null ? safe_int($view_id) : null,
-                    'offline'
+                    'offline',
+                    null,
+                    null,
+                    $checkout_attempt_token
                 );
                 $_SESSION['package_purchase_success'][$token] = 1;
-                header('Location: package_detail.php?token=' . urlencode($token) . '&purchase=success');
+                header('Location: ' . $offline_success_url);
                 exit;
             } catch (Throwable $e) {
                 error_log('Package purchase failed: ' . $e->getMessage());
@@ -565,6 +582,9 @@ $page_title = htmlspecialchars($package['name']) . ' – Package Details';
                         <form method="POST" novalidate>
                             <input type="hidden" name="action" value="purchase">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(scalar_string($_SESSION['csrf_token'] ?? '')) ?>">
+                            <?php if (!$payment_required): ?>
+                            <input type="hidden" name="checkout_attempt_token" value="<?= htmlspecialchars($checkout_attempt_token) ?>">
+                            <?php endif; ?>
 
                             <div class="mb-3">
                                 <label for="buyer_name" class="form-label">Your Name <span class="text-danger">*</span></label>

@@ -1,5 +1,11 @@
 # Pet File Upload Feature - Implementation Complete ✅
 
+This is a historical record of the original implementation. Its public storage,
+permissions and no-migration instructions below are superseded by
+[Private pet-file storage](docs/PET_FILE_STORAGE.md). Current uploads and deletes
+require a session CSRF token. Before deployment, relocate existing files to the
+private directory outside all web roots; include that directory in private backups.
+
 ## What Was Implemented
 
 This feature adds comprehensive file upload functionality to pet profiles, allowing users to upload and manage:
