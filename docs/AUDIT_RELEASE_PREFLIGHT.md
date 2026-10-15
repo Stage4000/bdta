@@ -1,11 +1,34 @@
 # Audit release preflight and rollback
 
-Owner deadline: **October 12, 2026, 6:00 p.m. Pacific**
-(`America/Los_Angeles`; October 13, 01:00 UTC). This plan applies to the reviewed
-integration draft #585. All ten reviewed source heads are composed; the final
-combined head requires successful CI and independent verification before cutover.
-No production access, migration, relocation, reconciliation, merge or deployment
-has been performed in preparing this plan.
+Owner deadline: **October 18, 2026, 6:00 p.m. PDT**
+(`America/Los_Angeles`; October 19, 01:00 UTC), as recorded on the
+[repair card](https://trello.com/c/nfPrUEXu).
+
+## Current release status and task-specific decisions
+
+[Integration PR #585](https://github.com/Stage4000/bdta/pull/585) merged on
+October 11, 2026 at 18:43:45 UTC as
+`360ccc754726f55fdccf8937e784612113956b5c`. All ten reviewed source heads
+were composed at `454d683869b6b10c1bc2b55621dcc578ec3bea01`;
+[exact-head CI](https://github.com/Stage4000/bdta/actions/runs/38084545393)
+passed, and the merge introduced no file differences from that reviewed head.
+These source milestones do not establish production deployment.
+
+The owner waived the **fresh BDTA database/file/configuration backup prerequisite
+for this release only**. The backup scope below remains recovery guidance; this
+waiver does not establish that a backup, restore rehearsal or rollback verification
+has occurred, and does not clear schema/DDL, private-file, historical-reconciliation
+or rollback-readiness gates. Preserve existing recovery evidence and validate
+restoration if deployment issues are detected.
+
+Production login-based application verification is excluded by the owner. Do not
+request production credentials or treat that verification as an acceptance blocker.
+Use isolated synthetic checks and authorized non-login operational evidence;
+actual production schema, ingress policies and deployment remain unverified.
+
+The original preparation did not perform production migration, file relocation,
+reconciliation or deployment. Those operational gates remain open; this document
+does not authorize a cutover or bypass any access restriction.
 
 ## Release and operation gates
 
@@ -47,7 +70,8 @@ aliases must already be denied, even if file controllers are held closed.
    aliases and PHP service identity; current validation covers PHP 8.2 hosted CI,
    PHP 8.5 local fixtures and MariaDB 11.4.13, not every older version.
 2. Pause application/scheduled writes and establish the operation restrictions
-   above. Take the backups below and verify restoration into an isolated,
+   above. Apply the task-specific fresh-backup waiver above; it does not verify recovery.
+   Verify restoration from available recovery material into an isolated,
    non-serving copy with external transports disabled. Run bootstrap/schema
    preflight on that copy before the live cutover. MySQL DDL commits implicitly;
    a transaction cannot undo the whole migration.
@@ -86,14 +110,19 @@ aliases must already be denied, even if file controllers are held closed.
   verify anonymous, foreign-owner, archived and accountant denial using synthetic
   checks. Directory creation in the helper requests mode `0700`; Windows requires
   appropriate service-account ACLs. No permission changes are performed here.
-- After verified private copies and backup exist, remove the public originals.
+- After private copies are verified and the release-specific backup decision above
+  is accounted for, remove the public originals. The waiver does not establish
+  recoverability or waive preservation of existing recovery material.
   Deny `/backend/uploads/pets/` on the actual server and all equivalent aliases.
   Apache `.htaccess` depends on enabled overrides; other servers and PHP's built-in
   server do not obtain protection from that file. Confirm legacy static URLs cannot
   serve bytes. Keep uploads/deletes paused until all these checks pass. Controllers
   have no public fallback, so deploying before relocation gives legacy downloads 404.
 
-## Required backup scope
+## Recovery backup scope (fresh prerequisite waived for this release)
+
+The following describes the complete recovery scope, not a reinstatement of the
+waived fresh-backup prerequisite.
 
 Preserve a consistent **complete database**, including schema/rows, indexes,
 foreign keys, triggers and any views/routines/events. Include admin/client/pet
@@ -103,7 +132,8 @@ and settings. Pause nontransactional writers; do not substitute a few new-table
 exports for the full backup. Record row counts/balances/key links for comparison
 and rehearse restoration on the isolated copy.
 
-Back up public pet files before removal and existing private files, with their
+Recovery material should cover public pet files before removal and existing
+private files, with their
 relative paths, hashes and access metadata. Preserve the current application
 artifact/commit, required assets, private `.env` configuration, PHP/runtime
 configuration and relevant web-server roots/aliases/deny rules and scheduled-job
