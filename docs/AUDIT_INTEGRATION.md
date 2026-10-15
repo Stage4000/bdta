@@ -1,6 +1,26 @@
-# Reviewed audit integration candidate
+# Reviewed audit integration
 
-This candidate starts from main `5281e8fd7911e3f3f024df4cd3f9a492daa4c31f`,
+## Current status
+
+[PR #585](https://github.com/Stage4000/bdta/pull/585) merged on October 11,
+2026 at 18:43:45 UTC as `360ccc754726f55fdccf8937e784612113956b5c`.
+The reviewed head `454d683869b6b10c1bc2b55621dcc578ec3bea01` passed
+[exact-head CI](https://github.com/Stage4000/bdta/actions/runs/38084545393);
+the merge has no file differences from that head. Deployment remains unverified.
+
+The [repair card](https://trello.com/c/nfPrUEXu) records the current deadline as
+**October 18, 2026 at 6:00 p.m. PDT** (October 19, 01:00 UTC). The owner waived
+the fresh BDTA database/file/configuration backup prerequisite for this release
+only; no backup, restore rehearsal or rollback verification is implied. Production
+login-based application verification is excluded: do not request production
+credentials or make that an acceptance blocker. All schema, private-file,
+historical-reconciliation and rollback-readiness gates below remain open.
+See [release preflight](AUDIT_RELEASE_PREFLIGHT.md) for the current operational
+boundaries and recovery guidance.
+
+## Historical composition
+
+This integration starts from main `5281e8fd7911e3f3f024df4cd3f9a492daa4c31f`,
 including the survey/reminder releases #575/#576. It combines these exact reviewed
 heads without modifying their source branches:
 
@@ -66,7 +86,9 @@ the default is `bdta-private/pets` beside the application directory.
 
 ## Migration and activation gates
 
-1. Preserve a verified database and private-file backup; pause application and
+1. Apply the release-specific fresh-backup waiver above without assuming recovery
+   is verified. Preserve existing database/private-file recovery material and
+   validate restoration if deployment issues are detected; pause application and
    scheduled writes while validating schema conversion or relocating files.
 2. M1 checks `package_items`, `client_package_credits` and
    `package_credit_transactions` before bootstrap DDL. Any `session_type` column
@@ -112,9 +134,10 @@ the default is `bdta-private/pets` beside the application directory.
    restriction. See [AUDIT_RELEASE_PREFLIGHT.md](AUDIT_RELEASE_PREFLIGHT.md) for
    the precise backup, relocation, cutover and rollback sequence.
 
-No production schema conversion, file relocation, provider reconciliation, merge
-into main or deployment was performed to prepare this candidate. Those gates require actual
-environment validation before activation.
+No production schema conversion, file relocation, provider reconciliation or
+deployment was performed to prepare the original candidate. The subsequent main
+merge is recorded above; operational gates still require actual environment
+validation before activation and are not cleared by source publication.
 
 ## Rollback
 
