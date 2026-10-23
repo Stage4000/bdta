@@ -12,7 +12,13 @@ $db = new Database();
 $conn = $db->getConnection();
 
 $method = $_SERVER['REQUEST_METHOD'];
-$data = $method === 'POST' ? bdta_email_request_data() : [];
+try {
+    $data = $method === 'POST' ? bdta_email_request_data() : [];
+} catch (InvalidArgumentException $e) {
+    http_response_code(400);
+    echo json_encode(['error' => $e->getMessage()]);
+    exit;
+}
 if (in_array($method, ['POST', 'DELETE'], true) && !isValidCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($data['csrf_token'] ?? null))) {
     http_response_code(403);
     echo json_encode(['error' => 'Invalid request. Refresh the page and try again.']);

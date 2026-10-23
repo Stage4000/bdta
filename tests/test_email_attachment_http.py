@@ -131,8 +131,11 @@ function mail($to,$subject,$message,$headers='',$parameters='') {
         status,_,_=request('POST','/client/client_emails_api.php',body,typ)
         check(status==400 and db.execute('SELECT COUNT(*) FROM client_emails').fetchone()[0]==before,'Actual upload_max_filesize failure creates no message')
         body,typ=multipart({**message,'attachment_count':1},[('post-too-large.txt',b'x'*(4*1024*1024+1))])
-        status,_,_=request('POST','/client/client_emails_api.php',body,typ)
-        check(status==400 and db.execute('SELECT COUNT(*) FROM client_emails').fetchone()[0]==before,'Actual post_max_size truncation cannot send incomplete message')
+        status,_,data=request('POST','/client/client_emails_api.php',body,typ)
+        check(status==400 and 'server' in json.loads(data)['error'] and 'No email was sent' in json.loads(data)['error'] and db.execute('SELECT COUNT(*) FROM client_emails').fetchone()[0]==before,'Actual post_max_size truncation clearly rejects without sending incomplete message')
+        unmatched_before=db.execute('SELECT COUNT(*) FROM unmatched_emails').fetchone()[0]
+        status,_,data=request('POST','/client/unmatched_emails_api.php',body,typ)
+        check(status==400 and 'No email was sent' in json.loads(data)['error'] and db.execute('SELECT COUNT(*) FROM unmatched_emails').fetchone()[0]==unmatched_before,'Inbox post_max_size truncation has clear fail-closed error')
         # Existing JSON no-attachment clients remain supported with CSRF.
         status,_,data=request('POST','/client/client_emails_api.php',json.dumps(message),'application/json')
         check(status==200 and json.loads(data)['success'],'Authenticated JSON no-attachment compose remains compatible')

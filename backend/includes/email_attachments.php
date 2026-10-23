@@ -266,6 +266,9 @@ function bdta_email_verified_attachment_path(array $attachment): string {
 /** @return array<string, mixed> */
 function bdta_email_request_data(): array {
     if (str_starts_with(strtolower(bdta_email_string($_SERVER['CONTENT_TYPE'] ?? '')), 'multipart/form-data')) {
+        if ($_POST === [] && bdta_email_int($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+            throw new InvalidArgumentException('The upload request exceeded this server\'s limit or could not be read. Choose smaller attachments. No email was sent.');
+        }
         return $_POST;
     }
     $data = json_decode((string) file_get_contents('php://input'), true);
