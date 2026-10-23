@@ -39,6 +39,7 @@ try {
     $outside = $temporary . '/outside'; file_put_contents($outside, 'outside');
     $linkkey = str_repeat('a', 64) . '.bin'; symlink($outside, $temporary . '/private/' . $linkkey);
     reject_attachment(fn() => bdta_email_attachment_path($linkkey), 'Symlink escape rejected');
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- unlink the test-created symlink itself in this random private fixture directory, never its target.
     unlink($temporary . '/private/' . $linkkey);
     foreach ([dirname(__DIR__) . '/backend/uploads/mail', $temporary . '/../escaped', 'relative/files'] as $bad) {
         putenv('EMAIL_ATTACHMENTS_DIRECTORY=' . $bad);
@@ -47,6 +48,7 @@ try {
     symlink(dirname(__DIR__), $temporary . '/public-link');
     putenv('EMAIL_ATTACHMENTS_DIRECTORY=' . $temporary . '/public-link/new');
     reject_attachment(fn() => bdta_email_attachment_directory(true), 'Ancestor symlink into document root rejected');
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- unlink this test-created symlink itself in the random private fixture, never its target.
     unlink($temporary . '/public-link');
     putenv('EMAIL_ATTACHMENTS_DIRECTORY=' . $temporary . '/private');
 
@@ -117,8 +119,10 @@ try {
 } finally {
     putenv('EMAIL_ATTACHMENTS_DIRECTORY=' . $temporary . '/private');
     bdta_email_discard_staged_attachments($stored);
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- only generated files in this test's newly-created private random directory.
     foreach (glob($temporary . '/private/*') ?: [] as $file) unlink($file);
     if(is_dir($temporary.'/private'))rmdir($temporary.'/private');
+    // nosemgrep: php.lang.security.unlink-use.unlink-use -- only the literal synthetic outside file created inside this test's private random directory.
     if(is_file($temporary.'/outside'))unlink($temporary.'/outside');
     rmdir($temporary);
     putenv($prior===false?'EMAIL_ATTACHMENTS_DIRECTORY':'EMAIL_ATTACHMENTS_DIRECTORY='.$prior);

@@ -203,6 +203,17 @@ jobs:
           curl -LsS -o phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.40/phpstan.phar
           php phpstan.phar analyse --configuration=phpstan.neon --no-progress --memory-limit=1G
 
+      # Keep the normal extension set through PHPStan; only the following synthetic
+      # fixture requires an absent native IMAP API so it can inject a local fake.
+      - name: Isolate synthetic IMAP fixture
+        id: email_fixture_php
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
+        continue-on-error: true
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ':imap'
+
       - name: Run email attachment regressions
         id: email_attachments
         if: ${{ always() && steps.setup_php.outcome == 'success' }}
@@ -250,6 +261,7 @@ jobs:
           [ "${{ steps.survey_integrity.outcome }}" = "failure" ] && failures+=("Survey integrity regressions")
           [ "${{ steps.reminder_login.outcome }}" = "failure" ] && failures+=("Reminder login regressions")
           [ "${{ steps.public_booking_identity.outcome }}" = "failure" ] && failures+=("Public booking identity regressions")
+          [ "${{ steps.email_fixture_php.outcome }}" = "failure" ] && failures+=("Synthetic IMAP fixture setup")
           [ "${{ steps.email_attachments.outcome }}" = "failure" ] && failures+=("Email attachment regressions")
           [ "${{ steps.pet_files.outcome }}" = "failure" ] && failures+=("Pet file regressions")
           [ "${{ steps.invoice_payment.outcome }}" = "failure" ] && failures+=("Invoice payment regressions")

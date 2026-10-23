@@ -24,6 +24,10 @@ for extension in os.getenv('BDTA_TEST_PHP_EXTENSIONS', '').split(os.pathsep):
         PHP += ['-d', 'extension=' + extension]
 DISABLED = 'mail,is_uploaded_file,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect,exec,shell_exec,system,passthru,popen,proc_open,imap_open'
 PHP += ['-d', 'allow_url_fopen=0', '-d', 'disable_functions=' + DISABLED]
+# The fake IMAP API must never collide with a native extension or access a mailbox.
+imap_probe = subprocess.run(PHP + ['-r', 'exit(extension_loaded("imap") ? 1 : 0);'], capture_output=True, timeout=10)
+if imap_probe.returncode != 0:
+    raise RuntimeError('Synthetic inbound fixture requires PHP without the IMAP extension; disable it only in the isolated test runtime.')
 checks = 0
 
 def check(value, label):
@@ -238,10 +242,12 @@ chdir($root.'/client');require $request['route'];
     check(db.execute('SELECT COUNT(*) FROM email_attachments').fetchone()[0]==before and db.execute("SELECT attachments_processed FROM client_emails WHERE message_id='<legacy@example.invalid>'").fetchone()[0]==0,'Historical duplicate is explicitly not represented as recovered')
     for known in [True,False]:
         kind='client' if known else 'unmatched'
-        table='client_emails' if known else 'unmatched_emails'
         mid=f'<synthetic-{kind}@example.invalid>'
         status,result,_=run('inbound',data={'known':known,'message_id':mid})
-        row=db.execute(f'SELECT id,body_text,attachments_processed FROM {table} WHERE message_id=?',(mid,)).fetchone()
+        if known:
+            row=db.execute('SELECT id,body_text,attachments_processed FROM client_emails WHERE message_id=?',(mid,)).fetchone()
+        else:
+            row=db.execute('SELECT id,body_text,attachments_processed FROM unmatched_emails WHERE message_id=?',(mid,)).fetchone()
         check(status==200 and result['success'] and row[1]=='Hello message body' and row[2]==1, 'Incoming '+kind+' email excludes attached text from body and records import marker')
         attachment=db.execute('SELECT id,file_name FROM email_attachments WHERE email_kind=? AND email_id=?',(kind,row[0])).fetchone()
         check((work/'private'/attachment[1]).read_bytes()==b'Synthetic inbound attachment\x00bytes','Incoming '+kind+' attachment persisted with exact bytes')

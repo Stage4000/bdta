@@ -114,6 +114,7 @@ function bdta_email_store_attachment(string $name, string $bytes): array {
         }
     } catch (Throwable $e) {
         fclose($handle);
+        // nosemgrep: php.lang.security.unlink-use.unlink-use -- only the random key just exclusively created in the validated private directory; no caller filename.
         unlink($path);
         throw $e;
     }
@@ -135,6 +136,7 @@ function bdta_email_discard_staged_attachments(array $attachments): void {
             continue;
         }
         $path = bdta_email_attachment_path($key);
+        // nosemgrep: php.lang.security.unlink-use.unlink-use -- resolver enforces a generated-key format, private-directory realpath containment and no symlinks.
         if ($path !== null && !unlink($path)) {
             error_log('Unable to remove a staged email attachment.');
         }
@@ -302,6 +304,7 @@ function bdta_email_cleanup_attachments(PDO $conn, bool $apply = false): array {
         $orphan_files++;
         if ($apply) {
             $path = bdta_email_attachment_path($key);
+            // nosemgrep: php.lang.security.unlink-use.unlink-use -- generated key, zero DB references, 24h grace and private contained non-symlink resolver above.
             if ($path !== null && unlink($path)) {
                 $removed_files++;
             }
