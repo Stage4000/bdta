@@ -136,7 +136,12 @@ include __DIR__ . '/../backend/includes/header.php';
                     <div class="mb-3">
                         <label for="replyBody" class="form-label">Message <span class="text-danger">*</span></label>
                         <textarea class="form-control" id="replyBody" rows="10" required></textarea>
-                        <small class="form-text text-muted">HTML is supported</small>
+                        <small class="form-text text-muted">Plain text reply; quoted text is safely escaped before sending.</small>
+                    </div>
+<div class="mb-3">
+                        <label for="replyAttachments" class="form-label">Attachments</label>
+                        <input type="file" class="form-control" id="replyAttachments" name="attachments[]" multiple>
+                        <small class="form-text text-muted">Up to 10 files, 10 MB each and 15 MB combined. Server upload limits may be lower.</small>
                     </div>
                     <div id="replyFormAlert" class="alert d-none"></div>
                 </form>
@@ -217,6 +222,11 @@ include __DIR__ . '/../backend/includes/header.php';
                         <textarea id="composeBody" required></textarea>
                         <small class="form-text text-muted">HTML is supported</small>
                     </div>
+<div class="mb-3">
+                        <label for="composeAttachments" class="form-label">Attachments</label>
+                        <input type="file" class="form-control" id="composeAttachments" name="attachments[]" multiple>
+                        <small class="form-text text-muted">Up to 10 files, 10 MB each and 15 MB combined. Server upload limits may be lower.</small>
+                    </div>
                     <div id="composeFormAlert" class="alert d-none"></div>
                 </form>
             </div>
@@ -230,6 +240,7 @@ include __DIR__ . '/../backend/includes/header.php';
     </div>
 </div>
 
+<script src="../assets/js/email-attachments.js"></script>
 <script>
 let currentEmailId = null;
 let currentEmailData = null;
@@ -276,26 +287,8 @@ function formatDateTime(dateStr) {
     return date ? platformDateTimeFormatter.format(date) : '';
 }
 
-function htmlToPlainText(html) {
-    if (!html) {
-        return '';
-    }
-
-    // Parse into a detached document and read only textContent; nothing is inserted into the live DOM.
-    const doc = new DOMParser().parseFromString(String(html), 'text/html');
-    return doc.body.textContent || '';
-}
-
 function getEmailMessageText(email) {
-    if (email && email.body_text) {
-        return email.body_text;
-    }
-
-    if (email && email.body_html) {
-        return htmlToPlainText(email.body_html);
-    }
-
-    return '';
+    return BdtaEmailUI.messageText(email || {});
 }
 
 // Load emails based on filter
@@ -389,7 +382,7 @@ function displayEmails(emails, filter) {
         const archivedBadge = email.is_archived ? '<span class="badge bg-secondary">Archived</span>' : '';
         const isSent = email.direction === 'outgoing';
         const directionBadge = isSent
-            ? '<span class="badge bg-primary"><i class="fas fa-paper-plane"></i> Sent</span>'
+            ? `<span class="badge bg-primary"><i class="fas fa-paper-plane"></i> ${escapeHtml(email.delivery_status || 'sent')}</span>`
             : '<span class="badge bg-info text-dark"><i class="fas fa-inbox"></i> Received</span>';
         const contactLine = isSent
             ? `To: ${escapeHtml(email.to_email)}`
@@ -470,9 +463,9 @@ async function showEmailDetails(emailId, filter = currentEmailFilter) {
 
         const isSent = email.direction === 'outgoing';
         const directionBadge = isSent
-            ? '<span class="badge bg-primary"><i class="fas fa-paper-plane"></i> Sent</span>'
+            ? `<span class="badge bg-primary"><i class="fas fa-paper-plane"></i> ${escapeHtml(email.delivery_status || 'sent')}</span>`
             : '<span class="badge bg-info text-dark"><i class="fas fa-inbox"></i> Received</span>';
-        const dateLabel = isSent ? 'Sent:' : 'Received:';
+        const dateLabel = isSent ? ((!email.delivery_status || email.delivery_status === 'sent') ? 'Sent:' : 'Attempted:') : 'Received:';
 
         const body = document.getElementById('emailDetailsBody');
         body.innerHTML = `
@@ -505,6 +498,9 @@ async function showEmailDetails(emailId, filter = currentEmailFilter) {
                 ${escapeHtml(getEmailMessageText(email))}
             </div>
         `;
+
+        BdtaEmailUI.renderBody(body.querySelector('.border.p-3.bg-light'), email);
+        BdtaEmailUI.renderAttachments(body, email);
 
         // Show action buttons
         const footer = document.getElementById('emailDetailsFooter');
@@ -626,6 +622,8 @@ function openAssignModal() {
 
 // Open reply modal
 function openReplyModal() {
+    document.getElementById('replyAttachments').value = '';
+    document.getElementById('replyAttachments').dispatchEvent(new Event('change'));
     if (!currentEmailData) return;
 
     document.getElementById('replyEmailId').value = currentEmailId;
@@ -655,7 +653,8 @@ function openReplyModal() {
 async function sendReply() {
     const emailId = document.getElementById('replyEmailId').value;
     const subject = document.getElementById('replySubject').value.trim();
-    const bodyHtml = document.getElementById('replyBody').value.trim();
+    const bodyText = document.getElementById('replyBody').value.trim();
+    const bodyHtml = escapeHtml(bodyText).replace(/\n/g, '<br>');
 
     if (!subject || !bodyHtml) {
         showReplyAlert('Subject and message body are required.', 'danger');
@@ -669,22 +668,24 @@ async function sendReply() {
     try {
         const response = await fetch('unmatched_emails_api.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+            headers: { 'X-CSRF-Token': cleanupCsrfToken },
+            body: BdtaEmailUI.formData({
                 id: parseInt(emailId),
                 action: 'reply',
                 subject: subject,
-                body_html: bodyHtml
-            })
+                body_html: bodyHtml,
+                body_text: bodyText
+            }, document.getElementById('replyAttachments'))
         });
 
         const data = await response.json();
 
         if (data.success) {
             showReplyAlert('Reply sent successfully!', 'success');
-            setTimeout(() => {
-                bootstrap.Modal.getInstance(document.getElementById('replyModal')).hide();
-            }, 1500);
+            document.getElementById('replyForm').reset();
+            btn.disabled = false;
+            bootstrap.Modal.getInstance(document.getElementById('replyModal')).hide();
+            reloadCurrentEmailFilter();
         } else {
             showReplyAlert('Error: ' + (data.error || 'Failed to send reply'), 'danger');
         }
@@ -718,7 +719,7 @@ async function assignEmail() {
     try {
         const response = await fetch('unmatched_emails_api.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cleanupCsrfToken },
             body: JSON.stringify({
                 id: emailId,
                 action: 'assign',
@@ -750,7 +751,7 @@ async function archiveEmail() {
     try {
         const response = await fetch('unmatched_emails_api.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cleanupCsrfToken },
             body: JSON.stringify({
                 id: currentEmailId,
                 action: 'archive'
@@ -778,7 +779,7 @@ async function unarchiveEmail() {
     try {
         const response = await fetch('unmatched_emails_api.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cleanupCsrfToken },
             body: JSON.stringify({
                 id: currentEmailId,
                 action: 'unarchive'
@@ -807,7 +808,8 @@ async function deleteEmail() {
     
     try {
         const response = await fetch(`unmatched_emails_api.php?id=${currentEmailId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: { 'X-CSRF-Token': cleanupCsrfToken }
         });
         
         const data = await response.json();
@@ -837,7 +839,7 @@ async function cleanupMissingTimestampEmails() {
     try {
         const response = await fetch('unmatched_emails_api.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cleanupCsrfToken },
             body: JSON.stringify({
                 action: 'cleanup_missing_timestamps',
                 csrf_token: cleanupCsrfToken
@@ -863,6 +865,8 @@ async function cleanupMissingTimestampEmails() {
 
 // Open compose modal with optional prefill data
 function openComposeModal(prefillData) {
+    document.getElementById('composeAttachments').value = '';
+    document.getElementById('composeAttachments').dispatchEvent(new Event('change'));
     document.getElementById('composeTo').value = (prefillData && prefillData.to) ? prefillData.to : '';
     document.getElementById('composeCC').value = (prefillData && prefillData.cc) ? prefillData.cc : '';
     document.getElementById('composeBCC').value = (prefillData && prefillData.bcc) ? prefillData.bcc : '';
@@ -911,24 +915,26 @@ async function sendComposedEmail() {
     try {
         const response = await fetch('unmatched_emails_api.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+            headers: { 'X-CSRF-Token': cleanupCsrfToken },
+            body: BdtaEmailUI.formData({
                 action: 'compose',
                 to: to,
                 cc: cc,
                 bcc: bcc,
                 subject: subject,
                 body_html: bodyHtml
-            })
+            }, document.getElementById('composeAttachments'))
         });
 
         const data = await response.json();
 
         if (data.success) {
             showComposeAlert('Email sent successfully!', 'success');
-            setTimeout(() => {
-                bootstrap.Modal.getInstance(document.getElementById('composeModal')).hide();
-            }, 1500);
+            document.getElementById('composeForm').reset();
+            if (window.composeEditor) window.composeEditor.setData('');
+            btn.disabled = false;
+            bootstrap.Modal.getInstance(document.getElementById('composeModal')).hide();
+            reloadCurrentEmailFilter();
         } else {
             showComposeAlert('Error: ' + (data.error || 'Failed to send email'), 'danger');
         }
@@ -1031,4 +1037,9 @@ composeModal.addEventListener('shown.bs.modal', function () {
             console.error('CKEditor initialization error (composeBody):', error);
         });
 });
+</script>
+
+<script>
+BdtaEmailUI.attachSelection(document.getElementById('replyAttachments'), document.getElementById('replyModal'), document.getElementById('sendReplyBtn'));
+BdtaEmailUI.attachSelection(document.getElementById('composeAttachments'), document.getElementById('composeModal'), document.getElementById('sendComposeBtn'));
 </script>

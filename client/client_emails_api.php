@@ -12,6 +12,12 @@ $db = new Database();
 $conn = $db->getConnection();
 
 $method = $_SERVER['REQUEST_METHOD'];
+$data = $method === 'POST' ? bdta_email_request_data() : [];
+if (in_array($method, ['POST', 'DELETE'], true) && !isValidCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($data['csrf_token'] ?? null))) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Invalid request. Refresh the page and try again.']);
+    exit;
+}
 $client_id = safe_int($_GET['client_id'] ?? 0);
 
 // Verify client exists
@@ -52,11 +58,14 @@ if ($method === 'GET') {
     $stmt->execute([$client_id]);
     $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    foreach ($emails as &$email) {
+        $email['attachments'] = bdta_email_attachment_metadata($conn, 'client', (int) $email['id']);
+    }
+    unset($email);
     echo json_encode(['success' => true, 'emails' => $emails]);
     
 } elseif ($method === 'POST') {
     // Create/send new email
-    $data = decode_json_assoc(file_get_contents('php://input'));
     $request_client_id = array_int_value($data, 'client_id');
     $subject = array_string_value($data, 'subject');
     $body_html = array_string_value($data, 'body_html');
@@ -82,6 +91,8 @@ if ($method === 'GET') {
         exit;
     }
     
+    $attachments = [];
+    $attachments_committed = false;
     try {
         // Get client email
         $stmt = $conn->prepare("SELECT email, name FROM clients WHERE id = ?");
@@ -125,6 +136,8 @@ if ($method === 'GET') {
         $email_body_html = $has_template ? EmailService::wrapEmailHtml($body_html) : $body_html;
         $email_body_text = $body_text !== '' ? $body_text : strip_tags($body_html);
         
+        $attachments = bdta_email_collect_uploads($_FILES, bdta_email_expected_upload_count($data));
+        $conn->beginTransaction();
         $stmt->execute([
             $request_client_id,
             'outgoing',
@@ -139,7 +152,11 @@ if ($method === 'GET') {
             $_SESSION['user_id'] ?? null
         ]);
         
-        $email_id = $conn->lastInsertId();
+        $email_id = (int) $conn->lastInsertId();
+        bdta_email_attach_records($conn, 'client', $email_id, $attachments);
+        $conn->prepare('UPDATE client_emails SET attachments_processed = 1 WHERE id = ?')->execute([$email_id]);
+        $conn->commit();
+        $attachments_committed = true;
         
         // If sending immediately, send the email now
         if ($send_immediately) {
@@ -150,7 +167,8 @@ if ($method === 'GET') {
                 $subject,
                 $email_body_html,
                 $email_body_text,
-                EmailService::MAIL_TYPE_COMPOSE
+                EmailService::MAIL_TYPE_COMPOSE,
+                null, false, $attachments
             );
             
             if ($result['success']) {
@@ -193,9 +211,16 @@ if ($method === 'GET') {
             ]);
         }
         
-    } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    } catch (Throwable $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        if (!$attachments_committed) {
+            bdta_email_discard_staged_attachments($attachments);
+        }
+        error_log('Client compose failed: ' . $e->getMessage());
+        http_response_code($e instanceof InvalidArgumentException ? 400 : 500);
+        echo json_encode(['error' => $e instanceof InvalidArgumentException ? $e->getMessage() : 'Unable to complete email operation. Check history before trying again.']);
     }
     
 } elseif ($method === 'DELETE') {

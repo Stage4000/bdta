@@ -3,6 +3,7 @@
  * Unmatched Emails API - Manage emails from unknown senders
  */
 require_once '../backend/includes/config.php';
+require_once '../backend/includes/email_compose.php';
 requireLogin();
 
 header('Content-Type: application/json');
@@ -25,6 +26,12 @@ $db = new Database();
 $conn = $db->getConnection();
 
 $method = $_SERVER['REQUEST_METHOD'];
+$data = $method === 'POST' ? bdta_email_request_data() : [];
+if (in_array($method, ['POST', 'DELETE'], true) && !isValidCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($data['csrf_token'] ?? null))) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Invalid request. Refresh the page and try again.']);
+    exit;
+}
 
 if ($method === 'GET') {
     // Get all unmatched emails or a specific one
@@ -46,6 +53,7 @@ if ($method === 'GET') {
         $email = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($email) {
+            $email['attachments'] = bdta_email_attachment_metadata($conn, 'unmatched', (int) $email['id']);
             echo json_encode(['success' => true, 'email' => $email]);
         } else {
             http_response_code(404);
@@ -79,7 +87,9 @@ if ($method === 'GET') {
         $stmt = $conn->prepare("
             SELECT 
                 ue.id, ue.from_email, ue.from_name, ue.to_email, ue.subject,
-                ue.received_at, ue.direction, ue.is_assigned, ue.assigned_to_client_id,
+                ue.received_at, ue.direction,
+                ue.delivery_status,
+                ue.attachments_processed, ue.is_assigned, ue.assigned_to_client_id,
                 ue.assigned_at, ue.assigned_by, ue.is_archived, ue.archived_at,
                 ue.created_at,
                 c.name as assigned_client_name
@@ -104,7 +114,6 @@ if ($method === 'GET') {
     
 } elseif ($method === 'POST') {
     // Assign email to a client or archive it
-    $data = decode_json_assoc(file_get_contents('php://input'));
     $action = array_string_value($data, 'action', 'assign');
 
     // Compose action does not require an existing email ID
@@ -155,38 +164,14 @@ if ($method === 'GET') {
             }
         }
 
-        require_once '../backend/includes/email_service.php';
-        $emailService = new EmailService();
-        $result = $emailService->sendComposeEmail($to, $cc, $bcc, $subject, $body_html);
-
-        if ($result['success']) {
-            // Check if recipient is not an existing client; if so, record in unmatched_emails
-            $stmt = $conn->prepare("SELECT id FROM clients WHERE email = ?");
-            $stmt->execute([$to]);
-            if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-                $from_email_addr = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
-                $from_name_val = Settings::get('email_from_name', "Brook's Dog Training Academy");
-                $now = currentUtcDateTime();
-                $stmt = $conn->prepare("
-                    INSERT INTO unmatched_emails
-                        (from_email, from_name, to_email, subject, body_html, body_text, received_at, direction, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'outgoing', ?)
-                ");
-                $stmt->execute([
-                    $from_email_addr,
-                    $from_name_val,
-                    $to,
-                    $subject,
-                    $body_html,
-                    strip_tags($body_html),
-                    $now,
-                    $now
-                ]);
-            }
-            echo json_encode(['success' => true, 'message' => 'Email sent successfully']);
-        } else {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Failed to send email: ' . $result['message']]);
+        try {
+            $result = bdta_email_send_composed_history($conn, $to, $cc, $bcc, $subject, $body_html, strip_tags($body_html), $_FILES, false, bdta_email_expected_upload_count($data));
+            http_response_code($result['success'] ? 200 : 500);
+            echo json_encode($result + ['error' => $result['success'] ? null : $result['message']]);
+        } catch (Throwable $e) {
+            error_log('Inbox compose failed: ' . $e->getMessage());
+            http_response_code($e instanceof InvalidArgumentException ? 400 : 500);
+            echo json_encode(['success' => false, 'error' => $e instanceof InvalidArgumentException ? $e->getMessage() : 'Unable to complete email operation. Check history before trying again.']);
         }
         exit;
     }
@@ -303,14 +288,21 @@ if ($method === 'GET') {
                     assigned_to_client_id = ?,
                     assigned_at = ?,
                     assigned_by = ?
-                WHERE id = ?
+                WHERE id = ? AND is_assigned = 0
             ");
             $stmt->execute([$client_id, currentUtcDateTime(), $_SESSION['user_id'], $email_id]);
+            if ($stmt->rowCount() !== 1) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode(['success' => false, 'error' => 'Email has already been assigned or removed. Refresh the list.']);
+                exit;
+            }
             
             // Optionally create client_email record
             if ($create_client_email) {
                 $email_direction = array_string_value($unmatched_email, 'direction', 'incoming');
-                $email_status = ($email_direction === 'outgoing') ? 'sent' : 'received';
+                $email_status = ($email_direction === 'outgoing') ? array_string_value($unmatched_email, 'delivery_status', 'sent') : 'received';
+                $email_status = $email_status !== '' ? $email_status : 'sent';
                 $stmt = $conn->prepare("
                     INSERT INTO client_emails (
                         client_id, direction, status, message_id, from_email, to_email,
@@ -330,6 +322,11 @@ if ($method === 'GET') {
                     array_string_value($unmatched_email, 'received_at'),
                     array_string_value($unmatched_email, 'received_at'),
                     currentUtcDateTime()
+                ]);
+                $client_email_id = (int) $conn->lastInsertId();
+                bdta_email_attach_records($conn, 'client', $client_email_id, bdta_email_attachments($conn, 'unmatched', $email_id));
+                $conn->prepare('UPDATE client_emails SET attachments_processed = ? WHERE id = ?')->execute([
+                    (int) ($unmatched_email['attachments_processed'] ?? 0), $client_email_id
                 ]);
             }
             
@@ -405,49 +402,17 @@ if ($method === 'GET') {
                 exit;
             }
 
-            require_once '../backend/includes/email_service.php';
-            $emailService = new EmailService();
-            $result = $emailService->sendComposeEmail(
-                $to_email,
-                [],
-                [],
-                $subject,
-                $body_html,
-                $body_text ?: strip_tags($body_html)
-            );
-
-            if ($result['success']) {
-                // Record the sent reply in unmatched_emails so it appears in the list
-                $from_email_addr = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
-                $from_name_val = Settings::get('email_from_name', "Brook's Dog Training Academy");
-                $now = currentUtcDateTime();
-                $stmt = $conn->prepare("
-                    INSERT INTO unmatched_emails
-                        (from_email, from_name, to_email, subject, body_html, body_text, received_at, direction, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'outgoing', ?)
-                ");
-                $stmt->execute([
-                    $from_email_addr,
-                    $from_name_val,
-                    $to_email,
-                    $subject,
-                    $body_html,
-                    $body_text ?: strip_tags($body_html),
-                    $now,
-                    $now
-                ]);
-                echo json_encode(['success' => true, 'message' => 'Reply sent successfully']);
-            } else {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Failed to send reply: ' . $result['message']]);
-            }
+            $result = bdta_email_send_composed_history($conn, $to_email, [], [], $subject, $body_html,
+                $body_text ?: strip_tags($body_html), $_FILES, true, bdta_email_expected_upload_count($data));
+            http_response_code($result['success'] ? 200 : 500);
+            echo json_encode($result + ['error' => $result['success'] ? null : $result['message']]);
             
         } else {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid action or missing client_id']);
         }
         
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($conn->inTransaction()) {
             $conn->rollBack();
         }
@@ -473,7 +438,7 @@ if ($method === 'GET') {
             'success' => true,
             'message' => 'Email deleted successfully'
         ]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
     }

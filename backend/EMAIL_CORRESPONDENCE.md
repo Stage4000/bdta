@@ -453,7 +453,7 @@ if (data.success) {
 ## Future Enhancements
 
 - **Delivery tracking:** Webhook integration for email delivery status
-- **Attachments:** Support for file attachments in both sent and received emails
+- **Rich attachment preview:** Files currently download through authenticated private storage; rich inline previews are intentionally not enabled.
 - **Rich text editor:** WYSIWYG editor for email composition
 - **Email threading:** Group related emails as conversations
 - **Email analytics:** Track open rates and click-through rates
@@ -465,3 +465,7 @@ if (data.success) {
 - [EMAIL_CONFIGURATION.md](EMAIL_CONFIGURATION.md) - Email server setup
 - [CRON_SETUP.md](CRON_SETUP.md) - CRON job configuration
 - [WORKFLOWS_GUIDE.md](WORKFLOWS_GUIDE.md) - Automated email workflows
+
+## File attachments
+
+See [Email attachment storage and deployment](../docs/EMAIL_ATTACHMENTS.md) for supported limits, private storage, testing, and the historical-mail boundary.

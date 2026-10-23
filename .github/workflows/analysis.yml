@@ -203,6 +203,16 @@ jobs:
           curl -LsS -o phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.40/phpstan.phar
           php phpstan.phar analyse --configuration=phpstan.neon --no-progress --memory-limit=1G
 
+      - name: Run email attachment regressions
+        id: email_attachments
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          php tests/test_email_attachments.php
+          python tests/test_email_attachment_controllers.py
+          python tests/test_email_attachment_http.py
+          python tests/test_email_attachment_source_checks.py
+
       - name: Run pet file regressions
         id: pet_files
         if: ${{ always() }}
@@ -240,6 +250,7 @@ jobs:
           [ "${{ steps.survey_integrity.outcome }}" = "failure" ] && failures+=("Survey integrity regressions")
           [ "${{ steps.reminder_login.outcome }}" = "failure" ] && failures+=("Reminder login regressions")
           [ "${{ steps.public_booking_identity.outcome }}" = "failure" ] && failures+=("Public booking identity regressions")
+          [ "${{ steps.email_attachments.outcome }}" = "failure" ] && failures+=("Email attachment regressions")
           [ "${{ steps.pet_files.outcome }}" = "failure" ] && failures+=("Pet file regressions")
           [ "${{ steps.invoice_payment.outcome }}" = "failure" ] && failures+=("Invoice payment regressions")
 

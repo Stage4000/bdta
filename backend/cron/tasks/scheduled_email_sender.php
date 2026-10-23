@@ -43,6 +43,12 @@ class ScheduledEmailSenderTask {
         foreach ($emails as $email) {
             try {
                 $email_id = scalar_string($email['id'] ?? '');
+                // Claim once before transport so concurrent workers do not send the same attachments twice.
+                $claim = $this->conn->prepare("UPDATE client_emails SET status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'scheduled'");
+                $claim->execute([$email_id]);
+                if ($claim->rowCount() !== 1) {
+                    continue;
+                }
                 $to_email = array_string_value($email, 'to_email');
                 // Send the email
                 $emailService = new EmailService();
@@ -51,7 +57,8 @@ class ScheduledEmailSenderTask {
                     array_string_value($email, 'subject'),
                     array_string_value($email, 'body_html'),
                     array_string_value($email, 'body_text'),
-                    EmailService::MAIL_TYPE_COMPOSE
+                    EmailService::MAIL_TYPE_COMPOSE,
+                    null, false, bdta_email_attachments($this->conn, 'client', (int) $email_id)
                 );
                 
                 if ($result['success']) {

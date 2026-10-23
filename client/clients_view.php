@@ -1768,6 +1768,11 @@ include '../backend/includes/header.php';
                         <small class="form-text text-muted">HTML is supported</small>
                     </div>
                     
+<div class="mb-3">
+                        <label for="emailAttachments" class="form-label">Attachments</label>
+                        <input type="file" class="form-control" id="emailAttachments" name="attachments[]" multiple>
+                        <small class="form-text text-muted">Up to 10 files, 10 MB each and 15 MB combined. Server upload limits may be lower.</small>
+                    </div>
                     <!-- Send Options -->
                     <div class="mb-3">
                         <div class="form-check form-switch">
@@ -1910,6 +1915,7 @@ include '../backend/includes/header.php';
     </div>
 </div>
 
+<script src="../assets/js/email-attachments.js"></script>
 <script>
 // Email management
 const clientId = <?= $id ?>;
@@ -2316,20 +2322,11 @@ async function showEmailDetails(emailId) {
         </div>
     `;
     
-    // Sanitize and insert HTML content separately to prevent XSS
     body.innerHTML = html;
     const messageContainer = body.querySelector('.border.p-3.bg-light');
-    if (email.body_html) {
-        // Create a temporary element to sanitize HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.textContent = email.body_html; // First escape as text
-        // Then allow it to be rendered as HTML (basic sanitization)
-        // For production, consider using a library like DOMPurify
-        messageContainer.innerHTML = email.body_html;
-    } else {
-        messageContainer.textContent = email.body_text || '';
-    }
-    
+    BdtaEmailUI.renderBody(messageContainer, email);
+    BdtaEmailUI.renderAttachments(body, email);
+
     // Show Reply button for incoming emails
     const footer = document.getElementById('emailDetailsFooter');
     footer.innerHTML = '';
@@ -2382,24 +2379,23 @@ async function replyToEmail(emailId) {
     document.getElementById('emailSubject').value = subject;
 
     // Quote original message in body
-    let originalText = email.body_text || '';
-    if (!originalText && email.body_html) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = email.body_html;
-        originalText = tmp.textContent || tmp.innerText || '';
-    }
+    const originalText = BdtaEmailUI.messageText(email);
     const quotedDate = email.sent_at ? formatDateTime(email.sent_at) : formatDateTime(email.created_at);
     const quotedBody = '\n\n---\nOn ' + quotedDate +
         ', ' + email.from_email + ' wrote:\n' + originalText.split('\n').map(l => '> ' + l).join('\n');
     if (window.emailBodyEditor) {
-        const quotedHtml = '<p><br></p><hr><p>On ' + quotedDate + ', ' + email.from_email + ' wrote:</p><blockquote>' +
-            originalText.replace(/\n/g, '<br>') + '</blockquote>';
+        const quotedHtml = '<p><br></p><hr><p>On ' + escapeHtml(quotedDate) + ', ' + escapeHtml(email.from_email) + ' wrote:</p><blockquote>' +
+            escapeHtml(originalText).replace(/\n/g, '<br>') + '</blockquote>';
         window.emailBodyEditor.setData(quotedHtml);
     } else {
         document.getElementById('emailBody').value = quotedBody;
     }
 
-    // Reset template selection
+    // A reply is a new draft: do not inherit a previous attachment or scheduled-send choice.
+    document.getElementById('emailAttachments').value = '';
+    document.getElementById('emailAttachments').dispatchEvent(new Event('change'));
+    document.getElementById('scheduleEmail').checked = false;
+    document.getElementById('scheduleEmail').dispatchEvent(new Event('change'));
     document.getElementById('emailTemplate').value = '';
 
     // Open compose modal
@@ -2496,7 +2492,6 @@ document.getElementById('sendEmailBtn').addEventListener('click', async function
     
     // Disable button
     this.disabled = true;
-    const originalText = this.innerHTML;
     const isScheduling = document.getElementById('scheduleEmail').checked;
     this.innerHTML = isScheduling ? '<i class="fas fa-spinner fa-spin"></i> Scheduling...' : '<i class="fas fa-spinner fa-spin"></i> Sending...';
     
@@ -2504,9 +2499,9 @@ document.getElementById('sendEmailBtn').addEventListener('click', async function
         const response = await fetch('client_emails_api.php', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'X-CSRF-Token': <?= json_encode(csrfToken()) ?>
             },
-            body: JSON.stringify(data)
+            body: BdtaEmailUI.formData(data, document.getElementById('emailAttachments'))
         });
         
         const result = await response.json();
@@ -2514,15 +2509,15 @@ document.getElementById('sendEmailBtn').addEventListener('click', async function
         if (result.success) {
             showFormAlert(result.message, 'success');
             
-            // Reset form and close modal after 1 second
-            setTimeout(() => {
-                form.reset();
-                if (window.emailBodyEditor) {
-                    window.emailBodyEditor.setData('');
-                }
-                bootstrap.Modal.getInstance(document.getElementById('composeEmailModal')).hide();
-                loadEmails(); // Reload email list
-            }, 1000);
+            // Complete this draft now; no stale success timer can close a newer draft.
+            form.reset();
+            document.getElementById('scheduleOptions').style.display = 'none';
+            if (window.emailBodyEditor) {
+                window.emailBodyEditor.setData('');
+            }
+            this.disabled = false;
+            bootstrap.Modal.getInstance(document.getElementById('composeEmailModal')).hide();
+            loadEmails();
         } else {
             showFormAlert(result.error || 'Failed to send email', 'danger');
         }
@@ -2531,7 +2526,7 @@ document.getElementById('sendEmailBtn').addEventListener('click', async function
         showFormAlert('Error sending email: ' + error.message, 'danger');
     } finally {
         this.disabled = false;
-        this.innerHTML = originalText;
+        this.innerHTML = document.getElementById('scheduleEmail').checked ? '<i class="fas fa-clock"></i> Schedule Email' : '<i class="fas fa-paper-plane"></i> Send Email';
     }
 });
 
@@ -2728,4 +2723,8 @@ composeEmailModal.addEventListener('shown.bs.modal', function () {
             console.error('CKEditor initialization error (emailBody):', error);
         });
 });
+</script>
+
+<script>
+BdtaEmailUI.attachSelection(document.getElementById('emailAttachments'), document.getElementById('composeEmailModal'), document.getElementById('sendEmailBtn'));
 </script>

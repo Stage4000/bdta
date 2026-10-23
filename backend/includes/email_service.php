@@ -16,6 +16,7 @@
  */
 
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/email_attachments.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/booking_action_links.php';
 require_once __DIR__ . '/public_access_links.php';
@@ -31,6 +32,7 @@ use PHPMailer\PHPMailer\Exception;
  * @phpstan-type AssocRow array<string, mixed>
  * @phpstan-type MailResult array{success: bool, message: string}
  * @phpstan-type MailOptions array{
+ *   attachments?: list<array<string, mixed>>,
  *   cc?: list<string>,
  *   bcc?: list<string>,
  *   context?: array<string, mixed>,
@@ -425,7 +427,7 @@ class EmailService {
         self::logMailRouterMessage($log_entry);
 
         // ── Dispatch through the transport layer ──────────────────────────────
-        $result = $this->sendEmail($to, $subject, $html_body, $text_body, $cc, $bcc);
+        $result = $this->sendEmail($to, $subject, $html_body, $text_body, $cc, $bcc, $options['attachments'] ?? []);
 
         // ── Post-send log entry ───────────────────────────────────────────────
         if ($result['success']) {
@@ -1607,6 +1609,7 @@ HTML;
      * @param string   $mail_type One of the EmailService::MAIL_TYPE_* constants.
      *                            Defaults to MAIL_TYPE_GENERIC for backward compatibility.
      * @param int|string|null $client_id Client ID for logging to client email history (optional).
+     * @param list<array<string, mixed>> $attachments
      * @param bool $allow_history_recipient_lookup Retained for backward compatibility; generic mail now resolves recipient-based history by default, and this flag remains available for non-generic callers that still rely on opt-in lookup behavior.
      * @return MailResult
      */
@@ -1617,11 +1620,13 @@ HTML;
         string $text_body = '',
         string $mail_type = self::MAIL_TYPE_GENERIC,
         int|string|null $client_id = null,
-        bool $allow_history_recipient_lookup = false
+        bool $allow_history_recipient_lookup = false,
+        array $attachments = []
     ): array {
         return $this->routeMail($mail_type, $to, $subject, $html_body, $text_body, [
             'client_id'                     => $client_id,
             'allow_history_recipient_lookup' => $allow_history_recipient_lookup,
+            'attachments' => $attachments,
         ]);
     }
 
@@ -1663,14 +1668,15 @@ HTML;
      * @param string $subject Email subject
      * @param string $html_body HTML body content
      * @param string $text_body Plain text body content (optional)
+     * @param list<array<string, mixed>> $attachments
      * @return MailResult Result array with 'success' and 'message' keys
      */
-    public function sendComposeEmail(string $to, array $cc, array $bcc, string $subject, string $html_body, string $text_body = ''): array {
+    public function sendComposeEmail(string $to, array $cc, array $bcc, string $subject, string $html_body, string $text_body = '', array $attachments = []): array {
         if (empty($text_body)) {
             $text_body = strip_tags($html_body);
         }
 
-        return $this->routeMail(self::MAIL_TYPE_COMPOSE, $to, $subject, $html_body, $text_body, ['cc' => $cc, 'bcc' => $bcc]);
+        return $this->routeMail(self::MAIL_TYPE_COMPOSE, $to, $subject, $html_body, $text_body, ['cc' => $cc, 'bcc' => $bcc, 'attachments' => $attachments]);
     }
     
     /**
@@ -2094,9 +2100,10 @@ TEXT;
      *
      * @param list<string> $cc
      * @param list<string> $bcc
+     * @param list<array<string, mixed>> $attachments
      * @return MailResult
      */
-    private function sendEmail(string $to, string $subject, string $html_body, string $text_body, array $cc = [], array $bcc = []): array {
+    private function sendEmail(string $to, string $subject, string $html_body, string $text_body, array $cc = [], array $bcc = [], array $attachments = []): array {
         try {
             $mail = new PHPMailer(true);
             
@@ -2199,6 +2206,20 @@ TEXT;
             // Set character encoding
             $mail->CharSet = 'UTF-8';
             
+            // Resolve only server-generated private attachment keys, never request paths.
+            $attachment_total = 0;
+            if (count($attachments) > BDTA_EMAIL_ATTACHMENT_MAX_COUNT) {
+                throw new \RuntimeException('Too many attachments. No email was sent.');
+            }
+            foreach ($attachments as $attachment) {
+                $path = bdta_email_verified_attachment_path($attachment);
+                $size = bdta_email_int($attachment['file_size']);
+                $attachment_total += $size;
+                if ($size > BDTA_EMAIL_ATTACHMENT_MAX_BYTES || $attachment_total > BDTA_EMAIL_ATTACHMENT_TOTAL_BYTES) {
+                    throw new \RuntimeException('Attachment size limit exceeded. No email was sent.');
+                }
+                $mail->addAttachment($path, bdta_email_attachment_name(bdta_email_string($attachment['original_name'])), PHPMailer::ENCODING_BASE64, 'application/octet-stream');
+            }
             // Send email
             $mail->send();
             
@@ -2206,7 +2227,7 @@ TEXT;
                 'success' => true,
                 'message' => 'Confirmation email sent successfully'
             ];
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             // Log detailed error information
             $error_message = "Email sending failed: " . $e->getMessage();
             if (!empty($mail->ErrorInfo)) {

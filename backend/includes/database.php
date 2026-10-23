@@ -1325,6 +1325,33 @@ class Database {
                 )
             ");
             
+            $this->execSQL("
+                CREATE TABLE IF NOT EXISTS email_attachments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email_kind VARCHAR(16) NOT NULL,
+                    email_id INTEGER NOT NULL,
+                    file_name VARCHAR(68),
+                    original_name VARCHAR(180) NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    sha256 VARCHAR(64),
+                    mime_type VARCHAR(100) NOT NULL,
+                    status VARCHAR(20) NOT NULL,
+                    error_message TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+            ");
+            if (!$this->indexExists('email_attachments', 'idx_email_attachments_owner')) {
+                $this->execSQL("CREATE INDEX idx_email_attachments_owner ON email_attachments(email_kind, email_id)");
+            }
+            foreach (['client_emails', 'unmatched_emails'] as $email_table) {
+                if (!in_array('attachments_processed', $this->getTableColumns($email_table), true)) {
+                    $this->execSQL("ALTER TABLE {$email_table} ADD COLUMN attachments_processed INTEGER NOT NULL DEFAULT 0");
+                }
+            }
+            if (!in_array('delivery_status', $this->getTableColumns('unmatched_emails'), true)) {
+                $this->execSQL("ALTER TABLE unmatched_emails ADD COLUMN delivery_status VARCHAR(20) DEFAULT NULL");
+            }
+
             $this->conn->beginTransaction();
             try {
                 // Create default admin if not exists

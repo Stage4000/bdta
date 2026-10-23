@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/email_mime_attachments.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/config.php';
 
@@ -279,49 +280,53 @@ class ImapEmailReceiver {
         $body_html = $this->getEmailBody($email_number, $structure, 'html');
         $body_text = $this->getEmailBody($email_number, $structure, 'text');
         
-        // Get to address
-        $to_email = scalar_string(Settings::get('imap_username', ''));
-        
-        // Try to match email to a client
-        $client_id = $this->findClientByEmail($from_email);
-        
-        if (!$client_id) {
-            // No matching client found, store as unmatched email
-            $this->storeUnmatchedEmail($header, $from_email, $to_email, $subject, $body_html, $body_text, $received_date, $message_id);
-            return;
+        // Fetch and persist future attachment payloads atomically with the email row.
+        // Existing deduplicated records intentionally require a separate reviewed backfill.
+        $attachments = bdta_email_extract_attachments($structure, function(string $part) use ($email_number): string {
+            $bytes = imap_fetchbody($this->getImapConnection(), $email_number, $part, FT_PEEK);
+            if ($bytes === false) {
+                throw new RuntimeException('Unable to fetch email attachment.');
+            }
+            return $bytes;
+        });
+        $committed = false;
+        try {
+            $this->conn->beginTransaction();
+            $to_email = scalar_string(Settings::get('imap_username', ''));
+            $client_id = $this->findClientByEmail($from_email);
+            if (!$client_id) {
+                $email_id = $this->storeUnmatchedEmail($header, $from_email, $to_email, $subject, $body_html, $body_text, $received_date, $message_id);
+                $kind = 'unmatched';
+                $table = 'unmatched_emails';
+            } else {
+                $stmt = $this->conn->prepare("INSERT INTO client_emails
+                    (client_id, direction, status, message_id, from_email, to_email, subject, body_html, body_text, sent_at, created_at, updated_at)
+                    VALUES (?, 'incoming', 'received', ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$client_id, $message_id !== '' ? $message_id : null, $from_email, $to_email,
+                    $subject, $body_html, $body_text ?: strip_tags($body_html), $received_date, $received_date, currentUtcDateTime()]);
+                $email_id = (int) $this->conn->lastInsertId();
+                $kind = 'client';
+                $table = 'client_emails';
+                bdta_create_admin_notifications($this->conn, 'email', $email_id, 'New client email received',
+                    ($subject !== '' ? $subject : 'New email') . ' from ' . ($from_email !== '' ? $from_email : 'unknown sender'),
+                    '/client/clients_view.php?id=' . $client_id . '#emails');
+            }
+            if ($email_id <= 0) {
+                $this->conn->rollBack();
+                return;
+            }
+            bdta_email_attach_records($this->conn, $kind, $email_id, $attachments);
+            $this->conn->prepare("UPDATE {$table} SET attachments_processed = 1 WHERE id = ?")->execute([$email_id]);
+            $this->conn->commit();
+            $committed = true;
+        } finally {
+            if (!$committed) {
+                if ($this->conn->inTransaction()) {
+                    $this->conn->rollBack();
+                }
+                bdta_email_discard_staged_attachments($attachments);
+            }
         }
-        
-        // Insert email into database
-        $stmt = $this->conn->prepare("
-            INSERT INTO client_emails (
-                client_id, direction, status, message_id, from_email, to_email,
-                subject, body_html, body_text,
-                sent_at, created_at, updated_at
-            ) VALUES (?, 'incoming', 'received', ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        
-        $stmt->execute([
-            $client_id,
-            $message_id !== '' ? $message_id : null,
-            $from_email,
-            $to_email,
-            $subject,
-            $body_html,
-            $body_text ?: strip_tags($body_html),
-            $received_date,
-            $received_date,
-            currentUtcDateTime()
-        ]);
-
-        $email_id = safe_int($this->conn->lastInsertId());
-        bdta_create_admin_notifications(
-            $this->conn,
-            'email',
-            $email_id,
-            'New client email received',
-            ($subject !== '' ? $subject : 'New email') . ' from ' . ($from_email !== '' ? $from_email : 'unknown sender'),
-            '/client/clients_view.php?id=' . $client_id . '#emails'
-        );
     }
 
     private function isDuplicateEmail(string $message_id, string $from_email, string $subject, string $received_date): bool {
@@ -379,6 +384,9 @@ class ImapEmailReceiver {
             return $body;
         }
         
+        if (bdta_email_mime_is_attachment($structure)) {
+            return '';
+        }
         // Check if multipart
         if (isset($structure->parts) && is_array($structure->parts) && count($structure->parts) > 0) {
             foreach ($structure->parts as $part_num => $part) {
@@ -393,7 +401,7 @@ class ImapEmailReceiver {
             }
         } else {
             // Single part message
-            $body = scalar_string(imap_body($this->getImapConnection(), $email_number));
+            $body = scalar_string(imap_body($this->getImapConnection(), $email_number, FT_PEEK));
             
             // Decode if needed
             $body = $this->decodeBody($body, safe_int($structure->encoding ?? 0));
@@ -407,6 +415,9 @@ class ImapEmailReceiver {
      */
     private function getPartBody(int $email_number, object $part, int|string $part_num, string $type = 'text'): string {
         $data = '';
+        if (bdta_email_mime_is_attachment($part)) {
+            return '';
+        }
         
         // Check if this part matches the desired type
         $subtype = strtolower(scalar_string($part->subtype ?? ''));
@@ -414,7 +425,7 @@ class ImapEmailReceiver {
         $is_text = $subtype === 'plain';
         
         if (($type === 'html' && $is_html) || ($type === 'text' && $is_text)) {
-            $data = scalar_string(imap_fetchbody($this->getImapConnection(), $email_number, (string) $part_num));
+            $data = scalar_string(imap_fetchbody($this->getImapConnection(), $email_number, (string) $part_num, FT_PEEK));
             
             // Decode if needed
             $data = $this->decodeBody($data, safe_int($part->encoding ?? 0));
@@ -503,7 +514,7 @@ class ImapEmailReceiver {
     /**
      * Store unmatched email (from unknown sender)
      */
-    private function storeUnmatchedEmail(object $header, string $from_email, string $to_email, string $subject, string $body_html, string $body_text, string $received_date, string $message_id = ''): void {
+    private function storeUnmatchedEmail(object $header, string $from_email, string $to_email, string $subject, string $body_html, string $body_text, string $received_date, string $message_id = ''): int {
         // Get from name
         $from_name = '';
         if (isset($header->from) && is_array($header->from) && count($header->from) > 0) {
@@ -524,7 +535,7 @@ class ImapEmailReceiver {
             
             if ($stmt->fetch()) {
                 // Already exists, skip
-                return;
+                return 0;
             }
         }
         
@@ -557,5 +568,6 @@ class ImapEmailReceiver {
             ($subject !== '' ? $subject : 'New email') . ' from ' . ($from_email !== '' ? $from_email : 'unknown sender'),
             '/client/unmatched_emails_list.php'
         );
+        return $email_id;
     }
 }
