@@ -9,12 +9,18 @@ $conn = $db->getConnection();
 
 $id = safe_int($_GET['id'] ?? 0);
 $installment_id = safe_int($_GET['installment_id'] ?? 0);
+$is_payment_post = $_SERVER['REQUEST_METHOD'] === 'POST';
+$payment_admin_id = safe_int($_SESSION['admin_id'] ?? 0);
+// Never mint a new identity on POST: an interrupted/repeated submission keeps its key.
+$payment_request_token = $is_payment_post
+    ? scalar_string($_POST['payment_request_token'] ?? '')
+    : bdta_manual_payment_form_token($_SESSION, $id, $installment_id, $payment_admin_id);
 
 $stmt = $conn->prepare("SELECT * FROM invoices WHERE id = ?");
 $stmt->execute([$id]);
 $invoice = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
 
-if ($invoice === [] || !bdta_invoice_is_payable($invoice)) {
+if ($invoice === [] || (!$is_payment_post && !bdta_invoice_is_payable($invoice))) {
     setFlashMessage('Invoice not found or cannot accept payment.', 'danger');
     redirect('invoices_list.php');
 }
@@ -33,7 +39,7 @@ if ($installment_id) {
     $stmt = $conn->prepare("SELECT * FROM invoice_installments WHERE id = ? AND invoice_id = ?");
     $stmt->execute([$installment_id, $id]);
     $installment = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
-    if ($installment === [] || array_string_value($installment, 'status') === 'paid') {
+    if ($installment === [] || (!$is_payment_post && array_string_value($installment, 'status') === 'paid')) {
         setFlashMessage('Installment not found or already paid!', 'danger');
         redirect('invoices_view.php?id=' . $id);
     }
@@ -63,13 +69,17 @@ function sendFullInvoiceReceipt(PDO $conn, int $invoice_id): void {
 }
 
 // Handle manual payment recording
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($is_payment_post) {
     $submitted_csrf_token = scalar_string($_POST['csrf_token'] ?? '');
     $payment_method = trim(scalar_string($_POST['payment_method'] ?? ''));
     $payment_date   = trim(scalar_string($_POST['payment_date'] ?? date('Y-m-d')));
-    $payment_amount = $installment
-        ? round(safe_float($installment['amount'] ?? 0), 2)
-        : round(safe_float($_POST['payment_amount'] ?? 0), 2);
+    $payment_amount = 0.0;
+    $payment_amount_error = '';
+    try {
+        $payment_amount = bdta_manual_payment_cents(scalar_string($_POST['payment_amount'] ?? '')) / 100;
+    } catch (RuntimeException $e) {
+        $payment_amount_error = $e->getMessage();
+    }
     $payment_date_object = DateTime::createFromFormat('Y-m-d', $payment_date);
     $payment_date_errors = DateTime::getLastErrors();
     $payment_date_warning_count = 0;
@@ -85,16 +95,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($submitted_csrf_token === '' || $csrf_token_value === '' || !hash_equals($csrf_token_value, $submitted_csrf_token)) {
         setFlashMessage('Invalid request.', 'danger');
+    } elseif ($payment_amount_error !== '') {
+        setFlashMessage($payment_amount_error, 'danger');
     } elseif (!in_array($payment_method, ['cash', 'check', 'bank_transfer', 'other'], true)) {
         setFlashMessage('Invalid payment method!', 'danger');
     } elseif (!$payment_date_is_valid) {
         setFlashMessage('Please enter a valid payment date.', 'danger');
     } else {
         try {
+            $request_id = bdta_manual_payment_request_id($_SESSION, $payment_request_token, $id, $installment_id, $payment_admin_id);
             $result = bdta_invoice_record_manual_payment($conn, $id, $payment_amount, $payment_method, $payment_date,
-                safe_int($_SESSION['admin_id'] ?? 0) ?: null, $installment_id);
+                $payment_admin_id ?: null, $installment_id, $request_id);
             $invoice = $result['invoice'];
             $installment = $result['installment'];
+            if ($result['replayed']) {
+                setFlashMessage('This payment submission was already recorded. No additional payment was added.', 'success');
+                redirect('invoices_view.php?id=' . $id);
+                exit;
+            }
             // Receipts are sent only after the payment and all credits commit.
             if ($installment !== null) {
                 $client_stmt = $conn->prepare('SELECT name as client_name, email as client_email FROM clients WHERE id = ?');
@@ -152,6 +170,10 @@ include '../backend/includes/header.php';
                     
                     <form method="POST">
                         <input type="hidden" name="csrf_token" value="<?= escape($csrf_token_value) ?>">
+                        <input type="hidden" name="payment_request_token" value="<?= escape($payment_request_token) ?>">
+                        <?php if ($installment): ?>
+                        <input type="hidden" name="payment_amount" value="<?= escape(number_format(safe_float($installment['amount'] ?? 0), 2, '.', '')) ?>">
+                        <?php endif; ?>
                         <?php if (!$installment && empty($invoice_installments)): ?>
                         <div class="mb-3">
                             <label for="payment_amount" class="form-label">Payment Amount *</label>
