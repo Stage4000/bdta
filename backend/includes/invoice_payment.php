@@ -182,7 +182,7 @@ function bdta_invoice_record_manual_payment(PDO $conn, int $invoice_id, float $a
         $invoice = bdta_invoice_lock_for_payment($conn, $invoice_id);
         // Invoice locking serializes same-invoice retries before any payable/balance check.
         // Use a current read under MySQL REPEATABLE READ after waiting for the winner.
-        if ($request_id !== null && $payload !== null) {
+        if ($request_id !== null) {
             $sql = 'SELECT * FROM invoice_manual_payment_requests WHERE request_id = ?';
             if ($conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') { $sql .= ' FOR UPDATE'; }
             $stmt = $conn->prepare($sql);
@@ -200,7 +200,7 @@ function bdta_invoice_record_manual_payment(PDO $conn, int $invoice_id, float $a
                     throw new RuntimeException('Recorded payment outcome requires review.');
                 }
                 $conn->commit();
-                return ['invoice' => $outcome['invoice'], 'installment' => $outcome['installment'], 'replayed' => true];
+                return ['invoice' => assoc_row($outcome['invoice']), 'installment' => $outcome['installment'] === null ? null : assoc_row($outcome['installment']), 'replayed' => true];
             }
         }
         if (!bdta_invoice_is_payable($invoice)) {
@@ -228,7 +228,7 @@ function bdta_invoice_record_manual_payment(PDO $conn, int $invoice_id, float $a
         if ($amount_cents <= 0 || $amount_cents > $remaining_cents) {
             throw new RuntimeException('Payment amount must be positive and cannot exceed the current remaining balance.');
         }
-        if ($request_id !== null && $payload !== null) {
+        if ($request_id !== null) {
             // The primary key also rejects cross-invoice reuse before any financial write.
             $conn->prepare('INSERT INTO invoice_manual_payment_requests (request_id, invoice_id, payload_hash, amount_cents) VALUES (?, ?, ?, ?)')
                 ->execute([$request_id, $invoice_id, $payload['hash'], $payload['cents']]);

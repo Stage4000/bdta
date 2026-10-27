@@ -1,22 +1,51 @@
 <?php
+if (PHP_SAPI !== 'cli') { exit(1); }
 // Synthetic fixtures only. Never load application config/database bootstrap or providers.
-function scalar_string($v): string { return is_scalar($v) ? (string) $v : ''; }
-function safe_int($v): int { return (int) $v; }
-function safe_float($v): float { return (float) $v; }
-function safe_timestamp($v): int { return (int) $v; }
-function array_int_value(array $r, $k, int $d = 0): int { return (int) ($r[$k] ?? $d); }
-function assoc_row($v): array { return is_array($v) ? $v : []; }
-function assoc_rows($v): array { return is_array($v) ? $v : []; }
-function bdta_create_notification(...$args): void {}
+function scalar_string(mixed $v): string { return is_scalar($v) ? (string) $v : ''; }
+function safe_int(mixed $v): int { return is_numeric($v) ? (int) $v : 0; }
+function safe_float(mixed $v): float { return is_numeric($v) ? (float) $v : 0.0; }
+function safe_timestamp(mixed $v): int { return safe_int($v); }
+/** @param array<string, mixed> $r */
+function array_int_value(array $r, string|int $k, int $d = 0): int { return isset($r[$k]) ? safe_int($r[$k]) : $d; }
+/** @return array<string, mixed> */
+function assoc_row(mixed $v): array {
+    $out=[];
+    if(is_array($v))foreach($v as $key=>$value)if(is_string($key))$out[$key]=$value;
+    return $out;
+}
+/** @return list<array<string, mixed>> */
+function assoc_rows(mixed $v): array {
+    $out=[];
+    if(is_array($v))foreach($v as $row)$out[]=assoc_row($row);
+    return $out;
+}
+function bdta_create_notification(mixed ...$args): void {}
+class ManualFixturePDO extends PDO {
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement {
+        $statement=$fetchMode===null?parent::query($query):parent::query($query,$fetchMode,...$fetchModeArgs);
+        if(!$statement instanceof PDOStatement)throw new RuntimeException('Synthetic query failed');
+        return $statement;
+    }
+}
+function fixtureFile(string $path): string {
+    $data=file_get_contents($path);
+    if($data===false)throw new RuntimeException('Synthetic fixture file unavailable');
+    return $data;
+}
+function fixtureDirectory(): string {
+    $path=sys_get_temp_dir().'/bdta-manual-synthetic-'.bin2hex(random_bytes(12));
+    if(!mkdir($path,0700))throw new RuntimeException('Unable to create synthetic fixture directory');
+    return $path;
+}
 require dirname(__DIR__) . '/backend/includes/invoice_payment.php';
 
-function connection(string $mode, string $path = ''): PDO {
+function connection(string $mode, string $path = ''): ManualFixturePDO {
     if ($mode === 'mysql') {
         if (getenv('BDTA_MANUAL_DISPOSABLE') !== '1') { throw new RuntimeException('Disposable service opt-in required.'); }
         // Fixed loopback service, fixed synthetic password/name. No production env/config accepted.
-        return new PDO('mysql:host=127.0.0.1;port=3307;dbname=bdta_manual_request_ci;charset=utf8mb4', 'root', 'synthetic-audit-fixture', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        return new ManualFixturePDO('mysql:host=127.0.0.1;port=3307;dbname=bdta_manual_request_ci;charset=utf8mb4', 'root', 'synthetic-audit-fixture', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
     }
-    $db = new PDO('sqlite:' . $path, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $db = new ManualFixturePDO('sqlite:' . $path, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
     $db->exec('PRAGMA busy_timeout=15000');
     $db->exec('PRAGMA foreign_keys=ON');
     return $db;
@@ -38,7 +67,7 @@ function seed(PDO $db, string $mode): void {
         "invoice_package_fulfillments(invoice_item_id INT,unit_number INT,client_package_id INT,PRIMARY KEY(invoice_item_id,unit_number))"
     ] as $ddl) { $db->exec('CREATE TABLE ' . $ddl . $tail); }
     if ($mode === 'mysql') {
-        $db->exec(file_get_contents(dirname(__DIR__) . '/migrations/invoice_manual_payment_requests.sql'));
+        $db->exec(fixtureFile(dirname(__DIR__) . '/migrations/invoice_manual_payment_requests.sql'));
     } else {
         $db->exec('CREATE TABLE invoice_manual_payment_requests(request_id CHAR(64) PRIMARY KEY,invoice_id INT NOT NULL,payload_hash CHAR(64) NOT NULL,amount_cents BIGINT NOT NULL,payment_id INT,result_json TEXT,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(invoice_id) REFERENCES invoices(id),FOREIGN KEY(payment_id) REFERENCES invoice_payments(id))');
     }
@@ -47,35 +76,56 @@ function seed(PDO $db, string $mode): void {
     $db->exec("INSERT INTO packages VALUES(1,'Synthetic',0,1)");
     $db->exec('INSERT INTO package_items VALUES(1,1,1,5)');
 }
+/** @return array{invoice: array<string, mixed>, installment: array<string, mixed>|null, replayed: bool} */
 function pay(PDO $db, int $invoice, string $key, float $amount = 40, string $method = 'cash', string $date = '2026-10-27', ?int $admin = 1, int $installment = 0): array {
     return bdta_invoice_record_manual_payment($db, $invoice, $amount, $method, $date, $admin, $installment, $key);
 }
-function countRows(PDO $db, string $table): int { return (int) $db->query('SELECT COUNT(*) FROM ' . $table)->fetchColumn(); }
+function countRows(ManualFixturePDO $db, string $table): int { return (int) $db->query('SELECT COUNT(*) FROM ' . $table)->fetchColumn(); }
 $checks = 0;
 function check(bool $ok, string $message): void { global $checks; if (!$ok) { throw new RuntimeException($message); } $checks++; }
 function reject(callable $f): void { $failed = false; try { $f(); } catch (Throwable $e) { $failed = true; } check($failed, 'Expected rejection'); }
 function keyFor(int $n): string { return hash('sha256', 'synthetic-form-' . $n); }
-function spawn(array $args) {
+/** @param list<string> $args
+ * @return array{resource, array<int, resource>}
+ */
+function spawn(array $args): array {
     $pipes = [];
-    $process = proc_open(array_merge([PHP_BINARY, __FILE__], $args), [0 => ['pipe','r'],1 => ['pipe','w'],2 => ['pipe','w']], $pipes);
+    // Constant executable/script; all values go through stdin, never shell interpolation.
+    $process = proc_open('php tests/test_manual_payment_requests.php worker', [0 => ['pipe','r'],1 => ['pipe','w'],2 => ['pipe','w']], $pipes, dirname(__DIR__));
     if (!is_resource($process)) { throw new RuntimeException('Worker failed to start'); }
-    fclose($pipes[0]); return [$process, $pipes];
+    fwrite($pipes[0],json_encode($args,JSON_THROW_ON_ERROR));fclose($pipes[0]);
+    return [$process, $pipes];
 }
+/** @param array{resource, array<int, resource>} $worker
+ * @return array{ok: bool, replayed?: bool, error?: string}
+ */
 function finishWorker(array $worker): array {
     [$process, $pipes] = $worker;
     $out = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]);
     fclose($pipes[1]); fclose($pipes[2]);
     $code = proc_close($process);
-    if ($code !== 0) { throw new RuntimeException('Worker failed: ' . $error . $out); }
-    return json_decode($out, true, 512, JSON_THROW_ON_ERROR);
+    if ($code !== 0 || $out===false) { throw new RuntimeException('Worker failed: ' . $error . $out); }
+    $result=assoc_row(json_decode($out, true, 512, JSON_THROW_ON_ERROR));
+    if(!is_bool($result['ok']??null))throw new RuntimeException('Malformed synthetic worker result');
+    if($result['ok']) {
+        if(!is_bool($result['replayed']??null))throw new RuntimeException('Missing replay result');
+        return ['ok'=>true,'replayed'=>$result['replayed']];
+    }
+    return ['ok'=>false,'error'=>scalar_string($result['error']??'')];
 }
 if (defined('BDTA_MANUAL_FIXTURE_ONLY')) { return; }
 $mode = $argv[1] ?? 'sqlite';
 if ($mode === 'worker') {
     try {
-        $db = connection($argv[2], $argv[3]);
-        if (isset($argv[7])) { file_put_contents($argv[7], 'ready'); }
-        $r = pay($db, (int)$argv[4], $argv[5], (float)$argv[6]);
+        $input=stream_get_contents(STDIN);
+        if($input===false)throw new RuntimeException('Missing synthetic worker input');
+        $args=json_decode($input,true,512,JSON_THROW_ON_ERROR);
+        if(!is_array($args)||!array_is_list($args)||count($args)!==6)throw new RuntimeException('Invalid synthetic worker input');
+        foreach($args as $value)if(!is_string($value))throw new RuntimeException('Invalid synthetic worker value');
+        [$engine,$databasePath,$invoice,$key,$amount,$readyPath]=array_map(scalar_string(...),$args);
+        $db = connection($engine, $databasePath);
+        file_put_contents($readyPath, 'ready');
+        $r = pay($db, (int)$invoice, $key, (float)$amount);
         echo json_encode(['ok' => true, 'replayed' => $r['replayed']], JSON_THROW_ON_ERROR);
     } catch (Throwable $e) { echo json_encode(['ok' => false, 'error' => get_class($e)], JSON_THROW_ON_ERROR); }
     exit;
@@ -83,7 +133,10 @@ if ($mode === 'worker') {
 if (!in_array($mode, ['sqlite','mysql'], true)) { exit(2); }
 $adminConnection = null;
 $createdDatabase = false;
-$path = $mode === 'sqlite' ? tempnam(sys_get_temp_dir(), 'bdta-manual-synthetic-') : '';
+$fixtureRoot=fixtureDirectory();
+$path = $mode === 'sqlite' ? $fixtureRoot.'/fixture.sqlite' : '';
+$originalCwd=getcwd();
+if($originalCwd===false)throw new RuntimeException('Missing working directory');
 try {
     if ($mode === 'mysql') {
         if (getenv('BDTA_MANUAL_DISPOSABLE') !== '1') { throw new RuntimeException('Disposable service opt-in required.'); }
@@ -112,7 +165,7 @@ try {
     $db->exec("INSERT INTO invoice_installments(id,invoice_id,installment_number,amount,status) VALUES(1,3,1,100,'unpaid')");
     reject(fn()=>pay($db,3,keyFor(5),40,'cash','2026-10-27',1,1));
     $a=pay($db,3,keyFor(5),100,'cash','2026-10-27',1,1); $b=pay($db,3,keyFor(5),100,'cash','2026-10-27',1,1);
-    check(!$a['replayed']&&$b['replayed']&&$b['installment']['status']==='paid', 'Installment replay retains original outcome');
+    check(!$a['replayed']&&$b['replayed']&&is_array($b['installment'])&&($b['installment']['status']??null)==='paid', 'Installment replay retains original outcome');
     // Failure after request+payment INSERT: fulfillment throws and all writes must roll back.
     $db->exec("INSERT INTO invoice_items VALUES(1,4,'package',99,1)");
     $before=[countRows($db,'invoice_payments'),countRows($db,'invoice_manual_payment_requests')];
@@ -134,21 +187,22 @@ try {
     // Independent concurrent processes prove locking on the selected database engine.
     foreach ([['same',5,keyFor(7),keyFor(7),40,40],['conflict',6,keyFor(8),keyFor(8),40,41],['different',7,keyFor(9),keyFor(10),40,40],['cross-invoice',8,keyFor(11),keyFor(11),40,40]] as [$case,$invoice,$k1,$k2,$v1,$v2]) {
         $secondInvoice=$case==='cross-invoice'?9:$invoice;
-        $ready1=tempnam(sys_get_temp_dir(),'bdta-ready-');$ready2=tempnam(sys_get_temp_dir(),'bdta-ready-');
+        $ready1=$fixtureRoot.'/ready1';$ready2=$fixtureRoot.'/ready2';
+        file_put_contents($ready1,'');file_put_contents($ready2,'');
         $db->beginTransaction();
         bdta_invoice_lock_for_payment($db,$invoice);
         if($secondInvoice!==$invoice) { bdta_invoice_lock_for_payment($db,$secondInvoice); }
-        $w1=spawn(['worker',$mode,$path,(string)$invoice,$k1,(string)$v1,$ready1]);
-        $w2=spawn(['worker',$mode,$path,(string)$secondInvoice,$k2,(string)$v2,$ready2]);
+        $w1=spawn([$mode,$path,(string)$invoice,$k1,(string)$v1,$ready1]);
+        $w2=spawn([$mode,$path,(string)$secondInvoice,$k2,(string)$v2,$ready2]);
         $deadline=microtime(true)+8;
         do { clearstatcache();$ready=filesize($ready1)>0&&filesize($ready2)>0;if(!$ready)usleep(10000); } while(!$ready&&microtime(true)<$deadline);
         $db->commit();
         check($ready,'Both concurrent connections ready behind parent invoice lock');
-        unlink($ready1);unlink($ready2);
+        chdir($fixtureRoot);unlink('ready1');unlink('ready2');chdir($originalCwd);
         $r1=finishWorker($w1);$r2=finishWorker($w2);
         $ok=(int)$r1['ok']+(int)$r2['ok'];
         check($ok===($case==='conflict'||$case==='cross-invoice'?1:2), $case.' concurrent outcomes');
-        if($case==='same') { check((int)$r1['replayed']+(int)$r2['replayed']===1,'One concurrent winner, one replay'); }
+        if($case==='same') { check((int)($r1['replayed']??false)+(int)($r2['replayed']??false)===1,'One concurrent winner, one replay'); }
         $sum=(float)$db->query('SELECT COALESCE(SUM(amount),0) FROM invoice_payments WHERE invoice_id IN ('.$invoice.','.$secondInvoice.')')->fetchColumn();
         check($case==='conflict'?in_array($sum,[40.0,41.0],true):$sum===($case==='different'?80.0:40.0),$case.' concurrent ledger total');
     }
@@ -169,5 +223,7 @@ try {
 } finally {
     $db=null;
     if ($adminConnection !== null && $createdDatabase) { $adminConnection->exec('DROP DATABASE bdta_manual_request_ci'); }
-    if ($mode==='sqlite' && is_string($path) && is_file($path)) { unlink($path); }
+    chdir($fixtureRoot);
+    if ($mode==='sqlite' && is_file('fixture.sqlite')) { unlink('fixture.sqlite'); }
+    chdir($originalCwd);rmdir($fixtureRoot);
 }

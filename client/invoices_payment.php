@@ -111,7 +111,6 @@ if ($is_payment_post) {
             if ($result['replayed']) {
                 setFlashMessage('This payment submission was already recorded. No additional payment was added.', 'success');
                 redirect('invoices_view.php?id=' . $id);
-                exit;
             }
             // Receipts are sent only after the payment and all credits commit.
             if ($installment !== null) {
