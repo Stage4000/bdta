@@ -26,6 +26,7 @@ $ddl = [
     'package_credit_transactions (id INTEGER PRIMARY KEY, client_package_credit_id INTEGER, client_id INTEGER, appointment_type_id INTEGER, transaction_type TEXT, amount INTEGER, notes TEXT, created_by INTEGER)',
     'notifications (id INTEGER PRIMARY KEY, audience TEXT, recipient_id INTEGER, entity_type TEXT, entity_id INTEGER, title TEXT, message TEXT, url TEXT, is_read INTEGER, created_at TEXT, deleted_at TEXT)',
     'invoice_checkout_receipts (payment_intent_id VARCHAR(255) PRIMARY KEY, checkout_session_id VARCHAR(255) UNIQUE, invoice_id INTEGER, received_cents INTEGER, applied_cents INTEGER, excess_cents INTEGER, currency VARCHAR(10), created_at TEXT)',
+    'invoice_manual_payment_requests (request_id VARCHAR(64) PRIMARY KEY, invoice_id INTEGER, payload_hash VARCHAR(64), amount_cents BIGINT, payment_id INTEGER, result_json TEXT)',
     'invoice_package_fulfillments (invoice_item_id INTEGER, unit_number INTEGER, client_package_id INTEGER, PRIMARY KEY(invoice_item_id, unit_number))',
 ];
 foreach ($ddl as $table) {
@@ -61,9 +62,11 @@ if (defined('BDTA_INVOICE_FIXTURE_ONLY')) {
 }
 $manual = str_starts_with($case, 'manual-') || $case === 'installment-final';
 if ($manual) {
+    require_once $root . '/backend/includes/invoice_manual_request.php';
+    $request_token=bdta_manual_payment_form_token($_SESSION,1,$case==='installment-final'?2:0,1);
     $_GET = ['id' => '1'];
     if ($case === 'installment-final') { $_GET['installment_id'] = '2'; }
-    $_POST = ['csrf_token' => 'synthetic-csrf', 'payment_method' => 'cash', 'payment_date' => date('Y-m-d'), 'payment_amount' => $case === 'manual-partial' ? '40' : '60'];
+    $_POST = ['payment_request_token' => $request_token, 'csrf_token' => 'synthetic-csrf', 'payment_method' => 'cash', 'payment_date' => date('Y-m-d'), 'payment_amount' => $case === 'manual-partial' ? '40' : '60'];
     $_SERVER['REQUEST_METHOD'] = 'POST';
 }
 // Disabled native cURL functions are replaced in this child process; unknown URLs fail closed.

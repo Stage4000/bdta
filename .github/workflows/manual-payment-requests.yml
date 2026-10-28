@@ -1,0 +1,32 @@
+name: Manual payment request regressions
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  manual-payment-requests:
+    runs-on: ubuntu-latest
+    services:
+      synthetic_mariadb:
+        image: mariadb:10.11.19
+        env:
+          MARIADB_ROOT_PASSWORD: synthetic-audit-fixture
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, pdo_sqlite
+      - name: Run isolated request and controller regressions
+        env:
+          BDTA_MANUAL_DISPOSABLE: '1'
+        run: |
+          php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_manual_payment_requests.php
+          php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_manual_payment_request_controller.php
+          php -d allow_url_fopen=0 -d disable_functions=mail,curl_init,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,socket_create,socket_connect tests/test_manual_payment_requests.php mysql

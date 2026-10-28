@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/invoice_status.php';
+require_once __DIR__ . '/invoice_manual_request.php';
 
 /** @return array<string, mixed> */
 function bdta_invoice_lock_for_payment(PDO $conn, int $invoice_id): array
@@ -165,12 +166,43 @@ function bdta_invoice_record_checkout_payment(PDO $conn, int $invoice_id, int $c
     }
 }
 
-/** @return array{invoice: array<string, mixed>, installment: array<string, mixed>|null} */
-function bdta_invoice_record_manual_payment(PDO $conn, int $invoice_id, float $amount, string $method, string $date, ?int $admin_id, int $installment_id = 0): array
+/** Request identity is required by the HTTP controller. Null retains the legacy internal
+ * helper contract for existing isolated tests/callers; it does not provide replay protection.
+ * @return array{invoice: array<string, mixed>, installment: array<string, mixed>|null, replayed: bool}
+ */
+function bdta_invoice_record_manual_payment(PDO $conn, int $invoice_id, float $amount, string $method, string $date, ?int $admin_id, int $installment_id = 0, ?string $request_id = null): array
 {
+    $payload = null;
+    if ($request_id !== null) {
+        if (!preg_match('/\A[a-f0-9]{64}\z/D', $request_id)) { throw new RuntimeException('Invalid payment request identity.'); }
+        $payload = bdta_manual_payment_payload($invoice_id, $amount, $method, $date, $admin_id, $installment_id);
+    }
     $conn->beginTransaction();
     try {
         $invoice = bdta_invoice_lock_for_payment($conn, $invoice_id);
+        // Invoice locking serializes same-invoice retries before any payable/balance check.
+        // Use a current read under MySQL REPEATABLE READ after waiting for the winner.
+        if ($request_id !== null) {
+            $sql = 'SELECT * FROM invoice_manual_payment_requests WHERE request_id = ?';
+            if ($conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') { $sql .= ' FOR UPDATE'; }
+            $stmt = $conn->prepare($sql);
+            $stmt->execute([$request_id]);
+            $recorded = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
+            if ($recorded !== []) {
+                if (array_int_value($recorded, 'invoice_id') !== $invoice_id
+                    || !hash_equals(array_string_value($recorded, 'payload_hash'), $payload['hash'])) {
+                    throw new RuntimeException('Payment request conflicts with its recorded payload.');
+                }
+                $outcome = json_decode(array_string_value($recorded, 'result_json'), true, 512, JSON_THROW_ON_ERROR);
+                if (!is_array($outcome) || !isset($outcome['invoice']) || !is_array($outcome['invoice'])
+                    || !array_key_exists('installment', $outcome)
+                    || ($outcome['installment'] !== null && !is_array($outcome['installment']))) {
+                    throw new RuntimeException('Recorded payment outcome requires review.');
+                }
+                $conn->commit();
+                return ['invoice' => assoc_row($outcome['invoice']), 'installment' => $outcome['installment'] === null ? null : assoc_row($outcome['installment']), 'replayed' => true];
+            }
+        }
         if (!bdta_invoice_is_payable($invoice)) {
             throw new RuntimeException('Invoice no longer accepts payment.');
         }
@@ -183,7 +215,11 @@ function bdta_invoice_record_manual_payment(PDO $conn, int $invoice_id, float $a
             $stmt->execute([$installment_id, $invoice_id]);
             $installment = assoc_row($stmt->fetch(PDO::FETCH_ASSOC));
             if ($installment === []) { throw new RuntimeException('Installment not found or already paid.'); }
-            $amount = round(safe_float($installment['amount'] ?? 0), 2);
+            $effective_amount = round(safe_float($installment['amount'] ?? 0), 2);
+            if ($payload !== null && $payload['cents'] !== (int) round($effective_amount * 100)) {
+                throw new RuntimeException('Installment amount changed. Reload the payment form.');
+            }
+            $amount = $effective_amount;
         } elseif ((int) $stmt->fetchColumn() > 0) {
             throw new RuntimeException('Use the installment payment actions for this invoice.');
         }
@@ -192,6 +228,12 @@ function bdta_invoice_record_manual_payment(PDO $conn, int $invoice_id, float $a
         if ($amount_cents <= 0 || $amount_cents > $remaining_cents) {
             throw new RuntimeException('Payment amount must be positive and cannot exceed the current remaining balance.');
         }
+        if ($request_id !== null) {
+            // The primary key also rejects cross-invoice reuse before any financial write.
+            $conn->prepare('INSERT INTO invoice_manual_payment_requests (request_id, invoice_id, payload_hash, amount_cents) VALUES (?, ?, ?, ?)')
+                ->execute([$request_id, $invoice_id, $payload['hash'], $payload['cents']]);
+        }
+        $payment_id = null;
         if ($installment !== null) {
             $conn->prepare("UPDATE invoice_installments SET status = 'paid', payment_method = ?, payment_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'unpaid'")
                 ->execute([$method, $date, $installment_id]);
@@ -201,12 +243,19 @@ function bdta_invoice_record_manual_payment(PDO $conn, int $invoice_id, float $a
         } else {
             $conn->prepare('INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_method) VALUES (?, ?, ?, ?)')
                 ->execute([$invoice_id, $amount_cents / 100, $date, $method]);
+            $payment_id = (int) $conn->lastInsertId();
         }
         $invoice = bdta_invoice_finish_payment($conn, $invoice, $method, $date, $admin_id);
+        if ($request_id !== null) {
+            $outcome = json_encode(['invoice' => $invoice, 'installment' => $installment], JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
+            $conn->prepare('UPDATE invoice_manual_payment_requests SET payment_id = ?, result_json = ? WHERE request_id = ?')
+                ->execute([$payment_id, $outcome, $request_id]);
+        }
         $conn->commit();
-        return ['invoice' => $invoice, 'installment' => $installment];
+        return ['invoice' => $invoice, 'installment' => $installment, 'replayed' => false];
     } catch (Throwable $e) {
         if ($conn->inTransaction()) { $conn->rollBack(); }
         throw $e;
     }
 }
+
