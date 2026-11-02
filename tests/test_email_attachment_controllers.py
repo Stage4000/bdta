@@ -49,7 +49,7 @@ with tempfile.TemporaryDirectory(prefix='bdta-email-controllers-') as tmp:
         INSERT INTO admin_users VALUES(1,'Synthetic Admin','main',1),(2,'Synthetic Accountant','accountant',1);
         CREATE TABLE email_templates(id INTEGER PRIMARY KEY,name TEXT);
         CREATE TABLE notifications(id INTEGER PRIMARY KEY,audience TEXT,recipient_id INTEGER,entity_type TEXT,entity_id INTEGER,title TEXT,message TEXT,url TEXT,is_read INTEGER,created_at TEXT,deleted_at TEXT);
-        CREATE TABLE client_emails(id INTEGER PRIMARY KEY AUTOINCREMENT,client_id INTEGER,direction TEXT,status TEXT,message_id TEXT,from_email TEXT,to_email TEXT,subject TEXT,body_html TEXT,body_text TEXT,template_id INTEGER,mail_type TEXT,scheduled_at TEXT,sent_at TEXT,failed_at TEXT,error_message TEXT,created_by INTEGER,created_at TEXT,updated_at TEXT,attachments_processed INTEGER DEFAULT 0);
+        CREATE TABLE client_emails(read_receipt_requested INTEGER NOT NULL DEFAULT 0,read_receipt_reported_at TEXT,read_receipt_source_message_id TEXT,id INTEGER PRIMARY KEY AUTOINCREMENT,client_id INTEGER,direction TEXT,status TEXT,message_id TEXT,from_email TEXT,to_email TEXT,subject TEXT,body_html TEXT,body_text TEXT,template_id INTEGER,mail_type TEXT,scheduled_at TEXT,sent_at TEXT,failed_at TEXT,error_message TEXT,created_by INTEGER,created_at TEXT,updated_at TEXT,attachments_processed INTEGER DEFAULT 0);
         CREATE TABLE unmatched_emails(id INTEGER PRIMARY KEY AUTOINCREMENT,message_id TEXT,from_email TEXT,from_name TEXT,to_email TEXT,subject TEXT,body_html TEXT,body_text TEXT,received_at TEXT,direction TEXT DEFAULT 'incoming',is_assigned INTEGER DEFAULT 0,assigned_to_client_id INTEGER,assigned_at TEXT,assigned_by INTEGER,is_archived INTEGER DEFAULT 0,archived_at TEXT,created_at TEXT,attachments_processed INTEGER DEFAULT 0,delivery_status TEXT);
         CREATE TABLE email_attachments(id INTEGER PRIMARY KEY AUTOINCREMENT,email_kind TEXT,email_id INTEGER,file_name TEXT,original_name TEXT,file_size INTEGER,sha256 TEXT,mime_type TEXT,status TEXT,error_message TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
     ''')
@@ -64,9 +64,11 @@ function imap_headerinfo($connection,$number) {
  'from'=>[(object)['mailbox'=>$request['data']['known']?'client':'unknown','host'=>'example.invalid','personal'=>'Synthetic sender']]];
 }
 function imap_fetchstructure($connection,$number) {
+ if(isset($GLOBALS['request']['data']['mdn'])) return (object)['type'=>1,'subtype'=>'REPORT','parameters'=>[(object)['attribute'=>'report-type','value'=>'disposition-notification']], 'parts'=>[(object)['type'=>0,'subtype'=>'PLAIN','encoding'=>0],(object)['type'=>2,'subtype'=>'DISPOSITION-NOTIFICATION','encoding'=>0,'bytes'=>strlen($GLOBALS['request']['data']['mdn'])]]];
  return json_decode('graft'.'');
 }
 function imap_fetchbody($connection,$number,$part,$flags=0) {
+ if(isset($GLOBALS['request']['data']['mdn'])) return $part==='2'?$GLOBALS['request']['data']['mdn']:'Receipt report';
  if($flags!==FT_PEEK)throw new \RuntimeException('Message must not be marked seen before attachment commit');
  return $part==='1'?base64_encode("Synthetic inbound attachment\x00bytes"):"Hello message body";
 }
@@ -160,6 +162,7 @@ chdir($root.'/client');require $request['route'];
 
     status, result, _ = run(data=message, upload=True, filename='../../synthetic\r\n.txt')
     check(status == 200 and result['success'], 'Client compose sends with stored attachment')
+    check(b'Disposition-Notification-To:' not in (work/'capture.eml').read_bytes(), 'Default-off compose emits no receipt request')
     client_email_id = result['email_id']
     parsed = BytesParser(policy=policy.default).parsebytes((work / 'capture.eml').read_bytes())
     attachments = list(parsed.iter_attachments())
@@ -254,4 +257,39 @@ chdir($root.'/client');require $request['route'];
         before=db.execute('SELECT COUNT(*) FROM email_attachments').fetchone()[0]
         run('inbound',data={'known':known,'message_id':mid})
         check(db.execute('SELECT COUNT(*) FROM email_attachments').fetchone()[0]==before,'Duplicate '+kind+' message does not duplicate attachments or backfill historical records')
+    # Optional read receipts: real controller, transport MIME, queue and inbound path.
+    before=db.execute('SELECT COUNT(*) FROM client_emails').fetchone()[0]
+    status,_,_=run(data={**message,'read_receipt_requested':'yes'},upload=True)
+    check(status==400 and db.execute('SELECT COUNT(*) FROM client_emails').fetchone()[0]==before,'Malformed receipt flag rejected before persistence')
+    status,result,_=run(data={**message,'read_receipt_requested':1},upload=True)
+    receipt_id=result['email_id']
+    receipt_row=db.execute('SELECT message_id,read_receipt_requested,read_receipt_reported_at FROM client_emails WHERE id=?',(receipt_id,)).fetchone()
+    mime=BytesParser(policy=policy.default).parsebytes((work/'capture.eml').read_bytes())
+    check(status==200 and str(mime['Disposition-Notification-To'])=='<sender@example.invalid>' and mime['Message-ID']==receipt_row[0] and receipt_row[1]==1 and receipt_row[2] is None,'Opt-in persists stable ID and sender-owned receipt destination, no invented receipt')
+    check(list(mime.iter_attachments())[0].get_payload(decode=True)==payload,'Receipt opt-in preserves attachment bytes')
+    status,result,_=run(data={**message,'read_receipt_requested':1,'scheduled_at':'2000-01-01T12:00'},upload=True)
+    scheduled_receipt=result['email_id']
+    scheduled_mid=db.execute('SELECT message_id FROM client_emails WHERE id=?',(scheduled_receipt,)).fetchone()[0]
+    run('scheduled')
+    mime=BytesParser(policy=policy.default).parsebytes((work/'capture.eml').read_bytes())
+    check(mime['Message-ID']==scheduled_mid and str(mime['Disposition-Notification-To'])=='<sender@example.invalid>','Scheduled opt-in preserves preallocated identity and header')
+    check(list(mime.iter_attachments())[0].get_payload(decode=True)==payload,'Scheduled receipt retains attachment bytes')
+    status,repeat,_=run('scheduled')
+    check(repeat['items_processed']==0,'Repeated scheduler does not resend receipt request')
+    def mdn(mid, recipient='client@example.invalid', disposition='displayed'):
+        return 'Final-Recipient: rfc822; '+recipient+'\r\nOriginal-Message-ID: '+mid+'\r\nDisposition: manual-action/MDN-sent-manually; '+disposition+'\r\n'
+    for name,body,known in [('foreign',mdn('<foreign@example.invalid>'),True),('deleted',mdn(receipt_row[0],disposition='deleted'),True),('wrong-recipient',mdn(receipt_row[0],recipient='other@example.invalid'),True),('wrong-sender',mdn(receipt_row[0]),False),('malformed','not a report',True)]:
+        run('inbound',data={'known':known,'message_id':'<receipt-'+name+'@example.invalid>','mdn':body})
+        check(db.execute('SELECT read_receipt_reported_at FROM client_emails WHERE id=?',(receipt_id,)).fetchone()[0] is None,'Untrusted '+name+' does not label outgoing mail read')
+    source_mid='<valid-receipt@example.invalid>'
+    status,result,_=run('inbound',data={'known':True,'message_id':source_mid,'mdn':mdn(receipt_row[0])})
+    row=db.execute('SELECT status,read_receipt_reported_at,read_receipt_source_message_id FROM client_emails WHERE id=?',(receipt_id,)).fetchone()
+    check(status==200 and result['success'] and row[0]=='sent' and row[1] and row[2]==source_mid,'Valid displayed report updates separate evidence without changing sent status')
+    check(db.execute('SELECT COUNT(*) FROM client_emails WHERE direction="incoming" AND message_id=?',(source_mid,)).fetchone()[0]==1,'Original incoming report preserved as correspondence')
+    run('inbound',data={'known':True,'message_id':source_mid,'mdn':mdn(receipt_row[0])})
+    run('inbound',data={'known':True,'message_id':'<second-report@example.invalid>','mdn':mdn(receipt_row[0])})
+    check(db.execute('SELECT read_receipt_reported_at,read_receipt_source_message_id FROM client_emails WHERE id=?',(receipt_id,)).fetchone()==row[1:],'Duplicate and repeated reports preserve first observation')
+    status,listing,_=run(method='GET',get={'client_id':1})
+    listed=next(x for x in listing['emails'] if x['id']==receipt_id)
+    check(listed['read_receipt_reported_at']==row[1] and listed['status']=='sent','Sender history exposes separate receipt signal')
     print(f'{checks} offline controller assertions passed. HTTP parsing/headers and browser QA are not covered.')

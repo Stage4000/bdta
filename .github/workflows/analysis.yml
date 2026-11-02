@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feat/client-read-receipts-20261102
 
 jobs:
   analysis:
@@ -216,9 +217,18 @@ jobs:
 
       - name: Run email attachment regressions
         id: email_attachments
+        env:
+          BDTA_RECEIPT_MYSQL_TEST: '1'
+          BDTA_RECEIPT_MYSQL_PORT: '3307'
+          BDTA_RECEIPT_MYSQL_USER: root
+          BDTA_RECEIPT_MYSQL_PASSWORD: synthetic-audit-fixture
         if: ${{ always() && steps.setup_php.outcome == 'success' }}
         continue-on-error: true
         run: |
+          php tests/test_email_read_receipt_migration.php
+          php tests/test_email_read_receipt_parser.php
+          php tests/test_email_read_receipts.php
+          node tests/test_email_read_receipt_ui.cjs
           php tests/test_email_attachments.php
           python tests/test_email_attachment_controllers.py
           python tests/test_email_attachment_http.py

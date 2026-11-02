@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/email_read_receipts.php';
+require_once __DIR__ . '/email_read_receipt_parser.php';
 /**
  * IMAP Email Receiver Service
  * Fetches incoming emails from IMAP server and stores them in the database
@@ -277,6 +279,18 @@ class ImapEmailReceiver {
         if ($structure === false) {
             throw new Exception('Failed to get email structure');
         }
+        $read_receipt = null;
+        // Optional receipt parsing must never prevent preservation of ordinary correspondence.
+        if (isset($header->from) && is_array($header->from) && count($header->from) === 1) {
+            try {
+                $read_receipt = BdtaReadReceiptParser::extract($structure, function (string $part) use ($email_number): string {
+                    $bytes = imap_fetchbody($this->getImapConnection(), $email_number, $part, FT_PEEK);
+                    return is_string($bytes) ? $bytes : '';
+                });
+            } catch (Throwable $e) {
+                error_log('Optional read-receipt parsing unavailable; preserving incoming email.');
+            }
+        }
         $body_html = $this->getEmailBody($email_number, $structure, 'html');
         $body_text = $this->getEmailBody($email_number, $structure, 'text');
         
@@ -317,6 +331,13 @@ class ImapEmailReceiver {
             }
             bdta_email_attach_records($this->conn, $kind, $email_id, $attachments);
             $this->conn->prepare("UPDATE {$table} SET attachments_processed = 1 WHERE id = ?")->execute([$email_id]);
+            if ($read_receipt !== null) {
+                try {
+                    bdta_email_record_read_receipt($this->conn, $read_receipt, $from_email, $message_id, currentUtcDateTime());
+                } catch (Throwable $e) {
+                    error_log('Optional read-receipt correlation unavailable; preserving incoming email.');
+                }
+            }
             $this->conn->commit();
             $committed = true;
         } finally {

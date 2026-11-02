@@ -1773,6 +1773,11 @@ include '../backend/includes/header.php';
                         <input type="file" class="form-control" id="emailAttachments" name="attachments[]" multiple>
                         <small class="form-text text-muted">Up to 10 files, 10 MB each and 15 MB combined. Server upload limits may be lower.</small>
                     </div>
+                    <div class="mb-3 form-check">
+                        <input class="form-check-input" type="checkbox" id="requestReadReceipt" name="read_receipt_requested" value="1" aria-describedby="readReceiptHelp">
+                        <label class="form-check-label" for="requestReadReceipt">Request read receipt</label>
+                        <div id="readReceiptHelp" class="form-text">Optional. The recipient can decline or their mail app may not support receipts. No receipt means unknown, not unread. No tracking pixel is used.</div>
+                    </div>
                     <!-- Send Options -->
                     <div class="mb-3">
                         <div class="form-check form-switch">
@@ -2187,6 +2192,7 @@ function displayEmails(emails) {
                         ${email.template_name ? `<span class="badge bg-info me-2"><i class="fas fa-file-alt"></i> ${escapeHtml(email.template_name)}</span>` : ''}
                         ${email.mail_type && email.mail_type !== 'compose' ? `<span class="badge bg-secondary me-2">${escapeHtml(getMailTypeLabel(email.mail_type))}</span>` : ''}
                         ${statusBadge}
+                        ${getReadReceiptBadge(email)}
                     </a>
                     <div class="d-flex flex-column align-items-end ms-2">
                         <small class="text-muted mb-1">${dateText}</small>
@@ -2212,6 +2218,16 @@ function getStatusBadge(status) {
         'failed': '<span class="badge bg-danger">Failed</span>'
     };
     return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+// A reported receipt is unverified correspondence, not proof of delivery or human reading.
+function getReadReceiptBadge(email) {
+    if (email.direction !== 'outgoing') return '';
+    if (Number(email.read_receipt_requested) !== 1) return '<span class="badge bg-light text-dark ms-1">Read receipt not requested</span>';
+    if (email.read_receipt_reported_at) return '<span class="badge bg-info text-dark ms-1" title="Recipient-reported display; not verified proof of reading">Receipt reported displayed (unverified)</span>';
+    if (email.status === 'scheduled' || email.status === 'pending') return '<span class="badge bg-light text-dark ms-1">Read receipt will be requested when sent</span>';
+    if (email.status === 'failed') return '<span class="badge bg-light text-dark ms-1">Read receipt unavailable; send failed or uncertain</span>';
+    return '<span class="badge bg-light text-dark ms-1" title="Recipients may decline or not support receipts. No receipt does not mean unread.">Read receipt requested; no receipt yet</span>';
 }
 
 // Get human-readable label for mail type
@@ -2298,7 +2314,7 @@ async function showEmailDetails(emailId) {
             <dd class="col-sm-9">${escapeHtml(email.to_email)}</dd>
             
             <dt class="col-sm-3">Status:</dt>
-            <dd class="col-sm-9">${getStatusBadge(email.status)}</dd>
+            <dd class="col-sm-9">${getStatusBadge(email.status)} ${getReadReceiptBadge(email)}</dd>
             
             ${email.scheduled_at ? `
                 <dt class="col-sm-3">Scheduled:</dt>
@@ -2394,6 +2410,7 @@ async function replyToEmail(emailId) {
     // A reply is a new draft: do not inherit a previous attachment or scheduled-send choice.
     document.getElementById('emailAttachments').value = '';
     document.getElementById('emailAttachments').dispatchEvent(new Event('change'));
+    document.getElementById('requestReadReceipt').checked = false;
     document.getElementById('scheduleEmail').checked = false;
     document.getElementById('scheduleEmail').dispatchEvent(new Event('change'));
     document.getElementById('emailTemplate').value = '';
@@ -2454,6 +2471,11 @@ document.getElementById('scheduleEmail').addEventListener('change', function() {
     }
 });
 
+// Receipt opt-in belongs to one draft and never carries over after dismissal.
+document.getElementById('composeEmailModal').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('requestReadReceipt').checked = false;
+});
+
 // Handle send email
 document.getElementById('sendEmailBtn').addEventListener('click', async function() {
     const form = document.getElementById('composeEmailForm');
@@ -2475,6 +2497,7 @@ document.getElementById('sendEmailBtn').addEventListener('click', async function
     // Prepare data
     const data = {
         client_id: parseInt(formData.get('client_id')),
+        read_receipt_requested: document.getElementById('requestReadReceipt').checked ? 1 : 0,
         subject: formData.get('subject'),
         body_html: formData.get('body_html'),
         template_id: formData.get('template_id') ? parseInt(formData.get('template_id')) : null
