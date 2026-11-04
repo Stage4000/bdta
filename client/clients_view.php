@@ -2476,6 +2476,16 @@ document.getElementById('composeEmailModal').addEventListener('hidden.bs.modal',
     document.getElementById('requestReadReceipt').checked = false;
 });
 
+// Composer feedback belongs to the current opening, not a later draft.
+let composerAlertTimeout = null;
+document.getElementById('composeEmailModal').addEventListener('show.bs.modal', function () {
+    clearTimeout(composerAlertTimeout);
+    composerAlertTimeout = null;
+    const alertDiv = document.getElementById('emailFormAlert');
+    alertDiv.textContent = '';
+    alertDiv.className = 'alert d-none';
+});
+
 // Handle send email
 document.getElementById('sendEmailBtn').addEventListener('click', async function() {
     const form = document.getElementById('composeEmailForm');
@@ -2560,8 +2570,10 @@ function showFormAlert(message, type) {
     alertDiv.textContent = message;
     alertDiv.classList.remove('d-none');
     
-    setTimeout(() => {
+    clearTimeout(composerAlertTimeout);
+    composerAlertTimeout = setTimeout(() => {
         alertDiv.classList.add('d-none');
+        composerAlertTimeout = null;
     }, 5000);
 }
 
