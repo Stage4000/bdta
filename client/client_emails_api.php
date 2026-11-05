@@ -115,6 +115,9 @@ if ($method === 'GET') {
         require_once '../backend/includes/settings.php';
         $from_email = Settings::get('email_from_address', 'bookings@brooksdogtrainingacademy.com');
         
+        $read_receipt_requested = bdta_email_read_receipt_requested($data['read_receipt_requested'] ?? null);
+        $message_id = $read_receipt_requested ? bdta_email_receipt_message_id(scalar_string($from_email)) : null;
+
         // Determine send mode: immediate or scheduled
         $send_immediately = $scheduled_at === '';
         
@@ -123,8 +126,8 @@ if ($method === 'GET') {
             INSERT INTO client_emails (
                 client_id, direction, status, from_email, to_email, 
                 subject, body_html, body_text, template_id, 
-                scheduled_at, created_by, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                scheduled_at, created_by, read_receipt_requested, message_id, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ");
         
         $status = $send_immediately ? 'pending' : 'scheduled';
@@ -155,7 +158,9 @@ if ($method === 'GET') {
             $email_body_text,
             $template_id_value,
             $scheduled_at_value,
-            $_SESSION['user_id'] ?? null
+            $_SESSION['user_id'] ?? null,
+            $read_receipt_requested ? 1 : 0,
+            $message_id
         ]);
         
         $email_id = (int) $conn->lastInsertId();
@@ -174,7 +179,8 @@ if ($method === 'GET') {
                 $email_body_html,
                 $email_body_text,
                 EmailService::MAIL_TYPE_COMPOSE,
-                null, false, $attachments
+                null, false, $attachments,
+                bdta_email_receipt_options(['read_receipt_requested' => $read_receipt_requested, 'message_id' => $message_id])
             );
             
             if ($result['success']) {

@@ -418,6 +418,22 @@ class Database {
         return $this->conn->exec($converted_sql);
     }
 
+    private function migrateClientEmailReadReceiptColumns(): void {
+        unset($this->tableColumnsCache['client_emails']);
+        $client_emails_cols = $this->getTableColumns('client_emails');
+        // Additive opt-in receipt state; no existing email is enrolled retroactively.
+        foreach ([
+            'read_receipt_requested' => 'INTEGER NOT NULL DEFAULT 0',
+            'read_receipt_reported_at' => 'TIMESTAMP NULL DEFAULT NULL',
+            'read_receipt_source_message_id' => 'TEXT NULL',
+        ] as $column => $definition) {
+            if (!in_array($column, $client_emails_cols, true)) {
+                $this->execSQL("ALTER TABLE client_emails ADD COLUMN {$column} {$definition}");
+            }
+        }
+        unset($this->tableColumnsCache['client_emails']);
+    }
+
     private function seedManualSiteBuilderPages(): void {
         require_once __DIR__ . '/sitebuilder_manual_pages.php';
 
@@ -1290,6 +1306,9 @@ class Database {
                     scheduled_at TIMESTAMP,
                     sent_at TIMESTAMP,
                     delivered_at TIMESTAMP,
+                    read_receipt_requested INTEGER NOT NULL DEFAULT 0,
+                    read_receipt_reported_at TIMESTAMP NULL DEFAULT NULL,
+                    read_receipt_source_message_id TEXT,
                     failed_at TIMESTAMP,
                     error_message TEXT,
                     created_by INTEGER,
@@ -2698,6 +2717,8 @@ class Database {
         if (!in_array('message_id', $client_emails_cols)) {
             $this->execSQL("ALTER TABLE client_emails ADD COLUMN message_id TEXT DEFAULT NULL");
         }
+
+        $this->migrateClientEmailReadReceiptColumns();
 
         if (!in_array('message_id', $unmatched_email_columns)) {
             $this->execSQL("ALTER TABLE unmatched_emails ADD COLUMN message_id TEXT DEFAULT NULL");

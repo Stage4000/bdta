@@ -58,7 +58,8 @@ class ScheduledEmailSenderTask {
                     array_string_value($email, 'body_html'),
                     array_string_value($email, 'body_text'),
                     EmailService::MAIL_TYPE_COMPOSE,
-                    null, false, bdta_email_attachments($this->conn, 'client', (int) $email_id)
+                    null, false, bdta_email_attachments($this->conn, 'client', (int) $email_id),
+                    bdta_email_receipt_options($email)
                 );
                 
                 if ($result['success']) {
